@@ -1,299 +1,169 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Zap, Compass, Activity, Target, ShieldCheck,
-  Gauge, Power, Workflow, Bot
-} from 'lucide-react';
+import { Power, Gauge, Target, ShieldAlert, Magnet } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import MotorElectrico3DScene from './simuladores/fis10/MotorElectrico3DScene';
+import { MOTOR, ESPIRAS10, RANGO_V10, estadoMotor, evaluarF10, type Polo } from '@/domain/fisica';
+import AvisoReto from './fisica/AvisoReto';
 
-const K_RPM_SCALE = 1.041;
+const MotorElectrico3DScene = dynamic(() => import('./simuladores/fis10/MotorElectrico3DScene'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#03040a] flex items-center justify-center text-orange-400 font-black text-xs uppercase tracking-[0.3em]">Montando motor...</div>
+});
 
-export default function PilotoMotorElectrico() {
-  const router = useRouter();
-  const { motor10, setMotor10, resetF10, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente, registrarHallazgo } = useSimuladorStore();
-  const { 
-    imanIzq = 'N', imanDer = 'S', voltaje = 0, 
-    espiras = 10, interruptor = false, encendido = false 
-  } = motor10 || {};
+export default function PilotoMotorElectrico({ onValidate }: { onValidate?: () => void }) {
+  const { m, setMotor10, audio, setAsistente } = useSimuladorStore(useShallow((s) => ({
+    m: s.motor10, setMotor10: s.setMotor10, audio: s.audio, setAsistente: s.setAsistente,
+  })));
+  const { imanIzq, imanDer, voltaje, espiras, carga, encendido, reto, vPrediccion, ensayo } = m;
 
-  const [alphaInput, setAlphaInput] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const [vInput, setVInput] = useState(vPrediccion !== null ? String(vPrediccion) : '');
+  const [alerta, setAlerta] = useState<string | null>(null);
 
-  useEffect(() => { 
-    setMounted(true); 
+  useEffect(() => {
     setAsistente({
       visible: true,
-      text: "Bienvenido al laboratorio de electromecánica. Tu misión es configurar un motor de corriente continua optimizando el torque magnético. Asegúrate de que los imanes generen un campo polarizado.",
+      text: "Bienvenido al laboratorio de electromecánica. Coloca los imanes para que su campo atraviese la bobina, elige el bobinado y predice el voltaje que da la velocidad pedida con la carga del freno.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
-  }, []);
+  }, [setAsistente]);
 
-  // -- CÁLCULOS FÍSICOS --
-  const B = useMemo(() => {
-    if (imanIzq === 'N' && imanDer === 'S') return 1;
-    if (imanIzq === 'S' && imanDer === 'N') return -1;
-    return 0;
-  }, [imanIzq, imanDer]);
+  const avisar = (msg: string) => { setAlerta(msg); window.setTimeout(() => setAlerta(null), 5000); };
 
-  const rpmCalculadas = encendido ? Math.floor(K_RPM_SCALE * voltaje * B * espiras) : 0;
-  const absRPM = Math.abs(rpmCalculadas);
-  const currentDir = rpmCalculadas > 0 ? 'CW' : (rpmCalculadas < 0 ? 'CCW' : 'STILL');
+  // Cualquier cambio de configuración desenergiza: cada arranque es un ensayo.
+  const ajustar = (data: Partial<typeof m>) => setMotor10({ ...data, encendido: false, resultado: null });
 
-  // -- EFECTOS DE AUDIO --
-  useEffect(() => {
-    if (encendido && absRPM > 0) {
-       const interval = setInterval(() => {
-          audio?.playPop(); // Simulación de zumbido de motor (hum)
-       }, Math.max(50, 500 / (absRPM/100 + 1)));
-       return () => clearInterval(interval);
-    }
-  }, [encendido, absRPM, audio]);
+  const est = useMemo(() => estadoMotor({ voltaje, espiras, imanIzq, imanDer, carga }), [voltaje, espiras, imanIzq, imanDer, carga]);
+  const rpmVisible = encendido ? est.rpm : 0;
 
-  const handleValidar = () => {
-    const val = parseFloat(alphaInput);
-    if (isNaN(val)) {
-       audio?.playError();
-       return;
-    }
-    const error = Math.abs(val - absRPM) / (absRPM || 1);
-    
-    if (error <= 0.05 && absRPM > 500) {
-      audio?.playSuccess();
-      audio?.playNotification();
-      stopCwAnimation();
-      
-      registrarHallazgo('fis_motor_efficiency', {
-        voltaje,
-        espiras,
-        rpm_estimadas: val,
-        rpm_reales: absRPM,
-        error_relativo: error,
-        sentido: currentDir
-      });
-
-      setBitacora({ 
-        ...bitacoraData, 
-        fisica10: `✅ VALIDADO: Motor P10. RPM=${absRPM}. V=${voltaje}V, N=${espiras}, B=${B}. Eficiencia Certificada.` 
-      });
-      stopTimer();
-      setPasoActual(4);
-    } else {
-      audio?.playError();
-      if (absRPM === 0 && voltaje > 0) {
-        audio?.playNotification();
-      } else if (absRPM <= 500 && encendido) {
-        audio?.playNotification();
-      } else if (!encendido) {
-        audio?.playNotification();
-      } else {
-        audio?.playNotification();
-      }
-    }
+  const guardarV = (v: string) => {
+    setVInput(v);
+    const x = parseFloat(v);
+    setMotor10({ vPrediccion: Number.isFinite(x) ? x : null, resultado: null });
   };
 
-  // Turn motor off after success state is recorded
-  useEffect(() => {
-    if (motor10?.resultado === 'exito') {
-      setMotor10({ encendido: false });
-    }
-  }, [motor10?.resultado]);
-
-  const stopCwAnimation = () => {
-    setMotor10({ rpm: absRPM, resultado: 'exito' });
-  };
-
-  const handleUpdate = (data: any) => {
-    setMotor10(data);
+  const energizar = () => {
+    if (encendido) { setMotor10({ encendido: false }); audio?.playPop(); return; }
+    if (vPrediccion === null) { audio?.playError(); return avisar('Escribe primero el voltaje que predices para el reto.'); }
+    setMotor10({ encendido: true, ensayo: { voltaje, espiras, imanIzq, imanDer, carga, vPrediccion }, resultado: null });
+    if (est.sinCampo) avisar('Con dos polos iguales enfrentados no hay campo que atraviese la bobina: el rotor no gira.');
+    else if (!est.arranca) avisar('El rotor no arranca: el par motor no vence al de la carga con este voltaje.');
     audio?.playPop();
   };
 
-  if (!mounted) return null;
+  const veredicto = useMemo(() => (ensayo ? evaluarF10({ reto, ensayo }) : null), [ensayo, reto]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-
-      {/* ── ESCENA 3D — MOTOR DC (fondo full-screen) ── */}
       <div className="absolute inset-0 z-0">
-        <MotorElectrico3DScene
-          voltaje={voltaje}
-          campoB={B}
-          espiras={espiras}
-          rpm={rpmCalculadas}
-          encendido={encendido}
-        />
+        <MotorElectrico3DScene imanIzq={imanIzq} imanDer={imanDer} espiras={espiras} rpm={rpmVisible}
+          corriente={encendido ? est.corriente : 0} encendido={encendido} />
       </div>
 
-      {/* velo de contraste para legibilidad del HUD */}
-      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#010409]/70 via-transparent to-[#010409]/80" />
+      <AnimatePresence>
+        {alerta && (
+          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
+            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
+            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ── ESCENA DE LABORATORIO ELECTROMECÁNICO ── */}
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
+      {/* RETO */}
+      <div className="absolute top-6 right-6 z-30 w-[320px] max-w-[92vw] bg-[#0A1121]/90 backdrop-blur-xl border border-amber-500/30 p-5 rounded-[2rem]">
+        <span className="text-[10px] font-black text-amber-300 uppercase tracking-[0.2em] flex items-center gap-2"><Target size={14} /> Reto</span>
+        <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+          <Dato label="Velocidad" valor={`${reto.rpmObjetivo} rpm`} />
+          <Dato label="Sentido" valor={reto.sentido} />
+          <Dato label="Par de carga" valor={`${reto.carga} N·m`} />
+        </div>
+        <p className="text-[10px] text-slate-400 mt-3 leading-relaxed">
+          Imanes: B = {MOTOR.B} T · Bobina: A = {(MOTOR.A * 1e4).toFixed(0)} cm² · R = {MOTOR.rEspira} Ω por espira.
+          Sentido visto desde el conmutador.
+        </p>
+        <label className="block mt-3">
+          <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest">Voltaje que predices (V)</span>
+          <input type="number" step="0.1" value={vInput} onChange={(e) => guardarV(e.target.value)} placeholder="V = k·ω + I·Rₐ" disabled={encendido}
+            className="w-full mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg disabled:opacity-50" />
+        </label>
+      </div>
 
-         {/* CHECKLIST HUD (DIAMOND STANDARD) */}
-         <div className="absolute top-48 left-1/2 -translate-x-1/2 w-[600px] pointer-events-none z-50">
-            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
-                  <Activity size={12} className="animate-pulse" /> Sincronía Electromecánica
-                </span>
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Motor Protocol HUD</span>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-6">
-                <div className={`p-5 rounded-2xl border transition-all ${encendido ? 'bg-orange-500/10 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.1)]' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Energía DC</div>
-                  <div className={`text-sm font-black italic ${encendido ? 'text-orange-400' : 'text-white/20'}`}>{encendido ? 'ACTIVE' : 'OFFLINE'}</div>
-                </div>
-                <div className={`p-5 rounded-2xl border transition-all ${absRPM > 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Rotación</div>
-                  <div className={`text-sm font-black italic ${absRPM > 0 ? 'text-emerald-400' : 'text-white/20'}`}>{absRPM > 0 ? currentDir : 'STOPPED'}</div>
-                </div>
-                <div className={`p-5 rounded-2xl border transition-all ${bitacoraData.fisica10 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Certificación</div>
-                  <div className={`text-sm font-black italic ${bitacoraData.fisica10 ? 'text-emerald-400' : 'text-white/20'}`}>{bitacoraData.fisica10 ? 'PASSED' : 'PENDING'}</div>
-                </div>
-              </div>
-            </div>
-         </div>
+      {/* INSTRUMENTOS */}
+      <div className="absolute top-6 left-6 z-30 w-[300px] max-w-[92vw] flex flex-col gap-4">
+        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-emerald-500/30 p-5 rounded-[2rem]">
+          <span className="text-[10px] font-black text-emerald-300 uppercase tracking-[0.2em] flex items-center gap-2"><Gauge size={14} /> Tacómetro y amperímetro</span>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <Dato label="Velocidad" valor={encendido ? `${Math.round(Math.abs(rpmVisible))} rpm` : '—'} />
+            <Dato label="Sentido" valor={encendido && rpmVisible !== 0 ? (rpmVisible > 0 ? 'horario' : 'antihorario') : '—'} />
+            <Dato label="Corriente" valor={encendido ? `${est.corriente.toFixed(2)} A` : '—'} />
+            <Dato label="Tensión" valor={`${voltaje.toFixed(1)} V`} />
+          </div>
+        </div>
+        {ensayo && (
+          <div className={`p-4 rounded-[1.5rem] border backdrop-blur-xl text-[11px] ${veredicto?.ok ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-200' : 'bg-[#0A1121]/85 border-white/10 text-slate-200'}`}>
+            <span className="text-[9px] font-black uppercase tracking-widest text-white/60">Último arranque</span>
+            <p className="mt-1">{ensayo.voltaje.toFixed(1)} V · N = {ensayo.espiras} · imanes {ensayo.imanIzq}–{ensayo.imanDer} · predicción {ensayo.vPrediccion} V</p>
+            <p className="mt-1 font-bold">{veredicto?.ok ? 'Velocidad, sentido y predicción correctos.' : veredicto?.mensaje}</p>
+          </div>
+        )}
+      </div>
 
-         {/* GIANT RPM HUD (CENTRAL) */}
-         <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none opacity-10">
-            <div className="text-[14rem] font-black font-mono leading-none tracking-tighter italic text-white/10">{absRPM}</div>
-            <span className="text-xl font-black uppercase tracking-[1em] text-white/20">REVOLUCIONES_POR_MINUTO</span>
-         </div>
+      {/* CONTROLES */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0A1121]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-4 flex flex-wrap items-end justify-center gap-6 max-w-[95vw]">
+        <SelectorPolo label="Imán izquierdo" value={imanIzq} onChange={(p) => ajustar({ imanIzq: p })} />
+        <SelectorPolo label="Imán derecho" value={imanDer} onChange={(p) => ajustar({ imanDer: p })} />
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Espiras N</span>
+          <div className="flex gap-1">
+            {ESPIRAS10.map((n) => (
+              <button key={n} onClick={() => ajustar({ espiras: n })}
+                className={`w-12 h-9 rounded-xl text-[10px] font-black ${espiras === n ? 'bg-orange-600' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>{n}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 min-w-[200px]">
+          <div className="flex justify-between">
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Fuente de CD</span>
+            <span className="text-sm font-black text-orange-300">{voltaje.toFixed(1)} V</span>
+          </div>
+          <input type="range" min={RANGO_V10.min} max={RANGO_V10.max} step={RANGO_V10.paso} value={voltaje}
+            onChange={(e) => ajustar({ voltaje: Math.round(parseFloat(e.target.value) * 10) / 10 })} className="w-full h-1.5 accent-orange-500" />
+        </div>
+        <button onClick={energizar}
+          className={`h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 ${encendido ? 'bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}`}>
+          <Power size={16} /> {encendido ? 'Cortar energía' : 'Energizar'}
+        </button>
+      </div>
 
-         {/* HUD SUPERIOR: TELEMETRÍA DE MOTOR */}
-         <div className="flex justify-between items-start z-30 pointer-events-none">
-            <div className="flex gap-4">
-              <HUDCard label="Flujo Magnético (B)" value={B === 1 ? 'N → S' : (B === -1 ? 'S → N' : 'NULLED')} icon={<Compass size={14} />} color="#3b82f6" />
-              <HUDCard label="Bobinado (N)" value={`${espiras} Vueltas`} icon={<Workflow size={14} />} color="#facc15" />
-              <HUDCard label="Tensión (V)" value={`${voltaje} V DC`} icon={<Zap size={14} />} color="#ef4444" />
-            </div>
-
-            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-6 rounded-[2.5rem] flex items-center gap-8 shadow-2xl">
-                <div>
-                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Velocidad Angular</h4>
-                   <div className={`text-3xl font-black font-mono tracking-tighter ${absRPM > 2000 ? 'text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'text-emerald-400'}`}>
-                      {absRPM} <span className="text-[10px] text-slate-500 uppercase ml-1 font-sans">RPM</span>
-                   </div>
-                </div>
-                <Gauge className={`text-emerald-400 ${absRPM > 0 ? 'animate-spin-slow' : 'opacity-20'}`} size={32} />
-            </div>
-         </div>
-
-         {/* BANCO DE PRUEBAS — el motor DC 3D vive en el fondo (z-0). Este hueco
-             deja pasar la interacción con OrbitControls (arrastrar / zoom). */}
-         <div className="flex-grow" />
-
-         {/* ── PANEL DE CONTROL INFERIOR (DOCK) ── */}
-         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40">
-            <motion.div 
-              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10 pointer-events-auto"
-            >
-               {/* Selectores de Ingeniería */}
-               <div className="flex gap-8 items-center border-r border-white/10 pr-10">
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Bobinado N</span>
-                    <div className="flex gap-2">
-                      {[10, 50, 100].map(n => (
-                        <button key={n} onClick={() => handleUpdate({ espiras: n })} className={`w-12 h-10 rounded-xl text-[10px] font-black transition-all ${espiras === n ? 'bg-orange-600 text-white' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tensión DC (V)</span>
-                    <input 
-                      type="range" min="0" max="24" step="1" value={voltaje}
-                      onChange={(e) => handleUpdate({ voltaje: parseInt(e.target.value) })}
-                      className="w-32 h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-orange-500"
-                    />
-                  </div>
-               </div>
-
-               {/* Suministro y Validación */}
-               <div className="flex-1 flex gap-6 items-center">
-                  <button 
-                    onClick={() => handleUpdate({ encendido: !encendido })}
-                    className={`h-16 px-10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all ${encendido ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/30' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}
-                  >
-                    <Power size={16} /> {encendido ? 'Cortar Energía' : 'Energizar Motor'}
-                  </button>
-
-                  <div className="flex-1 relative">
-                    <input 
-                      type="number" placeholder="Estima las RPM finales..." value={alphaInput}
-                      onChange={(e) => setAlphaInput(e.target.value)}
-                      className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white font-black text-xl placeholder:text-white/10 focus:outline-none focus:border-orange-500 transition-all"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-white/20 uppercase tracking-widest">RPM</span>
-                  </div>
-
-                  <button 
-                    onClick={handleValidar}
-                    className="h-16 px-10 bg-orange-600 hover:bg-orange-500 rounded-2xl flex items-center gap-3 shadow-xl transition-all active:scale-95 group"
-                  >
-                    <Target size={18} className="text-white group-hover:rotate-12 transition-transform" />
-                    <span className="text-xs font-black text-white uppercase">Validar Eficiencia</span>
-                  </button>
-               </div>
-            </motion.div>
-         </div>
-
-         {/* MENSAJE TUTOR / ÉXITO */}
-         <AnimatePresence>
-            {bitacoraData.fisica10 ? (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
-                 <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-orange-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(249,115,22,0.15)]">
-                    <ShieldCheck size={100} className="text-orange-500 mx-auto mb-8" />
-                    <h3 className="text-5xl font-black text-white uppercase italic mb-6">Motor Certificado</h3>
-                    <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
-                       Has calibrado con éxito un motor industrial de alta precisión. Con esta validación, has completado satisfactoriamente el programa de **Física Diamond State**.
-                    </p>
-                    <div className="flex gap-4">
-                      <button onClick={() => resetF10()} className="flex-1 py-6 bg-white/10 hover:bg-white/20 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors">
-                        Reiniciar
-                      </button>
-                      <button onClick={() => router.push('/alumno/laboratorio/fisica')} className="flex-1 py-6 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-orange-600/30">
-                        Finalizar Programa de Física
-                      </button>
-                    </div>
-                 </motion.div>
-               </motion.div>
-            ) : (
-               <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="absolute top-40 right-12 z-30 max-w-xs bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
-                  <div className="flex items-center gap-3 mb-4">
-                     <Bot className="text-orange-400" size={24} />
-                     <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dr. Quantum: E-Drive</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed italic">
-                    "El torque depende directamente del flujo B, la corriente I (voltaje) y el número de espiras N. Si los imanes se repelen, el campo se anula y el motor no girará. ¡Asegúrate de configurar polos opuestos N-S!"
-                  </p>
-               </motion.div>
-            )}
-         </AnimatePresence>
-
-      </main>
+      <div className="absolute bottom-28 right-6 z-50">
+        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="El motor cumple el reto y tu predicción es correcta. Valida tu práctica." />
+      </div>
     </div>
   );
 }
 
-function HUDCard({ label, value, icon, color }: { label: string, value: string, icon: React.ReactNode, color: string }) {
+function Dato({ label, valor }: { label: string; valor: string }) {
   return (
-    <div className={`px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all bg-[#0A1121]/80 backdrop-blur-md shadow-2xl`}>
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner" style={{ background: `${color}20`, color }}>
-        {icon}
-      </div>
-      <div>
-        <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-1">{label}</span>
-        <span className="block text-2xl font-black text-white tracking-tighter leading-none">{value}</span>
+    <div className="bg-[#020617] p-2 rounded-xl border border-white/5">
+      <span className="text-[8px] font-black text-slate-500 uppercase block">{label}</span>
+      <span className="text-xs font-black font-mono">{valor}</span>
+    </div>
+  );
+}
+
+function SelectorPolo({ label, value, onChange }: { label: string; value: Polo; onChange: (p: Polo) => void }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1"><Magnet size={12} /> {label}</span>
+      <div className="flex gap-1">
+        {(['N', 'S'] as const).map((p) => (
+          <button key={p} onClick={() => onChange(p)} aria-label={`${label}: polo ${p} hacia la bobina`}
+            className={`w-10 h-9 rounded-xl text-[11px] font-black ${value === p ? (p === 'N' ? 'bg-red-600' : 'bg-blue-600') : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>{p}</button>
+        ))}
       </div>
     </div>
   );

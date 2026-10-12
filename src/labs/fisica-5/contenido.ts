@@ -8,8 +8,8 @@ const contenido: SimuladorContenido = {
     pasos: [
       { id: 1, text: "Calibración de Entrada: Ajusta el radio del émbolo primario (r1) para definir la densidad de fuerza inicial.", icon: "settings" },
       { id: 2, text: "Configuración de Multiplicador: Define el radio del émbolo de salida (r2) para maximizar la ganancia mecánica.", icon: "maximize" },
-      { id: 3, text: "Prueba de Carga: Selecciona la masa crítica de transporte en el pistón mayor.", icon: "box" },
-      { id: 4, text: "Maniobra de Elevación: Aplica presión controlada hasta lograr la estabilidad gravitatoria de la carga.", icon: "zap" }
+      { id: 3, text: "Predicción: calcula la fuerza mínima F₁ = m·g·(r₁/r₂)² que sostiene la carga asignada.", icon: "box" },
+      { id: 4, text: "Maniobra de Elevación: bombea con una F₁ suficiente y comprueba tu predicción.", icon: "zap" }
     ],
     guiaMaestro: {
       objetivo: "Certificar la comprensión de la transmisión hidrostática de presión y la multiplicación de fuerzas en sistemas cerrados.",

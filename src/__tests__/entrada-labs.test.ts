@@ -72,7 +72,7 @@ describe('validarLab', () => {
 
   // Labs cuyo validador todavía aprueba un intento recién abierto, sin tocar
   // nada. La lista solo puede ENCOGER: al arreglar uno, se quita de aquí.
-  const APRUEBAN_SIN_TOCAR = new Set(['fisica-9', 'matematicas-9']);
+  const APRUEBAN_SIN_TOCAR = new Set<string>([]);
 
   it.each(IDS)('%s no aprueba un intento recién abierto', (id) => {
     const s = useSimuladorStore.getState();

@@ -1,12 +1,12 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Transformaciones Geométricas", mision: "Aterriza la sonda en la plataforma fantasma mediante isometrías", ecuacion: "V' = M · V + T", formulaGfx: "Escala → Rotación → Traslación",
+    titulo: "Transformaciones Geométricas", mision: "Lleva la nave a la silueta objetivo combinando escala, rotación y traslación", ecuacion: "V' = M · V + T", formulaGfx: "Escala → Rotación → Traslación",
     pasos: [
-      { id: 1, text: "Ajusta el Factor de Escala para igualar el tamaño del objetivo.", icon: "maximize" },
-      { id: 2, text: "Aplica la Rotación necesaria sobre el eje de origen.", icon: "rotate-cw" },
-      { id: 3, text: "Desplaza la sonda en los ejes X e Y hasta el punto de acoplamiento.", icon: "move" },
-      { id: 4, text: "Presiona 'Validar Acoplamiento' cuando la superposición sea perfecta.", icon: "check" }
+      { id: 1, text: "Compara tu nave con la silueta objetivo: tamaño, orientación y posición.", icon: "maximize" },
+      { id: 2, text: "Ajusta la escala s y la rotación θ.", icon: "rotate-cw" },
+      { id: 3, text: "Traslada en X e Y; la matriz M = T·R·S del panel resume tu transformación.", icon: "move" },
+      { id: 4, text: "Valida cuando coincidan (±0.2 en posición, ±5° en giro, ±0.1 en escala).", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Comprender cómo las matrices de transformación alteran la posición, orientación y tamaño de un objeto.",

@@ -1,12 +1,12 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Máquina de Galton", mision: "Descubre el patrón oculto en el caos aleatorio calibrando la distribución de probabilidades", ecuacion: "P(k) = (nCk) pᵏ (1-p)ⁿ⁻ᵏ", formulaGfx: "y = [1 / (σ√(2π))] exp[ -½((x-μ)/σ)² ]",
+    titulo: "Máquina de Galton", mision: "Predice μ y σ de la Binomial(10, p) y compruébalas con una muestra de al menos 200 bolitas", ecuacion: "P(k) = (nCk) pᵏ (1-p)ⁿ⁻ᵏ", formulaGfx: "y = [1 / (σ√(2π))] exp[ -½((x-μ)/σ)² ]",
     pasos: [
-      { id: 1, text: "Observa la deformación de la campana causada por el sesgo inicial de la máquina.", icon: "alert-triangle" },
-      { id: 2, text: "Ajusta la probabilidad de rebote (p) para eliminar la tendencia lateral.", icon: "settings" },
-      { id: 3, text: "Lanza una población masiva de esferas (n=500) para estabilizar el histograma.", icon: "cloud-rain" },
-      { id: 4, text: "Confirma que la distribución física encaja con la Campana de Gauss teórica.", icon: "award" }
+      { id: 1, text: "Lee la probabilidad p de desvío a la derecha (si la cambias, la máquina se vacía).", icon: "settings" },
+      { id: 2, text: "Calcula μ = n·p y σ = √(n·p·(1 − p)) con n = 10 filas y escríbelas en el panel.", icon: "alert-triangle" },
+      { id: 3, text: "Suelta bolitas hasta reunir al menos 200 en los contenedores.", icon: "cloud-rain" },
+      { id: 4, text: "Valida: se comprueba tu predicción (±0.05) y el ajuste χ² del histograma a la binomial.", icon: "award" }
     ],
     guiaMaestro: {
       objetivo: "Demostrar el Teorema del Límite Central de forma empírica.",

@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#38bdf8',
     duracion: 35,
     videoUrl: 'https://youtu.be/4wbTLJJwyng',
-    bienvenida: `¡Bienvenido al Polígono de Artillería! Soy el Dr. Quantum. La gravedad es el juez supremo de todo proyectil.\n\nCombinaremos el movimiento horizontal uniforme con la caída libre vertical para dominar la parábola perfecta.\n\nTu misión: Impactar el dron objetivo superando el muro defensivo.`,
+    bienvenida: `¡Bienvenido al Polígono de Artillería! Soy el Dr. Quantum. La gravedad es el juez supremo de todo proyectil.\n\nCombinaremos el movimiento horizontal con la caída libre vertical; fuera del vacío, el aire y el viento deforman la parábola.\n\nTu misión: Impactar el dron objetivo superando el muro defensivo.`,
     conceptos: [
       { icono: '✈️', nombre: 'Trayectoria', descripcion: 'Curva descrita por el proyectil en el espacio.' },
       { icono: '📐', nombre: 'Ángulo de Disparo', descripcion: 'Factor que determina alcance y altura máxima.' },
@@ -15,10 +15,10 @@ const briefing: BriefingConfig = {
       { icono: '🌍', nombre: 'Gravedad', descripcion: 'Aceleración constante hacia el centro de la Tierra.' }
     ],
     mision: [
-      'Analiza la posición del dron y del muro.',
+      'Analiza la misión: distancia y altura del blanco y del muro.',
       'Ajusta el ángulo del cañón.',
-      'Define la potencia de disparo.',
-      'Evalúa la trayectoria en la pantalla.',
+      'Define la velocidad de salida.',
+      'Dispara y analiza la trayectoria real.',
       'Logra el impacto directo.'
     ],
     aplicaciones: [

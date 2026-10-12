@@ -1,15 +1,15 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Motor Eléctrico", mision: "Convierte energía eléctrica en torque mecánico", ecuacion: "τ = N · I · A · B · sinφ", formulaGfx: "F = I · L x B",
+    titulo: "Motor Eléctrico", mision: "Ajusta un motor de corriente directa de imán permanente para que gire a la velocidad y en el sentido pedidos con una carga dada", ecuacion: "τ = N · I · A · B · sinφ", formulaGfx: "F = I · L x B",
     pasos: [
-      { id: 1, text: "Coloca la bobina de cobre entre los imanes permanentes.", icon: "zap" },
-      { id: 2, text: "Asegura el contacto de las escobillas con el conmutador.", icon: "activity" },
-      { id: 3, text: "Alimenta el sistema con una batería de 9V.", icon: "play" },
-      { id: 4, text: "Aumenta el flujo magnético para subir las RPM.", icon: "activity" }
+      { id: 1, text: "Orienta los imanes con polos opuestos enfrentados para que el campo atraviese la bobina.", icon: "zap" },
+      { id: 2, text: "Elige el bobinado: k = N·B·A fija el par por amperio y la contraelectromotriz.", icon: "activity" },
+      { id: 3, text: "Calcula el voltaje: V = k·ω + I·Rₐ, con I = τ_carga/k.", icon: "play" },
+      { id: 4, text: "Energiza y mide con el tacómetro: a igual carga, más voltaje da más RPM.", icon: "activity" }
     ],
     guiaMaestro: {
-      objetivo: "Entender la fuerza de Lorentz y el principio de inducción electromagnética.",
+      objetivo: "Entender cómo la fuerza de Laplace produce par y cómo la fuerza contraelectromotriz fija la velocidad de un motor de CD.",
       friccion: "El alumno debe notar que sin conmutador, la bobina no giraría continuamente.",
       puntosClave: ["Torque: Fuerza de giro.", "Campo Magnético: Imán estator.", "Corriente: Energía de entrada."]
     },

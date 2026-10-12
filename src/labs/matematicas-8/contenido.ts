@@ -1,12 +1,12 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "La Derivada", mision: "Identifica los puntos críticos de la montaña rusa usando la recta tangente", ecuacion: "f'(x) = lim(h→0) [f(x+h)-f(x)]/h", formulaGfx: "f'(x) = x² - 4x + 3",
+    titulo: "La Derivada", mision: "Encuentra con la derivada el instante de máxima velocidad del cohete", ecuacion: "f'(x) = lim(h→0) [f(x+h)-f(x)]/h", formulaGfx: "s(t) = −k·t³ + m·t²",
     pasos: [
-      { id: 1, text: "Desliza el escáner a lo largo de la pista para observar la pendiente.", icon: "move" },
-      { id: 2, text: "Busca los puntos donde la recta tangente sea perfectamente horizontal.", icon: "target" },
-      { id: 3, text: "Usa los botones de micro-ajuste para alcanzar m = 0.00.", icon: "mouse-pointer" },
-      { id: 4, text: "Registra el Punto Crítico para validar el hallazgo del máximo o mínimo.", icon: "award" }
+      { id: 1, text: "Lee la función de posición s(t) del cohete en el panel.", icon: "move" },
+      { id: 2, text: "Recorre t: la recta tangente a s(t) tiene pendiente v(t) = s'(t).", icon: "target" },
+      { id: 3, text: "Deriva otra vez: v es máxima donde a(t) = v'(t) = 0.", icon: "mouse-pointer" },
+      { id: 4, text: "Marca ese instante (tolerancia ±0.2 s) y valida.", icon: "award" }
     ],
     guiaMaestro: {
       objetivo: "Visualizar la derivada como la pendiente de la recta tangente en un punto.",

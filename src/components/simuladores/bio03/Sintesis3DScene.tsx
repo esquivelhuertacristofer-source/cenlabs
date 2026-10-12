@@ -27,7 +27,7 @@ function DNASegment({ position, rotation, color, delay = 0, isActive }: { positi
   );
 }
 
-function DNAHelix({ currentIndex }: { currentIndex: number }) {
+function DNAHelix({ currentIndex, n }: { currentIndex: number; n: number }) {
   const groupRef = useRef<THREE.Group>(null!);
   
   useFrame((state) => {
@@ -36,13 +36,14 @@ function DNAHelix({ currentIndex }: { currentIndex: number }) {
 
   const points = useMemo(() => {
     const pts = [];
-    for (let i = 0; i < 20; i++) {
-      const y = (i - 10) * 0.8;
+    // Un peldaño por base de la hebra molde.
+    for (let i = 0; i < n; i++) {
+      const y = (i - n / 2) * 0.8;
       const angle = i * 0.5;
       pts.push({ angle, y, index: i });
     }
     return pts;
-  }, []);
+  }, [n]);
 
   return (
     <group ref={groupRef}>
@@ -113,7 +114,7 @@ function Ribosome({ proteinaCount }: { proteinaCount: number }) {
            <Float key={i} speed={3} rotationIntensity={2} floatIntensity={2}>
               <mesh position={[0, i * 0.7, 0]}>
                  <sphereGeometry args={[0.3, 16, 16]} />
-                 <meshStandardMaterial color={new THREE.Color().setHSL((i * 0.2) % 1, 0.8, 0.5)} emissive="white" emissiveIntensity={0.5} />
+                 <meshStandardMaterial color={`hsl(${((i * 0.2) % 1) * 360}, 80%, 50%)`} emissive="white" emissiveIntensity={0.5} />
               </mesh>
            </Float>
          ))}
@@ -129,7 +130,7 @@ interface Sintesis3DSceneProps {
   adnPlantilla?: string;
 }
 
-export default function Sintesis3DScene({ fase, currentIndex, proteinaCount }: Sintesis3DSceneProps) {
+export default function Sintesis3DScene({ fase, currentIndex, proteinaCount, adnPlantilla = '' }: Sintesis3DSceneProps) {
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 15], fov: 45 }}>
       <color attach="background" args={['#020617']} />
@@ -146,7 +147,7 @@ export default function Sintesis3DScene({ fase, currentIndex, proteinaCount }: S
 
       <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
         {fase === 'transcripcion' ? (
-          <DNAHelix currentIndex={currentIndex} />
+          <DNAHelix currentIndex={currentIndex} n={Math.max(12, adnPlantilla.length)} />
         ) : (
           <Ribosome proteinaCount={proteinaCount} />
         )}

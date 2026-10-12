@@ -12,18 +12,18 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 import { OBJECTIVES, calculateAbbeLimit, calculateTotalMagnification } from '@/utils/opticEngine';
+import { enFocoB1, brilloEfectivoB1, BRILLO_MIN_B1, BRILLO_MAX_B1 } from '@/domain/biologia';
 
 export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () => void }) {
-  const { 
-    microscopio, setMicroscopio, generarSemillaB1, validarB1, resetB1,
-    tomarCaptura
-  } = useSimuladorStore();
+  const microscopio = useSimuladorStore((s) => s.microscopio);
+  const setMicroscopio = useSimuladorStore((s) => s.setMicroscopio);
+  const validarB1 = useSimuladorStore((s) => s.validarB1);
+  const resetB1 = useSimuladorStore((s) => s.resetB1);
+  const tomarCaptura = useSimuladorStore((s) => s.tomarCaptura);
   
-  const { 
-    muestra = 'vegetal', objetivoMag = 4, enfoqueZ = 0, focoIdealZ = 50, iluminacion = 50, 
-    diafragmaIris = 100, aceiteInmersionAplicado = false, posicionX = 0, posicionY = 0,
-    status, magnificacionVerified, abbeVerified, capturas = []
-  } = microscopio || {};
+  const {
+    muestra, objetivoMag, aceiteInmersionAplicado, magnificacionVerified, capturas = []
+  } = microscopio;
 
   const [conclusionText, setConclusionText] = useState("");
   const [magInput, setMagInput] = useState('');
@@ -35,11 +35,8 @@ export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () =>
   const quantumMsg = "Ajusta la iluminación Köhler y el enfoque micrométrico para observar los orgánulos. Recuerda que para el objetivo de 100x es obligatorio aplicar aceite de inmersión para evitar la refracción del aire.";
 
   const handleCapture = () => {
-    const url = muestra === 'vegetal' ? '/assets/bio/plant_cells.webp' : 
-                muestra === 'animal' ? '/assets/bio/animal_cells.webp' :
-                muestra === 'bacteria' ? '/assets/bio/bacteria_sample.webp' :
-                '/assets/bio/nerve_sample.webp';
-    tomarCaptura(url);
+    // Misma micrografía que captura el Piloto (muestra y objetivo actuales).
+    tomarCaptura(`/assets/bio/${muestra}_${objetivoMag}x.webp`);
     audio.playPop();
   };
 
@@ -64,8 +61,11 @@ export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () =>
   };
 
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  const isFocused = Math.abs(enfoqueZ - focoIdealZ) <= (objetivoMag === 100 ? 1 : objetivoMag === 40 ? 3 : 8);
-  const canValidate = status === 'success' && wordCount >= 30 && magnificacionVerified;
+  // Mismas reglas que el validador (src/domain/biologia.ts): lo que aquí se ve verde, el juez lo acepta.
+  const isFocused = enFocoB1(microscopio);
+  const brillo = brilloEfectivoB1(microscopio);
+  const luzOk = brillo >= BRILLO_MIN_B1 && brillo <= BRILLO_MAX_B1;
+  const canValidate = wordCount >= 30 && magnificacionVerified;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -117,16 +117,16 @@ export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () =>
                <div className={`w-2 h-2 rounded-full ${isFocused ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
             </div>
 
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${iluminacion > 60 && iluminacion < 95 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${luzOk ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${iluminacion > 60 && iluminacion < 95 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${luzOk ? 'text-emerald-400' : 'text-slate-500'}`}>
                      Sincronía Köhler
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {iluminacion > 60 && iluminacion < 95 ? '✓ Iluminación Optimizada' : '... Ajustando Reóstato'}
+                     {luzOk ? '✓ Iluminación Optimizada' : '... Ajustando Reóstato'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${iluminacion > 60 && iluminacion < 95 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${luzOk ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
             </div>
          </div>
       </div>

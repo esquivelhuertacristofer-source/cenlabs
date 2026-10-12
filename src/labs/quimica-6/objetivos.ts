@@ -1,13 +1,13 @@
 import type { Objetivo, ObjetivosState } from '@/data/labObjetivos';
 
+// Mismos pasos que exige el validador: disolver en caliente, enfriar en hielo y
+// obtener cristales.
 export default function objetivos(s: ObjetivosState): Objetivo[] {
-  const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
-          gases, balanceo, limitante, soluciones, solubilidad,
-          titulacion, equilibrio, celda, destilacion,
-          tiroParabolico, planoInclinado, pendulo, hooke } = s;
+  const { solubilidad } = s;
+  const enHielo = solubilidad?.ubicacion === 'hielo' && (solubilidad?.temp ?? 99) <= 10;
   return [
-      { label: 'Homogeneidad Térmica', current: solubilidad?.temp || 0,                    target: 50, completed: (solubilidad?.temp || 0) > 40 },
-      { label: 'Punto de Saturación',  current: solubilidad?.status === 'success' ? 1 : 0, target: 1,  completed: solubilidad?.status === 'success' },
-      { label: 'Análisis de Fase',     current: solubilidad?.status === 'success' ? 1 : 0, target: 1,  completed: solubilidad?.status === 'success' },
+      { label: 'Disolución en caliente', current: solubilidad?.disueltoEnCaliente ? 1 : 0, target: 1,  completed: !!solubilidad?.disueltoEnCaliente },
+      { label: 'Enfriado en hielo (°C)', current: solubilidad?.temp || 0,                  target: 10, completed: enHielo },
+      { label: 'Cristalización',         current: solubilidad?.status === 'success' ? 1 : 0, target: 1, completed: solubilidad?.status === 'success' },
     ];
 }

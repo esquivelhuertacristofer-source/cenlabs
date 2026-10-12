@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Magnitud de Carga',
-      mensaje: 'Ajusta los valores de q1 y q2. Observa cómo cambian los vectores de fuerza eléctrica.',
+      mensaje: 'En la zona de exploración cambia q₁ y q₂. Observa cómo cambia la dirección de las fuerzas: cargas de igual signo se repelen y de signo opuesto se atraen.',
     },
     {
       id: 3, tipo: 'accion', pista: 'Variación de Distancia',
-      mensaje: 'Mueve las cargas. Nota cómo la fuerza disminuye drásticamente al aumentar la distancia (ley del inverso al cuadrado).',
+      mensaje: 'Cambia la separación r (en centímetros). La fuerza disminuye con el cuadrado de la distancia: al duplicar r, F se reduce a la cuarta parte.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Validar Fuerza',
-      mensaje: 'Calcula la fuerza resultante para los valores actuales y valida tu resultado.',
+      mensaje: 'Resuelve el reto: convierte μC a C y cm a m, calcula |F| = k·|q₁q₂|/r² en newtons, elige atracción o repulsión y pulsa "Comprobar" (tolerancia ±3 %).',
       accion: 'Validar Fuerza',
     }
   ];

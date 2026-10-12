@@ -11,7 +11,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 3, tipo: 'accion', pista: 'Elige tu Muestra',
-      mensaje: 'Selecciona una muestra (Vegetal, Animal o Bacteria) para colocarla en la platina. Cada una requiere un nivel de iluminación diferente para su observación.',
+      mensaje: 'Lee la misión en el visor y coloca en la platina la preparación que pide: hoja de Elodea, mucosa bucal o yogur.',
     },
     {
       id: 4, tipo: 'accion', pista: 'Localización (4x/10x)',
@@ -22,12 +22,12 @@ const tutorSteps: TutorStep[] = [
       mensaje: 'Pasa al objetivo de 40x. ¡Cuidado! La profundidad de campo es muy corta. Usa solo el "Micrométrico" para enfocar la estructura interna.',
     },
     {
-      id: 6, tipo: 'accion', pista: 'Escáner Biométrico',
-      mensaje: 'Una vez enfocado, presiona "Escanear Estructura". Mi sistema de IA identificará los organelos y validará si has encontrado el objetivo de la misión.',
+      id: 6, tipo: 'accion', pista: 'Luz y Aceite',
+      mensaje: 'A más aumento llega menos luz al ojo: sube la lámpara. El objetivo de 100x es de inmersión: sin aceite la apertura numérica cae y la imagen se vuelve lechosa. Luego pulsa "Analizar imagen".',
     },
     {
       id: 7, tipo: 'verificar', pista: 'Documentación',
-      mensaje: '¡Hallazgo confirmado! Toma una "Foto de Bitácora" para registrar la micrografía en tu informe. Luego presiona Validar para certificar la práctica.',
+      mensaje: '¡Hallazgo confirmado! Captura la micrografía para tu bitácora, completa el cálculo de aumento y de Abbe, y valida la práctica.',
       accion: 'Certificar Hallazgo',
     },
     {

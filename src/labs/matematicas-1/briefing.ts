@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#22d3ee',
     duracion: 45,
     videoUrl: 'https://youtu.be/lq3R6uPGWNA',
-    bienvenida: `¡Bienvenido al Laboratorio de Ecuaciones Cuadráticas! Soy el Dr. Quantum y hoy vamos a explorar una de las funciones más poderosas de las matemáticas.\n\nUna función cuadrática f(x) = ax² + bx + c no es solo una ecuación en un libro — es la descripción matemática de cómo vuela un proyectil, cómo se enfoca una antena parabólica o cómo se modela la ganancia óptima en un proyecto de ingeniería.\n\nTu misión: ajustar los parámetros de una parábola hasta sincronizarla con una trayectoria objetivo. ¡Las matemáticas son el idioma del universo!`,
+    bienvenida: `¡Bienvenido al Laboratorio de Ecuaciones Cuadráticas! Soy el Dr. Quantum y hoy vamos a explorar una de las funciones más poderosas de las matemáticas.\n\nUna función cuadrática f(x) = ax² + bx + c no es solo una ecuación en un libro — es la descripción matemática de cómo vuela un proyectil, cómo se enfoca una antena parabólica o cómo se modela la ganancia óptima en un proyecto de ingeniería.\n\nTu misión: deducir la ecuación de una trayectoria a partir de tres puntos medidos y comprobar su discriminante y su vértice. ¡Las matemáticas son el idioma del universo!`,
     conceptos: [
       { icono: 'Δ', nombre: 'Discriminante', descripcion: 'Δ = b² − 4ac determina la naturaleza de las raíces: dos reales (Δ>0), una doble (Δ=0) o complejas conjugadas (Δ<0).' },
       { icono: '📍', nombre: 'Vértice', descripcion: 'El punto (h, k) donde h = −b/2a. Es el máximo o mínimo absoluto de la función.' },
@@ -17,12 +17,12 @@ const briefing: BriefingConfig = {
       { icono: '🔄', nombre: 'Completar el Cuadrado', descripcion: 'Técnica algebraica para transformar la forma estándar a la forma vértice.' },
     ],
     mision: [
-      'Observa la TRAYECTORIA OBJETIVO en el piloto.',
-      'Calcula el DISCRIMINANTE (Δ = b² − 4ac) y anótalo en la Bitácora.',
-      'Localiza el VÉRTICE: calcula h = −b/2a.',
-      'Ajusta los controles (a, b, c) para sincronizar tu parábola.',
-      'Analiza las 3 Formas Equivalentes y confirma que son idénticas.',
-      'Presiona “Validar Trayectoria” cuando el % SYNC sea alto.',
+      'Lee los TRES PUNTOS MEDIDOS de la trayectoria (x = −1, 0 y 1).',
+      'Plantea el sistema: f(0) = c, f(1) − f(−1) = 2b, f(1) + f(−1) = 2a + 2c.',
+      'Ajusta a, b y c hasta que tu f(x) coincida con cada punto de la tabla.',
+      'Calcula el DISCRIMINANTE Δ = b² − 4ac y compruébalo en la Bitácora.',
+      'Calcula la abscisa del VÉRTICE h = −b/2a y compruébala en la Bitácora.',
+      'Presiona «Validar» cuando tu parábola pase por los tres puntos.'
     ],
     aplicaciones: [
       { area: 'Ingeniería Civil', ejemplo: 'El arco de un puente sigue exactamente una curva parabólica.' },

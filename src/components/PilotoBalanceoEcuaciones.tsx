@@ -1,20 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useSimuladorStore } from "@/store/simuladorStore";
+import { useShallow } from "zustand/react/shallow";
+import { esBalanceoMinimo, REACCIONES_REQUERIDAS_Q3 } from "@/domain/quimica";
 import {
   Activity, ShieldCheck, RefreshCw, ChevronLeft, ChevronRight,
   Lock, BookOpen, Info
 } from "lucide-react";
 import { audio } from '@/utils/audioEngine';
-import { useRouter } from 'next/navigation';
 
 import Fusion3DScene from './simuladores/qmi03/Fusion3DScene';
 
-export default function PilotoBalanceoEcuaciones() {
-  const router = useRouter();
-  const { balanceo, setReaccion, resetBalanceo, setCoeficiente } = useSimuladorStore();
+export default function PilotoBalanceoEcuaciones({ onValidate }: { onValidate?: () => void }) {
+  const { balanceo, setReaccion, resetBalanceo, setCoeficiente } = useSimuladorStore(useShallow((s) => ({
+    balanceo: s.balanceo, setReaccion: s.setReaccion, resetBalanceo: s.resetBalanceo, setCoeficiente: s.setCoeficiente,
+  })));
   const [mounted, setMounted] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
@@ -33,8 +35,11 @@ export default function PilotoBalanceoEcuaciones() {
 
   const currentReac = reacciones[reaccionActual] || reacciones[0];
   const isCurrentCompleted = reaccionesCompletadas.includes(currentReac?.id);
-  const nextUnlocked = isCurrentCompleted;
-  const allDone = reacciones.length > 0 && reaccionesCompletadas.length >= reacciones.length;
+  const esUltima = reaccionActual >= reacciones.length - 1;
+  const nextUnlocked = isCurrentCompleted && !esUltima;
+  const requisitoCumplido = reaccionesCompletadas.length >= REACCIONES_REQUERIDAS_Q3;
+  // Balanceada con múltiplos (p. ej. 4,2→4 en vez de 2,1→2): conserva la masa pero no es la ecuación mínima.
+  const noMinima = isBalanced && !!currentReac && !esBalanceoMinimo(currentReac, coeficientes);
 
   const allSymbols = useMemo(() => Array.from(new Set([
     ...Object.keys(atomosReactivos || {}),
@@ -47,29 +52,33 @@ export default function PilotoBalanceoEcuaciones() {
     audio?.playClick();
   };
 
+  // Aviso al completar una reacción: se dispara cuando CRECE la lista de completadas
+  // (el store solo la amplía con coeficientes mínimos), no con cualquier balance.
+  const completadasPrev = useRef(reaccionesCompletadas.length);
   useEffect(() => {
-    if (isBalanced && !isCurrentCompleted) {
-      setShowLevelUp(true);
-      audio?.playSuccess();
-      audio?.playNotification();
-      useSimuladorStore.getState().registrarHallazgo('qui_balanceo', {
-        reaccion: currentReac?.nombre,
-        coeficientes,
-        masaReactivos,
-        masaProductos,
-      });
-      const timer = setTimeout(() => setShowLevelUp(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isBalanced, isCurrentCompleted, audio, currentReac?.nombre]);
+    const prev = completadasPrev.current;
+    completadasPrev.current = reaccionesCompletadas.length;
+    if (reaccionesCompletadas.length <= prev) return;
+    setShowLevelUp(true);
+    audio?.playSuccess();
+    audio?.playNotification();
+    useSimuladorStore.getState().registrarHallazgo('qui_balanceo', {
+      reaccion: currentReac?.nombre,
+      coeficientes,
+      masaReactivos,
+      masaProductos,
+    });
+    const timer = setTimeout(() => setShowLevelUp(false), 3000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reaccionesCompletadas.length]);
 
   if (!mounted || !currentReac) return null;
 
   const handleLevelChange = (delta: number) => {
-    const nextIdx = (reaccionActual + delta + reacciones.length) % reacciones.length;
-    if (delta > 0 && !nextUnlocked) {
-       return;
-    }
+    const nextIdx = reaccionActual + delta;
+    if (nextIdx < 0 || nextIdx >= reacciones.length) return;
+    if (delta > 0 && !nextUnlocked) return;
     setReaccion(nextIdx);
     audio?.playClick();
   };
@@ -91,7 +100,7 @@ export default function PilotoBalanceoEcuaciones() {
               <div className="space-y-4 text-sm text-cyan-100/70 leading-relaxed">
                 <p><strong className="text-white">Objetivo:</strong> Demostrar la Ley de Conservación de la Materia mediante el balanceo de ecuaciones estequiométricas.</p>
                 <p><strong className="text-white">Mecánica:</strong> El alumno debe ajustar los coeficientes para igualar el número de átomos en reactivos y productos. El sistema monitoriza la masa molar en tiempo real.</p>
-                <p><strong className="text-white">Progreso:</strong> Los niveles están bloqueados para asegurar que el alumno domina reacciones simples antes de pasar a síntesis complejas.</p>
+                <p><strong className="text-white">Progreso:</strong> Los niveles están bloqueados para asegurar que el alumno domina reacciones simples antes de pasar a síntesis complejas. Una reacción cuenta solo con los coeficientes enteros mínimos; la práctica se aprueba con {REACCIONES_REQUERIDAS_Q3} reacciones balanceadas.</p>
               </div>
             </div>
           </motion.div>
@@ -108,7 +117,7 @@ export default function PilotoBalanceoEcuaciones() {
             <ShieldCheck size={32} className="animate-bounce" />
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70">Sincronía Detectada</span>
-              <span className="text-xl font-black italic">PRÓXIMA REACCIÓN DESBLOQUEADA</span>
+              <span className="text-xl font-black italic">{esUltima ? 'ÚLTIMA REACCIÓN BALANCEADA' : 'PRÓXIMA REACCIÓN DESBLOQUEADA'}</span>
             </div>
           </motion.div>
         )}
@@ -266,21 +275,25 @@ export default function PilotoBalanceoEcuaciones() {
            </div>
         </div>
 
-        <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.5em]">Ajusta los coeficientes para lograr el equilibrio atómico</p>
+        <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${noMinima ? 'text-amber-300' : 'text-white/50'}`}>
+          {noMinima
+            ? 'Balanceada, pero los coeficientes tienen un divisor común: simplifícalos'
+            : `Ajusta los coeficientes · ${reaccionesCompletadas.length} de ${REACCIONES_REQUERIDAS_Q3} reacciones balanceadas`}
+        </p>
       </footer>
 
-      <AnimatePresence>
-        {allDone && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#010B13]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
-              <ShieldCheck size={100} className="text-emerald-500 mx-auto mb-8" />
-              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Balanceo Maestro</h3>
-              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has balanceado correctamente todas las ecuaciones. La Ley de Conservación de la Materia ha sido demostrada y registrada en tu bitácora científica.</p>
-              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Laboratorio</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
+      {requisitoCumplido && (
+        <div className="absolute top-36 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-emerald-600/90 border border-emerald-400/50 rounded-full pl-5 pr-2 py-2 shadow-xl">
+          <ShieldCheck size={16} className="text-white" />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">{reaccionesCompletadas.length} reacciones balanceadas</span>
+          {onValidate && (
+            <button onClick={onValidate} className="px-4 py-1.5 rounded-full bg-white text-emerald-700 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50">
+              Validar práctica
+            </button>
+          )}
+        </div>
+      )}
 
     </div>
   );

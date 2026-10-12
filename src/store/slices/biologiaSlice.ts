@@ -1,611 +1,354 @@
 import { StateCreator } from 'zustand';
-import { SimuladorState, BiologiaSlice } from '../types';
-import * as BiologiaDomain from '@/domain/biologia';
+import {
+  SimuladorState, BiologiaSlice, ResultadoValidacion,
+  MicroscopioStateB1, TransporteStateB2, SintesisStateB3, FotosintesisStateB4, GeneticaStateB5,
+  EvolucionStateB6, SistemaNerviosoStateB7, CardioStateB8, DigestionStateB9, EcosistemaStateB10,
+  EnsayoReflejoB7,
+} from '../types';
+import * as B from '@/domain/biologia';
 
-export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaSlice> = (set, get) => ({
-  microscopio: { 
-    muestra: 'vegetal', 
-    objetivoMag: 4, 
-    enfoqueZ: 0, 
-    focoIdealZ: 50, 
-    iluminacion: 50, 
-    diafragmaIris: 100,
-    aceiteInmersionAplicado: false,
-    posicionX: 0, 
-    posicionY: 0, 
-    targetOrganelle: "Cloroplasto", 
-    capturas: [],
-    magnificacionVerified: false,
-    abbeVerified: false,
-    enfoqueMacro: 50,
-    enfoqueMicro: 5,
-    status: 'idle' 
-  },
-  transporte: { 
-    concExt: 0.3, 
-    concInt: 0.3, 
-    glucosaExt: 0.0,
-    temperatura: 25,
-    tipoCelula: 'animal', 
-    verParticulas: true, 
-    volumen: 100, 
-    presionOsmotica: 7.4, 
-    history: [], 
-    status: 'idle' 
-  },
-  sintesis: { fase: 'transcripcion', adnPlantilla: 'TACCAGGGTTACATT', arnMensajero: '', proteina: [], errores: 0, currentIndex: 0, lastAddedBase: null, isCorrect: null, status: 'idle' },
-  fotosintesis: { 
-    escenario: 'optimizacion_espectro',
-    distancia: 5, 
-    color: 'blanco', 
-    oxigenoAcumulado: 0, 
-    tiempo: 0, 
-    simulando: false, 
-    targetO2: 50, 
-    status: 'idle' 
-  },
-  genetica: { padre1: 'AaBb', padre2: 'AaBb', poblacionF1: [], tamanioMuestra: 100, status: 'idle' },
-  evolucion: { ambiente: 'limpio', generacion: 1, clara: 50, oscura: 50, cazadasClaras: 0, cazadasOscuras: 0, tiempo: 30, isRunning: false, historial: [], bugs: [], status: 'idle' },
-  sistemaNervioso: { fuerzaGolpe: 50, integridadMielina: 100, estado: 'reposo', latenciaMedida: 0, velocidadConduccion: 120, status: 'idle' },
-  cardio: { ritmoBPM: 70, estadoFisiologico: 'Reposo', faseActual: 'Diástole', targetBPM: 145, status: 'idle' },
-  digestion: { macronutriente: 'proteina', enzimaSeleccionada: null, nivelPH: 7.0, estado: 'intacto', monomerosAbsorbidos: 0, status: 'idle' },
-  ecosistema: { 
-    poblacionPresas: 100, 
-    poblacionDepredadores: 20, 
-    parametros: {
-      alpha: 1.1,
-      beta: 0.1,
-      gamma: 0.4,
-      delta: 0.05
-    },
-    tiempoVirtual: 0, 
-    historial: [], 
-    simulando: false, 
-    status: 'idle' 
-  },
+/*
+ * Slice de Biología. La ciencia (modelos, tolerancias, validadores) vive en
+ * src/domain/biologia.ts; aquí solo hay estado, semillas y acciones discretas.
+ * Ningún lab escribe al store a la frecuencia de una animación: los Pilotos
+ * animan en local y registran aquí eventos (un ensayo, una cruza, una corrida…).
+ */
 
-  setMicroscopio: (data: Partial<SimuladorState['microscopio']>) => set((state) => ({ microscopio: { ...state.microscopio, ...data } })),
-  generarSemillaB1: () => set((state) => {
-    const objetivos = [
-      { muestra: 'vegetal', obj: 'Cloroplasto', minMag: 40 }, // 40x obj * 10x ocular = 400x total
-      { muestra: 'animal', obj: 'Núcleo', minMag: 40 },
-      { muestra: 'vegetal', obj: 'Pared Celular', minMag: 10 },
-      { muestra: 'animal', obj: 'Mitocondria', minMag: 100 },
-      { muestra: 'bacteria', obj: 'Pared Bacteriana', minMag: 100 },
-      { muestra: 'nervioso', obj: 'Soma Neuronal', minMag: 40 },
-      { muestra: 'bacteria', obj: 'Cocos/Bacilos', minMag: 100 }
-    ];
-    const res = objetivos[Math.floor(Math.random() * objetivos.length)];
-    // Random focus plane between 30 and 70
-    const randomFocus = Math.floor(Math.random() * 40) + 30;
-    return { 
-      microscopio: { 
-        ...state.microscopio, 
-        muestra: res.muestra as any, 
-        targetOrganelle: res.obj, 
-        status: 'idle', 
-        objetivoMag: 4, 
-        enfoqueZ: 0, 
-        focoIdealZ: randomFocus,
-        iluminacion: 50,
-        diafragmaIris: 100,
-        aceiteInmersionAplicado: false,
-        posicionX: 0, 
-        posicionY: 0,
-        capturas: [],
-        magnificacionVerified: false,
-        abbeVerified: false,
+let contadorIds = 0;
+const nuevoId = (pref: string) => `${pref}-${Date.now().toString(36)}-${(contadorIds++).toString(36)}`;
+const azar = (min: number, max: number) => min + Math.random() * (max - min);
+const azarEntero = (min: number, max: number) => Math.floor(azar(min, max + 1));
+const redondear = (x: number, paso: number) => Math.round(x / paso) * paso;
+
+const microscopioInicial = (): MicroscopioStateB1 => ({
+  muestra: 'vegetal', objetivoMag: 4,
+  enfoqueMacro: 0, enfoqueMicro: 0, enfoqueZ: 0, focoIdealZ: 50,
+  iluminacion: 30, aceiteInmersionAplicado: false,
+  posicionX: 0, posicionY: 0,
+  muestraObjetivo: 'vegetal', targetOrganelle: 'Cloroplastos', magMin: 40,
+  capturas: [], magnificacionVerified: false, abbeVerified: false,
+  status: 'idle',
+});
+
+const transporteInicial = (): TransporteStateB2 => ({
+  concExt: 0.25, glucosaExt: 0, concInt: 0.15, temperatura: 25,
+  tipoCelula: 'animal', volumen: 100, lisada: false, status: 'idle',
+});
+
+const sintesisInicial = (): SintesisStateB3 => ({
+  fase: 'transcripcion', adnPlantilla: 'TACCAGGGTTACATT', arnMensajero: '', proteina: [],
+  errores: 0, currentIndex: 0, terminada: false, status: 'idle',
+});
+
+const fotosintesisInicial = (): FotosintesisStateB4 => ({
+  distancia: 40, color: 'blanco', dMin: 20, meta: B.metaB4(20), ensayos: [], status: 'idle',
+});
+
+const geneticaInicial = (): GeneticaStateB5 => ({
+  padre1: 'AaBb', padre2: 'AaBb', prediccion: [0, 0, 0, 0], tamanioMuestra: 100,
+  poblacionF1: [], cruza: null, status: 'idle',
+});
+
+const evolucionInicial = (): EvolucionStateB6 => ({
+  ambiente: 'industrial', generacion: 1, cuota: B.CUOTA_CAZA_B6, bugs: [], pInicialFav: 0.3, historial: [], status: 'idle',
+});
+
+const nerviosoInicial = (): SistemaNerviosoStateB7 => ({
+  fuerzaGolpe: 50, integridadMielina: 100, umbral: 25, distancia: 1.0,
+  ensayos: [], velocidadEstimada: null, diagnostico: null, status: 'idle',
+});
+
+const cardioInicial = (): CardioStateB8 => ({
+  tipo: 'bradicardia', fcInicial: 45, ritmoBPM: 45,
+  dosis: { atropina: 0, metoprolol: 0, adrenalina: 0 },
+  diagnostico: null, lecturaFC: null, status: 'idle',
+});
+
+const digestionInicial = (): DigestionStateB9 => ({
+  macronutriente: 'proteina', enzimaSeleccionada: null, nivelPH: 7, bilis: false,
+  ensayo: null, organoRespuesta: null, absorcionRespuesta: null, status: 'idle',
+});
+
+const ecosistemaInicial = (): EcosistemaStateB10 => ({
+  poblacionPresas: 100, poblacionDepredadores: 20, presasIniciales: 100, depredadoresIniciales: 20,
+  parametros: { alpha: 1.1, beta: 0.1, gamma: 0.4, delta: 0.05 },
+  tiempoVirtual: 0, historial: [], simulando: false, corrida: null, status: 'idle',
+});
+
+export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaSlice> = (set, get) => {
+  /** Ejecuta un evaluador de dominio, deja el veredicto en `status` y registra el hallazgo. */
+  const juzgar = <K extends 'microscopio' | 'transporte' | 'sintesis' | 'fotosintesis' | 'genetica' | 'evolucion' | 'sistemaNervioso' | 'cardio' | 'digestion' | 'ecosistema'>(
+    clave: K, evaluar: (s: SimuladorState[K]) => ResultadoValidacion, hallazgo: string, datos: (s: SimuladorState[K]) => Record<string, unknown>,
+  ): ResultadoValidacion => {
+    const r = evaluar(get()[clave]);
+    set((state) => ({ [clave]: { ...state[clave], status: r.ok ? 'success' : 'error' } }) as unknown as Partial<SimuladorState>);
+    if (r.ok) get().registrarHallazgo(hallazgo, datos(get()[clave]));
+    return r;
+  };
+
+  const evaluadores: Record<number, () => ResultadoValidacion> = {
+    1: () => juzgar('microscopio', B.evaluarB1, 'bio_microscopio', (m) => ({ muestra: m.muestra, objetivo: m.objetivoMag, organelo: m.targetOrganelle, iluminacion: m.iluminacion })),
+    2: () => juzgar('transporte', B.evaluarB2, 'bio_transporte', (t) => ({ nacl: t.concExt, glucosa: t.glucosaExt, tipoCelula: t.tipoCelula, temperatura: t.temperatura })),
+    3: () => juzgar('sintesis', B.evaluarB3, 'bio_sintesis_proteica', (s) => ({ adnPlantilla: s.adnPlantilla, arn: s.arnMensajero, proteina: s.proteina.map((a) => a.name).join('-'), errores: s.errores })),
+    4: () => juzgar('fotosintesis', B.evaluarB4, 'bio_fotosintesis', (f) => ({ ensayos: f.ensayos.length, meta: f.meta, dMin: f.dMin })),
+    5: () => juzgar('genetica', B.evaluarB5, 'bio_genetica', (g) => ({ cruza: `${g.padre1} × ${g.padre2}`, n: g.cruza?.n, observados: g.cruza?.observados })),
+    6: () => juzgar('evolucion', B.evaluarB6, 'bio_evolucion', (e) => ({ ambiente: e.ambiente, generaciones: e.historial.length, pInicial: e.pInicialFav, pFinal: e.historial[e.historial.length - 1]?.pFav })),
+    7: () => juzgar('sistemaNervioso', B.evaluarB7, 'bio_sistema_nervioso', (s) => ({ velocidadEstimada: s.velocidadEstimada, diagnostico: s.diagnostico, ensayos: s.ensayos.length })),
+    8: () => juzgar('cardio', B.evaluarB8, 'bio_cardiovascular', (c) => ({ diagnostico: c.diagnostico, fcFinal: c.ritmoBPM, dosis: c.dosis })),
+    9: () => juzgar('digestion', B.evaluarB9, 'bio_digestion', (d) => ({ sustrato: d.macronutriente, enzima: d.ensayo?.enzima, pH: d.ensayo?.pH, bilis: d.ensayo?.bilis, organo: d.organoRespuesta })),
+    10: () => juzgar('ecosistema', B.evaluarB10, 'bio_ecosistema', (e) => ({ parametros: e.parametros, anios: e.corrida?.t })),
+  };
+
+  return {
+    // ── B1 Microscopio ────────────────────────────────────────────────────────
+    microscopio: microscopioInicial(),
+    setMicroscopio: (data) => set((state) => {
+      const m = { ...state.microscopio, ...data };
+      // El plano de enfoque siempre se deriva de los dos tornillos.
+      m.enfoqueZ = m.enfoqueMacro + m.enfoqueMicro / 10;
+      return { microscopio: m };
+    }),
+    generarSemillaB1: () => set(() => {
+      const obj = B.OBJETIVOS_B1[Math.floor(Math.random() * B.OBJETIVOS_B1.length)];
+      return {
+        microscopio: {
+          ...microscopioInicial(),
+          capturas: [],
+          muestra: obj.muestra === 'vegetal' ? 'animal' : 'vegetal', // la platina NO arranca con la preparación pedida
+          muestraObjetivo: obj.muestra, targetOrganelle: obj.organelo, magMin: obj.magMin,
+          focoIdealZ: redondear(azar(30, 70), 0.01),
+        },
+      };
+    }),
+    validarB1: () => evaluadores[1]().ok,
+    resetB1: () => set((state) => ({
+      microscopio: {
+        ...state.microscopio,
+        objetivoMag: 4, enfoqueMacro: 0, enfoqueMicro: 0, enfoqueZ: 0, iluminacion: 30,
+        aceiteInmersionAplicado: false, posicionX: 0, posicionY: 0, status: 'idle',
+        magnificacionVerified: false, abbeVerified: false,
       },
-      bitacoraData: { ...state.bitacoraData, objB1: res.obj, magMin: res.minMag }
-    };
-  }),
-  validarB1: () => {
-    const isOk = BiologiaDomain.validarB1(get().microscopio, get().bitacoraData.magMin ?? 40);
-    set((state) => ({ microscopio: { ...state.microscopio, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { objetivoMag, iluminacion } = get().microscopio;
-      get().registrarHallazgo('bio_microscopio', { objetivoMag, iluminacion });
-    }
-    return isOk;
-  },
-  resetB1: () => set((state) => ({
-    microscopio: {
-      ...state.microscopio,
-      objetivoMag: 4,
-      enfoqueZ: 0,
-      enfoqueMacro: 0,
-      enfoqueMicro: 0,
-      iluminacion: 50,
-      posicionX: 0,
-      posicionY: 0,
-      status: 'idle',
-      magnificacionVerified: false,
-      abbeVerified: false,
-    }
-  })),
-  setTransporte: (data: Partial<SimuladorState['transporte']>) => set((state) => ({ transporte: { ...state.transporte, ...data } })),
-  tickTransporte: (dt: number) => set((state) => {
-    const { concExt, glucosaExt, concInt, volumen, temperatura, tipoCelula } = state.transporte;
-    
-    // Osmolaridad Total (i_nacl * C_nacl + i_glu * C_glu)
-    const osmExt = (2 * concExt) + (1 * glucosaExt);
-    const osmInt = 2 * concInt; 
+    })),
+    tomarCaptura: (url: string) => set((state) => ({
+      microscopio: { ...state.microscopio, capturas: [url, ...state.microscopio.capturas].slice(0, 6) },
+    })),
 
-    // Diferencial de presión osmótica (Van't Hoff mejorado)
-    const R = 0.0821;
-    const T = 273.15 + temperatura;
-    const deltaPi = (osmExt - osmInt) * R * T;
+    // ── B2 Ósmosis ────────────────────────────────────────────────────────────
+    transporte: transporteInicial(),
+    setTransporte: (data) => set((state) => ({ transporte: { ...state.transporte, ...data } })),
+    generarSemillaB2: () => set((state) => ({
+      transporte: {
+        ...transporteInicial(),
+        tipoCelula: state.transporte.tipoCelula,
+        // Citoplasma entre 0.24 y 0.36 Osm/L (290 mOsm es el valor fisiológico humano).
+        concInt: redondear(azar(0.24, 0.36), 0.005) / B.I_NACL,
+      },
+    })),
+    validarB2: () => evaluadores[2]().ok,
+    resetB2: () => set((state) => ({
+      transporte: { ...state.transporte, concExt: 0.25, glucosaExt: 0, temperatura: 25, volumen: 100, lisada: false, status: 'idle' },
+    })),
 
-    // Velocidad de flujo (Lp * deltaPi)
-    // Lp es la conductividad hidráulica, afectada por la temperatura (Q10 rule)
-    const LpBase = 0.08;
-    const Lp = LpBase * Math.pow(1.5, (temperatura - 25) / 10);
-    
-    const dV = -Lp * deltaPi * dt;
-    let newVol = volumen + dV;
+    // ── B3 Síntesis de proteínas ──────────────────────────────────────────────
+    sintesis: sintesisInicial(),
+    addNucleotido: (base: string) => set((state) => {
+      const s = state.sintesis;
+      if (s.fase !== 'transcripcion') return {};
+      const esperada = B.COMPLEMENTO_ARN[s.adnPlantilla[s.arnMensajero.length]];
+      if (base !== esperada) return { sintesis: { ...s, errores: s.errores + 1 } };
+      const arn = s.arnMensajero + base;
+      const fin = arn.length === s.adnPlantilla.length;
+      return { sintesis: { ...s, arnMensajero: arn, currentIndex: fin ? 0 : arn.length, fase: fin ? 'traduccion' : 'transcripcion' } };
+    }),
+    advanceRibosoma: (eleccion: string) => set((state) => {
+      const s = state.sintesis;
+      if (s.fase !== 'traduccion' || s.terminada) return {};
+      const codon = s.arnMensajero.slice(s.currentIndex, s.currentIndex + 3);
+      const aa = B.CODIGO_GENETICO[codon] ?? { name: '???', color: '#64748b' };
+      const esParo = aa.name === 'STOP' || codon.length < 3;
+      // El alumno elige el ARNt cuyo anticodón aparea con el codón (o el factor de liberación en un paro).
+      const correcta = esParo ? B.LIBERACION_B3 : B.anticodonB3(codon);
+      if (eleccion !== correcta) return { sintesis: { ...s, errores: s.errores + 1 } };
+      if (esParo) return { sintesis: { ...s, terminada: true } };
+      return { sintesis: { ...s, proteina: [...s.proteina, { id: nuevoId('aa'), ...aa }], currentIndex: s.currentIndex + 3 } };
+    }),
+    generarSemillaB3: () => set(() => ({ sintesis: { ...sintesisInicial(), adnPlantilla: B.semillaB3() } })),
+    validarB3: () => evaluadores[3]().ok,
+    resetB3: () => get().generarSemillaB3(),
 
-    // Límites Biológicos
-    if (tipoCelula === 'animal') {
-      if (newVol > 180) newVol = 181; // Citólisis — threshold at 180
-      if (newVol < 40) newVol = 40;
-    } else {
-      if (newVol > 140) newVol = 140;
-      if (newVol < 30) newVol = 30;
-    }
+    // ── B4 Fotosíntesis ───────────────────────────────────────────────────────
+    fotosintesis: fotosintesisInicial(),
+    setFotosintesis: (data) => set((state) => ({ fotosintesis: { ...state.fotosintesis, ...data } })),
+    registrarEnsayoB4: () => set((state) => {
+      const f = state.fotosintesis;
+      const distancia = Math.max(f.dMin, f.distancia);
+      const ensayo = { color: f.color, distancia, o2: B.o2EnsayoB4(f.color, distancia) };
+      return { fotosintesis: { ...f, ensayos: [...f.ensayos, ensayo].slice(-12) } };
+    }),
+    generarSemillaB4: () => set(() => {
+      const dMin = azarEntero(16, 28);
+      return { fotosintesis: { ...fotosintesisInicial(), dMin, meta: B.metaB4(dMin), distancia: 45 } };
+    }),
+    validarB4: () => evaluadores[4]().ok,
+    resetB4: () => set((state) => ({ fotosintesis: { ...state.fotosintesis, ensayos: [], status: 'idle' } })),
 
-    const newHistory = [...state.transporte.history, { id: crypto.randomUUID(), time: Date.now(), volumen: newVol }].slice(-50);
-    
-    return { 
-      transporte: { 
-        ...state.transporte, 
-        volumen: newVol, 
-        presionOsmotica: Math.abs(deltaPi),
-        history: newHistory 
-      } 
-    };
-  }),
-  generarSemillaB2: () => set((state) => ({ transporte: { ...state.transporte, concInt: 0.1 + Math.random() * 0.6, concExt: 0.3, volumen: 100, history: [], status: 'idle' } })),
-  validarB2: () => {
-    const isOk = BiologiaDomain.validarB2(get().transporte);
-    set((state) => ({ transporte: { ...state.transporte, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { concExt, concInt, volumen, temperatura, tipoCelula } = get().transporte;
-      get().registrarHallazgo('bio_transporte', { concExt, concInt, volumen, temperatura, tipoCelula });
-    }
-    return isOk;
-  },
-  resetB2: () => set((state) => ({ transporte: { ...state.transporte, concExt: 0.3, concInt: 0.3, glucosaExt: 0.0, temperatura: 25, tipoCelula: 'animal', presionOsmotica: 7.4, volumen: 100, history: [], status: 'idle' } })),
-  addNucleotido: (base: string) => set((state) => {
-    const pairing: Record<string, string> = { 'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C' };
-    const target = pairing[state.sintesis.adnPlantilla[state.sintesis.currentIndex]];
-    if (base === target) {
-      const isDone = state.sintesis.arnMensajero.length + 1 === state.sintesis.adnPlantilla.length;
-      return { sintesis: { ...state.sintesis, arnMensajero: state.sintesis.arnMensajero + base, currentIndex: isDone ? 0 : state.sintesis.currentIndex + 1, fase: isDone ? 'traduccion' : 'transcripcion' } };
-    }
-    return { sintesis: { ...state.sintesis, errores: state.sintesis.errores + 1 } };
-  }),
-  advanceRibosoma: () => set((state) => {
-    const { arnMensajero, currentIndex, proteina } = state.sintesis;
-    const codon = arnMensajero.slice(currentIndex, currentIndex + 3);
+    // ── B5 Herencia mendeliana ────────────────────────────────────────────────
+    genetica: geneticaInicial(),
+    setGenetica: (data) => set((state) => ({ genetica: { ...state.genetica, ...data } })),
+    generarF1: () => set((state) => {
+      const g = state.genetica;
+      const { genotipos, observados } = B.cruzarB5(g.padre1, g.padre2, g.tamanioMuestra);
+      return {
+        genetica: {
+          ...g, poblacionF1: genotipos,
+          cruza: { padre1: g.padre1, padre2: g.padre2, n: g.tamanioMuestra, prediccion: [...g.prediccion] as GeneticaStateB5['prediccion'], observados },
+        },
+      };
+    }),
+    generarSemillaB5: () => set(() => {
+      const [p1, p2] = B.CRUZAS_B5[Math.floor(Math.random() * B.CRUZAS_B5.length)];
+      return { genetica: { ...geneticaInicial(), padre1: p1, padre2: p2 } };
+    }),
+    validarB5: () => evaluadores[5]().ok,
+    resetB5: () => set((state) => ({ genetica: { ...state.genetica, poblacionF1: [], cruza: null, prediccion: [0, 0, 0, 0], status: 'idle' } })),
 
-    // Código Genético Universal — 64 codones (IUPAC / NCBI standard)
-    const geneticCode: Record<string, { name: string, color: string }> = {
-      // Met (inicio)
-      'AUG': { name: 'Met', color: '#3b82f6' },
-      // Phe
-      'UUU': { name: 'Phe', color: '#f97316' }, 'UUC': { name: 'Phe', color: '#f97316' },
-      // Leu
-      'UUA': { name: 'Leu', color: '#84cc16' }, 'UUG': { name: 'Leu', color: '#84cc16' },
-      'CUU': { name: 'Leu', color: '#84cc16' }, 'CUC': { name: 'Leu', color: '#84cc16' },
-      'CUA': { name: 'Leu', color: '#84cc16' }, 'CUG': { name: 'Leu', color: '#84cc16' },
-      // Ile
-      'AUU': { name: 'Ile', color: '#f43f5e' }, 'AUC': { name: 'Ile', color: '#f43f5e' },
-      'AUA': { name: 'Ile', color: '#f43f5e' },
-      // Val
-      'GUU': { name: 'Val', color: '#a855f7' }, 'GUC': { name: 'Val', color: '#a855f7' },
-      'GUA': { name: 'Val', color: '#a855f7' }, 'GUG': { name: 'Val', color: '#a855f7' },
-      // Ser
-      'UCU': { name: 'Ser', color: '#06b6d4' }, 'UCC': { name: 'Ser', color: '#06b6d4' },
-      'UCA': { name: 'Ser', color: '#06b6d4' }, 'UCG': { name: 'Ser', color: '#06b6d4' },
-      'AGU': { name: 'Ser', color: '#06b6d4' }, 'AGC': { name: 'Ser', color: '#06b6d4' },
-      // Pro
-      'CCU': { name: 'Pro', color: '#ec4899' }, 'CCC': { name: 'Pro', color: '#ec4899' },
-      'CCA': { name: 'Pro', color: '#ec4899' }, 'CCG': { name: 'Pro', color: '#ec4899' },
-      // Thr
-      'ACU': { name: 'Thr', color: '#0ea5e9' }, 'ACC': { name: 'Thr', color: '#0ea5e9' },
-      'ACA': { name: 'Thr', color: '#0ea5e9' }, 'ACG': { name: 'Thr', color: '#0ea5e9' },
-      // Ala
-      'GCU': { name: 'Ala', color: '#10b981' }, 'GCC': { name: 'Ala', color: '#10b981' },
-      'GCA': { name: 'Ala', color: '#10b981' }, 'GCG': { name: 'Ala', color: '#10b981' },
-      // Tyr
-      'UAU': { name: 'Tyr', color: '#ec4899' }, 'UAC': { name: 'Tyr', color: '#ec4899' },
-      // His
-      'CAU': { name: 'His', color: '#f59e0b' }, 'CAC': { name: 'His', color: '#f59e0b' },
-      // Gln
-      'CAA': { name: 'Gln', color: '#f59e0b' }, 'CAG': { name: 'Gln', color: '#f59e0b' },
-      // Asn
-      'AAU': { name: 'Asn', color: '#8b5cf6' }, 'AAC': { name: 'Asn', color: '#8b5cf6' },
-      // Lys
-      'AAA': { name: 'Lys', color: '#ef4444' }, 'AAG': { name: 'Lys', color: '#ef4444' },
-      // Asp
-      'GAU': { name: 'Asp', color: '#14b8a6' }, 'GAC': { name: 'Asp', color: '#14b8a6' },
-      // Glu
-      'GAA': { name: 'Glu', color: '#14b8a6' }, 'GAG': { name: 'Glu', color: '#14b8a6' },
-      // Cys
-      'UGU': { name: 'Cys', color: '#fbbf24' }, 'UGC': { name: 'Cys', color: '#fbbf24' },
-      // Trp
-      'UGG': { name: 'Trp', color: '#8b5cf6' },
-      // Arg
-      'CGU': { name: 'Arg', color: '#ef4444' }, 'CGC': { name: 'Arg', color: '#ef4444' },
-      'CGA': { name: 'Arg', color: '#ef4444' }, 'CGG': { name: 'Arg', color: '#ef4444' },
-      'AGA': { name: 'Arg', color: '#ef4444' }, 'AGG': { name: 'Arg', color: '#ef4444' },
-      // Gly
-      'GGU': { name: 'Gly', color: '#6b7280' }, 'GGC': { name: 'Gly', color: '#6b7280' },
-      'GGA': { name: 'Gly', color: '#6b7280' }, 'GGG': { name: 'Gly', color: '#6b7280' },
-      // STOP
-      'UAA': { name: 'STOP', color: '#000000' },
-      'UAG': { name: 'STOP', color: '#000000' },
-      'UGA': { name: 'STOP', color: '#000000' },
-    };
+    // ── B6 Selección natural ──────────────────────────────────────────────────
+    evolucion: evolucionInicial(),
+    setEvolucion: (data) => set((state) => ({ evolucion: { ...state.evolucion, ...data } })),
+    cazarPolilla: (id: number) => set((state) => {
+      const e = state.evolucion;
+      const cazadas = e.bugs.filter((b) => b.cazada).length;
+      const bug = e.bugs.find((b) => b.id === id);
+      if (!bug || bug.cazada || cazadas >= e.cuota || e.historial.length >= B.GENERACIONES_MAX_B6) return {};
+      return { evolucion: { ...e, bugs: e.bugs.map((b) => (b.id === id ? { ...b, cazada: true } : b)) } };
+    }),
+    finalizarGeneracion: () => set((state) => {
+      const e = state.evolucion;
+      if (e.bugs.filter((b) => b.cazada).length < e.cuota || e.historial.length >= B.GENERACIONES_MAX_B6) return {};
+      const hijos = B.reproducirB6(e.bugs, B.N_POLILLAS_B6, Math.random, (e.generacion) * 100);
+      const nueva = { ...e, bugs: hijos, generacion: e.generacion + 1 };
+      const pFav = B.pFavActualB6(nueva);
+      const fOscuras = hijos.filter((b) => b.tipo === 'oscura').length / hijos.length;
+      const selectividad = B.selectividadB6(e.bugs, e.ambiente);
+      return { evolucion: { ...nueva, historial: [...e.historial, { gen: nueva.generacion, pFav, fOscuras, selectividad }] } };
+    }),
+    generarSemillaB6: () => set(() => {
+      const ambiente: EvolucionStateB6['ambiente'] = Math.random() > 0.5 ? 'industrial' : 'limpio';
+      // Industrial (s. XIX): carbonaria aún escasa. Limpio (tras las leyes de aire limpio): typica en
+      // recuperación; si fuera muy rara (q < 0.4), con 30 polillas la deriva taparía a la selección.
+      const pFav = redondear(ambiente === 'industrial' ? azar(0.2, 0.35) : azar(0.4, 0.55), 1 / (2 * B.N_POLILLAS_B6));
+      const pC = B.aleloFavorecidoB6(ambiente) === 'C' ? pFav : 1 - pFav;
+      const bugs = B.crearPoblacionB6(pC, B.N_POLILLAS_B6);
+      const base: EvolucionStateB6 = { ...evolucionInicial(), ambiente, bugs, pInicialFav: 0 };
+      return { evolucion: { ...base, pInicialFav: B.pFavActualB6(base) } };
+    }),
+    validarB6: () => evaluadores[6]().ok,
+    resetB6: () => get().generarSemillaB6(),
 
-    const aa = { id: crypto.randomUUID(), ...(geneticCode[codon] ?? { name: '???', color: '#64748b' }) };
+    // ── B7 Arco reflejo ───────────────────────────────────────────────────────
+    sistemaNervioso: nerviosoInicial(),
+    setB7State: (data) => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, ...data } })),
+    registrarGolpeB7: () => {
+      const s = get().sistemaNervioso;
+      const respuesta = s.fuerzaGolpe >= s.umbral;
+      const ensayo: EnsayoReflejoB7 = { fuerza: s.fuerzaGolpe, respuesta, latencia: respuesta ? B.latenciaB7(s.distancia, s.integridadMielina) : null };
+      set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, ensayos: [...state.sistemaNervioso.ensayos, ensayo].slice(-10) } }));
+      return ensayo;
+    },
+    generarSemillaB7: () => set(() => {
+      // Paciente sano (v ≥ 54 m/s) o con desmielinización clara (v ≤ 35 m/s): sin casos limítrofes.
+      const sano = Math.random() < 0.5;
+      return {
+        sistemaNervioso: {
+          ...nerviosoInicial(),
+          integridadMielina: Math.round(sano ? azar(90, 100) : azar(35, 70)),
+          umbral: azarEntero(15, 35),
+          distancia: redondear(azar(0.85, 1.1), 0.01),
+          fuerzaGolpe: 50,
+        },
+      };
+    }),
+    validarB7: () => evaluadores[7]().ok,
+    resetB7: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, ensayos: [], velocidadEstimada: null, diagnostico: null, status: 'idle' } })),
 
-    if (aa.name === 'STOP') return { sintesis: { ...state.sintesis, status: state.sintesis.errores === 0 ? 'success' : 'error' } };
-    return { sintesis: { ...state.sintesis, proteina: [...proteina, aa], currentIndex: currentIndex + 3 } };
-  }),
-  generarSemillaB3: () => set((state) => {
-    // Pool de tripletes ADN plantilla (3'→5') que producen aminoácidos válidos
-    // Regla: A→U, T→A, C→G, G→C en el ARNm resultante
-    const POOL_CODONES = [
-      'CAT','CAG','CAC','CAA', // Val (a855f7)
-      'GGT','GGC','GGA',       // Pro (ec4899)
-      'AGT','AGC',             // Ser (06b6d4)
-      'TAT','TAA',             // Ile (f43f5e)
-      'GTT','GTC',             // Gln (f59e0b)
-      'AAG','AAA',             // Phe (f97316)
-      'TGG','TGC',             // Thr (0ea5e9)
-      'CGT','CGC','CGA',       // Ala (10b981)
-      'CCT','CCC','CCA',       // Gly (6b7280)
-      'ATA','ATG',             // Tyr (ec4899)
-      'GTA','GTG',             // His (f59e0b)
-      'TTT','TTC',             // Lys (ef4444)
-      'CTA','CTG',             // Asp (14b8a6)
-      'CTT','CTC',             // Glu (14b8a6)
-      'ACG','ACA',             // Cys (fbbf24)
-      'ACC',                   // Trp (8b5cf6)
-      'TCT','TCC',             // Arg (ef4444)  [TCT→AGA, TCC→AGG]
-    ];
-    const STOPS = ['ATT', 'ATC']; // UAA, UAG
-    const numMedio = 3 + Math.floor(Math.random() * 3);
-    const medio = Array.from({ length: numMedio }, () =>
-      POOL_CODONES[Math.floor(Math.random() * POOL_CODONES.length)]
-    );
-    const adnPlantilla = ['TAC', ...medio, STOPS[Math.floor(Math.random() * STOPS.length)]].join('');
-    return { sintesis: { ...state.sintesis, adnPlantilla, arnMensajero: '', proteina: [], errores: 0, currentIndex: 0, fase: 'transcripcion', status: 'idle' } };
-  }),
-  resetB3: () => get().generarSemillaB3(),
-  setFotosintesis: (data: Partial<SimuladorState['fotosintesis']>) => set((state) => ({ fotosintesis: { ...state.fotosintesis, ...data } })),
-  tickFotosintesis: (dt: number) => set((state) => {
-    if (!state.fotosintesis.simulando) return state;
-    
-    // Eficiencia por color (Espectro de absorción de Clorofila a y b)
-    const colorEfficiency: Record<string, number> = {
-      'blanco': 0.7,
-      'rojo': 1.0,
-      'azul': 1.2,
-      'verde': 0.1, // La clorofila refleja el verde
-      'amarillo': 0.4
-    };
+    // ── B8 ECG ────────────────────────────────────────────────────────────────
+    cardio: cardioInicial(),
+    setCardio: (data) => set((state) => ({ cardio: { ...state.cardio, ...data } })),
+    administrarFarmacoB8: (farmaco) => set((state) => {
+      const c = state.cardio;
+      if ((c.dosis[farmaco] ?? 0) >= B.FARMACOS_B8[farmaco].max) return {};
+      const dosis = { ...c.dosis, [farmaco]: c.dosis[farmaco] + 1 };
+      return { cardio: { ...c, dosis, ritmoBPM: B.fcConDosisB8(c.fcInicial, dosis), lecturaFC: null } };
+    }),
+    generarSemillaB8: () => set(() => {
+      const tipo: CardioStateB8['tipo'] = Math.random() < 0.5 ? 'bradicardia' : 'taquicardia';
+      const fc = tipo === 'bradicardia' ? azarEntero(38, 52) : azarEntero(112, 140);
+      return { cardio: { ...cardioInicial(), tipo, fcInicial: fc, ritmoBPM: fc } };
+    }),
+    validarB8: () => evaluadores[8]().ok,
+    resetB8: () => set((state) => ({
+      cardio: { ...state.cardio, ritmoBPM: state.cardio.fcInicial, dosis: { atropina: 0, metoprolol: 0, adrenalina: 0 }, diagnostico: null, lecturaFC: null, status: 'idle' },
+    })),
 
-    const eff = colorEfficiency[state.fotosintesis.color] || 0.5;
-    const intensity = 300 / (state.fotosintesis.distancia * state.fotosintesis.distancia);
-    const rate = intensity * eff * dt * 1.5;
+    // ── B9 Digestión ──────────────────────────────────────────────────────────
+    digestion: digestionInicial(),
+    setDigestion: (data) => set((state) => ({ digestion: { ...state.digestion, ...data } })),
+    incubarB9: () => set((state) => {
+      const d = state.digestion;
+      if (!d.enzimaSeleccionada) return {};
+      return { digestion: { ...d, ensayo: B.incubarB9(d.macronutriente, d.enzimaSeleccionada, d.nivelPH, d.bilis) } };
+    }),
+    generarSemillaB9: () => set(() => {
+      const macros: DigestionStateB9['macronutriente'][] = ['almidon', 'proteina', 'lipido'];
+      return { digestion: { ...digestionInicial(), macronutriente: macros[Math.floor(Math.random() * macros.length)] } };
+    }),
+    validarB9: () => evaluadores[9]().ok,
+    resetB9: () => set((state) => ({ digestion: { ...digestionInicial(), macronutriente: state.digestion.macronutriente } })),
 
-    const newO2 = Math.min(state.fotosintesis.targetO2, state.fotosintesis.oxigenoAcumulado + rate);
-    
-    return { 
-      fotosintesis: { 
-        ...state.fotosintesis, 
-        oxigenoAcumulado: newO2, 
-        tiempo: state.fotosintesis.tiempo + dt,
-        status: newO2 >= state.fotosintesis.targetO2 ? 'success' : 'idle' 
-      } 
-    };
-  }),
-  generarSemillaB4: () => set((state) => {
-    const escenarios = ['optimizacion_espectro', 'ley_distancia', 'supervivencia_marte'];
-    const esc = escenarios[Math.floor(Math.random() * escenarios.length)];
-    const target = esc === 'supervivencia_marte' ? 100 : 50;
-    
-    return { 
-      fotosintesis: { 
-        ...state.fotosintesis, 
-        escenario: esc as any,
-        oxigenoAcumulado: 0, 
-        targetO2: target, 
-        distancia: 5,
-        color: 'blanco',
-        simulando: false,
-        tiempo: 0,
-        status: 'idle' 
-      } 
-    };
-  }),
-  resetB4: () => set((state) => ({ 
-    fotosintesis: { 
-      ...state.fotosintesis, 
-      oxigenoAcumulado: 0, 
-      simulando: false, 
-      tiempo: 0, 
-      status: 'idle' 
-    } 
-  })),
-  setGenetica: (data: Partial<SimuladorState['genetica']>) => set((state) => ({ genetica: { ...state.genetica, ...data } })),
-  generarF1: () => set((state) => {
-    const { padre1, padre2, tamanioMuestra } = state.genetica;
-    
-    // Función para obtener gametos (Mendel 2nd Law)
-    const getGametos = (genotipo: string) => {
-      const g1 = genotipo.slice(0, 2); // Aa
-      const g2 = genotipo.slice(2, 4); // Bb
-      const res = [];
-      for (const a of g1) {
-        for (const b of g2) {
-          res.push(a + b);
-        }
-      }
-      return res;
-    };
-
-    const g1 = getGametos(padre1);
-    const g2 = getGametos(padre2);
-    const f1 = [];
-
-    for (let i = 0; i < tamanioMuestra; i++) {
-      const gam1 = g1[Math.floor(Math.random() * g1.length)];
-      const gam2 = g2[Math.floor(Math.random() * g2.length)];
-      
-      // Combinar alelos (Ej: AB + ab -> AaBb)
-      const aleloA = [gam1[0], gam2[0]].sort().join('');
-      const aleloB = [gam1[1], gam2[1]].sort().join('');
-      f1.push(aleloA + aleloB);
-    }
-
-    return { genetica: { ...state.genetica, poblacionF1: f1, status: 'success' } };
-  }),
-  resetB5: () => set((state) => ({ genetica: { ...state.genetica, poblacionF1: [], status: 'idle' } })),
-  setEvolucion: (data: Partial<SimuladorState['evolucion']>) => set((state) => ({ evolucion: { ...state.evolucion, ...data } })),
-  tickEvolucion: (dt: number) => set((state) => {
-    if (!state.evolucion.isRunning) return state;
-    const newTime = Math.max(0, state.evolucion.tiempo - dt);
-    return { evolucion: { ...state.evolucion, tiempo: newTime, isRunning: newTime > 0 } };
-  }),
-  cazarPolilla: (id: number) => set((state) => {
-    const bug = state.evolucion.bugs.find((b: any) => b.id === id);
-    if (!bug || bug.cazada) return state;
-    const updatedBugs = state.evolucion.bugs.map((b: any) =>
-      b.id === id ? { ...b, cazada: true } : b
-    );
-    return {
-      evolucion: {
-        ...state.evolucion,
-        bugs: updatedBugs,
-        cazadasClaras: bug.tipo === 'clara'
-          ? state.evolucion.cazadasClaras + 1
-          : state.evolucion.cazadasClaras,
-        cazadasOscuras: bug.tipo === 'oscura'
-          ? state.evolucion.cazadasOscuras + 1
-          : state.evolucion.cazadasOscuras,
-      }
-    };
-  }),
-  finalizarGeneracion: () => set((state) => ({ evolucion: { ...state.evolucion, generacion: state.evolucion.generacion + 1 } })),
-  generarSemillaB6: () => set((state) => {
-    const ambiente = Math.random() > 0.5 ? 'industrial' : 'limpio';
-    const bugs = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      tipo: i < 10 ? 'clara' : 'oscura',
-      x: 5 + Math.random() * 90,
-      y: 5 + Math.random() * 80,
-      angle: Math.random() * Math.PI * 2,
-      cazada: false,
-    }));
-    return { evolucion: { ...state.evolucion, ambiente: ambiente as any, bugs, generacion: 1, clara: 50, oscura: 50, cazadasClaras: 0, cazadasOscuras: 0, tiempo: 30, isRunning: false, status: 'idle', historial: [] } };
-  }),
-  resetB6: () => set((state) => ({ evolucion: { ...state.evolucion, generacion: 1, clara: 50, oscura: 50, cazadasClaras: 0, cazadasOscuras: 0, tiempo: 30, bugs: [], isRunning: false, status: 'idle', historial: [] } })),
-  setB7State: (data: Partial<SimuladorState['sistemaNervioso']>) => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, ...data } })),
-  dispararReflejo: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: 'success' } })),
-  generarSemillaB7: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, integridadMielina: 60 + Math.random() * 40 } })),
-  resetB7: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: 'idle', estado: 'reposo' } })),
-  setCardio: (data: Partial<SimuladorState['cardio']>) => set((state) => ({ cardio: { ...state.cardio, ...data } })),
-  generarSemillaB8: () => set((state) => ({ cardio: { ...state.cardio, targetBPM: 120 + Math.random() * 40 } })),
-  resetB8: () => set((state) => ({ cardio: { ...state.cardio, ritmoBPM: 70, status: 'idle' } })),
-  setDigestion: (data: Partial<SimuladorState['digestion']>) => set((state) => ({ digestion: { ...state.digestion, ...data } })),
-  generarSemillaB9: () => set((state) => ({ digestion: { ...state.digestion, macronutriente: 'proteina' } })),
-  resetB9: () => set((state) => ({ digestion: { ...state.digestion, status: 'idle' } })),
-  setEcosistema: (data: Partial<SimuladorState['ecosistema']>) => set((state) => ({ ecosistema: { ...state.ecosistema, ...data } })),
-  tickEcosistema: (dt: number) => set((state) => {
-    if (!state.ecosistema.simulando) return state;
-    const { poblacionPresas: x, poblacionDepredadores: y, parametros } = state.ecosistema;
-    const { alpha, beta, gamma, delta } = parametros;
-    
-    // Ecuaciones de Lotka-Volterra
-    // dx/dt = alpha*x - beta*x*y
-    // dy/dt = delta*x*y - gamma*y
-    const dx = (alpha * x - beta * x * y) * dt;
-    const dy = (delta * x * y - gamma * y) * dt;
-
-    const newX = Math.max(0, x + dx);
-    const newY = Math.max(0, y + dy);
-
-    const newHistory = [...state.ecosistema.historial, { t: state.ecosistema.tiempoVirtual, presas: newX, depredadores: newY }].slice(-100);
-
-    // Extinción: si las presas colapsan, el ecosistema entra en colapso total
-    if (newX < 1) {
+    // ── B10 Poblaciones ───────────────────────────────────────────────────────
+    ecosistema: ecosistemaInicial(),
+    setEcosistema: (data) => set((state) => ({ ecosistema: { ...state.ecosistema, ...data } })),
+    registrarCorridaB10: (corrida, presas, depredadores, historial) => set((state) => ({
+      ecosistema: {
+        ...state.ecosistema, corrida, tiempoVirtual: corrida.t, poblacionPresas: presas, poblacionDepredadores: depredadores,
+        historial: historial.slice(-300), simulando: false, status: corrida.extincion ? 'extinction' : 'idle',
+      },
+    })),
+    generarSemillaB10: () => set(() => {
+      const x0 = azarEntero(80, 120), y0 = azarEntero(15, 25);
       return {
         ecosistema: {
-          ...state.ecosistema,
-          poblacionPresas: 0,
-          poblacionDepredadores: 0,
-          simulando: false,
-          status: 'extinction',
-          historial: newHistory,
-          tiempoVirtual: state.ecosistema.tiempoVirtual + dt,
-        }
+          ...ecosistemaInicial(),
+          poblacionPresas: x0, poblacionDepredadores: y0, presasIniciales: x0, depredadoresIniciales: y0,
+          parametros: {
+            alpha: redondear(azar(1.0, 1.2), 0.01), beta: redondear(azar(0.08, 0.12), 0.001),
+            gamma: redondear(azar(0.3, 0.5), 0.01), delta: redondear(azar(0.04, 0.06), 0.001),
+          },
+        },
       };
-    }
-
-    return {
+    }),
+    validarB10: () => evaluadores[10]().ok,
+    resetB10: () => set((state) => ({
       ecosistema: {
-        ...state.ecosistema,
-        poblacionPresas: newX,
-        poblacionDepredadores: newY,
-        tiempoVirtual: state.ecosistema.tiempoVirtual + dt,
-        historial: newHistory
-      }
-    };
-  }),
-  generarSemillaB10: () => set((state) => ({ 
-    ecosistema: { 
-      ...state.ecosistema, 
-      poblacionPresas: 80 + Math.random() * 40, 
-      poblacionDepredadores: 15 + Math.random() * 10,
-      parametros: {
-        alpha: 1.0 + Math.random() * 0.2,
-        beta: 0.08 + Math.random() * 0.04,
-        gamma: 0.3 + Math.random() * 0.2,
-        delta: 0.04 + Math.random() * 0.02
+        ...state.ecosistema, poblacionPresas: state.ecosistema.presasIniciales, poblacionDepredadores: state.ecosistema.depredadoresIniciales,
+        tiempoVirtual: 0, historial: [], simulando: false, corrida: null, status: 'idle',
       },
-      historial: [],
-      tiempoVirtual: 0
-    } 
-  })),
-  resetB10: () => set((state) => ({ ecosistema: { ...state.ecosistema, simulando: false, status: 'idle' } })),
-  
-  validarB3: () => {
-    const isOk = BiologiaDomain.validarB3(get().sintesis);
-    set((state) => ({ sintesis: { ...state.sintesis, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { fase, adnPlantilla, errores } = get().sintesis;
-      get().registrarHallazgo('bio_sintesis_proteica', { fase, adnPlantilla, errores });
-    }
-    return isOk;
-  },
-  validarB4: () => {
-    const isOk = BiologiaDomain.validarB4(get().fotosintesis);
-    set((state) => ({ fotosintesis: { ...state.fotosintesis, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { escenario, distancia, color, oxigenoAcumulado, targetO2 } = get().fotosintesis;
-      get().registrarHallazgo('bio_fotosintesis', { escenario, distancia, color, oxigenoAcumulado, targetO2 });
-    }
-    return isOk;
-  },
-  validarB5: () => {
-    const isOk = BiologiaDomain.validarB5(get().genetica);
-    set((state) => ({ genetica: { ...state.genetica, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { padre1, padre2, tamanioMuestra } = get().genetica;
-      get().registrarHallazgo('bio_genetica', { padre1, padre2, tamanioMuestra });
-    }
-    return isOk;
-  },
-  validarB6: () => {
-    const isOk = BiologiaDomain.validarB6(get().evolucion);
-    set((state) => ({ evolucion: { ...state.evolucion, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { ambiente, generacion, clara, oscura } = get().evolucion;
-      get().registrarHallazgo('bio_evolucion', { ambiente, generacion, clara, oscura });
-    }
-    return isOk;
-  },
-  validarB7: () => {
-    const isOk = BiologiaDomain.validarB7(get().sistemaNervioso);
-    set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { fuerzaGolpe, integridadMielina, velocidadConduccion, latenciaMedida } = get().sistemaNervioso;
-      get().registrarHallazgo('bio_sistema_nervioso', { fuerzaGolpe, integridadMielina, velocidadConduccion, latenciaMedida });
-    }
-    return isOk;
-  },
-  validarB8: () => {
-    const isOk = BiologiaDomain.validarB8(get().cardio);
-    set((state) => ({ cardio: { ...state.cardio, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { ritmoBPM, estadoFisiologico, targetBPM } = get().cardio;
-      get().registrarHallazgo('bio_cardiovascular', { ritmoBPM, estadoFisiologico, targetBPM });
-    }
-    return isOk;
-  },
-  validarB9: () => {
-    const isOk = BiologiaDomain.validarB9(get().digestion);
-    set((state) => ({ digestion: { ...state.digestion, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { macronutriente, enzimaSeleccionada, nivelPH, monomerosAbsorbidos } = get().digestion;
-      get().registrarHallazgo('bio_digestion', { macronutriente, enzimaSeleccionada, nivelPH, monomerosAbsorbidos });
-    }
-    return isOk;
-  },
-  validarB10: () => {
-    const isOk = BiologiaDomain.validarB10(get().ecosistema);
-    set((state) => ({ ecosistema: { ...state.ecosistema, status: isOk ? 'success' : 'error' } }));
-    if (isOk) {
-      const { poblacionPresas, poblacionDepredadores, tiempoVirtual } = get().ecosistema;
-      get().registrarHallazgo('bio_ecosistema', { poblacionPresas, poblacionDepredadores, tiempoVirtual });
-    }
-    return isOk;
-  },
-  
-  tomarCaptura: (url: string) => set((state) => ({ 
-    microscopio: { 
-      ...state.microscopio, 
-      capturas: [url, ...state.microscopio.capturas].slice(0, 6)
-    }
-  })),
-  // Cada vez que se abre un lab de biología: intento nuevo (reset + semilla).
-  entrarBiologia: (n: number) => {
-    const g = get();
-    const resets = [g.resetB1, g.resetB2, g.resetB3, g.resetB4, g.resetB5, g.resetB6, g.resetB7, g.resetB8, g.resetB9, g.resetB10];
-    resets[n - 1]?.();
-    const semillas: Record<number, () => void> = {
-      1: () => g.generarSemillaB1(), 2: () => g.generarSemillaB2(), 3: () => g.generarSemillaB3(),
-      4: () => g.generarSemillaB4(), 6: () => g.generarSemillaB6(), 7: () => g.generarSemillaB7(),
-      8: () => g.generarSemillaB8(), 9: () => g.generarSemillaB9(), 10: () => g.generarSemillaB10(),
-    };
-    semillas[n]?.();
-  },
-  // Único juez del botón «Validar práctica» para biología.
-  validarLabBiologia: (n: number) => {
-    const g = get();
-    switch (n) {
-      case 1: {
-        const ok = g.validarB1();
-        return { ok, mensaje: ok ? undefined : 'Muestra fuera de foco o iluminación insuficiente. Revisa la magnificación requerida.' };
-      }
-      case 2: {
-        const ok = g.validarB2();
-        return { ok, mensaje: ok ? undefined : 'El sistema aún no está en equilibrio osmótico (C_int ≠ C_ext).' };
-      }
-      case 3: return { ok: g.validarB3() };
-      case 4: return { ok: g.validarB4() };
-      case 5: return { ok: g.validarB5() };
-      case 6: return { ok: g.validarB6() };
-      case 7: return { ok: g.validarB7() };
-      case 8: return { ok: g.validarB8() };
-      case 9: return { ok: g.validarB9() };
-      case 10: return { ok: g.validarB10() };
-    }
-    return { ok: false };
-  },
-  resetBiologia: () => {
-    get().resetB1();
-    get().resetB2();
-    get().resetB3();
-    get().resetB4();
-    get().resetB5();
-    get().resetB6();
-    get().resetB7();
-    get().resetB8();
-    get().resetB9();
-    get().resetB10();
-  },
-});
+    })),
+
+    // Cada vez que se abre un lab de biología: intento nuevo (reset + semilla).
+    entrarBiologia: (n: number) => {
+      const g = get();
+      const resets = [g.resetB1, g.resetB2, g.resetB3, g.resetB4, g.resetB5, g.resetB6, g.resetB7, g.resetB8, g.resetB9, g.resetB10];
+      resets[n - 1]?.();
+      const semillas = [g.generarSemillaB1, g.generarSemillaB2, g.generarSemillaB3, g.generarSemillaB4, g.generarSemillaB5,
+        g.generarSemillaB6, g.generarSemillaB7, g.generarSemillaB8, g.generarSemillaB9, g.generarSemillaB10];
+      semillas[n - 1]?.();
+    },
+    // Único juez del botón «Validar práctica» para biología (mismos evaluadores que usa cada panel).
+    validarLabBiologia: (n: number) => evaluadores[n]?.() ?? { ok: false, mensaje: `biologia-${n} no tiene validador.` },
+    resetBiologia: () => {
+      const g = get();
+      [g.resetB1, g.resetB2, g.resetB3, g.resetB4, g.resetB5, g.resetB6, g.resetB7, g.resetB8, g.resetB9, g.resetB10].forEach((r) => r());
+    },
+  };
+};

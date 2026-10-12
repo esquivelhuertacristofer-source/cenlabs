@@ -14,10 +14,10 @@ const quiz: Question[] = [
       explicacion: "El oxígeno proviene de la ruptura de la molécula de agua durante la fase luminosa."
     },
     {
-      pregunta: "¿Qué color de luz es MENOS eficiente para la fotosíntesis?",
-      opciones: ["Azul", "Rojo", "Verde", "Violeta"],
-      respuestaCorrecta: 2,
-      explicacion: "Las plantas se ven verdes porque reflejan esa luz en lugar de absorberla."
+      pregunta: "Con lámparas que emiten el MISMO flujo de fotones, ¿cuál produce más O₂ por fotón?",
+      opciones: ["Azul", "Rojo", "Verde", "Todas igual"],
+      respuestaCorrecta: 1,
+      explicacion: "El espectro de acción (McCree, 1972) tiene su máximo en el rojo-naranja. El verde rinde menos pero sí impulsa la fotosíntesis: la hoja refleja solo una parte."
     },
     {
       pregunta: "¿Cuál es la fuente de energía inicial para este proceso?",
@@ -45,9 +45,9 @@ const quiz: Question[] = [
     },
     {
       pregunta: "¿Qué sucede con la fotosíntesis durante la noche?",
-      opciones: ["Se detiene por completo", "Solo ocurre la fase oscura (Fijación de Carbono)", "Se vuelve más rápida", "La planta exhala CO2 solamente"],
-      respuestaCorrecta: 1,
-      explicacion: "La fase oscura no requiere luz, pero usa el ATP y NADPH acumulados durante el día."
+      opciones: ["Se detiene: sin luz no hay ATP/NADPH y las enzimas del ciclo de Calvin se inactivan", "Sigue toda la noche solo la fase oscura", "Se vuelve más rápida", "Se invierte y la planta produce luz"],
+      respuestaCorrecta: 0,
+      explicacion: "El ciclo de Calvin depende del ATP y NADPH de la fase luminosa y varias de sus enzimas se activan con la luz; de noche la planta solo respira."
     },
     {
       pregunta: "La molécula orgánica principal resultante de la fotosíntesis es:",

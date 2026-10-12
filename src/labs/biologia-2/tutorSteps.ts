@@ -3,19 +3,19 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Ósmosis Celular',
-      mensaje: 'Observaremos cómo las células responden a diferentes concentraciones de sal. ¡Cuidado con la citólisis!',
+      mensaje: 'La osmolaridad del citoplasma de esta célula es desconocida. La deducirás observando cómo cambia su volumen. ¡Cuidado con la hemólisis!',
     },
     {
       id: 2, tipo: 'accion', pista: 'Medio Hipotónico',
-      mensaje: 'Baja la concentración externa. El agua entrará a la célula por ósmosis. ¿Ves cómo se hincha?',
+      mensaje: 'Prepara un medio de prueba y espera a que el volumen deje de cambiar. Si la célula se hincha, el medio es hipotónico; si se arruga, hipertónico. Anota la lectura.',
     },
     {
-      id: 3, tipo: 'accion', pista: 'Medio Hipertónico',
-      mensaje: 'Sube la salinidad externa. El agua saldrá de la célula (plasmólisis). Observa la contracción del citoplasma.',
+      id: 3, tipo: 'accion', pista: 'Boyle–van ’t Hoff',
+      mensaje: 'Los solutos del citoplasma no salen: Osm_int · V = constante. Con tu lectura, Osm_int = Osm_ext · (V_eq / V0). Recuerda que el NaCl aporta 2 partículas y la glucosa 1.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Equilibrio Osmótico',
-      mensaje: 'Ajusta las concentraciones hasta que el flujo neto de agua sea cero (isotónico) y valida.',
+      mensaje: 'Prepara un medio con esa osmolaridad: la célula volverá a su volumen inicial y dejará de cambiar. Entonces valida.',
       accion: 'Validar Tonicidad',
     }
   ];

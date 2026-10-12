@@ -7,19 +7,19 @@ const briefing: BriefingConfig = {
     acento: '#15803d',
     duracion: 40,
     videoUrl: 'https://youtu.be/vxCiT_f0h-E',
-    bienvenida: `¡Bienvenido al Observatorio de Ecosistemas! Soy el Dr. Quantum.\n\nLa vida es un equilibrio frágil entre presas y depredadores. Veremos cómo el caos se convierte en ciclos eternos.\n\nTu misión: Mantener el equilibrio del bosque por 50 años virtuales.`,
+    bienvenida: `¡Bienvenido al Observatorio de Ecosistemas! Soy el Dr. Quantum.\n\nLa vida es un equilibrio frágil entre presas y depredadores. Veremos cómo sus poblaciones oscilan en ciclos.\n\nTu misión: ajustar los parámetros para que ninguna especie se extinga en 50 años virtuales.`,
     conceptos: [
-      { icono: '🐰', nombre: 'Capacidad de Carga', descripcion: 'Población máxima que el ambiente soporta.' },
+      { icono: '⚖️', nombre: 'Punto de equilibrio', descripcion: 'x* = γ/δ presas y y* = α/β depredadores.' },
       { icono: '🐺', nombre: 'Depredación', descripcion: 'Control natural de la población de presas.' },
       { icono: '🔄', nombre: 'Ciclos de Población', descripcion: 'Oscilaciones naturales de crecimiento y caída.' },
       { icono: '📉', nombre: 'Extinción', descripcion: 'Peligro cuando la población llega a cero.' }
     ],
     mision: [
-      'Inicia la simulación con 100 conejos y 10 lobos.',
-      'Ajusta la tasa de reproducción de las presas.',
-      'Observa el aumento de depredadores ante el festín.',
-      'Evita que los lobos se coman a todos los conejos.',
-      'Estabiliza las ondas de población.'
+      'Corre la simulación con los parámetros iniciales.',
+      'Observa qué especie colapsa y en qué año.',
+      'Calcula el punto de equilibrio γ/δ y α/β.',
+      'Ajusta los parámetros y vuelve a correr desde el inicio.',
+      'Sostén ambas especies 50 años y valida.'
     ],
     aplicaciones: [
       { area: 'Conservación', ejemplo: 'Reintroducción de lobos en parques nacionales.' },

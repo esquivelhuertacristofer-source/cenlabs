@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#ec4899',
     duracion: 30,
     videoUrl: 'https://youtu.be/199ZMPmYITk',
-    bienvenida: `¡Bienvenido al Centro de Pruebas de Materiales! Soy el Dr. Quantum.\n\nAnalizaremos la memoria de los metales. Veremos cuánto puede estirarse un resorte antes de perder su forma original.\n\nTu misión: Determinar la constante elástica (k) de un resorte desconocido.`,
+    bienvenida: `¡Bienvenido al Centro de Pruebas de Materiales! Soy el Dr. Quantum.\n\nAnalizaremos la rigidez de un resorte con dos métodos: estirándolo con pesas y haciéndolo oscilar.\n\nTu misión: Determinar la constante elástica (k) de un resorte desconocido.`,
     conceptos: [
       { icono: '➰', nombre: 'Constante k', descripcion: 'Medida de la rigidez intrínseca del resorte.' },
       { icono: '📏', nombre: 'Elongación (x)', descripcion: 'Cambio de longitud respecto al equilibrio.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '⚠️', nombre: 'Límite Elástico', descripcion: 'Punto donde el material se deforma permanentemente.' }
     ],
     mision: [
-      'Mide la longitud inicial del resorte.',
+      'Lee la regla con el resorte en equilibrio.',
       'Cuelga masas de peso creciente.',
       'Registra el estiramiento para cada masa.',
-      'Grafica Fuerza vs Distancia.',
-      'Calcula la pendiente (k) de la recta.'
+      'Hazlo oscilar y cronometra varias oscilaciones.',
+      'Calcula k con ambos métodos y compáralos.'
     ],
     aplicaciones: [
       { area: 'Automotriz', ejemplo: 'Sistemas de suspensión y amortiguadores.' },

@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import {
   ShieldCheck, Trash2, BookOpen, Volume2, Bot,
   Compass, Lightbulb, Droplets, Diamond, Wind, Sparkles
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { ANGULO_MIN_M7, ANGULO_MAX_M7 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 
 const MATERIALES: { label: string; n: number; icon: React.ReactNode; color: string }[] = [
@@ -18,7 +20,10 @@ const MATERIALES: { label: string; n: number; icon: React.ReactNode; color: stri
 ];
 
 export default function BitacoraSnell({ onValidate }: { onValidate?: () => void }) {
-  const { optica7, setOpticaM7, resetM7, generarSemillaM7 } = useSimuladorStore();
+  const { optica7, setOpticaM7, setAnguloM7, resetM7, generarSemillaM7 } = useSimuladorStore(
+    useShallow((s) => ({ optica7: s.optica7, setOpticaM7: s.setOpticaM7, setAnguloM7: s.setAnguloM7, resetM7: s.resetM7, generarSemillaM7: s.generarSemillaM7 })),
+  );
+  const esMisterio = optica7.n2 === 'misterio';
   const { n1, n2, n2Misterio, anguloIncidencia: theta1, status } = optica7;
 
   const [conclusionText, setConclusionText] = useState('');
@@ -33,7 +38,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
   };
 
   const handleAngleChange = (val: number) => {
-    setOpticaM7(n1, n2, val);
+    setAnguloM7(val);
     audio.playPop();
   };
 
@@ -59,7 +64,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* ═══ CONTROL DE ÁNGULO ═══ */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2rem] border border-cyan-500/20 relative overflow-hidden">
         <div className="relative z-10">
@@ -70,25 +75,25 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             </div>
             <span className="text-2xl font-black text-white tabular-nums font-mono">{theta1}°</span>
           </div>
-          
+
           {/* Slider principal */}
           <input
             type="range"
-            min={0}
-            max={89}
+            min={ANGULO_MIN_M7}
+            max={ANGULO_MAX_M7}
             step={1}
             value={theta1}
             onChange={e => handleAngleChange(Number(e.target.value))}
             className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-cyan-400
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 
-              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 
+              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6
+              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400
               [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(34,211,238,0.6)] [&::-webkit-slider-thumb]:cursor-pointer
               [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
           />
-          
+
           {/* Marcas rápidas */}
           <div className="flex justify-between mt-3">
-            {[0, 15, 30, 45, 60, 75, 89].map(a => (
+            {[10, 20, 30, 45, 60, 70, 80].map(a => (
               <button
                 key={a}
                 onClick={() => handleAngleChange(a)}
@@ -130,7 +135,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
               <span className="text-[10px] font-mono font-bold text-white/40">n = {mat.n.toFixed(3)}</span>
             </button>
           ))}
-          
+
           {/* Botón Misterio */}
           <button
             onClick={handleMisterio}
@@ -152,7 +157,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
       {/* ═══ TELEMETRÍA EN VIVO ═══ */}
       <div className="bg-white/5 rounded-[2rem] border border-white/10 p-5 space-y-3">
         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Telemetría Óptica</span>
-        
+
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-black/30 rounded-xl">
             <span className="text-[8px] font-black text-cyan-400/60 uppercase block">θ₁ Incidencia</span>
@@ -166,7 +171,8 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
           </div>
           <div className="p-3 bg-black/30 rounded-xl">
             <span className="text-[8px] font-black text-white/30 uppercase block">n₁ / n₂</span>
-            <span className="text-sm font-black text-white font-mono">{(n1 / n2Val).toFixed(4)}</span>
+            {/* Con el medio misterioso, n₁/n₂ ES la respuesta: no se muestra. */}
+            <span className="text-sm font-black text-white font-mono">{esMisterio ? '?' : (n1 / n2Val).toFixed(4)}</span>
           </div>
           <div className="p-3 bg-black/30 rounded-xl">
             <span className="text-[8px] font-black text-white/30 uppercase block">θ Crítico</span>
@@ -202,7 +208,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             {[0, 30, 60, 90].map(y => (
               <line key={`gy${y}`} x1={20} y1={110 - y * 1.1} x2={190} y2={110 - y * 1.1} stroke="#1e293b" strokeWidth={0.5} />
             ))}
-            
+
             {/* Axis labels */}
             <text x={100} y={119} textAnchor="middle" fill="#64748b" fontSize={5} fontWeight={900}>θ₁ (°)</text>
             <text x={8} y={60} textAnchor="middle" fill="#64748b" fontSize={5} fontWeight={900} transform="rotate(-90, 8, 60)">θ₂ (°)</text>
@@ -241,12 +247,12 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
 
             {/* Current position dot */}
             {!isTIR && (
-              <circle 
-                cx={20 + theta1 * 1.88} 
-                cy={110 - theta2 * 1.1} 
-                r={3} 
-                fill="#22d3ee" 
-                stroke="white" 
+              <circle
+                cx={20 + theta1 * 1.88}
+                cy={110 - theta2 * 1.1}
+                r={3}
+                fill="#22d3ee"
+                stroke="white"
                 strokeWidth={1}
               >
                 <animate attributeName="r" values="3;4;3" dur="1s" repeatCount="indefinite" />
@@ -270,7 +276,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             {wordCount}/30
           </span>
         </div>
-        <textarea 
+        <textarea
           value={conclusionText} onChange={e => setConclusionText(e.target.value)}
           placeholder="¿Qué sucede con el ángulo refractado cuando aumentas θ₁? ¿Cómo influye el índice n₂ en la desviación?"
           rows={3}
@@ -280,13 +286,13 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
 
       {/* ═══ ACCIONES ═══ */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-12 h-12 bg-slate-100 hover:bg-cyan-50 text-slate-400 hover:text-cyan-500 rounded-xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={18} />
         </button>
-        <button 
+        <button
           onClick={onValidate}
           className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shadow-lg ${
             wordCount >= 30 ? 'bg-[#023047] text-white hover:bg-[#034067]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'

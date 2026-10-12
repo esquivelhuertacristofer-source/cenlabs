@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
+import React, { useRef, useMemo, useEffect, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
@@ -18,12 +18,19 @@ import * as THREE from 'three';
    experimenta un torque τ = N·B·I·A·sinθ (fuerza de Laplace F = I·L×B sobre
    cada lado de la bobina). El conmutador invierte la corriente cada media vuelta
    para mantener el sentido de giro. La velocidad angular deriva de las RPM
-   REALES del store (signo = sentido, magnitud = |rpm|).
-   Props idénticos a los datos del store: { voltaje, campoB, espiras, rpm, encendido }.
+   que calcula el dominio (signo = sentido, magnitud = |rpm|), ralentizadas ×0,06
+   para que el giro se pueda seguir con la vista (efecto estroboscópico).
+   Geometría: los imanes flanquean el rotor a ±X y el eje del rotor va a lo largo
+   de Z, así el campo es PERPENDICULAR al eje y produce par (antes el eje era X y
+   el campo le era paralelo: par nulo).
+   Props: { imanIzq, imanDer, espiras, rpm, corriente, encendido }.
 ──────────────────────────────────────────────────────────────────────────── */
 
-const COPPER = new THREE.Color('#e8873a');       // cobre incandescente
-const COPPER_HOT = new THREE.Color('#ffd28a');   // cobre sobrecalentado
+const COPPER = new THREE.Color('#e8873a');       // cobre
+const COPPER_HOT = new THREE.Color('#ffd28a');   // cobre sobrecalentado (rotor bloqueado)
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
+/** El rotor se dibuja con su eje en X y se gira 90° para que quede a lo largo de Z. */
+const ROT_EJE_Z: [number, number, number] = [0, Math.PI / 2, 0];
 const N_COLOR = '#ef4444';                        // polo Norte (rojo)
 const S_COLOR = '#3b82f6';                        // polo Sur (azul)
 
@@ -53,10 +60,16 @@ function FieldLines({ B, encendido }: { B: number; encendido: boolean }) {
     return arr;
   }, [B]);
 
-  const geoms = useMemo(
-    () => lines.map((pts) => new THREE.BufferGeometry().setFromPoints(pts)),
-    [lines],
+  const fieldColor = B > 0 ? '#93c5fd' : '#fca5a5';
+  // Objetos Line creados una sola vez por configuración (no en cada render) y liberados al cambiar.
+  const objetos = useMemo(
+    () => lines.map((pts) => new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: fieldColor, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
+    )),
+    [lines, fieldColor],
   );
+  useEffect(() => () => objetos.forEach((o) => { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }), [objetos]);
 
   const groupRef = useRef<THREE.Group>(null);
   useFrame((state) => {
@@ -68,25 +81,9 @@ function FieldLines({ B, encendido }: { B: number; encendido: boolean }) {
     });
   });
 
-  const fieldColor = B > 0 ? '#93c5fd' : '#fca5a5';
-
   return (
     <group ref={groupRef}>
-      {geoms.map((g, i) => (
-        <primitive
-          key={i}
-          object={new THREE.Line(
-            g,
-            new THREE.LineBasicMaterial({
-              color: fieldColor,
-              transparent: true,
-              opacity: 0.4,
-              blending: THREE.AdditiveBlending,
-              depthWrite: false,
-            }),
-          )}
-        />
-      ))}
+      {objetos.map((o, i) => <primitive key={i} object={o} />)}
     </group>
   );
 }
@@ -337,18 +334,18 @@ function TorqueVector({ rpm, B }: { rpm: number; B: number }) {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ voltaje, campoB, espiras, rpm, encendido }: {
-  voltaje: number; campoB: number; espiras: number; rpm: number; encendido: boolean;
+function Scene({ imanIzq, imanDer, espiras, rpm, corriente, encendido }: {
+  imanIzq: 'N' | 'S'; imanDer: 'N' | 'S'; espiras: number; rpm: number; corriente: number; encendido: boolean;
 }) {
   const spinning = encendido && Math.abs(rpm) > 0;
-  // velocidad angular en rad/s (visualmente escalada desde las RPM reales)
+  // velocidad angular en rad/s (visualmente escalada desde las RPM reales).
+  // Signo: rpm > 0 = horario visto desde el conmutador (que queda hacia +Z, la cámara).
+  // El grupo ROT_EJE_Z lleva el X local a −Z del mundo: un giro + sobre X local se ve horario desde +Z.
   const angularVel = spinning ? (rpm / 60) * Math.PI * 2 * 0.06 : 0;
-  const current = encendido ? THREE.MathUtils.clamp(voltaje / 24, 0, 1) : 0;
-  const isHot = encendido && campoB === 0 && voltaje > 0; // motor bloqueado → sobrecalienta
-
-  // polos: campoB +1 → N(izq)/S(der); −1 → S(izq)/N(der); 0 → mismos polos (N/N)
-  const leftPole: 'N' | 'S' = campoB >= 0 ? 'N' : 'S';
-  const rightPole: 'N' | 'S' = campoB > 0 ? 'S' : 'N';
+  // corriente real del dominio (A) → intensidad visual 0..1 (≈ 4 A a fondo de escala)
+  const current = encendido ? THREE.MathUtils.clamp(corriente / 4, 0, 1) : 0;
+  const isHot = encendido && !spinning && corriente > 6; // rotor bloqueado con mucha corriente → se calienta
+  const campoB = imanIzq === imanDer ? 0 : (imanIzq === 'N' ? 1 : -1);
 
   return (
     <>
@@ -360,15 +357,16 @@ function Scene({ voltaje, campoB, espiras, rpm, encendido }: {
       <hemisphereLight intensity={0.35} groundColor="#020617" />
       <directionalLight position={[6, 10, 8]} intensity={0.8} />
 
-      <MagnetPole x={-MAG_X} pole={leftPole} />
-      <MagnetPole x={MAG_X} pole={rightPole} />
+      <MagnetPole x={-MAG_X} pole={imanIzq} />
+      <MagnetPole x={MAG_X} pole={imanDer} />
 
       <FieldLines B={campoB} encendido={encendido} />
 
-      <Coil angularVel={angularVel} espiras={espiras} hot={isHot} current={current} />
-      <Commutator angularVel={angularVel} spinning={spinning} />
-
-      {spinning && <TorqueVector rpm={rpm} B={campoB} />}
+      <group rotation={ROT_EJE_Z}>
+        <Coil angularVel={angularVel} espiras={espiras} hot={isHot} current={current} />
+        <Commutator angularVel={angularVel} spinning={spinning} />
+        {spinning && <TorqueVector rpm={rpm} B={campoB} />}
+      </group>
 
       {/* base / bancada del motor */}
       <mesh position={[0, -2.1, 0]} receiveShadow>
@@ -392,31 +390,26 @@ function Scene({ voltaje, campoB, espiras, rpm, encendido }: {
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.15} mipmapBlur intensity={isHot ? 2.2 : 1.5} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
   );
 }
 
-export default function MotorElectrico3DScene({
-  voltaje,
-  campoB,
-  espiras,
-  rpm,
-  encendido,
-}: {
-  voltaje: number;
-  campoB: number;
+export default function MotorElectrico3DScene(props: {
+  imanIzq: 'N' | 'S';
+  imanDer: 'N' | 'S';
   espiras: number;
   rpm: number;
+  corriente: number;
   encendido: boolean;
 }) {
   return (
     <div className="w-full h-full">
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          <Scene voltaje={voltaje} campoB={campoB} espiras={espiras} rpm={rpm} encendido={encendido} />
+          <Scene {...props} />
         </Suspense>
       </Canvas>
     </div>

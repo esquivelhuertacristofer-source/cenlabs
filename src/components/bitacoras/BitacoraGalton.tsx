@@ -2,29 +2,34 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
-  Tooltip, Cell, LabelList 
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+  Tooltip, Cell, LabelList
 } from 'recharts';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { estadisticaMuestraM10, chiCuadradaM10, leerNumero, MUESTRA_MIN_M10 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 import { Bot, Volume2, ShieldCheck, Trash2, BookOpen, Activity, Zap, BarChart3 } from 'lucide-react';
 
-export default function BitacoraGalton() {
-  const { galton10, lanzarBolitasM10, resetM10, validarM10, audio } = useSimuladorStore();
-  const { probabilidad: p, status, contenedores } = galton10;
-  const bolitasSoltadas = contenedores.reduce((a, b) => a + b, 0);
+export default function BitacoraGalton({ onValidate }: { onValidate?: () => void }) {
+  const { galton10, lanzarBolitasM10, resetM10 } = useSimuladorStore(useShallow((s) => ({
+    galton10: s.galton10, lanzarBolitasM10: s.lanzarBolitasM10, resetM10: s.resetM10,
+  })));
+  const { probabilidad: p, status, contenedores, prediccionMedia, prediccionSigma } = galton10;
+  const muestra = estadisticaMuestraM10(contenedores);
+  const bolitasSoltadas = muestra.N;
+  const chi = chiCuadradaM10(contenedores, p);
 
   const [conclusionText, setConclusionText] = useState('');
-  
+
   // Data para el gráfico
   const chartData = contenedores.map((val, i) => ({
-    name: `C${i+1}`,
+    name: `k=${i}`,
     count: val,
     color: `hsl(${220 + i * 10}, 70%, 50%)`
   }));
 
-  const quantumMsg = `Observa cómo se forma la Campana de Gauss al soltar las esferas. Cada colisión con los clavos es un evento estocástico que suma a la distribución normal. ¡Simula suficientes eventos para certificar la convergencia estadística!`;
 
   const handleReset = () => {
     resetM10();
@@ -33,46 +38,38 @@ export default function BitacoraGalton() {
   };
 
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  const hasEnoughBalls = bolitasSoltadas >= 200;
+  const hasEnoughBalls = bolitasSoltadas >= MUESTRA_MIN_M10;
   const hasEnoughWords = wordCount >= 30;
   const canValidate = hasEnoughBalls && hasEnoughWords;
 
-  const handleValidate = () => {
-    const isOk = validarM10();
-    if (isOk) {
-      audio.playVictory();
-      // No alert, use the status UI below
-    } else {
-      audio.playError();
-    }
-  };
+  const handleValidate = () => onValidate?.();
 
-  // Hallazgos en vivo
-  const checkProb = p !== 0.5;
-  const checkSim = bolitasSoltadas > 0;
-  const checkNormal = bolitasSoltadas > 150;
+  // Hallazgos en vivo (no revelan μ ni σ teóricas)
+  const checkProb = Number.isFinite(leerNumero(prediccionMedia)) && Number.isFinite(leerNumero(prediccionSigma));
+  const checkSim = hasEnoughBalls;
+  const checkNormal = hasEnoughBalls && chi.chi2 <= chi.critico;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-indigo-400/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
            <Bot size={60} className="text-white" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
              <span className="text-[10px] font-black text-indigo-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
           </div>
-          
+
           <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo Estocástico</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre la probabilidad binomial y la formación de distribuciones normales.
+            Cada bolita decide 10 veces (derecha con probabilidad p = {p.toFixed(2)}): el contenedor final k cuenta los desvíos a la derecha. Predice μ y σ con la binomial antes de mirar la muestra.
           </p>
-          
-          <button 
+
+          <button
             onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-indigo-500 to-indigo-700 hover:from-indigo-400 hover:to-indigo-600 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
           >
@@ -83,7 +80,7 @@ export default function BitacoraGalton() {
 
         <div className="flex gap-1 mt-4 justify-center opacity-30">
            {[...Array(12)].map((_, i) => (
-             <motion.div 
+             <motion.div
                key={i}
                animate={{ height: [4, 12, 4] }}
                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
@@ -109,7 +106,7 @@ export default function BitacoraGalton() {
             <ResponsiveContainer width="100%" height="100%">
                <BarChart data={chartData}>
                   <XAxis dataKey="name" hide />
-                  <Tooltip 
+                  <Tooltip
                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
                   />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
@@ -121,7 +118,7 @@ export default function BitacoraGalton() {
             </ResponsiveContainer>
          </div>
 
-         <button 
+         <button
            onClick={() => { lanzarBolitasM10(); audio.playPop(); }}
            className="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
          >
@@ -142,10 +139,10 @@ export default function BitacoraGalton() {
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkProb ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase tracking-widest ${checkProb ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Sesgo Probabilístico (p)
+                     Predicción teórica (p = {p.toFixed(2)})
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {checkProb ? `✓ Probabilidad: ${p.toFixed(2)}` : '... Configurando Probabilidad'}
+                     {checkProb ? `✓ μ = ${prediccionMedia} · σ = ${prediccionSigma}` : '... Escribe μ y σ en el panel'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${checkProb ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
@@ -155,10 +152,10 @@ export default function BitacoraGalton() {
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkSim ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase tracking-widest ${checkSim ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Muestreo Estadístico
+                     Muestra (N ≥ {MUESTRA_MIN_M10})
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {checkSim ? `✓ Eventos: ${bolitasSoltadas}` : '... Iniciando Simulación'}
+                     {checkSim ? `✓ Eventos: ${bolitasSoltadas}` : `... Eventos: ${bolitasSoltadas}`}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${checkSim ? 'bg-emerald-400' : 'bg-slate-600'}`} />
@@ -168,10 +165,10 @@ export default function BitacoraGalton() {
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkNormal ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase tracking-widest ${checkNormal ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Convergencia Normal
+                     Ajuste χ² a la binomial
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {checkNormal ? '✓ Distribución Sincronizada' : '... Esperando Ley de Grandes Números'}
+                     {bolitasSoltadas > 0 ? `${checkNormal ? '✓ ' : ''}χ² = ${chi.chi2.toFixed(1)} (crítico ${chi.critico.toFixed(1)}, gl ${chi.gl})` : '... Sin datos'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${checkNormal ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
@@ -197,8 +194,8 @@ export default function BitacoraGalton() {
               <span className="text-sm font-black text-[#023047] font-mono">{bolitasSoltadas}</span>
            </div>
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Esperanza (E)</span>
-              <span className="text-sm font-black text-indigo-600 font-mono">{(bolitasSoltadas * p).toFixed(1)}</span>
+              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Media muestral x̄ · s</span>
+              <span className="text-sm font-black text-indigo-600 font-mono">{bolitasSoltadas ? `${muestra.media.toFixed(2)} · ${muestra.sigma.toFixed(2)}` : '—'}</span>
            </div>
         </div>
       </div>
@@ -212,9 +209,9 @@ export default function BitacoraGalton() {
              </div>
              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
           </div>
-          <textarea 
+          <textarea
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
-             placeholder="Explica qué es la campana de Gauss y por qué los resultados tienden a agruparse en el centro conforme aumenta el número de esferas..."
+             placeholder="Compara tu μ y σ teóricas con x̄ y s de la muestra. ¿Por qué el histograma de una binomial se parece a una campana de Gauss (De Moivre–Laplace)?"
              rows={4}
              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-indigo-500 italic"
           />
@@ -222,24 +219,24 @@ export default function BitacoraGalton() {
 
       {/* BOTONES DE ACCIÓN FINALES */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-14 h-14 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
-        <button 
+        <button
           onClick={handleValidate}
           disabled={!canValidate || status === 'success'}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${
             status === 'success' ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
-            canValidate ? 'bg-[#023047] text-white shadow-slate-900/20' : 
+            canValidate ? 'bg-[#023047] text-white shadow-slate-900/20' :
             'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
           }`}
         >
           {status === 'success' ? <ShieldCheck size={16} /> : <Zap size={16} />}
-          {status === 'success' ? 'PRÁCTICA COMPLETADA' : 
-           !hasEnoughBalls ? `FALTAN ${200 - bolitasSoltadas} ESFERAS` :
+          {status === 'success' ? 'PRÁCTICA COMPLETADA' :
+           !hasEnoughBalls ? `FALTAN ${MUESTRA_MIN_M10 - bolitasSoltadas} ESFERAS` :
            !hasEnoughWords ? `FALTAN ${30 - wordCount} PALABRAS` :
            'CERTIFICAR ANÁLISIS'}
         </button>
@@ -247,7 +244,7 @@ export default function BitacoraGalton() {
 
       <AnimatePresence>
         {status === 'success' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-[2rem] text-center"

@@ -1,205 +1,129 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Sun, Wind, Thermometer, Droplets, Lightbulb, Play, Square, Info, Zap, Diamond, BarChart3, ChevronRight, RotateCcw, Target, Rocket, FlaskConical, CheckCircle2 } from 'lucide-react';
+import { Sun, Play, Target, RotateCcw, FlaskConical, Thermometer, ShieldCheck } from 'lucide-react';
 import Fotosintesis3DScene from './simuladores/bio04/Fotosintesis3DScene';
+import { NOMBRE_LUZ_B4, D_MAX_B4, DURACION_B4, ppfdB4 } from '@/domain/biologia';
+import type { ColorLuzB4 } from '@/store/types';
 
-export default function PilotoFotosintesis({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { fotosintesis, setFotosintesis, tickFotosintesis, resetB4, generarSemillaB4, validarB4 } = useSimuladorStore();
-  
-  const f = fotosintesis || {
-    escenario: 'optimizacion_espectro',
-    distancia: 5,
-    color: 'blanco',
-    oxigenoAcumulado: 0,
-    tiempo: 0,
-    simulando: false,
-    targetO2: 50,
-    status: 'idle'
+// Solo el color de la lámpara: la eficiencia de cada longitud de onda es lo que el alumno DESCUBRE.
+const LAMPARAS: { id: ColorLuzB4; hex: string }[] = [
+  { id: 'blanco', hex: '#ffffff' },
+  { id: 'rojo', hex: '#ef4444' },
+  { id: 'amarillo', hex: '#f59e0b' },
+  { id: 'verde', hex: '#22c55e' },
+  { id: 'azul', hex: '#3b82f6' },
+];
+
+/** Duración visual del ensayo (s reales) que representa los 10 min de incubación. */
+const DURACION_VISUAL_MS = 2500;
+
+export default function PilotoFotosintesis({ onValidate }: { onValidate?: () => void }) {
+  const fotosintesis = useSimuladorStore((s) => s.fotosintesis);
+  const setFotosintesis = useSimuladorStore((s) => s.setFotosintesis);
+  const registrarEnsayoB4 = useSimuladorStore((s) => s.registrarEnsayoB4);
+  const resetB4 = useSimuladorStore((s) => s.resetB4);
+  const { distancia, color, dMin, meta, ensayos, status } = fotosintesis;
+
+  // La animación del ensayo es LOCAL; el store solo recibe el ensayo terminado.
+  const [midiendo, setMidiendo] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const medir = () => {
+    if (midiendo) return;
+    setMidiendo(true);
+    timer.current = setTimeout(() => {
+      registrarEnsayoB4();
+      setMidiendo(false);
+      timer.current = null;
+    }, DURACION_VISUAL_MS);
   };
 
-  const { escenario, distancia, color, oxigenoAcumulado, simulando, targetO2, status } = f;
-
-  // Limpiar estado al entrar para evitar éxitos persistentes
-  useEffect(() => {
-    resetB4();
-  }, []);
-
-  useEffect(() => {
-    let interval: any;
-    if (simulando && status !== 'success') {
-      interval = setInterval(() => tickFotosintesis(0.1), 100);
-    }
-    return () => clearInterval(interval);
-  }, [simulando, status, tickFotosintesis]);
-
-  // Asegurar que el modal se dispare al completar la meta y registrar hallazgo
-  useEffect(() => {
-    if (status === 'success') {
-      validarB4();
-      if (setShowSuccess) setShowSuccess(true);
-    }
-  }, [status]);
-
-  const scenarios = {
-    'optimizacion_espectro': {
-      title: 'Enigma del Espectro',
-      desc: 'Encuentra la combinación de color y distancia que maximice la producción de O2.',
-      icon: <FlaskConical className="text-emerald-400" />
-    },
-    'ley_distancia': {
-      title: 'Inverso del Cuadrado',
-      desc: 'Investiga cómo la intensidad lumínica decae con el cuadrado de la distancia.',
-      icon: <Target className="text-blue-400" />
-    },
-    'supervivencia_marte': {
-      title: 'Misión Marte 2050',
-      desc: 'Produce 100ml de O2 en tiempo récord para sustentar la base de investigación.',
-      icon: <Rocket className="text-orange-400" />
-    }
-  };
-
-  const currentEsc = scenarios[escenario] || scenarios['optimizacion_espectro'];
-
-  const colors = [
-    { id: 'blanco', label: 'Luz Blanca', hex: '#ffffff', eff: '70%' },
-    { id: 'rojo', label: 'Luz Roja', hex: '#ef4444', eff: '100%' },
-    { id: 'azul', label: 'Luz Azul', hex: '#3b82f6', eff: '120%' },
-    { id: 'verde', label: 'Luz Verde', hex: '#22c55e', eff: '10%' },
-    { id: 'amarillo', label: 'Luz Amarilla', hex: '#eab308', eff: '40%' },
-  ];
-
-  const progress = (oxigenoAcumulado / targetO2) * 100;
+  const ppfd = ppfdB4(distancia);
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#020617] font-['Outfit']">
-      
-      {/* HEADER DE CONTROL DIAMOND */}
-      <div className="absolute top-6 left-0 right-0 z-[200] px-10 flex justify-between items-center pointer-events-none">
-         <div className="flex items-center gap-3 bg-emerald-600/90 backdrop-blur-xl border-2 border-white/40 px-6 py-2 rounded-full shadow-2xl">
-            <Sun size={16} className="text-white animate-spin-slow" />
-            <span className="text-xs font-black text-white uppercase tracking-[0.2em]">PROTOCOLO DIAMOND v4.2 - FOTOSÍNTESIS</span>
-         </div>
+    <div className="w-full h-full relative overflow-hidden bg-[#020617] font-['Outfit'] flex flex-col">
+      {/* ── ESCENA ── */}
+      <div className="relative flex-1">
+        <Fotosintesis3DScene simulando={midiendo} colorLuz={color} distancia={distancia} />
 
-         <div className="flex gap-4 pointer-events-auto">
-            <button 
-              onClick={() => resetB4()}
-              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/20 px-6 py-2 rounded-full backdrop-blur-md transition-all group"
-            >
-               <RotateCcw size={16} className="text-white/60 group-hover:rotate-180 transition-transform duration-500" />
-               <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Reiniciar Nivel</span>
-            </button>
-            <button 
-              onClick={() => generarSemillaB4()}
-              className="flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 px-6 py-2 rounded-full backdrop-blur-md transition-all"
-            >
-               <Zap size={16} className="text-emerald-400" />
-               <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Siguiente Misión</span>
-            </button>
-         </div>
-      </div>
-
-      <div className="absolute inset-0 z-0">
-        <Fotosintesis3DScene 
-          simulando={simulando} 
-          colorLuz={color} 
-          intensidad={300/(distancia*distancia)} 
-        />
-      </div>
-
-      <div className="absolute inset-0 z-10 pointer-events-none p-10 flex flex-col justify-between">
-        <div className="flex justify-between items-start pt-12">
-           <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-black/70 backdrop-blur-3xl border-l-8 border-emerald-500 p-8 rounded-r-3xl shadow-2xl max-w-md">
-              <div className="flex items-center gap-3 mb-2">{currentEsc.icon}<span className="text-xs font-black text-emerald-400 uppercase tracking-[0.4em]">{currentEsc.title}</span></div>
-              <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Reactor Biológico</h2>
-              <p className="text-xs text-white/60 mt-2 font-medium leading-relaxed">{currentEsc.desc}</p>
-              
-              <div className="mt-8 space-y-6">
-                 <div className="flex flex-col gap-2">
-                    <div className="flex justify-between text-[10px] font-black text-white/40 uppercase tracking-widest">
-                       <span>Oxígeno Producido (O₂)</span>
-                       <span>{Math.floor(oxigenoAcumulado)} / {targetO2} ml</span>
-                    </div>
-                    <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
-                       <motion.div 
-                         className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"
-                         initial={{ width: 0 }}
-                         animate={{ width: `${progress}%` }}
-                       />
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                       <span className="text-[9px] font-black text-white/40 uppercase block mb-1">Eficiencia Actual</span>
-                       <span className="text-xl font-black text-emerald-400 font-mono">
-                         {color === 'verde' ? 'CRÍTICA' : color === 'azul' ? 'MÁXIMA' : 'ESTABLE'}
-                       </span>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                       <span className="text-[9px] font-black text-white/40 uppercase block mb-1">Irradiación</span>
-                       <span className="text-xl font-black text-yellow-400 font-mono">{(300/(distancia*distancia)).toFixed(1)} W/m²</span>
-                    </div>
-                 </div>
-              </div>
-           </motion.div>
-
-           <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-emerald-900/40 backdrop-blur-xl border-r-8 border-emerald-500 p-6 rounded-l-3xl shadow-2xl max-w-xs">
-              <div className="flex items-center gap-2 mb-3"><Info size={16} className="text-emerald-400" /><span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Dato Científico</span></div>
-              <p className="text-xs text-white/80 leading-relaxed font-medium">
-                {color === 'verde' ? "La luz verde es reflejada por los pigmentos, por eso no impulsa la fotosíntesis." : "La luz azul y roja activan los fotosistemas para liberar electrones y producir oxígeno."}
-              </p>
-           </motion.div>
+        <div className="absolute top-6 left-6 z-10 max-w-sm bg-black/70 backdrop-blur-xl border-l-4 border-emerald-500 p-5 rounded-r-2xl pointer-events-none">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400"><Target size={12} /> Misión</div>
+          <p className="text-sm font-bold text-white mt-2 leading-snug">
+            Recoge al menos <span className="text-emerald-300 font-mono">{meta.toFixed(2)} mL</span> de O₂ en un ensayo de {DURACION_B4} min con la ramita de <i>Elodea</i>.
+          </p>
+          <p className="text-[11px] text-amber-300 font-bold mt-2 flex items-start gap-2">
+            <Thermometer size={14} className="shrink-0 mt-0.5" />
+            La lámpara calienta el agua: no la acerques a menos de {dMin} cm del tubo.
+          </p>
         </div>
 
-        <div className="w-full flex justify-center pb-6">
-           <div className="bg-black/80 backdrop-blur-3xl rounded-[3rem] border-2 border-white/10 p-8 shadow-2xl flex items-center gap-10 pointer-events-auto">
-              <div className="flex flex-col gap-4">
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest text-center">Distancia</span>
-                 <input type="range" min="1" max="10" step="0.5" value={distancia} onChange={(e) => setFotosintesis({ distancia: parseFloat(e.target.value) })} className="w-48 accent-emerald-500 h-2 bg-white/10 rounded-full appearance-none cursor-pointer" />
-                 <div className="flex justify-between text-[10px] font-mono text-white/40"><span>1m</span><span>10m</span></div>
-              </div>
-              <div className="w-px h-16 bg-white/10" />
-              <div className="flex flex-col gap-4">
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest text-center">Espectro</span>
-                 <div className="flex gap-3">
-                    {colors.map((c) => (
-                      <button key={c.id} onClick={() => setFotosintesis({ color: c.id as any })} className={`w-10 h-10 rounded-xl border-2 transition-all ${color === c.id ? 'border-white scale-110 shadow-lg' : 'border-white/10 opacity-40'}`} style={{ backgroundColor: c.hex }} />
-                    ))}
-                 </div>
-              </div>
-              <div className="w-px h-16 bg-white/10" />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setFotosintesis({ simulando: !simulando })} className={`h-16 px-8 rounded-2xl flex items-center gap-4 shadow-2xl border-2 transition-all ${simulando ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-emerald-500/20 border-emerald-500 text-emerald-400'}`}>
-                {simulando ? <Square size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                <span className="text-sm font-black uppercase tracking-widest">{simulando ? 'Detener' : 'Iniciar'}</span>
-              </motion.button>
-           </div>
-        </div>
+        {midiendo && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-6 py-3 bg-black/70 border border-emerald-500/40 rounded-2xl text-[11px] font-black uppercase tracking-widest text-emerald-300">
+            Incubando {DURACION_B4} min · contando burbujas…
+          </div>
+        )}
       </div>
 
-      <AnimatePresence>
-         {status === 'success' && (
-           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[1000] bg-[#020617]/90 backdrop-blur-xl flex items-center justify-center p-10">
-              <motion.div initial={{ scale: 0.8, y: 50 }} animate={{ scale: 1, y: 0 }} className="bg-black/80 p-16 rounded-[4rem] border-4 border-emerald-500 text-center shadow-[0_0_100px_rgba(16,185,129,0.5)] max-w-2xl">
-                 <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-8 border-2 border-emerald-500">
-                    <CheckCircle2 size={48} className="text-emerald-400" />
-                 </div>
-                 <h2 className="text-6xl font-black text-white uppercase tracking-tighter italic">¡Misión Cumplida!</h2>
-                 <p className="text-emerald-400 font-bold mt-4 uppercase tracking-[0.3em]">Protocolo {currentEsc.title} Completado</p>
-                 <div className="mt-12 flex flex-col gap-4">
-                    <button onClick={() => generarSemillaB4()} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-6 rounded-3xl flex items-center justify-center gap-4 transition-all text-2xl uppercase italic tracking-widest shadow-[0_20px_50px_rgba(16,185,129,0.3)]">
-                       Siguiente Misión <ChevronRight size={32} />
-                    </button>
-                    <button onClick={() => resetB4()} className="text-white/40 hover:text-white text-xs font-black uppercase tracking-[0.5em] transition-colors mt-4">
-                       Reiniciar Investigación Actual
-                    </button>
-                 </div>
-              </motion.div>
-           </motion.div>
-         )}
-      </AnimatePresence>
+      {/* ── PANEL DEL BANCO ── */}
+      <div className="h-[46%] shrink-0 overflow-y-auto bg-black/60 border-t border-white/10 p-4 grid grid-cols-2 gap-4 content-start">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Sun size={14} className="text-amber-400" /> Lámpara LED (mismo flujo de fotones)</div>
+          <div className="grid grid-cols-5 gap-2">
+            {LAMPARAS.map((l) => (
+              <button key={l.id} disabled={midiendo} title={NOMBRE_LUZ_B4[l.id]}
+                onClick={() => setFotosintesis({ color: l.id })}
+                className={`h-10 rounded-xl border-2 transition-all ${color === l.id ? 'border-white scale-105' : 'border-white/10 opacity-50 hover:opacity-90'}`}
+                style={{ backgroundColor: l.hex }} aria-label={NOMBRE_LUZ_B4[l.id]} />
+            ))}
+          </div>
+          <div className="text-[11px] font-bold text-white">{NOMBRE_LUZ_B4[color]}</div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <span>Distancia lámpara–tubo</span><span className="text-white font-mono">{distancia} cm</span>
+          </div>
+          <input type="range" min={dMin} max={D_MAX_B4} step={1} value={Math.max(dMin, distancia)} disabled={midiendo}
+            onChange={(e) => setFotosintesis({ distancia: parseInt(e.target.value, 10) })}
+            className="w-full accent-emerald-500 h-2 bg-white/10 rounded-full appearance-none cursor-pointer" />
+          <div className="text-[10px] text-slate-400 font-mono">Luxómetro cuántico: {ppfd.toFixed(0)} µmol·m⁻²·s⁻¹</div>
+        </div>
+
+        <button onClick={medir} disabled={midiendo}
+          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest border-2 transition-all ${midiendo ? 'border-white/10 text-slate-500' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'}`}>
+          <Play size={16} fill="currentColor" /> {midiendo ? 'Midiendo…' : `Medir ${DURACION_B4} min`}
+        </button>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><FlaskConical size={14} /> Ensayos</span>
+            <button onClick={() => resetB4()} disabled={midiendo} className="text-[10px] text-slate-500 hover:text-white flex items-center gap-1"><RotateCcw size={12} /> Borrar</button>
+          </div>
+          {ensayos.length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic">Sin ensayos. Cambia una variable cada vez y compara.</p>
+          ) : (
+            <table className="w-full text-[11px] font-mono text-slate-200">
+              <thead><tr className="text-slate-500 text-[9px] uppercase"><th className="text-left">#</th><th className="text-left">Luz</th><th>cm</th><th className="text-right">O₂ (mL)</th></tr></thead>
+              <tbody>
+                {ensayos.map((e, i) => (
+                  <tr key={i} className={e.o2 >= meta ? 'text-emerald-300' : ''}>
+                    <td>{i + 1}</td><td>{NOMBRE_LUZ_B4[e.color]}</td><td className="text-center">{e.distancia}</td><td className="text-right">{e.o2.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <button onClick={() => onValidate?.()} disabled={midiendo || ensayos.length === 0}
+          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all ${ensayos.length > 0 && !midiendo ? 'bg-white text-black' : 'bg-white/5 text-slate-500'}`}>
+          <ShieldCheck size={16} /> Validar práctica
+        </button>
+        {status === 'success' && <p className="text-[11px] font-bold text-emerald-400 text-center">Meta de O₂ alcanzada.</p>}
+      </div>
     </div>
   );
 }

@@ -2,23 +2,24 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
+import {
+  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
   Trash2, ShieldCheck, Calculator, BookOpen,
   Binary, Compass, Bot, Volume2, Waves
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraRichter({ onValidate }: { onValidate?: () => void }) {
-  const { richter, setMagnitudM3, toggleLogViewM3, audio: storeAudio } = useSimuladorStore();
-  const { magnitudActual, magnitudBase, isLogView, status } = richter;
+  const { richter, resetM3 } = useSimuladorStore(useShallow((s) => ({ richter: s.richter, resetM3: s.resetM3 })));
+  const { magnitudActual, magnitudBase, isLogView, status, userInputFactor } = richter;
 
   const [conclusionText, setConclusionText] = useState('');
-  const quantumMsg = `Ajusta la magnitud del sismo. Recuerda que la escala de Magnitud de Momento (Mw) es logarítmica; cada unidad de aumento representa aproximadamente 32 veces más energía liberada. ¡Analiza el impacto energético para certificar el informe sísmico!`;
+  const quantumMsg = `Compara el sismo objetivo con la base Mw 6.0. La escala de Magnitud de Momento (Mw) es logarítmica: log₁₀E = 1.5·Mw + 4.8, así que cada unidad de Mw multiplica la energía por 10^1.5 ≈ 31.6. Calcula el factor 10^(1.5·ΔM) y regístralo en el panel.`;
 
   const handleReset = () => {
-    setMagnitudM3(3.0);
+    resetM3();
     setConclusionText('');
     audio.playPop();
   };
@@ -27,39 +28,35 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
   const canValidate = wordCount >= 30;
 
   // Hallazgos en vivo
-  const checkMagnitud = magnitudActual !== 3.0;
+  const checkMagnitud = magnitudActual !== magnitudBase;
   const checkLog = isLogView;
-  const multiplicadorEnergetico = Math.pow(10, 1.5 * (magnitudActual - magnitudBase));
+  // El factor del reto lo CALCULA el alumno: aquí solo se registra si ya lo escribió.
+  const factorEscrito = (userInputFactor ?? '').trim() !== '';
 
-  const handleCertify = () => {
-    if (onValidate) onValidate();
-    else {
-      audio.playSuccess();
-      alert("Análisis Sísmico Registrado. Por favor usa el botón superior para finalizar.");
-    }
-  };
+  // Único flujo de éxito: el juez es validarLab (vía onValidate del cliente).
+  const handleCertify = () => onValidate?.();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-rose-500/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
            <Bot size={60} className="text-white" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
              <div className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
              <span className="text-[10px] font-black text-rose-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
           </div>
-          
+
           <h4 className="text-white font-black text-lg leading-tight mb-2">Centro de Alerta Sísmica</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
             Presiona el botón para recibir un informe sobre la relación exponencial entre la magnitud y la energía sísmica.
           </p>
-          
-          <button 
+
+          <button
             onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-800 hover:from-rose-500 hover:to-rose-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-rose-600/20"
           >
@@ -70,7 +67,7 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
 
         <div className="flex gap-1 mt-4 justify-center opacity-30">
            {[...Array(12)].map((_, i) => (
-             <motion.div 
+             <motion.div
                key={i}
                animate={{ height: [4, 12, 4] }}
                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
@@ -115,16 +112,16 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
             </div>
 
             {/* Hallazgo: Multiplicador */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${multiplicadorEnergetico > 10 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${factorEscrito ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${multiplicadorEnergetico > 10 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                     Diferencial Energético
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${factorEscrito ? 'text-emerald-600' : 'text-slate-500'}`}>
+                     Factor de energía calculado
                   </span>
                   <span className="text-xs font-bold text-slate-800">
-                     {multiplicadorEnergetico > 1 ? `✓ x${Math.round(multiplicadorEnergetico).toLocaleString()} veces más energía` : '... Calculando Delta E'}
+                     {factorEscrito ? `✓ Registrado: ${userInputFactor}` : '... Calcula 10^(1.5·ΔM) en el panel'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${multiplicadorEnergetico > 10 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+               <div className={`w-2 h-2 rounded-full ${factorEscrito ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
             </div>
          </div>
       </div>
@@ -147,8 +144,8 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
               <span className="text-xs font-black text-[#023047] font-mono italic">log(E) = 1.5Mw + 4.8</span>
            </div>
            <div className="text-right">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">E Liberada</span>
-              <span className="text-sm font-black text-rose-600 font-mono">{(Math.pow(10, 1.5 * magnitudActual + 4.8) / 1e9).toFixed(1)} GJ</span>
+              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Cociente de energías</span>
+              <span className="text-xs font-black text-rose-600 font-mono italic">E₂/E₁ = 10^(1.5·ΔM)</span>
            </div>
         </div>
       </div>
@@ -162,7 +159,7 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
              </div>
              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
           </div>
-          <textarea 
+          <textarea
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
              placeholder="Explica por qué un pequeño incremento en la magnitud de momento (Mw) resulta en un aumento tan masivo de la energía liberada..."
              rows={4}
@@ -172,13 +169,13 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
 
       {/* BOTONES DE ACCIÓN FINALES */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-14 h-14 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
-        <button 
+        <button
           onClick={handleCertify}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}

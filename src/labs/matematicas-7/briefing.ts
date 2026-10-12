@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🔄', nombre: 'Reflexión Total', descripcion: 'Cuando la luz no logra salir del material.' }
     ],
     mision: [
-      'Dispara el láser a través del cristal.',
-      'Mide el ángulo de entrada con el transportador.',
-      'Mide el ángulo de salida (refractado).',
-      'Aplica la Ley de Snell: n1 sinθ1 = n2 sinθ2.',
-      'Busca el índice n en la tabla de materiales.'
+      'Dispara el láser a través del cristal misterioso.',
+      'Elige el ángulo de incidencia θ₁ con el deslizador.',
+      'Mide el ángulo refractado θ₂ desde la normal con el transportador.',
+      'Aplica la Ley de Snell: n₁ sen θ₁ = n₂ sen θ₂ y despeja n₂.',
+      'Busca el índice n₂ en la tabla de materiales y valida.'
     ],
     aplicaciones: [
       { area: 'Óptica', ejemplo: 'Diseño de lentes para cámaras y anteojos.' },

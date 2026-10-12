@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#f43f5e',
     duracion: 35,
     videoUrl: 'https://youtu.be/uV5Xtnoi_D8',
-    bienvenida: `¡Bienvenido al Invernadero de Genética! Soy el Dr. Quantum.\n\nDescubriremos las reglas de la lotería biológica. Veremos por qué te pareces a tus abuelos pero no eres idéntico a tus padres.\n\nTu misión: Validar la proporción 9:3:3:1 en un cruce dihíbrido.`,
+    bienvenida: `¡Bienvenido al Invernadero de Genética! Soy el Dr. Quantum.\n\nDescubriremos las reglas de la lotería biológica. Veremos por qué te pareces a tus abuelos pero no eres idéntico a tus padres.\n\nTu misión: predecir la proporción de una cruza dihíbrida y ponerla a prueba con χ².`,
     conceptos: [
       { icono: '🧬', nombre: 'Alelo', descripcion: 'Variante de un gen (Dominante o Recesivo).' },
       { icono: '🔲', nombre: 'Cuadro de Punnett', descripcion: 'Mapa de probabilidades de descendencia.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🔢', nombre: 'Genotipo', descripcion: 'La información oculta en el ADN (AaBb).' }
     ],
     mision: [
-      'Cruza plantas con semillas Amarillas/Lisas vs Verdes/Rugosas.',
-      'Genera una población de 1000 individuos.',
-      'Cuenta cuántos individuos de cada tipo nacieron.',
-      'Compara tus datos reales con la teoría de Mendel.',
-      'Valida la segregación independiente de alelos.'
+      'Lee los genotipos de los progenitores asignados.',
+      'Escribe sus gametos y arma el cuadro de Punnett.',
+      'Escribe tu proporción fenotípica ANTES de cruzar.',
+      'Cruza al menos 100 semillas y cuenta los fenotipos.',
+      'Compara con χ² y valida la segregación independiente.'
     ],
     aplicaciones: [
       { area: 'Agronomía', ejemplo: 'Creación de variedades de plantas resistentes.' },

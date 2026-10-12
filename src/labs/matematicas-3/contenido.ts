@@ -5,10 +5,10 @@ const contenido: SimuladorContenido = {
     videoUrl: "",
     mision: "Calcula el factor de potencia entre sismos usando logaritmos", ecuacion: "E = 10^(1.5ΔM)", formulaGfx: "log₁₀(E₂/E₁) = 1.5(M₂ - M₁)",
     pasos: [
-      { id: 1, text: "Usa el slider para ajustar la magnitud del sismo detectado.", icon: "activity" },
-      { id: 2, text: "Observa el crecimiento exponencial de la esfera de energía.", icon: "zap" },
-      { id: 3, text: "Calcula el multiplicador basándote en la diferencia de magnitud.", icon: "target" },
-      { id: 4, text: "Ingresa el valor calculado y valida los datos para finalizar.", icon: "check" }
+      { id: 1, text: "Lee la magnitud Mw del sismo objetivo y la de la estación base.", icon: "target" },
+      { id: 2, text: "Lleva la estación experimental a esa magnitud y compara las escalas lineal y logarítmica.", icon: "activity" },
+      { id: 3, text: "Calcula ΔM y el factor de energía 10^(1.5·ΔM). Ojo: la amplitud sólo crece 10^ΔM.", icon: "zap" },
+      { id: 4, text: "Escribe el factor (tolerancia ±5 %) y valida.", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Diferenciar entre crecimiento lineal y exponencial aplicado a fenómenos naturales.",

@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Manta Calefactora',
-      mensaje: 'Ajusta la potencia de la manta calefactora para alcanzar una temperatura de vapor de ~78°C. Evita subir a 100°C para no arrastrar agua.',
+      mensaje: 'Sube la manta calefactora hasta apenas por encima de la ebullición de la mezcla (85-95 °C). La cabeza de la columna debe marcar cerca de 78 °C.',
     },
     {
       id: 3, tipo: 'accion', pista: 'Equilibrio Vapor-Líquido',
-      mensaje: 'Observa cómo el vapor asciende por la columna de fraccionamiento y se condensa en el refrigerante. Mantén la isoterma estable.',
+      mensaje: 'Observa cómo el vapor asciende por la columna y se condensa en el refrigerante. Si calientas a fondo destilará más rápido, pero el destilado saldrá más aguado.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Recolección',
-      mensaje: 'Colecta al menos 50ml de destilado en la probeta graduada. Verifica la pureza en la telemetría digital antes de validar.',
+      mensaje: 'Colecta al menos 50 mL de destilado. El alcoholímetro del colector debe marcar 85 % v/v o más; entonces certifica la destilación.',
       accion: 'Certificar Pureza',
     }
   ];

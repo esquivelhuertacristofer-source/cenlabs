@@ -10,9 +10,10 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraSintesis() {
-  const { sintesis, resetB3 } = useSimuladorStore();
-  const { fase, proteina, arnMensajero, errores, status } = sintesis;
+export default function BitacoraSintesis({ onValidate }: { onValidate?: () => void }) {
+  const sintesis = useSimuladorStore((s) => s.sintesis);
+  const resetB3 = useSimuladorStore((s) => s.resetB3);
+  const { fase, proteina, arnMensajero, errores, terminada } = sintesis;
   const [conclusionText, setConclusionText] = useState("");
 
   const quantumMsg = "Dirige la síntesis de proteínas. Empareja los nucleótidos de ARN con la plantilla de ADN durante la transcripción. Luego, observa cómo el ribosoma traduce el mensaje en aminoácidos. ¡Cuidado con las mutaciones!";
@@ -24,7 +25,8 @@ export default function BitacoraSintesis() {
   };
 
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  const canValidate = status === 'success' && wordCount >= 30;
+  // El veredicto lo da el juez de dominio (validarLab); aquí solo se exige el análisis escrito.
+  const canValidate = wordCount >= 30;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -124,13 +126,10 @@ export default function BitacoraSintesis() {
            </div>
         </div>
 
-        {status === 'success' && (
-           <button 
-             onClick={() => audio.playSuccess()}
-             className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 animate-bounce"
-           >
-             Proteína Sintetizada con Éxito
-           </button>
+        {terminada && (
+           <div className="w-full py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-center font-black text-[10px] uppercase tracking-widest">
+             Traducción terminada en el codón de paro
+           </div>
         )}
       </div>
 
@@ -160,7 +159,7 @@ export default function BitacoraSintesis() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Certificación Genómica Completada."); }}
+          onClick={() => onValidate?.()}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

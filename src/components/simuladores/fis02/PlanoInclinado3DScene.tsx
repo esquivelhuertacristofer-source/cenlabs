@@ -148,10 +148,11 @@ export default function PlanoInclinado3DScene({ angulo, bloquePos, masa, isDesli
            ))}
 
            {/* Marcadores */}
-           {[0, 4, 8, 12, 16].map(d => (
-             <Html key={d} position={[d, -0.5, 2.5]} center distanceFactor={20}>
+           {/* Marcas en metros reales: la pista de 16 unidades representa la rampa de 10 m */}
+           {[0, 2.5, 5, 7.5, 10].map(d => (
+             <Html key={d} position={[d * 1.6, -0.5, 2.5]} center distanceFactor={20}>
                <div className="bg-black/90 border border-cyan-500/50 px-3 py-1 rounded text-[12px] font-black text-cyan-400 font-mono">
-                 {d}M
+                 {d} m
                </div>
              </Html>
            ))}

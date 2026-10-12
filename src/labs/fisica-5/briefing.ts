@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#0ea5e9',
     duracion: 35,
     videoUrl: "https://www.youtube.com/embed/-HO5kokr6Uo",
-    bienvenida: `¡Bienvenido al Centro de Ingeniería Hidráulica! Soy el Dr. Quantum. Hoy vamos a dominar una de las fuerzas más potentes de la industria.\n\nEl Principio de Pascal nos dice que la presión ejercida sobre un fluido incompresible se transmite con igual intensidad en todas las direcciones. Esto nos permite usar el área de los émbolos como una palanca líquida para multiplicar nuestra fuerza.\n\nTu misión: Configurar los radios de los émbolos para elevar un vehículo de carga de 2 toneladas usando la mínima fuerza posible. ¡La física es tu multiplicador de poder!`,
+    bienvenida: `¡Bienvenido al Centro de Ingeniería Hidráulica! Soy el Dr. Quantum. Hoy vamos a dominar una de las fuerzas más potentes de la industria.\n\nEl Principio de Pascal nos dice que la presión ejercida sobre un fluido incompresible se transmite con igual intensidad en todas las direcciones. Esto nos permite usar el área de los émbolos como una palanca líquida para multiplicar nuestra fuerza.\n\nTu misión: Calcular la fuerza mínima que eleva la carga asignada y comprobarla bombeando.`,
     conceptos: [
       { icono: '💧', nombre: 'Principio de Pascal', descripcion: 'La presión (P=F/A) es constante en todo el fluido interconectado.' },
       { icono: '⚙️', nombre: 'Ventaja Mecánica', descripcion: 'Relación entre las áreas (A2/A1) que determina cuánto se multiplica la fuerza.' },
@@ -17,10 +17,10 @@ const briefing: BriefingConfig = {
     mision: [
       'Observa la MASA DE CARGA asignada en el pistón mayor.',
       'Ajusta el RADIO del émbolo de entrada (r1) y de salida (r2).',
-      'Calcula la PRESIÓN necesaria para romper la inercia.',
-      'Aplica la FUERZA DE ENTRADA (F1) gradualmente.',
-      'Logra elevar la carga por encima del umbral de seguridad.',
-      'Registra la Ganancia Mecánica final en tu bitácora.'
+      'Calcula la presión que sostiene el peso de la carga.',
+      'Predice la F₁ mínima y aplica la fuerza de entrada.',
+      'Bombea y observa cuánto sube la carga.',
+      'Compara la carrera de ambos émbolos (volumen conservado).'
     ],
     aplicaciones: [
       { area: 'Automotriz', ejemplo: 'Sistemas de frenos hidráulicos y gatos para levantar autos.' },

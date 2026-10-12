@@ -15,21 +15,22 @@ import * as THREE from 'three';
 
 /* ────────────────────────────────────────────────────────────────────────────
    SistemaDigestivo3DScene — Tracto digestivo 3D volumétrico y vivo.
-   Un bolo alimenticio viaja por una curva boca → esófago → estómago →
-   intestino delgado → grueso. En el órgano activo (según la etapa REAL del
-   Piloto) el bolo se descompone y libera partículas de nutrientes (monómeros)
-   mientras enzimas orbitan actuando. El órgano correspondiente se ilumina.
+   El bolo se coloca en el órgano que el ALUMNO propone (organoRespuesta): la
+   escena no señala el órgano correcto. Se encoge según la hidrólisis medida en
+   el tubo de ensayo. Los monómeros solo pasan a la sangre desde el INTESTINO
+   DELGADO (vellosidades) y solo cuando la práctica quedó validada.
 
-   Props derivados del store:
+   Props:
      macronutriente : 'almidon' | 'proteina' | 'lipido'
-     enzima         : 'amilasa' | 'pepsina' | 'lipasa' | null
-     nivelPH        : number (1..14)
-     estado         : 'intacto' | 'desnaturalizado' | 'digerido' | 'absorbido'
-     progreso       : 0..1  (fracción de absorción / avance del bolo)
-     compatible     : boolean (enzima+pH óptimos)
+     enzima         : enzima elegida o null
+     nivelPH        : pH del tubo (1..14)
+     hidrolisis     : 0..1 del último ensayo (0 si no hubo reacción)
+     reacciona      : el último ensayo hidrolizó algo
+     organoRespuesta: órgano propuesto por el alumno o null
+     absorbiendo    : práctica validada → liberar monómeros desde el delgado
 ──────────────────────────────────────────────────────────────────────────── */
 
-type Estado = 'intacto' | 'desnaturalizado' | 'digerido' | 'absorbido';
+const CA_OFFSET = new THREE.Vector2(0.0007, 0.0007);
 
 const NUTRIENTE_HEX: Record<string, string> = {
   almidon: '#10b981',  // glucosa (verde)
@@ -160,7 +161,8 @@ function OrganMass({
         />
       </mesh>
 
-      {active && <pointLight color={col} intensity={6 + intensity * 10} distance={12} />}
+      {/* siempre montada: montar/desmontar luces recompila shaders */}
+      <pointLight color={col} intensity={active ? 6 + intensity * 10 : 0} distance={12} />
 
       {/* etiqueta del órgano */}
       <Html center distanceFactor={16} position={[0, R + 0.9, 0]}>
@@ -186,12 +188,14 @@ function Bolo({
   curve,
   progreso,
   macroHex,
-  estado,
+  hidrolisis,
+  reacciona,
 }: {
   curve: THREE.CatmullRomCurve3;
   progreso: number;
   macroHex: string;
-  estado: Estado;
+  hidrolisis: number;
+  reacciona: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
   const tRef = useRef(0);
@@ -207,13 +211,11 @@ function Bolo({
     ref.current.rotation.y += delta * 1.2;
     ref.current.rotation.x += delta * 0.7;
 
-    // Al avanzar (más digerido) el bolo se encoge.
-    const shrink = estado === 'absorbido' ? 0.25 : THREE.MathUtils.lerp(0.85, 0.35, progreso);
-    ref.current.scale.setScalar(shrink);
+    // Se encoge según la fracción hidrolizada en el ensayo.
+    ref.current.scale.setScalar(THREE.MathUtils.lerp(0.85, 0.3, hidrolisis));
   });
 
-  const desnaturalizado = estado === 'desnaturalizado';
-  const col = desnaturalizado ? '#94a3b8' : macroHex;
+  const col = macroHex;
 
   return (
     <group ref={ref}>
@@ -222,7 +224,7 @@ function Bolo({
         <meshStandardMaterial
           color={col}
           emissive={col}
-          emissiveIntensity={desnaturalizado ? 0.6 : 2.2}
+          emissiveIntensity={reacciona ? 2.2 : 0.8}
           roughness={0.4}
           metalness={0.2}
           flatShading
@@ -415,35 +417,20 @@ function BloodStream({ intensity }: { intensity: number }) {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({
-  macronutriente,
-  enzima,
-  nivelPH,
-  estado,
-  progreso,
-  compatible,
-}: {
-  macronutriente: string;
-  enzima: string | null;
-  nivelPH: number;
-  estado: Estado;
-  progreso: number;
-  compatible: boolean;
-}) {
+const tMedio = (key: string) => {
+  const o = ORGANOS.find((x) => x.key === key);
+  return o ? (o.tIni + o.tFin) / 2 : 0.05;
+};
+
+function Scene({ macronutriente, enzima, nivelPH, hidrolisis, reacciona, organoRespuesta, absorbiendo }: SceneProps) {
   const curve = useTractCurve();
   const macroHex = NUTRIENTE_HEX[macronutriente] || '#10b981';
 
-  // La digestión ocurre cuando el bolo avanza (digerido/absorbido).
-  const digiriendo = estado === 'digerido' || estado === 'absorbido';
-  const boloT = digiriendo ? THREE.MathUtils.clamp(0.02 + progreso * 0.97, 0.02, 0.99) : 0.05;
-
-  // Órgano activo = el que contiene la posición actual del bolo.
-  const organoActivoIdx = useMemo(() => {
-    if (!digiriendo) return 0;
-    return ORGANOS.findIndex((o) => boloT >= o.tIni && boloT <= o.tFin);
-  }, [boloT, digiriendo]);
-
-  const intensity = THREE.MathUtils.clamp(progreso, 0.1, 1);
+  const boloT = organoRespuesta ? tMedio(organoRespuesta) : 0.05;
+  const organoActivoIdx = organoRespuesta ? ORGANOS.findIndex((o) => o.key === organoRespuesta) : -1;
+  const compatible = reacciona;
+  const intensity = THREE.MathUtils.clamp(hidrolisis, 0.1, 1);
+  const tDelgado = tMedio('delgado');
 
   return (
     <>
@@ -461,21 +448,21 @@ function Scene({
         <OrganMass
           key={o.key}
           organo={o}
-          active={digiriendo && i === organoActivoIdx}
+          active={i === organoActivoIdx}
           intensity={intensity}
           compatible={compatible}
         />
       ))}
 
       {/* Bolo viajando */}
-      <Bolo curve={curve} progreso={boloT} macroHex={macroHex} estado={estado} />
+      <Bolo curve={curve} progreso={boloT} macroHex={macroHex} hidrolisis={hidrolisis} reacciona={reacciona} />
 
-      {/* Nutrientes liberándose y enzimas actuando */}
-      <NutrientRelease curve={curve} progreso={boloT} macroHex={macroHex} active={digiriendo && compatible} />
-      <EnzymeSwarm curve={curve} progreso={boloT} compatible={compatible} active={digiriendo && enzima !== null} />
+      {/* Monómeros: solo se absorben en el intestino delgado */}
+      <NutrientRelease curve={curve} progreso={tDelgado} macroHex={macroHex} active={absorbiendo} />
+      <EnzymeSwarm curve={curve} progreso={boloT} compatible={compatible} active={enzima !== null && organoRespuesta !== null} />
 
       {/* Torrente sanguíneo bajo el intestino */}
-      <BloodStream intensity={digiriendo ? intensity : 0.05} />
+      <BloodStream intensity={absorbiendo ? 1 : 0.05} />
 
       {/* Indicador de pH flotante */}
       <Html position={[0, 8, 0]} center distanceFactor={20}>
@@ -509,40 +496,29 @@ function Scene({
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.7} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0007, 0.0007)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={CA_OFFSET} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
   );
 }
 
-export default function SistemaDigestivo3DScene({
-  macronutriente,
-  enzima,
-  nivelPH,
-  estado,
-  progreso,
-  compatible,
-}: {
+interface SceneProps {
   macronutriente: string;
   enzima: string | null;
   nivelPH: number;
-  estado: Estado;
-  progreso: number;
-  compatible: boolean;
-}) {
+  hidrolisis: number;
+  reacciona: boolean;
+  organoRespuesta: string | null;
+  absorbiendo: boolean;
+}
+
+export default function SistemaDigestivo3DScene(props: SceneProps) {
   return (
     <div className="w-full h-full">
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          <Scene
-            macronutriente={macronutriente}
-            enzima={enzima}
-            nivelPH={nivelPH}
-            estado={estado}
-            progreso={progreso}
-            compatible={compatible}
-          />
+          <Scene {...props} />
         </Suspense>
       </Canvas>
     </div>

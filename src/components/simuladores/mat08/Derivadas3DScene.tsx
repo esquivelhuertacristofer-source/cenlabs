@@ -11,6 +11,7 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { posicionM8, velocidadM8, T_MAX_M8, type CoheteM8 } from '@/domain/matematicas';
 
 /* ────────────────────────────────────────────────────────────────────────────
    Derivadas3DScene — La derivada como límite geométrico, en 3D premium.
@@ -23,51 +24,65 @@ import * as THREE from 'three';
    El punto x₀ resaltado con glow. Props derivados del estado REAL del Piloto: { t }.
 ──────────────────────────────────────────────────────────────────────────── */
 
-// Funciones de la telemetría (consistentes con PilotoDerivadas)
-const sFn = (t: number) => -0.1 * Math.pow(t, 3) + 1.5 * Math.pow(t, 2);
-const vFn = (t: number) => -0.3 * Math.pow(t, 2) + 3 * t; // s'(t) = pendiente tangente
-
 const T_MIN = 0;
-const T_MAX = 10;
+const T_MAX = T_MAX_M8;
 
 // Escalas mundo: mapea dominio t→x y recorrido s→y a un espacio 3D agradable.
 const X_SPAN = 14; // ancho del eje t en el mundo
-const Y_SCALE = 0.42; // compresión vertical (s(t) alcanza ~25 en t≈10)
+const ALTO = 9;    // altura en el mundo que ocupa s(t) en [0, T_MAX]
 const Y_BASE = -3.4; // desplaza la curva hacia abajo para dejar aire arriba
+const X_PER_T = X_SPAN / (T_MAX - T_MIN);
+
+/**
+ * Mapa función→mundo para el cohete de la semilla (s(t) = −k·t³ + m·t², la MISMA
+ * función del dominio y del validador). La escala vertical se ajusta a la s
+ * máxima en [0, T_MAX] para que la curva entera quepa en cuadro.
+ */
+interface Mapa {
+  sFn: (t: number) => number;
+  vFn: (t: number) => number;
+  sToWorldY: (s: number) => number;
+  worldPoint: (t: number) => THREE.Vector3;
+  worldSlopeAt: (t: number) => number;
+}
+function crearMapa(c: CoheteM8): Mapa {
+  const sFn = (t: number) => posicionM8(c, t);
+  const vFn = (t: number) => velocidadM8(c, t);
+  let sMax = 1;
+  for (let i = 0; i <= 100; i++) sMax = Math.max(sMax, sFn((T_MAX * i) / 100));
+  const yScale = ALTO / sMax;
+  const sToWorldY = (s: number) => s * yScale + Y_BASE;
+  return {
+    sFn, vFn, sToWorldY,
+    worldPoint: (t: number) => new THREE.Vector3(tToWorldX(t), sToWorldY(sFn(t)), 0),
+    // pendiente en coordenadas de MUNDO (incluye ambas escalas): dY/dX
+    worldSlopeAt: (t: number) => (vFn(t) * yScale) / X_PER_T,
+  };
+}
 
 function tToWorldX(t: number) {
   return THREE.MathUtils.mapLinear(t, T_MIN, T_MAX, -X_SPAN / 2, X_SPAN / 2);
 }
-function sToWorldY(s: number) {
-  return s * Y_SCALE + Y_BASE;
-}
-function worldPoint(t: number) {
-  return new THREE.Vector3(tToWorldX(t), sToWorldY(sFn(t)), 0);
-}
-// pendiente en coordenadas de MUNDO (incluye ambas escalas): dY/dX
-const X_PER_T = X_SPAN / (T_MAX - T_MIN);
-function worldSlopeAt(t: number) {
-  return (vFn(t) * Y_SCALE) / X_PER_T;
-}
 
+const CA_OFFSET = new THREE.Vector2(0.0006, 0.0006);
 const CYAN = '#22d3ee'; // curva f(x)
 const MAGENTA = '#f472b6'; // tangente
 const AMBER = '#fbbf24'; // secante
 
 /* ── Curva f(x) luminosa (puntos + línea generados de la función REAL) ───────── */
-function FunctionCurve() {
+function FunctionCurve({ mapa }: { mapa: Mapa }) {
   const positions = useMemo(() => {
     const SEG = 240;
     const arr = new Float32Array((SEG + 1) * 3);
     for (let i = 0; i <= SEG; i++) {
       const t = THREE.MathUtils.lerp(T_MIN, T_MAX, i / SEG);
-      const p = worldPoint(t);
+      const p = mapa.worldPoint(t);
       arr[i * 3] = p.x;
       arr[i * 3 + 1] = p.y;
       arr[i * 3 + 2] = p.z;
     }
     return arr;
-  }, []);
+  }, [mapa]);
 
   const count = positions.length / 3;
   const ptsRef = useRef<THREE.Points>(null);
@@ -150,8 +165,12 @@ function GlowPoint({ pos, color, r = 0.22, light = 6 }: { pos: THREE.Vector3; co
 }
 
 /* ── Plano cartesiano / grid 3D con ejes etiquetados ────────────────────────── */
-function CartesianGrid() {
-  const y0 = sToWorldY(0);
+function CartesianGrid({ mapa }: { mapa: Mapa }) {
+  const y0 = mapa.sToWorldY(0);
+  const ejes = useMemo(() => ({
+    tA: new THREE.Vector3(-X_SPAN / 2 - 0.5, y0, 0), tB: new THREE.Vector3(X_SPAN / 2 + 0.5, y0, 0),
+    sA: new THREE.Vector3(-X_SPAN / 2, y0 - 0.3, 0), sB: new THREE.Vector3(-X_SPAN / 2, y0 + 9, 0),
+  }), [y0]);
   return (
     <group>
       {/* rejilla en el plano XY (z=0) */}
@@ -162,16 +181,16 @@ function CartesianGrid() {
       />
       {/* eje t (X) */}
       <Segment
-        a={new THREE.Vector3(-X_SPAN / 2 - 0.5, y0, 0)}
-        b={new THREE.Vector3(X_SPAN / 2 + 0.5, y0, 0)}
+        a={ejes.tA}
+        b={ejes.tB}
         color="#64748b"
         radius={0.02}
         emissive={0.6}
       />
       {/* eje s (Y) */}
       <Segment
-        a={new THREE.Vector3(-X_SPAN / 2, y0 - 0.3, 0)}
-        b={new THREE.Vector3(-X_SPAN / 2, y0 + 9, 0)}
+        a={ejes.sA}
+        b={ejes.sB}
         color="#64748b"
         radius={0.02}
         emissive={0.6}
@@ -187,10 +206,12 @@ function CartesianGrid() {
 }
 
 /* ── Núcleo: tangente fija + secante convergente animada (límite h→0) ────────── */
-function TangentSecant({ t }: { t: number }) {
-  const p0 = useMemo(() => worldPoint(t), [t]);
-  const slope = vFn(t); // pendiente real ds/dt = v(t)
-  const wSlope = worldSlopeAt(t);
+function TangentSecant({ t, mapa }: { t: number; mapa: Mapa }) {
+  const { worldPoint, sFn, sToWorldY } = mapa;
+  const p0 = useMemo(() => worldPoint(t), [t, worldPoint]);
+  const pie = useMemo(() => new THREE.Vector3(p0.x, sToWorldY(0), 0), [p0, sToWorldY]);
+  const slope = mapa.vFn(t); // pendiente real ds/dt = v(t)
+  const wSlope = mapa.worldSlopeAt(t);
 
   // Endpoints de la TANGENTE (recta con pendiente real que pasa por p0).
   const tanHalf = 3.2; // media longitud en X-mundo
@@ -208,24 +229,30 @@ function TangentSecant({ t }: { t: number }) {
   const secMeshRef = useRef<THREE.Mesh>(null);
   const secPointRef = useRef<THREE.Mesh>(null);
   const htmlSlopeRef = useRef<HTMLSpanElement>(null);
+  // Temporales reutilizados: nada de `new THREE.*` por frame.
+  const tmp = useMemo(() => ({
+    a: new THREE.Vector3(), b: new THREE.Vector3(), mid: new THREE.Vector3(),
+    dir: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), q: new THREE.Quaternion(),
+  }), []);
 
   useFrame((_, delta) => {
     let h = hRef.current - Math.min(delta, 0.05) * 0.5;
     if (h < 0.1) h = 2.4;
     hRef.current = h;
 
-    // El segundo punto de la secante se clampa dentro del dominio.
-    const t2 = THREE.MathUtils.clamp(t + h, T_MIN, T_MAX);
-    const a = worldPoint(t);
-    const b = worldPoint(t2);
+    // El segundo punto de la secante se clampa dentro del dominio; cerca del
+    // final la secante va hacia ATRÁS (t − h) para no degenerar.
+    const t2 = t + h <= T_MAX ? t + h : THREE.MathUtils.clamp(t - h, T_MIN, T_MAX);
+    const a = tmp.a.set(tToWorldX(t), sToWorldY(sFn(t)), 0);
+    const b = tmp.b.set(tToWorldX(t2), sToWorldY(sFn(t2)), 0);
 
     if (secMeshRef.current) {
-      const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
       const len = Math.max(a.distanceTo(b), 0.001);
-      const dir = new THREE.Vector3().subVectors(b, a).normalize();
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      secMeshRef.current.position.copy(mid);
-      secMeshRef.current.quaternion.copy(q);
+      tmp.mid.addVectors(a, b).multiplyScalar(0.5);
+      tmp.dir.subVectors(b, a).normalize();
+      tmp.q.setFromUnitVectors(tmp.up, tmp.dir);
+      secMeshRef.current.position.copy(tmp.mid);
+      secMeshRef.current.quaternion.copy(tmp.q);
       secMeshRef.current.scale.set(1, len, 1);
     }
     if (secPointRef.current) {
@@ -233,20 +260,20 @@ function TangentSecant({ t }: { t: number }) {
     }
     if (htmlSlopeRef.current) {
       const secSlope = (sFn(t2) - sFn(t)) / (t2 - t || 1e-3);
-      htmlSlopeRef.current.textContent = `h=${h.toFixed(2)}  ·  Δs/Δt=${secSlope.toFixed(2)}`;
+      htmlSlopeRef.current.textContent = `h=${(t2 - t).toFixed(2)}  ·  Δs/Δt=${secSlope.toFixed(2)}`;
     }
   });
 
   return (
     <group>
       {/* proyección vertical del punto al eje t */}
-      <Segment a={new THREE.Vector3(p0.x, sToWorldY(0), 0)} b={p0} color="#475569" radius={0.012} emissive={0.4} opacity={0.5} />
+      <Segment a={pie} b={p0} color="#475569" radius={0.012} emissive={0.4} opacity={0.5} />
 
       {/* recta TANGENTE (pendiente = v(t) real) */}
       <Segment a={tanA} b={tanB} color={MAGENTA} radius={0.05} emissive={3.4} />
       <Html position={[tanB.x, tanB.y + 0.3, 0]} center distanceFactor={15}>
         <div className="pointer-events-none select-none whitespace-nowrap px-3 py-1.5 rounded-xl bg-black/70 border border-pink-400/40 backdrop-blur-md shadow-[0_0_20px_rgba(244,114,182,0.4)]">
-          <span className="text-pink-300 text-sm font-black font-mono">f&apos;(t) = {slope.toFixed(2)}</span>
+          <span className="text-pink-300 text-sm font-black font-mono">s&apos;(t) = {slope.toFixed(2)}</span>
         </div>
       </Html>
 
@@ -274,7 +301,8 @@ function TangentSecant({ t }: { t: number }) {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ t }: { t: number }) {
+function Scene({ t, coef }: { t: number; coef: CoheteM8 }) {
+  const mapa = useMemo(() => crearMapa(coef), [coef.k, coef.m]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 3, 16]} fov={45} />
@@ -285,9 +313,9 @@ function Scene({ t }: { t: number }) {
       <hemisphereLight intensity={0.35} groundColor="#020617" />
       <directionalLight position={[6, 10, 8]} intensity={0.5} />
 
-      <CartesianGrid />
-      <FunctionCurve />
-      <TangentSecant t={t} />
+      <CartesianGrid mapa={mapa} />
+      <FunctionCurve mapa={mapa} />
+      <TangentSecant t={t} mapa={mapa} />
 
       <Sparkles count={70} scale={[20, 12, 14]} size={2} speed={0.3} color="#67e8f9" opacity={0.4} />
       <Stars radius={80} depth={40} count={2600} factor={4} saturation={0} fade speed={0.6} />
@@ -305,19 +333,19 @@ function Scene({ t }: { t: number }) {
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.15} mipmapBlur intensity={1.6} radius={0.72} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={CA_OFFSET} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
   );
 }
 
-export default function Derivadas3DScene({ t }: { t: number }) {
+export default function Derivadas3DScene({ t, coef }: { t: number; coef: CoheteM8 }) {
   return (
     <div className="w-full h-full">
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          <Scene t={t} />
+          <Scene t={t} coef={coef} />
         </Suspense>
       </Canvas>
     </div>

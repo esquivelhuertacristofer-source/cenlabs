@@ -1,12 +1,12 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Sumas de Riemann", mision: "Aproxima el área bajo la parábola incrementando la resolución rectángular", ecuacion: "A ≈ Σ f(xᵢ) Δx", formulaGfx: "f(x) = -x² + 10x",
+    titulo: "Sumas de Riemann", mision: "Aproxima ∫₀¹⁰ (0.1x² + 1) dx con el método del reto y un error relativo bajo su tolerancia", ecuacion: "A ≈ Σ f(xᵢ) Δx", formulaGfx: "f(x) = 0.1x² + 1",
     pasos: [
-      { id: 1, text: "Selecciona el método de aproximación (Izquierda, Derecha o Medio).", icon: "list" },
-      { id: 2, text: "Ajusta la resolución (n) para dividir el área en rectángulos.", icon: "columns" },
-      { id: 3, text: "Observa cómo disminuye el margen de error respecto al área exacta.", icon: "activity" },
-      { id: 4, text: "Valida la integral cuando el error sea menor al 0.5%.", icon: "check" }
+      { id: 1, text: "Lee el reto: método asignado y error relativo máximo (2 % con extremos, 0.1 % con punto medio).", icon: "list" },
+      { id: 2, text: "Selecciona ese método y empieza con pocos rectángulos para ver el error.", icon: "columns" },
+      { id: 3, text: "Calcula la integral exacta con la regla de Barrow y compárala con la suma.", icon: "activity" },
+      { id: 4, text: "Aumenta n hasta que el error relativo quede bajo la tolerancia y valida.", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Comprender la integral definida como el límite de una suma de Riemann.",

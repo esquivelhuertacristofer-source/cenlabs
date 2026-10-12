@@ -8,10 +8,12 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, Microscope, FlaskConical, Scale
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
+import { TOLERANCIA_Q5_REL, aforoCorrecto } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraPreparacionSoluciones({ onValidate }: { onValidate?: () => void }) {
-  const { soluciones, validarP5 } = useSimuladorStore();
+  const { soluciones, validarP5 } = useSimuladorStore(useShallow((s) => ({ soluciones: s.soluciones, validarP5: s.validarP5 })));
   const [conclusionText, setConclusionText] = useState("");
 
   const { 
@@ -19,6 +21,7 @@ export default function BitacoraPreparacionSoluciones({ onValidate }: { onValida
     matraz = { polvo: 0, agua: 0 }, 
     mRequerida = 7.305, 
     mTarget = 0.5, 
+    vTarget = 250,
     status = 'idle' 
   } = soluciones || {};
 
@@ -29,7 +32,10 @@ export default function BitacoraPreparacionSoluciones({ onValidate }: { onValida
     ? ((masaEfectiva / (sal?.pm || 58.44)) / ((matraz?.agua || 0) / 1000)) 
     : 0;
   
-  const accuracy = Math.max(0, 100 - Math.abs((currentMolarity - mTarget) / mTarget) * 100);
+
+  // Misma tolerancia que el validador: ±5 % de la masa calculada.
+  const aforoOk = aforoCorrecto(matraz?.agua || 0, vTarget);
+  const pesajeOk = matraz.polvo > 0 && Math.abs(matraz.polvo - mRequerida) / mRequerida <= TOLERANCIA_Q5_REL;
 
   const handleReset = () => {
     setConclusionText("");
@@ -80,29 +86,29 @@ export default function BitacoraPreparacionSoluciones({ onValidate }: { onValida
  
          <div className="space-y-4">
             {/* Hallazgo: Pesaje */}
-            <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${Math.abs(matraz.polvo - mRequerida) < 0.05 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${pesajeOk ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${Math.abs(matraz.polvo - mRequerida) < 0.05 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${pesajeOk ? 'text-emerald-600' : 'text-slate-400'}`}>
                      Calibración de Masa
                   </span>
-                  <span className={`text-xs font-bold ${Math.abs(matraz.polvo - mRequerida) < 0.05 ? 'text-emerald-900' : 'text-slate-600'}`}>
-                     {Math.abs(matraz.polvo - mRequerida) < 0.05 ? '✓ Pesaje Preciso' : '... Esperando Pesada'}
+                  <span className={`text-xs font-bold ${pesajeOk ? 'text-emerald-900' : 'text-slate-600'}`}>
+                     {pesajeOk ? '✓ Pesaje Preciso' : '... Esperando Pesada'}
                   </span>
                </div>
-               <div className={`w-3 h-3 rounded-full ${Math.abs(matraz.polvo - mRequerida) < 0.05 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-200'}`} />
+               <div className={`w-3 h-3 rounded-full ${pesajeOk ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-200'}`} />
             </div>
  
             {/* Hallazgo: Aforo */}
-            <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${accuracy > 98 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${aforoOk ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${accuracy > 98 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${aforoOk ? 'text-emerald-600' : 'text-slate-400'}`}>
                      Exactitud del Aforo
                   </span>
-                  <span className={`text-xs font-bold ${accuracy > 98 ? 'text-emerald-900' : 'text-slate-600'}`}>
-                     {accuracy > 98 ? '✓ Menisco Optimizado' : '... Diluyendo Solución'}
+                  <span className={`text-xs font-bold ${aforoOk ? 'text-emerald-900' : 'text-slate-600'}`}>
+                     {aforoOk ? '✓ Menisco Optimizado' : '... Diluyendo Solución'}
                   </span>
                </div>
-               <div className={`w-3 h-3 rounded-full ${accuracy > 98 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-200'}`} />
+               <div className={`w-3 h-3 rounded-full ${aforoOk ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-200'}`} />
             </div>
          </div>
       </div>

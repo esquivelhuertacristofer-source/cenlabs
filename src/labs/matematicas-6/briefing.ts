@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#f43f5e',
     duracion: 35,
     videoUrl: 'https://youtu.be/vYE9qp-1PVw',
-    bienvenida: `¡Bienvenido al Centro de Acoplamiento Espacial! Soy el Dr. Quantum.\n\nLas matemáticas nos permiten mover, rotar y escalar objetos con precisión absoluta. Usarás matrices para navegar una sonda.\n\nTu misión: Alinear la sonda con la plataforma fantasma.',`,
+    bienvenida: `¡Bienvenido al Centro de Acoplamiento Espacial! Soy el Dr. Quantum.\n\nLas matemáticas nos permiten mover, rotar y escalar objetos con precisión absoluta. Usarás matrices para navegar una sonda.\n\nTu misión: alinear la sonda con la silueta de la plataforma fantasma.`,
     conceptos: [
       { icono: '↔️', nombre: 'Traslación', descripcion: 'Desplazamiento sin rotación ni cambio de tamaño.' },
       { icono: '🔄', nombre: 'Rotación', descripcion: 'Giro alrededor de un punto de origen.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '📐', nombre: 'Vectores', descripcion: 'Dirección y magnitud del movimiento.' }
     ],
     mision: [
-      'Identifica la posición de la plataforma objetivo.',
-      'Aplica el factor de escala correcto.',
+      'Observa la SILUETA objetivo: tamaño, giro y posición.',
+      'Aplica el factor de escala que iguala el tamaño.',
       'Rota la sonda para que coincida en ángulo.',
       'Traslada la sonda en los ejes X e Y.',
-      'Confirma el acoplamiento perfecto.'
+      'Lee la matriz M = T·R·S y confirma el acoplamiento.'
     ],
     aplicaciones: [
       { area: 'CGI', ejemplo: 'Animación de personajes en películas y juegos.' },

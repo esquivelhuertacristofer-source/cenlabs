@@ -1,19 +1,26 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
+import {
+  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
   Trash2, ShieldCheck, ChevronDown, ChevronUp, Calculator, BookOpen,
   Binary, Compass, Layers, Sigma, Bot, Volume2, Microscope
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
-import { getDomainRangeInfo } from '@/utils/mathEngine';
+import { validarM1 as coincideM1, leerNumero } from '@/domain/matematicas';
 
 export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () => void }) {
-  const { cuadraticas, validarM1, generarSemillaM1, resetM1, setDeltaVerified, setVertexVerified, bitacoraData, setBitacora } = useSimuladorStore();
-  const { a, b, c, target, status } = cuadraticas;
+  const { cuadraticas, resetM1, setDeltaVerified, setVertexVerified, bitacoraData, setBitacora } = useSimuladorStore(
+    useShallow((s) => ({
+      cuadraticas: s.cuadraticas, resetM1: s.resetM1,
+      setDeltaVerified: s.setDeltaVerified, setVertexVerified: s.setVertexVerified,
+      bitacoraData: s.bitacoraData, setBitacora: s.setBitacora,
+    })),
+  );
+  const { a, b, c, status } = cuadraticas;
   const hallazgos = bitacoraData?.cuadraticas_points || [];
 
   const [deltaInput, setDeltaInput] = useState('');
@@ -29,7 +36,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
     const x = vx;
     const y = a * x * x + b * x + c;
     const nuevoPunto = {
-      id: crypto.randomUUID(),
+      id: `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       x: x.toFixed(2),
       y: y.toFixed(2),
       timestamp: new Date().toLocaleTimeString()
@@ -47,19 +54,13 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
     });
   };
 
-  useEffect(() => {
-    if (target.a === 2 && target.b === -2 && target.c === -3) {
-      generarSemillaM1();
-    }
-  }, []);
-
   const safeA = a || 0.001;
   const delta = b * b - 4 * a * c;
   const vx = -b / (2 * safeA);
   const vy = a * vx * vx + b * vx + c;
 
   const checkDelta = () => {
-    const val = parseFloat(deltaInput);
+    const val = leerNumero(deltaInput);
     const ok = !isNaN(val) && Math.abs(val - delta) < 0.15;
     setDeltaFeedback(ok ? 'correct' : 'wrong');
     setDeltaVerified(ok);
@@ -67,16 +68,16 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
   };
 
   const checkVertex = () => {
-    const val = parseFloat(vertexInput);
+    const val = leerNumero(vertexInput);
     const ok = !isNaN(val) && Math.abs(val - vx) < 0.15;
     setVertexFeedback(ok ? 'correct' : 'wrong');
     setVertexVerified(ok);
     if (ok) audio.playSuccess(); else audio.playError();
   };
 
+  // Reinicia tus coeficientes y cálculos; la trayectoria objetivo no cambia.
   const handleReset = () => {
     resetM1();
-    generarSemillaM1();
     setDeltaInput(''); setDeltaFeedback('idle');
     setVertexInput(''); setVertexFeedback('idle');
     setConclusionText('');
@@ -86,40 +87,34 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
   const canValidate = (cuadraticas.deltaVerified ?? false) && (cuadraticas.vertexVerified ?? false) && (wordCount >= 30);
 
-  // Checks de Hallazgos en Vivo
-  const checkA = Math.abs(a - target.a) < 0.1;
-  const checkB = Math.abs(b - target.b) < 0.1;
-  const checkC = Math.abs(c - target.c) < 0.1;
+  // Hallazgo en vivo: misma regla que el validador (sin revelar qué coeficiente falla).
+  const sincronizada = coincideM1(cuadraticas);
+  const checkA = sincronizada, checkB = sincronizada, checkC = sincronizada;
 
-  const handleCertify = () => {
-    if (onValidate) onValidate();
-    else {
-      const ok = validarM1();
-      if (ok) audio.playSuccess(); else audio.playError();
-    }
-  };
+  // Único flujo de éxito: el juez es validarLab (vía onValidate del cliente).
+  const handleCertify = () => onValidate?.();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-rose-500/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
            <Bot size={60} className="text-white" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
              <div className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
              <span className="text-[10px] font-black text-rose-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
           </div>
-          
+
           <h4 className="text-white font-black text-lg leading-tight mb-2">Análisis de Trayectoria</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
             Solicita instrucciones para sincronizar los coeficientes algebraicos con el objetivo balístico.
           </p>
-          
-          <button 
+
+          <button
             onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-800 hover:from-rose-500 hover:to-rose-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-rose-600/20"
           >
@@ -130,7 +125,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
 
         <div className="flex gap-1 mt-4 justify-center opacity-30">
            {[...Array(12)].map((_, i) => (
-             <motion.div 
+             <motion.div
                key={i}
                animate={{ height: [4, 12, 4] }}
                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
@@ -208,7 +203,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
             {deltaFeedback === 'correct' && <span className="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full">Validado</span>}
           </div>
           <div className="flex gap-2">
-            <input 
+            <input
               type="number" value={deltaInput} placeholder="Valor de Δ..."
               onChange={e => { setDeltaInput(e.target.value); setDeltaFeedback('idle'); }}
               className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 focus:outline-none focus:border-rose-500"
@@ -224,7 +219,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
             {vertexFeedback === 'correct' && <span className="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full">Validado</span>}
           </div>
           <div className="flex gap-2">
-            <input 
+            <input
               type="number" value={vertexInput} placeholder="Valor de h..."
               onChange={e => { setVertexInput(e.target.value); setVertexFeedback('idle'); }}
               className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 focus:outline-none focus:border-rose-500"
@@ -233,7 +228,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
           </div>
         </div>
 
-        <button 
+        <button
           onClick={addPoint}
           className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
         >
@@ -264,10 +259,10 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
             </div>
           ) : (
             hallazgos.map((reg: any) => (
-              <motion.div 
+              <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                key={reg.id} 
+                key={reg.id}
                 className="grid grid-cols-3 gap-2 p-3 bg-white/5 rounded-xl border border-white/5 items-center"
               >
                 <div className="flex flex-col">
@@ -297,7 +292,7 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
              </div>
              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
           </div>
-          <textarea 
+          <textarea
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
              placeholder="Describe la relación entre el discriminante y el número de raíces observadas en la trayectoria..."
              rows={4}
@@ -307,13 +302,13 @@ export default function BitacoraCuadraticas({ onValidate }: { onValidate?: () =>
 
       {/* BOTONES DE ACCIÓN FINALES */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-14 h-14 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
-        <button 
+        <button
           onClick={handleCertify}
           disabled={!canValidate && status !== 'success'}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${status === 'success' ? 'bg-slate-950 text-white shadow-rose-500/20' : canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}

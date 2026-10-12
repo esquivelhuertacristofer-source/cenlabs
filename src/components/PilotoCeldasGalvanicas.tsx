@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
+import { validarQ9 } from '@/domain/quimica';
 import { Zap, Activity, Info, FlaskConical, MousePointer2, AlertCircle, ShieldCheck, Battery, RefreshCcw, Box, ArrowRightLeft } from 'lucide-react';
 import Galvanic3DScene from './simuladores/qmi09/Galvanic3DScene';
 import { audio } from '@/utils/audioEngine';
@@ -15,17 +16,27 @@ const METALES_CONFIG: Record<string, { label: string; color: string; pot: number
   Mg: { label: "Magnesio (Mg)", color: "#475569", pot: -2.37, desc: "Metal gris oscuro. Muy reactivo." }
 };
 
-export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfesor = false }: { isWorktableDark?: boolean; isProfesor?: boolean }) {
-  const router = useRouter();
-  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9, validarP9, resetP9, registrarHallazgo } = useSimuladorStore();
+export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfesor = false, onValidate }: { isWorktableDark?: boolean; isProfesor?: boolean; onValidate?: () => void }) {
+  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9, validarP9, resetP9, setRespuestaP9 } =
+    useSimuladorStore(useShallow((s) => ({
+      celda: s.celda, setMetalVaso: s.setMetalVaso, togglePuenteSalino: s.togglePuenteSalino, toggleCables: s.toggleCables,
+      generarSemillaP9: s.generarSemillaP9, validarP9: s.validarP9, resetP9: s.resetP9, setRespuestaP9: s.setRespuestaP9,
+    })));
   const [selectedMetal, setSelectedMetal] = useState<string | null>(null);
   const [hoveredMetal, setHoveredMetal] = useState<string | null>(null);
   const [ansAnodo, setAnsAnodo] = useState('');
   const [ansCatodo, setAnsCatodo] = useState('');
+  const [intentado, setIntentado] = useState(false);
+  // La pareja de metales del reto la pone `entrarLab('quimica-9')` antes de montar el panel.
 
-  useEffect(() => {
-    if (!celda.seedMetales || celda.seedMetales.length === 0) generarSemillaP9();
-  }, [celda.seedMetales, generarSemillaP9]);
+  const veredicto = validarQ9(celda);
+  const validar = () => {
+    setRespuestaP9(ansAnodo || null, ansCatodo || null);
+    setIntentado(true);
+    // Un solo juez: el validador de la práctica (quiz + modal comunes).
+    if (onValidate) { onValidate(); return; }
+    if (validarP9()) audio?.playSuccess(); else audio?.playError();
+  };
 
   const handleMetalClick = (m: string) => {
     setSelectedMetal(m);
@@ -123,8 +134,9 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
                  initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
                  className="flex flex-col items-center"
                >
-                 <motion.div 
-                   animate={{ 
+                 {/* Lectura con signo: E°(der) − E°(izq). Negativa = COM conectada al cátodo. */}
+                 <motion.div
+                   animate={{
                      color: celda.voltaje > 0 ? '#10b981' : '#f43f5e',
                      textShadow: celda.voltaje > 0 ? '0 0 50px rgba(16,185,129,0.5)' : '0 0 50px rgba(244,63,94,0.5)'
                    }}
@@ -132,7 +144,7 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
                  >
                     {celda.voltaje > 0 ? '+' : ''}{celda.voltaje.toFixed(2)}
                  </motion.div>
-                 <div className="px-8 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-2xl font-black uppercase tracking-[0.5em] italic">VOLTS (E°cell)</div>
+                 <div className="px-8 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-2xl font-black uppercase tracking-[0.3em] italic">V · voltímetro</div>
                </motion.div>
              )}
              {!isCircuitComplete && (
@@ -150,11 +162,11 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
              {celda.vasoIzq && (
                <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="p-6 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2rem] shadow-2xl">
                   <div className="flex items-center gap-2 mb-2">
-                    <Battery size={14} className="text-rose-400" />
-                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Ánodo (-)</span>
+                    <Battery size={14} className="text-slate-300" />
+                    <span className="text-[10px] font-black text-slate-200 uppercase tracking-widest">Vaso izquierdo</span>
                   </div>
                   <div className="text-3xl font-black text-white uppercase italic">{celda.vasoIzq}</div>
-                  <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Oxidación Activa</div>
+                  <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Punta COM (negra, −)</div>
                </motion.div>
              )}
            </AnimatePresence>
@@ -163,11 +175,11 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
              {celda.vasoDer && (
                <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="p-6 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2rem] text-right shadow-2xl">
                   <div className="flex items-center gap-2 justify-end mb-2">
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Cátodo (+)</span>
-                    <Battery size={14} className="text-emerald-400" />
+                    <span className="text-[10px] font-black text-slate-200 uppercase tracking-widest">Vaso derecho</span>
+                    <Battery size={14} className="text-slate-300" />
                   </div>
                   <div className="text-3xl font-black text-white uppercase italic">{celda.vasoDer}</div>
-                  <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Reducción Activa</div>
+                  <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Punta V (roja, +)</div>
                </motion.div>
              )}
            </AnimatePresence>
@@ -177,7 +189,7 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
       {/* ── BANDEJA DE INVENTARIO (DIAMOND DESIGN) ── */}
       <motion.div 
         initial={{ y: 100 }} animate={{ y: 0 }}
-        className="absolute bottom-10 z-20 flex items-center gap-8 p-6 bg-slate-950/60 backdrop-blur-3xl rounded-[3.5rem] border border-white/5 shadow-[0_0_100px_rgba(0,0,0,0.8)] pointer-events-auto"
+        className="absolute bottom-36 z-20 flex items-center gap-8 p-6 bg-slate-950/60 backdrop-blur-3xl rounded-[3.5rem] border border-white/5 shadow-[0_0_100px_rgba(0,0,0,0.8)] pointer-events-auto"
       >
         <div className="flex gap-4 pr-8 border-r border-white/10">
            {celda.seedMetales.map((m) => (
@@ -259,13 +271,13 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
                    onClick={() => placeMetal('izq')}
                    className="py-5 bg-white/5 hover:bg-white/10 text-white rounded-[2rem] text-[10px] font-black uppercase border border-white/10 transition-all flex items-center justify-center gap-2 hover:border-rose-500/50 hover:text-rose-400"
                  >
-                   <ArrowRightLeft size={16} className="rotate-180" /> Ánodo (-)
+                   <ArrowRightLeft size={16} className="rotate-180" /> Vaso izquierdo (COM)
                  </button>
                  <button 
                    onClick={() => placeMetal('der')}
                    className="py-5 bg-white/5 hover:bg-white/10 text-white rounded-[2rem] text-[10px] font-black uppercase border border-white/10 transition-all flex items-center justify-center gap-2 hover:border-emerald-500/50 hover:text-emerald-400"
                  >
-                   Cátodo (+) <ArrowRightLeft size={16} />
+                   Vaso derecho (V+) <ArrowRightLeft size={16} />
                  </button>
                  <button onClick={() => setSelectedMetal(null)} className="col-span-2 py-5 bg-rose-500/10 text-rose-500 rounded-[2rem] text-[10px] font-black uppercase border border-rose-500/20 hover:bg-rose-500/20 transition-all tracking-widest mt-2">Cancelar Operación</button>
               </div>
@@ -284,7 +296,7 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
            <p className="text-xs font-medium opacity-70 leading-relaxed mb-8">
              Reto configurado con: <span className="text-white font-black">{celda.seedMetales.join(' • ')}</span>. 
              <br/><br/>
-             Para lograr un <span className="text-cyan-400 font-black">VOLTAJE POSITIVO</span>, el metal con mayor potencial de reducción (E°) debe situarse en el <span className="text-emerald-400 font-black">CÁTODO</span>.
+             El voltímetro marca E°(der) − E°(izq): para una <span className="text-cyan-400 font-black">LECTURA POSITIVA</span>, el metal con mayor potencial de reducción (el cátodo) va en el <span className="text-emerald-400 font-black">VASO DERECHO (V+)</span>.
            </p>
            <button onClick={generarSemillaP9} className="w-full py-5 bg-cyan-500 text-white rounded-2xl text-[10px] font-black uppercase shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
              <RefreshCcw size={16} /> Reconfigurar Estación
@@ -317,46 +329,27 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
           </select>
         </div>
         <button
-          onClick={() => {
-            const ok = validarP9(ansAnodo, ansCatodo, celda.voltaje);
-            if (ok) {
-              registrarHallazgo('qui_celda_galvanica', { anodo: ansAnodo, catodo: ansCatodo, voltaje: celda.voltaje });
-              audio?.playSuccess();
-            } else { audio?.playError(); }
-          }}
+          onClick={validar}
           className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl"
         >
           Validar Celda
         </button>
         <button
-          onClick={() => { resetP9(); audio?.playPop(); }}
+          aria-label="Desmontar la celda"
+          onClick={() => { resetP9(); setIntentado(false); audio?.playPop(); }}
           className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-white/10 transition-all"
         >
           <RefreshCcw size={18} />
         </button>
       </div>
 
-      {celda.status === 'success' && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#071220] border border-cyan-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(6,182,212,0.2)]"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
-              <ShieldCheck size={36} className="text-cyan-400" />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Celda Validada!</h2>
-            <p className="text-sm text-slate-300 mb-4">Identificaste correctamente el ánodo y el cátodo según los potenciales de reducción.</p>
-            <div className="mb-8 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
-              <span className="text-cyan-300 font-black font-mono">E°cell = {celda.voltaje.toFixed(2)} V</span>
-            </div>
-            <button onClick={() => { resetP9(); generarSemillaP9(); }} className="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Nueva Celda
-            </button>
-            <button onClick={() => router.push('/hub')} className="w-full mt-3 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Cerrar Laboratorio
-            </button>
-          </motion.div>
+      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
+      {(celda.status === 'success' || (intentado && celda.status === 'error' && veredicto.mensaje)) && (
+        <div className={`absolute bottom-[17rem] left-1/2 -translate-x-1/2 z-30 pointer-events-none rounded-full px-5 py-2 flex items-center gap-2 shadow-xl border ${celda.status === 'success' ? 'bg-emerald-600/90 border-emerald-400/50' : 'bg-amber-600/90 border-amber-400/50'}`}>
+          <ShieldCheck size={14} className="text-white" />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">
+            {celda.status === 'success' ? 'Celda armada e identificada' : veredicto.mensaje}
+          </span>
         </div>
       )}
 

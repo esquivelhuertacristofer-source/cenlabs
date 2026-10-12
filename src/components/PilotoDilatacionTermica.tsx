@@ -1,296 +1,192 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Thermometer, RotateCcw,
-  CheckCircle2, Activity, Bot, Target, Play, Pause, Ruler
-} from 'lucide-react';
+import { Thermometer, Ruler, Play, Pause, Plus, ShieldAlert, Flame } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import DilatacionTermica3DScene from './simuladores/fis07/DilatacionTermica3DScene';
+import {
+  MATERIALES_DILATACION, T_AMBIENTE, T_VAPOR, DT_MIN_MEDICION,
+  alphaDe, dilatacion, lecturaComparador, evaluarF7,
+} from '@/domain/fisica';
+import AvisoReto from './fisica/AvisoReto';
 
-const MATERIALES = {
-  aluminio: { nombre: 'Aluminio', alpha: 23e-6, color: '#CBD5E1' },
-  cobre: { nombre: 'Cobre', alpha: 17e-6, color: '#B45309' },
-  acero: { nombre: 'Acero', alpha: 12e-6, color: '#475569' },
-  misterioso: { nombre: 'Metal ?', alpha: 0, color: '#6366f1' }
-};
+const DilatacionTermica3DScene = dynamic(() => import('./simuladores/fis07/DilatacionTermica3DScene'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#020617] flex items-center justify-center text-orange-400 font-black text-xs uppercase tracking-[0.3em]">Preparando dilatómetro...</div>
+});
 
-const INITIAL_TEMP = 20;
-const INITIAL_LENGTH = 500; // mm
+const COLORES: Record<string, string> = { aluminio: '#CBD5E1', cobre: '#B45309', acero: '#64748b', misterioso: '#6366f1' };
+const MATERIALES_UI = [
+  ...Object.entries(MATERIALES_DILATACION).map(([k, m]) => ({ key: k, nombre: m.nombre })),
+  { key: 'misterioso', nombre: 'Metal ?' },
+];
 
-export default function PilotoDilatacionTermica() {
-  const router = useRouter();
-  const { dilatacion7, setDilatacion7, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente, registrarHallazgo } = useSimuladorStore();
-  const { material = 'aluminio', tempFin = INITIAL_TEMP, tempIni = INITIAL_TEMP, longitud = INITIAL_LENGTH } = dilatacion7 || {};
+// Calentamiento por vapor: la barra se acerca exponencialmente a la temperatura
+// del vapor (100 °C a 1 atm) y, sin vapor, se enfría hacia el ambiente (ley de
+// enfriamiento de Newton). Constantes de tiempo didácticas, no medidas.
+const TAU_CALENTAR_S = 6;
+const TAU_ENFRIAR_S = 20;
+const TICK_MS = 100;
 
-  // -- SEMILLA: METAL MISTERIOSO (Local para sesión) --
-  const [rhoMisteriosa] = useState(() => (Math.random() * (23 - 17) + 17) * 1e-6);
-  const [isHeating, setIsHeating] = useState(false);
-  const [alphaInput, setAlphaInput] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+interface Medicion { material: string; dT: number; dL: number }
 
-  useEffect(() => { 
-    setMounted(true);
+export default function PilotoDilatacionTermica({ onValidate }: { onValidate?: () => void }) {
+  const { d, setDilatacion7, audio, setAsistente } = useSimuladorStore(useShallow((s) => ({
+    d: s.dilatacion7, setDilatacion7: s.setDilatacion7, audio: s.audio, setAsistente: s.setAsistente,
+  })));
+  const { material, tempIni, longitud, alphaMisterioso, alphaAlumno } = d;
+
+  // Temperatura y vapor: estado local (no se escribe al store en cada tick).
+  const [temp, setTemp] = useState(T_AMBIENTE);
+  const [vapor, setVapor] = useState(false);
+  const [mediciones, setMediciones] = useState<Medicion[]>([]);
+  const [alphaInput, setAlphaInput] = useState(alphaAlumno !== null ? String(alphaAlumno) : '');
+  const [alerta, setAlerta] = useState<string | null>(null);
+  const [veredicto, setVeredicto] = useState<ReturnType<typeof evaluarF7> | null>(null);
+
+  useEffect(() => {
     setAsistente({
       visible: true,
-      text: "Bienvenido al laboratorio de termodinámica. Inyecta vapor para elevar la temperatura y observa la dilatación lineal del metal. Calcula el coeficiente α con los datos obtenidos.",
+      text: "Bienvenido al dilatómetro. Haz pasar vapor por el tubo hasta que el termómetro se estabilice, lee el alargamiento en el comparador y calcula α = ΔL / (L₀·ΔT).",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
-  }, []);
+  }, [setAsistente]);
 
-  // -- LÓGICA DE CALENTAMIENTO --
+  // El intervalo sólo vive mientras la temperatura no ha llegado a su equilibrio.
+  const objetivo = vapor ? T_VAPOR : tempIni;
+  const enEquilibrio = Math.abs(temp - objetivo) < 0.05;
   useEffect(() => {
-    if (isHeating && tempFin < 120) {
-      timerRef.current = setInterval(() => {
-        const nextTemp = Math.min(tempFin + 0.5, 120);
-        setDilatacion7({ tempFin: nextTemp });
-        if (nextTemp % 10 === 0) audio?.playPop();
-      }, 100);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isHeating, tempFin, setDilatacion7, audio]);
-
-  // -- CÁLCULOS FÍSICOS --
-  const alphaActual = material === 'misterioso' ? rhoMisteriosa : MATERIALES[material as keyof typeof MATERIALES].alpha;
-  const deltaL = alphaActual * longitud * (tempFin - tempIni);
-  const heatFactor = (tempFin - tempIni) / 100;
-
-  const handleValidar = () => {
-    const val = parseFloat(alphaInput) * 1e-6;
-    if (isNaN(val)) {
-       audio?.playError();
-       return;
-    }
-    const error = Math.abs(val - alphaActual) / alphaActual;
-    
-    if (error <= 0.05) {
-      audio?.playSuccess();
-      stopTimer();
-      setPasoActual(4);
-      
-      registrarHallazgo('fis_dilatacion_coeficiente', {
-        material,
-        longitud_inicial: longitud,
-        temp_inicial: tempIni,
-        temp_final: tempFin,
-        delta_l_medido: deltaL,
-        alpha_teorico: alphaActual,
-        alpha_alumno: val
+    if (enEquilibrio) return;
+    const tau = vapor ? TAU_CALENTAR_S : TAU_ENFRIAR_S;
+    const id = window.setInterval(() => {
+      setTemp((T) => {
+        const sig = objetivo + (T - objetivo) * Math.exp(-(TICK_MS / 1000) / tau);
+        return Math.abs(sig - objetivo) < 0.05 ? objetivo : sig;
       });
+    }, TICK_MS);
+    return () => window.clearInterval(id);
+  }, [vapor, objetivo, enEquilibrio]);
 
-      setBitacora({ 
-        ...bitacoraData, 
-        fisica7: `✅ VALIDADO: α=${(alphaActual * 1e6).toFixed(2)}x10⁻⁶. Material=${material}. ΔL=${deltaL.toFixed(4)}mm.` 
-      });
-    } else {
-      audio?.playError();
-    }
-  };
+  useEffect(() => { setVeredicto(null); }, [d.ensayo, alphaAlumno]);
 
-  const toggleHeat = () => {
-    setIsHeating(!isHeating);
+  const avisar = (msg: string) => { setAlerta(msg); window.setTimeout(() => setAlerta(null), 5000); };
+
+  const alpha = alphaDe(material, alphaMisterioso);
+  const termometro = Math.round(temp * 10) / 10;           // resolución 0,1 °C
+  const dT = Math.round((termometro - tempIni) * 10) / 10;
+  const comparador = lecturaComparador(dilatacion(alpha, longitud, temp - tempIni)); // mm, resolución 1 μm
+
+  const montar = (key: string) => {
+    if (key === material) return;
+    if (vapor) return avisar('Corta el vapor antes de cambiar la barra.');
+    // Una barra nueva se monta a temperatura ambiente.
+    setDilatacion7({ material: key, resultado: null });
+    setTemp(tempIni);
     audio?.playPop();
-    if (!isHeating) {
-      audio?.playNotification();
-    }
   };
 
-  if (!mounted) return null;
+  const registrar = () => {
+    if (dT < DT_MIN_MEDICION) return avisar(`Calienta al menos ${DT_MIN_MEDICION} °C: con ΔT pequeño el error de lectura domina.`);
+    const m: Medicion = { material, dT, dL: comparador };
+    setMediciones((prev) => [...prev.slice(-7), m]);
+    // Al store sólo va la medición del metal problema: es la que se evalúa.
+    if (material === 'misterioso') setDilatacion7({ ensayo: m, resultado: null });
+    audio?.playPop();
+  };
+
+  const guardarAlpha = (v: string) => {
+    setAlphaInput(v);
+    const a = parseFloat(v);
+    setDilatacion7({ alphaAlumno: Number.isFinite(a) ? a : null, resultado: null });
+  };
+  const comprobar = () => {
+    const v = evaluarF7(d);
+    setVeredicto(v);
+    if (v.ok) audio?.playSuccess(); else { audio?.playError(); avisar(v.mensaje ?? 'Revisa tus datos.'); }
+  };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-
-      {/* ── ESCENA 3D — DILATACIÓN TÉRMICA (fondo full-screen) ── */}
       <div className="absolute inset-0 z-0">
-        <DilatacionTermica3DScene
-          alpha={alphaActual}
-          longitud={longitud}
-          tempIni={tempIni}
-          tempFin={tempFin}
-          color={MATERIALES[material as keyof typeof MATERIALES]?.color || '#CBD5E1'}
-          encendido={isHeating}
-        />
+        <DilatacionTermica3DScene alpha={alpha} longitud={longitud} tempIni={tempIni} tempFin={temp}
+          color={COLORES[material] ?? '#CBD5E1'} encendido={vapor} />
       </div>
 
-      {/* velo de contraste para legibilidad del HUD */}
-      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#010409]/70 via-transparent to-[#010409]/80" />
+      <AnimatePresence>
+        {alerta && (
+          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
+            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
+            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ── ESCENA DE LABORATORIO 3D ── */}
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
-
-         {/* CHECKLIST HUD (DIAMOND STANDARD) */}
-         <div className="absolute top-48 left-1/2 -translate-x-1/2 w-[600px] pointer-events-none z-50">
-            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
-                  <Activity size={12} className="animate-pulse" /> Sincronía de Dilatación
-                </span>
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Thermal Protocol HUD</span>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-6">
-                <div className={`p-5 rounded-2xl border transition-all ${isHeating ? 'bg-orange-500/10 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.1)]' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Energía</div>
-                  <div className={`text-sm font-black italic ${isHeating ? 'text-orange-400' : 'text-white/20'}`}>{isHeating ? 'INYECCIÓN' : 'AMBIENTE'}</div>
-                </div>
-                <div className={`p-5 rounded-2xl border transition-all ${deltaL > 0.01 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Expansión</div>
-                  <div className={`text-sm font-black italic ${deltaL > 0.01 ? 'text-amber-400' : 'text-white/20'}`}>{deltaL > 0.01 ? 'DETECTADA' : 'CERO'}</div>
-                </div>
-                <div className={`p-5 rounded-2xl border transition-all ${bitacoraData.fisica7 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-                  <div className="text-[9px] font-black uppercase text-white/40 mb-2">Coeficiente</div>
-                  <div className={`text-sm font-black italic ${bitacoraData.fisica7 ? 'text-emerald-400' : 'text-white/20'}`}>{bitacoraData.fisica7 ? 'CERTIFICADO' : 'PENDIENTE'}</div>
-                </div>
-              </div>
+      {/* INSTRUMENTOS */}
+      <div className="absolute top-6 left-6 z-30 w-[330px] max-w-[92vw] flex flex-col gap-4">
+        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-orange-500/30 p-5 rounded-[2rem]">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Thermometer size={12} /> Termómetro</span>
+              <div className="text-2xl font-black font-mono mt-1">{termometro.toFixed(1)} °C</div>
             </div>
-         </div>
-
-         {/* GIANT TEMPERATURE HUD (CENTRAL) */}
-         <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none opacity-10">
-            <div className="text-[14rem] font-black font-mono leading-none tracking-tighter italic text-white/10">{tempFin.toFixed(0)}</div>
-            <span className="text-xl font-black uppercase tracking-[1em] text-white/20">GRADOS CELSIUS</span>
-         </div>
-
-         {/* HUD SUPERIOR: TELEMETRÍA TÉRMICA */}
-         <div className="flex justify-between items-start z-30 pointer-events-none">
-            <div className="flex gap-4">
-              <HUDCard label="Longitud Base (L₀)" value={`${longitud.toFixed(0)} mm`} icon={<Ruler size={14} />} color="#64748b" isStatic />
-              <HUDCard label="Temperatura Actual" value={`${tempFin.toFixed(1)} °C`} icon={<Thermometer size={14} />} color="#f97316" highlight={isHeating} />
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Ruler size={12} /> Comparador</span>
+              <div className="text-2xl font-black font-mono mt-1">{comparador.toFixed(3)} mm</div>
             </div>
+          </div>
+          <div className="mt-3 text-[10px] text-slate-400 font-mono">L₀ = {longitud} mm · T₀ = {tempIni} °C · vapor a 1 atm: {T_VAPOR} °C</div>
+          <button onClick={registrar} className="w-full mt-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black uppercase flex items-center justify-center gap-1"><Plus size={12} /> Registrar medición</button>
+        </div>
 
-            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-6 rounded-[2.5rem] flex items-center gap-8 shadow-2xl">
-                <div>
-                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Vibración Atómica</h4>
-                   <div className="flex gap-2">
-                      {[1,2,3,4,5].map(i => (
-                         <motion.div 
-                           key={i}
-                           animate={{ 
-                             scale: 1 + (heatFactor * 0.4), 
-                             opacity: 0.3 + (heatFactor * 0.7),
-                             x: [0, heatFactor * 6, 0] 
-                           }}
-                           transition={{ repeat: Infinity, duration: 0.4 / (0.5 + heatFactor) }}
-                           className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)]" 
-                         />
-                      ))}
-                   </div>
-                </div>
-                <Activity className={`text-orange-500 ${isHeating ? 'animate-pulse' : 'opacity-20'}`} size={32} />
-            </div>
-         </div>
+        <div className="bg-[#0A1121]/85 backdrop-blur-xl border border-white/10 p-5 rounded-[2rem]">
+          <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Mediciones</span>
+          {mediciones.length === 0 ? <p className="text-[10px] text-slate-500 italic mt-2">Sin mediciones todavía.</p> : (
+            <table className="w-full text-[10px] font-mono mt-2">
+              <thead><tr className="text-slate-500"><th className="text-left">Barra</th><th className="text-left">ΔT</th><th className="text-left">ΔL</th></tr></thead>
+              <tbody>
+                {mediciones.map((m, i) => (
+                  <tr key={i} className="border-t border-white/5">
+                    <td>{m.material === 'misterioso' ? 'Metal ?' : MATERIALES_DILATACION[m.material]?.nombre}</td>
+                    <td>{m.dT.toFixed(1)} °C</td><td>{m.dL.toFixed(3)} mm</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <label className="block mt-4">
+            <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest">α del metal ? (×10⁻⁶ /°C)</span>
+            <input type="number" step="0.1" value={alphaInput} onChange={(e) => guardarAlpha(e.target.value)} placeholder="α = ΔL / (L₀·ΔT)"
+              className="w-full mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg" />
+          </label>
+          <button onClick={comprobar} className="w-full mt-3 py-3 bg-amber-600 hover:bg-amber-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Comprobar análisis</button>
+        </div>
+      </div>
 
-         {/* BANCO DE PRUEBAS METALÚRGICO — vive en la escena 3D del fondo (z-0).
-             Este hueco deja pasar la interacción con OrbitControls (arrastrar / zoom). */}
-         <div className="flex-grow" />
+      {/* CONTROLES */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0A1121]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-4 flex flex-wrap items-center justify-center gap-6 max-w-[95vw]">
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Barra montada</span>
+          <div className="flex gap-1">
+            {MATERIALES_UI.map((m) => (
+              <button key={m.key} onClick={() => montar(m.key)}
+                className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase ${material === m.key ? 'bg-orange-600' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
+                {m.nombre}{m.key !== 'misterioso' && <span className="block text-[8px] font-mono normal-case text-white/60">α {(MATERIALES_DILATACION[m.key].alpha * 1e6).toFixed(1)}×10⁻⁶</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={() => { setVapor((v) => !v); audio?.playPop(); }}
+          className={`h-14 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 ${vapor ? 'bg-orange-600' : 'bg-white/10 hover:bg-white/20'}`}>
+          {vapor ? <Pause size={16} /> : <Play size={16} />}{vapor ? 'Cortar vapor' : 'Pasar vapor'}<Flame size={14} />
+        </button>
+      </div>
 
-         {/* ── PANEL DE CONTROL INFERIOR (DOCK) ── */}
-         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40">
-            <motion.div
-              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10 pointer-events-auto"
-            >
-               {/* Selectores */}
-               <div className="flex gap-8 items-center border-r border-white/10 pr-10">
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Material de Prueba</span>
-                    <div className="flex gap-2">
-                      {Object.entries(MATERIALES).map(([key, m]) => (
-                        <button key={key} onClick={() => { audio?.playPop(); setDilatacion7({ material: key }); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${material === key ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
-                          {m.nombre}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-               </div>
-
-               {/* Acción Térmica */}
-               <div className="flex-1 flex gap-6 items-center">
-                  <div className="flex-1 relative">
-                    <input 
-                      type="number" placeholder="α Calculado (x10⁻⁶)..." value={alphaInput}
-                      onChange={(e) => setAlphaInput(e.target.value)}
-                      className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-white font-black text-xl placeholder:text-white/10 focus:outline-none focus:border-orange-500 transition-all"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-white/20 uppercase tracking-widest">α (1/°C)</span>
-                  </div>
-
-                  <button 
-                    onClick={toggleHeat}
-                    className={`h-16 px-10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all ${isHeating ? 'bg-orange-600 text-white shadow-xl shadow-orange-600/30' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}
-                  >
-                    {isHeating ? <Pause size={16} /> : <Play size={16} />}
-                    {isHeating ? 'Detener Calor' : 'Inyectar Vapor'}
-                  </button>
-               </div>
-
-               {/* Validación */}
-               <div className="flex items-center gap-4">
-                  <button onClick={handleValidar} className="h-16 px-10 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center gap-3 shadow-xl transition-all active:scale-95 group">
-                     <Target size={18} className="text-white group-hover:rotate-12 transition-transform" />
-                     <span className="text-xs font-black text-white uppercase">Certificar</span>
-                  </button>
-
-                  <button onClick={() => { audio?.playPop(); setAlphaInput(""); setDilatacion7({ material: 'aluminio', tempFin: 20, tempIni: 20, longitud: 500, resultado: null }); setIsHeating(false); setBitacora({ ...bitacoraData, fisica7: null }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
-                     <RotateCcw size={20} />
-                  </button>
-               </div>
-            </motion.div>
-         </div>
-
-         {/* MENSAJE TUTOR / ÉXITO */}
-         <AnimatePresence>
-            {bitacoraData.fisica7 ? (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
-                 <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-orange-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(249,115,22,0.15)]">
-                    <CheckCircle2 size={100} className="text-orange-500 mx-auto mb-8" />
-                    <h3 className="text-5xl font-black text-white uppercase italic mb-6">Metalurgia Certificada</h3>
-                    <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
-                       Has validado el coeficiente de dilatación lineal con precisión milimétrica. El espécimen de <strong className="text-orange-400">{material.toUpperCase()}</strong> ha respondido según el estándar físico.
-                    </p>
-                    <button onClick={() => router.push('/alumno/laboratorio/fisica')} className="w-full py-6 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-orange-600/30">
-                       Finalizar Reporte Térmico
-                    </button>
-                 </motion.div>
-               </motion.div>
-            ) : (
-               <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="absolute top-40 right-12 z-30 max-w-xs bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl pointer-events-auto">
-                  <div className="flex items-center gap-3 mb-4">
-                     <Bot className="text-orange-400" size={24} />
-                     <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dr. Quantum: Termo-Lab</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed italic">
-                     "Inyecta vapor para aumentar la temperatura. Mide la elongación en el micrómetro y usa la fórmula: α = ΔL / (L₀·ΔT). ¡El gradiente es la clave!"
-                  </p>
-               </motion.div>
-            )}
-         </AnimatePresence>
-
-      </main>
+      <div className="absolute bottom-28 right-6 z-50">
+        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="Tu α coincide con tu medición del metal problema. Valida tu práctica." />
+      </div>
     </div>
-  );
-}
-
-function HUDCard({ label, value, icon, color, highlight = false, isStatic = false }: { label: string, value: string, icon: React.ReactNode, color: string, highlight?: boolean, isStatic?: boolean }) {
-  return (
-    <motion.div 
-      animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
-      transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
-      className={`px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all ${isStatic ? 'bg-white/5' : 'bg-[#0A1121]/80 backdrop-blur-md shadow-2xl'}`}
-    >
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner" style={{ background: `${color}20`, color }}>
-        {icon}
-      </div>
-      <div>
-        <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-1">{label}</span>
-        <span className="block text-2xl font-black text-white tracking-tighter leading-none">{value}</span>
-      </div>
-    </motion.div>
   );
 }

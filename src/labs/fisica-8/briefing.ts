@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#eab308',
     duracion: 35,
     videoUrl: 'https://youtu.be/q_BMFXFf0TU',
-    bienvenida: `¡Bienvenido a la Central Eléctrica Virtual! Soy el Dr. Quantum.\n\nDominaremos el flujo de electrones. Voltaje, Corriente y Resistencia forman la trinidad de la electrónica moderna.\n\nTu misión: Verificar la relación V = I·R en una resistencia fija.`,
+    bienvenida: `¡Bienvenido a la Central Eléctrica Virtual! Soy el Dr. Quantum.\n\nDominaremos el flujo de electrones. Voltaje, Corriente y Resistencia forman la trinidad de la electrónica moderna.\n\nTu misión: Diseñar la resistencia que protege a un LED rojo a 20 mA.`,
     conceptos: [
       { icono: '⚡', nombre: 'Voltaje (V)', descripcion: 'Presión eléctrica o diferencia de potencial.' },
       { icono: '🌊', nombre: 'Corriente (I)', descripcion: 'Flujo de electrones por unidad de tiempo.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '📈', nombre: 'Gráfica Óhmica', descripcion: 'Relación lineal entre V e I.' }
     ],
     mision: [
-      'Arma el circuito en serie.',
-      'Varía el voltaje de la fuente paso a paso.',
-      'Lee la corriente en el amperímetro.',
-      'Registra los pares de datos (V, I).',
-      'Calcula la resistencia promedio.'
+      'Conecta la fuente directo al LED y observa qué pasa.',
+      'Calcula R = (V − V_f)/I para I = 20 mA.',
+      'Arma el circuito en serie con esa resistencia.',
+      'Cierra el circuito y lee I, V_R y V_LED.',
+      'Comprueba que el LED trabaja a 20 mA.'
     ],
     aplicaciones: [
       { area: 'Hogar', ejemplo: 'Funcionamiento de electrodomésticos y focos.' },

@@ -16,6 +16,14 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette, Noise, Glitch } from '@react-three/postprocessing';
 import { useSimuladorStore } from "@/store/simuladorStore";
+import { useShallow } from "zustand/react/shallow";
+
+// Vectores constantes: crearlos en el render o en useFrame reasignaba objetos cada cuadro.
+const ABERRACION = new THREE.Vector2(0.0015, 0.0015);
+const GLITCH_DELAY = new THREE.Vector2(0, 0);
+const GLITCH_DURACION = new THREE.Vector2(0.1, 0.2);
+const GLITCH_FUERZA = new THREE.Vector2(0.1, 0.3);
+const escalaTmp = new THREE.Vector3();
 import * as THREE from 'three';
 
 // CPK Coloring Standard for Atoms
@@ -49,12 +57,14 @@ function MoleculeModel({ formula, atomos, scale = 1, isBalanced = false, color }
   const atomList = useMemo(() => {
     const list: any[] = [];
     let i = 0;
+    // Espiral de Fibonacci sobre el total REAL de átomos: con el divisor fijo en 10,
+    // las moléculas de más de 10 átomos daban acos(>1) = NaN y desaparecían.
+    const total = Math.max(1, Object.values(atomos).reduce((a: number, c: any) => a + Number(c || 0), 0));
     Object.entries(atomos).forEach(([symbol, count]: [string, any]) => {
       for (let j = 0; j < count; j++) {
-        // Layout simple en espiral/esfera
-        const phi = Math.acos(-1 + (2 * i) / 10);
-        const theta = Math.sqrt(10 * Math.PI) * phi;
-        const radius = 0.5 + (count > 5 ? 0.3 : 0);
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / total);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+        const radius = 0.35 + 0.18 * Math.cbrt(total);
         
         list.push({
           symbol,
@@ -131,7 +141,7 @@ function PlasmaCore({ isBalanced, pulse, masaTotal, theme }: { isBalanced: boole
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
     if (meshRef.current) {
-      meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+      meshRef.current.scale.lerp(escalaTmp.set(targetScale, targetScale, targetScale), 0.1);
       meshRef.current.rotation.y = t * 0.8;
       meshRef.current.rotation.z = t * 0.3;
     }
@@ -188,7 +198,7 @@ function PlasmaCore({ isBalanced, pulse, masaTotal, theme }: { isBalanced: boole
         <Html position={[0, -3.2, 0]} center>
           <div className="flex flex-col items-center gap-1 pointer-events-none">
              <div className={`px-6 py-2 rounded-xl border-2 font-black text-[10px] tracking-[0.4em] uppercase backdrop-blur-xl transition-all duration-700 ${isBalanced ? 'bg-emerald-500/30 border-emerald-400 text-emerald-400 shadow-[0_0_50px_#10b981]' : 'bg-black/40 border-white/10 text-white/30'}`}>
-               {isBalanced ? 'Fusión Certificada' : 'Ajuste Estequiométrico'}
+               {isBalanced ? 'Ecuación balanceada' : 'Ajuste Estequiométrico'}
              </div>
           </div>
         </Html>
@@ -303,7 +313,7 @@ function Molecules({ reactivos, productos, isBalanced, coeficientes, onIncrement
 }
 
 export default function Fusion3DScene({ balanceo }: { balanceo: any }) {
-  const { setCoeficiente, audio } = useSimuladorStore();
+  const { setCoeficiente, audio } = useSimuladorStore(useShallow((s) => ({ setCoeficiente: s.setCoeficiente, audio: s.audio })));
   const [pulse, setPulse] = useState(false);
   const [glitch, setGlitch] = useState(false);
 
@@ -371,25 +381,16 @@ export default function Fusion3DScene({ balanceo }: { balanceo: any }) {
               intensity={isBalanced ? 5.0 : 2.5} 
               radius={0.5} 
             />
-            <ChromaticAberration offset={new THREE.Vector2(0.0015, 0.0015)} />
+            <ChromaticAberration offset={ABERRACION} />
             <Vignette offset={0.1} darkness={1.3} />
             <Noise opacity={0.05} />
-            {glitch ? <Glitch delay={new THREE.Vector2(0, 0)} duration={new THREE.Vector2(0.1, 0.2)} strength={new THREE.Vector2(0.1, 0.3)} /> : <></>}
+            {glitch ? <Glitch delay={GLITCH_DELAY} duration={GLITCH_DURACION} strength={GLITCH_FUERZA} /> : <></>}
           </EffectComposer>
         </Suspense>
       </Canvas>
       
-      {/* HUD de Telemetría 3D (Opcional) */}
-      <div className="absolute top-8 right-8 flex flex-col items-end gap-2 pointer-events-none">
-          <div className="px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl flex flex-col">
-              <span className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">Masa Reactivos</span>
-              <span className="text-xl font-black text-white tabular-nums">{masaReactivos.toFixed(3)} u.m.a</span>
-          </div>
-          <div className="px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl flex flex-col">
-              <span className="text-[8px] font-black text-orange-400 uppercase tracking-widest">Masa Productos</span>
-              <span className="text-xl font-black text-white tabular-nums">{balanceo.masaProductos.toFixed(3)} u.m.a</span>
-          </div>
-      </div>
+      {/* Las masas de reactivos y productos ya las muestra el panel del Piloto; el
+          HUD duplicado de aquí tapaba el botón «Objetivos pedagógicos». */}
     </div>
   );
 }

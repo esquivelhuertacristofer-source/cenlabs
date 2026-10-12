@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { validarM2, clasificarSistemaM2 } from '@/domain/matematicas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Crosshair, Settings2, Activity, Target, 
@@ -11,9 +12,13 @@ import {
 } from 'lucide-react';
 import Sistemas2x23DScene from './simuladores/mat02/Sistemas2x23DScene';
 
-export default function PilotoSistemas2x2() {
-  const router = useRouter();
-  const { sistemas2x2, setSistemasCoefsM2, validarM2, generarSemillaM2, resetM2, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
+export default function PilotoSistemas2x2({ onValidate }: { onValidate?: () => void }) {
+  const { sistemas2x2, setSistemasCoefsM2, resetM2, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      sistemas2x2: s.sistemas2x2, setSistemasCoefsM2: s.setSistemasCoefsM2, resetM2: s.resetM2,
+      audio: s.audio, setAsistente: s.setAsistente, pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
   const { m1, b1, m2, b2, target, status } = sistemas2x2;
 
   const [mounted, setMounted] = useState(false);
@@ -26,13 +31,16 @@ export default function PilotoSistemas2x2() {
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isParallel = Math.abs(m1 - m2) < 0.001;
-  const xi = !isParallel ? (b2 - b1) / (m1 - m2) : null;
-  const yi = !isParallel ? m1 * xi! + b1 : null;
-
-  const isTargetLocked = xi !== null && Math.abs(xi - target.x) < 0.10 && Math.abs(yi! - target.y) < 0.10;
+  // Misma regla que el validador: el aviso visual nunca contradice el veredicto.
+  const tipo = clasificarSistemaM2(m1, b1, m2, b2);
+  const res = validarM2(sistemas2x2);
+  const xi = res.interseccion ? res.interseccion.x : null;
+  const yi = res.interseccion ? res.interseccion.y : null;
+  const isTargetLocked = res.isOk;
+  const sinUnica = tipo === 'dependiente' ? 'INFINITAS' : 'NINGUNA';
 
   // -- PASOS DEL HUD --
   useEffect(() => {
@@ -51,7 +59,7 @@ export default function PilotoSistemas2x2() {
       {/* ── GIANT TELEMETRY BACKGROUND ── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
         <span className="text-[14rem] font-black font-mono text-cyan-500 select-none italic">
-          {xi !== null ? `${xi.toFixed(1)},${yi!.toFixed(1)}` : 'PARALLEL'}
+          {xi !== null ? `${xi.toFixed(1)},${yi!.toFixed(1)}` : sinUnica}
         </span>
       </div>
 
@@ -112,7 +120,7 @@ export default function PilotoSistemas2x2() {
                 <div className="text-right">
                     <span className="text-[9px] font-black text-slate-500 uppercase block mb-1 italic">Current Intersection</span>
                     <div className={`text-2xl font-black italic tracking-tighter ${isTargetLocked ? 'text-emerald-400' : 'text-rose-500'}`}>
-                       {xi !== null ? `(${xi.toFixed(1)}, ${yi!.toFixed(1)})` : 'PARA-LINK'}
+                       {xi !== null ? `(${xi.toFixed(2)}, ${yi!.toFixed(2)})` : tipo === 'dependiente' ? 'Misma recta' : 'Paralelas'}
                     </div>
                 </div>
             </div>
@@ -125,9 +133,9 @@ export default function PilotoSistemas2x2() {
                     <div className="relative flex flex-col items-center">
                         <Crosshair size={240} className="text-emerald-500/20 animate-spin-slow" strokeWidth={0.5} />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">Target Locked</span>
-                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl animate-pulse">
-                                Sincronía Crítica
+                            <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">Objetivo fijado</span>
+                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
+                                Valida tu práctica
                             </div>
                         </div>
                     </div>
@@ -161,37 +169,24 @@ export default function PilotoSistemas2x2() {
             </div>
 
             <div className="flex flex-col gap-4">
-                <button onClick={() => { resetM2(); generarSemillaM2(); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
+                <button onClick={() => { resetM2(); audio?.playPop(); }} title="Reiniciar las rectas (el objetivo no cambia)" className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
                     <RefreshCcw size={24} />
                 </button>
                 <button
-                  onClick={() => { const ok = validarM2(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
+                  onClick={() => onValidate?.()}
                   className={`w-20 h-20 rounded-3xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-cyan-600 border-cyan-500 text-white hover:scale-105 active:scale-95'}`}
                 >
                     {status === 'success' ? <ShieldCheck size={32} /> : <Target size={32} />}
                 </button>
                 {status === 'error' && (
                   <div className="absolute bottom-full mb-3 right-0 bg-rose-900/90 border border-rose-500/50 text-rose-300 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl shadow-lg whitespace-nowrap">
-                    Ajusta los ángulos
+                    {tipo === 'unica' ? 'La intersección no coincide' : tipo === 'dependiente' ? 'Sistema dependiente' : 'Sistema inconsistente'}
                   </div>
                 )}
             </div>
         </div>
       </div>
 
-      {/* ÉXITO FINAL */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(6,182,212,0.15)]">
-                <Crosshair size={100} className="text-cyan-500 mx-auto mb-8" />
-                <h3 className="text-5xl font-black text-white uppercase italic mb-6">Triangulación Exitosa</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has localizado el objetivo mediante un sistema de ecuaciones lineales perfecto. La sincronía de los haces ha sido validada bajo el estándar <strong>Diamond State</strong>.</p>
-                <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-cyan-600/30">Cerrar Informe de Sincronía</button>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

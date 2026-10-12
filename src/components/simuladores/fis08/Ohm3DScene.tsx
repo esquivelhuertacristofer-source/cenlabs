@@ -13,11 +13,12 @@ interface Props {
   resistencia: number;
   switchOn: boolean;
   ledRoto: boolean;
+  /** Corriente del lazo calculada por el Piloto con el dominio (corrienteLed). */
+  corrienteMA: number;
   bateriaConectada: boolean;
   resistenciaConectada: boolean;
   ledConectado: boolean;
   onToggleConexion: (component: 'bateria' | 'resistencia' | 'led') => void;
-  onChangeResistencia: (val: number) => void;
 }
 
 // ── CONSTANTES COLOR RESISTENCIA ──
@@ -95,38 +96,12 @@ function Bateria({ voltaje, conectada, onClick, isDarkMode, isSchematic }: any) 
   );
 }
 
-function Potentiometer({ value, onChange, isDarkMode, isSchematic }: any) {
-  const rotation = (value / 1000) * Math.PI * 1.5;
-  const pos: [number, number, number] = [0, 0.5, 0];
-
-  return (
-    <group position={pos} onClick={(e) => { e.stopPropagation(); onChange((value + 200) % 2000 || 100); }}>
-       {!isSchematic ? (
-         <group>
-            <Box args={[2, 1, 2]} castShadow><meshStandardMaterial color={isDarkMode ? "#1e293b" : "#94a3b8"} /></Box>
-            <Cylinder args={[0.6, 0.6, 0.5]} position={[0, 0.75, 0]} rotation={[0, rotation, 0]} castShadow>
-               <meshStandardMaterial color="#fbbf24" />
-               <Box args={[0.1, 0.2, 0.6]} position={[0, 0.1, 0.3]}><meshStandardMaterial color="#000" /></Box>
-            </Cylinder>
-         </group>
-       ) : (
-         <Box args={[2, 1, 2]}><meshBasicMaterial color="#fbbf24" transparent opacity={0.3} wireframe /></Box>
-       )}
-       <Html position={[0, 1.5, 0]} center>
-         <div className="flex flex-col items-center gap-1">
-           <div className={`px-2 py-1 rounded text-[7px] font-black cursor-pointer pointer-events-auto transition-all ${isSchematic ? 'bg-yellow-500 text-black scale-110 shadow-[0_0_20px_rgba(251,191,36,0.5)]' : 'bg-black/60 text-white/50 border border-white/10'}`}>
-             AJUSTAR (CLIC)
-           </div>
-         </div>
-       </Html>
-    </group>
-  );
-}
-
 function Resistencia({ resistencia, corrienteMA, conectada, onClick, isDarkMode, isSchematic }: any) {
   const bands = useMemo(() => getResistorBands(resistencia), [resistencia]);
   const pos: [number, number, number] = conectada ? [0, 0.5, 3] : [3, 0.5, 4.5];
-  const heatColor = corrienteMA > 25 ? "#ef4444" : (isDarkMode ? "#e2e8f0" : "#cbd5e1");
+  // Se calienta si disipa más que su potencia nominal (resistor de 1/4 W).
+  const sobrecarga = (corrienteMA / 1000) ** 2 * resistencia > 0.25;
+  const heatColor = sobrecarga ? "#ef4444" : (isDarkMode ? "#e2e8f0" : "#cbd5e1");
 
   return (
     <group position={pos} onClick={(e) => { e.stopPropagation(); onClick(); }}>
@@ -134,7 +109,7 @@ function Resistencia({ resistencia, corrienteMA, conectada, onClick, isDarkMode,
         <group>
           <Cylinder args={[0.05, 0.05, 4]} rotation={[0, 0, Math.PI / 2]} castShadow><meshStandardMaterial color="#94a3b8" /></Cylinder>
           <Cylinder args={[0.3, 0.3, 2]} rotation={[0, 0, Math.PI / 2]} castShadow>
-             <meshStandardMaterial color={heatColor} emissive={corrienteMA > 25 ? "#ff0000" : "#000"} emissiveIntensity={corrienteMA > 25 ? 0.5 : 0} />
+             <meshStandardMaterial color={heatColor} emissive={sobrecarga ? "#ff0000" : "#000"} emissiveIntensity={sobrecarga ? 0.5 : 0} />
           </Cylinder>
           {bands.map((color, idx) => (
             <Cylinder key={idx} args={[0.31, 0.31, 0.2]} rotation={[0, 0, Math.PI / 2]} position={[-0.6 + (idx * 0.4), 0, 0]}><meshStandardMaterial color={color} /></Cylinder>
@@ -170,8 +145,8 @@ function Led({ switchOn, ledRoto, corrienteMA, conectada, onClick, isDarkMode, i
       {!isSchematic ? (
         <Sphere args={[0.8, 32, 32]} ref={meshRef}>
            <meshStandardMaterial 
-              color={ledRoto ? '#334155' : (isGlowing ? '#4ade80' : '#166534')} 
-              emissive={isGlowing ? '#4ade80' : '#000000'}
+              color={ledRoto ? '#334155' : (isGlowing ? '#f87171' : '#7f1d1d')}
+              emissive={isGlowing ? '#ef4444' : '#000000'}
               emissiveIntensity={isGlowing ? intensity : 0}
               transparent opacity={0.9} 
            />
@@ -179,12 +154,12 @@ function Led({ switchOn, ledRoto, corrienteMA, conectada, onClick, isDarkMode, i
       ) : (
         <Sphere args={[0.8, 16, 16]}><meshBasicMaterial color="#4ade80" wireframe /></Sphere>
       )}
-      {isGlowing && <Sparkles count={80} scale={3} size={6} speed={1.5} color="#4ade80" />}
+      {isGlowing && <Sparkles count={40} scale={3} size={6} speed={1.5} color="#f87171" />}
       <Html position={[0, 1.8, 0]} center pointerEvents="none">
          <div className="flex flex-col items-center gap-2">
-            {isSchematic && <SchematicSymbol type="led" color="#4ade80" />}
+            {isSchematic && <SchematicSymbol type="led" color="#f87171" />}
             <div className={`px-2 py-1 rounded text-[8px] font-black border ${ledRoto ? 'bg-red-500/20 text-red-500 border-red-500' : 'bg-emerald-500/20 text-emerald-500 border-emerald-500'}`}>
-               {ledRoto ? 'LED_OFF' : 'DIODO_LED'}
+               {ledRoto ? 'LED QUEMADO' : 'LED ROJO'}
             </div>
          </div>
       </Html>
@@ -266,15 +241,16 @@ function Multimetro({ valor, label, isDarkMode }: any) {
 }
 
 export default function Ohm3DScene({ 
-  isDarkMode, isSchematic, nivel, voltaje, resistencia, switchOn, ledRoto, 
-  bateriaConectada, resistenciaConectada, ledConectado, onToggleConexion, onChangeResistencia 
+  isDarkMode, isSchematic, nivel, voltaje, resistencia, switchOn, ledRoto, corrienteMA: iLazo,
+  bateriaConectada, resistenciaConectada, ledConectado, onToggleConexion
 }: Props) {
   const isFlowing = switchOn && !ledRoto && bateriaConectada && (nivel === 1 ? true : resistenciaConectada) && ledConectado;
-  const corrienteMA = isFlowing ? (voltaje / resistencia) * 1000 : 0;
+  // La corriente la calcula el dominio (incluye la caída Vf del LED); aquí sólo se dibuja.
+  const corrienteMA = isFlowing ? iLazo : 0;
 
   return (
     <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: isDarkMode ? 1.5 : 2.2 }}>
-        <PerspectiveCamera makeDefault position={[12, 12, 12]} fov={35} />
+        <PerspectiveCamera makeDefault position={[14, 15, 17]} fov={40} />
         <ambientLight intensity={isSchematic ? 1.5 : (isDarkMode ? 0.8 : 1.8)} />
         {!isSchematic && <spotLight position={[15, 25, 10]} intensity={isDarkMode ? 4 : 10} castShadow />}
         <directionalLight position={[-10, 15, -10]} intensity={isDarkMode ? 1.5 : 2.5} />
@@ -282,10 +258,9 @@ export default function Ohm3DScene({
         <Base isDarkMode={isDarkMode} isSchematic={isSchematic} />
         <Bateria voltaje={voltaje} conectada={bateriaConectada} onClick={() => onToggleConexion('bateria')} isDarkMode={isDarkMode} isSchematic={isSchematic} />
         {nivel >= 2 && <Resistencia resistencia={resistencia} corrienteMA={corrienteMA} conectada={resistenciaConectada} onClick={() => onToggleConexion('resistencia')} isDarkMode={isDarkMode} isSchematic={isSchematic} />}
-        {nivel === 3 && <Potentiometer value={resistencia} onChange={onChangeResistencia} isDarkMode={isDarkMode} isSchematic={isSchematic} />}
         <Led switchOn={switchOn} ledRoto={ledRoto} corrienteMA={corrienteMA} conectada={ledConectado} onClick={() => onToggleConexion('led')} isDarkMode={isDarkMode} isSchematic={isSchematic} />
         <Wires nivel={nivel} switchOn={switchOn} ledRoto={ledRoto} corrienteMA={corrienteMA} bateriaConectada={bateriaConectada} resistenciaConectada={nivel === 1 ? true : resistenciaConectada} ledConectado={ledConectado} isDarkMode={isDarkMode} isSchematic={isSchematic} />
-        {nivel >= 2 && <Multimetro valor={isFlowing ? `${corrienteMA.toFixed(1)}mA` : "0.00mA"} label="AMPERIMETER" isDarkMode={isDarkMode} />}
+        {nivel >= 2 && <Multimetro valor={isFlowing ? `${corrienteMA.toFixed(1)}mA` : "0.00mA"} label="AMPERÍMETRO" isDarkMode={isDarkMode} />}
         <OrbitControls enablePan={true} maxPolarAngle={Math.PI / 2.1} minPolarAngle={Math.PI / 10} minDistance={5} maxDistance={40} />
       </Canvas>
   );

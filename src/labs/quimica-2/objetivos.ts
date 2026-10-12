@@ -1,13 +1,13 @@
 import type { Objetivo, ObjetivosState } from '@/data/labObjetivos';
+import { TOLERANCIA_Q2_ATM } from '@/domain/quimica';
 
 export default function objetivos(s: ObjetivosState): Objetivo[] {
-  const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
-          gases, balanceo, limitante, soluciones, solubilidad,
-          titulacion, equilibrio, celda, destilacion,
-          tiroParabolico, planoInclinado, pendulo, hooke } = s;
+  const { gases } = s;
+  const P = gases?.P || 0;
+  const pTarget = gases?.pTarget || 2;
   return [
-      { label: 'Volumen Constante (L)',  current: gases?.V || 0,  target: 10,                  completed: Math.abs((gases?.V || 0) - 10) < 0.1 },
-      { label: 'Presión Objetivo (atm)', current: gases?.P || 0,  target: gases?.pTarget || 2, completed: Math.abs((gases?.P || 0) - (gases?.pTarget || 2)) < 0.1 },
-      { label: 'Integridad de Cámara',   current: gases?.P || 0,  target: 7.0,                 completed: (gases?.P || 0) < 7.0 },
+      { label: 'Presión Objetivo (atm)', current: P, target: pTarget, completed: Math.abs(P - pTarget) < TOLERANCIA_Q2_ATM },
+      { label: 'Presión Certificada',    current: gases?.status === 'success' ? 1 : 0, target: 1, completed: gases?.status === 'success' },
+      { label: 'Integridad de Cámara',   current: P, target: 7.0, completed: P < 7.0 && !gases?.isExploded },
     ];
 }

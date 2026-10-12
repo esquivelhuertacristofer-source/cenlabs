@@ -1,13 +1,14 @@
 import type { Objetivo, ObjetivosState } from '@/data/labObjetivos';
 
+// Los dos últimos solo se marcan al validar: marcarlos al elegir revelaría la respuesta.
 export default function objetivos(s: ObjetivosState): Objetivo[] {
-  const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
-          gases, balanceo, limitante, soluciones, solubilidad,
-          titulacion, equilibrio, celda, destilacion,
-          tiroParabolico, planoInclinado, pendulo, hooke } = s;
+  const { limitante } = s;
+  const r = limitante?.respuesta;
+  const registrada = r?.limitanteIdx != null && r?.exceso != null;
+  const ok = limitante?.status === 'success';
   return [
-      { label: 'Reactivo Limitante', current: limitante?.status === 'success' ? 1 : 0,    target: 1,                               completed: limitante?.status === 'success' },
-      { label: 'Cálculo de Exceso',  current: limitante?.status === 'success' ? 1 : 0,    target: 1,                               completed: limitante?.status === 'success' },
-      { label: 'Fase de Síntesis',   current: (limitante?.reaccionActual || 0) + 1,       target: limitante?.reacciones?.length || 4, completed: false },
+      { label: 'Respuesta registrada', current: registrada ? 1 : 0, target: 1, completed: registrada },
+      { label: 'Reactivo Limitante',   current: ok ? 1 : 0,         target: 1, completed: ok },
+      { label: 'Cálculo de Exceso',    current: ok ? 1 : 0,         target: 1, completed: ok },
     ];
 }

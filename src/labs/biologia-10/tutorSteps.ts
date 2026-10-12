@@ -6,16 +6,16 @@ const tutorSteps: TutorStep[] = [
       mensaje: 'Simularemos la relación Presa-Depredador usando el modelo de Lotka-Volterra.',
     },
     {
-      id: 2, tipo: 'accion', pista: 'Poblaciones Iniciales',
-      mensaje: 'Define cuántas liebres y lobos inician. Activa la simulación para ver los ciclos de población.',
+      id: 2, tipo: 'accion', pista: 'Primera corrida',
+      mensaje: 'Corre 50 años con los parámetros iniciales. ¿Qué especie colapsa y cuándo?',
     },
     {
-      id: 3, tipo: 'accion', pista: 'Tasa de Encuentro',
-      mensaje: 'Ajusta la voracidad de los depredadores. Un desequilibrio puede llevar a la extinción de ambas especies.',
+      id: 3, tipo: 'accion', pista: 'Punto de equilibrio',
+      mensaje: 'Compara el equilibrio (γ/δ, α/β) con la población inicial. Si están lejos, las oscilaciones serán enormes.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Equilibrio Estable',
-      mensaje: 'Logra un ciclo poblacional estable y valida el análisis ecológico.',
+      mensaje: 'Cuando una corrida completa llegue a 50 años sin extinciones, valida.',
       accion: 'Validar Ecosistema',
     }
   ];

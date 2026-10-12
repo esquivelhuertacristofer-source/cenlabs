@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '⚡', nombre: 'Fuerza de Lorentz', descripcion: 'Fuerza sobre una carga en un campo magnético.' }
     ],
     mision: [
-      'Asegura los imanes del estator.',
-      'Ajusta el voltaje de la batería.',
-      'Aumenta el número de vueltas de la bobina.',
-      'Mide las revoluciones por minuto (RPM).',
-      'Logra el equilibrio de giro constante.'
+      'Orienta los imanes con polos opuestos enfrentados.',
+      'Elige el número de espiras de la bobina.',
+      'Calcula el voltaje: V = k·ω + I·Rₐ.',
+      'Energiza y mide las RPM y el sentido.',
+      'Alcanza la velocidad pedida con la carga del freno.'
     ],
     aplicaciones: [
       { area: 'Automotriz', ejemplo: 'Motores de autos eléctricos y drones.' },

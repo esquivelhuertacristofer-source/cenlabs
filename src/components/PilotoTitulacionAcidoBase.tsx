@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
+import { phTitulacion, validarQ7, VIRAJE_FENOLFTALEINA, CAPACIDAD_BURETA_ML } from '@/domain/quimica';
 import {
   XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, ReferenceLine, AreaChart, Area
@@ -14,42 +15,52 @@ import {
 import { audio } from '@/utils/audioEngine';
 import Titulacion3DScene from './simuladores/qmi07/Titulacion3DScene';
 
-export default function PilotoTitulacionAcidoBase() {
-  const router = useRouter();
+// La bureta escribe en el store a ~8 Hz; la apertura de la válvula fija cuánto
+// cae en cada paso (de una gota de 0.03 mL a un chorro de ~1 mL).
+const PASO_BURETA_MS = 120;
+const volumenPorPaso = (apertura: number) => 0.02 + Math.pow(apertura / 100, 2) * 1.0;
+
+export default function PilotoTitulacionAcidoBase({ onValidate }: { onValidate?: () => void }) {
   const {
-    titulacion, addDropNaOH, toggleIndicadorP7, togglePurgaP7, resetP7, generarSemillaP7, validarP7
-  } = useSimuladorStore();
+    titulacion, addDropNaOH, toggleIndicadorP7, togglePurgaP7, resetP7, setRespuestaP7, validarP7
+  } = useSimuladorStore(useShallow((s) => ({
+    titulacion: s.titulacion, addDropNaOH: s.addDropNaOH, toggleIndicadorP7: s.toggleIndicadorP7,
+    togglePurgaP7: s.togglePurgaP7, resetP7: s.resetP7, setRespuestaP7: s.setRespuestaP7, validarP7: s.validarP7,
+  })));
 
   const [mounted, setMounted] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [valveValue, setValveValue] = useState(0);
   const [ansCa, setAnsCa] = useState('');
+  const [intentado, setIntentado] = useState(false);
   const flowInterval = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    if (titulacion.history.length <= 1) generarSemillaP7();
-  }, []);
+  // La semilla ([HCl] desconocida) la pone `entrarLab('quimica-7')` antes de montar el panel.
+  useEffect(() => { setMounted(true); }, []);
 
+  const abierta = valveValue > 10;
+  const paso = volumenPorPaso(valveValue);
   useEffect(() => {
-    if (valveValue > 10) {
-      const speed = Math.max(25, 400 - (valveValue * 4));
-      const amount = valveValue > 85 ? 0.75 : (valveValue > 45 ? 0.3 : 0.08);
-      flowInterval.current = setInterval(() => {
-        addDropNaOH(amount);
-      }, speed);
-    } else {
-      if (flowInterval.current) clearInterval(flowInterval.current);
-    }
+    if (!abierta) return;
+    flowInterval.current = setInterval(() => addDropNaOH(paso), PASO_BURETA_MS);
     return () => { if (flowInterval.current) clearInterval(flowInterval.current); };
-  }, [valveValue]);
+  }, [abierta, paso, addDropNaOH]);
 
-  const currentPH = titulacion.history[titulacion.history.length - 1]?.ph || 1.0;
+  // pH del matraz con el volumen añadido (al abrir el lab, el del ácido solo).
+  const currentPH = phTitulacion(titulacion.ca, titulacion.va, titulacion.cb, titulacion.volumenBase);
+  const buretaVacia = titulacion.volumenBase >= CAPACIDAD_BURETA_ML;
+  const veredicto = validarQ7(titulacion);
 
-  // Punto de equivalencia: Veq = (ca·va)/cb  (mL)
-  const equivalenceVolume = titulacion.cb > 0
-    ? (titulacion.ca * titulacion.va) / titulacion.cb
-    : 25;
+  const enviar = () => {
+    const val = parseFloat(ansCa.replace(',', '.'));
+    if (isNaN(val)) return;
+    setValveValue(0);
+    setRespuestaP7(val);
+    setIntentado(true);
+    // Un solo juez: el validador de la práctica (quiz + modal comunes).
+    if (onValidate) onValidate();
+    else if (validarP7()) audio?.playSuccess(); else audio?.playError();
+  };
 
   // Alerta de Viraje Narrativa
   useEffect(() => {
@@ -73,7 +84,6 @@ export default function PilotoTitulacionAcidoBase() {
           volumenBase={titulacion.volumenBase}
           ph={currentPH}
           indicador={titulacion.indicador}
-          equivalenceVolume={equivalenceVolume}
           flowRate={valveValue / 100}
           history={titulacion.history}
         />
@@ -103,7 +113,7 @@ export default function PilotoTitulacionAcidoBase() {
             </div>
             <div className={`p-5 rounded-2xl border transition-all ${currentPH > 7 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
               <div className="text-[9px] font-black uppercase text-white/40 mb-2">Estado</div>
-              <div className={`text-sm font-black italic ${currentPH > 8.2 ? 'text-pink-500' : currentPH > 7 ? 'text-emerald-400' : 'text-white/20'}`}>{currentPH > 8.2 ? 'VIRADO' : currentPH > 7 ? 'NEUTRO' : 'ÁCIDO'}</div>
+              <div className={`text-sm font-black italic ${currentPH >= VIRAJE_FENOLFTALEINA ? 'text-pink-500' : currentPH > 7 ? 'text-emerald-400' : 'text-white/20'}`}>{currentPH >= VIRAJE_FENOLFTALEINA ? 'BÁSICO' : currentPH > 7.05 ? 'LIG. BÁSICO' : currentPH >= 6.95 ? 'NEUTRO' : 'ÁCIDO'}</div>
             </div>
           </div>
         </div>
@@ -132,8 +142,8 @@ export default function PilotoTitulacionAcidoBase() {
                  <div className="bg-white/5 rounded-3xl p-8 border border-white/10">
                     <div className="flex items-baseline gap-4">
                        <span className="text-6xl font-black font-mono tracking-tighter text-white">{currentPH.toFixed(2)}</span>
-                       <span className={`text-[11px] font-black px-4 py-1.5 rounded-full border border-current bg-current/10 ${currentPH > 8.2 ? 'text-pink-400' : 'text-blue-400'}`}>
-                          {currentPH > 8.2 ? 'VIRAJE' : 'ÁCIDO'}
+                       <span className={`text-[11px] font-black px-4 py-1.5 rounded-full border border-current bg-current/10 ${currentPH > 7 ? 'text-pink-400' : 'text-blue-400'}`}>
+                          {currentPH > 7.05 ? 'BÁSICO' : currentPH >= 6.95 ? 'NEUTRO' : 'ÁCIDO'}
                        </span>
                     </div>
                  </div>
@@ -185,7 +195,7 @@ export default function PilotoTitulacionAcidoBase() {
                           </linearGradient>
                        </defs>
                        <CartesianGrid strokeDasharray="5 5" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                       <XAxis dataKey="vol" hide />
+                       <XAxis dataKey="vol" type="number" domain={[0, CAPACIDAD_BURETA_ML]} hide />
                        <YAxis hide domain={[0, 14]} />
                        <Area type="monotone" dataKey="ph" stroke="#ec4899" strokeWidth={8} fill="url(#curveGrad)" isAnimationActive={false} dot={false} />
                        <ReferenceLine y={7} stroke="rgba(255,255,255,0.15)" strokeDasharray="15 10" />
@@ -230,14 +240,14 @@ export default function PilotoTitulacionAcidoBase() {
               <div className="mt-8 p-6 bg-white/5 rounded-[2rem] border border-white/10">
                  <div className="flex items-center justify-between mb-4">
                     <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Apertura de Válvula</span>
-                    <span className="text-sm font-black font-mono text-blue-400">{valveValue.toFixed(0)}%</span>
+                    <span className="text-sm font-black font-mono text-blue-400">{buretaVacia ? 'BURETA VACÍA' : `${valveValue.toFixed(0)}%`}</span>
                  </div>
                  <div
                     className="relative h-12 rounded-2xl bg-black/40 border border-white/10 cursor-ew-resize overflow-hidden select-none"
-                    onMouseDown={() => setIsRotating(true)}
-                    onMouseUp={() => setIsRotating(false)}
-                    onMouseLeave={() => setIsRotating(false)}
-                    onMouseMove={(e) => {
+                    onPointerDown={(e) => { setIsRotating(true); e.currentTarget.setPointerCapture?.(e.pointerId); }}
+                    onPointerUp={() => setIsRotating(false)}
+                    onPointerCancel={() => setIsRotating(false)}
+                    onPointerMove={(e) => {
                        if (!isRotating) return;
                        const rect = e.currentTarget.getBoundingClientRect();
                        const pct = ((e.clientX - rect.left) / rect.width) * 100;
@@ -275,25 +285,22 @@ export default function PilotoTitulacionAcidoBase() {
          </div>
 
          <div className="flex items-center gap-6">
-            <button onClick={() => { resetP7(); setValveValue(0); }} className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/10 transition-all border border-white/5 shadow-xl group">
+            <button aria-label="Repetir la titulación" onClick={() => { resetP7(); setValveValue(0); setIntentado(false); }} className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/10 transition-all border border-white/5 shadow-xl group">
                <RotateCcw size={24} className="group-hover:rotate-[-180deg] transition-transform duration-700" />
             </button>
             <div className="flex items-center gap-3">
                <input
                  type="number"
                  step="0.001"
+                 aria-label="Concentración de HCl calculada, en mol/L"
                  placeholder="[HCl] mol/L"
                  value={ansCa}
                  onChange={e => setAnsCa(e.target.value)}
+                 onKeyDown={e => e.key === 'Enter' && enviar()}
                  className="w-36 h-16 bg-white/5 border border-white/10 rounded-2xl px-4 text-white font-mono text-sm placeholder:text-white/20 outline-none focus:border-blue-400/60 transition-all"
                />
                <button
-                 onClick={() => {
-                   const val = parseFloat(ansCa);
-                   if (isNaN(val)) return;
-                   const ok = validarP7(val);
-                   if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
-                 }}
+                 onClick={enviar}
                  className="h-16 px-12 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-3xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
                >
                  Finalizar y Enviar Datos
@@ -302,27 +309,13 @@ export default function PilotoTitulacionAcidoBase() {
          </div>
       </div>
 
-      {titulacion.status === 'success' && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#071220] border border-blue-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(59,130,246,0.2)]"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
-              <Target size={36} className="text-blue-400" />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Titulación Completada!</h2>
-            <p className="text-sm text-slate-300 mb-4">Concentración calculada correctamente.</p>
-            <div className="mb-8 px-6 py-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-              <span className="text-blue-300 font-black font-mono">[HCl] = {titulacion.ca?.toFixed(3)} mol/L</span>
-            </div>
-            <button onClick={resetP7} className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Nueva Titulación
-            </button>
-            <button onClick={() => router.push('/hub')} className="w-full mt-3 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Cerrar Laboratorio
-            </button>
-          </motion.div>
+      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
+      {(titulacion.status === 'success' || (intentado && titulacion.status === 'error' && veredicto.mensaje)) && (
+        <div className={`absolute bottom-36 left-1/2 -translate-x-1/2 z-[150] pointer-events-none rounded-full px-5 py-2 flex items-center gap-2 shadow-xl border ${titulacion.status === 'success' ? 'bg-emerald-600/90 border-emerald-400/50' : 'bg-amber-600/90 border-amber-400/50'}`}>
+          <Target size={14} className="text-white" />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">
+            {titulacion.status === 'success' ? 'Concentración de HCl determinada' : veredicto.mensaje}
+          </span>
         </div>
       )}
 

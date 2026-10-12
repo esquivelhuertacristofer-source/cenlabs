@@ -1,388 +1,139 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { useRouter } from 'next/navigation';
-import { CheckCircle, Play, FlaskConical, RotateCcw } from 'lucide-react';
+import { audio } from '@/utils/audioEngine';
+import { FlaskConical, Play, ShieldCheck, RotateCcw, Droplet } from 'lucide-react';
 import SistemaDigestivo3DScene from './simuladores/bio09/SistemaDigestivo3DScene';
+import { ENZIMAS_B9, MACRONUTRIENTES_B9, ORGANOS_B9 } from '@/domain/biologia';
+import type { EnzimaB9, OrganoB9, IncubacionB9 } from '@/store/types';
 
-// Configuración enzima-macronutriente y pH óptimo
-const ENZIMAS_CONFIG: Record<string, { label: string; macronutriente: string; phOptimo: number }> = {
-    amilasa:  { label: 'Amilasa',  macronutriente: 'almidon',  phOptimo: 7.0 },
-    pepsina:  { label: 'Pepsina',  macronutriente: 'proteina', phOptimo: 2.0 },
-    lipasa:   { label: 'Lipasa',   macronutriente: 'lipido',   phOptimo: 7.5 },
-};
+const ENZIMAS: EnzimaB9[] = ['amilasa', 'pepsina', 'tripsina', 'lipasa'];
+const ORGANOS: OrganoB9[] = ['boca', 'estomago', 'delgado', 'grueso'];
 
-const MACRONUTRIENTES = [
-    { value: 'almidon',  label: 'Almidón',  color: '#10B981' },
-    { value: 'proteina', label: 'Proteína', color: '#8B5CF6' },
-    { value: 'lipido',   label: 'Lípido',   color: '#FBBF24' },
-];
+function describirEnsayo(e: IncubacionB9): string {
+  const pct = Math.round(e.hidrolisis * 100);
+  switch (e.resultado) {
+    case 'sin_reaccion': return 'Sin hidrólisis: el sustrato quedó intacto, igual que el tubo control sin enzima.';
+    case 'desnaturalizada': return 'Sin hidrólisis y la enzima precipitó: perdió su estructura de forma irreversible.';
+    case 'parcial': return `Hidrólisis parcial: se degradó el ${pct} % del sustrato en 30 min.`;
+    default: return `Hidrólisis completa: se degradó el ${pct} % del sustrato en 30 min.`;
+  }
+}
 
-const ENZIMAS = [
-    { value: 'amilasa', label: 'Amilasa'  },
-    { value: 'pepsina', label: 'Pepsina'  },
-    { value: 'lipasa',  label: 'Lipasa'   },
-];
+export default function PilotoSistemaDigestivo({ onValidate }: { onValidate?: () => void }) {
+  const digestion = useSimuladorStore((s) => s.digestion);
+  const setDigestion = useSimuladorStore((s) => s.setDigestion);
+  const incubarB9 = useSimuladorStore((s) => s.incubarB9);
+  const resetB9 = useSimuladorStore((s) => s.resetB9);
+  const { macronutriente, enzimaSeleccionada, nivelPH, bilis, ensayo, organoRespuesta, absorcionRespuesta, status } = digestion;
 
-export default function PilotoSistemaDigestivo() {
-  const router = useRouter();
-  const { digestion, setDigestion, validarB9 } = useSimuladorStore();
-  const { macronutriente, enzimaSeleccionada, nivelPH, estado, monomerosAbsorbidos, status } = digestion;
+  const [incubando, setIncubando] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  // Ref para evitar stale closure en el setInterval
-  const monomerosRef = useRef(monomerosAbsorbidos);
-  useEffect(() => { monomerosRef.current = monomerosAbsorbidos; }, [monomerosAbsorbidos]);
-
-  // CORRECCIÓN STALE CLOSURE: usar functional update en setDigestion para leer el valor actual
-  useEffect(() => {
-    if (estado === 'digerido' && monomerosAbsorbidos < 100) {
-        const id = setInterval(() => {
-            // Leer valor actual desde ref para evitar stale closure
-            const currentMonomeros = monomerosRef.current;
-            const nextValue = Math.min(100, currentMonomeros + 10);
-
-            setDigestion({ monomerosAbsorbidos: nextValue });
-
-            if (nextValue >= 100) {
-                setDigestion({ estado: 'absorbido' });
-                clearInterval(id);
-            }
-        }, 800);
-        return () => clearInterval(id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado]);
-
-  // Determinar si la enzima es compatible con el macronutriente y pH
-  const getEnzimaStatus = () => {
-    if (!enzimaSeleccionada) return null;
-    const config = ENZIMAS_CONFIG[enzimaSeleccionada];
-    const macroOk = config.macronutriente === macronutriente;
-    const phOk = Math.abs(nivelPH - config.phOptimo) <= 1.5;
-    return { macroOk, phOk, compatible: macroOk && phOk };
+  const incubar = () => {
+    if (!enzimaSeleccionada || incubando) return;
+    setIncubando(true);
+    audio?.playPop();
+    timer.current = setTimeout(() => {
+      incubarB9();
+      setIncubando(false);
+      timer.current = null;
+    }, 1500);
   };
 
-  const enzimaStatus = getEnzimaStatus();
-
-  const handleIniciarDigestion = () => {
-    if (!enzimaSeleccionada) return;
-    if (enzimaStatus?.compatible) {
-      setDigestion({ estado: 'digerido', monomerosAbsorbidos: 0 });
-    } else {
-      setDigestion({ estado: 'desnaturalizado' });
-    }
-  };
-
-  const handleReiniciar = () => {
-    setDigestion({ estado: 'intacto', monomerosAbsorbidos: 0, status: 'idle' });
-  };
-
-  const puedeIniciar = enzimaSeleccionada !== null && (estado === 'intacto' || estado === 'desnaturalizado');
-  const puedeValidar = monomerosAbsorbidos > 0 && status !== 'success';
-  const controlesBloqueados = estado === 'digerido' || estado === 'absorbido';
-
-  // ── Props derivados para la escena 3D ──
-  const progreso = Math.min(1, monomerosAbsorbidos / 100);
+  const sustrato = MACRONUTRIENTES_B9[macronutriente];
+  const reacciona = !!ensayo && ensayo.hidrolisis > 0;
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#05030a] font-['Outfit'] relative text-white">
-
-      {/* ── ESCENA 3D — TRACTO DIGESTIVO (fondo full-screen) ── */}
-      <div className="absolute inset-0 z-0">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[#05030a] font-['Outfit'] relative text-white">
+      <div className="relative flex-1">
         <SistemaDigestivo3DScene
           macronutriente={macronutriente}
           enzima={enzimaSeleccionada}
           nivelPH={nivelPH}
-          estado={estado}
-          progreso={progreso}
-          compatible={enzimaStatus?.compatible ?? false}
+          hidrolisis={ensayo?.hidrolisis ?? 0}
+          reacciona={reacciona}
+          organoRespuesta={organoRespuesta}
+          absorbiendo={status === 'success'}
         />
+        <div className="absolute top-6 left-6 z-10 bg-[#0f172a]/80 backdrop-blur-xl border border-rose-500/30 p-5 rounded-2xl max-w-sm pointer-events-none">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-rose-300"><FlaskConical size={12} /> Tubo de ensayo · 37 °C</div>
+          <div className="text-lg font-black mt-1">{sustrato.alimento}</div>
+          <div className="text-[11px] text-slate-300">Sustrato: {sustrato.nombre}. Encuentra la enzima y las condiciones que lo hidrolizan por completo, y dónde ocurre en el cuerpo.</div>
+        </div>
+        {incubando && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-6 py-3 bg-black/70 border border-rose-500/40 rounded-2xl text-[11px] font-black uppercase tracking-widest text-rose-300">
+            Incubando 30 min…
+          </div>
+        )}
       </div>
 
-      {/* velo de contraste para legibilidad del HUD */}
-      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#05030a]/70 via-transparent to-[#05030a]/85" />
-
-      {/* ── CHECKLIST HUD SUPERIOR ── */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-[640px] px-6 pointer-events-none">
-        <div className="bg-[#0f172a]/80 backdrop-blur-3xl border border-rose-500/30 p-4 rounded-[2rem] shadow-[0_0_50px_rgba(244,63,94,0.15)] pointer-events-auto">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-rose-500/20 rounded-xl">
-                <FlaskConical className="text-rose-400" size={16} />
-              </div>
-              <div>
-                <h4 className="text-[10px] font-black text-rose-300 uppercase tracking-widest leading-none">Ruta Digestiva</h4>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">BIO-09 • Hidrólisis Enzimática</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${
-                nivelPH < 6 ? 'text-rose-400' : nivelPH > 8 ? 'text-cyan-400' : 'text-emerald-400'
-              }`}>
-                Entorno: {nivelPH < 6 ? 'Estómago (HCl)' : nivelPH > 8 ? 'Intestino (Sales)' : 'Duodeno'}
-              </span>
-              {(estado === 'digerido' || estado === 'absorbido') && (
-                <div className="flex items-center gap-2">
-                  <div className="w-28 h-2 bg-slate-800 rounded-full overflow-hidden border border-white/10">
-                    <motion.div
-                      animate={{ width: `${monomerosAbsorbidos}%` }}
-                      transition={{ duration: 0.3 }}
-                      className="h-full bg-emerald-500 rounded-full"
-                    />
-                  </div>
-                  <span className="text-[11px] font-black text-emerald-400">{Math.round(monomerosAbsorbidos)}%</span>
-                </div>
-              )}
-            </div>
+      <div className="h-[46%] shrink-0 overflow-y-auto bg-black/60 border-t border-white/10 p-4 grid grid-cols-2 gap-4 content-start">
+        <div className="space-y-2">
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">1 · Enzima</div>
+          <div className="grid grid-cols-2 gap-2">
+            {ENZIMAS.map((e) => (
+              <button key={e} disabled={incubando} onClick={() => setDigestion({ enzimaSeleccionada: e })}
+                className={`py-3 rounded-xl text-[11px] font-black border ${enzimaSeleccionada === e ? 'bg-[#219EBC] border-transparent' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                {ENZIMAS_B9[e].nombre}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
 
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
-
-        {/* Notificación de desnaturalización */}
-        <AnimatePresence>
-          {estado === 'desnaturalizado' && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute top-40 left-1/2 -translate-x-1/2 z-40 bg-rose-950/70 backdrop-blur-xl border border-rose-500/40 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-xl shadow-rose-500/20 pointer-events-none"
-            >
-              <div className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center font-black">!</div>
-              <div>
-                <p className="text-[11px] font-black text-rose-300 uppercase">Enzima Desnaturalizada</p>
-                <p className="text-[10px] font-bold text-rose-400/70 uppercase">El pH no es el óptimo para esta enzima</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* El tracto 3D vive en el fondo (z-0); este hueco deja pasar OrbitControls. */}
-        <div className="flex-grow" />
-
-        {/* ── PANEL DE CONTROL INFERIOR ── */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40 px-6">
-          <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl flex flex-col gap-5 pointer-events-auto"
-          >
-            {/* Fila de selectores */}
-            <div className="flex gap-6 flex-wrap items-end">
-
-              {/* Selector Macronutriente */}
-              <div className="flex flex-col gap-2 min-w-[150px]">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Macronutriente</span>
-                <div className="flex gap-1.5">
-                  {MACRONUTRIENTES.map(m => (
-                    <button
-                      key={m.value}
-                      onClick={() => {
-                        if (controlesBloqueados) return;
-                        setDigestion({ macronutriente: m.value as any, estado: 'intacto', monomerosAbsorbidos: 0 });
-                      }}
-                      disabled={controlesBloqueados}
-                      className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border
-                        ${macronutriente === m.value
-                          ? 'text-white border-transparent shadow-lg'
-                          : 'bg-white/5 text-slate-400 border-white/10 hover:border-white/20'
-                        }
-                        ${controlesBloqueados ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                      `}
-                      style={macronutriente === m.value ? { backgroundColor: m.color } : {}}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Selector Enzima */}
-              <div className="flex flex-col gap-2 min-w-[170px]">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enzima</span>
-                <div className="flex gap-1.5">
-                  {ENZIMAS.map(e => {
-                    const esCompatible = ENZIMAS_CONFIG[e.value].macronutriente === macronutriente;
-                    return (
-                      <button
-                        key={e.value}
-                        onClick={() => {
-                          if (controlesBloqueados) return;
-                          setDigestion({ enzimaSeleccionada: e.value as any });
-                        }}
-                        disabled={controlesBloqueados}
-                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border
-                          ${enzimaSeleccionada === e.value
-                            ? 'bg-[#219EBC] text-white border-transparent shadow-lg'
-                            : esCompatible
-                              ? 'bg-white/5 text-[#5cc7de] border-[#219EBC]/40 hover:border-[#219EBC]'
-                              : 'bg-white/5 text-slate-500 border-white/10 hover:border-white/20'
-                          }
-                          ${controlesBloqueados ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                        `}
-                      >
-                        {e.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Control pH */}
-              <div className="flex flex-col gap-2 flex-1 min-w-[180px]">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  pH: <span className={`${nivelPH < 6 ? 'text-rose-400' : nivelPH > 8 ? 'text-cyan-400' : 'text-emerald-400'}`}>{nivelPH.toFixed(1)}</span>
-                </span>
-                <input
-                  type="range"
-                  min="1"
-                  max="14"
-                  step="0.5"
-                  value={nivelPH}
-                  onChange={(e) => {
-                    if (controlesBloqueados) return;
-                    setDigestion({ nivelPH: parseFloat(e.target.value) });
-                  }}
-                  disabled={controlesBloqueados}
-                  className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#219EBC] disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <div className="flex justify-between text-[8px] text-slate-500 font-bold">
-                  <span>1 Ácido</span>
-                  <span>7 Neutro</span>
-                  <span>14 Básico</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Indicador compatibilidad + botones */}
-            <div className="flex items-center gap-3 flex-wrap border-t border-white/10 pt-4">
-              {enzimaSeleccionada && enzimaStatus && (
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider
-                  ${enzimaStatus.compatible
-                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
-                    : 'bg-rose-500/10 border-rose-500/40 text-rose-400'
-                  }`}>
-                  <span>{enzimaStatus.compatible ? '✓ Condiciones Óptimas' : '✗ Condiciones No Óptimas'}</span>
-                </div>
-              )}
-
-              <div className="flex-1" />
-
-              {/* Botón Reiniciar */}
-              {(estado === 'desnaturalizado' || estado === 'absorbido') && status !== 'success' && (
-                <button
-                  onClick={handleReiniciar}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:text-white transition-all cursor-pointer"
-                >
-                  <RotateCcw size={12} />
-                  Reiniciar
-                </button>
-              )}
-
-              {/* Botón Iniciar Digestión */}
-              {status !== 'success' && (
-                <button
-                  onClick={handleIniciarDigestion}
-                  disabled={!puedeIniciar}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
-                    ${puedeIniciar
-                      ? 'bg-[#219EBC] text-white border-transparent shadow-lg hover:bg-[#1a7f99] cursor-pointer'
-                      : 'bg-white/5 text-slate-500 border-white/10 cursor-not-allowed'
-                    }`}
-                >
-                  <Play size={12} />
-                  Iniciar Digestión
-                </button>
-              )}
-
-              {/* Botón Validar Digestión */}
-              {status !== 'success' && (
-                <button
-                  onClick={() => validarB9()}
-                  disabled={!puedeValidar}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
-                    ${puedeValidar
-                      ? 'bg-emerald-500 text-white border-transparent shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 cursor-pointer'
-                      : 'bg-white/5 text-slate-500 border-white/10 cursor-not-allowed'
-                    }`}
-                >
-                  <FlaskConical size={12} />
-                  Validar Digestión
-                </button>
-              )}
-            </div>
-          </motion.div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400"><span>2 · pH del tampón</span><span className="text-white font-mono">{nivelPH.toFixed(1)}</span></div>
+          <input type="range" min={1} max={12} step={0.5} value={nivelPH} disabled={incubando}
+            onChange={(e) => setDigestion({ nivelPH: parseFloat(e.target.value) })}
+            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#219EBC]" />
+          <button disabled={incubando} onClick={() => setDigestion({ bilis: !bilis })}
+            className={`w-full py-3 rounded-xl text-[11px] font-black border flex items-center justify-center gap-2 ${bilis ? 'bg-amber-500/20 border-amber-400 text-amber-200' : 'bg-white/5 border-white/10 text-slate-400'}`}>
+            <Droplet size={14} /> {bilis ? 'Con sales biliares' : 'Sin sales biliares'}
+          </button>
         </div>
 
-        {/* GLOSARIO (esquina) */}
-        <div className="absolute top-32 left-8 z-30 pointer-events-none flex flex-col gap-2">
-          {[
-            { label: 'Hidrólisis', desc: 'Ruptura química mediante agua' },
-            { label: 'Especificidad', desc: 'Modelo Llave-Cerradura' },
-            { label: 'Absorción', desc: 'Paso al torrente sanguíneo' },
-          ].map((item, i) => (
-            <div key={i} className="bg-[#0f172a]/60 backdrop-blur-md border border-white/5 rounded-xl px-3 py-2">
-              <span className="block text-[9px] font-black text-rose-300/80 uppercase tracking-widest">{item.label}</span>
-              <span className="block text-[9px] font-bold text-slate-400">{item.desc}</span>
-            </div>
-          ))}
-        </div>
-      </main>
+        <button onClick={incubar} disabled={!enzimaSeleccionada || incubando}
+          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest ${enzimaSeleccionada && !incubando ? 'bg-rose-600 hover:bg-rose-500' : 'bg-white/5 text-slate-500'}`}>
+          <Play size={16} /> 3 · Incubar 30 min
+        </button>
 
-      {/* OVERLAY DE ÉXITO */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 30 }}
-              animate={{ scale: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="flex flex-col items-center gap-5 p-14 bg-slate-900 border border-emerald-500/30 rounded-[3rem] shadow-[0_0_100px_rgba(16,185,129,0.15)] max-w-md text-center"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: [0, 1.2, 1] }}
-                transition={{ duration: 0.5 }}
-              >
-                <CheckCircle size={72} className="text-emerald-400" />
-              </motion.div>
-              <div>
-                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Digestión Exitosa</p>
-                <h3 className="text-2xl font-black text-white mb-3">Absorción Completada</h3>
-                <p className="text-[12px] text-slate-400 leading-relaxed">
-                  La enzima catalizó la hidrólisis {macronutriente === 'almidon' ? 'del almidón' : macronutriente === 'proteina' ? 'de la proteína' : 'del lípido'} y los monómeros fueron absorbidos al torrente sanguíneo.
-                </p>
-              </div>
-              <div className="flex gap-6 mt-1">
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Macronutriente</span>
-                  <span className="text-sm font-black text-white capitalize">{macronutriente === 'almidon' ? 'Almidón' : macronutriente === 'proteina' ? 'Proteína' : 'Lípido'}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enzima</span>
-                  <span className="text-sm font-black text-white capitalize">{enzimaSeleccionada}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">pH</span>
-                  <span className="text-sm font-black text-white">{nivelPH.toFixed(1)}</span>
-                </div>
-              </div>
-              <button onClick={() => router.push('/hub')} className="w-full mt-4 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl uppercase tracking-widest text-xs transition-colors">
-                Cerrar Laboratorio
-              </button>
-            </motion.div>
-          </motion.div>
+        {ensayo && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-[11px] space-y-1">
+            <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Último tubo: {ENZIMAS_B9[ensayo.enzima].nombre} · pH {ensayo.pH.toFixed(1)} · {ensayo.bilis ? 'con' : 'sin'} bilis</div>
+            <div className="font-bold">{describirEnsayo(ensayo)}</div>
+          </div>
         )}
-      </AnimatePresence>
 
+        <div className="space-y-3 bg-white/5 border border-white/10 rounded-2xl p-4">
+          <label className="flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            4 · ¿En qué órgano actúa la enzima de tu último tubo?
+            <select value={organoRespuesta ?? ''} onChange={(e) => setDigestion({ organoRespuesta: (e.target.value || null) as OrganoB9 | null })}
+              className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white normal-case tracking-normal">
+              <option value="">—</option>
+              {ORGANOS.map((o) => <option key={o} value={o}>{ORGANOS_B9[o]}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            5 · ¿Dónde se absorben los productos ({sustrato.monomero})?
+            <select value={absorcionRespuesta ?? ''} onChange={(e) => setDigestion({ absorcionRespuesta: (e.target.value || null) as OrganoB9 | null })}
+              className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white normal-case tracking-normal">
+              <option value="">—</option>
+              {ORGANOS.map((o) => <option key={o} value={o}>{ORGANOS_B9[o]}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={() => resetB9()} disabled={incubando} className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white"><RotateCcw size={18} /></button>
+          <button onClick={() => onValidate?.()} disabled={incubando || !ensayo}
+            className={`flex-1 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest ${ensayo && !incubando ? 'bg-white text-black' : 'bg-white/5 text-slate-500'}`}>
+            <ShieldCheck size={16} /> Validar práctica
+          </button>
+        </div>
+        {status === 'success' && <p className="text-[11px] font-bold text-emerald-400 text-center">Digestión y absorción correctas.</p>}
+      </div>
     </div>
   );
 }

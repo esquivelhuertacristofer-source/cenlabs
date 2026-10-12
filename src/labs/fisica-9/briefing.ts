@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#3b82f6',
     duracion: 30,
     videoUrl: 'https://youtu.be/nEPux_svXO8',
-    bienvenida: `¡Bienvenido al Campo de Fuerzas Invisibles! Soy el Dr. Quantum.\n\nLas cargas eléctricas se atraen o se repelen a distancia. Veremos cómo la fuerza cae dramáticamente al alejarnos.\n\nTu misión: Calcular la fuerza neta sobre una carga central.`,
+    bienvenida: `¡Bienvenido al Campo de Fuerzas Invisibles! Soy el Dr. Quantum.\n\nLas cargas eléctricas se atraen o se repelen a distancia. Veremos cómo la fuerza cae dramáticamente al alejarnos.\n\nTu misión: Calcular la fuerza entre dos cargas y decidir si se atraen o se repelen.`,
     conceptos: [
       { icono: '⚛️', nombre: 'Carga (q)', descripcion: 'Propiedad de la materia (en Coulombs).' },
       { icono: '📐', nombre: 'Ley Cuadrática Inversa', descripcion: 'La fuerza cae con el cuadrado de la distancia.' },
@@ -15,10 +15,10 @@ const briefing: BriefingConfig = {
       { icono: '🎯', nombre: 'Superposición', descripcion: 'Suma vectorial de fuerzas de múltiples cargas.' }
     ],
     mision: [
-      'Coloca las cargas fijas en el riel.',
-      'Mide la distancia entre ellas.',
-      'Calcula la fuerza teórica de Coulomb.',
-      'Observa el vector de fuerza resultante.',
+      'Explora cargas y separaciones.',
+      'Lee los datos del reto (μC y cm).',
+      'Convierte a C y m y calcula la fuerza de Coulomb.',
+      'Decide: ¿atracción o repulsión?',
       'Valida el valor en Newtons.'
     ],
     aplicaciones: [

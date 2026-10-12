@@ -8,10 +8,12 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, FlaskConical, Microscope, Thermometer, Waves
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
+import { validarQ6 } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraSolubilidadCristalizacion({ onValidate }: { onValidate?: () => void }) {
-  const { solubilidad, validarP6 } = useSimuladorStore();
+  const { solubilidad, validarP6 } = useSimuladorStore(useShallow((s) => ({ solubilidad: s.solubilidad, validarP6: s.validarP6 })));
   const [tempInput, setTempInput] = useState("");
   const [conclusionText, setConclusionText] = useState("");
 
@@ -23,15 +25,19 @@ export default function BitacoraSolubilidadCristalizacion({ onValidate }: { onVa
     audio.playPop();
   };
 
+  const [aviso, setAviso] = useState<string | null>(null);
+  // La temperatura que anota el alumno es su registro; el juicio es el mismo del
+  // botón «Validar práctica» (validarQ6), sin alert().
   const handleValidar = () => {
-    const val = parseFloat(tempInput);
-    if (isNaN(val)) return alert("Ingresa un valor numérico para la temperatura.");
+    const val = parseFloat(tempInput.replace(',', '.'));
+    if (isNaN(val)) { setAviso("Ingresa un valor numérico para la temperatura."); audio.playError(); return; }
     const ok = validarP6();
     if (ok) {
       audio.playSuccess();
+      setAviso(null);
     } else {
       audio.playError();
-      alert("❌ Error de Determinación: La temperatura de cristalización no corresponde al punto de saturación.");
+      setAviso(validarQ6(useSimuladorStore.getState().solubilidad).mensaje ?? null);
     }
   };
 
@@ -139,6 +145,9 @@ export default function BitacoraSolubilidadCristalizacion({ onValidate }: { onVa
            >
              {solubilidad.status === 'success' ? 'Punto Validado' : 'Registrar Cristalización'}
            </button>
+           {aviso && solubilidad.status !== 'success' && (
+             <p className="text-[11px] font-bold text-amber-600">{aviso}</p>
+           )}
         </div>
       </div>
 

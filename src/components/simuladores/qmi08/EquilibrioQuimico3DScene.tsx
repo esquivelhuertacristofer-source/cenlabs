@@ -11,6 +11,7 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { fraccionNO2, tonoMezclaNO2 } from '@/domain/quimica';
 
 /* ────────────────────────────────────────────────────────────────────────────
    EquilibrioQuimico3DScene — Reactor de equilibrio dinámico N₂O₄ ⇌ 2NO₂.
@@ -22,19 +23,21 @@ import * as THREE from 'three';
    TEMPERATURA REAL de las jeringas del store. Cada molécula del reactor decide,
    frame a frame, en qué población está: si la fracción-producto sube, moléculas
    cruzan de reactivo→producto (y viceversa) → equilibrio dinámico visible.
-   Props idénticos a los datos del store: { temp } (media de las jeringas 0–80°C).
+   Props: las TRES jeringas del store ({ id, temp, ubicacion }). Cada una se
+   dibuja con su propio tinte: el alumno debe observar el color de cada jeringa,
+   así que la escena no puede mostrar una media.
+   La fracción de NO₂ es la de van 't Hoff del dominio (Kp298 = 0.148 atm,
+   ΔH° = +57.2 kJ/mol): a 0 °C ≈ 0.13, a 20 °C ≈ 0.27 (ya ámbar, no incoloro) y a
+   80 °C ≈ 0.86.
 ──────────────────────────────────────────────────────────────────────────── */
 
-const REACTANT = new THREE.Color('#67e8f9'); // N₂O₄ — cian frío (incoloro idealizado)
-const PRODUCT = new THREE.Color('#f97316'); // 2NO₂ — café/naranja caliente
+const REACTANT = new THREE.Color('#e2e8f0'); // N₂O₄ — gas incoloro (puntos claros)
+const PRODUCT = new THREE.Color('#b45309'); // NO₂ — café rojizo
 const REACTOR_R = 5.2;
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
 
-// Fracción de avance hacia productos (0 = todo N₂O₄, 1 = todo NO₂) según T (0–80°C)
-function productFraction(temp: number) {
-  const t = THREE.MathUtils.clamp(temp, 0, 80) / 80;
-  // curva tipo Van't Hoff suavizada: endotérmica → crece con T
-  return THREE.MathUtils.clamp(0.12 + t * 0.78, 0, 1);
-}
+type JeringaVista = { id: number; temp: number; ubicacion: 'mesa' | 'caliente' | 'hielo' };
+const NOMBRE_BANO: Record<JeringaVista['ubicacion'], string> = { hielo: 'Hielo', mesa: 'Ambiente', caliente: 'Caliente' };
 
 type Mol = {
   base: THREE.Vector3;   // posición angular estable en el reactor
@@ -45,7 +48,7 @@ type Mol = {
 
 /* ── Nube de moléculas interconvirtiéndose (equilibrio dinámico) ────────────── */
 function MoleculeCloud({ target }: { target: number }) {
-  const COUNT = 720;
+  const COUNT = 360;
   const geomRef = useRef<THREE.BufferGeometry>(null);
   const positions = useMemo(() => new Float32Array(COUNT * 3), []);
   const colors = useMemo(() => new Float32Array(COUNT * 3), []);
@@ -150,10 +153,10 @@ function MoleculeCloud({ target }: { target: number }) {
 }
 
 /* ── Envolvente de cristal del reactor (matraz esférico) ────────────────────── */
-function ReactorGlass({ target }: { target: number }) {
+function ReactorGlass({ target, tono }: { target: number; tono: string }) {
   const ref = useRef<THREE.Mesh>(null);
-  // el tinte del gas dentro del matraz va de incoloro a café según el avance
-  const tint = useMemo(() => REACTANT.clone().lerp(PRODUCT, target), [target]);
+  // tinte real de la mezcla (casi incoloro → ámbar → café rojizo)
+  const tint = useMemo(() => new THREE.Color(tono), [tono]);
 
   useFrame((state) => {
     if (ref.current) {
@@ -169,8 +172,7 @@ function ReactorGlass({ target }: { target: number }) {
         <meshBasicMaterial
           color={tint}
           transparent
-          opacity={0.06 + target * 0.16}
-          blending={THREE.AdditiveBlending}
+          opacity={0.12 + target * 0.45}
           depthWrite={false}
           side={THREE.BackSide}
         />
@@ -197,99 +199,56 @@ function ReactorGlass({ target }: { target: number }) {
   );
 }
 
-/* ── Ecuación luminosa flotante N₂O₄ ⇌ 2NO₂ ─────────────────────────────────── */
-function EquationBanner({ target }: { target: number }) {
+/* ── Ecuación flotante N₂O₄ ⇌ 2NO₂ ──────────────────────────────────────────── */
+function EquationBanner() {
   return (
-    <Html center position={[0, REACTOR_R + 2.4, 0]} distanceFactor={14}>
+    <Html center position={[0, REACTOR_R + 1.2, 0]} distanceFactor={14}>
       <div className="flex items-center gap-3 select-none pointer-events-none whitespace-nowrap">
-        <span
-          className="text-4xl font-black drop-shadow-[0_0_14px_rgba(103,232,249,0.7)]"
-          style={{ color: '#67e8f9', opacity: 0.6 + (1 - target) * 0.4 }}
-        >
-          N₂O₄
-        </span>
-        <span className="text-4xl font-black text-white drop-shadow-[0_0_16px_rgba(255,255,255,0.6)]">⇌</span>
-        <span
-          className="text-4xl font-black drop-shadow-[0_0_14px_rgba(249,115,22,0.8)]"
-          style={{ color: '#f97316', opacity: 0.6 + target * 0.4 }}
-        >
-          2 NO₂
-        </span>
+        <span className="text-4xl font-black text-slate-200">N₂O₄</span>
+        <span className="text-4xl font-black text-white">⇌</span>
+        <span className="text-4xl font-black text-amber-600">2 NO₂</span>
       </div>
     </Html>
   );
 }
 
-/* ── Balanza de desplazamiento del equilibrio ───────────────────────────────── */
-function EquilibriumScale({ target }: { target: number }) {
-  const beamRef = useRef<THREE.Group>(null);
-  // desplazamiento: -1 (reactivos) .. +1 (productos)
-  const shift = target * 2 - 1;
-
-  useFrame(() => {
-    if (beamRef.current) {
-      const goal = -shift * 0.42; // inclina hacia el lado dominante
-      beamRef.current.rotation.z += (goal - beamRef.current.rotation.z) * 0.08;
-    }
-  });
-
-  const Y = -(REACTOR_R + 2.2);
-
+/* ── Una jeringa (sistema cerrado) con su propio equilibrio ─────────────────── */
+function SistemaJeringa({ jeringa, x }: { jeringa: JeringaVista; x: number }) {
+  const target = fraccionNO2(jeringa.temp);
+  const tono = tonoMezclaNO2(jeringa.temp);
   return (
-    <group position={[0, Y, 0]}>
-      {/* pivote */}
-      <mesh position={[0, 0.3, 0]}>
-        <coneGeometry args={[0.35, 0.9, 4]} />
-        <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.3} />
-      </mesh>
-      <group ref={beamRef} position={[0, 0.8, 0]}>
-        {/* brazo */}
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.07, 0.07, 6.4, 12]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} emissive="#1e293b" emissiveIntensity={0.5} />
-        </mesh>
-        {/* platillo reactivos (izq) */}
-        <mesh position={[-3, -0.5, 0]}>
-          <sphereGeometry args={[0.55, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-          <meshStandardMaterial color={REACTANT.getStyle()} emissive={REACTANT.getStyle()} emissiveIntensity={1.4 + (1 - target) * 1.6} metalness={0.5} roughness={0.3} />
-        </mesh>
-        {/* platillo productos (der) */}
-        <mesh position={[3, -0.5, 0]}>
-          <sphereGeometry args={[0.55, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-          <meshStandardMaterial color={PRODUCT.getStyle()} emissive={PRODUCT.getStyle()} emissiveIntensity={1.4 + target * 1.6} metalness={0.5} roughness={0.3} />
-        </mesh>
-      </group>
+    <group position={[x, 0, 0]} scale={0.55}>
+      <ReactorGlass target={target} tono={tono} />
+      <MoleculeCloud target={target} />
+      <Html center position={[0, -(REACTOR_R + 1.6), 0]} distanceFactor={14}>
+        <div className="select-none pointer-events-none whitespace-nowrap text-center">
+          <div className="text-2xl font-black text-white">Jeringa #{jeringa.id}</div>
+          <div className="text-xl font-bold text-slate-300">{NOMBRE_BANO[jeringa.ubicacion]} · {jeringa.temp.toFixed(1)} °C</div>
+        </div>
+      </Html>
     </group>
   );
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ temp }: { temp: number }) {
-  const target = productFraction(temp);
-  const warm = target; // 0 frío → 1 caliente
-
+function Scene({ jeringas }: { jeringas: JeringaVista[] }) {
+  const separacion = 8.5;
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 3, 20]} fov={45} />
       <color attach="background" args={['#04060f']} />
       <fog attach="fog" args={['#04060f', 22, 48]} />
 
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.5} />
       <hemisphereLight intensity={0.35} groundColor="#020617" />
-      {/* luz que cambia de fría a cálida con el desplazamiento */}
-      <pointLight
-        position={[0, 0, 0]}
-        color={REACTANT.clone().lerp(PRODUCT, warm).getStyle()}
-        intensity={16 + warm * 14}
-        distance={26}
-      />
+      <pointLight position={[0, 6, 8]} color="#ffffff" intensity={20} distance={40} />
 
-      <ReactorGlass target={target} />
-      <MoleculeCloud target={target} />
-      <EquationBanner target={target} />
-      <EquilibriumScale target={target} />
+      {jeringas.map((j, i) => (
+        <SistemaJeringa key={j.id} jeringa={j} x={(i - (jeringas.length - 1) / 2) * separacion} />
+      ))}
+      <EquationBanner />
 
-      <Sparkles count={70} scale={[24, 16, 24]} size={2.4} speed={0.35} color={warm > 0.5 ? '#fdba74' : '#a5f3fc'} opacity={0.4} />
+      <Sparkles count={50} scale={[24, 16, 24]} size={2.4} speed={0.35} color="#cbd5e1" opacity={0.3} />
       <Stars radius={90} depth={45} count={2800} factor={4} saturation={0} fade speed={0.5} />
 
       <OrbitControls
@@ -298,26 +257,25 @@ function Scene({ temp }: { temp: number }) {
         minDistance={11}
         maxDistance={34}
         autoRotate={false}
-        autoRotateSpeed={0.55}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.6}
       />
 
       <EffectComposer multisampling={8}>
-        <Bloom luminanceThreshold={0.15} mipmapBlur intensity={1.6} radius={0.72} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <Bloom luminanceThreshold={0.25} mipmapBlur intensity={1.2} radius={0.6} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
   );
 }
 
-export default function EquilibrioQuimico3DScene({ temp }: { temp: number }) {
+export default function EquilibrioQuimico3DScene({ jeringas }: { jeringas: JeringaVista[] }) {
   return (
     <div className="w-full h-full">
       <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
         <Suspense fallback={null}>
-          <Scene temp={temp} />
+          <Scene jeringas={jeringas} />
         </Suspense>
       </Canvas>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
+import React, { useRef, useMemo, useEffect, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
@@ -13,27 +13,27 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { simularDisparo, duracionAnimacionMs, type Mision1, type Disparo1 } from '@/domain/fisica';
 
 /* ────────────────────────────────────────────────────────────────────────────
    TiroParabolico3DScene — Campo de tiro balístico cinematográfico.
 
-   Integra el MISMO motor físico que el store (arrastre cuadrático + viento +
-   gravedad planetaria) para trazar la trayectoria real, y superpone la parábola
-   ideal (vacío) para que el alumno vea el efecto del arrastre. El entorno cambia
-   según el planeta (Tierra/Luna/Marte/Júpiter): cielo, suelo, niebla, polvo y
-   luz se re-temátican. Suelo reflectante, cañón railgun con carga, proyectil con
-   estela, descomposición de vectores vₓ/v_y/v, regla de distancias, diana con
-   enganche y onda de impacto.
+   Antes de disparar solo muestra el cañón con una guía de apuntado (la
+   dirección inicial), el muro y la diana: la trayectoria con arrastre y viento
+   es lo que el alumno debe predecir. Tras cada disparo, el proyectil vuela UNA
+   vez (misma duración que el veredicto del store) por la trayectoria calculada
+   con el MISMO motor (domain/fisica · simularDisparo), queda en el punto de
+   impacto y la traza se conserva como referencia para corregir el tiro. El
+   entorno cambia según el planeta (Tierra/Luna/Marte/Júpiter).
 
-   Props del estado real: { angulo, velocidad, g, viento, densidadAire, y0,
-   obsX, obsY, targetX, volando, escenario, resultado }.
+   Props: { angulo, y0, obsX, obsY, targetX, volando, escenario, ultimoDisparo }.
 ──────────────────────────────────────────────────────────────────────────── */
 
 // Escala mundo: 1 unidad 3D = ESCALA metros.
 const ESCALA = 8;
 const m2w = (m: number) => m / ESCALA;
 
-type Escenario = 'tierra' | 'luna' | 'marte' | 'jupiter';
+type Escenario = Mision1['escenario'];
 
 interface Theme {
   fog: string;
@@ -76,55 +76,17 @@ const THEMES: Record<Escenario, Theme> = {
 
 type Sample = { p: THREE.Vector3; vx: number; vy: number };
 
-/* ── Motor físico compartido con el store (fisicaSlice ejecutarDisparoF1) ────── */
-function integrate(
-  angulo: number, velocidad: number, g: number, viento: number, K: number, y0: number,
-): { samples: Sample[]; maxY: number; t: number } {
-  const rad = (angulo * Math.PI) / 180;
-  const dt = 0.02;
-  let curX = 0, curY = y0, t = 0;
-  let vx = velocidad * Math.cos(rad);
-  let vy = velocidad * Math.sin(rad);
-  const samples: Sample[] = [];
-  let maxY = y0;
-
-  while (curY >= 0 && t < 16) {
-    samples.push({ p: new THREE.Vector3(m2w(curX), m2w(curY), 0), vx, vy });
-    if (curY > maxY) maxY = curY;
-    const vTotal = Math.sqrt(vx * vx + vy * vy);
-    const fx = -K * vx * vTotal + viento * 0.5;
-    const fy = -g - K * vy * vTotal;
-    vx += fx * dt; vy += fy * dt;
-    curX += vx * dt; curY += vy * dt;
-    t += dt;
-  }
-  if (samples.length < 2) {
-    samples.push({ p: new THREE.Vector3(0, m2w(y0), 0), vx: 0, vy: 0 });
-    samples.push({ p: new THREE.Vector3(0, 0, 0), vx: 0, vy: 0 });
-  }
-  return { samples, maxY, t };
-}
-
-function useTrajectory(
-  angulo: number, velocidad: number, g: number, viento: number, densidadAire: number, y0: number,
-) {
+/* ── Trayectoria de un disparo YA lanzado (mismo motor que el store: domain/fisica) ──
+   Antes de disparar NO se dibuja la trayectoria con arrastre y viento: eso era la
+   respuesta del reto. Solo hay una guía de apuntado (dirección inicial del cañón). */
+function useTrazaDisparo(ultimo: SceneProps['ultimoDisparo']) {
   return useMemo(() => {
-    // Debe coincidir con el motor del store (fisicaSlice ejecutarDisparoF1).
-    const K = 0.003 * densidadAire;
-    const real = integrate(angulo, velocidad, g, viento, K, y0);
-    // Parábola ideal: sin arrastre ni viento (K=0). Enseña el efecto del aire.
-    const ideal = integrate(angulo, velocidad, g, 0, 0, y0);
-
-    const last = real.samples[real.samples.length - 1];
-    return {
-      samples: real.samples,
-      idealSamples: ideal.samples,
-      alcance: last.p.x * ESCALA,
-      idealAlcance: ideal.samples[ideal.samples.length - 1].p.x * ESCALA,
-      maxY: real.maxY,
-      tVuelo: real.t,
-    };
-  }, [angulo, velocidad, g, viento, densidadAire, y0]);
+    if (!ultimo) return null;
+    const r = simularDisparo(ultimo, ultimo, true);
+    const samples: Sample[] = r.muestras.map((m) => ({ p: new THREE.Vector3(m2w(m.x), m2w(m.y), 0), vx: m.vx, vy: m.vy }));
+    if (samples.length < 2) samples.push({ p: samples[0]?.p.clone() ?? new THREE.Vector3(), vx: 0, vy: 0 });
+    return { samples, maxY: r.maxY, hitX: r.hitX, t: r.t, resultado: r.resultado };
+  }, [ultimo]);
 }
 
 /* ── Trayectoria real: tubo emisivo con degradado por rapidez ────────────────── */
@@ -149,6 +111,7 @@ function TrajectoryTube({ samples, accent }: { samples: Sample[]; accent: string
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     return geo;
   }, [samples, accent]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
     <mesh geometry={geometry}>
@@ -164,26 +127,15 @@ function TrajectoryTube({ samples, accent }: { samples: Sample[]; accent: string
   );
 }
 
-/* ── Parábola ideal (vacío): línea punteada tenue de referencia ──────────────── */
-function IdealTrajectory({ samples }: { samples: Sample[] }) {
+/* ── Guía de apuntado: prolonga el cañón 12 m en la dirección de tiro ───────── */
+function AimGuide({ angulo, y0 }: { angulo: number; y0: number }) {
+  const rad = (angulo * Math.PI) / 180;
+  const L = m2w(12);
   const points = useMemo(
-    () => samples.filter((_, i) => i % 2 === 0).map((s) => s.p),
-    [samples],
+    () => [new THREE.Vector3(0, m2w(y0), 0), new THREE.Vector3(Math.cos(rad) * L, m2w(y0) + Math.sin(rad) * L, 0)],
+    [rad, L, y0],
   );
-  if (points.length < 2) return null;
-  return (
-    <Line
-      points={points}
-      color="#94a3b8"
-      lineWidth={1.1}
-      dashed
-      dashSize={0.18}
-      gapSize={0.14}
-      transparent
-      opacity={0.4}
-      toneMapped={false}
-    />
-  );
+  return <Line points={points} color="#94a3b8" lineWidth={1.1} dashed dashSize={0.18} gapSize={0.14} transparent opacity={0.55} toneMapped={false} />;
 }
 
 /* ── Flecha de vector (cilindro + cono) ──────────────────────────────────────── */
@@ -205,9 +157,9 @@ function VectorArrow({ length, color, radius = 0.02 }: { length: number; color: 
 
 /* ── Proyectil: núcleo brillante + estela + sombra en suelo + vectores ───────── */
 function Projectile({
-  samples, playing, accent, onLoop,
+  samples, playing, duracionMs, disparoId, accent, onImpact,
 }: {
-  samples: Sample[]; playing: boolean; accent: string; onLoop: (x: number) => void;
+  samples: Sample[]; playing: boolean; duracionMs: number; disparoId: number; accent: string; onImpact: (x: number) => void;
 }) {
   const ref = useRef<THREE.Group>(null);
   const shadowRef = useRef<THREE.Mesh>(null);
@@ -215,6 +167,7 @@ function Projectile({
   const vyRef = useRef<THREE.Group>(null);
   const vRef = useRef<THREE.Group>(null);
   const progress = useRef(0);
+  const disparoVisto = useRef<number | null>(null);
   const vmax = useMemo(
     () => Math.max(...samples.map((s) => Math.hypot(s.vx, s.vy)), 1),
     [samples],
@@ -238,12 +191,15 @@ function Projectile({
   useFrame((_, delta) => {
     if (!ref.current) return;
     const n = samples.length;
-    progress.current += delta * (playing ? 30 : 14);
-    if (progress.current >= n - 1) {
-      progress.current = 0;
+    // Disparo nuevo: arranca desde la boca. Si no está volando, queda en el impacto.
+    if (disparoVisto.current !== disparoId) {
+      disparoVisto.current = disparoId;
+      progress.current = playing ? 0 : n - 1;
       trail.current = [];
-      const endX = samples[n - 1].p.x;
-      onLoop(endX);
+    }
+    if (playing && progress.current < n - 1) {
+      progress.current = Math.min(n - 1, progress.current + (delta * 1000 * (n - 1)) / duracionMs);
+      if (progress.current >= n - 1) onImpact(samples[n - 1].p.x);
     }
 
     const i = Math.floor(progress.current);
@@ -547,11 +503,12 @@ function HoloGrid({ theme, centerX }: { theme: Theme; centerX: number }) {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({
-  angulo, velocidad, g, viento, densidadAire, y0, obsX, obsY, targetX, volando, escenario,
-}: SceneProps) {
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
+
+function Scene({ angulo, y0, obsX, obsY, targetX, volando, escenario, ultimoDisparo }: SceneProps) {
   const theme = THEMES[escenario] ?? THEMES.tierra;
-  const { samples, idealSamples, alcance, maxY } = useTrajectory(angulo, velocidad, g, viento, densidadAire, y0);
+  const traza = useTrazaDisparo(ultimoDisparo);
+  const alcance = traza ? Math.max(0, traza.hitX) : 0;
 
   const spanM = Math.max(alcance, targetX, 20);
   const centerXw = m2w(spanM) * 0.5;
@@ -559,10 +516,10 @@ function Scene({
   const camX = m2w(spanM) * 0.4;
 
   // punto/tiempo del último impacto (para la onda), compartido por ref
-  const impact = useRef({ x: samples[samples.length - 1].p.x, t: -10 });
+  const impact = useRef({ x: 0, t: -10 });
   const clockRef = useRef(0);
   useFrame((state) => { clockRef.current = state.clock.getElapsedTime(); });
-  const handleLoop = (x: number) => { impact.current = { x, t: clockRef.current }; };
+  const handleImpact = (x: number) => { impact.current = { x, t: clockRef.current }; };
 
   return (
     <>
@@ -580,15 +537,21 @@ function Scene({
       <DistanceRuler maxM={Math.ceil(spanM / 10) * 10} accent={theme.accent} />
 
       <Launcher angulo={angulo} y0={y0} accent={theme.accent} />
-      <IdealTrajectory samples={idealSamples} />
-      <TrajectoryTube samples={samples} accent={theme.accent} />
-      <ApexGuide maxY={maxY} xEnd={Math.max(alcance, 1)} />
-      <Projectile samples={samples} playing={volando} accent={theme.accent} onLoop={handleLoop} />
+      <AimGuide angulo={angulo} y0={y0} />
+      {traza && ultimoDisparo && (
+        <>
+          {!volando && <TrajectoryTube samples={traza.samples} accent={theme.accent} />}
+          {!volando && <ApexGuide maxY={traza.maxY} xEnd={Math.max(alcance, 1)} />}
+          <Projectile
+            samples={traza.samples} playing={volando} disparoId={ultimoDisparo.id}
+            duracionMs={duracionAnimacionMs(traza.t)} accent={theme.accent} onImpact={handleImpact}
+          />
+        </>
+      )}
       <ImpactWave trigger={impact} color={theme.accent} />
 
       <Obstacle x={obsX} h={obsY} />
       <Target x={targetX} label="Objetivo" color="#ef4444" />
-      <Target x={alcance} label="Alcance" color="#10b981" spin={-0.6} />
 
       {/* polvo atmosférico temático */}
       <Sparkles count={90} scale={[m2w(spanM) + 10, 9, 14]} position={[centerXw, 4, 0]} size={2.4} speed={0.25} color={theme.dust} opacity={0.5} />
@@ -605,7 +568,7 @@ function Scene({
 
       <EffectComposer multisampling={4}>
         <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.35} radius={0.75} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.22} darkness={1.05} />
       </EffectComposer>
     </>
@@ -614,17 +577,14 @@ function Scene({
 
 interface SceneProps {
   angulo: number;
-  velocidad: number;
-  g: number;
-  viento: number;
-  densidadAire: number;
   y0: number;
   obsX: number;
   obsY: number;
   targetX: number;
   volando: boolean;
   escenario: Escenario;
-  resultado?: 'exito' | 'fallo' | 'colision' | null;
+  /** Disparo lanzado (su trayectoria solo se conoce después de disparar). */
+  ultimoDisparo: (Mision1 & Disparo1 & { id: number }) | null;
 }
 
 export default function TiroParabolico3DScene(props: SceneProps) {

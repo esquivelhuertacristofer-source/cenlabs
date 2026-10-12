@@ -8,29 +8,32 @@ interface HookeSceneProps {
   masa: number;
   amplitud: number;
   isOscilando: boolean;
-  tiempoOscilacion: number;
 }
 
 const GRAVEDAD = 9.81;
 
-function StrutAndMass({ k, masa, amplitud, isOscilando, tiempoOscilacion }: HookeSceneProps) {
+function StrutAndMass({ k, masa, amplitud, isOscilando }: HookeSceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const emboloRef = useRef<THREE.Mesh>(null);
   const massRef = useRef<THREE.Mesh>(null);
+  // Reloj propio de la oscilación (antes llegaba por props desde un setState a 60 Hz).
+  const tRef = useRef(0);
 
-  const L0 = 4.0; // Longitud natural de la suspensión descargada
+  const L0 = 4.0; // Longitud natural del resorte descargado
 
-  useFrame(() => {
-    // 1. Estiramiento estático (equilibrio)
-    const yEquilibrio = (masa * GRAVEDAD) / k; 
-    
-    // 2. Desplazamiento cinemático (oscilación o impacto)
+  useFrame((_, delta) => {
+    // 1. Elongación estática (equilibrio): x = m·g/k
+    const yEquilibrio = (masa * GRAVEDAD) / k;
+
+    // 2. Oscilación alrededor del equilibrio. En reposo la carga está EN el
+    //    equilibrio (es donde se lee la regla para el método estático).
     let yDinamico = 0;
     if (isOscilando) {
+      tRef.current += Math.min(delta, 0.1);
       const omega = Math.sqrt(k / masa);
-      yDinamico = amplitud * Math.cos(omega * tiempoOscilacion);
+      yDinamico = amplitud * Math.cos(omega * tRef.current);
     } else {
-      yDinamico = amplitud;
+      tRef.current = 0;
     }
 
     const L_actual = L0 + yEquilibrio + yDinamico;

@@ -120,7 +120,9 @@ function LaserDevice({ position, angle }: { position: THREE.Vector3; angle: numb
     }
   });
   return (
-    <group position={position} rotation={[0, 0, -angle]}>
+    // Gira π + θ: el cuerpo (−y local) queda DETRÁS del emisor, alineado con el
+    // rayo incidente, y el emisor (+y local) apunta al punto de incidencia.
+    <group position={position} rotation={[0, 0, Math.PI + angle]}>
       {/* Cuerpo */}
       <Cylinder args={[0.18, 0.22, 2.5, 16]} position={[0, -1.25, 0]}>
         <meshStandardMaterial color="#0f172a" metalness={0.95} roughness={0.1} />
@@ -145,14 +147,16 @@ function LaserDevice({ position, angle }: { position: THREE.Vector3; angle: numb
 function AngleArc({ angle, radius, color, side }: {
   angle: number; radius: number; color: string; side: 'incident' | 'refracted';
 }) {
+  // El arco va de la NORMAL al rayo: el incidente llega por arriba-izquierda
+  // (−sen a, cos a) y el refractado sale por abajo-derecha (sen a, −cos a).
   const points = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     const segments = 32;
-    const startAngle = side === 'incident' ? 0 : Math.PI;
-    const endAngle = side === 'incident' ? angle : Math.PI + angle;
     for (let i = 0; i <= segments; i++) {
-      const a = startAngle + (endAngle - startAngle) * (i / segments);
-      pts.push(new THREE.Vector3(Math.sin(a) * radius, Math.cos(a) * radius, 0));
+      const a = angle * (i / segments);
+      pts.push(side === 'incident'
+        ? new THREE.Vector3(-Math.sin(a) * radius, Math.cos(a) * radius, 0)
+        : new THREE.Vector3(Math.sin(a) * radius, -Math.cos(a) * radius, 0));
     }
     return pts;
   }, [angle, radius, side]);
@@ -187,7 +191,7 @@ function NormalLine() {
         return (
           <Line
             key={i}
-            points={[new THREE.Vector3(0, y1, 0), new THREE.Vector3(0, y2, 0)]}
+            points={[[0, y1, 0], [0, y2, 0]]}
             color="#94a3b8"
             lineWidth={1}
             transparent
@@ -363,13 +367,19 @@ function RefractionCore({ n1, n2, n2Misterio, anguloIncidencia, laserColor = 'cy
 
   const beamLength = 12;
 
-  const start = new THREE.Vector3(-Math.sin(theta1Rad) * beamLength, Math.cos(theta1Rad) * beamLength, 0);
-  const center = new THREE.Vector3(0, 0, 0);
-  const endRefracted = new THREE.Vector3(Math.sin(theta2Rad) * beamLength, -Math.cos(theta2Rad) * beamLength, 0);
-  const endReflected = new THREE.Vector3(Math.sin(theta1Rad) * beamLength, Math.cos(theta1Rad) * beamLength, 0);
+  // Geometría del haz memorizada: se recalcula sólo cuando cambian ángulo o medios.
+  const { start, center, endRefracted, endReflected } = useMemo(() => ({
+    start: new THREE.Vector3(-Math.sin(theta1Rad) * beamLength, Math.cos(theta1Rad) * beamLength, 0),
+    center: new THREE.Vector3(0, 0, 0),
+    endRefracted: new THREE.Vector3(Math.sin(theta2Rad) * beamLength, -Math.cos(theta2Rad) * beamLength, 0),
+    endReflected: new THREE.Vector3(Math.sin(theta1Rad) * beamLength, Math.cos(theta1Rad) * beamLength, 0),
+  }), [theta1Rad, theta2Rad]);
 
-  const incidentHDR = new THREE.Color(isWhite ? '#ffffff' : baseHex).multiplyScalar(isWhite ? 3 : 4);
-  const reflectedHDR = new THREE.Color(isTIR ? '#ef4444' : (isWhite ? '#ffffff' : baseHex)).multiplyScalar(4);
+  const { incidentHDR, reflectedHDR, refractedHDR } = useMemo(() => ({
+    incidentHDR: new THREE.Color(isWhite ? '#ffffff' : baseHex).multiplyScalar(isWhite ? 3 : 4),
+    reflectedHDR: new THREE.Color(isTIR ? '#ef4444' : (isWhite ? '#ffffff' : baseHex)).multiplyScalar(4),
+    refractedHDR: new THREE.Color(baseHex).multiplyScalar(4),
+  }), [isWhite, isTIR, baseHex]);
 
   // Rainbow refracted rays (only when white light)
   const spectrumRays = useMemo(() => {
@@ -418,7 +428,7 @@ function RefractionCore({ n1, n2, n2Misterio, anguloIncidencia, laserColor = 'cy
       {/* ═══ MODO COLOR ÚNICO ═══ */}
       {!isWhite && !isTIR && (
         <group>
-          <Line points={[center, endRefracted]} color={new THREE.Color(baseHex).multiplyScalar(4)} lineWidth={4} />
+          <Line points={[center, endRefracted]} color={refractedHDR} lineWidth={4} />
           <BeamParticles start={center} end={endRefracted} color={baseHex} count={25} speed={2} />
         </group>
       )}

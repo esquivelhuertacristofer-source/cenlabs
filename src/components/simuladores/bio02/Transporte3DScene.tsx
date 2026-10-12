@@ -68,8 +68,9 @@ function Eritrocito({ volumen }: { volumen: number }) {
 // ── CÉLULA VEGETAL "DIAMOND GLOW" ──
 function CelulaVegetal({ volumen }: { volumen: number }) {
   const safeVol = isNaN(volumen) ? 100 : volumen;
-  const vScale = Math.max(0.4, Math.min(0.98, safeVol / 140));
-  const isTurgid = safeVol > 125;
+  // La pared limita el volumen a ≈ 108 % (turgencia); por debajo de ≈ 90 % la membrana se separa (plasmólisis).
+  const vScale = Math.max(0.4, Math.min(0.98, 0.98 * safeVol / 108));
+  const isTurgid = safeVol >= 106;
 
   return (
     <group>

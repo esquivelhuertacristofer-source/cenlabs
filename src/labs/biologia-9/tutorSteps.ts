@@ -3,19 +3,19 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Digestión Enzimática',
-      mensaje: 'Descompondremos macromoléculas usando enzimas específicas. ¡Química digestiva!',
+      mensaje: 'Tienes un alimento asignado. Lo digerirás en un tubo de ensayo a 37 °C.',
     },
     {
       id: 2, tipo: 'accion', pista: 'Sustrato y Enzima',
-      mensaje: 'Elige entre proteínas, lípidos o carbohidratos. Selecciona la enzima correcta (Pepsina, Lipasa, Amilasa).',
+      mensaje: 'Elige una enzima e incuba. Si no hay reacción, piensa en la especificidad: ¿esa enzima reconoce tu sustrato?',
     },
     {
       id: 3, tipo: 'accion', pista: 'Optimización de pH',
-      mensaje: 'Ajusta el pH del medio. Cada enzima tiene un pH óptimo donde su actividad es máxima.',
+      mensaje: 'Ajusta el pH: lejos del óptimo la actividad cae y algunas enzimas se desnaturalizan. Si tu sustrato es grasa, ¿qué la emulsiona?',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Absorción',
-      mensaje: 'Cuando la hidrólisis sea completa y obtengas monómeros, valida el proceso digestivo.',
+      mensaje: 'Con una hidrólisis completa, indica dónde actúa la enzima y dónde se absorben los productos, y valida.',
       accion: 'Validar Digestión',
     }
   ];

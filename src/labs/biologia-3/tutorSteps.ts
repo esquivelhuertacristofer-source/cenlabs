@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Transcripción',
-      mensaje: 'Selecciona las bases nitrogenadas complementarias (A-U, C-G). El ARN saldrá del núcleo hacia el ribosoma.',
+      mensaje: 'Aparea cada base de la hebra molde (A→U, T→A, C→G, G→C). Puedes usar el teclado. El ARNm saldrá por un poro nuclear.',
     },
     {
       id: 3, tipo: 'accion', pista: 'Traducción',
-      mensaje: 'En el ribosoma, une los codones con sus respectivos aminoácidos para formar la cadena polipeptídica.',
+      mensaje: 'En el ribosoma elige el ARNt cuyo anticodón sea complementario al codón (teclas 1-4). En un codón de paro, el factor de liberación.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Proteína Completa',
-      mensaje: 'Cuando llegues al codón de STOP, la proteína se plegará. Valida la secuencia obtenida.',
+      mensaje: 'Cuando el factor de liberación suelte la cadena en el codón de paro, valida la secuencia obtenida.',
       accion: 'Validar Proteína',
     }
   ];

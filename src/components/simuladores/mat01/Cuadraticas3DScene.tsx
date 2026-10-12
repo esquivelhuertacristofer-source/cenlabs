@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Line, Html, Sparkles, Stars, Float } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
@@ -31,6 +31,8 @@ interface Cuadraticas3DSceneProps {
   target: { a: number; b: number; c: number };
   currentRes: CurrentRes;
   escenario?: Escenario;
+  /** Puntos medidos de la trayectoria objetivo (datos del reto). */
+  puntosObjetivo?: Array<{ x: number; y: number }>;
 }
 
 const YMAX = 16;          // banda vertical visible
@@ -135,6 +137,8 @@ function ParabolaTube({ points, accent, accent2 }: { points: THREE.Vector3[]; ac
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     return geo;
   }, [points, accent, accent2]);
+  // La geometría se regenera con cada movimiento de slider: liberar la anterior.
+  useEffect(() => () => { geometry?.dispose(); }, [geometry]);
 
   if (!geometry) return null;
   return (
@@ -150,6 +154,25 @@ function GhostTarget({ points, color }: { points: THREE.Vector3[]; color: string
   if (points.length < 2) return null;
   return (
     <Line points={points} color={color} lineWidth={2.2} dashed dashSize={0.5} gapSize={0.35} transparent opacity={0.5} toneMapped={false} />
+  );
+}
+
+/* ── Puntos medidos de la trayectoria objetivo (datos del reto) ────────────── */
+function MeasuredPoints({ puntos }: { puntos: Array<{ x: number; y: number }> }) {
+  return (
+    <group>
+      {puntos.map((p) => (
+        <group key={p.x} position={[p.x, p.y, 0.05]}>
+          <mesh>
+            <sphereGeometry args={[0.2, 20, 20]} />
+            <meshStandardMaterial color="#fb8500" emissive="#fb8500" emissiveIntensity={1.6} toneMapped={false} />
+          </mesh>
+          <Html position={[0, 0.6, 0]} center distanceFactor={22}>
+            <div className="text-[8px] font-black text-orange-300 whitespace-nowrap select-none pointer-events-none">({p.x}, {p.y.toFixed(1)})</div>
+          </Html>
+        </group>
+      ))}
+    </group>
   );
 }
 
@@ -169,6 +192,7 @@ function AreaUnderCurve({ a, b, c, r1, r2, accent }: { a: number; b: number; c: 
     shape.closePath();
     return new THREE.ShapeGeometry(shape);
   }, [a, b, c, r1, r2]);
+  useEffect(() => () => { geometry?.dispose(); }, [geometry]);
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} position={[0, 0, -0.02]}>
@@ -297,6 +321,7 @@ function Traveler({ points, accent }: { points: THREE.Vector3[]; accent: string 
     const m = new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.8, toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false });
     return new THREE.Line(g, m);
   }, [accent]);
+  useEffect(() => () => { trailLine.geometry.dispose(); (trailLine.material as THREE.Material).dispose(); }, [trailLine]);
   const trail = useRef<THREE.Vector3[]>([]);
 
   useFrame((_, delta) => {
@@ -382,6 +407,8 @@ function YIntercept({ c }: { c: number }) {
   );
 }
 
+const CA_OFFSET_M1 = new THREE.Vector2(0.00018, 0.00018);
+
 /* ── Raíces reales y complejas (plano de Argand 3D) ──────────────────────────── */
 function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
   const spin = useRef<THREE.Group[]>([]);
@@ -401,8 +428,9 @@ function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
     <>
       {shown.map((root, i) => {
         const isComplex = root.imaginary !== 0;
-        const z = i === 0 ? root.imaginary : -root.imaginary;
-        const pos = new THREE.Vector3(root.real, isComplex ? 0 : 0, z);
+        // solveQuadratic ya entrega el par conjugado (+Im, −Im): z = Im de cada raíz.
+        const z = root.imaginary;
+        const pos: [number, number, number] = [root.real, 0, z];
         const color = isComplex ? '#c084fc' : '#22d3ee';
         const emis = isComplex ? '#a855f7' : '#0891b2';
         return (
@@ -423,7 +451,7 @@ function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
               </Html>
             </group>
             {isComplex && (
-              <Line points={[[vertex.h, vertex.k, 0], [pos.x, pos.y, pos.z]]} color="#c084fc" lineWidth={1.4} dashed dashSize={0.2} gapSize={0.2} transparent opacity={0.55} toneMapped={false} />
+              <Line points={[[vertex.h, vertex.k, 0], pos]} color="#c084fc" lineWidth={1.4} dashed dashSize={0.2} gapSize={0.2} transparent opacity={0.55} toneMapped={false} />
             )}
           </group>
         );
@@ -433,7 +461,7 @@ function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica' }: Cuadraticas3DSceneProps) {
+function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica', puntosObjetivo = [] }: Cuadraticas3DSceneProps) {
   const { delta, vertex, roots } = currentRes;
   const theme = THEMES[escenario] ?? THEMES.parabola_basica;
   const isComplex = delta < 0;
@@ -474,6 +502,7 @@ function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica'
       {hasArea && <AreaUnderCurve a={a} b={b} c={c} r1={realRoots[0]} r2={realRoots[1]} accent={theme.accent} />}
 
       <GhostTarget points={targetPts} color="#fb8500" />
+      <MeasuredPoints puntos={puntosObjetivo} />
       <AxisOfSymmetry h={vertex.h} k={vertex.k} up={up} />
       {showFocus && <FocusDirectrix h={vertex.h} k={vertex.k} p={p} accent={theme.accent2} />}
       {showFocus && <ReflectionRays a={a} b={b} c={c} h={vertex.h} k={vertex.k} p={p} accent={theme.accent2} />}
@@ -499,7 +528,7 @@ function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica'
       <EffectComposer multisampling={4}>
         {/* umbral más alto + intensidad menor: solo brillan focos/vértice, no toda la curva */}
         <Bloom luminanceThreshold={0.62} mipmapBlur intensity={0.62} radius={0.5} />
-        <ChromaticAberration offset={new THREE.Vector2(0.00018, 0.00018)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={CA_OFFSET_M1} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.28} darkness={0.92} />
       </EffectComposer>
     </>

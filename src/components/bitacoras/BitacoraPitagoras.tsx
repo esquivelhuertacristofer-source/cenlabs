@@ -7,15 +7,18 @@ import {
   Trash2, ShieldCheck, Calculator, BookOpen,
   Binary, Compass, Bot, Volume2, Shapes, Droplets
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { leerNumero, TOL_M4 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraPitagoras() {
-  const { pitagoras, setCatetosM4, setLlenadoM4, validarM4, resetM4 } = useSimuladorStore();
-  const { catetoA, catetoB, llenado, status } = pitagoras;
+export default function BitacoraPitagoras({ onValidate }: { onValidate?: () => void }) {
+  const { pitagoras, setUserInputM4, resetM4 } = useSimuladorStore(
+    useShallow((s) => ({ pitagoras: s.pitagoras, setUserInputM4: s.setUserInputM4, resetM4: s.resetM4 })),
+  );
+  const { catetoA, catetoB, llenado, status, userInputC } = pitagoras;
 
   const [conclusionText, setConclusionText] = useState('');
-  const [userInputC, setUserInputC] = useState('');
   const [feedbackC, setFeedbackC] = useState<'idle' | 'correct' | 'wrong'>('idle');
 
   const quantumMsg = `Ajusta los catetos A y B para formar el triángulo. Luego, trasvasa el fluido de los cuadrados de los catetos hacia el cuadrado de la hipotenusa. ¡Verás que el área c² es exactamente igual a a² + b²!`;
@@ -23,17 +26,17 @@ export default function BitacoraPitagoras() {
   const handleReset = () => {
     resetM4();
     setConclusionText('');
-    setUserInputC('');
     setFeedbackC('idle');
     audio.playPop();
   };
 
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  const hipotenusaReal = Math.sqrt(catetoA * catetoA + catetoB * catetoB);
+  const hipotenusaReal = Math.hypot(catetoA, catetoB);
 
+  // Misma lectura (acepta coma decimal) y tolerancia que el validador.
   const checkC = () => {
-    const val = parseFloat(userInputC);
-    const ok = !isNaN(val) && Math.abs(val - hipotenusaReal) < 0.2;
+    const val = leerNumero(userInputC);
+    const ok = Number.isFinite(val) && Math.abs(val - hipotenusaReal) < TOL_M4;
     setFeedbackC(ok ? 'correct' : 'wrong');
     if (ok) audio.playSuccess(); else audio.playError();
   };
@@ -41,9 +44,10 @@ export default function BitacoraPitagoras() {
   const canValidate = feedbackC === 'correct' && wordCount >= 30;
 
   // Hallazgos en vivo
-  const checkA = catetoA !== 3;
-  const checkB = catetoB !== 4;
-  const isFilled = llenado > 0.95;
+  // Los catetos los fija la semilla (o el alumno); `llenado` va de 0 a 100 %.
+  const checkA = catetoA >= 1;
+  const checkB = catetoB >= 1;
+  const isFilled = llenado >= 100;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -101,7 +105,7 @@ export default function BitacoraPitagoras() {
                      Configuración de Catetos
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {checkA && checkB ? '✓ Dimensiones Sincronizadas' : '... Ajustando Catetos'}
+                     {checkA && checkB ? `✓ Triángulo a = ${catetoA}, b = ${catetoB}` : '... Ajustando Catetos'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${checkA && checkB ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
@@ -154,8 +158,8 @@ export default function BitacoraPitagoras() {
           </div>
           <div className="flex gap-2">
             <input 
-              type="number" value={userInputC} placeholder="Ingresa c..."
-              onChange={e => { setUserInputC(e.target.value); setFeedbackC('idle'); }}
+              type="text" inputMode="decimal" value={userInputC} placeholder="Ingresa c..."
+              onChange={e => { setUserInputM4(e.target.value); setFeedbackC('idle'); }}
               className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 focus:outline-none focus:border-amber-500"
             />
             <button onClick={checkC} className="px-4 bg-[#023047] text-white rounded-xl font-black text-[9px] uppercase tracking-widest">Check</button>
@@ -189,7 +193,7 @@ export default function BitacoraPitagoras() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { const ok = validarM4(); if (ok) audio.playSuccess(); else audio.playError(); }}
+          onClick={() => onValidate?.()}
           disabled={!canValidate && status !== 'success'}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${status === 'success' ? 'bg-emerald-500 text-white' : canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

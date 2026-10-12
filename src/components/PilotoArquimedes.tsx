@@ -1,363 +1,172 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSimuladorStore } from '@/store/simuladorStore';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Waves,
-  Weight,
-  Droplets,
-  ArrowDown,
-  ArrowUp,
-  Settings,
-  Activity,
-  Zap,
-  Info,
-  Thermometer,
-  CloudRain,
-  Award
-} from 'lucide-react';
+import { Waves, Weight, ArrowUp, ShieldAlert, Plus } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import { useSimuladorStore } from '@/store/simuladorStore';
+import { FLUIDOS, G_TIERRA, evaluarF6, lecturaDinamometro, pesoAparente } from '@/domain/fisica';
+import AvisoReto from './fisica/AvisoReto';
 
-export default function PilotoArquimedes() {
-  const router = useRouter();
-  const { arquimedes6, setArquimedes6, setAsistente, audio, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora, resetF6 } = useSimuladorStore();
-  const {
-    radio = 0.5,
-    densidadCuerpo = 800,
-    densidadLiquido = 1000,
-    sumergido = 0,
-    resultado: status = 'idle',
-    isRunning = false
-  } = arquimedes6 || {};
+/**
+ * Arquímedes con dinamómetro (vista 2D provisional; la escena 3D llega en la
+ * pasada de piezas reales). El sólido cuelga del dinamómetro y se baja dentro
+ * del fluido; la inmersión es una FRACCIÓN de su volumen y nunca pasa del 100 %.
+ */
+export default function PilotoArquimedes({ onValidate }: { onValidate?: () => void }) {
+  const { a, setArquimedes6, setAsistente, audio } = useSimuladorStore(useShallow((s) => ({
+    a: s.arquimedes6, setArquimedes6: s.setArquimedes6, setAsistente: s.setAsistente, audio: s.audio,
+  })));
+  const { densidadCuerpo, volumenCuerpo, fluido, densidadLiquido, sumergido, lecturaAire, lecturaFluido, fluidoLectura, densidadAlumno } = a;
 
-  const [volumenTotal, setVolumenTotal] = useState(0);
-  const [masa, setMasa] = useState(0);
-  const [pesoReal, setPesoReal] = useState(0);
-  const [empuje, setEmpuje] = useState(0);
-  const [paso, setPaso] = useState(1);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  // Ref to avoid stale closure inside setInterval
-  const sumergidoRef = useRef(sumergido);
-  useEffect(() => { sumergidoRef.current = sumergido; }, [sumergido]);
-
-  // Detectar fin de simulación y mostrar overlay de éxito
-  useEffect(() => {
-    if (!isRunning && sumergido > 0.1) {
-      setShowSuccess(true);
-    }
-  }, [isRunning, sumergido]);
-
-  useEffect(() => {
-    const V = (4/3) * Math.PI * Math.pow(radio, 3);
-    const M = V * densidadCuerpo;
-    const P = M * 9.81;
-    setVolumenTotal(V);
-    setMasa(M);
-    setPesoReal(P);
-  }, [radio, densidadCuerpo]);
+  const [rhoInput, setRhoInput] = useState(densidadAlumno !== null ? String(densidadAlumno) : '');
+  const [alerta, setAlerta] = useState<string | null>(null);
+  const [veredicto, setVeredicto] = useState<ReturnType<typeof evaluarF6> | null>(null);
 
   useEffect(() => {
     setAsistente({
       visible: true,
-      text: "Bienvenido al laboratorio de hidrostática. Vamos a validar el principio de Arquímedes observando cómo el empuje del fluido afecta la inmersión del cuerpo.",
+      text: "Bienvenido al laboratorio de hidrostática. Pesa el sólido en el aire y luego completamente sumergido: la diferencia es el empuje, y con él puedes calcular su volumen y su densidad.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
-  }, []);
+  }, [setAsistente]);
 
-  // Lógica de simulación de inmersión dinámica
-  useEffect(() => {
-    if (isRunning) {
-      const interval = setInterval(() => {
-        // El porcentaje de inmersión en equilibrio es DensidadCuerpo / DensidadLiquido
-        const targetSumergido = Math.min(1.1, densidadCuerpo / densidadLiquido);
-        const current = sumergidoRef.current;
-        const next = current + (targetSumergido - current) * 0.05;
+  useEffect(() => { setVeredicto(null); }, [lecturaAire, lecturaFluido, densidadAlumno]);
 
-        setArquimedes6({ sumergido: next });
+  const avisar = (msg: string) => { setAlerta(msg); window.setTimeout(() => setAlerta(null), 5000); };
 
-        if (Math.abs(current - targetSumergido) < 0.001) {
-          setArquimedes6({ isRunning: false });
-          audio?.playSuccess();
+  const lectura = lecturaDinamometro(pesoAparente(densidadCuerpo, volumenCuerpo, densidadLiquido, sumergido));
+  const fraccion = Math.min(1, Math.max(0, sumergido));
 
-          const E = targetSumergido >= 1 ? (volumenTotal * densidadLiquido * 9.81) : pesoReal;
-
-          registrarHallazgo('fis_arquimedes_equilibrio', {
-            densidad_cuerpo: densidadCuerpo,
-            densidad_liquido: densidadLiquido,
-            volumen_m3: volumenTotal,
-            empuje_n: E,
-            sumergido_pct: targetSumergido * 100
-          });
-
-          stopTimer();
-          setPasoActual(4);
-
-          setBitacora({
-            ...bitacoraData,
-            fisica6: `✅ CERTIFICADO: Principio de Arquímedes validado. Cuerpo con densidad ${densidadCuerpo} kg/m³ en fluido de ${densidadLiquido} kg/m³. Empuje calculado: ${E.toFixed(2)} N.`
-          });
-        }
-      }, 50);
-      return () => clearInterval(interval);
-    }
-  }, [isRunning, setArquimedes6, densidadCuerpo, densidadLiquido, pesoReal, volumenTotal, audio, registrarHallazgo, stopTimer, setPasoActual, setBitacora, bitacoraData]);
-
-  const toggleSim = () => {
-    const isNowRunning = !isRunning;
-    setArquimedes6({ isRunning: isNowRunning });
+  const cambiarFluido = (key: string) => {
+    if (key === fluido) return;
+    // La lectura sumergida pertenece al fluido en que se tomó.
+    setArquimedes6({ fluido: key, densidadLiquido: FLUIDOS[key].rho, sumergido: 0, lecturaFluido: null, fluidoLectura: null, resultado: null });
     audio?.playPop();
-    if (isNowRunning) {
-      audio?.playNotification();
-      setAsistente({ text: "Iniciando inmersión. Monitorea el equilibrio de fuerzas.", pose: "happy" });
-    }
   };
 
-  const calculatedEmpuje = Math.min(sumergido, 1) * volumenTotal * densidadLiquido * 9.81;
+  const registrarAire = () => {
+    if (fraccion > 0) return avisar('Saca por completo el sólido del fluido para pesarlo en el aire.');
+    setArquimedes6({ lecturaAire: lectura, resultado: null });
+    audio?.playPop();
+  };
+  const registrarFluido = () => {
+    if (fraccion < 1) return avisar('Sumerge el sólido POR COMPLETO antes de registrar el peso aparente.');
+    setArquimedes6({ lecturaFluido: lectura, fluidoLectura: fluido, resultado: null });
+    audio?.playPop();
+  };
+
+  const guardarRho = (v: string) => {
+    setRhoInput(v);
+    const r = parseFloat(v);
+    setArquimedes6({ densidadAlumno: Number.isFinite(r) ? r : null, resultado: null });
+  };
+  const comprobar = () => {
+    const v = evaluarF6(a);
+    setVeredicto(v);
+    if (v.ok) audio?.playSuccess(); else { audio?.playError(); avisar(v.mensaje ?? 'Revisa tus datos.'); }
+  };
+
+  // Geometría de la vista: el nivel del líquido sube con el volumen desalojado.
+  const vista = useMemo(() => {
+    const ladoCuerpo = 64;              // px
+    const yNivel0 = 230;                // superficie libre sin cuerpo (px desde arriba)
+    const subida = fraccion * 18;       // px: proporcional al volumen desalojado
+    const yNivel = yNivel0 - subida;
+    // fondo del cuerpo: arriba del agua (fracción 0) → totalmente dentro (fracción 1)
+    const yFondoCuerpo = yNivel0 + fraccion * (ladoCuerpo + 8) - 4;
+    return { ladoCuerpo, yNivel, yFondoCuerpo };
+  }, [fraccion]);
 
   return (
     <div className="relative w-full h-full bg-[#010409] overflow-hidden font-['Outfit'] text-white">
-      
-      {/* FONDO DINÁMICO DE AGUA */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <div className="absolute bottom-0 w-full h-1/2 bg-blue-500/20 blur-[100px] animate-pulse" />
-      </div>
-
-      {/* CHECKLIST HUD (DIAMOND STANDARD) */}
-      <div className="absolute top-48 left-1/2 -translate-x-1/2 w-[600px] pointer-events-none z-50">
-        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
-              <Activity size={12} className="animate-pulse" /> Sincronía Hidrostática
-            </span>
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Arquímedes Protocol HUD</span>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-6">
-            <div className={`p-5 rounded-2xl border transition-all ${isRunning ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Inmersión</div>
-              <div className={`text-sm font-black italic ${isRunning ? 'text-blue-400' : 'text-white/20'}`}>{isRunning ? 'ACTIVA' : 'STANDBY'}</div>
-            </div>
-            <div className={`p-5 rounded-2xl border transition-all ${calculatedEmpuje > 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Fuerza E</div>
-              <div className={`text-sm font-black italic ${calculatedEmpuje > 0 ? 'text-emerald-400' : 'text-white/20'}`}>{calculatedEmpuje > 0 ? 'DETECTADA' : 'CERO'}</div>
-            </div>
-            <div className={`p-5 rounded-2xl border transition-all ${sumergido >= 1 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Equilibrio</div>
-              <div className={`text-sm font-black italic ${sumergido >= 1 ? 'text-amber-400' : 'text-white/20'}`}>{sumergido >= 1 ? 'ALCANZADO' : 'PROGRESO'}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* GIANT DISPLACEMENT HUD (CENTRAL) */}
-      <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none opacity-10">
-         <div className="text-[14rem] font-black font-mono leading-none tracking-tighter italic text-white/10">{(sumergido * 100).toFixed(0)}</div>
-         <span className="text-xl font-black uppercase tracking-[1.5em] text-white/20">%_volumen_sumergido</span>
-      </div>
-
-      {/* CANVAS PRINCIPAL (SIMULACIÓN VISUAL) */}
-      <div className="absolute inset-0 flex items-center justify-center pt-20">
-        <div className="relative w-80 h-96 bg-white/5 border border-white/10 rounded-b-[4rem] overflow-hidden backdrop-blur-sm">
-          {/* Líquido */}
-          <motion.div 
-            animate={{ height: `${50 + (sumergido * 10)}%` }}
-            className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600/40 to-blue-400/30 border-t border-blue-300/30"
-          >
-            <div className="absolute top-0 w-full h-4 bg-white/10 blur-sm" />
-          </motion.div>
-
-          {/* El Cuerpo (Esfera) */}
-          <motion.div 
-            animate={{ 
-              y: isRunning ? 100 : 0,
-              scale: radio * 2 
-            }}
-            className="absolute top-1/4 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 border border-white/20 shadow-2xl flex items-center justify-center z-10"
-          >
-            <div className="text-white/20"><Weight size={40} /></div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* HUD SUPERIOR: TELEMETRÍA DINÁMICA */}
-      <div className="absolute top-8 inset-x-8 flex justify-between items-start z-20 pointer-events-none">
-        <div className="space-y-4">
-           <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <Waves className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-white font-black text-xl tracking-tighter leading-none">PRINCIPIO DE ARQUÍMEDES</h2>
-                <p className="text-blue-400/60 text-[10px] font-black uppercase tracking-[0.3em]">Módulo FIS-04 · Diamond State</p>
-              </div>
-           </div>
-        </div>
-
-        <div className="flex gap-4">
-           <HUDCard label="Peso (P)" value={`${pesoReal.toFixed(2)} N`} icon={<Weight size={18} />} color="#E63946" highlight={isRunning} />
-           <HUDCard label="Empuje (E)" value={`${calculatedEmpuje.toFixed(2)} N`} icon={<ArrowUp size={18} />} color="#219EBC" highlight={isRunning} />
-        </div>
-      </div>
-
-      {/* PANEL DE CONTROL INFERIOR */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#0A1121]/90 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] flex items-center px-10 py-6 gap-10 z-30 min-w-[800px]">
-        
-        <div className="flex items-center gap-10 pr-10 border-r border-white/5">
-           <div className="flex flex-col min-w-[200px]">
-              <span className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-3">Radio de la Esfera (m)</span>
-              <div className="flex items-center gap-6">
-                 <input 
-                   type="range" min="0.1" max="1" step="0.05" 
-                   value={radio} 
-                   onChange={(e) => setArquimedes6({ radio: parseFloat(e.target.value) })}
-                   className="flex-1 accent-blue-500 h-1.5" 
-                 />
-                 <span className="text-white font-black text-xl w-12 text-right">{radio}</span>
-              </div>
-           </div>
-        </div>
-
-        <div className="flex items-center gap-10">
-           <div className="flex flex-col min-w-[200px]">
-              <div className="flex justify-between mb-1">
-                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Densidad Cuerpo</span>
-                <span className="text-amber-400 font-black text-xs">{densidadCuerpo} kg/m³</span>
-              </div>
-              <input
-                type="range" min="100" max="2000" step="50"
-                value={densidadCuerpo}
-                onChange={(e) => setArquimedes6({ densidadCuerpo: parseInt(e.target.value) })}
-                className="w-full accent-amber-500 h-1.5"
-              />
-           </div>
-
-           <div className="flex flex-col min-w-[200px]">
-              <div className="flex justify-between mb-1">
-                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Densidad Fluido</span>
-                <span className="text-blue-400 font-black text-xs">{densidadLiquido} kg/m³</span>
-              </div>
-              <input
-                type="range" min="500" max="13600" step="100"
-                value={densidadLiquido}
-                onChange={(e) => setArquimedes6({ densidadLiquido: parseInt(e.target.value) })}
-                className="w-full accent-blue-500 h-1.5"
-              />
-           </div>
-
-           <button
-             onClick={toggleSim}
-             className={`px-12 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center gap-4 ${isRunning ? 'bg-red-600 text-white shadow-xl shadow-red-600/30' : 'bg-blue-600 text-white shadow-xl shadow-blue-600/30'}`}
-           >
-             {isRunning ? <Zap size={20} fill="white" className="animate-pulse" /> : <Activity size={20} />}
-             {isRunning ? 'Detener' : 'Iniciar Inmersión'}
-           </button>
-        </div>
-      </div>
-
-      {/* OVERLAY DE ÉXITO — EQUILIBRIO HIDROSTÁTICO ALCANZADO */}
       <AnimatePresence>
-        {showSuccess && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] flex items-center justify-center bg-[#010409]/95 backdrop-blur-3xl p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.85, opacity: 0, y: 30 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-blue-500/30 overflow-hidden relative"
-            >
-              {/* Glow de fondo */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
-
-              {/* Trofeos */}
-              <div className="flex justify-center gap-4 mb-6 relative z-10">
-                {[1, 2, 3].map((s) => (
-                  <motion.div
-                    key={s}
-                    initial={{ scale: 0, rotate: -30 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: s * 0.15 }}
-                  >
-                    <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2 relative z-10">
-                Certificación Hidrostática
-              </div>
-              <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic relative z-10">
-                ¡Equilibrio Alcanzado!
-              </h3>
-
-              {/* Datos del experimento */}
-              <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 grid grid-cols-2 gap-8 text-left mb-8 relative z-10">
-                <div>
-                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Densidad Cuerpo</span>
-                  <span className="text-3xl font-black font-mono">{densidadCuerpo} kg/m³</span>
-                </div>
-                <div>
-                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Densidad Fluido</span>
-                  <span className="text-3xl font-black font-mono">{densidadLiquido} kg/m³</span>
-                </div>
-                <div>
-                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Volumen Sumergido</span>
-                  <span className="text-3xl font-black font-mono">{(sumergido * 100).toFixed(1)}%</span>
-                </div>
-                <div>
-                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Empuje Final</span>
-                  <span className="text-3xl font-black font-mono">{(Math.min(sumergido, 1) * volumenTotal * densidadLiquido * 9.81).toFixed(2)} N</span>
-                </div>
-              </div>
-
-              <p className="text-sm text-slate-400 mb-10 px-6 relative z-10">
-                El principio de Arquímedes ha sido validado. El empuje del fluido compensa exactamente el peso del cuerpo en la proporción correcta de inmersión.
-              </p>
-
-              <div className="flex gap-3 relative z-10">
-                <button
-                  onClick={() => setShowSuccess(false)}
-                  className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10"
-                >
-                  Revisar Simulación
-                </button>
-                <button
-                  onClick={() => { resetF6(); router.push('/alumno/laboratorio/fisica'); }}
-                  className="flex-1 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-blue-600/30 transition-all"
-                >
-                  Finalizar y Salir
-                </button>
-              </div>
-            </motion.div>
+        {alerta && (
+          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
+            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
+            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-    </div>
-  );
-}
+      {/* VISTA: dinamómetro, sólido y vaso */}
+      <div className="absolute inset-0 flex items-center justify-center pt-10">
+        <svg viewBox="0 0 300 380" className="h-[70%] max-w-[90vw]" role="img" aria-label="Sólido colgado de un dinamómetro sobre un vaso con fluido">
+          {/* soporte y dinamómetro */}
+          <rect x="140" y="10" width="20" height="70" rx="6" fill="#334155" />
+          <text x="150" y="50" textAnchor="middle" fontSize="9" fill="#e2e8f0" fontWeight="bold">N</text>
+          <line x1="150" y1="80" x2="150" y2={vista.yFondoCuerpo - vista.ladoCuerpo} stroke="#cbd5e1" strokeWidth="1.5" />
+          {/* vaso */}
+          <rect x="60" y="150" width="180" height="210" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.25)" />
+          <rect x="61" y={vista.yNivel} width="178" height={359 - vista.yNivel} fill={fluido === 'glicerina' ? 'rgba(250,204,21,0.25)' : fluido === 'alcohol' ? 'rgba(165,180,252,0.25)' : 'rgba(56,189,248,0.3)'} />
+          <line x1="61" x2="239" y1={vista.yNivel} y2={vista.yNivel} stroke="rgba(186,230,253,0.7)" />
+          {/* sólido */}
+          <rect x={150 - vista.ladoCuerpo / 2} y={vista.yFondoCuerpo - vista.ladoCuerpo} width={vista.ladoCuerpo} height={vista.ladoCuerpo} rx="6" fill="#64748b" stroke="#94a3b8" />
+          <text x="150" y={vista.yFondoCuerpo - vista.ladoCuerpo / 2 + 4} textAnchor="middle" fontSize="12" fill="#e2e8f0" fontWeight="bold">?</text>
+        </svg>
+      </div>
 
-function HUDCard({ label, value, icon, color, highlight = false, isStatic = false }: any) {
-  return (
-    <motion.div 
-      animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
-      transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
-      className={`px-6 py-4 rounded-3xl border border-white/10 flex items-center gap-4 transition-all ${isStatic ? 'bg-white/5' : 'bg-[#0A1121]/80 backdrop-blur-md shadow-2xl'}`}
-    >
-      <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner" style={{ background: `${color}20`, color }}>
-        {icon}
+      {/* DINAMÓMETRO + REGISTROS */}
+      <div className="absolute top-6 left-6 z-30 w-[320px] max-w-[92vw] flex flex-col gap-4">
+        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-blue-500/30 p-5 rounded-[2rem]">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center"><Waves size={18} /></div>
+            <div>
+              <h2 className="font-black text-sm tracking-tight leading-none">PRINCIPIO DE ARQUÍMEDES</h2>
+              <p className="text-blue-400/70 text-[9px] font-black uppercase tracking-[0.2em]">Módulo FIS-06</p>
+            </div>
+          </div>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Weight size={12} /> Dinamómetro</span>
+          <div className="text-4xl font-black font-mono mt-1">{lectura.toFixed(2)} <span className="text-sm text-slate-400">N</span></div>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <button onClick={registrarAire} className="py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase flex items-center justify-center gap-1"><Plus size={12} /> Peso en aire</button>
+            <button onClick={registrarFluido} className="py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-[10px] font-black uppercase flex items-center justify-center gap-1"><Plus size={12} /> Peso sumergido</button>
+          </div>
+          <div className="mt-3 text-[11px] font-mono space-y-1">
+            <div className="flex justify-between"><span className="text-slate-400">W (aire)</span><span>{lecturaAire !== null ? `${lecturaAire.toFixed(2)} N` : '—'}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">W aparente</span><span>{lecturaFluido !== null ? `${lecturaFluido.toFixed(2)} N (${FLUIDOS[fluidoLectura ?? fluido]?.nombre})` : '—'}</span></div>
+          </div>
+        </div>
       </div>
-      <div>
-        <span className="block text-[8px] font-black uppercase tracking-[0.2em] text-white/30 mb-1">{label}</span>
-        <span className="block text-xl font-black text-white tracking-tighter leading-none">{value}</span>
+
+      {/* ANÁLISIS */}
+      <div className="absolute top-6 right-6 z-30 w-[300px] max-w-[92vw] bg-[#0A1121]/90 backdrop-blur-xl border border-amber-500/30 p-5 rounded-[2rem]">
+        <span className="text-[10px] font-black text-amber-300 uppercase tracking-[0.2em] flex items-center gap-1"><ArrowUp size={12} /> Análisis</span>
+        <p className="text-[10px] font-mono text-slate-300 mt-2 leading-relaxed">E = W − W<sub>ap</sub> = ρ<sub>f</sub>·g·V<br />ρ = W / (g·V)</p>
+        <p className="text-[10px] text-slate-400 mt-2">g = {G_TIERRA} m/s² · ρ<sub>f</sub> = {densidadLiquido} kg/m³</p>
+        <input type="number" step="1" value={rhoInput} onChange={(e) => guardarRho(e.target.value)} placeholder="ρ del sólido (kg/m³)"
+          className="w-full mt-3 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg" />
+        <button onClick={comprobar} className="w-full mt-3 py-3 bg-amber-600 hover:bg-amber-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Comprobar análisis</button>
       </div>
-    </motion.div>
+
+      {/* CONTROLES */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#0A1121]/90 backdrop-blur-2xl rounded-[2rem] border border-white/10 flex flex-wrap items-center justify-center px-6 py-4 gap-6 z-30 max-w-[95vw]">
+        <div className="flex flex-col min-w-[220px]">
+          <div className="flex justify-between mb-1">
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Volumen sumergido</span>
+            <span className="text-blue-300 font-black text-xs">{Math.round(fraccion * 100)} %</span>
+          </div>
+          <input type="range" min={0} max={1} step={0.05} value={fraccion}
+            onChange={(e) => setArquimedes6({ sumergido: Math.min(1, Math.max(0, parseFloat(e.target.value))) })}
+            className="w-full accent-blue-500 h-1.5" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Fluido</span>
+          <div className="flex gap-1">
+            {Object.entries(FLUIDOS).map(([k, f]) => (
+              <button key={k} onClick={() => cambiarFluido(k)}
+                className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase ${fluido === k ? 'bg-blue-600' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
+                {f.nombre} · {f.rho}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute bottom-28 right-6 z-50">
+        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="Tu densidad coincide con tus lecturas del dinamómetro. Valida tu práctica." />
+      </div>
+    </div>
   );
 }

@@ -1,45 +1,47 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { validarM6, matrizM6, RANGO_T_M6, ESCALA_MIN_M6, ESCALA_MAX_M6 } from '@/domain/matematicas';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Rocket, Target, RefreshCcw, ShieldCheck, 
-  Zap, Activity, Compass, Bot, 
+import {
+  Rocket, Target, RefreshCcw, ShieldCheck,
+  Zap, Activity, Compass, Bot,
   Move, RotateCw, Maximize
 } from 'lucide-react';
 import Transformaciones3DScene from './simuladores/mat06/Transformaciones3DScene';
 
-export default function PilotoTransformaciones() {
-  const router = useRouter();
-  const { geometria6, generarSemillaM6, resetM6, setTransformM6, validarM6, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
+/**
+ * MAT-06 · Transformaciones geométricas.
+ * El objetivo es la SILUETA en la rejilla (sin números): el alumno deduce
+ * traslación, rotación y escala y ve en vivo la matriz M = T·R·S que aplica.
+ */
+export default function PilotoTransformaciones({ onValidate }: { onValidate?: () => void }) {
+  const { geometria6, resetM6, setTransformM6, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      geometria6: s.geometria6, resetM6: s.resetM6, setTransformM6: s.setTransformM6,
+      audio: s.audio, setAsistente: s.setAsistente, pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
   const { tx, ty, rotacion, escala, target, status } = geometria6;
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { 
-    setMounted(true); 
+  useEffect(() => {
+    setMounted(true);
     setAsistente({
       visible: true,
-      text: "Bienvenido al Centro de Control Vectorial. Tu misión es alinear la nave con las coordenadas objetivo usando traslaciones, rotaciones y escalas.",
+      text: "Bienvenido al Centro de Control Vectorial. Acopla la nave con la silueta objetivo: lee en la rejilla su posición, su giro y su tamaño, y aplica la traslación, la rotación y la escala que la producen.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (tx === 0 && ty === 0 && rotacion === 0 && escala === 1) {
-      generarSemillaM6();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const isTargetLocked = Math.abs(tx - target.tx) < 0.2 && 
-                         Math.abs(ty - target.ty) < 0.2 && 
-                         Math.abs(rotacion - target.rotacion) < 5 && 
-                         Math.abs(escala - target.escala) < 0.1;
+  // Misma regla que el validador (rotación módulo 360°).
+  const isTargetLocked = validarM6(geometria6);
+  const M = matrizM6(tx, ty, rotacion, escala);
 
   // -- PASOS DEL HUD --
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function PilotoTransformaciones() {
 
   return (
     <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
-      
+
       {/* ── GIANT TELEMETRY BACKGROUND ── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
         <span className="text-[14rem] font-black font-mono text-amber-500 select-none italic">
@@ -106,10 +108,11 @@ export default function PilotoTransformaciones() {
 
             <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2.5rem] shadow-2xl pointer-events-auto">
                 <div className="text-right">
-                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-1 italic">Target Vector</span>
-                    <div className="text-xl font-black text-white italic tracking-tighter">
-                       T({target.tx}, {target.ty}) R({target.rotacion}°) S({target.escala})
+                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-2 italic">Tu matriz M = T·R·S</span>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm font-black text-white tabular-nums border-l-2 border-r-2 border-white/30 px-3">
+                       {M.flat().map((v, i) => <span key={i} className="text-right">{(Math.abs(v) < 5e-4 ? 0 : v).toFixed(2)}</span>)}
                     </div>
+                    <span className="text-[8px] font-bold text-slate-500 block mt-2">Objetivo: la silueta blanca de la rejilla (1 cuadro = 1 unidad)</span>
                 </div>
             </div>
         </div>
@@ -121,9 +124,9 @@ export default function PilotoTransformaciones() {
                     <div className="relative flex flex-col items-center">
                         <Compass size={240} className="text-emerald-500/20 animate-spin-slow" strokeWidth={0.5} />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">Vector Match</span>
-                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl animate-pulse">
-                                Sincronía Vectorial
+                            <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">Acoplada</span>
+                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
+                                Valida tu práctica
                             </div>
                         </div>
                     </div>
@@ -135,21 +138,21 @@ export default function PilotoTransformaciones() {
         <div className="mt-auto flex justify-between items-end gap-10 pointer-events-auto">
             <div className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] flex-1 shadow-2xl grid grid-cols-2 gap-16">
                 <div className="space-y-6">
-                    <SimSlider label="Traslación X" value={tx} min={-5} max={5} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(v, ty, rotacion, escala); audio?.playPop(); }} />
-                    <SimSlider label="Traslación Y" value={ty} min={-5} max={5} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(tx, v, rotacion, escala); audio?.playPop(); }} />
+                    <SimSlider label="Traslación X" value={tx} min={-RANGO_T_M6} max={RANGO_T_M6} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(v, ty, rotacion, escala); audio?.playPop(); }} />
+                    <SimSlider label="Traslación Y" value={ty} min={-RANGO_T_M6} max={RANGO_T_M6} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(tx, v, rotacion, escala); audio?.playPop(); }} />
                 </div>
                 <div className="space-y-6">
                     <SimSlider label="Rotación (°)" value={rotacion} min={0} max={360} step={5} color="emerald" onChange={(v: any) => { setTransformM6(tx, ty, v, escala); audio?.playPop(); }} />
-                    <SimSlider label="Escala" value={escala} min={0.5} max={2} step={0.1} color="emerald" onChange={(v: any) => { setTransformM6(tx, ty, rotacion, v); audio?.playPop(); }} />
+                    <SimSlider label="Escala" value={escala} min={ESCALA_MIN_M6} max={ESCALA_MAX_M6} step={0.1} color="emerald" onChange={(v: any) => { setTransformM6(tx, ty, rotacion, v); audio?.playPop(); }} />
                 </div>
             </div>
 
             <div className="flex flex-col gap-4">
-                <button onClick={() => { resetM6(); generarSemillaM6(); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
+                <button onClick={() => { resetM6(); audio?.playPop(); }} title="Devuelve la nave al origen (el objetivo no cambia)" className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
                     <RefreshCcw size={24} />
                 </button>
                 <button
-                  onClick={() => { const ok = validarM6(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
+                  onClick={() => onValidate?.()}
                   className={`w-20 h-20 rounded-3xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-amber-600 border-amber-500 text-white hover:scale-105 active:scale-95'}`}
                 >
                     {status === 'success' ? <ShieldCheck size={32} /> : <Target size={32} />}
@@ -163,19 +166,6 @@ export default function PilotoTransformaciones() {
         </div>
       </div>
 
-      {/* ÉXITO FINAL */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-amber-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(245,158,11,0.15)]">
-                <Rocket size={100} className="text-amber-500 mx-auto mb-8" />
-                <h3 className="text-5xl font-black text-white uppercase italic mb-6">Misión Exitosa</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has alineado los vectores de la nave con precisión absoluta. El análisis de transformaciones lineales ha sido validado bajo el estándar <strong>Diamond State</strong>.</p>
-                <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-amber-600/30">Cerrar Informe de Vuelo</button>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

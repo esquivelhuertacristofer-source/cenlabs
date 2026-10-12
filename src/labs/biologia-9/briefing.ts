@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#ea580c',
     duracion: 35,
     videoUrl: 'https://youtu.be/GNChoscsc4A',
-    bienvenida: `¡Bienvenido al Laboratorio de Bioquímica Digestiva! Soy el Dr. Quantum.\n\nSomos lo que digerimos. Veremos cómo las enzimas rompen las proteínas solo si el pH es el adecuado.\n\nTu misión: Digerir una muestra de carne optimizando el ambiente estomacal.`,
+    bienvenida: `¡Bienvenido al Laboratorio de Bioquímica Digestiva! Soy el Dr. Quantum.\n\nSomos lo que digerimos. Veremos cómo las enzimas rompen las proteínas solo si el pH es el adecuado.\n\nTu misión: hidrolizar por completo el alimento asignado y ubicar dónde ocurre su digestión y absorción.`,
     conceptos: [
       { icono: '🔑', nombre: 'Enzima', descripcion: 'Llave biológica que acelera las reacciones.' },
       { icono: '🧪', nombre: 'pH Gástrico', descripcion: 'Nivel de acidez necesario para activar enzimas.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🔥', nombre: 'Desnaturalización', descripcion: 'Cuando el calor o pH incorrecto destruyen la enzima.' }
     ],
     mision: [
-      'Inyecta Pepsina en el simulador.',
-      'Baja el pH a 2.0 (ambiente ácido).',
-      'Observa la ruptura de las cadenas de aminoácidos.',
-      'Intenta digerir a pH 7.0 y nota el fallo.',
-      'Valida la absorción de nutrientes en el intestino.'
+      'Identifica el sustrato del alimento asignado.',
+      'Prueba enzimas y pH en tubos de ensayo a 37 °C.',
+      'Distingue «sin reacción» de «enzima desnaturalizada».',
+      'Consigue una hidrólisis completa.',
+      'Indica el órgano donde actúa la enzima y dónde se absorben los productos.'
     ],
     aplicaciones: [
       { area: 'Industria', ejemplo: 'Uso de enzimas en detergentes y lavado de telas.' },

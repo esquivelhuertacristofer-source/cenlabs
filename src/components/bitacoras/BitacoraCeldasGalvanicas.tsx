@@ -8,10 +8,13 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, Microscope, Battery, Beaker
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
+import { validarQ9 } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraCeldasGalvanicas({ onValidate }: { onValidate?: () => void }) {
-  const { celda, validarP9 } = useSimuladorStore();
+  const { celda, validarP9, setRespuestaP9 } = useSimuladorStore(useShallow((s) => ({ celda: s.celda, validarP9: s.validarP9, setRespuestaP9: s.setRespuestaP9 })));
+  const [aviso, setAviso] = useState<string | null>(null);
   const [anodo, setAnodo] = useState("");
   const [catodo, setCatodo] = useState("");
   const [voltaje, setVoltaje] = useState("");
@@ -27,22 +30,19 @@ export default function BitacoraCeldasGalvanicas({ onValidate }: { onValidate?: 
     audio.playPop();
   };
 
+  // Mismo juez que el botón «Validar práctica» (validarQ9); el voltaje leído queda
+  // como registro de la bitácora.
   const handleValidar = () => {
-    const v = parseFloat(voltaje);
-    if (!anodo || !catodo || isNaN(v)) return alert("Completa todos los campos de registro.");
-    
-    if (celda.voltaje === 0) {
-      audio.playError();
-      alert("⚠️ Error de Circuito: No se detecta flujo de electrones. Verifica el puente salino.");
-      return;
-    }
-
-    const ok = validarP9(anodo, catodo, v);
+    const v = parseFloat(voltaje.replace(',', '.'));
+    if (!anodo || !catodo || isNaN(v)) { setAviso("Completa todos los campos de registro."); audio.playError(); return; }
+    setRespuestaP9(anodo, catodo);
+    const ok = validarP9();
     if (ok) {
       audio.playSuccess();
+      setAviso(null);
     } else {
       audio.playError();
-      alert("❌ Validación fallida: Los datos no coinciden con la configuración teórica.");
+      setAviso(validarQ9(useSimuladorStore.getState().celda).mensaje ?? null);
     }
   };
 
@@ -161,6 +161,9 @@ export default function BitacoraCeldasGalvanicas({ onValidate }: { onValidate?: 
           >
             {celda.status === 'success' ? 'Celda Certificada' : 'Validar Potencial'}
           </button>
+          {aviso && celda.status !== 'success' && (
+            <p className="text-[11px] font-bold text-amber-600">{aviso}</p>
+          )}
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import React, { useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, Sphere, Sparkles, Html, Float } from '@react-three/drei';
 import * as THREE from 'three';
+import { validarM2, clasificarSistemaM2 } from '@/domain/matematicas';
 
 interface Sistemas2x23DSceneProps {
   m1: number;
@@ -41,8 +42,10 @@ function SignalPulse({ position, color }: { position: THREE.Vector3, color: stri
 }
 
 function SceneLogic({ m1, b1, m2, b2, target, escenario }: Sistemas2x23DSceneProps) {
-  const isParallel = Math.abs(m1 - m2) < 0.01;
-  
+  // Misma clasificación y tolerancia que el validador de dominio.
+  const tipo = clasificarSistemaM2(m1, b1, m2, b2);
+  const isParallel = tipo !== 'unica';
+
   const intersection = useMemo(() => {
     if (isParallel) return null;
     const x = (b2 - b1) / (m1 - m2);
@@ -50,7 +53,7 @@ function SceneLogic({ m1, b1, m2, b2, target, escenario }: Sistemas2x23DScenePro
     return new THREE.Vector3(x, y, 0);
   }, [m1, b1, m2, b2, isParallel]);
 
-  const targetPos = new THREE.Vector3(target.x, target.y, 0);
+  const targetPos = useMemo(() => new THREE.Vector3(target.x, target.y, 0), [target.x, target.y]);
 
   // Generar puntos para las líneas (haces láser)
   const line1Points = useMemo(() => [
@@ -63,12 +66,13 @@ function SceneLogic({ m1, b1, m2, b2, target, escenario }: Sistemas2x23DScenePro
     new THREE.Vector3(20, m2 * 20 + b2, 0)
   ], [m2, b2]);
 
-  const isLocked = intersection && intersection.distanceTo(targetPos) < 0.2;
+  const isLocked = validarM2({ m1, b1, m2, b2, target }).isOk;
 
   return (
     <>
       <ambientLight intensity={0.5} />
-      <Grid infiniteGrid fadeDistance={40} sectionColor="#1e293b" cellColor="#1e293b" />
+      {/* drei <Grid> es horizontal (XZ) por defecto: se gira al plano XY de las rectas. */}
+      <Grid infiniteGrid fadeDistance={40} sectionColor="#1e293b" cellColor="#1e293b" rotation={[Math.PI / 2, 0, 0]} />
       
       {/* EJES Y COORDENADAS */}
       <Line key="axis-x" points={[[-20, 0, 0], [20, 0, 0]]} color="white" lineWidth={1} opacity={0.3} transparent />
@@ -140,7 +144,7 @@ function SceneLogic({ m1, b1, m2, b2, target, escenario }: Sistemas2x23DScenePro
       {isParallel && (
         <Html center position={[0, 5, 0]}>
           <div className="bg-rose-600/90 text-white px-6 py-2 rounded-full font-black uppercase tracking-[0.2em] text-xs shadow-2xl animate-pulse">
-            SISTEMA INCONSISTENTE: m1 = m2
+            {tipo === 'dependiente' ? 'SISTEMA DEPENDIENTE: misma recta, infinitas soluciones' : 'SISTEMA INCONSISTENTE: rectas paralelas, sin solución'}
           </div>
         </Html>
       )}

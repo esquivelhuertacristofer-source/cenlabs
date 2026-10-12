@@ -11,11 +11,11 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 3, tipo: 'accion', pista: 'Inicia Oscilación',
-      mensaje: 'Desplaza la masa y suéltala. Usa el cronómetro para medir el tiempo de 10 oscilaciones y sacar el promedio.',
+      mensaje: 'Suelta el péndulo y cronometra al menos 10 oscilaciones completas (la fotopuerta las cuenta). Registra el tiempo y el número de oscilaciones: T = t/n. Mide dos masas con la misma L y al menos tres longitudes distintas.',
     },
     {
       id: 4, tipo: 'calculo', pista: 'Despeja g',
-      mensaje: 'Usa T = 2π√(L/g) para despejar la gravedad. Ingresa el valor en la telemetría.',
+      mensaje: 'Despeja g = 4π²L/T² con cada muestra y promedia. Escribe tu g y pulsa "Comprobar análisis" (tolerancia ±5 %).',
     },
     {
       id: 5, tipo: 'verificar', pista: 'Validar Gravedad',

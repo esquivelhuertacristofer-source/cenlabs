@@ -2,19 +2,19 @@ import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
     titulo: "Ingeniería: Ley de Ohm", 
-    mision: "Certifica la relación V=I·R analizando la respuesta de conductancia en un circuito de precisión bajo diferentes cargas de potencial.", 
+    mision: "Diseña con la Ley de Ohm la resistencia limitadora que hace trabajar a un LED rojo a 20 mA sin quemarlo.", 
     ecuacion: "V = I · R", 
     formulaGfx: "P = V · I",
     pasos: [
-      { id: 1, text: "Configuración de Carga: Instala una resistencia patrón de 100Ω en el banco de pruebas.", icon: "zap" },
-      { id: 2, text: "Barrido de Potencial: Aumenta el voltaje de la fuente para analizar la respuesta lineal.", icon: "activity" },
-      { id: 3, text: "Telemetría de Corriente: Mide la intensidad (I) con el amperímetro digital en configuración serie.", icon: "timer" },
-      { id: 4, text: "Certificación Óhmica: Valida que la pendiente V/I coincida con la resistencia nominal.", icon: "play" }
+      { id: 1, text: "Sin resistencia: conecta la fuente directo al LED y observa por qué se quema.", icon: "zap" },
+      { id: 2, text: "Diseño: calcula R = (V − V_f)/I con V_f ≈ 2 V e I = 20 mA.", icon: "activity" },
+      { id: 3, text: "Montaje: ajusta la caja de resistencias a tu valor y cierra el circuito; mide I, V_R y V_LED.", icon: "timer" },
+      { id: 4, text: "Verificación: comprueba que I ≈ 20 mA y que V_R + V_LED ≈ V de la fuente.", icon: "play" }
     ],
     guiaMaestro: {
-      objetivo: "Analizar el comportamiento lineal de los materiales conductores y la disipación de energía por efecto Joule.",
-      friccion: "El cortocircuito virtual es el error común; el alumno debe entender que el amperímetro no tiene resistencia interna.",
-      puntosClave: ["Conductancia: Facilidad de flujo de electrones.", "Linealidad: Comportamiento de materiales óhmicos.", "Potencia: Relación entre trabajo eléctrico y calor."]
+      objetivo: "Aplicar la Ley de Ohm al diseño de un circuito real con un componente no óhmico (LED) y su caída de tensión.",
+      friccion: "El error típico es calcular R = V/I olvidando la caída del LED: la corriente resulta menor de la esperada. El LED no es óhmico.",
+      puntosClave: ["Conductancia: Facilidad de flujo de electrones.", "Linealidad: la resistencia es óhmica; el LED no (su caída es casi constante).", "Potencia: Relación entre trabajo eléctrico y calor."]
     },
     conceptos: [
       { titulo: "Resistencia (Ω)", desc: "Oposición al flujo de corriente." },

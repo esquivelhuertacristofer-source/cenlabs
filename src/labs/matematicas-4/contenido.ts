@@ -4,9 +4,9 @@ const contenido: SimuladorContenido = {
     titulo: "Teorema de Pitágoras: Fluidos", mision: "Demuestra la relación a² + b² = c² mediante áreas dinámicas", ecuacion: "a² + b² = c²", formulaGfx: "c = √(a² + b²)",
     pasos: [
       { id: 1, text: "Ajusta la longitud de los catetos A y B usando los deslizadores.", icon: "move" },
-      { id: 2, text: "Calcula el área de cada cuadrado (lado * lado).", icon: "square" },
-      { id: 3, text: "Presiona 'Verter Contenido' para observar la transferencia de energía.", icon: "droplets" },
-      { id: 4, text: "Ingresa el valor de la hipotenusa (2 decimales) y valida.", icon: "check" }
+      { id: 2, text: "Calcula el área de cada cuadrado (lado × lado).", icon: "square" },
+      { id: 3, text: "Presiona «Verter Fluido» y comprueba que a² + b² llena exactamente c².", icon: "droplets" },
+      { id: 4, text: "Ingresa la hipotenusa c (tolerancia ±0.1) y valida.", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Visualizar geométricamente la suma de áreas en un triángulo rectángulo.",

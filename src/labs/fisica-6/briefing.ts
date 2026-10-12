@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#06b6d4',
     duracion: 30,
     videoUrl: 'https://youtu.be/GI9vhUIkqDg',
-    bienvenida: `¡Bienvenido al Tanque de Flotabilidad! Soy el Dr. Quantum.\n\n"¡Eureka!" - Descubriremos por qué los barcos de acero flotan y las piedras pequeñas se hunden. El agua tiene una fuerza invisible hacia arriba.\n\nTu misión: Identificar un sólido misterioso mediante su densidad.`,
+    bienvenida: `¡Bienvenido al Tanque de Flotabilidad! Soy el Dr. Quantum.\n\n"¡Eureka!" - Descubriremos por qué los barcos de acero flotan y las piedras pequeñas se hunden. El agua tiene una fuerza invisible hacia arriba.\n\nTu misión: Determinar la densidad de un sólido desconocido con un dinamómetro.`,
     conceptos: [
       { icono: '💧', nombre: 'Empuje (E)', descripcion: 'Fuerza igual al peso del fluido desalojado.' },
       { icono: '⚖️', nombre: 'Peso Aparente', descripcion: 'Peso del objeto cuando está sumergido.' },
@@ -16,10 +16,10 @@ const briefing: BriefingConfig = {
     ],
     mision: [
       'Pesa el objeto en el aire.',
-      'Sumerge el objeto en el tanque graduado.',
+      'Sumérgelo por completo en el fluido.',
       'Mide el nuevo peso aparente.',
       'Calcula la fuerza de empuje (E).',
-      'Determina la densidad y el material.'
+      'Determina la densidad del sólido.'
     ],
     aplicaciones: [
       { area: 'Naval', ejemplo: 'Diseño de barcos y submarinos.' },

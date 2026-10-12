@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#854d0e',
     duracion: 30,
     videoUrl: 'https://youtu.be/HYn1W16L8wU',
-    bienvenida: `¡Bienvenido a la Arena de Supervivencia! Soy el Dr. Quantum.\n\nSolo el más apto sobrevive. Serás el depredador en un mundo cambiante para ver cómo la evolución moldea la vida.\n\nTu misión: Observar el cambio de color de una población de polillas.`,
+    bienvenida: `¡Bienvenido a la Arena de Supervivencia! Soy el Dr. Quantum.\n\nSolo el más apto sobrevive. Serás el depredador en un mundo cambiante para ver cómo la evolución moldea la vida.\n\nTu misión: ser la presión selectiva y medir cómo cambia la frecuencia alélica de una población de polillas.`,
     conceptos: [
       { icono: '🦅', nombre: 'Presión Selectiva', descripcion: 'Factor ambiental que decide quién vive.' },
       { icono: '🌫️', nombre: 'Mimetismo', descripcion: 'Capacidad de esconderse en el entorno.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🌳', nombre: 'Adaptación', descripcion: 'Rasgo que da ventaja de supervivencia.' }
     ],
     mision: [
-      'Inicia en un bosque limpio con polillas blancas.',
-      'Cambia el ambiente a industrial (hollín negro).',
-      'Actúa como el ave cazadora por 30 segundos.',
-      'Analiza la gráfica de población tras 5 generaciones.',
-      'Valida el predominio del rasgo oscuro.'
+      'Observa el tipo de corteza que te tocó.',
+      'Caza la cuota de polillas de cada generación, como un ave.',
+      'Deja que las supervivientes se reproduzcan.',
+      'Anota el % de oscuras y estima q = √f(claras) en cada generación.',
+      'Tras 3 a 6 generaciones, valida el cambio de frecuencia.'
     ],
     aplicaciones: [
       { area: 'Salud', ejemplo: 'Resistencia de las bacterias a los antibióticos.' },

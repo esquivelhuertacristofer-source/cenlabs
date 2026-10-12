@@ -3,12 +3,12 @@ import type { SimuladorContenido } from '@/data/simuladoresData';
 const contenido: SimuladorContenido = {
     titulo: "Explorador de Cuadráticas", 
     videoUrl: "",
-    mision: "Ajusta los coeficientes para empatar la trayectoria objetivo", ecuacion: "f(x) = ax² + bx + c", formulaGfx: "Δ = b² - 4ac",
+    mision: "Deduce a, b y c de una trayectoria a partir de tres puntos medidos", ecuacion: "f(x) = ax² + bx + c", formulaGfx: "Δ = b² - 4ac",
     pasos: [
-      { id: 1, text: "Ajusta el coeficiente 'a' para controlar la apertura y concavidad.", icon: "zap" },
-      { id: 2, text: "Modifica 'b' para desplazar el vértice horizontalmente.", icon: "activity" },
-      { id: 3, text: "Cambia 'c' para ajustar la intersección con el eje Y.", icon: "target" },
-      { id: 4, text: "Valida la función cuando ambas parábolas se superpongan.", icon: "check" }
+      { id: 1, text: "Lee los tres puntos medidos de la trayectoria objetivo (x = −1, 0 y 1).", icon: "target" },
+      { id: 2, text: "Plantea el sistema: f(0) = c, f(1) − f(−1) = 2b y f(1) + f(−1) = 2a + 2c.", icon: "activity" },
+      { id: 3, text: "Ajusta a, b y c: la tabla compara tu f(x) con cada punto medido.", icon: "zap" },
+      { id: 4, text: "Comprueba Δ y el vértice h en la bitácora y valida.", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Analizar cómo los coeficientes a, b y c transforman la gráfica de una función cuadrática.",

@@ -2,19 +2,19 @@ import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
     titulo: "Física de Fluidos: Empuje Estático", 
-    mision: "Determina la densidad de materiales desconocidos mediante el análisis del empuje hidrostático de Arquímedes.", 
+    mision: "Determina la densidad de un sólido desconocido pesándolo con un dinamómetro en el aire y sumergido (empuje de Arquímedes).", 
     ecuacion: "E = ρ_f · g · V_sub", 
     formulaGfx: "P_ap = P_real - E",
     pasos: [
-      { id: 1, text: "Pesaje Inicial: Registra la masa gravitatoria del sólido en condiciones atmosféricas (Aire).", icon: "scale" },
-      { id: 2, text: "Inmersión Controlada: Sumerge el espécimen completamente en el fluido de referencia (Agua/Glicerina).", icon: "droplets" },
-      { id: 3, text: "Telemetría de Empuje: Mide el peso aparente para calcular la fuerza de flotación ascendente.", icon: "activity" },
-      { id: 4, text: "Certificación de Densidad: Utiliza el volumen de fluido desalojado para identificar la composición del material.", icon: "zap" }
+      { id: 1, text: "Pesaje inicial: con el sólido fuera del fluido, registra su peso W en el dinamómetro.", icon: "scale" },
+      { id: 2, text: "Inmersión: elige el fluido (agua, etanol o glicerina) y baja el sólido hasta que quede sumergido al 100 %.", icon: "droplets" },
+      { id: 3, text: "Peso aparente: registra la nueva lectura W_ap; el empuje es E = W − W_ap.", icon: "activity" },
+      { id: 4, text: "Densidad: de E = ρ_f·g·V obtén el volumen y calcula ρ = W/(g·V); escríbela y compruébala.", icon: "zap" }
     ],
     guiaMaestro: {
       objetivo: "Validar experimentalmente que el empuje es igual al peso del volumen de fluido desplazado por el cuerpo.",
       friccion: "Muchos alumnos asocian el empuje a la profundidad o al peso del objeto, ignorando que es el volumen desalojado el factor determinante.",
-      puntosClave: ["Principio de Arquímedes: Fuerza vertical dirigida hacia arriba.", "Peso Aparente: Reducción efectiva de masa por el empuje del fluido.", "Flotabilidad: Análisis de fuerzas competitivas en medios líquidos."]
+      puntosClave: ["Principio de Arquímedes: Fuerza vertical dirigida hacia arriba.", "Peso aparente: la lectura baja por el empuje; la masa del cuerpo no cambia.", "Flotabilidad: Análisis de fuerzas competitivas en medios líquidos."]
     },
     conceptos: [
       { titulo: "Fuerza de Empuje", desc: "Fuerza neta ascendente sobre un cuerpo sumergido." },

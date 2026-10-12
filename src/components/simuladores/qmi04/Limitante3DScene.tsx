@@ -90,6 +90,8 @@ function SynthesisCore({ isRunning, isBalanced, themeColor }: { isRunning: boole
   );
 }
 
+const ABERRACION = new THREE.Vector2(0.0005, 0.0005);
+
 export default function Limitante3DScene({ 
   limitanteData, 
   isRunning 
@@ -103,7 +105,8 @@ export default function Limitante3DScene({
   // Colores por reactivo
   const colorA = "#22d3ee"; // Cyan
   const colorB = "#fbbf24"; // Ambar
-  const isBalanced = results.excessMass < 0.1 && inputMasses[0] > 0 && inputMasses[1] > 0;
+  // limitingIdx = -1 mientras el panel oculta los resultados (antes de validar).
+  const isBalanced = results.limitingIdx !== -1 && results.excessMass < 0.1 && inputMasses[0] > 0 && inputMasses[1] > 0;
 
   // Generar posiciones para las partículas de exceso
   const excessParticles = useMemo(() => {
@@ -167,7 +170,7 @@ export default function Limitante3DScene({
 
           <EffectComposer multisampling={4}>
             <Bloom luminanceThreshold={0.2} mipmapBlur intensity={isBalanced ? 3 : 1.2} radius={0.4} />
-            <ChromaticAberration offset={new THREE.Vector2(0.0005, 0.0005)} />
+            <ChromaticAberration offset={ABERRACION} />
             <Vignette offset={0.1} darkness={1.1} />
           </EffectComposer>
 

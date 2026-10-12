@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#10b981',
     duracion: 30,
     videoUrl: 'https://youtu.be/1elp96ecPGY',
-    bienvenida: `¡Bienvenido al Laboratorio de Óptica! Soy el Dr. Quantum. Hoy dominaremos la física de la luz para ver lo invisible.\n\nEn biología, hacer zoom no sirve de nada si pierdes la resolución. Aprenderás por qué el Límite de Abbe es la ley máxima.\n\nTu misión: Configurar el microscopio para ver orgánulos celulares.`,
+    bienvenida: `¡Bienvenido al Laboratorio de Óptica! Soy el Dr. Quantum. Hoy dominaremos la física de la luz para ver lo invisible.\n\nEn biología, hacer zoom no sirve de nada si pierdes la resolución. Aprenderás por qué el Límite de Abbe es la ley máxima.\n\nTu misión: localizar la estructura que te pida el visor, en la preparación correcta, nítida y bien iluminada.`,
     conceptos: [
       { icono: '🔬', nombre: 'Resolución', descripcion: 'Distancia mínima para ver dos puntos separados.' },
       { icono: '👁️', nombre: 'Apertura (NA)', descripcion: 'Capacidad del lente para captar luz.' },
@@ -16,7 +16,7 @@ const briefing: BriefingConfig = {
     ],
     mision: [
       'Inicia con 4x para localizar la muestra.',
-      'Pasa a 40x y usa solo el tornillo micrométrico.',
+      'Sube al objetivo que resuelva la estructura y enfoca con el micrométrico.',
       'Calcula la magnificación total.',
       'Aplica la fórmula de resolución de Abbe.',
       'Captura la micrografía validada.'

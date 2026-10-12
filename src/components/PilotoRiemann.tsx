@@ -1,99 +1,82 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Activity, Target, RefreshCcw, ShieldCheck, 
-  Zap, Calculator, Layers, TrendingUp,
-  Bot, Binary, FunctionSquare, Maximize, MoveHorizontal, CheckCircle2
+import {
+  Target, ShieldCheck, Calculator, Layers, TrendingUp, MoveHorizontal, CheckCircle2,
 } from 'lucide-react';
 import Riemann3DScene from './simuladores/mat09/Riemann3DScene';
+import {
+  sumaRiemannM9, errorRelativoM9, TOLERANCIA_M9, NOMBRE_METODO_M9,
+  A_M9, B_M9, N_MIN_M9, N_MAX_M9, type MetodoM9,
+} from '@/domain/matematicas';
 
-export default function PilotoRiemann() {
-  const router = useRouter();
-  const { integral9, setIntegralM9, setAnimandoM9, audio, setAsistente, pasoActual, setPasoActual, registrarHallazgo, setBitacora, bitacoraData, stopTimer, validarM9 } = useSimuladorStore();
-  const { n, metodo, animandoLimite, status } = integral9;
+/**
+ * MAT-09 · Sumas de Riemann de f(x) = 0.1·x² + 1 en [0, 10].
+ * El reto (semilla) fija el MÉTODO y su tolerancia de error relativo; el alumno
+ * busca la partición n que la cumple. La UI muestra el error relativo de la
+ * suma elegida contra la integral exacta, con el mismo umbral que el validador.
+ */
+export default function PilotoRiemann({ onValidate }: { onValidate?: () => void }) {
+  const { integral9, setIntegralM9, setAnimandoM9, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      integral9: s.integral9, setIntegralM9: s.setIntegralM9, setAnimandoM9: s.setAnimandoM9,
+      audio: s.audio, setAsistente: s.setAsistente, pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
+  const { n: nStore, metodo, metodoReto, animandoLimite, status } = integral9;
+  const tol = TOLERANCIA_M9[metodoReto];
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { 
-    setMounted(true); 
+  useEffect(() => {
+    setMounted(true);
     setAsistente({
       visible: true,
-      text: "Bienvenido al Analizador de Riemann. Observa cómo el área bajo la curva se aproxima al valor real de la integral a medida que incrementamos el número de rectángulos (n).",
+      text: `Bienvenido al Analizador de Riemann. Reto: aproxima el área bajo f(x) = 0.1x² + 1 en [0, 10] con ${NOMBRE_METODO_M9[metodoReto]} y un error relativo menor a ${(tol * 100).toFixed(1)} %.`,
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Animación de Límite
+  // Animación de límite n → N_MAX en estado LOCAL (20 pasos/s); el store recibe
+  // la n final al terminar o al detenerla.
+  const [nAnim, setNAnim] = useState(nStore);
+  const nAnimRef = useRef(nStore);
   useEffect(() => {
-    let interval: any;
-    if (animandoLimite) {
-      interval = setInterval(() => {
-        const nextN = Math.min(100, n + 1);
-        setIntegralM9(nextN, metodo);
-        if (nextN >= 100) setAnimandoM9(false);
-      }, 50);
-    }
-    return () => clearInterval(interval);
-  }, [animandoLimite, n, metodo]);
+    if (!animandoLimite) return;
+    nAnimRef.current = nStore;
+    setNAnim(nStore);
+    const id = setInterval(() => {
+      const sig = Math.min(N_MAX_M9, nAnimRef.current + 1);
+      nAnimRef.current = sig;
+      setNAnim(sig);
+      if (sig >= N_MAX_M9) { clearInterval(id); setIntegralM9(sig, metodo); setAnimandoM9(false); }
+    }, 50);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animandoLimite]);
+  const detener = () => { setIntegralM9(nAnimRef.current, metodo); setAnimandoM9(false); };
+  const n = animandoLimite ? nAnim : nStore;
 
-  const dx = 10 / n;
-  
-  // Cálculo de área aproximada (f(x) = -x² + 10x en [0, 10], la misma parábola que dibuja la escena 3D)
-  const calculateArea = () => {
-    let area = 0;
-    for(let i=0; i<n; i++) {
-      let xEval = 0;
-      if (metodo === 'izquierda') xEval = i * dx;
-      else if (metodo === 'derecha') xEval = (i+1) * dx;
-      else xEval = (i + 0.5) * dx;
-      
-      area += (-(xEval ** 2) + 10 * xEval) * dx;
-    }
-    return area;
-  };
+  const dx = (B_M9 - A_M9) / n;
+  const areaApprox = sumaRiemannM9(n, metodo);
+  const errRel = errorRelativoM9(n, metodo);
+  const cumple = metodo === metodoReto && errRel < tol;
 
-  const areaApprox = calculateArea();
-  const areaReal = 166.667; // ∫₀¹⁰ (-x² + 10x) dx = [-x³/3 + 5x²]₀¹⁰ = -1000/3 + 500 = 166.667
-
-  const handleValidar = () => {
-    if (n >= 80) {
-      audio?.playSuccess();
-      validarM9(Math.abs(areaApprox - areaReal));
-      stopTimer();
-      setPasoActual(4);
-      
-      registrarHallazgo('mat_riemann_integral', {
-        rectangulos_n: n,
-        metodo_eval: metodo,
-        area_calculada: areaApprox,
-        area_teorica: areaReal,
-        error_absoluto: Math.abs(areaApprox - areaReal)
-      });
-
-      setBitacora({
-        ...bitacoraData,
-        mat9: `✅ INTEGRAL VALIDADA: n=${n}, Área=${areaApprox.toFixed(4)}. Convergencia lograda con error < 0.1%.`
-      });
-    } else {
-      audio?.playError();
-      setAsistente({
-        visible: true,
-        text: "La precisión actual es insuficiente. Incrementa el número de rectángulos (n) para reducir el error de aproximación.",
-        pose: "disappointed"
-      });
-    }
-  };
+  useEffect(() => {
+    if (nStore !== 4 && pasoActual === 0) setPasoActual(1);
+    if (status === 'success' && pasoActual < 3) setPasoActual(3);
+  }, [nStore, status, pasoActual, setPasoActual]);
 
   if (!mounted) return null;
 
   return (
     <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
-      
+
       {/* GIANT TELEMETRY BACKGROUND */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
         <span className="text-[14rem] font-black font-mono text-emerald-500 select-none italic tracking-tighter">
@@ -139,21 +122,22 @@ export default function PilotoRiemann() {
       <div className="relative z-10 p-10 flex flex-col h-full pointer-events-none mt-20">
         <div className="flex justify-between items-start">
             <div className="flex gap-4 pointer-events-auto">
-                <HUDCard label="Área Aproximada (Σ)" value={areaApprox.toFixed(4)} icon={<Calculator size={14} />} color="#10b981" highlight={n >= 80} />
-                <HUDCard label="Diferencial (Δx)" value={dx.toFixed(4)} icon={<MoveHorizontal size={14} />} color="#06b6d4" />
+                <HUDCard label={`Suma (${NOMBRE_METODO_M9[metodo]})`} value={areaApprox.toFixed(4)} icon={<Calculator size={14} />} color="#10b981" />
+                <HUDCard label="Ancho Δx" value={dx.toFixed(4)} icon={<MoveHorizontal size={14} />} color="#06b6d4" />
             </div>
 
             <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2.5rem] shadow-2xl pointer-events-auto flex items-center gap-6">
                 <div className="text-right border-r border-white/10 pr-6">
-                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-1 italic">Convergencia</span>
-                    <div className={`text-2xl font-black italic tracking-tighter ${n >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                       {n >= 80 ? 'HIGH_FIDELITY' : n >= 40 ? 'MEDIUM_RES' : 'LOW_RES'}
+                    <span className="text-[9px] font-black text-amber-400 uppercase block mb-1 italic">Reto</span>
+                    <div className="text-sm font-black text-white tracking-tight">
+                       {NOMBRE_METODO_M9[metodoReto]} · error &lt; {(tol * 100).toFixed(1)} %
                     </div>
+                    <div className="text-[9px] font-bold text-slate-400 mt-1">f(x) = 0.1x² + 1 en [0, 10]</div>
                 </div>
                 <div className="text-right">
-                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-1 italic">Error Estimado</span>
-                    <div className="text-2xl font-black text-rose-400 italic tracking-tighter">
-                       {Math.abs(areaApprox - areaReal).toFixed(4)}
+                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-1 italic">Error relativo</span>
+                    <div className={`text-2xl font-black italic tracking-tighter ${cumple ? 'text-emerald-400' : 'text-rose-400'}`}>
+                       {(errRel * 100).toFixed(3)} %
                     </div>
                 </div>
             </div>
@@ -164,12 +148,9 @@ export default function PilotoRiemann() {
             {animandoLimite && (
                 <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                     <div className="relative flex flex-col items-center">
-                        <TrendingUp size={240} className="text-emerald-500/20 animate-pulse" strokeWidth={0.5} />
+                        <TrendingUp size={240} className="text-emerald-500/20" strokeWidth={0.5} />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">n → ∞</span>
-                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl animate-bounce">
-                                Ejecutando Límite
-                            </div>
                         </div>
                     </div>
                 </motion.div>
@@ -181,13 +162,13 @@ export default function PilotoRiemann() {
             <div className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] flex-1 shadow-2xl flex items-center justify-between gap-16">
                 <div className="flex-1 space-y-4">
                     <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Densidad de Muestreo (n)</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partición (n)</span>
                         <span className="text-[12px] font-black text-emerald-400 font-mono bg-white/5 px-2 py-0.5 rounded-lg">{n} Rectángulos</span>
                     </div>
-                    <input 
-                      type="range" min="4" max="100" step="1" value={n} 
-                      onChange={e => { setIntegralM9(parseInt(e.target.value), metodo); audio?.playPop(); }}
-                      className="w-full h-3 bg-white/5 rounded-full appearance-none cursor-pointer accent-emerald-500" 
+                    <input
+                      type="range" min={N_MIN_M9} max={N_MAX_M9} step="1" value={n}
+                      onChange={e => { if (animandoLimite) setAnimandoM9(false); setIntegralM9(parseInt(e.target.value), metodo); audio?.playPop(); }}
+                      className="w-full h-3 bg-white/5 rounded-full appearance-none cursor-pointer accent-emerald-500"
                     />
                 </div>
 
@@ -195,22 +176,22 @@ export default function PilotoRiemann() {
                     <div className="flex flex-col gap-2">
                         <span className="text-[8px] font-black text-slate-500 uppercase text-center">Punto de Evaluación</span>
                         <div className="flex gap-2">
-                            {['izquierda', 'punto_medio', 'derecha'].map(m => (
-                                <button key={m} onClick={() => { setIntegralM9(n, m as any); audio?.playPop(); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${metodo === m ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
-                                    {m.replace('_', ' ')}
+                            {(['izquierda', 'punto_medio', 'derecha'] as MetodoM9[]).map(mt => (
+                                <button key={mt} onClick={() => { setIntegralM9(n, mt); audio?.playPop(); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${metodo === mt ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
+                                    {mt.replace('_', ' ')}
                                 </button>
                             ))}
                         </div>
                     </div>
-                    <button onClick={() => { setAnimandoM9(!animandoLimite); audio?.playPop(); }} className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${animandoLimite ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 border border-white/10 text-slate-500 hover:text-white'}`}>
+                    <button onClick={() => { if (animandoLimite) detener(); else setAnimandoM9(true); audio?.playPop(); }} title="Animar n → 100" className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${animandoLimite ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 border border-white/10 text-slate-500 hover:text-white'}`}>
                         <TrendingUp size={24} />
                     </button>
-                    
-                    <button 
-                      onClick={handleValidar}
-                      className="px-10 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl flex items-center gap-3 shadow-xl transition-all active:scale-95 group"
+
+                    <button
+                      onClick={() => { if (animandoLimite) detener(); onValidate?.(); }}
+                      className={`px-10 py-5 text-white rounded-2xl flex items-center gap-3 shadow-xl transition-all active:scale-95 group ${status === 'success' ? 'bg-emerald-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}
                     >
-                      <Target size={18} className="group-hover:rotate-12 transition-transform" />
+                      {status === 'success' ? <CheckCircle2 size={18} /> : <Target size={18} className="group-hover:rotate-12 transition-transform" />}
                       <span className="text-xs font-black uppercase tracking-widest">Validar Integral</span>
                     </button>
                 </div>
@@ -218,33 +199,13 @@ export default function PilotoRiemann() {
         </div>
       </div>
 
-      {/* ÉXITO FINAL */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
-                <CheckCircle2 size={100} className="text-emerald-500 mx-auto mb-8" />
-                <h3 className="text-5xl font-black text-white uppercase italic mb-6">Integral Certificada</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
-                  Has demostrado la convergencia de la **Suma de Riemann** hacia la integral definida. Con n={n}, el error se ha minimizado por debajo del umbral de tolerancia científica.
-                </p>
-                <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Informe Analítico</button>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }
 
-function HUDCard({ label, value, icon, color, highlight = false }: any) {
+function HUDCard({ label, value, icon, color }: { label: string; value: string; icon: React.ReactNode; color: string }) {
   return (
-    <motion.div 
-      animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
-      transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
-      className={`px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all bg-[#0A1121]/80 backdrop-blur-md shadow-2xl`}
-    >
+    <div className="px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all bg-[#0A1121]/80 backdrop-blur-md shadow-2xl">
       <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner" style={{ background: `${color}20`, color }}>
         {icon}
       </div>
@@ -252,6 +213,6 @@ function HUDCard({ label, value, icon, color, highlight = false }: any) {
         <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-1">{label}</span>
         <span className="block text-xl font-black text-white tracking-tighter leading-none italic font-mono">{value}</span>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#ef4444',
     duracion: 40,
     videoUrl: 'https://youtu.be/pVSfAX2BG5E',
-    bienvenida: `¡Bienvenido al Centro de Control de Lanzamientos! Soy el Dr. Quantum. Hoy usaremos el poder del Cálculo Diferencial para evitar un desastre aeroespacial.\n\nLa derivada no es solo una fórmula; es la velocidad instantánea de un objeto. Si conocemos la función de posición s(t) de nuestro cohete, su derivada s'(t) nos dirá exactamente a qué velocidad viaja en cada microsegundo.\n\nTu misión: Analizar la telemetría del despegue, identificar el punto de máxima velocidad y calcular la aceleración para estabilizar el reactor.`,
+    bienvenida: `¡Bienvenido al Centro de Control de Lanzamientos! Soy el Dr. Quantum. Hoy usaremos el poder del Cálculo Diferencial para evitar un desastre aeroespacial.\n\nLa derivada no es solo una fórmula; es la velocidad instantánea de un objeto. Si conocemos la función de posición s(t) de nuestro cohete, su derivada s'(t) nos dirá exactamente a qué velocidad viaja en cada microsegundo.\n\nTu misión: analizar la telemetría del despegue e identificar, con la derivada, el instante de máxima velocidad.`,
     conceptos: [
       { icono: '🚀', nombre: 'Velocidad Instantánea', descripcion: 'La derivada de la posición respecto al tiempo: v(t) = ds/dt.' },
       { icono: '🔥', nombre: 'Aceleración', descripcion: 'La segunda derivada de la posición: a(t) = dv/dt.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🎯', nombre: 'Optimización', descripcion: 'Búsqueda de máximos de empuje y mínimos de consumo de combustible.' }
     ],
     mision: [
-      'Inicia la SECUENCIA DE DESPEGUE en el simulador.',
-      'Activa el ESCÁNER TANGENTE para visualizar la velocidad en tiempo real.',
-      'Identifica el instante exacto donde la pendiente es MÁXIMA.',
-      'Calcula la derivada analítica de la función de telemetría.',
-      'Valida el resultado para estabilizar la órbita del cohete.',
+      'Lee la FUNCIÓN DE POSICIÓN s(t) del cohete en el panel.',
+      'Recorre el tiempo y observa la RECTA TANGENTE: su pendiente es la velocidad.',
+      'Deriva s(t) para obtener v(t) y vuelve a derivar para obtener a(t).',
+      'Resuelve a(t) = 0: ese es el instante de velocidad máxima.',
+      'Marca ese instante en la línea de tiempo y valida.'
     ],
     aplicaciones: [
       { area: 'Finanzas', ejemplo: 'Optimización de ganancias y reducción de costos.' },

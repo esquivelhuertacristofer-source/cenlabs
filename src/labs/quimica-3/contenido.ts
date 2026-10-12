@@ -8,9 +8,9 @@ const contenido: SimuladorContenido = {
     formulaGfx: "Ley de Lavoisier",
     pasos: [
       { id: 1, text: "Analiza los componentes moleculares y sus estados de agregación (s, l, g, aq).", icon: "microscope" },
-      { id: 2, text: "Ajusta los inyectores de masa hasta equilibrar el conteo atómico.", icon: "zap" },
-      { id: 3, text: "Observa la estabilización del núcleo de plasma en el motor 3D.", icon: "activity" },
-      { id: 4, text: "Redacta el informe técnico de 50 palabras para certificar la fusión.", icon: "file-text" }
+      { id: 2, text: "Ajusta los coeficientes (enteros mínimos) hasta igualar el conteo atómico.", icon: "zap" },
+      { id: 3, text: "Comprueba que la masa de reactivos y productos coincide (Lavoisier).", icon: "activity" },
+      { id: 4, text: "Balancea 4 reacciones y valida la práctica.", icon: "file-text" }
     ],
     guiaMaestro: {
       objetivo: "Validar la estequiometría mediante la conservación de masa y el conteo atómico preciso.",

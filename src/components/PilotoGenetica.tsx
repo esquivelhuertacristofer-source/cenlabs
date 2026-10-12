@@ -1,207 +1,131 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Dna, Zap, Cpu, Terminal, Diamond, Play, RotateCcw, BarChart3, Info, ChevronRight, Hash, FlaskConical, Beaker, Layers, Sparkles } from 'lucide-react';
+import { Dna, Zap, RotateCcw, ShieldCheck, Calculator } from 'lucide-react';
 import Genetica3DScene from './simuladores/bio05/Genetica3DScene';
+import { FENOTIPOS_B5, TAMANIOS_B5, N_MIN_B5, chiCuadradaB5, claseFenotipoB5 } from '@/domain/biologia';
+import type { ProporcionB5 } from '@/store/types';
 
-export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { genetica, setGenetica, generarF1, resetB5, validarB5 } = useSimuladorStore();
-  const [loading, setLoading] = useState(false);
-  
-  const g = genetica || {
-    padre1: 'AaBb',
-    padre2: 'AaBb',
-    poblacionF1: [],
-    tamanioMuestra: 100,
-    status: 'idle'
+const fenotipoDe = (g: string) => FENOTIPOS_B5[claseFenotipoB5(g)];
+
+export default function PilotoGenetica({ onValidate }: { onValidate?: () => void }) {
+  const genetica = useSimuladorStore((s) => s.genetica);
+  const setGenetica = useSimuladorStore((s) => s.setGenetica);
+  const generarF1 = useSimuladorStore((s) => s.generarF1);
+  const resetB5 = useSimuladorStore((s) => s.resetB5);
+  const { padre1, padre2, prediccion, tamanioMuestra, poblacionF1, cruza, status } = genetica;
+
+  const [cruzando, setCruzando] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  // AaBb × AaBb es la autofecundación de la F1 de Mendel: su descendencia es la F2.
+  const etiquetaDescendencia = padre1 === 'AaBb' && padre2 === 'AaBb' ? 'Descendencia (F2)' : 'Descendencia';
+  const sumaPred = prediccion.reduce((s, x) => s + x, 0);
+
+  const setPred = (i: number, v: string) => {
+    const n = Math.max(0, Math.min(99, Math.floor(Number(v) || 0)));
+    const p = [...prediccion] as ProporcionB5;
+    p[i] = n;
+    setGenetica({ prediccion: p });
   };
 
-  const { padre1, padre2, poblacionF1, status } = g;
-
-  useEffect(() => {
-    if (status === 'success' && setShowSuccess) {
-      setShowSuccess(true);
-    }
-  }, [status, setShowSuccess]);
-
-  const stats = useMemo(() => {
-    if (!poblacionF1.length) return null;
-    const totals = { amarillas: 0, verdes: 0, lisas: 0, rugosas: 0 };
-    poblacionF1.forEach(gen => {
-      if (gen.includes('A')) totals.amarillas++; else totals.verdes++;
-      if (gen.includes('B')) totals.lisas++; else totals.rugosas++;
-    });
-    return totals;
-  }, [poblacionF1]);
-
-  const handleCruce = () => {
-    setLoading(true);
-    setTimeout(() => {
+  const cruzar = () => {
+    if (cruzando || sumaPred <= 0) return;
+    setCruzando(true);
+    timer.current = setTimeout(() => {
       generarF1();
-      validarB5();
-      setLoading(false);
-    }, 1500);
+      setCruzando(false);
+      timer.current = null;
+    }, 1200);
   };
 
-  const traits = [
-    { label: 'COLOR', dominant: 'A (Amarillo)', recessive: 'a (Verde)', color: '#fbbf24' },
-    { label: 'FORMA', dominant: 'B (Liso)', recessive: 'b (Rugoso)', color: '#22c55e' }
-  ];
+  const chi = cruza ? chiCuadradaB5(cruza.observados, cruza.prediccion) : null;
+  const sumaCruza = cruza ? cruza.prediccion.reduce((s, x) => s + x, 0) : 0;
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#020617] font-['Outfit']">
-      
-      {/* HUD SUPERIOR DIAMOND */}
-      <div className="absolute top-6 left-0 right-0 z-[200] px-10 flex justify-between items-center pointer-events-none">
-         <div className="flex items-center gap-3 bg-indigo-600/90 backdrop-blur-xl border-2 border-white/40 px-6 py-2 rounded-full shadow-2xl">
-            <Dna size={16} className="text-white animate-pulse" />
-            <span className="text-xs font-black text-white uppercase tracking-[0.2em]">SISTEMA DE HIBRIDACIÓN DIAMOND v5.2</span>
-         </div>
-
-         <div className="flex gap-4 pointer-events-auto">
-            <button onClick={() => resetB5()} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/20 px-6 py-2 rounded-full backdrop-blur-md transition-all group">
-               <RotateCcw size={16} className="text-white/60 group-hover:rotate-180 transition-transform duration-500" />
-               <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Reiniciar Genoma</span>
-            </button>
-         </div>
-      </div>
-
-      {/* ESCENA 3D */}
-      <div className="absolute inset-0 z-0">
+    <div className="w-full h-full relative overflow-hidden bg-[#020617] font-['Outfit'] flex flex-col">
+      <div className="relative flex-1">
         <Genetica3DScene padre1={padre1} padre2={padre2} f1={poblacionF1} status={status} />
+        <div className="absolute top-6 left-6 z-10 bg-black/75 backdrop-blur-xl border-l-4 border-indigo-500 p-5 rounded-r-2xl max-w-sm pointer-events-none">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300"><Dna size={12} /> Cruza de la misión</div>
+          <div className="mt-2 text-lg font-black text-white font-mono">{padre1} × {padre2}</div>
+          <div className="text-[11px] text-slate-300">{fenotipoDe(padre1)} × {fenotipoDe(padre2)}</div>
+          <div className="mt-2 text-[10px] text-slate-400">A = amarilla (dominante) · a = verde · B = lisa (dominante) · b = rugosa</div>
+        </div>
+        {cruzando && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-6 py-3 bg-black/70 border border-indigo-500/40 rounded-2xl text-[11px] font-black uppercase tracking-widest text-indigo-300">
+            Polinizando y cosechando {tamanioMuestra} semillas…
+          </div>
+        )}
       </div>
 
-      {/* UI INTERACTIVA */}
-      <div className="absolute inset-0 z-10 pointer-events-none p-10 flex flex-col justify-between">
-        
-        <div className="flex justify-between items-start pt-12">
-           {/* Panel de Control Principal */}
-           <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-black/80 backdrop-blur-3xl border-l-8 border-indigo-500 p-8 rounded-r-[3rem] shadow-2xl max-w-md pointer-events-auto border-y border-white/5">
-              <div className="flex items-center gap-3 mb-2"><Sparkles className="text-indigo-400" size={20} /><span className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em]">Laboratorio de Herencia</span></div>
-              <h2 className="text-5xl font-black text-white uppercase tracking-tighter italic leading-none mb-4">Cruce de<br/>Variedades</h2>
-              
-              <div className="space-y-6">
-                 {/* Leyenda de Rasgos */}
-                 <div className="grid grid-cols-2 gap-2 bg-white/5 p-4 rounded-2xl border border-white/10">
-                    {traits.map(t => (
-                      <div key={t.label} className="space-y-1">
-                         <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">{t.label}</span>
-                         <div className="flex flex-col text-[10px] font-bold">
-                            <span className="text-white">Dom: {t.dominant}</span>
-                            <span className="text-white/40">Rec: {t.recessive}</span>
-                         </div>
-                      </div>
-                    ))}
-                 </div>
-
-                 <div className="space-y-4">
-                    <div className="flex flex-col gap-3">
-                       <span className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-1">Selección Genotípica</span>
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                             <span className="text-[9px] font-bold text-indigo-400">PADRE P1</span>
-                             <select value={padre1} onChange={(e) => setGenetica({ padre1: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-black text-white outline-none focus:border-indigo-500 transition-all">
-                                {['AABB', 'AaBb', 'aabb', 'AAbb', 'aaBB'].map(g => <option key={g} value={g} className="bg-[#020617]">{g}</option>)}
-                             </select>
-                          </div>
-                          <div className="space-y-2">
-                             <span className="text-[9px] font-bold text-pink-400">PADRE P2</span>
-                             <select value={padre2} onChange={(e) => setGenetica({ padre2: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-black text-white outline-none focus:border-pink-500 transition-all">
-                                {['AABB', 'AaBb', 'aabb', 'AAbb', 'aaBB'].map(g => <option key={g} value={g} className="bg-[#020617]">{g}</option>)}
-                             </select>
-                          </div>
-                       </div>
-                    </div>
-
-                    <motion.button 
-                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      onClick={handleCruce}
-                      disabled={loading}
-                      className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 shadow-2xl border-b-4 transition-all relative overflow-hidden ${loading ? 'bg-indigo-900/50 border-indigo-900' : 'bg-indigo-600 hover:bg-indigo-500 border-indigo-800'}`}
-                    >
-                       {loading ? (
-                         <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span className="text-lg font-black text-white uppercase italic tracking-widest">Secuenciando...</span>
-                         </div>
-                       ) : (
-                         <>
-                            <Zap size={24} className="text-white" fill="white" />
-                            <span className="text-lg font-black text-white uppercase italic tracking-widest text-shadow-lg">Ejecutar Hibridación</span>
-                         </>
-                       )}
-                    </motion.button>
-                 </div>
-              </div>
-           </motion.div>
-
-           {/* Info Tip Contextual */}
-           <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-indigo-900/40 backdrop-blur-xl border-r-8 border-indigo-500 p-6 rounded-l-3xl shadow-2xl max-w-xs">
-              <div className="flex items-center gap-2 mb-3"><Info size={16} className="text-indigo-400" /><span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Guía de Mendel</span></div>
-              <p className="text-xs text-white/80 leading-relaxed font-medium italic">
-                "Si un progenitor es homocigoto dominante (AA), toda su descendencia heredará el rasgo Amarillo, sin importar el otro padre. ¡Eso es la Ley de Uniformidad!"
-              </p>
-           </motion.div>
+      <div className="h-[46%] shrink-0 overflow-y-auto bg-black/60 border-t border-white/10 p-4 grid grid-cols-2 gap-4 content-start text-white">
+        <div className="space-y-3">
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">1 · Tu predicción (proporción entera)</div>
+          <div className="grid grid-cols-2 gap-2">
+            {FENOTIPOS_B5.map((f, i) => (
+              <label key={f} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-300">{f}</span>
+                <input type="number" min={0} max={99} step={1} value={prediccion[i]} disabled={cruzando}
+                  onChange={(e) => setPred(i, e.target.value)}
+                  className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 font-mono text-sm text-white outline-none focus:border-indigo-400" />
+              </label>
+            ))}
+          </div>
+          <div className="text-[10px] text-slate-500 font-mono">Proporción: {prediccion.join(' : ')}</div>
         </div>
 
-        {/* Panel de Resultados Premium */}
-        <AnimatePresence>
-           {status === 'success' && stats && (
-              <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full flex justify-center pointer-events-auto pb-6">
-                 <div className="bg-black/90 backdrop-blur-3xl rounded-[3.5rem] border-2 border-white/10 p-10 shadow-[0_0_100px_rgba(79,70,229,0.2)] flex items-center gap-16">
-                    
-                    <div className="flex gap-10">
-                       <div className="flex flex-col items-center gap-3">
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 shadow-[0_0_30px_rgba(251,191,36,0.4)] flex items-center justify-center border-4 border-white/20">
-                             <Layers size={24} className="text-white" />
-                          </div>
-                          <div className="text-center">
-                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Semillas Amarillas</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{(stats.amarillas / poblacionF1.length * 100).toFixed(1)}%</span>
-                          </div>
-                       </div>
-                       <div className="flex flex-col items-center gap-3">
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-700 shadow-[0_0_30px_rgba(34,197,94,0.4)] flex items-center justify-center border-4 border-white/20">
-                             <Layers size={24} className="text-white" />
-                          </div>
-                          <div className="text-center">
-                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Semillas Verdes</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{(stats.verdes / poblacionF1.length * 100).toFixed(1)}%</span>
-                          </div>
-                       </div>
-                    </div>
-                    
-                    <div className="w-px h-20 bg-white/10" />
+        <div className="space-y-2">
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">2 · Tamaño de la muestra</div>
+          <div className="grid grid-cols-5 gap-2">
+            {TAMANIOS_B5.map((n) => (
+              <button key={n} disabled={cruzando} onClick={() => setGenetica({ tamanioMuestra: n })}
+                className={`py-2 rounded-xl text-[11px] font-black border ${tamanioMuestra === n ? 'bg-indigo-600 border-indigo-400' : 'bg-white/5 border-white/10 text-slate-400'}`}>{n}</button>
+            ))}
+          </div>
+        </div>
 
-                    <div className="flex gap-10">
-                       <div className="flex flex-col items-center gap-3">
-                          <div className="w-16 h-16 rounded-3xl bg-white/5 border-2 border-white/20 flex flex-col items-center justify-center shadow-xl">
-                             <span className="text-[10px] font-black text-white">LISA</span>
-                          </div>
-                          <div className="text-center">
-                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Fenotipo Liso</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{(stats.lisas / poblacionF1.length * 100).toFixed(1)}%</span>
-                          </div>
-                       </div>
-                       <div className="flex flex-col items-center gap-3">
-                          <div className="w-16 h-16 rounded-3xl bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center shadow-xl">
-                             <span className="text-[8px] font-black text-white/60">RUGOSA</span>
-                          </div>
-                          <div className="text-center">
-                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Fenotipo Rugoso</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{(stats.rugosas / poblacionF1.length * 100).toFixed(1)}%</span>
-                          </div>
-                       </div>
-                    </div>
+        <button onClick={cruzar} disabled={cruzando || sumaPred <= 0}
+          className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest transition-all ${sumaPred > 0 && !cruzando ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-white/5 text-slate-500'}`}>
+          <Zap size={16} /> {sumaPred > 0 ? '3 · Realizar la cruza' : 'Escribe tu predicción primero'}
+        </button>
 
-                 </div>
-              </motion.div>
-           )}
-        </AnimatePresence>
+        {cruza && (
+          <div className="space-y-3 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{etiquetaDescendencia} · n = {cruza.n}</div>
+            <table className="w-full text-[11px] font-mono">
+              <thead><tr className="text-[9px] uppercase text-slate-500"><th className="text-left">Fenotipo</th><th className="text-right">Obs.</th><th className="text-right">Esp.</th></tr></thead>
+              <tbody>
+                {FENOTIPOS_B5.map((f, i) => (
+                  <tr key={f}><td>{f}</td><td className="text-right">{cruza.observados[i]}</td>
+                    <td className="text-right">{sumaCruza > 0 ? ((cruza.n * cruza.prediccion[i]) / sumaCruza).toFixed(1) : '—'}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            {chi && (
+              <div className="text-[11px] font-mono text-slate-200 flex items-start gap-2">
+                <Calculator size={14} className="shrink-0 mt-0.5 text-indigo-300" />
+                <span>
+                  χ² = {Number.isFinite(chi.chi2) ? chi.chi2.toFixed(2) : '∞'} · gl = {chi.gl} · crítico (α = 0.05) = {chi.critico}
+                  <br />
+                  {chi.chi2 <= chi.critico ? 'Los datos NO contradicen tu predicción.' : 'Los datos contradicen tu predicción (se rechaza).'}
+                  {cruza.n < N_MIN_B5 && <><br /><span className="text-amber-300">Con menos de {N_MIN_B5} semillas la prueba tiene poco poder.</span></>}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={() => resetB5()} disabled={cruzando} className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white"><RotateCcw size={18} /></button>
+          <button onClick={() => onValidate?.()} disabled={cruzando || !cruza}
+            className={`flex-1 rounded-2xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest ${cruza && !cruzando ? 'bg-white text-black' : 'bg-white/5 text-slate-500'}`}>
+            <ShieldCheck size={16} /> Validar práctica
+          </button>
+        </div>
       </div>
-
     </div>
   );
 }

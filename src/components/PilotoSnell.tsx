@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, RefreshCcw, Info, CheckCircle2 } from 'lucide-react';
+import { ANGULO_MIN_M7, ANGULO_MAX_M7 } from '@/domain/matematicas';
 import Snell3DScene from './simuladores/mat07/Snell3DScene';
 
 const LASER_OPTIONS: { id: string; label: string; color: string; bg: string }[] = [
@@ -15,41 +15,40 @@ const LASER_OPTIONS: { id: string; label: string; color: string; bg: string }[] 
   { id: 'white',  label: 'PRISMA', color: '#ffffff', bg: 'bg-gradient-to-r from-red-500 via-yellow-400 via-green-500 via-cyan-400 to-violet-500' },
 ];
 
-export default function PilotoSnell() {
-  const router = useRouter();
-  const { optica7, generarSemillaM7, resetM7, setUserInputM7, validarM7, audio, setAsistente, setPasoActual } = useSimuladorStore();
-  const { n1, n2, n2Misterio, anguloIncidencia, status } = optica7;
-  const [laserColor, setLaserColor] = useState<'cyan' | 'red' | 'green' | 'violet' | 'white'>('white');
-  const [inputN2, setInputN2] = useState('');
+/**
+ * MAT-07 · Ley de Snell. El alumno elige θ₁ con el slider, lee θ₂ en el
+ * transportador y despeja n₂ = n₁·sen θ₁ / sen θ₂. Ningún panel muestra n₂ ni
+ * una magnitud de la que salga directo (como v₂ = c/n₂).
+ */
+export default function PilotoSnell({ onValidate }: { onValidate?: () => void }) {
+  const { optica7, setAnguloM7, setUserInputM7, audio, setAsistente } = useSimuladorStore(
+    useShallow((s) => ({
+      optica7: s.optica7, setAnguloM7: s.setAnguloM7, setUserInputM7: s.setUserInputM7,
+      audio: s.audio, setAsistente: s.setAsistente,
+    })),
+  );
+  const { n1, n2, n2Misterio, anguloIncidencia, status, userInputN2 } = optica7;
+  // Láser monocromático por defecto: con luz blanca no hay un único θ₂ que medir.
+  const [laserColor, setLaserColor] = useState<'cyan' | 'red' | 'green' | 'violet' | 'white'>('green');
 
   useEffect(() => {
-    generarSemillaM7();
     setAsistente({
       visible: true,
-      text: "Bienvenido al laboratorio de óptica avanzada. Tu misión es analizar la refracción del haz láser al cruzar entre medios. Calcula el índice n2 usando la Ley de Snell.",
+      text: "Bienvenido al laboratorio de óptica. Ajusta el ángulo de incidencia, mide el de refracción (ambos desde la normal) y despeja n₂ con la Ley de Snell.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (status === 'success') {
-      audio?.playSuccess();
-      audio?.playNotification();
-    }
-  }, [status, audio]);
-
-  const realN2 = n2 === 'misterio' ? n2Misterio : (n2 as number);
-  const velocityV2 = 1 / realN2;
 
   return (
     <div className="w-full h-full bg-[#0c1222] relative overflow-hidden flex flex-col font-sans text-white">
-      
+
       {/* ── ESCENA 3D (FULL SCREEN) ── */}
       <div className="absolute inset-0 z-0">
-        <Snell3DScene 
-          n1={n1} n2={n2} n2Misterio={n2Misterio} 
-          anguloIncidencia={anguloIncidencia} 
+        <Snell3DScene
+          n1={n1} n2={n2} n2Misterio={n2Misterio}
+          anguloIncidencia={anguloIncidencia}
           status={status}
           laserColor={laserColor}
         />
@@ -57,7 +56,7 @@ export default function PilotoSnell() {
 
       {/* ── OVERLAY ── */}
       <div className="relative z-10 p-6 flex flex-col h-full pointer-events-none">
-        
+
         {/* TOP BAR */}
         <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -90,7 +89,7 @@ export default function PilotoSnell() {
         </div>
 
         {/* BOTTOM BAR */}
-        <div className="mt-auto flex justify-between items-end pointer-events-auto">
+        <div className="mt-auto flex justify-between items-end gap-3 pointer-events-auto">
             {/* Fórmula */}
             <div className="bg-black/40 backdrop-blur-md border border-white/5 px-5 py-3 rounded-2xl">
                 <div className="flex items-center gap-2 mb-1">
@@ -103,16 +102,16 @@ export default function PilotoSnell() {
             </div>
 
             {/* Selector de Láser + Controles */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3 min-w-0">
                 {/* Selector de color de láser */}
                 <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-3 py-2 rounded-2xl flex items-center gap-1.5">
                     {LASER_OPTIONS.map(opt => (
-                      <button 
+                      <button
                         key={opt.id}
                         onClick={() => { setLaserColor(opt.id as any); audio?.playPop(); }}
                         className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                          laserColor === opt.id 
-                            ? 'ring-2 ring-white/60 scale-110' 
+                          laserColor === opt.id
+                            ? 'ring-2 ring-white/60 scale-110'
                             : 'opacity-50 hover:opacity-80'
                         }`}
                         title={opt.label}
@@ -122,8 +121,22 @@ export default function PilotoSnell() {
                     ))}
                 </div>
 
+                {/* Ángulo de incidencia θ₁ (desde la normal) */}
+                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl flex flex-col gap-1 w-48">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Ángulo θ₁</span>
+                        <span className="text-xs font-black font-mono text-cyan-300">{anguloIncidencia}°</span>
+                    </div>
+                    <input
+                        type="range" min={ANGULO_MIN_M7} max={ANGULO_MAX_M7} step={1} value={anguloIncidencia}
+                        onChange={e => setAnguloM7(parseInt(e.target.value))}
+                        className="w-full accent-cyan-400"
+                    />
+                </div>
+
                 <button
-                    onClick={() => { resetM7(); generarSemillaM7(); setInputN2(''); audio?.playPop(); }}
+                    onClick={() => { setAnguloM7(45); setUserInputM7(''); audio?.playPop(); }}
+                    title="Reiniciar ángulo y respuesta (el medio no cambia)"
                     className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 hover:text-white transition-all group"
                 >
                     <RefreshCcw size={18} className="group-active:rotate-180 transition-transform duration-500" />
@@ -134,23 +147,16 @@ export default function PilotoSnell() {
                     <div className="flex flex-col gap-1">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Tu valor n₂</span>
                         <input
-                            type="number"
-                            step="0.01"
-                            min="1"
-                            max="3"
-                            value={inputN2}
-                            onChange={e => setInputN2(e.target.value)}
-                            placeholder="1.50"
+                            type="text"
+                            inputMode="decimal"
+                            value={userInputN2}
+                            onChange={e => setUserInputM7(e.target.value)}
+                            placeholder="n₂"
                             className="w-24 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm font-black font-mono text-white outline-none focus:border-cyan-500 transition-all"
                         />
                     </div>
                     <button
-                        onClick={() => {
-                            setUserInputM7(inputN2);
-                            const ok = validarM7();
-                            if (ok) audio?.playSuccess();
-                            else audio?.playError();
-                        }}
+                        onClick={() => onValidate?.()}
                         className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all border ${
                             status === 'success'
                                 ? 'bg-emerald-600 border-emerald-400 text-white'
@@ -162,68 +168,12 @@ export default function PilotoSnell() {
                     {status === 'error' && (
                         <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Valor incorrecto</span>
                     )}
-                </div>
-
-                <div className="bg-black/50 backdrop-blur-xl border border-white/5 px-5 py-3 rounded-2xl flex items-center gap-6">
-                    <div>
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">V₂</span>
-                        <span className="text-sm font-black text-white font-mono tabular-nums">{velocityV2.toFixed(4)} c</span>
-                    </div>
-                    <div className="h-8 w-px bg-white/5" />
-                    <div>
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Estado</span>
-                        <span className={`text-[10px] font-black tracking-widest uppercase ${status === 'success' ? 'text-emerald-400' : 'text-cyan-400 animate-pulse'}`}>
-                            {status === 'success' ? 'CALIBRADO' : 'ANALIZANDO'}
-                        </span>
-                    </div>
+                    {status === 'success' && <CheckCircle2 size={16} className="text-emerald-400" />}
                 </div>
             </div>
         </div>
       </div>
 
-      {/* ── MODAL DE ÉXITO ── */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[200] bg-[#0c1222]/95 backdrop-blur-3xl flex items-center justify-center p-12"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 30 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl w-full text-center shadow-[0_0_100px_rgba(34,211,238,0.12)]"
-            >
-              <div className="w-24 h-24 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-8">
-                <CheckCircle2 size={60} className="text-cyan-400" />
-              </div>
-              <h3 className="text-5xl font-black text-white uppercase tracking-tight mb-4">
-                Calibración Completada
-              </h3>
-              <p className="text-slate-400 text-lg font-medium mb-4 leading-relaxed">
-                Has identificado correctamente el índice de refracción del medio misterioso.
-              </p>
-              <div className="grid grid-cols-2 gap-4 mb-12">
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">n₂ Real</span>
-                  <span className="text-xl font-black text-cyan-400 font-mono">{n2Misterio.toFixed(3)}</span>
-                </div>
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tu Valor</span>
-                  <span className="text-xl font-black text-emerald-400 font-mono">{optica7.userInputN2}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => { setPasoActual(3); router.push('/hub'); }}
-                className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-cyan-600/30"
-              >
-                Volver al Hub
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

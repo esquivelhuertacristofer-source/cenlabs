@@ -205,17 +205,19 @@ export default function SuccessModal({ normalizedId, data, hubPath, resetPractic
   }
 
   if (normalizedId === 'quimica-4') {
-    const { results, targetYield } = useSimuladorStore.getState().limitante;
-    const safeTargetYield = Math.max(0.001, targetYield);
-    const accuracy = Math.max(0, 100 - Math.abs((results.theoreticalYield - safeTargetYield) / safeTargetYield) * 100);
+    const { results, reacciones, reaccionActual } = useSimuladorStore.getState().limitante;
+    const reac = reacciones?.[reaccionActual];
+    const limitanteF = reac?.reactivos?.[results.limitingIdx]?.formula ?? '—';
+    const excesoF = reac?.reactivos?.[1 - results.limitingIdx]?.formula ?? '';
     return (
       <Wrapper border="border-cyan-500/30" glow="bg-cyan-500/10" bg="from-[#020617] to-[#0a1a2e]">
         <Awards3 color="text-cyan-400" />
         <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-2">Certificación Estequiométrica</div>
         <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Síntesis Validada!</h3>
         <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8 relative z-10 font-mono">
-          <div><span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Rendimiento Real</span><span className="text-xl font-black">{results.theoreticalYield.toFixed(2)} g</span></div>
-          <div><span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Precisión de Masa</span><span className="text-xl font-black">{accuracy.toFixed(1)}%</span></div>
+          <div><span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Reactivo limitante</span><span className="text-xl font-black">{limitanteF}</span></div>
+          <div><span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Sobra</span><span className="text-xl font-black">{results.excessMass.toFixed(2)} g {excesoF}</span></div>
+          <div className="col-span-2"><span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Rendimiento teórico</span><span className="text-xl font-black">{results.theoreticalYield.toFixed(2)} g {reac?.productos?.[0]?.formula ?? ''}</span></div>
         </div>
         <div className="flex gap-3 relative z-10">
           <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase rounded-[1.5rem] transition-all border border-white/10">Seguir</button>

@@ -22,7 +22,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
 
 En biología, hacer zoom no sirve de nada si pierdes la resolución. Aprenderás por qué el Límite de Abbe es la ley máxima.
 
-Tu misión: Configurar el microscopio para ver orgánulos celulares.",
+Tu misión: localizar la estructura que te pida el visor, en la preparación correcta, nítida y bien iluminada.",
     "codigo": "BIO-01",
     "conceptos": [
       {
@@ -49,7 +49,7 @@ Tu misión: Configurar el microscopio para ver orgánulos celulares.",
     "duracion": 30,
     "mision": [
       "Inicia con 4x para localizar la muestra.",
-      "Pasa a 40x y usa solo el tornillo micrométrico.",
+      "Sube al objetivo que resuelva la estructura y enfoca con el micrométrico.",
       "Calcula la magnificación total.",
       "Aplica la fórmula de resolución de Abbe.",
       "Captura la micrografía validada.",
@@ -76,15 +76,15 @@ Tu misión: Configurar el microscopio para ver orgánulos celulares.",
     ],
     "bienvenida": "¡Bienvenido al Observatorio de Ecosistemas! Soy el Dr. Quantum.
 
-La vida es un equilibrio frágil entre presas y depredadores. Veremos cómo el caos se convierte en ciclos eternos.
+La vida es un equilibrio frágil entre presas y depredadores. Veremos cómo sus poblaciones oscilan en ciclos.
 
-Tu misión: Mantener el equilibrio del bosque por 50 años virtuales.",
+Tu misión: ajustar los parámetros para que ninguna especie se extinga en 50 años virtuales.",
     "codigo": "BIO-10",
     "conceptos": [
       {
-        "descripcion": "Población máxima que el ambiente soporta.",
-        "icono": "🐰",
-        "nombre": "Capacidad de Carga",
+        "descripcion": "x* = γ/δ presas y y* = α/β depredadores.",
+        "icono": "⚖️",
+        "nombre": "Punto de equilibrio",
       },
       {
         "descripcion": "Control natural de la población de presas.",
@@ -104,11 +104,11 @@ Tu misión: Mantener el equilibrio del bosque por 50 años virtuales.",
     ],
     "duracion": 40,
     "mision": [
-      "Inicia la simulación con 100 conejos y 10 lobos.",
-      "Ajusta la tasa de reproducción de las presas.",
-      "Observa el aumento de depredadores ante el festín.",
-      "Evita que los lobos se coman a todos los conejos.",
-      "Estabiliza las ondas de población.",
+      "Corre la simulación con los parámetros iniciales.",
+      "Observa qué especie colapsa y en qué año.",
+      "Calcula el punto de equilibrio γ/δ y α/β.",
+      "Ajusta los parámetros y vuelve a correr desde el inicio.",
+      "Sostén ambas especies 50 años y valida.",
     ],
     "subtitulo": "Ecología y Modelo Lotka-Volterra",
     "titulo": "Dinámica de Poblaciones",
@@ -134,11 +134,11 @@ Tu misión: Mantener el equilibrio del bosque por 50 años virtuales.",
 
 Las células son bolsas de agua que luchan por no explotar o secarse. Veremos cómo el soluto dicta el destino de la vida.
 
-Tu misión: Alcanzar el equilibrio isotónico de un eritrocito.",
+Tu misión: averiguar la osmolaridad de una célula problema y preparar para ella un medio isotónico.",
     "codigo": "BIO-02",
     "conceptos": [
       {
-        "descripcion": "Movimiento de agua hacia mayor concentración de sal.",
+        "descripcion": "Movimiento de agua hacia la mayor osmolaridad.",
         "icono": "💧",
         "nombre": "Ósmosis",
       },
@@ -160,11 +160,11 @@ Tu misión: Alcanzar el equilibrio isotónico de un eritrocito.",
     ],
     "duracion": 30,
     "mision": [
-      "Selecciona el modelo de célula animal.",
-      "Aumenta la salinidad del medio externo.",
-      "Observa la deformación de la membrana.",
-      "Ajusta la concentración a 0.9% NaCl.",
-      "Valida el estado de salud celular.",
+      "Coloca la célula problema en un medio de prueba.",
+      "Espera a que el volumen se estabilice y anótalo.",
+      "Calcula la osmolaridad del citoplasma (Boyle–van ’t Hoff).",
+      "Prepara el medio isotónico con NaCl y/o glucosa.",
+      "Valida: la célula no gana ni pierde agua.",
     ],
     "subtitulo": "Ósmosis y Tonicidad",
     "titulo": "Transporte Celular",
@@ -190,7 +190,7 @@ Tu misión: Alcanzar el equilibrio isotónico de un eritrocito.",
 
 Traduciremos el código secreto del ADN en máquinas moleculares llamadas proteínas. El lenguaje de la vida tiene solo 4 letras.
 
-Tu misión: Ensamblar una proteína completa sin mutaciones.",
+Tu misión: transcribir un gen y traducirlo hasta el codón de paro, con 2 errores como máximo.",
     "codigo": "BIO-03",
     "conceptos": [
       {
@@ -216,11 +216,11 @@ Tu misión: Ensamblar una proteína completa sin mutaciones.",
     ],
     "duracion": 35,
     "mision": [
-      "Sincroniza la cadena de ADN con el ARN mensajero.",
-      "Traslada el ARNm fuera del núcleo.",
-      "Acopla los ARN de transferencia (tRNA).",
-      "Sigue la secuencia de codones con precisión.",
-      "Libera la proteína terminada.",
+      "Aparea cada base de la hebra molde para formar el ARNm.",
+      "Lleva el ARNm al citoplasma por un poro nuclear.",
+      "Elige el ARNt con el anticodón complementario a cada codón.",
+      "Llega al codón de paro y usa el factor de liberación.",
+      "Valida la proteína terminada.",
     ],
     "subtitulo": "Dogma Central de la Biología",
     "titulo": "Síntesis de Proteínas",
@@ -246,7 +246,7 @@ Tu misión: Ensamblar una proteína completa sin mutaciones.",
 
 Las plantas roban energía al Sol para construir el mundo. Veremos cómo la luz rompe el agua para darnos oxígeno.
 
-Tu misión: Optimizar la producción de O2 variando la longitud de onda.",
+Tu misión: diseñar ensayos controlados y alcanzar la meta de O₂ sin calentar el agua del tubo.",
     "codigo": "BIO-04",
     "conceptos": [
       {
@@ -272,11 +272,11 @@ Tu misión: Optimizar la producción de O2 variando la longitud de onda.",
     ],
     "duracion": 35,
     "mision": [
-      "Coloca la planta de Elodea en el tubo.",
-      "Varía el color de la lámpara (Rojo, Azul, Verde).",
-      "Mide la tasa de burbujeo de oxígeno.",
-      "Calcula la eficiencia para el color Verde (Pista: es baja).",
-      "Alcanza los 50ml de O2 producidos.",
+      "Coloca la ramita de Elodea en el tubo con agua.",
+      "Prueba colores de lámpara con el mismo flujo de fotones.",
+      "Varía la distancia sin pasar del límite térmico.",
+      "Mide 10 min por ensayo y anota el O₂ recogido.",
+      "Alcanza la meta de O₂ indicada en la misión.",
     ],
     "subtitulo": "Metabolismo Vegetal y Fase Clara",
     "titulo": "Fotosíntesis",
@@ -302,7 +302,7 @@ Tu misión: Optimizar la producción de O2 variando la longitud de onda.",
 
 Descubriremos las reglas de la lotería biológica. Veremos por qué te pareces a tus abuelos pero no eres idéntico a tus padres.
 
-Tu misión: Validar la proporción 9:3:3:1 en un cruce dihíbrido.",
+Tu misión: predecir la proporción de una cruza dihíbrida y ponerla a prueba con χ².",
     "codigo": "BIO-05",
     "conceptos": [
       {
@@ -328,11 +328,11 @@ Tu misión: Validar la proporción 9:3:3:1 en un cruce dihíbrido.",
     ],
     "duracion": 35,
     "mision": [
-      "Cruza plantas con semillas Amarillas/Lisas vs Verdes/Rugosas.",
-      "Genera una población de 1000 individuos.",
-      "Cuenta cuántos individuos de cada tipo nacieron.",
-      "Compara tus datos reales con la teoría de Mendel.",
-      "Valida la segregación independiente de alelos.",
+      "Lee los genotipos de los progenitores asignados.",
+      "Escribe sus gametos y arma el cuadro de Punnett.",
+      "Escribe tu proporción fenotípica ANTES de cruzar.",
+      "Cruza al menos 100 semillas y cuenta los fenotipos.",
+      "Compara con χ² y valida la segregación independiente.",
     ],
     "subtitulo": "Genética Clásica y Herencia",
     "titulo": "Leyes de Mendel",
@@ -358,7 +358,7 @@ Tu misión: Validar la proporción 9:3:3:1 en un cruce dihíbrido.",
 
 Solo el más apto sobrevive. Serás el depredador en un mundo cambiante para ver cómo la evolución moldea la vida.
 
-Tu misión: Observar el cambio de color de una población de polillas.",
+Tu misión: ser la presión selectiva y medir cómo cambia la frecuencia alélica de una población de polillas.",
     "codigo": "BIO-06",
     "conceptos": [
       {
@@ -384,11 +384,11 @@ Tu misión: Observar el cambio de color de una población de polillas.",
     ],
     "duracion": 30,
     "mision": [
-      "Inicia en un bosque limpio con polillas blancas.",
-      "Cambia el ambiente a industrial (hollín negro).",
-      "Actúa como el ave cazadora por 30 segundos.",
-      "Analiza la gráfica de población tras 5 generaciones.",
-      "Valida el predominio del rasgo oscuro.",
+      "Observa el tipo de corteza que te tocó.",
+      "Caza la cuota de polillas de cada generación, como un ave.",
+      "Deja que las supervivientes se reproduzcan.",
+      "Anota el % de oscuras y estima q = √f(claras) en cada generación.",
+      "Tras 3 a 6 generaciones, valida el cambio de frecuencia.",
     ],
     "subtitulo": "Evolución y Adaptación",
     "titulo": "Selección Natural",
@@ -414,7 +414,7 @@ Tu misión: Observar el cambio de color de una población de polillas.",
 
 Los impulsos viajan a la velocidad del rayo, pero requieren de cables aislados llamados mielina. Analizaremos tu velocidad de respuesta.
 
-Tu misión: Evaluar el reflejo rotuliano bajo diferentes condiciones.",
+Tu misión: medir el reflejo rotuliano de un paciente y diagnosticar si su mielina conduce con normalidad.",
     "codigo": "BIO-07",
     "conceptos": [
       {
@@ -440,11 +440,11 @@ Tu misión: Evaluar el reflejo rotuliano bajo diferentes condiciones.",
     ],
     "duracion": 35,
     "mision": [
-      "Aplica un estímulo con el martillo en el tendón.",
-      "Mide el tiempo de respuesta en milisegundos.",
-      "Reduce la integridad de la mielina al 30%.",
-      "Observa el retraso en la contracción muscular.",
-      "Valida el diagnóstico de conducción nerviosa.",
+      "Golpea el tendón con distintas fuerzas y encuentra el umbral.",
+      "Lee la latencia del reflejo en el EMG.",
+      "Resta los retardos sinápticos y calcula la velocidad de conducción.",
+      "Compara con el límite normal de 45 m/s.",
+      "Emite y valida tu diagnóstico.",
     ],
     "subtitulo": "Neurofisiología y Arco Reflejo",
     "titulo": "Sistema Nervioso",
@@ -470,7 +470,7 @@ Tu misión: Evaluar el reflejo rotuliano bajo diferentes condiciones.",
 
 Escucharemos el ritmo de la vida. Cada latido es una coreografía eléctrica perfecta entre el nodo sinusal y los ventrículos.
 
-Tu misión: Sincronizar el ECG de un paciente en esfuerzo.",
+Tu misión: leer el ECG de un paciente, diagnosticar su ritmo y devolverlo a ritmo sinusal normal.",
     "codigo": "BIO-08",
     "conceptos": [
       {
@@ -496,11 +496,11 @@ Tu misión: Sincronizar el ECG de un paciente en esfuerzo.",
     ],
     "duracion": 35,
     "mision": [
-      "Conecta los electrodos al paciente.",
-      "Inicia la prueba de esfuerzo en la caminadora.",
-      "Modula la intensidad para alcanzar 140 BPM.",
-      "Identifica la onda QRS en el monitor.",
-      "Registra la recuperación cardíaca exitosa.",
+      "Identifica las ondas P, QRS y T en el monitor.",
+      "Mide el intervalo R-R y calcula la frecuencia cardíaca.",
+      "Diagnostica bradicardia o taquicardia sinusal.",
+      "Administra el fármaco adecuado por bolos.",
+      "Vuelve a medir y valida un ritmo de 60 a 100 lpm.",
     ],
     "subtitulo": "Fisiología Cardiovascular",
     "titulo": "Electrocardiograma",
@@ -522,7 +522,7 @@ Tu misión: Sincronizar el ECG de un paciente en esfuerzo.",
 
 Somos lo que digerimos. Veremos cómo las enzimas rompen las proteínas solo si el pH es el adecuado.
 
-Tu misión: Digerir una muestra de carne optimizando el ambiente estomacal.",
+Tu misión: hidrolizar por completo el alimento asignado y ubicar dónde ocurre su digestión y absorción.",
     "codigo": "BIO-09",
     "conceptos": [
       {
@@ -548,11 +548,11 @@ Tu misión: Digerir una muestra de carne optimizando el ambiente estomacal.",
     ],
     "duracion": 35,
     "mision": [
-      "Inyecta Pepsina en el simulador.",
-      "Baja el pH a 2.0 (ambiente ácido).",
-      "Observa la ruptura de las cadenas de aminoácidos.",
-      "Intenta digerir a pH 7.0 y nota el fallo.",
-      "Valida la absorción de nutrientes en el intestino.",
+      "Identifica el sustrato del alimento asignado.",
+      "Prueba enzimas y pH en tubos de ensayo a 37 °C.",
+      "Distingue «sin reacción» de «enzima desnaturalizada».",
+      "Consigue una hidrólisis completa.",
+      "Indica el órgano donde actúa la enzima y dónde se absorben los productos.",
     ],
     "subtitulo": "Catálisis Enzimática y pH",
     "titulo": "Sistema Digestivo",
@@ -576,7 +576,7 @@ Tu misión: Digerir una muestra de carne optimizando el ambiente estomacal.",
     ],
     "bienvenida": "¡Bienvenido al Polígono de Artillería! Soy el Dr. Quantum. La gravedad es el juez supremo de todo proyectil.
 
-Combinaremos el movimiento horizontal uniforme con la caída libre vertical para dominar la parábola perfecta.
+Combinaremos el movimiento horizontal con la caída libre vertical; fuera del vacío, el aire y el viento deforman la parábola.
 
 Tu misión: Impactar el dron objetivo superando el muro defensivo.",
     "codigo": "FIS-01",
@@ -604,10 +604,10 @@ Tu misión: Impactar el dron objetivo superando el muro defensivo.",
     ],
     "duracion": 35,
     "mision": [
-      "Analiza la posición del dron y del muro.",
+      "Analiza la misión: distancia y altura del blanco y del muro.",
       "Ajusta el ángulo del cañón.",
-      "Define la potencia de disparo.",
-      "Evalúa la trayectoria en la pantalla.",
+      "Define la velocidad de salida.",
+      "Dispara y analiza la trayectoria real.",
       "Logra el impacto directo.",
     ],
     "subtitulo": "Balística y Cinemática 2D",
@@ -660,11 +660,11 @@ Tu misión: Calibrar un motor para alcanzar las RPM objetivo.",
     ],
     "duracion": 40,
     "mision": [
-      "Asegura los imanes del estator.",
-      "Ajusta el voltaje de la batería.",
-      "Aumenta el número de vueltas de la bobina.",
-      "Mide las revoluciones por minuto (RPM).",
-      "Logra el equilibrio de giro constante.",
+      "Orienta los imanes con polos opuestos enfrentados.",
+      "Elige el número de espiras de la bobina.",
+      "Calcula el voltaje: V = k·ω + I·Rₐ.",
+      "Energiza y mide las RPM y el sentido.",
+      "Alcanza la velocidad pedida con la carga del freno.",
     ],
     "subtitulo": "Inducción y Fuerza de Lorentz",
     "titulo": "Motor Eléctrico",
@@ -690,7 +690,7 @@ Tu misión: Calibrar un motor para alcanzar las RPM objetivo.",
 
 Entenderemos por qué los objetos se mueven o se quedan quietos. La fricción y la gravedad lucharán en cada milímetro de la rampa.
 
-Tu misión: Calcular la aceleración exacta de un bloque sobre una rampa inclinada.",
+Tu misión: Predecir la aceleración de un bloque sobre una rampa con fricción.",
     "codigo": "FIS-02",
     "conceptos": [
       {
@@ -716,11 +716,11 @@ Tu misión: Calcular la aceleración exacta de un bloque sobre una rampa inclina
     ],
     "duracion": 35,
     "mision": [
-      "Selecciona un MATERIAL (Hielo, Madera o Caucho) en el dock.",
-      "Ajusta el ángulo de la rampa hasta que el bloque comience a deslizar.",
-      "Observa el ÁNGULO CRÍTICO donde se rompe el equilibrio estático.",
-      "Calcula la ACELERACIÓN teórica (a = g(sinθ - μk cosθ)).",
-      "Ingresa tu resultado y valida la sincronización física.",
+      "Lee los datos del ensayo: masa, μs y μk.",
+      "Ajusta el ángulo, el empuje y la carga.",
+      "Comprueba si la fricción estática alcanza para sostener el bloque.",
+      "Calcula la aceleración con la 2.ª ley de Newton (con fricción cinética).",
+      "Escribe tu predicción, suelta el bloque y compárala con la medición.",
     ],
     "subtitulo": "Dinámica en Plano Inclinado",
     "titulo": "Leyes de Newton",
@@ -772,10 +772,10 @@ Tu misión: Medir la gravedad local usando el periodo del péndulo.",
     ],
     "duracion": 30,
     "mision": [
-      "Ajusta la longitud de la cuerda a 1.0m.",
-      "Desplaza la masa exactamente 10 grados.",
+      "Elige una longitud de cuerda.",
+      "Suelta el péndulo con amplitud pequeña (10°).",
       "Cronometra 10 oscilaciones completas.",
-      "Calcula el periodo promedio.",
+      "Repite con tres longitudes y con dos masas.",
       "Despeja g de la fórmula T = 2π√(L/g).",
     ],
     "subtitulo": "Movimiento Armónico Simple",
@@ -800,7 +800,7 @@ Tu misión: Medir la gravedad local usando el periodo del péndulo.",
     ],
     "bienvenida": "¡Bienvenido al Centro de Pruebas de Materiales! Soy el Dr. Quantum.
 
-Analizaremos la memoria de los metales. Veremos cuánto puede estirarse un resorte antes de perder su forma original.
+Analizaremos la rigidez de un resorte con dos métodos: estirándolo con pesas y haciéndolo oscilar.
 
 Tu misión: Determinar la constante elástica (k) de un resorte desconocido.",
     "codigo": "FIS-04",
@@ -828,11 +828,11 @@ Tu misión: Determinar la constante elástica (k) de un resorte desconocido.",
     ],
     "duracion": 30,
     "mision": [
-      "Mide la longitud inicial del resorte.",
+      "Lee la regla con el resorte en equilibrio.",
       "Cuelga masas de peso creciente.",
       "Registra el estiramiento para cada masa.",
-      "Grafica Fuerza vs Distancia.",
-      "Calcula la pendiente (k) de la recta.",
+      "Hazlo oscilar y cronometra varias oscilaciones.",
+      "Calcula k con ambos métodos y compáralos.",
     ],
     "subtitulo": "Elasticidad y Fuerzas Restauradoras",
     "titulo": "Ley de Hooke",
@@ -858,7 +858,7 @@ Tu misión: Determinar la constante elástica (k) de un resorte desconocido.",
 
 El Principio de Pascal nos dice que la presión ejercida sobre un fluido incompresible se transmite con igual intensidad en todas las direcciones. Esto nos permite usar el área de los émbolos como una palanca líquida para multiplicar nuestra fuerza.
 
-Tu misión: Configurar los radios de los émbolos para elevar un vehículo de carga de 2 toneladas usando la mínima fuerza posible. ¡La física es tu multiplicador de poder!",
+Tu misión: Calcular la fuerza mínima que eleva la carga asignada y comprobarla bombeando.",
     "codigo": "FIS-05",
     "conceptos": [
       {
@@ -886,10 +886,10 @@ Tu misión: Configurar los radios de los émbolos para elevar un vehículo de ca
     "mision": [
       "Observa la MASA DE CARGA asignada en el pistón mayor.",
       "Ajusta el RADIO del émbolo de entrada (r1) y de salida (r2).",
-      "Calcula la PRESIÓN necesaria para romper la inercia.",
-      "Aplica la FUERZA DE ENTRADA (F1) gradualmente.",
-      "Logra elevar la carga por encima del umbral de seguridad.",
-      "Registra la Ganancia Mecánica final en tu bitácora.",
+      "Calcula la presión que sostiene el peso de la carga.",
+      "Predice la F₁ mínima y aplica la fuerza de entrada.",
+      "Bombea y observa cuánto sube la carga.",
+      "Compara la carrera de ambos émbolos (volumen conservado).",
     ],
     "retos": [
       "Eficiencia Máxima: Eleva 1000kg usando menos de 200N de fuerza de entrada.",
@@ -920,7 +920,7 @@ Tu misión: Configurar los radios de los émbolos para elevar un vehículo de ca
 
 "¡Eureka!" - Descubriremos por qué los barcos de acero flotan y las piedras pequeñas se hunden. El agua tiene una fuerza invisible hacia arriba.
 
-Tu misión: Identificar un sólido misterioso mediante su densidad.",
+Tu misión: Determinar la densidad de un sólido desconocido con un dinamómetro.",
     "codigo": "FIS-06",
     "conceptos": [
       {
@@ -947,10 +947,10 @@ Tu misión: Identificar un sólido misterioso mediante su densidad.",
     "duracion": 30,
     "mision": [
       "Pesa el objeto en el aire.",
-      "Sumerge el objeto en el tanque graduado.",
+      "Sumérgelo por completo en el fluido.",
       "Mide el nuevo peso aparente.",
       "Calcula la fuerza de empuje (E).",
-      "Determina la densidad y el material.",
+      "Determina la densidad del sólido.",
     ],
     "subtitulo": "Hidrostática y Empuje",
     "titulo": "Principio de Arquímedes",
@@ -972,11 +972,11 @@ Tu misión: Identificar un sólido misterioso mediante su densidad.",
         "ejemplo": "Termostatos bimetálicos mecánicos.",
       },
     ],
-    "bienvenida": "¡Bienvenido al Horno de Precisión Micrométrica! Soy el Dr. Quantum.
+    "bienvenida": "¡Bienvenido al Dilatómetro de Precisión! Soy el Dr. Quantum.
 
-El calor hace que los átomos se alejen. Veremos cómo estructuras masivas crecen milímetros imperceptibles pero peligrosos.
+El calor hace que los átomos se alejen. Veremos cómo una barra de medio metro crece décimas de milímetro al calentarse.
 
-Tu misión: Medir el coeficiente de dilatación del Aluminio.",
+Tu misión: Medir el coeficiente de dilatación de un metal desconocido.",
     "codigo": "FIS-07",
     "conceptos": [
       {
@@ -1002,10 +1002,10 @@ Tu misión: Medir el coeficiente de dilatación del Aluminio.",
     ],
     "duracion": 35,
     "mision": [
-      "Mide la barra de metal con el micrómetro.",
+      "Monta la barra (L₀ = 500 mm) con el comparador en cero.",
       "Inyecta vapor de agua a 100°C.",
-      "Observa el desplazamiento de la aguja.",
-      "Registra la elongación milimétrica.",
+      "Lee la temperatura en el termómetro.",
+      "Registra el alargamiento ΔL en el comparador.",
       "Calcula el coeficiente α del material.",
     ],
     "subtitulo": "Expansión de Sólidos",
@@ -1032,7 +1032,7 @@ Tu misión: Medir el coeficiente de dilatación del Aluminio.",
 
 Dominaremos el flujo de electrones. Voltaje, Corriente y Resistencia forman la trinidad de la electrónica moderna.
 
-Tu misión: Verificar la relación V = I·R en una resistencia fija.",
+Tu misión: Diseñar la resistencia que protege a un LED rojo a 20 mA.",
     "codigo": "FIS-08",
     "conceptos": [
       {
@@ -1058,11 +1058,11 @@ Tu misión: Verificar la relación V = I·R en una resistencia fija.",
     ],
     "duracion": 35,
     "mision": [
-      "Arma el circuito en serie.",
-      "Varía el voltaje de la fuente paso a paso.",
-      "Lee la corriente en el amperímetro.",
-      "Registra los pares de datos (V, I).",
-      "Calcula la resistencia promedio.",
+      "Conecta la fuente directo al LED y observa qué pasa.",
+      "Calcula R = (V − V_f)/I para I = 20 mA.",
+      "Arma el circuito en serie con esa resistencia.",
+      "Cierra el circuito y lee I, V_R y V_LED.",
+      "Comprueba que el LED trabaja a 20 mA.",
     ],
     "subtitulo": "Circuitos Eléctricos CC",
     "titulo": "Ley de Ohm",
@@ -1088,7 +1088,7 @@ Tu misión: Verificar la relación V = I·R en una resistencia fija.",
 
 Las cargas eléctricas se atraen o se repelen a distancia. Veremos cómo la fuerza cae dramáticamente al alejarnos.
 
-Tu misión: Calcular la fuerza neta sobre una carga central.",
+Tu misión: Calcular la fuerza entre dos cargas y decidir si se atraen o se repelen.",
     "codigo": "FIS-09",
     "conceptos": [
       {
@@ -1114,10 +1114,10 @@ Tu misión: Calcular la fuerza neta sobre una carga central.",
     ],
     "duracion": 30,
     "mision": [
-      "Coloca las cargas fijas en el riel.",
-      "Mide la distancia entre ellas.",
-      "Calcula la fuerza teórica de Coulomb.",
-      "Observa el vector de fuerza resultante.",
+      "Explora cargas y separaciones.",
+      "Lee los datos del reto (μC y cm).",
+      "Convierte a C y m y calcula la fuerza de Coulomb.",
+      "Decide: ¿atracción o repulsión?",
       "Valida el valor en Newtons.",
     ],
     "subtitulo": "Ley de Coulomb",
@@ -1144,7 +1144,7 @@ Tu misión: Calcular la fuerza neta sobre una carga central.",
 
 Una función cuadrática f(x) = ax² + bx + c no es solo una ecuación en un libro — es la descripción matemática de cómo vuela un proyectil, cómo se enfoca una antena parabólica o cómo se modela la ganancia óptima en un proyecto de ingeniería.
 
-Tu misión: ajustar los parámetros de una parábola hasta sincronizarla con una trayectoria objetivo. ¡Las matemáticas son el idioma del universo!",
+Tu misión: deducir la ecuación de una trayectoria a partir de tres puntos medidos y comprobar su discriminante y su vértice. ¡Las matemáticas son el idioma del universo!",
     "codigo": "MAT-01",
     "conceptos": [
       {
@@ -1180,12 +1180,12 @@ Tu misión: ajustar los parámetros de una parábola hasta sincronizarla con una
     ],
     "duracion": 45,
     "mision": [
-      "Observa la TRAYECTORIA OBJETIVO en el piloto.",
-      "Calcula el DISCRIMINANTE (Δ = b² − 4ac) y anótalo en la Bitácora.",
-      "Localiza el VÉRTICE: calcula h = −b/2a.",
-      "Ajusta los controles (a, b, c) para sincronizar tu parábola.",
-      "Analiza las 3 Formas Equivalentes y confirma que son idénticas.",
-      "Presiona “Validar Trayectoria” cuando el % SYNC sea alto.",
+      "Lee los TRES PUNTOS MEDIDOS de la trayectoria (x = −1, 0 y 1).",
+      "Plantea el sistema: f(0) = c, f(1) − f(−1) = 2b, f(1) + f(−1) = 2a + 2c.",
+      "Ajusta a, b y c hasta que tu f(x) coincida con cada punto de la tabla.",
+      "Calcula el DISCRIMINANTE Δ = b² − 4ac y compruébalo en la Bitácora.",
+      "Calcula la abscisa del VÉRTICE h = −b/2a y compruébala en la Bitácora.",
+      "Presiona «Validar» cuando tu parábola pase por los tres puntos.",
     ],
     "retos": [
       "Calibración de Antena: Encuentra la parábola que minimiza el ruido en una tormenta (Δ=0).",
@@ -1216,7 +1216,7 @@ Tu misión: ajustar los parámetros de una parábola hasta sincronizarla con una
 
 Verás cómo del caos aleatorio surge un orden matemático perfecto. Cada rebote es una moneda al aire.
 
-Tu misión: Comprobar el Teorema del Límite Central.',",
+Tu misión: predecir la media y la desviación del contenedor final y comprobarlas con el histograma.",
     "codigo": "MAT-10",
     "conceptos": [
       {
@@ -1242,11 +1242,11 @@ Tu misión: Comprobar el Teorema del Límite Central.',",
     ],
     "duracion": 35,
     "mision": [
-      "Inicia la lluvia de esferas.",
-      "Observa cómo se acumulan en la base.",
-      "Ajusta el sesgo para mover la media.",
-      "Superpón la curva teórica sobre los datos.",
-      "Valida cuando la muestra sea estadísticamente significativa.",
+      "Lee la probabilidad p de desvío a la derecha.",
+      "Calcula la media μ y la desviación σ de la Binomial(10, p).",
+      "Escribe tu predicción en el panel.",
+      "Suelta bolitas hasta reunir al menos 200.",
+      "Compara la curva teórica con el histograma y valida.",
     ],
     "subtitulo": "Probabilidad y Estadística",
     "titulo": "Máquina de Galton",
@@ -1303,13 +1303,13 @@ Tu misión: ajustar las pendientes y ordenadas de dos haces láser hasta interce
     ],
     "duracion": 35,
     "mision": [
-      "Selecciona un CASO DE ESTUDIO (Rastreo Satelital, Intersección Vial o Triangulación).",
       "Identifica las coordenadas del OBJETIVO en el radar (X, Y).",
-      "Ajusta m₁ y b₁ del Haz Alpha para aproximarte al cuadrante del objetivo.",
-      "Configura m₂ y b₂ del Haz Omega para crear el punto de intersección exacto.",
+      "Ajusta m₁ y b₁ del Haz Alpha para que pase por el objetivo.",
+      "Configura m₂ y b₂ del Haz Omega para que corte al primero justo ahí.",
       "Observa cómo cambian las ecuaciones y = mx + b en tiempo real sobre los láseres.",
-      "Sincroniza la intersección hasta activar el mensaje "COORDINATES MATCHED".",
-      "Registra los coeficientes finales en tu bitácora para validar la misión.",
+      "Si las pendientes son iguales el sistema es inconsistente (paralelas) o dependiente (la misma recta): cambia una.",
+      "Valida cuando la intersección quede a menos de 0.1 del objetivo en X y en Y.",
+      "Registra los coeficientes finales en tu bitácora.",
     ],
     "retos": [
       "Interferencia Masiva: Localiza el objetivo cuando b1 y b2 son idénticos.",
@@ -1340,7 +1340,7 @@ Tu misión: ajustar las pendientes y ordenadas de dos haces láser hasta interce
 
 La escala de Magnitud de Momento (Mw) es logarítmica. Esto significa que un sismo de magnitud 7.0 no es "un poco" más fuerte que uno de 6.0 — su onda es 10 veces más alta y libera 32 veces más energía.
 
-Tu misión: Analizar hitos históricos como Valdivia 1960 o Tohoku 2011 y visualizar el poder destructivo del crecimiento logarítmico.",
+Tu misión: calcular cuántas veces más energía liberaron hitos como Valdivia 1960 o Tohoku 2011 frente a un sismo de referencia, usando el crecimiento logarítmico.",
     "codigo": "MAT-03",
     "conceptos": [
       {
@@ -1366,12 +1366,12 @@ Tu misión: Analizar hitos históricos como Valdivia 1960 o Tohoku 2011 y visual
     ],
     "duracion": 40,
     "mision": [
-      "Selecciona uno de los CASOS HISTÓRICOS (Valdivia, CDMX o Tohoku).",
-      "Observa la Estación de REFERENCIA configurada en Mw 5.0.",
-      "Ajusta la Estación EXPERIMENTAL hasta alcanzar la magnitud del evento histórico.",
-      "Analiza las notas de impacto físico que aparecen en el HUD al subir la intensidad.",
-      "Calcula cuántas veces más energía se liberó en ese evento frente a la referencia.",
-      "Documenta el colapso estructural simulado a magnitudes superiores a 9.0.",
+      "Selecciona uno de los CASOS HISTÓRICOS (Valdivia, CDMX, Tohoku…).",
+      "Lee la magnitud de la estación BASE y la del sismo objetivo.",
+      "Lleva la estación EXPERIMENTAL a la magnitud del evento histórico.",
+      "Cambia a la Escala Log para ver por qué la energía se mide con logaritmos.",
+      "Calcula el factor de energía 10^(1.5·ΔM) frente a la base.",
+      "Escribe el factor en el panel y valida (±5 %).",
     ],
     "retos": [
       "Comparativa Valdivia: Visualiza la energía del sismo más fuerte de la historia (9.5).",
@@ -1463,7 +1463,7 @@ Tu misión: Demostrar el teorema mediante la transferencia de fluidos.",
 
 Todo lo que gira se convierte en una onda. Entenderemos el Seno y el Coseno como las sombras de un punto que da vueltas.
 
-Tu misión: Sincronizar la rotación para capturar ángulos específicos.",
+Tu misión: encontrar los DOS ángulos de una vuelta que cumplen una ecuación como sen θ = 1/2.",
     "codigo": "MAT-05",
     "conceptos": [
       {
@@ -1489,11 +1489,11 @@ Tu misión: Sincronizar la rotación para capturar ángulos específicos.",
     ],
     "duracion": 40,
     "mision": [
-      "Activa el giro automático del vector.",
-      "Observa cómo se dibuja la onda en la pantalla.",
-      "Identifica los puntos de amplitud máxima (90°).",
-      "Detén el vector en el ángulo solicitado.",
-      "Valida el valor de Seno y Coseno.",
+      "Lee la ECUACIÓN OBJETIVO del panel.",
+      "Activa el giro y observa cómo se dibujan las ondas seno y coseno.",
+      "Detén el vector donde la proyección cumpla la ecuación y captura el ángulo.",
+      "Busca la segunda solución en otro cuadrante y captúrala.",
+      "Valida cuando tengas las dos soluciones y ninguna captura equivocada.",
     ],
     "subtitulo": "Funciones Circulares y Ondas",
     "titulo": "Círculo Trigonométrico",
@@ -1519,7 +1519,7 @@ Tu misión: Sincronizar la rotación para capturar ángulos específicos.",
 
 Las matemáticas nos permiten mover, rotar y escalar objetos con precisión absoluta. Usarás matrices para navegar una sonda.
 
-Tu misión: Alinear la sonda con la plataforma fantasma.',",
+Tu misión: alinear la sonda con la silueta de la plataforma fantasma.",
     "codigo": "MAT-06",
     "conceptos": [
       {
@@ -1545,11 +1545,11 @@ Tu misión: Alinear la sonda con la plataforma fantasma.',",
     ],
     "duracion": 35,
     "mision": [
-      "Identifica la posición de la plataforma objetivo.",
-      "Aplica el factor de escala correcto.",
+      "Observa la SILUETA objetivo: tamaño, giro y posición.",
+      "Aplica el factor de escala que iguala el tamaño.",
       "Rota la sonda para que coincida en ángulo.",
       "Traslada la sonda en los ejes X e Y.",
-      "Confirma el acoplamiento perfecto.",
+      "Lee la matriz M = T·R·S y confirma el acoplamiento.",
     ],
     "subtitulo": "Isometrías y Homotecias",
     "titulo": "Transformaciones Geométricas",
@@ -1601,11 +1601,11 @@ Tu misión: Identificar un cristal desconocido midiendo su ángulo de refracció
     ],
     "duracion": 35,
     "mision": [
-      "Dispara el láser a través del cristal.",
-      "Mide el ángulo de entrada con el transportador.",
-      "Mide el ángulo de salida (refractado).",
-      "Aplica la Ley de Snell: n1 sinθ1 = n2 sinθ2.",
-      "Busca el índice n en la tabla de materiales.",
+      "Dispara el láser a través del cristal misterioso.",
+      "Elige el ángulo de incidencia θ₁ con el deslizador.",
+      "Mide el ángulo refractado θ₂ desde la normal con el transportador.",
+      "Aplica la Ley de Snell: n₁ sen θ₁ = n₂ sen θ₂ y despeja n₂.",
+      "Busca el índice n₂ en la tabla de materiales y valida.",
     ],
     "subtitulo": "Trigonometría y Óptica",
     "titulo": "Ley de Snell",
@@ -1631,7 +1631,7 @@ Tu misión: Identificar un cristal desconocido midiendo su ángulo de refracció
 
 La derivada no es solo una fórmula; es la velocidad instantánea de un objeto. Si conocemos la función de posición s(t) de nuestro cohete, su derivada s'(t) nos dirá exactamente a qué velocidad viaja en cada microsegundo.
 
-Tu misión: Analizar la telemetría del despegue, identificar el punto de máxima velocidad y calcular la aceleración para estabilizar el reactor.",
+Tu misión: analizar la telemetría del despegue e identificar, con la derivada, el instante de máxima velocidad.",
     "codigo": "MAT-08",
     "conceptos": [
       {
@@ -1657,11 +1657,11 @@ Tu misión: Analizar la telemetría del despegue, identificar el punto de máxim
     ],
     "duracion": 40,
     "mision": [
-      "Inicia la SECUENCIA DE DESPEGUE en el simulador.",
-      "Activa el ESCÁNER TANGENTE para visualizar la velocidad en tiempo real.",
-      "Identifica el instante exacto donde la pendiente es MÁXIMA.",
-      "Calcula la derivada analítica de la función de telemetría.",
-      "Valida el resultado para estabilizar la órbita del cohete.",
+      "Lee la FUNCIÓN DE POSICIÓN s(t) del cohete en el panel.",
+      "Recorre el tiempo y observa la RECTA TANGENTE: su pendiente es la velocidad.",
+      "Deriva s(t) para obtener v(t) y vuelve a derivar para obtener a(t).",
+      "Resuelve a(t) = 0: ese es el instante de velocidad máxima.",
+      "Marca ese instante en la línea de tiempo y valida.",
     ],
     "subtitulo": "Razón de Cambio y Velocidad Instantánea",
     "titulo": "La Derivada: Propulsión Crítica",
@@ -1687,7 +1687,7 @@ Tu misión: Analizar la telemetría del despegue, identificar el punto de máxim
 
 ¿Cómo medimos el área de algo que no tiene bordes rectos? Lo dividiremos en miles de pedazos diminutos.
 
-Tu misión: Aproximar el área bajo la curva con error menor al 1%.",
+Tu misión: aproximar el área bajo f(x) = 0.1x² + 1 en [0, 10] con el método que te asigne el reto y un error relativo menor a su tolerancia (2 % con extremos, 0.1 % con punto medio).",
     "codigo": "MAT-09",
     "conceptos": [
       {
@@ -1713,11 +1713,11 @@ Tu misión: Aproximar el área bajo la curva con error menor al 1%.",
     ],
     "duracion": 40,
     "mision": [
-      "Define el rango de la función (a, b).",
+      "Lee el RETO: método asignado y tolerancia de error.",
       "Inicia con 4 rectángulos para ver el error visual.",
-      "Aumenta la resolución progresivamente.",
-      "Observa cómo el área "Suma" se acerca a la "Real".",
-      "Logra la precisión requerida para validar.",
+      "Selecciona el método del reto (izquierda, derecha o punto medio).",
+      "Aumenta n y observa cómo baja el error relativo.",
+      "Valida cuando el error quede bajo la tolerancia.",
     ],
     "subtitulo": "Cálculo Integral y Áreas Curvas",
     "titulo": "Sumas de Riemann",
@@ -10973,15 +10973,15 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "respuestaCorrecta": 1,
     },
     {
-      "explicacion": "Las plantas se ven verdes porque reflejan esa luz en lugar de absorberla.",
+      "explicacion": "El espectro de acción (McCree, 1972) tiene su máximo en el rojo-naranja. El verde rinde menos pero sí impulsa la fotosíntesis: la hoja refleja solo una parte.",
       "opciones": [
         "Azul",
         "Rojo",
         "Verde",
-        "Violeta",
+        "Todas igual",
       ],
-      "pregunta": "¿Qué color de luz es MENOS eficiente para la fotosíntesis?",
-      "respuestaCorrecta": 2,
+      "pregunta": "Con lámparas que emiten el MISMO flujo de fotones, ¿cuál produce más O₂ por fotón?",
+      "respuestaCorrecta": 1,
     },
     {
       "explicacion": "La energía fotónica se convierte en energía química (ATP y NADPH).",
@@ -11028,15 +11028,15 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "respuestaCorrecta": 1,
     },
     {
-      "explicacion": "La fase oscura no requiere luz, pero usa el ATP y NADPH acumulados durante el día.",
+      "explicacion": "El ciclo de Calvin depende del ATP y NADPH de la fase luminosa y varias de sus enzimas se activan con la luz; de noche la planta solo respira.",
       "opciones": [
-        "Se detiene por completo",
-        "Solo ocurre la fase oscura (Fijación de Carbono)",
+        "Se detiene: sin luz no hay ATP/NADPH y las enzimas del ciclo de Calvin se inactivan",
+        "Sigue toda la noche solo la fase oscura",
         "Se vuelve más rápida",
-        "La planta exhala CO2 solamente",
+        "Se invierte y la planta produce luz",
       ],
       "pregunta": "¿Qué sucede con la fotosíntesis durante la noche?",
-      "respuestaCorrecta": 1,
+      "respuestaCorrecta": 0,
     },
     {
       "explicacion": "La glucosa es el combustible básico para la planta y base de otras moléculas.",
@@ -16585,7 +16585,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Selecciona una muestra (Vegetal, Animal o Bacteria) para colocarla en la platina. Cada una requiere un nivel de iluminación diferente para su observación.",
+      "mensaje": "Lee la misión en el visor y coloca en la platina la preparación que pide: hoja de Elodea, mucosa bucal o yogur.",
       "pista": "Elige tu Muestra",
       "tipo": "accion",
     },
@@ -16603,14 +16603,14 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 6,
-      "mensaje": "Una vez enfocado, presiona "Escanear Estructura". Mi sistema de IA identificará los organelos y validará si has encontrado el objetivo de la misión.",
-      "pista": "Escáner Biométrico",
+      "mensaje": "A más aumento llega menos luz al ojo: sube la lámpara. El objetivo de 100x es de inmersión: sin aceite la apertura numérica cae y la imagen se vuelve lechosa. Luego pulsa "Analizar imagen".",
+      "pista": "Luz y Aceite",
       "tipo": "accion",
     },
     {
       "accion": "Certificar Hallazgo",
       "id": 7,
-      "mensaje": "¡Hallazgo confirmado! Toma una "Foto de Bitácora" para registrar la micrografía en tu informe. Luego presiona Validar para certificar la práctica.",
+      "mensaje": "¡Hallazgo confirmado! Captura la micrografía para tu bitácora, completa el cálculo de aumento y de Abbe, y valida la práctica.",
       "pista": "Documentación",
       "tipo": "verificar",
     },
@@ -16630,20 +16630,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Define cuántas liebres y lobos inician. Activa la simulación para ver los ciclos de población.",
-      "pista": "Poblaciones Iniciales",
+      "mensaje": "Corre 50 años con los parámetros iniciales. ¿Qué especie colapsa y cuándo?",
+      "pista": "Primera corrida",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ajusta la voracidad de los depredadores. Un desequilibrio puede llevar a la extinción de ambas especies.",
-      "pista": "Tasa de Encuentro",
+      "mensaje": "Compara el equilibrio (γ/δ, α/β) con la población inicial. Si están lejos, las oscilaciones serán enormes.",
+      "pista": "Punto de equilibrio",
       "tipo": "accion",
     },
     {
       "accion": "Validar Ecosistema",
       "id": 4,
-      "mensaje": "Logra un ciclo poblacional estable y valida el análisis ecológico.",
+      "mensaje": "Cuando una corrida completa llegue a 50 años sin extinciones, valida.",
       "pista": "Equilibrio Estable",
       "tipo": "verificar",
     },
@@ -16651,26 +16651,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-2": [
     {
       "id": 1,
-      "mensaje": "Observaremos cómo las células responden a diferentes concentraciones de sal. ¡Cuidado con la citólisis!",
+      "mensaje": "La osmolaridad del citoplasma de esta célula es desconocida. La deducirás observando cómo cambia su volumen. ¡Cuidado con la hemólisis!",
       "pista": "Ósmosis Celular",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Baja la concentración externa. El agua entrará a la célula por ósmosis. ¿Ves cómo se hincha?",
+      "mensaje": "Prepara un medio de prueba y espera a que el volumen deje de cambiar. Si la célula se hincha, el medio es hipotónico; si se arruga, hipertónico. Anota la lectura.",
       "pista": "Medio Hipotónico",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Sube la salinidad externa. El agua saldrá de la célula (plasmólisis). Observa la contracción del citoplasma.",
-      "pista": "Medio Hipertónico",
+      "mensaje": "Los solutos del citoplasma no salen: Osm_int · V = constante. Con tu lectura, Osm_int = Osm_ext · (V_eq / V0). Recuerda que el NaCl aporta 2 partículas y la glucosa 1.",
+      "pista": "Boyle–van ’t Hoff",
       "tipo": "accion",
     },
     {
       "accion": "Validar Tonicidad",
       "id": 4,
-      "mensaje": "Ajusta las concentraciones hasta que el flujo neto de agua sea cero (isotónico) y valida.",
+      "mensaje": "Prepara un medio con esa osmolaridad: la célula volverá a su volumen inicial y dejará de cambiar. Entonces valida.",
       "pista": "Equilibrio Osmótico",
       "tipo": "verificar",
     },
@@ -16684,20 +16684,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Selecciona las bases nitrogenadas complementarias (A-U, C-G). El ARN saldrá del núcleo hacia el ribosoma.",
+      "mensaje": "Aparea cada base de la hebra molde (A→U, T→A, C→G, G→C). Puedes usar el teclado. El ARNm saldrá por un poro nuclear.",
       "pista": "Transcripción",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "En el ribosoma, une los codones con sus respectivos aminoácidos para formar la cadena polipeptídica.",
+      "mensaje": "En el ribosoma elige el ARNt cuyo anticodón sea complementario al codón (teclas 1-4). En un codón de paro, el factor de liberación.",
       "pista": "Traducción",
       "tipo": "accion",
     },
     {
       "accion": "Validar Proteína",
       "id": 4,
-      "mensaje": "Cuando llegues al codón de STOP, la proteína se plegará. Valida la secuencia obtenida.",
+      "mensaje": "Cuando el factor de liberación suelte la cadena en el codón de paro, valida la secuencia obtenida.",
       "pista": "Proteína Completa",
       "tipo": "verificar",
     },
@@ -16705,26 +16705,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-4": [
     {
       "id": 1,
-      "mensaje": "Optimizaremos la producción de oxígeno variando la luz. ¡Energía solar en acción!",
+      "mensaje": "Mediremos el O₂ que libera una ramita de Elodea en 10 minutos. Lee la meta y el límite de distancia.",
       "pista": "Fotosíntesis",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Cambia el color de la lámpara. ¿Qué color absorbe mejor la clorofila? Observa la tasa de burbujeo.",
+      "mensaje": "Deja fija la distancia y mide con varios colores. Todas las lámparas emiten los mismos fotones: ¿cuál rinde más O₂?",
       "pista": "Espectro de Luz",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Acerca la lámpara. A mayor intensidad, mayor tasa fotosintética, hasta llegar al punto de saturación.",
+      "mensaje": "Ahora deja fijo el color y cambia la distancia. La intensidad cae con el cuadrado, pero cerca de la lámpara la tasa se satura.",
       "pista": "Intensidad Lumínica",
       "tipo": "accion",
     },
     {
       "accion": "Validar O2",
       "id": 4,
-      "mensaje": "Cuando alcances la cuota de oxígeno objetivo, valida el rendimiento del cloroplasto.",
+      "mensaje": "Cuando un ensayo de tu tabla alcance la meta, valida la práctica.",
       "pista": "Acumular O2",
       "tipo": "verificar",
     },
@@ -16732,26 +16732,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-5": [
     {
       "id": 1,
-      "mensaje": "Crucemos plantas para predecir la herencia. ¿Dominancia o recesividad?",
+      "mensaje": "Tienes una cruza asignada. Primero se predice, después se cruza: así se pone a prueba una hipótesis.",
       "pista": "Genética Mendeliana",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Selecciona los genotipos de los parentales. Observa las proporciones esperadas en el Cuadro de Punnett.",
-      "pista": "Cruza P1",
+      "mensaje": "Escribe los gametos de cada progenitor, arma el cuadro de Punnett y escribe la proporción fenotípica en enteros.",
+      "pista": "Predicción",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ejecuta la cruza y observa los fenotipos resultantes. ¿Se cumple la proporción 3:1 o 9:3:3:1?",
-      "pista": "Generación F1",
+      "mensaje": "Elige el tamaño de la muestra y cruza. Si χ² supera el valor crítico, los datos contradicen tu predicción.",
+      "pista": "Cruza y χ²",
       "tipo": "accion",
     },
     {
       "accion": "Validar Herencia",
       "id": 4,
-      "mensaje": "Confirma los resultados estadísticos de la descendencia para certificar la cruza.",
+      "mensaje": "Con una muestra de al menos 100 semillas y tu predicción registrada, valida la práctica.",
       "pista": "Validar Alelos",
       "tipo": "verificar",
     },
@@ -16765,20 +16765,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Cambia el color del fondo. Las polillas que contrasten más serán cazadas primero. Inicia la simulación.",
+      "mensaje": "Fíjate en la corteza. Un ave caza lo que alcanza a ver: caza la cuota de esta generación.",
       "pista": "Camuflaje",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Tras varias generaciones, observa cómo cambia la frecuencia de los colores en la población.",
-      "pista": "Deriva Genética",
+      "mensaje": "Pulsa «Siguiente generación»: las supervivientes se reproducen. Compara el % de oscuras y q de cada generación.",
+      "pista": "Generaciones",
       "tipo": "accion",
     },
     {
       "accion": "Validar Selección",
       "id": 4,
-      "mensaje": "Analiza los datos del gráfico de población y valida el proceso evolutivo.",
+      "mensaje": "Con al menos 3 generaciones registradas, valida el proceso evolutivo.",
       "pista": "Validar Adaptación",
       "tipo": "verificar",
     },
@@ -16792,20 +16792,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Ajusta la fuerza del impacto. El sensor detectará el estímulo y la respuesta motora.",
+      "mensaje": "Golpea con varias fuerzas. ¿Hay una fuerza que no produzca reflejo? ¿Cambia la latencia al golpear más fuerte?",
       "pista": "Golpe de Martillo",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Mide el tiempo entre el golpe y la contracción. Calcula la velocidad basándote en la longitud del nervio.",
+      "mensaje": "A la latencia réstale los retardos de la sinapsis y de la placa; divide la distancia del arco entre ese tiempo.",
       "pista": "Latencia",
       "tipo": "calculo",
     },
     {
       "accion": "Validar Reflejo",
       "id": 4,
-      "mensaje": "Confirma que el arco reflejo funciona correctamente para los parámetros de mielina actuales.",
+      "mensaje": "Escribe tu velocidad, elige el diagnóstico y valida.",
       "pista": "Validar Respuesta",
       "tipo": "verificar",
     },
@@ -16813,26 +16813,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-8": [
     {
       "id": 1,
-      "mensaje": "Analizaremos la sístole y diástole. ¡Escucha el latido del motor de la vida!",
+      "mensaje": "Tienes un paciente monitorizado. El monitor no muestra la FC: hay que medirla en el trazo.",
       "pista": "Ciclo Cardíaco",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Cambia entre reposo y ejercicio. Observa cómo el corazón ajusta su frecuencia cardíaca (BPM).",
-      "pista": "Estado Fisiológico",
+      "mensaje": "Cuenta los cuadros grandes (200 ms) entre dos picos R: FC = 300 / n. Con eso diagnostica el ritmo de llegada.",
+      "pista": "Medir el R-R",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Observa la variación de presión en las cámaras. El cierre de las válvulas crea los sonidos cardíacos.",
-      "pista": "Presión Arterial",
+      "mensaje": "Elige un fármaco según su mecanismo (vagal, β1 o antagonista β1). Tras cada bolo, vuelve a medir.",
+      "pista": "Tratamiento",
       "tipo": "accion",
     },
     {
       "accion": "Validar Cardio",
       "id": 4,
-      "mensaje": "Alcanza el ritmo objetivo para el escenario actual y valida el análisis hemodinámico.",
+      "mensaje": "Cuando el ritmo esté entre 60 y 100 lpm, registra la FC medida y valida.",
       "pista": "Validar Ritmo",
       "tipo": "verificar",
     },
@@ -16840,26 +16840,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-9": [
     {
       "id": 1,
-      "mensaje": "Descompondremos macromoléculas usando enzimas específicas. ¡Química digestiva!",
+      "mensaje": "Tienes un alimento asignado. Lo digerirás en un tubo de ensayo a 37 °C.",
       "pista": "Digestión Enzimática",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Elige entre proteínas, lípidos o carbohidratos. Selecciona la enzima correcta (Pepsina, Lipasa, Amilasa).",
+      "mensaje": "Elige una enzima e incuba. Si no hay reacción, piensa en la especificidad: ¿esa enzima reconoce tu sustrato?",
       "pista": "Sustrato y Enzima",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ajusta el pH del medio. Cada enzima tiene un pH óptimo donde su actividad es máxima.",
+      "mensaje": "Ajusta el pH: lejos del óptimo la actividad cae y algunas enzimas se desnaturalizan. Si tu sustrato es grasa, ¿qué la emulsiona?",
       "pista": "Optimización de pH",
       "tipo": "accion",
     },
     {
       "accion": "Validar Digestión",
       "id": 4,
-      "mensaje": "Cuando la hidrólisis sea completa y obtengas monómeros, valida el proceso digestivo.",
+      "mensaje": "Con una hidrólisis completa, indica dónde actúa la enzima y dónde se absorben los productos, y valida.",
       "pista": "Absorción",
       "tipo": "verificar",
     },
@@ -16873,7 +16873,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "La cinemática escolar se acabó. El terreno NO es simétrico. Usa la ecuación y(x) = y₀ + x·tan(θ) - (g·x²) / (2v₀²·cos²(θ)). Esta ecuación define estrictamente tu trayectoria en 2D.",
+      "mensaje": "El terreno NO es simétrico: el cañón está a una altura y₀. En el vacío la trayectoria es y(x) = y₀ + x·tan(θ) − g·x² / (2v₀²·cos²(θ)). Úsala para una primera estimación: el aire y el viento la desvían un poco.",
       "pista": "Parábola General",
       "tipo": "calculo",
     },
@@ -16886,7 +16886,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Ejecutar Fuego",
       "id": 4,
-      "mensaje": "Cuando visualices que la parábola predictora (línea verde) atraviesa el centro del objetivo, ejecuta el disparo. ¡Buena suerte, cadete!",
+      "mensaje": "Dispara con tu estimación. La traza del disparo queda dibujada: compárala con tu cálculo y corrige ángulo o velocidad. Tienes 3 disparos por misión; un impacto confirmado basta para validar.",
       "pista": "Impacto Confirmado",
       "tipo": "verificar",
     },
@@ -16900,20 +16900,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Orienta los imanes (Norte/Sur). La dirección del campo magnético determinará el sentido del giro.",
+      "mensaje": "Orienta los imanes. Con polos opuestos enfrentados (N–S) el campo atraviesa la bobina; con polos iguales no hay campo neto y el rotor no gira. Invertir el campo invierte el sentido de giro.",
       "pista": "Configuración Magnética",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Aumenta las vueltas de la bobina. Más espiras significan un mayor torque motor.",
+      "mensaje": "Elige el número de espiras. Más espiras dan más par por amperio (k = N·B·A), pero a igual voltaje el motor gira MÁS DESPACIO, porque su fuerza contraelectromotriz k·ω crece más rápido.",
       "pista": "Número de Espiras",
       "tipo": "accion",
     },
     {
       "accion": "Validar Torque",
       "id": 4,
-      "mensaje": "Cierra el circuito y mide las RPM. Valida cuando el motor alcance la velocidad de diseño.",
+      "mensaje": "Calcula el voltaje para el reto: I = τ/k y V = k·ω + I·Rₐ (ω en rad/s). Escríbelo, ajusta la fuente a ese valor y energiza. El tacómetro debe marcar la velocidad pedida (±5 %) en el sentido pedido.",
       "pista": "Encendido de Motor",
       "tipo": "verificar",
     },
@@ -16921,33 +16921,33 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "fisica-2": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido al Plano de Pruebas. Tu misión es calcular la aceleración exacta de un bloque sobre una rampa inclinada para certificar su descenso.",
+      "mensaje": "¡Hola, {alumno}! Bienvenido al Plano de Pruebas. Tu misión es PREDECIR la aceleración de un bloque sobre una rampa con fricción, y luego comprobarla soltándolo.",
       "pista": "¡Bienvenida!",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Usa el control "Inclinador Hidráulico" para ajustar el ángulo θ. Observa cómo cambian los vectores de fuerza (Peso, Normal y Fricción) en la escena 3D.",
-      "pista": "Configura la Rampa",
+      "mensaje": "Ajusta el ángulo θ, la fuerza F paralela a la rampa (positiva hacia arriba; puede ser cero o negativa) y la carga extra. Los coeficientes μs y μk están en el panel de datos.",
+      "pista": "Configura el Ensayo",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Calcula la fuerza tangencial Wx = m · g · sin(θ). Si Wx supera la fricción estática máxima (fs_max = μs · N), el bloque comenzará a deslizarse.",
-      "pista": "Fuerza de Deslizamiento",
+      "mensaje": "Calcula N = m·g·cos(θ) y la fuerza que tiende a moverlo, F − m·g·sin(θ). Si su valor absoluto no supera μs·N, el bloque se queda quieto: elige otra configuración.",
+      "pista": "¿Se mueve?",
       "tipo": "calculo",
     },
     {
       "id": 4,
-      "mensaje": "Lleva la rampa más allá del ángulo crítico para activar el descenso. El bloque acelerará según la 2da Ley de Newton: a = (Wx - fk) / m.",
-      "pista": "Inicia el Descenso",
-      "tipo": "accion",
+      "mensaje": "Si se mueve, la fricción cinética μk·N se opone al movimiento: a = (F − m·g·sin(θ) ∓ μk·N) / m. Toma positiva la aceleración hacia arriba de la rampa.",
+      "pista": "Segunda Ley",
+      "tipo": "calculo",
     },
     {
       "accion": "Verificar Cálculos",
       "id": 5,
-      "mensaje": "Una vez que el bloque haya descendido, introduce el valor de la aceleración calculada en el dock inferior y presiona "Validar". ¡Precisión absoluta!",
-      "pista": "Valida la Aceleración",
+      "mensaje": "Escribe tu predicción y pulsa "Soltar bloque". El sensor mide la distancia y el tiempo: si tu predicción coincide (±0.1 m/s²), valida tu práctica.",
+      "pista": "Predice y Suelta",
       "tipo": "verificar",
     },
   ],
@@ -16966,13 +16966,13 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Desplaza la masa y suéltala. Usa el cronómetro para medir el tiempo de 10 oscilaciones y sacar el promedio.",
+      "mensaje": "Suelta el péndulo y cronometra al menos 10 oscilaciones completas (la fotopuerta las cuenta). Registra el tiempo y el número de oscilaciones: T = t/n. Mide dos masas con la misma L y al menos tres longitudes distintas.",
       "pista": "Inicia Oscilación",
       "tipo": "accion",
     },
     {
       "id": 4,
-      "mensaje": "Usa T = 2π√(L/g) para despejar la gravedad. Ingresa el valor en la telemetría.",
+      "mensaje": "Despeja g = 4π²L/T² con cada muestra y promedia. Escribe tu g y pulsa "Comprobar análisis" (tolerancia ±5 %).",
       "pista": "Despeja g",
       "tipo": "calculo",
     },
@@ -16993,20 +16993,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Cuelga diferentes pesos y observa la elongación (x). Los vectores mostrarán la fuerza restauradora.",
+      "mensaje": "Método estático: cuelga al menos dos cargas distintas y registra la elongación x que marca la regla con la carga en reposo.",
       "pista": "Carga de Masas",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Calcula k = F / x para cada medición. ¿Es constante? Verifica la linealidad en el gráfico.",
+      "mensaje": "Calcula k = m·g / x para cada carga. ¿Es constante? Luego el método dinámico: suelta la carga desde una amplitud A y cronometra al menos 10 oscilaciones con tres cargas distintas y con dos amplitudes: k = 4π²m/T².",
       "pista": "Constante k",
       "tipo": "calculo",
     },
     {
       "accion": "Validar Elongación",
       "id": 4,
-      "mensaje": "Presiona Validar cuando identifiques la constante elástica.",
+      "mensaje": "Escribe tu k (los dos métodos deben coincidir, ±5 %), pulsa "Comprobar análisis" y valida tu práctica.",
       "pista": "Validar Resorte",
       "tipo": "verificar",
     },
@@ -17026,14 +17026,14 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Aplica fuerza F1 para levantar el vehículo. Verifica que la presión sea igual en ambos lados.",
+      "mensaje": "Calcula la fuerza mínima que sostiene la carga: F₁ = m·g·(r₁/r₂)². Escríbela como predicción, elige una F₁ y pulsa "Bombear": si la presión alcanza, la carga sube (mucho menos de lo que baja el émbolo pequeño).",
       "pista": "Eleva la Carga",
       "tipo": "accion",
     },
     {
       "accion": "Validar Elevación",
       "id": 4,
-      "mensaje": "Presiona Validar cuando la carga esté en la altura objetivo.",
+      "mensaje": "Cuando la carga suba y tu fuerza mínima sea correcta (±3 %), valida tu práctica.",
       "pista": "Validar Ganancia",
       "tipo": "verificar",
     },
@@ -17041,32 +17041,32 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "fisica-6": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido a la boya experimental. Tu misión es utilizar el Principio de Arquímedes para determinar la densidad de un material desconocido.",
+      "mensaje": "¡Hola, {alumno}! Bienvenido a la boya experimental. Tu misión es usar el Principio de Arquímedes para determinar la densidad de un sólido desconocido.",
       "pista": "¡Bienvenida!",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Escoge el "Material ?" (Misterioso) en el dock. Observa su peso (W) en el dinamómetro mientras está fuera del agua.",
-      "pista": "Selecciona Material",
+      "mensaje": "Con el sólido fuera del fluido (0 % sumergido), lee el dinamómetro y pulsa "Peso en aire" para registrar W.",
+      "pista": "Pesa en el aire",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Baja el bloque al tanque de fluido. Observa cómo el peso aparente disminuye debido a la fuerza de empuje (E).",
+      "mensaje": "Elige el fluido y baja el sólido hasta el 100 %. Observa cómo la lectura disminuye por el empuje (E) y registra el "Peso sumergido".",
       "pista": "Sumerge el Objeto",
       "tipo": "accion",
     },
     {
       "id": 4,
-      "mensaje": "Calcula el empuje E = W_aire - W_sumergido. Luego usa la fórmula E = ρ_fluido · g · V para encontrar el volumen del objeto si no lo conoces, o usa ρ_obj = m / V.",
+      "mensaje": "Calcula el empuje E = W_aire − W_sumergido. Con E = ρ_fluido · g · V despeja el volumen del sólido y después su densidad ρ = W / (g · V).",
       "pista": "Principio de Arquímedes",
       "tipo": "calculo",
     },
     {
       "accion": "Validar Densidad",
       "id": 5,
-      "mensaje": "Introduce la densidad calculada en kg/m³. Tienes un margen de error del 5%. ¡Mucha suerte!",
+      "mensaje": "Escribe la densidad calculada en kg/m³ y pulsa "Comprobar análisis" (tolerancia ±3 %). ¡Mucha suerte!",
       "pista": "Valida la Densidad",
       "tipo": "verificar",
     },
@@ -17074,26 +17074,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "fisica-7": [
     {
       "id": 1,
-      "mensaje": "Veremos cómo los metales crecen con el calor. ¡Cuidado con el quemador!",
+      "mensaje": "Veremos cómo los metales se alargan con el calor. Calentaremos una barra haciendo pasar vapor por su interior.",
       "pista": "Dilatación Térmica",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Incrementa la temperatura de la barra de metal. Usa el micrómetro para medir el cambio en la longitud ΔL.",
+      "mensaje": "Monta el "Metal ?" y pulsa "Pasar vapor". Cuando el termómetro suba al menos 20 °C (mejor si se estabiliza cerca de 100 °C), lee el comparador y registra la medición.",
       "pista": "Calentamiento",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Aplica ΔL = α * L0 * ΔT. Despeja α e identifica el material según su expansión.",
+      "mensaje": "Aplica ΔL = α · L₀ · ΔT y despeja α. Ojo: L₀ y ΔL deben estar en las mismas unidades (mm). Puedes calibrar el método con las barras de α conocido.",
       "pista": "Coeficiente Alfa",
       "tipo": "calculo",
     },
     {
       "accion": "Validar Expansión",
       "id": 4,
-      "mensaje": "Presiona Validar cuando identifiques el coeficiente de dilatación.",
+      "mensaje": "Escribe α en unidades de 10⁻⁶ /°C y pulsa "Comprobar análisis" (tolerancia ±5 %).",
       "pista": "Validar Material",
       "tipo": "verificar",
     },
@@ -17101,50 +17101,38 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "fisica-8": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido al Laboratorio de Electrónica. Tu misión es diseñar un circuito seguro para un componente delicado: un LED de alta luminosidad.",
+      "mensaje": "¡Hola, {alumno}! Bienvenido al Laboratorio de Electrónica. Tu misión es diseñar la resistencia que protege a un LED rojo: que trabaje a 20 mA sin quemarse.",
       "pista": "Ley de Ohm",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Recuerda la relación fundamental: V = I · R. El voltaje empuja, la resistencia frena y la intensidad es el flujo resultante. ¡Dominar esto es dominar la energía!",
-      "pista": "Trinidad Eléctrica",
-      "tipo": "calculo",
+      "mensaje": "En el Módulo 01 conecta la fuente y el LED (clic en cada pieza) y cierra el circuito. Sin nada que limite la corriente, sólo la frena la resistencia interna de la fuente: mira qué le pasa al LED.",
+      "pista": "Sin resistencia",
+      "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ajusta el Voltaje de la fuente de poder en el HUD. Observa cómo los indicadores de telemetría reaccionan. A mayor voltaje, mayor presión sobre los electrones.",
-      "pista": "Configura la Fuente",
-      "tipo": "accion",
-    },
-    {
-      "id": 4,
-      "mensaje": "Elige una resistencia de carga del dock. Mira las bandas de colores en el componente SVG; representan el valor en Ohmios. Una resistencia mayor reducirá el flujo.",
-      "pista": "Selecciona Carga",
-      "tipo": "accion",
-    },
-    {
-      "id": 5,
-      "mensaje": "Antes de cerrar el circuito, calcula la intensidad esperada: I = V / R. El LED se funde a los 35mA. Busca un valor cercano a los 20mA para máxima seguridad.",
-      "pista": "Predicción de Flujo",
+      "mensaje": "El LED se lleva unos 2 V (su caída directa V_f); el resto del voltaje cae en la resistencia. Por eso R = (V_fuente − V_f) / I. Calcula R para I = 20 mA con el voltaje de tu fuente.",
+      "pista": "Diseña R",
       "tipo": "calculo",
     },
     {
-      "id": 6,
-      "mensaje": "¡Es hora! Presiona el interruptor "Cerrar Circuito". Observa el flujo de electrones (puntos amarillos) y el brillo del LED. ¡Si brilla en verde, lo lograste!",
-      "pista": "Cierra el Circuito",
+      "id": 4,
+      "mensaje": "En el Módulo 02 conecta fuente, resistencia y LED, escribe tu R calculada, ajusta la caja de resistencias a ese valor y cierra el circuito. Lee I, V de la resistencia y V del LED en el multímetro.",
+      "pista": "Monta y ensaya",
       "tipo": "accion",
     },
     {
       "accion": "Certificar Circuito",
-      "id": 7,
-      "mensaje": "Ingresa el valor de la resistencia que estás usando en el campo de texto y presiona "Validar V=IR". Esto certificará tu diseño en el sistema.",
-      "pista": "Validar Ingeniería",
+      "id": 5,
+      "mensaje": "Si el multímetro marca unos 20 mA y el LED brilla sin quemarse, tu diseño es correcto. Pulsa "Validar práctica".",
+      "pista": "Validar diseño",
       "tipo": "verificar",
     },
     {
-      "id": 8,
-      "mensaje": "¡Excelente trabajo! Has protegido el componente y validado la Ley de Ohm. Has demostrado que puedes controlar la energía con precisión matemática.",
+      "id": 6,
+      "mensaje": "¡Excelente trabajo! Has usado la Ley de Ohm teniendo en cuenta la caída del LED: así se diseña cualquier indicador luminoso.",
       "pista": "¡Ingeniero Eléctrico!",
       "tipo": "logro",
     },
@@ -17158,20 +17146,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Ajusta los valores de q1 y q2. Observa cómo cambian los vectores de fuerza eléctrica.",
+      "mensaje": "En la zona de exploración cambia q₁ y q₂. Observa cómo cambia la dirección de las fuerzas: cargas de igual signo se repelen y de signo opuesto se atraen.",
       "pista": "Magnitud de Carga",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Mueve las cargas. Nota cómo la fuerza disminuye drásticamente al aumentar la distancia (ley del inverso al cuadrado).",
+      "mensaje": "Cambia la separación r (en centímetros). La fuerza disminuye con el cuadrado de la distancia: al duplicar r, F se reduce a la cuarta parte.",
       "pista": "Variación de Distancia",
       "tipo": "accion",
     },
     {
       "accion": "Validar Fuerza",
       "id": 4,
-      "mensaje": "Calcula la fuerza resultante para los valores actuales y valida tu resultado.",
+      "mensaje": "Resuelve el reto: convierte μC a C y cm a m, calcula |F| = k·|q₁q₂|/r² en newtons, elige atracción o repulsión y pulsa "Comprobar" (tolerancia ±3 %).",
       "pista": "Validar Fuerza",
       "tipo": "verificar",
     },
@@ -17179,50 +17167,44 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-1": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Soy el Dr. Quantum. Tu misión es ajustar los controles del piloto hasta que tu parábola coincida con la trayectoria guía (la línea punteada blanca). ¡Empecemos!",
+      "mensaje": "¡Hola, {alumno}! Soy el Dr. Quantum. La trayectoria objetivo no trae su ecuación: sólo conoces TRES PUNTOS MEDIDOS (la guía punteada y la tabla del panel). Tu misión es deducir a, b y c.",
       "pista": "¡Bienvenida!",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Primero calcula el DISCRIMINANTE. La fórmula es: Δ = b² − 4ac. Sustituye los valores a, b y c que ves en la Sonda de Telemetría del piloto. Anota el resultado en la Bitácora.",
-      "pista": "Calcula Δ",
+      "mensaje": "Con x = −1, 0 y 1 el sistema sale directo: f(0) = c; f(1) − f(−1) = 2b; f(1) + f(−1) = 2a + 2c. Despeja los tres coeficientes.",
+      "pista": "Usa los puntos",
       "tipo": "calculo",
     },
     {
       "id": 3,
-      "mensaje": "¡Bien! Ahora calcula la abscisa del vértice: h = −b ÷ (2a). Ese punto es el máximo o mínimo de la parábola — lo verás marcado en rojo en la gráfica. Verifícalo en la Bitácora.",
+      "mensaje": "Mueve los controles del dock. La tabla compara tu f(x) con cada punto medido: cuando las tres filas coincidan, tu parábola es la de la trayectoria.",
+      "pista": "Ajusta a, b y c",
+      "tipo": "accion",
+    },
+    {
+      "id": 4,
+      "mensaje": "Con TUS coeficientes calcula el discriminante Δ = b² − 4ac y compruébalo en la Bitácora. Su signo dice cuántas raíces reales tiene la parábola.",
+      "pista": "Calcula Δ",
+      "tipo": "calculo",
+    },
+    {
+      "id": 5,
+      "mensaje": "Calcula la abscisa del vértice h = −b ÷ (2a) y compruébala en la Bitácora. Ese punto es el máximo o el mínimo de la parábola.",
       "pista": "Ubica el Vértice",
       "tipo": "calculo",
     },
     {
-      "id": 4,
-      "mensaje": "Usa el control "Amplitud (a)" del dock inferior. Si a > 0, la parábola abre hacia ARRIBA (mínimo). Si a < 0, abre hacia ABAJO (máximo). Asegúrate de que tu parábola tenga la misma concavidad que la guía.",
-      "pista": "Ajusta el coeficiente a",
-      "tipo": "accion",
-    },
-    {
-      "id": 5,
-      "mensaje": "El control "Simetría (b)" desplaza el vértice horizontalmente. El control "Intercepto (c)" mueve toda la parábola arriba o abajo. Ajusta ambos para acercar tu curva a la trayectoria guía.",
-      "pista": "Ajusta b y c",
-      "tipo": "accion",
-    },
-    {
+      "accion": "Validar",
       "id": 6,
-      "mensaje": "Observa el panel "3 Formas Equivalentes". Verifica que la Forma Vértice a(x−h)²+k y la Forma Factorizada a(x−r₁)(x−r₂) representen la misma ecuación. Son tres expresiones algebraicamente idénticas.",
-      "pista": "Verifica las 3 Formas",
-      "tipo": "calculo",
-    },
-    {
-      "accion": "Ir a Validar →",
-      "id": 7,
-      "mensaje": "¡Listo! Cuando tu parábola coincida visualmente con la guía y el % SYNC esté alto, presiona "Validar Trayectoria" en el dock. Validar en el primer intento te da ⭐⭐⭐.",
+      "mensaje": "Con Δ y h comprobados y la parábola sobre los tres puntos, presiona «Validar» en el dock.",
       "pista": "Valida la Trayectoria",
       "tipo": "verificar",
     },
     {
-      "id": 8,
-      "mensaje": "¡Fenomenal! Has dominado las tres formas de la ecuación cuadrática. Recuerda: esta función describe trayectorias reales — desde proyectiles hasta antenas parabólicas. ¡La matemática está en todas partes!",
+      "id": 7,
+      "mensaje": "¡Fenomenal! Reconstruiste una función cuadrática a partir de mediciones: así se ajustan trayectorias reales, desde proyectiles hasta antenas parabólicas.",
       "pista": "¡Misión Cumplida!",
       "tipo": "logro",
     },
@@ -17230,26 +17212,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-10": [
     {
       "id": 1,
-      "mensaje": "Exploraremos la probabilidad y la curva normal. ¿Hacia dónde caerán las bolitas?",
+      "mensaje": "Cada bolita choca con 10 clavos y en cada uno va a la derecha con probabilidad p. El contenedor final cuenta cuántas veces fue a la derecha.",
       "pista": "Máquina de Galton",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Inicia el lanzamiento de bolitas. Observa cómo se acumulan en los contenedores siguiendo una distribución binomial.",
+      "mensaje": "Ese conteo sigue una Binomial(10, p): μ = n·p y σ = √(n·p·(1 − p)). Escribe tu predicción en el panel antes de mirar la muestra.",
+      "pista": "Predice μ y σ",
+      "tipo": "calculo",
+    },
+    {
+      "id": 3,
+      "mensaje": "Suelta bolitas hasta tener al menos 200. Compara el histograma con la curva teórica y la media muestral con tu μ.",
       "pista": "Lanza la Población",
       "tipo": "accion",
     },
     {
-      "id": 3,
-      "mensaje": "A medida que aumentas la población, la forma de la campana se vuelve más definida. Verifica la probabilidad 0.5.",
-      "pista": "Campana de Gauss",
-      "tipo": "calculo",
-    },
-    {
-      "accion": "Validar Datos",
+      "accion": "Validar Distribución",
       "id": 4,
-      "mensaje": "Presiona Validar cuando la muestra sea estadísticamente significativa.",
+      "mensaje": "Presiona Validar: se comprueba tu predicción (±0.05) y que el histograma se ajusta a la binomial (prueba χ²).",
       "pista": "Validar Distribución",
       "tipo": "verificar",
     },
@@ -17257,26 +17239,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-2": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido a la central de rastreo. Tu objetivo es encontrar el punto exacto donde se interceptan dos haces láser para localizar un satélite.",
+      "mensaje": "¡Hola, {alumno}! Bienvenido a la central de rastreo. Tu objetivo es que dos haces láser se crucen exactamente sobre el satélite.",
       "pista": "Localización 2x2",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Usa los controles del Haz Alpha (m1, b1). La pendiente m1 determina la inclinación. Intenta que el haz pase cerca del objetivo rojo.",
+      "mensaje": "Usa los controles del Haz Alpha (m₁, b₁). La pendiente m₁ determina la inclinación y b₁ dónde corta al eje Y. Haz que el haz pase por el objetivo.",
       "pista": "Calibra Haz Alpha",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ahora ajusta el Haz Omega (m2, b2). Busca que la intersección de ambas líneas coincida exactamente con la señal del satélite.",
+      "mensaje": "Ahora ajusta el Haz Omega (m₂, b₂) con una pendiente DISTINTA: con pendientes iguales las rectas son paralelas (sin solución) o la misma recta (infinitas).",
       "pista": "Calibra Haz Omega",
       "tipo": "accion",
     },
     {
-      "accion": "Validar Enlace",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Cuando las líneas se crucen sobre el objetivo, el sistema mostrará "Coordinates Matched". Presiona Validar para asegurar el enlace.",
+      "mensaje": "Cuando la intersección quede a menos de 0.1 del objetivo en cada coordenada, presiona Validar.",
       "pista": "Sincronía de Coordenadas",
       "tipo": "verificar",
     },
@@ -17284,26 +17266,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-3": [
     {
       "id": 1,
-      "mensaje": "Bienvenido, {alumno}. Analizaremos la escala logarítmica de Richter. ¿Sabías que un grado más significa 32 veces más energía?",
+      "mensaje": "Bienvenido, {alumno}. Analizaremos la escala logarítmica de magnitud de momento. ¿Sabías que un grado más significa unas 32 veces más energía (10^1.5)?",
       "pista": "Alerta Sísmica",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Ajusta la magnitud del sismo experimental. Observa cómo crece la amplitud de la onda en el sismógrafo 3D de forma no lineal.",
+      "mensaje": "Lleva la estación experimental a la magnitud del sismo objetivo. Alterna la gráfica entre escala lineal y logarítmica: en la lineal los sismos pequeños desaparecen.",
       "pista": "Simula el Sismo",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Calcula el factor de energía usando la fórmula 10^(1.5 * ΔM). Ingresa el valor en el panel de telemetría para validar tu análisis.",
+      "mensaje": "Calcula ΔM = M_objetivo − M_base y el factor de energía 10^(1.5·ΔM). No lo confundas con el factor de amplitud 10^ΔM.",
       "pista": "Factor de Energía",
       "tipo": "calculo",
     },
     {
-      "accion": "Validar Análisis",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Si tu cálculo de energía coincide con el impacto visual, presiona Validar Informe.",
+      "mensaje": "Escribe tu factor (se acepta ±5 %) y presiona Validar.",
       "pista": "Certificar Informe",
       "tipo": "verificar",
     },
@@ -17323,14 +17305,14 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Activa el flujo de agua. Si el Teorema es cierto, el volumen de los dos cuadrados pequeños debe llenar EXACTAMENTE el cuadrado de la hipotenusa.",
+      "mensaje": "Pulsa «Verter Fluido». Si el Teorema es cierto, el agua de los dos cuadrados pequeños llena EXACTAMENTE el cuadrado de la hipotenusa.",
       "pista": "Trasvase de Fluidos",
       "tipo": "accion",
     },
     {
-      "accion": "Verificar Hipotenusa",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Calcula la raíz cuadrada de la suma de las áreas e ingresa el valor de la hipotenusa (c).",
+      "mensaje": "Calcula la raíz cuadrada de a² + b², escribe la hipotenusa c (se acepta ±0.1) y valida.",
       "pista": "Cálculo de C",
       "tipo": "verificar",
     },
@@ -17338,51 +17320,51 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-5": [
     {
       "id": 1,
-      "mensaje": "Bienvenido al osciloscopio trigonométrico. Aquí el radio siempre es 1. ¡Exploremos las funciones circulares!",
+      "mensaje": "Bienvenido al osciloscopio trigonométrico. Aquí el radio siempre es 1: el coseno es la sombra horizontal y el seno la vertical.",
       "pista": "Círculo Unitario",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Activa la animación y observa cómo la proyección vertical (Seno) y horizontal (Coseno) crean ondas sinusoidales.",
+      "mensaje": "Activa la animación y observa cómo la proyección vertical (seno) y la horizontal (coseno) crean ondas sinusoidales.",
       "pista": "Genera la Onda",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Detén el vector en ángulos notables (45°, 90°, 180°) y registra los hallazgos en la bitácora para ver la tabla de valores.",
-      "pista": "Captura Puntos",
-      "tipo": "accion",
+      "mensaje": "Lee la ecuación del panel. En una vuelta completa hay DOS ángulos que la cumplen: piensa en qué cuadrantes la proyección tiene ese signo.",
+      "pista": "Resuelve la Ecuación",
+      "tipo": "calculo",
     },
     {
-      "accion": "Validar Fase",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Lleva el vector a la posición objetivo y valida la fase para completar el análisis.",
-      "pista": "Sincronía de Fase",
+      "mensaje": "Detén el vector en cada solución, captúrala y valida. Una captura incorrecta invalida la práctica: usa «Limpiar muestras».",
+      "pista": "Captura y Valida",
       "tipo": "verificar",
     },
   ],
   "matematicas-6": [
     {
       "id": 1,
-      "mensaje": "Tu misión es acoplar la sonda espacial usando traslaciones, rotaciones y escalas. ¡Precisión de navegación!",
+      "mensaje": "Tu misión es acoplar la sonda con la silueta objetivo usando escala, rotación y traslación. El panel no te da los números: tienes que leerlos de la figura.",
       "pista": "Transformaciones",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Ajusta el tamaño de la sonda para que coincida con el fantasma objetivo. Luego rótala para alinear los puertos de acoplamiento.",
+      "mensaje": "Ajusta el tamaño de la sonda para que coincida con la silueta. Luego rótala para alinear los puertos de acoplamiento.",
       "pista": "Escala y Rota",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Mueve la sonda en los ejes cartesianos. Recuerda que cada transformación es una operación matricial en el fondo.",
+      "mensaje": "Mueve la sonda en los ejes cartesianos. La matriz M = T·R·S del panel es la operación que estás aplicando.",
       "pista": "Traslación X/Y",
       "tipo": "accion",
     },
     {
-      "accion": "Ejecutar Docking",
+      "accion": "Validar",
       "id": 4,
       "mensaje": "Cuando la superposición sea total, presiona Validar Acoplamiento.",
       "pista": "Acoplamiento",
@@ -17392,26 +17374,26 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-7": [
     {
       "id": 1,
-      "mensaje": "Calcularemos índices de refracción usando trigonometría. Dispara el láser y observa la desviación.",
+      "mensaje": "Calcularemos un índice de refracción desconocido usando trigonometría. Dispara el láser y observa la desviación.",
       "pista": "Óptica de Snell",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Usa el transportador para medir el ángulo de incidencia y el de refracción. Anótalos en la bitácora.",
+      "mensaje": "Elige θ₁ con el deslizador y mide el ángulo refractado θ₂ en el transportador. Ambos ángulos se miden desde la NORMAL, no desde la superficie.",
       "pista": "Mide Ángulos",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Aplica n1*sin(θ1) = n2*sin(θ2). Despeja n2 e ingresa el valor para identificar el material misterioso.",
+      "mensaje": "Aplica n₁·sen(θ₁) = n₂·sen(θ₂). Despeja n₂ y escríbelo en el panel.",
       "pista": "Ley de Snell",
       "tipo": "calculo",
     },
     {
-      "accion": "Validar Refracción",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Presiona Validar cuando tengas el índice n2 calculado.",
+      "mensaje": "Presiona Validar cuando tengas n₂ (se acepta ±0.05).",
       "pista": "Validar Índice",
       "tipo": "verificar",
     },
@@ -17419,53 +17401,53 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-8": [
     {
       "id": 1,
-      "mensaje": "Encontraremos los puntos críticos de una función. La derivada nos dice la pendiente de la recta tangente.",
+      "mensaje": "La posición del cohete es s(t) = −k·t³ + m·t² (los números están en el panel). La derivada s'(t) es la pendiente de la recta tangente: la velocidad.",
       "pista": "La Derivada",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Mueve el cursor sobre la gráfica. Observa cómo cambia la recta tangente. Busca donde la pendiente es CERO.",
+      "mensaje": "Mueve el instante t. Observa cómo la recta secante se acerca a la tangente y cómo cambia la velocidad v(t).",
       "pista": "Escanea la Curva",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Ubica los valles y las cimas. En estos puntos la función cambia de dirección. Valida los puntos críticos encontrados.",
-      "pista": "Máximos y Mínimos",
+      "mensaje": "La velocidad es máxima donde su propia derivada se anula: calcula a(t) = v'(t) y resuelve a(t) = 0.",
+      "pista": "Máxima Velocidad",
       "tipo": "calculo",
     },
     {
-      "accion": "Validar Extremos",
+      "accion": "Validar",
       "id": 4,
-      "mensaje": "Presiona Validar cuando hayas localizado los extremos de la función.",
-      "pista": "Validar Optimización",
+      "mensaje": "Marca ese instante (se acepta ±0.2 s) y presiona Validar.",
+      "pista": "Validar Telemetría",
       "tipo": "verificar",
     },
   ],
   "matematicas-9": [
     {
       "id": 1,
-      "mensaje": "Calcularemos el área bajo la curva usando rectángulos. A más rectángulos, mayor precisión.",
+      "mensaje": "Calcularemos el área bajo f(x) = 0.1x² + 1 en [0, 10] con rectángulos. El reto del panel te dice el método y el error máximo permitido.",
       "pista": "Sumas de Riemann",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Aumenta el número de rectángulos (n). Observa cómo el error de aproximación disminuye visualmente.",
-      "pista": "Incrementa n",
-      "tipo": "accion",
-    },
-    {
-      "id": 3,
-      "mensaje": "Prueba con extremos izquierdos, derechos y puntos medios. ¿Cuál se acerca más al valor real de la integral?",
+      "mensaje": "Prueba extremos izquierdos, derechos y puntos medios con pocos rectángulos. Como f crece, la izquierda se queda corta y la derecha se pasa.",
       "pista": "Cambia el Método",
       "tipo": "accion",
     },
     {
+      "id": 3,
+      "mensaje": "Calcula la integral exacta con la regla de Barrow (antiderivada x³/30 + x) y compárala con la suma: así se mide el error relativo.",
+      "pista": "Integral Exacta",
+      "tipo": "calculo",
+    },
+    {
       "accion": "Validar Integral",
       "id": 4,
-      "mensaje": "Cuando logres un error menor al 1%, valida la integral.",
+      "mensaje": "Con el método del reto, aumenta n hasta que el error relativo quede bajo la tolerancia y valida.",
       "pista": "Validar Área",
       "tipo": "verificar",
     },
@@ -17524,20 +17506,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Ajusta la potencia de la manta calefactora para alcanzar una temperatura de vapor de ~78°C. Evita subir a 100°C para no arrastrar agua.",
+      "mensaje": "Sube la manta calefactora hasta apenas por encima de la ebullición de la mezcla (85-95 °C). La cabeza de la columna debe marcar cerca de 78 °C.",
       "pista": "Manta Calefactora",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Observa cómo el vapor asciende por la columna de fraccionamiento y se condensa en el refrigerante. Mantén la isoterma estable.",
+      "mensaje": "Observa cómo el vapor asciende por la columna y se condensa en el refrigerante. Si calientas a fondo destilará más rápido, pero el destilado saldrá más aguado.",
       "pista": "Equilibrio Vapor-Líquido",
       "tipo": "accion",
     },
     {
       "accion": "Certificar Pureza",
       "id": 4,
-      "mensaje": "Colecta al menos 50ml de destilado en la probeta graduada. Verifica la pureza en la telemetría digital antes de validar.",
+      "mensaje": "Colecta al menos 50 mL de destilado. El alcoholímetro del colector debe marcar 85 % v/v o más; entonces certifica la destilación.",
       "pista": "Recolección",
       "tipo": "verificar",
     },
@@ -17545,7 +17527,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-2": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido al laboratorio de Gases. Comienza ajustando la TEMPERATURA a 400K para observar la excitación molecular.",
+      "mensaje": "¡Hola, {alumno}! Bienvenido al laboratorio de Gases. Sube la TEMPERATURA con el termostato y observa cómo se agitan las partículas y sube la presión.",
       "pista": "¡Bienvenida!",
       "tipo": "intro",
     },
@@ -17557,7 +17539,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Observa el GRÁFICO DE ISOTERMAS. Cada punto del gráfico corresponde a un estado del gas. Intenta moverte por la curva suavemente.",
+      "mensaje": "Antes de mover otro control, calcula con PV = nRT la temperatura o el volumen que te dan la PRESIÓN OBJETIVO. R = 0.08206 atm·L/(mol·K).",
       "pista": "Analiza la Isoterma",
       "tipo": "calculo",
     },
@@ -17570,7 +17552,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Validar Telemetría",
       "id": 5,
-      "mensaje": "Cuando logres la PRESIÓN OBJETIVO (±0.05), el botón VALIDAR se activará. ¡Mantén el sistema en equilibrio!",
+      "mensaje": "Cuando la presión quede a ±0.1 atm del objetivo, pulsa VALIDAR. Cuidado: por encima de 7 atm la cámara colapsa.",
       "pista": "Sincroniza",
       "tipo": "verificar",
     },
@@ -17578,20 +17560,20 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-3": [
     {
       "id": 1,
-      "mensaje": "¡Bienvenido al núcleo de Fusión Estequiométrica! Tu misión es certificar la Conservación de la Masa. Ajusta los coeficientes para que los átomos en ambos lados sean idénticos.",
+      "mensaje": "¡Bienvenido al reactor de balanceo! Tu misión es demostrar la Conservación de la Masa: ajusta los coeficientes para que cada tipo de átomo aparezca el mismo número de veces en reactivos y productos.",
       "pista": "Protocolo Iniciado",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Utiliza los inyectores de masa en tu bitácora. Observa cómo el motor 3D renderiza las moléculas reales y el núcleo de plasma se estabiliza con cada ajuste correcto.",
-      "pista": "Sincronía Molecular",
+      "mensaje": "Sube o baja cada coeficiente con las flechas del panel inferior y compara el conteo de átomos de los dos paneles laterales. Usa los coeficientes enteros MÍNIMOS: si todos tienen un divisor común, simplifícalos.",
+      "pista": "Coeficientes mínimos",
       "tipo": "accion",
     },
     {
-      "accion": "Certificar Fusión",
+      "accion": "Validar práctica",
       "id": 3,
-      "mensaje": "Cuando logres el equilibrio atómico total, el núcleo emitirá una señal de estabilidad. Redacta tu conclusión técnica (50+ palabras) para obtener la certificación.",
+      "mensaje": "Cada reacción balanceada desbloquea la siguiente. Con 4 reacciones balanceadas, valida la práctica.",
       "pista": "Ley de Lavoisier",
       "tipo": "verificar",
     },
@@ -17599,40 +17581,40 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-4": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Bienvenido a la planta de amoníaco. Tu misión es optimizar la producción de NH₃ identificando el reactivo que limita la reacción.",
+      "mensaje": "¡Hola, {alumno}! El reactor ya está cargado con dos reactivos. Tu misión es averiguar cuál se agota primero y cuánto sobra del otro, antes de encender la síntesis.",
       "pista": "Reactivo Limitante",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Ajusta la cantidad inicial de Nitrógeno (N₂) e Hidrógeno (H₂) usando los controles del dock inferior. Observa cómo cambian las proporciones molares.",
-      "pista": "Carga de Reactivos",
+      "mensaje": "Lee en el panel izquierdo la ecuación balanceada, la masa cargada de cada reactivo y su masa molar. Con las flechas de arriba puedes cambiar de reacción.",
+      "pista": "Datos del Reactor",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Usa la proporción 1:3 para determinar el limitante. Divide los moles de cada reactivo entre su coeficiente. El menor valor te indicará quién se agota primero.",
+      "mensaje": "Calcula los moles de cada reactivo (n = m / M) y divídelos entre su coeficiente. El cociente menor indica el limitante. Con sus moles calcula cuánto del otro se consume; la diferencia, en gramos, es el exceso.",
       "pista": "Análisis Estequiométrico",
       "tipo": "calculo",
     },
     {
-      "accion": "Ejecutar Síntesis",
+      "accion": "Registrar y validar",
       "id": 4,
-      "mensaje": "Presiona "Iniciar Reacción". Observa el flujo de productos y cuánto reactivo queda en exceso. Si los cálculos son correctos, el rendimiento será máximo.",
-      "pista": "Inicia Síntesis",
+      "mensaje": "Elige el reactivo limitante, escribe la masa que sobra y pulsa «Registrar y validar». Si aciertas, el reactor ejecuta la síntesis y te muestra el rendimiento teórico.",
+      "pista": "Registrar y Validar",
       "tipo": "verificar",
     },
   ],
   "quimica-5": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Prepárate para forjar una solución de NaCl 0.5M. La precisión en el pesaje y el aforo determinará tu éxito.",
+      "mensaje": "¡Hola, {alumno}! Vas a preparar una solución con la molaridad y el volumen que marca tu misión. Empieza calculando la masa: m = M · V(L) · PM / pureza.",
       "pista": "Preparación Molar",
       "tipo": "intro",
     },
     {
       "id": 2,
-      "mensaje": "Coloca el vidrio de reloj en la balanza analítica y presiona TARA (botón Z). Luego añade la masa exacta de NaCl requerida para tu volumen objetivo.",
+      "mensaje": "Con el vidrio de reloj en la balanza analítica presiona TARA: la lectura vuelve a cero. Añade el reactivo (grueso y luego fino) hasta la masa que calculaste; si te pasas, retira con la espátula.",
       "pista": "Pesaje de Precisión",
       "tipo": "accion",
     },
@@ -17644,14 +17626,14 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 4,
-      "mensaje": "Añade agua destilada gota a gota hasta que la curva inferior del menisco toque exactamente la línea de aforo. ¡Un exceso de una gota invalidará la muestra!",
+      "mensaje": "Llena rápido hasta el cuello y termina gota a gota hasta que la curva inferior del menisco toque la línea de aforo. Si la rebasas, la solución queda diluida y hay que empezar de nuevo.",
       "pista": "Control de Menisco",
       "tipo": "accion",
     },
     {
       "accion": "Certificar Solución",
       "id": 5,
-      "mensaje": "Una vez aforado correctamente, presiona Validar. El sistema analizará la molaridad final mediante sensores de conductividad.",
+      "mensaje": "Con el matraz aforado, certifica la solución: la molaridad final debe quedar a ±5 % de la pedida.",
       "pista": "Validar Concentración",
       "tipo": "verificar",
     },
@@ -17665,31 +17647,31 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Primero, añade 80g de Nitrato de Potasio (KNO₃) al vaso de precipitados usando el inyector del dock inferior.",
+      "mensaje": "Primero, añade 80 g de Nitrato de Potasio (KNO₃) a los 100 g de agua del vaso con los botones +1/+5/+20 g del panel inferior. A 20 °C solo se disuelven 31.6 g.",
       "pista": "Inyección de Soluto",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Traslada el vaso a la PARRILLA DE CALENTAMIENTO. Observa cómo la temperatura sube. Debes alcanzar al menos 80°C para disolver todo el soluto.",
+      "mensaje": "Traslada el vaso a la PARRILLA DE CALENTAMIENTO. Observa cómo sube la temperatura: con 80 g, el KNO₃ se disuelve por completo hacia los 48 °C.",
       "pista": "Disolución Térmica",
       "tipo": "accion",
     },
     {
       "id": 4,
-      "mensaje": "Observa la telemetría. A medida que la temperatura aumenta, la capacidad del agua para retener soluto crece exponencialmente. ¿Ves cómo desaparecen los cristales?",
+      "mensaje": "Observa la telemetría. Al subir la temperatura la solubilidad del KNO₃ crece mucho (de 31.6 g a 20 °C a 246 g a 100 °C, tablas CRC). ¿Ves cómo desaparecen los cristales?",
       "pista": "Curva de Solubilidad",
       "tipo": "calculo",
     },
     {
       "id": 5,
-      "mensaje": "¡Ahora el paso crítico! Mueve el vaso directamente al BAÑO DE HIELO. El enfriamiento repentino forzará la sobresaturación y la formación de cristales puros.",
+      "mensaje": "¡Ahora el paso crítico! Mueve el vaso al BAÑO DE HIELO. Al enfriarse, el agua ya no puede retener toda la sal y el exceso cristaliza.",
       "pista": "Choque Térmico",
       "tipo": "accion",
     },
     {
       "id": 6,
-      "mensaje": "Observa la base del vaso. Los cristales emergerán del caos molecular. Cuando la temperatura baje de 20°C, habrás recuperado la mayor parte del soluto.",
+      "mensaje": "Observa la base del vaso: aparecen los cristales. Espera a que la temperatura baje de 10 °C; a 0 °C solo quedan 13.3 g disueltos y el resto se recupera como cristal.",
       "pista": "Nucleación",
       "tipo": "verificar",
     },
@@ -17704,7 +17686,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-7": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta presionando el botón "Llenar Bureta".",
+      "mensaje": "¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta presionando el botón "Cargar Bureta".",
       "pista": "Misión: Valoración",
       "tipo": "intro",
     },
@@ -17735,7 +17717,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Validar Titulación",
       "id": 6,
-      "mensaje": "¡Excelente! Ahora guarda el reporte y presiona "Validar Práctica" para terminar el análisis de concentración.",
+      "mensaje": "¡Excelente! Lee el volumen de NaOH gastado y calcula [HCl] = Cb·Vb / Va (Cb = 0.1 M, Va = 25 mL). Escríbela y pulsa "Finalizar y Enviar Datos".",
       "pista": "Finalizar",
       "tipo": "verificar",
     },
@@ -17749,19 +17731,19 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Haz clic en una de las jeringas y muévela a la "Plancha Caliente". Observa el cambio de color inmediato.",
+      "mensaje": "Con los botones de cada jeringa, coloca una en el "Baño de Hielo", otra a "Temp. Ambiente" y otra en la "Plancha Caliente". El color cambia a medida que cambia su temperatura.",
       "pista": "Estación Térmica",
       "tipo": "accion",
     },
     {
       "id": 3,
-      "mensaje": "Como la reacción es endotérmica, el calor favorece la formación de NO₂ (gas café). ¿Ves cómo se oscurece?",
+      "mensaje": "La reacción es endotérmica hacia el NO₂: al calentar se forma más NO₂ (café rojizo). Ojo: a 20 °C ya hay bastante NO₂ y la mezcla se ve ámbar, no incolora.",
       "pista": "Endotérmico",
       "tipo": "calculo",
     },
     {
       "id": 4,
-      "mensaje": "Ahora mueve esa misma jeringa al "Baño de Hielo". El equilibrio se desplazará hacia el N₂O₄ incoloro.",
+      "mensaje": "En el baño de hielo el equilibrio se desplaza hacia el N₂O₄ y la jeringa queda casi incolora (amarillo muy pálido), aunque nunca del todo.",
       "pista": "Choque Térmico",
       "tipo": "accion",
     },
@@ -17774,7 +17756,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Certificar Equilibrio",
       "id": 6,
-      "mensaje": "Has demostrado el Principio de Le Châtelier. Registra tus observaciones en la bitácora y valida la práctica.",
+      "mensaje": "Cuando cada jeringa alcance la temperatura de su baño, anota en su selector el color que observas y pulsa "Verificar Equilibrio".",
       "pista": "Finalizar",
       "tipo": "verificar",
     },
@@ -17788,7 +17770,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 2,
-      "mensaje": "Selecciona los metales para el ánodo y el cátodo en el dock inferior. Recuerda: el metal con menor potencial de reducción se oxidará (Ánodo).",
+      "mensaje": "Elige un metal del panel inferior y colócalo en un vaso; luego el otro. El vaso izquierdo va a la punta COM (−) del voltímetro y el derecho a la punta V (+). Recuerda: el metal con menor potencial de reducción se oxidará (ánodo).",
       "pista": "Selección de Electrodos",
       "tipo": "accion",
     },
@@ -17800,14 +17782,14 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 4,
-      "mensaje": "Conecta los cables del voltímetro. Si el voltaje es negativo, intercambia la polaridad para detectar el flujo espontáneo de electrones.",
+      "mensaje": "Conecta los cables del voltímetro. Si la lectura es negativa, la punta COM quedó en el cátodo: intercambia los electrodos de vaso.",
       "pista": "Conexión Eléctrica",
       "tipo": "accion",
     },
     {
       "accion": "Validar Circuito",
       "id": 5,
-      "mensaje": "Observa la telemetría gigante. Cuando detectes un potencial estable y positivo, habrás completado el circuito galvánico con éxito.",
+      "mensaje": "Con la lectura positiva, indica en el panel cuál metal es el ánodo y cuál el cátodo, y pulsa "Validar Celda".",
       "pista": "Validar Voltaje",
       "tipo": "verificar",
     },
@@ -17832,38 +17814,38 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Ciclosis",
       },
     ],
-    "ecuacion": "Resolución = 0.61λ / NA",
+    "ecuacion": "d = λ / (2·NA)  (Abbe)",
     "formulaGfx": "Mag = Oc · Ob",
     "guiaMaestro": {
       "friccion": "Pérdida de luz a gran aumento: El alumno debe compensar subiendo la intensidad lumínica manualmente.",
       "objetivo": "Dominar el uso de aumentos y reconocer diferencias entre células animales y vegetales.",
       "puntosClave": [
         "Cloroplastos: Solo presentes en vegetales.",
-        "Núcleo: Visible a partir de 400x.",
-        "Ciclosis: Movimiento citoplasmático vivo.",
+        "Núcleo y cloroplastos (≈ 5 µm): se resuelven a 400x.",
+        "Bacterias (≈ 1 µm): 1000x con aceite de inmersión.",
       ],
     },
-    "mision": "Identifica orgánulos específicos en muestras celulares",
+    "mision": "Localiza la estructura que pide la misión en la preparación correcta",
     "pasos": [
       {
         "icon": "layers",
         "id": 1,
-        "text": "Selecciona el portaobjetos con la muestra requerida.",
-      },
-      {
-        "icon": "sun",
-        "id": 2,
-        "text": "Ajusta la iluminación del diafragma para ver detalles.",
+        "text": "Coloca en la platina la preparación que pide la misión.",
       },
       {
         "icon": "zoom-in",
+        "id": 2,
+        "text": "Localiza con 4x y sube al objetivo que RESUELVA la estructura (a 100x, con aceite de inmersión).",
+      },
+      {
+        "icon": "sun",
         "id": 3,
-        "text": "Usa el revólver (zoom) para localizar la estructura objetivo.",
+        "text": "Ajusta la lámpara (a más aumento, menos luz llega al ojo) y enfoca con el micrométrico.",
       },
       {
         "icon": "camera",
         "id": 4,
-        "text": "Presiona 'Capturar Micrografía' cuando el orgánulo esté enfocado.",
+        "text": "Pulsa 'Analizar imagen' cuando la estructura esté nítida y bien iluminada.",
       },
     ],
     "titulo": "Microscopio Virtual",
@@ -17872,50 +17854,51 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-10": {
     "conceptos": [
       {
-        "desc": "Población máxima que un entorno puede sustentar indefinidamente.",
-        "titulo": "Capacidad de Carga",
+        "desc": "Poblaciones en las que ambas tasas de cambio son cero; el sistema gira a su alrededor.",
+        "titulo": "Punto de equilibrio",
       },
       {
         "desc": "Interacción biológica donde un individuo caza a otro para subsistir.",
         "titulo": "Depredación",
       },
       {
-        "desc": "Sistemas sensibles a condiciones iniciales que siguen leyes matemáticas precisas.",
-        "titulo": "Caos Determinista",
+        "desc": "Gráfica presas vs. depredadores: en Lotka-Volterra cada condición inicial traza un ciclo cerrado.",
+        "titulo": "Plano de fase",
       },
     ],
-    "ecuacion": "dx/dt = αx - βxy",
-    "formulaGfx": "Oscilación Armónica",
+    "ecuacion": "dx/dt = αx − βxy ;  dy/dt = δxy − γy",
+    "formulaGfx": "x* = γ/δ ;  y* = α/β",
     "guiaMaestro": {
-      "friccion": "Exceso de Protección: Si el alumno elimina a los depredadores, las presas crecen hasta agotar los recursos, demostrando que la depredación es necesaria para el equilibrio.",
-      "objetivo": "Comprender la interdependencia de las especies y el caos determinista en ecología.",
+      "friccion": "Cuanto más lejos del equilibrio arranca el sistema, más amplias son las oscilaciones y más fácil que una población caiga por debajo de 1 individuo. Lotka-Volterra no es caótico: sus órbitas son ciclos cerrados (se integra con RK4 para no deformarlos).",
+      "objetivo": "Comprender la interdependencia presa-depredador y leer un sistema de ecuaciones diferenciales a través de su punto de equilibrio.",
       "puntosClave": [
-        "Modelo Lotka-Volterra: Ecuaciones diferenciales de interacción.",
-        "Resiliencia: Capacidad del ecosistema para volver al equilibrio.",
-        "Diagrama de Fase: Representación de ciclos cerrados en el espacio de estados.",
+        "Modelo Lotka-Volterra (1925-1926): ecuaciones diferenciales de interacción.",
+        "Punto de equilibrio: x* = γ/δ, y* = α/β.",
+        "Ciclos cerrados en el plano de fase; el pico de depredadores va retrasado respecto al de presas.",
+        "El modelo clásico no tiene capacidad de carga (eso requiere un término logístico).",
       ],
     },
-    "mision": "Equilibra el ecosistema mediante el modelo Lotka-Volterra",
+    "mision": "Ajusta los parámetros de Lotka-Volterra para que presas y depredadores coexistan 50 años",
     "pasos": [
       {
         "icon": "play",
         "id": 1,
-        "text": "Inicia la simulación para observar el desequilibrio inicial del ecosistema.",
+        "text": "Corre 50 años con los parámetros iniciales y observa cómo colapsa el ecosistema.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Ajusta la tasa de natalidad de las presas para evitar su colapso.",
+        "text": "Calcula el punto de equilibrio (γ/δ, α/β) y compáralo con la población inicial.",
       },
       {
         "icon": "zap",
         "id": 3,
-        "text": "Modula la eficacia de caza de los depredadores para prevenir la sobrepoblación.",
+        "text": "Ajusta α, β, γ y δ para acercar el equilibrio al punto de arranque.",
       },
       {
         "icon": "target",
         "id": 4,
-        "text": "Estabiliza las oscilaciones y sobrevive 50 años virtuales sin extinciones.",
+        "text": "Corre de nuevo desde el inicio: si nadie baja de 1 individuo en 50 años, valida.",
       },
     ],
     "titulo": "Dinámica de Poblaciones",
@@ -17923,7 +17906,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-2": {
     "conceptos": [
       {
-        "desc": "Movimiento de agua a través de una membrana semipermeable hacia mayor concentración de soluto.",
+        "desc": "Movimiento de agua a través de una membrana semipermeable hacia la mayor osmolaridad.",
         "titulo": "Ósmosis",
       },
       {
@@ -17935,18 +17918,18 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Presión Osmótica",
       },
     ],
-    "ecuacion": "π = i · M · R · T",
-    "formulaGfx": "ΔV ∝ (C_int - C_ext)",
+    "ecuacion": "Osm_int · V = constante",
+    "formulaGfx": "V_eq / V0 = Osm_int / Osm_ext",
     "guiaMaestro": {
       "friccion": "Lisis celular: Si el medio es excesivamente hipotónico, el eritrocito explotará.",
       "objetivo": "Comprender los efectos de la tonicidad en la morfología celular y el equilibrio homeostático.",
       "puntosClave": [
-        "Isotonía: C_int = C_ext.",
-        "Turgencia: Hinchamiento por entrada de agua.",
+        "Isotonía: Osm_int = Osm_ext (cuentan TODAS las partículas, también la glucosa).",
+        "Turgencia: la pared frena la entrada de agua en la célula vegetal (no revienta).",
         "Plasmólisis: Retracción de la membrana en vegetales.",
       ],
     },
-    "mision": "Ajusta la salinidad para alcanzar el equilibrio osmótico",
+    "mision": "Deduce la osmolaridad del citoplasma y prepara un medio isotónico",
     "pasos": [
       {
         "icon": "box",
@@ -17956,17 +17939,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "beaker",
         "id": 2,
-        "text": "Ajusta la concentración del medio extracelular (M).",
+        "text": "Prepara un medio de prueba (NaCl y/o glucosa) y anota el volumen cuando se estabilice.",
       },
       {
         "icon": "droplets",
         "id": 3,
-        "text": "Observa la deformación de la membrana y el flujo de agua.",
+        "text": "Calcula Osm_int = Osm_ext · (V_eq / V0), con Osm = i · M (NaCl i = 2, glucosa i = 1).",
       },
       {
         "icon": "check-circle",
         "id": 4,
-        "text": "Valida cuando la célula alcance un estado isotónico estable.",
+        "text": "Prepara el medio isotónico: la célula vuelve a su volumen y deja de cambiar. Valida.",
       },
     ],
     "titulo": "Transporte Celular",
@@ -17989,12 +17972,13 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "ecuacion": "ADN → ARN → Proteína",
     "formulaGfx": "Codón = 3 Nucleótidos",
     "guiaMaestro": {
-      "friccion": "Sustitución de Uracilo: El alumno debe entender que la Timina no existe en el ARN.",
+      "friccion": "Uracilo en lugar de timina, y codón ≠ anticodón: el ARNt lleva el triplete COMPLEMENTARIO al codón. En el codón de paro no hay ARNt; lo reconoce un factor de liberación. Se toleran como máximo 2 errores de apareamiento.",
       "objetivo": "Dominar el Dogma Central de la Biología Molecular y las reglas de apareamiento.",
       "puntosClave": [
-        "AUG: Codón de inicio universal.",
-        "Transcripción: Ocurre en el núcleo.",
-        "Traducción: Ensamblaje en el ribosoma.",
+        "AUG: codón de inicio (metionina).",
+        "Transcripción: en el núcleo, con la hebra molde.",
+        "Traducción: en el ribosoma, apareando codón y anticodón.",
+        "UAA, UAG, UGA: codones de paro.",
       ],
     },
     "mision": "Transcribe el ADN y ensambla el polipéptido en el ribosoma",
@@ -18002,22 +17986,22 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "file-text",
         "id": 1,
-        "text": "Transcribe el gen objetivo (ADN) a ARNm en el núcleo.",
+        "text": "Transcribe la hebra molde de ADN a ARNm en el núcleo (A→U, T→A, C→G, G→C).",
       },
       {
         "icon": "wind",
         "id": 2,
-        "text": "Observa el viaje del ARNm hacia el citoplasma.",
+        "text": "El ARNm sale al citoplasma por un poro nuclear.",
       },
       {
         "icon": "hash",
         "id": 3,
-        "text": "Acopla los ARNt al ribosoma siguiendo los codones.",
+        "text": "En el ribosoma elige el ARNt cuyo ANTICODÓN es complementario a cada codón.",
       },
       {
         "icon": "check-square",
         "id": 4,
-        "text": "Completa la cadena de aminoácidos hasta el codón STOP.",
+        "text": "En el codón de paro no entra ningún ARNt: elige el factor de liberación y valida.",
       },
     ],
     "titulo": "Síntesis de Proteínas",
@@ -18025,12 +18009,12 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "biologia-4": {
     "conceptos": [
       {
-        "desc": "Pigmento primordial de las plantas que absorbe luz violeta, azul y roja.",
+        "desc": "Pigmento que absorbe sobre todo azul y rojo; los pigmentos accesorios y la hoja también aprovechan parte del verde.",
         "titulo": "Clorofila",
       },
       {
-        "desc": "Rango de longitudes de onda que un pigmento puede captar para realizar trabajo.",
-        "titulo": "Espectro de Absorción",
+        "desc": "O₂ producido por fotón de cada longitud de onda; no es igual al espectro de absorción de la clorofila aislada.",
+        "titulo": "Espectro de acción",
       },
       {
         "desc": "Etapa de la fase clara donde se libera oxígeno como subproducto.",
@@ -18038,37 +18022,38 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       },
     ],
     "ecuacion": "6CO₂ + 6H₂O + Luz → C₆H₁₂O₆ + 6O₂",
-    "formulaGfx": "O₂ ∝ 1/d² · ColorEff",
+    "formulaGfx": "P_neta = Pmax·(1 − e^(−φ·η(λ)·I/Pmax)) − R ;  I ∝ 1/d²",
     "guiaMaestro": {
-      "friccion": "La Trampa Verde: Los alumnos suelen creer que la planta absorbe luz verde. Al ver que no produce O₂, descubrirán el papel de la clorofila.",
-      "objetivo": "Visualizar el efecto de la intensidad y longitud de onda en la tasa metabólica vegetal.",
+      "friccion": "Mito del verde: muchos creen que la luz verde no sirve. Con igual flujo de fotones rinde menos que la roja, pero SÍ produce O₂ (McCree, 1972). Y acercar la lámpara deja de ayudar cuando la fotosíntesis se satura.",
+      "objetivo": "Medir cómo la intensidad (distancia) y la longitud de onda cambian la tasa neta de O₂, controlando variables.",
       "puntosClave": [
-        "Luz Roja/Azul: Máxima absorción.",
-        "Distancia: La intensidad cae con el cuadrado de la distancia.",
-        "Fotólisis: Ruptura de agua para liberar O₂.",
+        "Por fotón, el rojo-naranja rinde más; azul y verde menos (espectro de acción de McCree).",
+        "Intensidad ∝ 1/d², pero la tasa se satura (curva luz-respuesta).",
+        "Lo que se mide es la tasa NETA: fotosíntesis menos respiración.",
+        "El O₂ viene de la fotólisis del agua.",
       ],
     },
-    "mision": "Encuentra la luz ideal para producir 50ml de Oxígeno",
+    "mision": "Diseña ensayos con una ramita de Elodea y alcanza la meta de O₂ sin calentar el agua",
     "pasos": [
       {
-        "icon": "move",
+        "icon": "palette",
         "id": 1,
-        "text": "Ajusta la distancia de la lámpara sobre el riel.",
+        "text": "Elige el color de la lámpara LED (todas emiten el mismo flujo de fotones).",
       },
       {
-        "icon": "palette",
+        "icon": "move",
         "id": 2,
-        "text": "Selecciona una longitud de onda (color) del espectro.",
+        "text": "Ajusta la distancia: la luz cae con el cuadrado, pero no puedes acercarte más del límite térmico.",
       },
       {
         "icon": "droplets",
         "id": 3,
-        "text": "Monitorea la tasa de burbujeo en el tubo de recolección.",
+        "text": "Mide 10 min y anota el O₂ recogido; cambia una sola variable por ensayo.",
       },
       {
         "icon": "zap",
         "id": 4,
-        "text": "Alcanza la meta de 50ml de O₂ antes del tiempo límite.",
+        "text": "Con tu tabla, elige la combinación que alcanza la meta y valida.",
       },
     ],
     "titulo": "Fotosíntesis",
@@ -18089,9 +18074,9 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       },
     ],
     "ecuacion": "P(AB) = P(A) cdot P(B)",
-    "formulaGfx": "9 : 3 : 3 : 1",
+    "formulaGfx": "χ² = Σ (O − E)² / E",
     "guiaMaestro": {
-      "friccion": "Probabilidad vs Estadística: En muestras pequeñas (N=10), las proporciones rara vez coinciden con el 9:3:3:1, enseñando la necesidad de grandes muestras.",
+      "friccion": "Probabilidad vs. estadística: con N = 10 los conteos se alejan mucho de lo esperado aunque la predicción sea correcta; χ² cuantifica cuándo una desviación es solo azar. Cada alumno recibe una cruza distinta (no siempre es 9:3:3:1).",
       "objetivo": "Comprender la segregación independiente de alelos mediante cruces dihíbridos.",
       "puntosClave": [
         "Dominancia Completa: El alelo dominante enmascara al recesivo.",
@@ -18099,27 +18084,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Distribución Independiente: 2da Ley de Mendel.",
       ],
     },
-    "mision": "Valida la proporción 9:3:3:1 de Mendel con una población masiva",
+    "mision": "Predice la proporción fenotípica de la cruza asignada y ponla a prueba con χ²",
     "pasos": [
       {
         "icon": "dna",
         "id": 1,
-        "text": "Configura el genotipo de los parentales (padre y madre).",
+        "text": "Lee los genotipos de los progenitores de la misión y escribe sus gametos.",
       },
       {
         "icon": "grid",
         "id": 2,
-        "text": "Analiza el Cuadro de Punnett para predecir las probabilidades.",
+        "text": "Arma el cuadro de Punnett y escribe tu proporción fenotípica predicha.",
       },
       {
         "icon": "users",
         "id": 3,
-        "text": "Define el tamaño de la muestra y genera la población F1.",
+        "text": "Elige el tamaño de la muestra (al menos 100) y realiza la cruza.",
       },
       {
         "icon": "bar-chart",
         "id": 4,
-        "text": "Compara los fenotipos reales con los teóricos de Mendel.",
+        "text": "Compara observados contra esperados con χ² (α = 0.05) y valida.",
       },
     ],
     "titulo": "Leyes de Mendel",
@@ -18139,10 +18124,10 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Frecuencia Alélica",
       },
     ],
-    "ecuacion": "f(A) + f(a) = 1",
-    "formulaGfx": "Delta p = p' - p",
+    "ecuacion": "p + q = 1 ;  q ≈ √f(claras cc)",
+    "formulaGfx": "Δp = p′ − p",
     "guiaMaestro": {
-      "friccion": "Intervención Directa: Si el alumno no caza, la población se estabiliza. Debe experimentar cómo su rol de depredador es el motor del cambio.",
+      "friccion": "Selección vs. deriva: si el alumno caza al azar, la frecuencia cambia poco y sin dirección (deriva génica); solo una caza guiada por el contraste con la corteza la desplaza. Y como C es dominante, el % de oscuras no es p: q se estima con √f(claras).",
       "objetivo": "Comprender la selección natural mediante el mimetismo industrial.",
       "puntosClave": [
         "Presión Selectiva: El agente (ave) que elimina individuos.",
@@ -18150,27 +18135,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Melanismo Industrial: El caso de la polilla Biston betularia.",
       ],
     },
-    "mision": "Observa cómo el ambiente industrial desplaza las frecuencias fenotípicas",
+    "mision": "Actúa como el ave depredadora y muestra que la selección desplaza la frecuencia del alelo mejor camuflado",
     "pasos": [
       {
         "icon": "tree",
         "id": 1,
-        "text": "Selecciona el ambiente (Bosque Limpio o Industrial).",
+        "text": "Observa la corteza que te tocó (hollín o líquenes claros).",
       },
       {
         "icon": "target",
         "id": 2,
-        "text": "Inicia la temporada de caza y actúa como el depredador.",
+        "text": "Caza la cuota de polillas de cada generación como lo haría un ave.",
       },
       {
         "icon": "eye",
         "id": 3,
-        "text": "Observa la supervivencia diferencial basada en el camuflaje.",
+        "text": "Deja que las supervivientes se reproduzcan y anota % de oscuras y q.",
       },
       {
         "icon": "line-chart",
         "id": 4,
-        "text": "Analiza la gráfica evolutiva tras completar 5 generaciones.",
+        "text": "Completa de 3 a 6 generaciones y valida.",
       },
     ],
     "titulo": "Selección Natural",
@@ -18190,38 +18175,39 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Arco Reflejo",
       },
     ],
-    "ecuacion": "v = Δx / Δt",
-    "formulaGfx": "Integridad Mielina (%)",
+    "ecuacion": "v = d / (t_lat − t_sinapsis − t_placa)",
+    "formulaGfx": "v = d / Δt_conducción",
     "guiaMaestro": {
-      "friccion": "Ley del Todo o Nada: Si el golpe es < 20%, no hay respuesta. Desmielinización: A < 50% de mielina, el retraso visual debe ser evidente para el alumno.",
+      "friccion": "Todo o nada: el umbral cambia en cada paciente; por debajo no hay reflejo y por encima la latencia NO depende de la fuerza. Error típico: dividir la distancia entre la latencia completa sin restar los retardos sinápticos.",
       "objetivo": "Analizar el arco reflejo como respuesta involuntaria y el papel de la mielina en la velocidad nerviosa.",
       "puntosClave": [
-        "Transmisión Saltatoria: Función de la vaina de mielina.",
-        "Arco Reflejo: Vía sensorial, interneurona (médula) y vía motora.",
-        "Sinapsis: Comunicación química/eléctrica en el asta gris.",
+        "Conducción saltatoria: la mielina eleva la velocidad (≈ 50-65 m/s en fibras Ia/Aα sanas).",
+        "El reflejo rotuliano es MONOSINÁPTICO: aferente Ia → motoneurona α en la médula L3-L4 → cuádriceps.",
+        "Latencia = conducción + retardo sináptico (≈ 0.7 ms) + retardo de placa (≈ 0.8 ms).",
+        "Velocidad < 45 m/s sugiere neuropatía desmielinizante.",
       ],
     },
-    "mision": "Rastrea el arco reflejo rotuliano y evalúa la conducción nerviosa",
+    "mision": "Mide la latencia del reflejo rotuliano, calcula la velocidad de conducción y diagnostica la mielina del paciente",
     "pasos": [
       {
-        "icon": "zap",
-        "id": 1,
-        "text": "Ajusta la integridad de la vaina de mielina al 100% para un estado sano.",
-      },
-      {
         "icon": "hammer",
-        "id": 2,
-        "text": "Configura la fuerza del martillo y aplica el estímulo en el tendón.",
+        "id": 1,
+        "text": "Golpea el tendón con distintas fuerzas: encuentra una que NO dispare el reflejo y otra que sí.",
       },
       {
         "icon": "activity",
+        "id": 2,
+        "text": "Lee la latencia en el EMG y comprueba si cambia con la fuerza.",
+      },
+      {
+        "icon": "zap",
         "id": 3,
-        "text": "Observa la propagación del potencial de acción hacia la médula.",
+        "text": "Resta los retardos de sinapsis y placa y divide la distancia del arco entre ese tiempo.",
       },
       {
         "icon": "check-circle",
         "id": 4,
-        "text": "Valida si el reflejo ocurre dentro del rango normal (< 30ms).",
+        "text": "Compara tu velocidad con el límite normal (45 m/s) y emite el diagnóstico.",
       },
     ],
     "titulo": "Sistema Nervioso",
@@ -18241,38 +18227,39 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Débito Cardíaco",
       },
     ],
-    "ecuacion": "T = 60 / BPM",
-    "formulaGfx": "P-QRS-T Sync",
+    "ecuacion": "FC = 60 / RR(s) = 300 / n.º de cuadros grandes",
+    "formulaGfx": "FC = 60 / RR",
     "guiaMaestro": {
-      "friccion": "Taquicardia Extrema: A 180 BPM, el alumno debe notar que la diástole se acorta, comprometiendo el llenado ventricular, lo que explica la fatiga.",
+      "friccion": "Eléctrico ≠ mecánico: el QRS es la despolarización ventricular y la contracción viene después. En la taquicardia lo que se acorta es sobre todo la diástole. Cada paciente llega con una FC distinta: hay que MEDIRLA, no se muestra.",
       "objetivo": "Comprender la relación entre la actividad eléctrica del corazón y su función mecánica.",
       "puntosClave": [
-        "Ciclo Cardíaco: Sístole (contracción) y Diástole (relajación).",
-        "ECG: Representación gráfica de los potenciales eléctricos del corazón.",
-        "Sistema de Conducción: Nodos SA y AV, y fibras de Purkinje.",
+        "Ciclo cardíaco: sístole y diástole.",
+        "ECG: onda P, segmento PR (retraso en el nodo AV), QRS, segmento ST, onda T.",
+        "Control autonómico: el vago frena el nodo SA (la atropina lo bloquea); β1 lo acelera (adrenalina) y el metoprolol bloquea β1.",
+        "QT se acorta con la FC (corrección de Bazett).",
       ],
     },
-    "mision": "Monitorea la actividad eléctrica del corazón y realiza una prueba de esfuerzo",
+    "mision": "Lee el ECG de un paciente, diagnostica su ritmo y llévalo a ritmo sinusal normal con el fármaco adecuado",
     "pasos": [
       {
         "icon": "target",
         "id": 1,
-        "text": "Identifica el objetivo de BPM para la prueba de esfuerzo del paciente.",
+        "text": "Mide el intervalo R-R en el monitor (cuadro grande = 200 ms) y calcula la FC.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Ajusta el nivel de actividad o estrés para modular el ritmo cardíaco.",
+        "text": "Diagnostica el ritmo de llegada: bradicardia (< 60) o taquicardia (> 100).",
       },
       {
         "icon": "heart",
         "id": 3,
-        "text": "Observa la sincronía entre el impulso eléctrico y la contracción mecánica.",
+        "text": "Elige el fármaco según su mecanismo sobre el nodo SA y adminístralo por bolos.",
       },
       {
         "icon": "check-circle",
         "id": 4,
-        "text": "Registra la prueba cuando el ritmo coincida exactamente con el objetivo.",
+        "text": "Vuelve a medir la FC, regístrala y valida cuando esté entre 60 y 100 lpm.",
       },
     ],
     "titulo": "Electrocardiograma",
@@ -18292,38 +18279,39 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Macronutriente",
       },
     ],
-    "ecuacion": "Enzima + Sustrato",
-    "formulaGfx": "pH Óptimo",
+    "ecuacion": "E + S ⇌ ES → E + P",
+    "formulaGfx": "actividad = f(pH, sustrato, bilis)",
     "guiaMaestro": {
-      "friccion": "Desnaturalización: Si el alumno inyecta pepsina a pH 7, esta se deformará. Aprenderá por qué el estómago DEBE ser ácido para digerir proteínas.",
+      "friccion": "Especificidad ≠ desnaturalización: una enzima con el sustrato equivocado no reacciona pero sigue intacta; una enzima a un pH que su estructura no tolera se desnaturaliza. Con las grasas, además, importa la superficie de contacto agua-lípido.",
       "objetivo": "Visualizar el proceso de hidrólisis enzimática y la dependencia del pH en la digestión.",
       "puntosClave": [
-        "Catálisis: Aceleración de reacciones químicas por enzimas.",
-        "Especificidad: Cada enzima actúa sobre un sustrato único.",
-        "Microvellosidades: Aumento de superficie para absorción de monómeros.",
+        "Especificidad: cada enzima reconoce su sustrato.",
+        "pH óptimo: cada enzima trabaja mejor al pH del órgano donde se secreta.",
+        "Las sales biliares emulsionan; no son enzimas.",
+        "Las vellosidades y microvellosidades multiplican la superficie de absorción.",
       ],
     },
-    "mision": "Cataliza macronutrientes mediante enzimas y optimización de pH",
+    "mision": "Hidroliza por completo el alimento asignado en un tubo de ensayo y ubica dónde ocurre esa digestión y la absorción",
     "pasos": [
       {
         "icon": "target",
         "id": 1,
-        "text": "Analiza el macronutriente ingerido por el paciente en la bitácora.",
+        "text": "Identifica el sustrato del alimento asignado (almidón, proteína o lípidos).",
       },
       {
         "icon": "zap",
         "id": 2,
-        "text": "Selecciona la enzima catalizadora específica (Llave-Cerradura).",
+        "text": "Elige una enzima, el pH del tampón y si añades sales biliares.",
       },
       {
         "icon": "thermometer",
         "id": 3,
-        "text": "Ajusta el pH del órgano según el rango óptimo de la enzima.",
+        "text": "Incuba 30 min y lee el resultado: sin reacción, desnaturalizada, parcial o completa.",
       },
       {
         "icon": "activity",
         "id": 4,
-        "text": "Inyecta la enzima y monitorea la absorción en el torrente sanguíneo.",
+        "text": "Indica en qué órgano actúa tu enzima y dónde se absorben los productos.",
       },
     ],
     "titulo": "Sistema Digestivo",
@@ -18349,9 +18337,9 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "friccion": "El alumno suele olvidar que la velocidad en X es constante.",
       "objetivo": "Descomponer el movimiento en sus componentes rectilíneo (X) y acelerado (Y).",
       "puntosClave": [
-        "Ángulo óptimo: 45°.",
-        "Gravedad: 9.81 m/s².",
-        "Tiempo de vuelo: T = 2·V₀y / g.",
+        "El ángulo de 45° solo maximiza el alcance en terreno plano y sin aire.",
+        "Gravedad: 9.81 m/s² en la Tierra (cambia por planeta).",
+        "Con altura inicial y₀ el tiempo de vuelo sale de y(t) = 0, no de 2·V₀y/g.",
       ],
     },
     "mision": "¡Bienvenido al polígono de pruebas de balística! Tu misión es dominar la cinemática bidimensional para alcanzar objetivos estratégicos con precisión milimétrica. Deberás descomponer vectorialmente la velocidad inicial, compensar la aceleración gravitatoria y calcular el ángulo de lanzamiento óptimo. Tu éxito técnico se medirá por la capacidad de predecir el punto de impacto exacto, dominando la relación entre el tiempo de vuelo y el alcance horizontal máximo. ¡Ajusta el cañón y convierte la física en precisión balística!",
@@ -18359,22 +18347,22 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 1,
-        "text": "Ajusta el cañón a un ángulo de 45° para máximo alcance.",
+        "text": "Lee la misión: altura del cañón, posición y altura del muro, diana y viento.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Define la velocidad inicial a 20 m/s.",
+        "text": "Estima ángulo y velocidad con y(x) para librar el muro y llegar a la diana.",
       },
       {
         "icon": "play",
         "id": 3,
-        "text": "Dispara y observa la trayectoria parabólica.",
+        "text": "Dispara y compara la traza real con tu cálculo.",
       },
       {
         "icon": "target",
         "id": 4,
-        "text": "Ajusta parámetros si el proyectil no alcanza el blanco.",
+        "text": "Corrige (el aire acorta el alcance, el viento lo desvía) hasta confirmar el impacto.",
       },
     ],
     "titulo": "Tiro Parabólico",
@@ -18399,34 +18387,34 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "formulaGfx": "F = I · L x B",
     "guiaMaestro": {
       "friccion": "El alumno debe notar que sin conmutador, la bobina no giraría continuamente.",
-      "objetivo": "Entender la fuerza de Lorentz y el principio de inducción electromagnética.",
+      "objetivo": "Entender cómo la fuerza de Laplace produce par y cómo la fuerza contraelectromotriz fija la velocidad de un motor de CD.",
       "puntosClave": [
         "Torque: Fuerza de giro.",
         "Campo Magnético: Imán estator.",
         "Corriente: Energía de entrada.",
       ],
     },
-    "mision": "Convierte energía eléctrica en torque mecánico",
+    "mision": "Ajusta un motor de corriente directa de imán permanente para que gire a la velocidad y en el sentido pedidos con una carga dada",
     "pasos": [
       {
         "icon": "zap",
         "id": 1,
-        "text": "Coloca la bobina de cobre entre los imanes permanentes.",
+        "text": "Orienta los imanes con polos opuestos enfrentados para que el campo atraviese la bobina.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Asegura el contacto de las escobillas con el conmutador.",
+        "text": "Elige el bobinado: k = N·B·A fija el par por amperio y la contraelectromotriz.",
       },
       {
         "icon": "play",
         "id": 3,
-        "text": "Alimenta el sistema con una batería de 9V.",
+        "text": "Calcula el voltaje: V = k·ω + I·Rₐ, con I = τ_carga/k.",
       },
       {
         "icon": "activity",
         "id": 4,
-        "text": "Aumenta el flujo magnético para subir las RPM.",
+        "text": "Energiza y mide con el tacómetro: a igual carga, más voltaje da más RPM.",
       },
     ],
     "titulo": "Motor Eléctrico",
@@ -18447,7 +18435,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       },
     ],
     "ecuacion": "F_net = m·a",
-    "formulaGfx": "a = g(sinθ - μ·cosθ)",
+    "formulaGfx": "a = (F − m·g·sinθ ∓ μk·m·g·cosθ) / m",
     "guiaMaestro": {
       "friccion": "Dificultad al descomponer el vector peso en Px y Py.",
       "objetivo": "Identificar las fuerzas normal, peso y fricción en un sistema inclinado.",
@@ -18462,22 +18450,22 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 1,
-        "text": "Ajusta el ángulo de la rampa a 30°.",
+        "text": "Ajusta el ángulo de la rampa, la fuerza aplicada F y la carga.",
       },
       {
         "icon": "box",
         "id": 2,
-        "text": "Coloca el bloque de 2kg sobre la superficie.",
+        "text": "Decide si la fricción estática lo sostiene (|F − m·g·sinθ| ≤ μs·N).",
       },
       {
         "icon": "timer",
         "id": 3,
-        "text": "Mide el tiempo de descenso del bloque.",
+        "text": "Predice la aceleración con la fricción cinética y escríbela.",
       },
       {
         "icon": "activity",
         "id": 4,
-        "text": "Calcula el coeficiente de fricción cinética si es necesario.",
+        "text": "Suelta el bloque y compara tu predicción con la medición.",
       },
     ],
     "titulo": "Dinámica: Leyes de Newton",
@@ -18513,12 +18501,12 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 1,
-        "text": "Ajusta la longitud de la cuerda a 1.0 metro.",
+        "text": "Elige una longitud L (0.5 – 3 m) y una masa.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Desplaza la masa 10° (Pequeñas oscilaciones).",
+        "text": "Suelta el péndulo desde 10° (oscilaciones pequeñas).",
       },
       {
         "icon": "timer",
@@ -18528,7 +18516,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "target",
         "id": 4,
-        "text": "Calcula el periodo y despeja la gravedad.",
+        "text": "Repite con otra masa y con tres longitudes; despeja g = 4π²L/T².",
       },
     ],
     "titulo": "Geofísica: Péndulo Simple",
@@ -18536,53 +18524,53 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "fisica-4": {
     "conceptos": [
       {
-        "desc": "Resistencia del pistón a la deformación axial.",
+        "desc": "Fuerza por unidad de deformación del resorte (N/m).",
         "titulo": "Constante de Rigidez",
       },
       {
-        "desc": "Reducción de longitud respecto a su estado libre.",
-        "titulo": "Compresión",
+        "desc": "Aumento de longitud respecto a su estado libre.",
+        "titulo": "Elongación",
       },
       {
-        "desc": "Energía almacenada en el amortiguador lista para disiparse.",
+        "desc": "Energía almacenada en el resorte deformado: ½·k·x².",
         "titulo": "Energía Potencial",
       },
     ],
     "ecuacion": "F = -k·x",
     "formulaGfx": "Ep = ½·k·x²",
     "guiaMaestro": {
-      "friccion": "No relacionar correctamente la compresión (x) con la fuerza aplicada por la gravedad sobre la masa.",
-      "objetivo": "Analizar la respuesta elástica de un sistema de suspensión sometido a carga estática.",
+      "friccion": "No relacionar la elongación (x) con el peso de la carga (m·g), o creer que el periodo depende de la amplitud.",
+      "objetivo": "Determinar la constante elástica de un resorte por el método estático y por el dinámico.",
       "puntosClave": [
         "Rigidez Mecánica (k): Capacidad de absorción del impacto.",
         "Límite Elástico: Riesgo de falla catastrófica del chasis.",
         "Amortiguación: Disipación de energía cinética al tocar la superficie.",
       ],
     },
-    "mision": "¡Protocolo de Estabilidad de Chasis Activo! Tu misión como ingeniero de sistemas de aterrizaje es calibrar con precisión milimétrica la rigidez del amortiguador principal para la próxima misión exploratoria. Utilizando la Ley de Hooke, deberás someter el pistón telescópico a cargas estáticas variables, registrar la telemetría láser de compresión y determinar la constante elástica (k) del ensamble. El éxito de la misión depende de tu capacidad para predecir la respuesta mecánica del sistema y asegurar que la energía potencial elástica almacenada no exceda los límites de fatiga del material. ¡Asegura el aterrizaje y domina la elasticidad industrial!",
+    "mision": "¡Protocolo de calibración de suspensión! Antes de montar el resorte en el tren de aterrizaje hay que conocer su constante elástica k. La medirás por dos caminos independientes: colgando cargas y leyendo la elongación en reposo (F = k·x), y haciendo oscilar la carga para cronometrar su periodo (T = 2π√(m/k)). Si ambos métodos coinciden, el resorte queda certificado.",
     "pasos": [
       {
         "icon": "box",
         "id": 1,
-        "text": "Aplica masa de prueba sobre el pistón telescópico.",
+        "text": "Cuelga una carga de prueba y espera a que quede en reposo.",
       },
       {
         "icon": "target",
         "id": 2,
-        "text": "Lee la telemetría láser de compresión estática (x).",
+        "text": "Lee la elongación x en la regla; repite con otra carga.",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Registra la elongación en la matriz de análisis.",
+        "text": "Suelta la carga desde una amplitud A y cronometra 10 oscilaciones.",
       },
       {
         "icon": "zap",
         "id": 4,
-        "text": "Calcula la rigidez (k) del ensamble mecánico.",
+        "text": "Calcula k por los dos métodos y comprueba que coinciden.",
       },
     ],
-    "titulo": "Ingeniería: Suspensión Rover (Ley Hooke)",
+    "titulo": "Ingeniería: Rigidez de un Resorte (Ley de Hooke)",
   },
   "fisica-5": {
     "conceptos": [
@@ -18625,12 +18613,12 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "box",
         "id": 3,
-        "text": "Prueba de Carga: Selecciona la masa crítica de transporte en el pistón mayor.",
+        "text": "Predicción: calcula la fuerza mínima F₁ = m·g·(r₁/r₂)² que sostiene la carga asignada.",
       },
       {
         "icon": "zap",
         "id": 4,
-        "text": "Maniobra de Elevación: Aplica presión controlada hasta lograr la estabilidad gravitatoria de la carga.",
+        "text": "Maniobra de Elevación: bombea con una F₁ suficiente y comprueba tu predicción.",
       },
     ],
     "titulo": "Sistemas Hidráulicos de Elevación",
@@ -18657,31 +18645,31 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "objetivo": "Validar experimentalmente que el empuje es igual al peso del volumen de fluido desplazado por el cuerpo.",
       "puntosClave": [
         "Principio de Arquímedes: Fuerza vertical dirigida hacia arriba.",
-        "Peso Aparente: Reducción efectiva de masa por el empuje del fluido.",
+        "Peso aparente: la lectura baja por el empuje; la masa del cuerpo no cambia.",
         "Flotabilidad: Análisis de fuerzas competitivas en medios líquidos.",
       ],
     },
-    "mision": "Determina la densidad de materiales desconocidos mediante el análisis del empuje hidrostático de Arquímedes.",
+    "mision": "Determina la densidad de un sólido desconocido pesándolo con un dinamómetro en el aire y sumergido (empuje de Arquímedes).",
     "pasos": [
       {
         "icon": "scale",
         "id": 1,
-        "text": "Pesaje Inicial: Registra la masa gravitatoria del sólido en condiciones atmosféricas (Aire).",
+        "text": "Pesaje inicial: con el sólido fuera del fluido, registra su peso W en el dinamómetro.",
       },
       {
         "icon": "droplets",
         "id": 2,
-        "text": "Inmersión Controlada: Sumerge el espécimen completamente en el fluido de referencia (Agua/Glicerina).",
+        "text": "Inmersión: elige el fluido (agua, etanol o glicerina) y baja el sólido hasta que quede sumergido al 100 %.",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Telemetría de Empuje: Mide el peso aparente para calcular la fuerza de flotación ascendente.",
+        "text": "Peso aparente: registra la nueva lectura W_ap; el empuje es E = W − W_ap.",
       },
       {
         "icon": "zap",
         "id": 4,
-        "text": "Certificación de Densidad: Utiliza el volumen de fluido desalojado para identificar la composición del material.",
+        "text": "Densidad: de E = ρ_f·g·V obtén el volumen y calcula ρ = W/(g·V); escríbela y compruébala.",
       },
     ],
     "titulo": "Física de Fluidos: Empuje Estático",
@@ -18704,7 +18692,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "ecuacion": "ΔL = L₀ · α · ΔT",
     "formulaGfx": "α = ΔL / (L₀·ΔT)",
     "guiaMaestro": {
-      "friccion": "Es crítico entender que ΔL es una fracción milimétrica. Un error de lectura en el micrómetro invalida el coeficiente α.",
+      "friccion": "ΔL es de décimas de milímetro: con ΔT pequeño, el error de lectura del comparador pesa mucho en α. Además, L₀ y ΔL deben ir en las mismas unidades.",
       "objetivo": "Analizar la respuesta macroscópica del aumento de la agitación térmica en la red cristalina del sólido.",
       "puntosClave": [
         "Coeficiente Alfa (α): Propiedad intrínseca del material.",
@@ -18712,27 +18700,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Precisión: Relación entre ΔT y la escala micrométrica.",
       ],
     },
-    "mision": "Certifica el coeficiente de expansión lineal (α) mediante el análisis de elongación micrométrica por gradiente térmico.",
+    "mision": "Determina el coeficiente de dilatación lineal (α) de un metal desconocido midiendo su alargamiento al calentarlo con vapor.",
     "pasos": [
       {
         "icon": "target",
         "id": 1,
-        "text": "Calibración Inicial: Registra la longitud L₀ del espécimen a temperatura ambiente.",
+        "text": "Montaje: la barra mide L₀ = 500 mm a temperatura ambiente (20 °C).",
       },
       {
         "icon": "flame",
         "id": 2,
-        "text": "Gradiente de Calor: Inyecta energía térmica controlada hasta alcanzar la saturación por vapor.",
+        "text": "Calentamiento: haz pasar vapor; la barra se acerca a 100 °C (vapor a 1 atm).",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Telemetría Micrométrica: Mide la elongación ΔL con precisión láser en el comparador de carátula.",
+        "text": "Medición: lee ΔL en el comparador de carátula (resolución 1 μm) y ΔT en el termómetro.",
       },
       {
         "icon": "zap",
         "id": 4,
-        "text": "Análisis Alfa: Calcula la constante de expansión para validar la composición metalúrgica.",
+        "text": "Análisis: calcula α = ΔL/(L₀·ΔT) y compáralo con la tabla de metales.",
       },
     ],
     "titulo": "Materiales: Dilatación Térmica",
@@ -18755,35 +18743,35 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "ecuacion": "V = I · R",
     "formulaGfx": "P = V · I",
     "guiaMaestro": {
-      "friccion": "El cortocircuito virtual es el error común; el alumno debe entender que el amperímetro no tiene resistencia interna.",
-      "objetivo": "Analizar el comportamiento lineal de los materiales conductores y la disipación de energía por efecto Joule.",
+      "friccion": "El error típico es calcular R = V/I olvidando la caída del LED: la corriente resulta menor de la esperada. El LED no es óhmico.",
+      "objetivo": "Aplicar la Ley de Ohm al diseño de un circuito real con un componente no óhmico (LED) y su caída de tensión.",
       "puntosClave": [
         "Conductancia: Facilidad de flujo de electrones.",
-        "Linealidad: Comportamiento de materiales óhmicos.",
+        "Linealidad: la resistencia es óhmica; el LED no (su caída es casi constante).",
         "Potencia: Relación entre trabajo eléctrico y calor.",
       ],
     },
-    "mision": "Certifica la relación V=I·R analizando la respuesta de conductancia en un circuito de precisión bajo diferentes cargas de potencial.",
+    "mision": "Diseña con la Ley de Ohm la resistencia limitadora que hace trabajar a un LED rojo a 20 mA sin quemarlo.",
     "pasos": [
       {
         "icon": "zap",
         "id": 1,
-        "text": "Configuración de Carga: Instala una resistencia patrón de 100Ω en el banco de pruebas.",
+        "text": "Sin resistencia: conecta la fuente directo al LED y observa por qué se quema.",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Barrido de Potencial: Aumenta el voltaje de la fuente para analizar la respuesta lineal.",
+        "text": "Diseño: calcula R = (V − V_f)/I con V_f ≈ 2 V e I = 20 mA.",
       },
       {
         "icon": "timer",
         "id": 3,
-        "text": "Telemetría de Corriente: Mide la intensidad (I) con el amperímetro digital en configuración serie.",
+        "text": "Montaje: ajusta la caja de resistencias a tu valor y cierra el circuito; mide I, V_R y V_LED.",
       },
       {
         "icon": "play",
         "id": 4,
-        "text": "Certificación Óhmica: Valida que la pendiente V/I coincida con la resistencia nominal.",
+        "text": "Verificación: comprueba que I ≈ 20 mA y que V_R + V_LED ≈ V de la fuente.",
       },
     ],
     "titulo": "Ingeniería: Ley de Ohm",
@@ -18811,30 +18799,30 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "puntosClave": [
         "Interacción Electrostática: Cargas iguales se repelen; opuestas se atraen.",
         "Magnitud Vectorial: La fuerza actúa a lo largo de la línea que une las cargas.",
-        "Cuantización: Relación entre la cantidad de carga y la fuerza neta.",
+        "Proporcionalidad: F es proporcional al producto de las cargas e inversamente proporcional a r².",
       ],
     },
-    "mision": "Cuantifica la interacción de fuerzas fundamentales entre cargas puntuales, validando la Ley de Coulomb mediante el análisis de vectores de atracción y repulsión en un vacío controlado.",
+    "mision": "Calcula con la Ley de Coulomb la fuerza entre dos cargas puntuales (en μC, separadas centímetros) y decide si se atraen o se repelen.",
     "pasos": [
       {
         "icon": "zap",
         "id": 1,
-        "text": "Configuración de Fuente: Posiciona la carga q₁ (estacionaria) en el origen del sistema de coordenadas.",
+        "text": "Exploración de cargas: cambia q₁ y q₂ y observa la dirección de las fuerzas.",
       },
       {
         "icon": "target",
         "id": 2,
-        "text": "Ajuste de Probeta: Sitúa la carga q₂ a una distancia nanométrica controlada.",
+        "text": "Exploración de distancia: separa las cargas entre 2 y 40 cm y observa cómo cae la fuerza.",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Análisis de Campo: Observa la magnitud y dirección de los vectores de fuerza resultantes.",
+        "text": "Conversión: pasa las cargas a coulombs (1 μC = 10⁻⁶ C) y la distancia a metros.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Certificación de Fuerza: Calcula la magnitud neta en Newtons para validar la constante de Coulomb.",
+        "text": "Reto: calcula |F| en newtons para la configuración dada e indica atracción o repulsión.",
       },
     ],
     "titulo": "Física: Electrostática",
@@ -18865,27 +18853,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "El vértice es el punto máximo o mínimo.",
       ],
     },
-    "mision": "Ajusta los coeficientes para empatar la trayectoria objetivo",
+    "mision": "Deduce a, b y c de una trayectoria a partir de tres puntos medidos",
     "pasos": [
       {
-        "icon": "zap",
+        "icon": "target",
         "id": 1,
-        "text": "Ajusta el coeficiente 'a' para controlar la apertura y concavidad.",
+        "text": "Lee los tres puntos medidos de la trayectoria objetivo (x = −1, 0 y 1).",
       },
       {
         "icon": "activity",
         "id": 2,
-        "text": "Modifica 'b' para desplazar el vértice horizontalmente.",
+        "text": "Plantea el sistema: f(0) = c, f(1) − f(−1) = 2b y f(1) + f(−1) = 2a + 2c.",
       },
       {
-        "icon": "target",
+        "icon": "zap",
         "id": 3,
-        "text": "Cambia 'c' para ajustar la intersección con el eje Y.",
+        "text": "Ajusta a, b y c: la tabla compara tu f(x) con cada punto medido.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Valida la función cuando ambas parábolas se superpongan.",
+        "text": "Comprueba Δ y el vértice h en la bitácora y valida.",
       },
     ],
     "titulo": "Explorador de Cuadráticas",
@@ -18917,27 +18905,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Sesgo: Cómo p ≠ 0.5 desplaza la media μ.",
       ],
     },
-    "mision": "Descubre el patrón oculto en el caos aleatorio calibrando la distribución de probabilidades",
+    "mision": "Predice μ y σ de la Binomial(10, p) y compruébalas con una muestra de al menos 200 bolitas",
     "pasos": [
       {
-        "icon": "alert-triangle",
+        "icon": "settings",
         "id": 1,
-        "text": "Observa la deformación de la campana causada por el sesgo inicial de la máquina.",
+        "text": "Lee la probabilidad p de desvío a la derecha (si la cambias, la máquina se vacía).",
       },
       {
-        "icon": "settings",
+        "icon": "alert-triangle",
         "id": 2,
-        "text": "Ajusta la probabilidad de rebote (p) para eliminar la tendencia lateral.",
+        "text": "Calcula μ = n·p y σ = √(n·p·(1 − p)) con n = 10 filas y escríbelas en el panel.",
       },
       {
         "icon": "cloud-rain",
         "id": 3,
-        "text": "Lanza una población masiva de esferas (n=500) para estabilizar el histograma.",
+        "text": "Suelta bolitas hasta reunir al menos 200 en los contenedores.",
       },
       {
         "icon": "award",
         "id": 4,
-        "text": "Confirma que la distribución física encaja con la Campana de Gauss teórica.",
+        "text": "Valida: se comprueba tu predicción (±0.05) y el ajuste χ² del histograma a la binomial.",
       },
     ],
     "titulo": "Máquina de Galton",
@@ -18973,22 +18961,22 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "activity",
         "id": 1,
-        "text": "Ajusta la pendiente m y la ordenada b de la trayectoria L1 (Cyan).",
+        "text": "Ajusta la pendiente m₁ y la ordenada b₁ de la trayectoria L1 (cian).",
       },
       {
         "icon": "zap",
         "id": 2,
-        "text": "Modifica los parámetros de la trayectoria L2 (Fucsia).",
+        "text": "Modifica m₂ y b₂ de la trayectoria L2 (fucsia).",
       },
       {
         "icon": "target",
         "id": 3,
-        "text": "Sigue el punto de colisión blanco hasta coincidir con el objetivo pulsante.",
+        "text": "Lleva el punto de cruce al objetivo (error menor a 0.1 en cada coordenada). Si las rectas son paralelas o la misma, no hay solución única.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Cuando el radar marque 'Target Locked', presiona Triangular.",
+        "text": "Cuando el radar marque el enlace, presiona Validar.",
       },
     ],
     "titulo": "Sistemas 2x2: Triangulación",
@@ -19022,24 +19010,24 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "mision": "Calcula el factor de potencia entre sismos usando logaritmos",
     "pasos": [
       {
-        "icon": "activity",
+        "icon": "target",
         "id": 1,
-        "text": "Usa el slider para ajustar la magnitud del sismo detectado.",
+        "text": "Lee la magnitud Mw del sismo objetivo y la de la estación base.",
+      },
+      {
+        "icon": "activity",
+        "id": 2,
+        "text": "Lleva la estación experimental a esa magnitud y compara las escalas lineal y logarítmica.",
       },
       {
         "icon": "zap",
-        "id": 2,
-        "text": "Observa el crecimiento exponencial de la esfera de energía.",
-      },
-      {
-        "icon": "target",
         "id": 3,
-        "text": "Calcula el multiplicador basándote en la diferencia de magnitud.",
+        "text": "Calcula ΔM y el factor de energía 10^(1.5·ΔM). Ojo: la amplitud sólo crece 10^ΔM.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Ingresa el valor calculado y valida los datos para finalizar.",
+        "text": "Escribe el factor (tolerancia ±5 %) y valida.",
       },
     ],
     "titulo": "Magnitud de Momento (Mw): Energía Sísmica",
@@ -19081,17 +19069,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "square",
         "id": 2,
-        "text": "Calcula el área de cada cuadrado (lado * lado).",
+        "text": "Calcula el área de cada cuadrado (lado × lado).",
       },
       {
         "icon": "droplets",
         "id": 3,
-        "text": "Presiona 'Verter Contenido' para observar la transferencia de energía.",
+        "text": "Presiona «Verter Fluido» y comprueba que a² + b² llena exactamente c².",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Ingresa el valor de la hipotenusa (2 decimales) y valida.",
+        "text": "Ingresa la hipotenusa c (tolerancia ±0.1) y valida.",
       },
     ],
     "titulo": "Teorema de Pitágoras: Fluidos",
@@ -19122,27 +19110,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Fase: Posición inicial del vector.",
       ],
     },
-    "mision": "Visualiza el origen geométrico de las ondas Seno y Coseno",
+    "mision": "Encuentra los dos ángulos de una vuelta que cumplen la ecuación trigonométrica asignada",
     "pasos": [
       {
-        "icon": "rotate-cw",
+        "icon": "target",
         "id": 1,
-        "text": "Gira el vector en el círculo unitario usando el deslizador.",
+        "text": "Lee la ecuación objetivo del panel (sen θ o cos θ igual a un valor notable).",
+      },
+      {
+        "icon": "rotate-cw",
+        "id": 2,
+        "text": "Gira el vector con el deslizador o el auto-giro y observa la proyección que corresponde.",
       },
       {
         "icon": "activity",
-        "id": 2,
-        "text": "Usa el 'Auto-Giro' para ver cómo se desenrolla la onda en el osciloscopio.",
-      },
-      {
-        "icon": "target",
         "id": 3,
-        "text": "Observa el punto de cruce en 45° donde Seno y Coseno son idénticos.",
+        "text": "Detén el vector y captura cada ángulo que cumpla la ecuación: hay DOS en [0°, 360°).",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Presiona 'Validar Ángulo' exactamente en el punto de intersección.",
+        "text": "Si capturaste uno que no cumple, limpia las muestras. Luego valida.",
       },
     ],
     "titulo": "Círculo Trigonométrico",
@@ -19173,27 +19161,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Homotecia: Multiplicación escalar del área al cuadrado.",
       ],
     },
-    "mision": "Aterriza la sonda en la plataforma fantasma mediante isometrías",
+    "mision": "Lleva la nave a la silueta objetivo combinando escala, rotación y traslación",
     "pasos": [
       {
         "icon": "maximize",
         "id": 1,
-        "text": "Ajusta el Factor de Escala para igualar el tamaño del objetivo.",
+        "text": "Compara tu nave con la silueta objetivo: tamaño, orientación y posición.",
       },
       {
         "icon": "rotate-cw",
         "id": 2,
-        "text": "Aplica la Rotación necesaria sobre el eje de origen.",
+        "text": "Ajusta la escala s y la rotación θ.",
       },
       {
         "icon": "move",
         "id": 3,
-        "text": "Desplaza la sonda en los ejes X e Y hasta el punto de acoplamiento.",
+        "text": "Traslada en X e Y; la matriz M = T·R·S del panel resume tu transformación.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Presiona 'Validar Acoplamiento' cuando la superposición sea perfecta.",
+        "text": "Valida cuando coincidan (±0.2 en posición, ±5° en giro, ±0.1 en escala).",
       },
     ],
     "titulo": "Transformaciones Geométricas",
@@ -19227,24 +19215,24 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "mision": "Deduce el índice de refracción del cristal misterioso",
     "pasos": [
       {
-        "icon": "layers",
-        "id": 1,
-        "text": "Selecciona los materiales de los medios superior e inferior.",
-      },
-      {
         "icon": "zap",
-        "id": 2,
-        "text": "Ajusta el ángulo de incidencia (θ₁) del láser.",
+        "id": 1,
+        "text": "Elige el ángulo de incidencia θ₁ con el deslizador (10°–80°).",
       },
       {
         "icon": "target",
+        "id": 2,
+        "text": "Mide en la escena el ángulo refractado θ₂; ambos se miden desde la normal.",
+      },
+      {
+        "icon": "layers",
         "id": 3,
-        "text": "Mide el ángulo refractado (θ₂) resultante en el segundo medio.",
+        "text": "Calcula n₂ = n₁·sen θ₁ / sen θ₂ con el índice n₁ del medio superior.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Calcula n₂ y valídalo para identificar el cristal misterioso.",
+        "text": "Escribe n₂ (tolerancia ±0.05) y valida para identificar el cristal.",
       },
     ],
     "titulo": "Ley de Snell",
@@ -19265,7 +19253,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       },
     ],
     "ecuacion": "f'(x) = lim(h→0) [f(x+h)-f(x)]/h",
-    "formulaGfx": "f'(x) = x² - 4x + 3",
+    "formulaGfx": "s(t) = −k·t³ + m·t²",
     "guiaMaestro": {
       "friccion": "Muchos alumnos ven la derivada como una fórmula algebraica; aquí la verán como un objeto geométrico que rota.",
       "objetivo": "Visualizar la derivada como la pendiente de la recta tangente en un punto.",
@@ -19275,27 +19263,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Razonamiento: f'(x) es la velocidad instantánea.",
       ],
     },
-    "mision": "Identifica los puntos críticos de la montaña rusa usando la recta tangente",
+    "mision": "Encuentra con la derivada el instante de máxima velocidad del cohete",
     "pasos": [
       {
         "icon": "move",
         "id": 1,
-        "text": "Desliza el escáner a lo largo de la pista para observar la pendiente.",
+        "text": "Lee la función de posición s(t) del cohete en el panel.",
       },
       {
         "icon": "target",
         "id": 2,
-        "text": "Busca los puntos donde la recta tangente sea perfectamente horizontal.",
+        "text": "Recorre t: la recta tangente a s(t) tiene pendiente v(t) = s'(t).",
       },
       {
         "icon": "mouse-pointer",
         "id": 3,
-        "text": "Usa los botones de micro-ajuste para alcanzar m = 0.00.",
+        "text": "Deriva otra vez: v es máxima donde a(t) = v'(t) = 0.",
       },
       {
         "icon": "award",
         "id": 4,
-        "text": "Registra el Punto Crítico para validar el hallazgo del máximo o mínimo.",
+        "text": "Marca ese instante (tolerancia ±0.2 s) y valida.",
       },
     ],
     "titulo": "La Derivada",
@@ -19316,7 +19304,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       },
     ],
     "ecuacion": "A ≈ Σ f(xᵢ) Δx",
-    "formulaGfx": "f(x) = -x² + 10x",
+    "formulaGfx": "f(x) = 0.1x² + 1",
     "guiaMaestro": {
       "friccion": "El alumno puede frustrarse si no nota la diferencia entre los métodos; anímalo a usar n < 10 primero.",
       "objetivo": "Comprender la integral definida como el límite de una suma de Riemann.",
@@ -19326,27 +19314,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Comparación: El punto medio suele ser más preciso con menos n.",
       ],
     },
-    "mision": "Aproxima el área bajo la parábola incrementando la resolución rectángular",
+    "mision": "Aproxima ∫₀¹⁰ (0.1x² + 1) dx con el método del reto y un error relativo bajo su tolerancia",
     "pasos": [
       {
         "icon": "list",
         "id": 1,
-        "text": "Selecciona el método de aproximación (Izquierda, Derecha o Medio).",
+        "text": "Lee el reto: método asignado y error relativo máximo (2 % con extremos, 0.1 % con punto medio).",
       },
       {
         "icon": "columns",
         "id": 2,
-        "text": "Ajusta la resolución (n) para dividir el área en rectángulos.",
+        "text": "Selecciona ese método y empieza con pocos rectángulos para ver el error.",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Observa cómo disminuye el margen de error respecto al área exacta.",
+        "text": "Calcula la integral exacta con la regla de Barrow y compárala con la suma.",
       },
       {
         "icon": "check",
         "id": 4,
-        "text": "Valida la integral cuando el error sea menor al 0.5%.",
+        "text": "Aumenta n hasta que el error relativo quede bajo la tolerancia y valida.",
       },
     ],
     "titulo": "Sumas de Riemann",
@@ -19427,7 +19415,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     "ecuacion": "ΔT = Teb(B) - Teb(A)",
     "formulaGfx": "Etanol vs Agua",
     "guiaMaestro": {
-      "friccion": "El alumno debe entender que la temperatura de la mezcla se mantiene constante durante el cambio de fase. Si sube de 90°C, está forzando la ebullición del agua.",
+      "friccion": "El alumno debe entender que, al hervir, la mezcla se queda en su punto de burbuja (que sube despacio al empobrecerse en etanol): calentar más no sube la temperatura, sube el caudal, y una columna forzada separa peor.",
       "objetivo": "Diferenciar sustancias puras mediante sus puntos de ebullición constantes.",
       "puntosClave": [
         "Etanol: 78.4°C.",
@@ -19435,27 +19423,27 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "Fraccionamiento: Separación por volatilidad.",
       ],
     },
-    "mision": "¡Iniciando protocolo de Separación Molecular! Tu objetivo es purificar una mezcla hidroalcohólica mediante destilación fraccionada de alta precisión. Deberás controlar la termodinámica de la manta calefactora para estabilizar el sistema en el punto de ebullición del etanol (78.4°C). Tu éxito técnico depende de mantener una isoterma constante que evite la co-evaporación del agua, asegurando un destilado con pureza superior al 98%. ¡Domina el equilibrio líquido-vapor y recupera el componente volátil con grado analítico!",
+    "mision": "¡Iniciando protocolo de Separación Molecular! Tu objetivo es purificar una mezcla hidroalcohólica mediante destilación fraccionada de alta precisión. La mezcla 1:1 de etanol y agua hierve hacia los 83 °C; en la cabeza de la columna el vapor rico en etanol marca cerca de 78 °C. Deberás calentar con la manta apenas por encima de la ebullición para que la columna separe bien, y recoger al menos 50 mL de destilado con 85 % v/v de etanol o más. Calentar a fondo destila más rápido, pero la columna se inunda y el destilado sale más aguado. (El azeótropo, ~96 % m/m, es el límite de cualquier destilación.)",
     "pasos": [
       {
         "icon": "flame",
         "id": 1,
-        "text": "Ajusta la manta de calentamiento a 80-85°C para evaporar el etanol.",
+        "text": "Ajusta la manta a 85-95 °C, apenas sobre la ebullición de la mezcla (~83 °C).",
       },
       {
         "icon": "thermometer",
         "id": 2,
-        "text": "Observa el punto de ebullición del etanol en el termómetro.",
+        "text": "Observa la cabeza de la columna: ~78 °C mientras sube vapor rico en etanol.",
       },
       {
         "icon": "zap",
         "id": 3,
-        "text": "Controla que la temperatura no exceda los 90°C para evitar co-evaporación.",
+        "text": "No calientes a fondo: más calor es más caudal y menos separación.",
       },
       {
         "icon": "beaker",
         "id": 4,
-        "text": "Recupera el volumen total de etanol y valida la pureza.",
+        "text": "Recoge 50 mL con ≥ 85 % v/v en el alcoholímetro y certifica.",
       },
     ],
     "titulo": "Destilación Fraccionada",
@@ -19475,25 +19463,25 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Volumen (L)",
       },
     ],
-    "ecuacion": "P = T / (30 · V)",
-    "formulaGfx": "V = constante",
+    "ecuacion": "P = nRT / V",
+    "formulaGfx": "R = 0.08206 atm·L/(mol·K)",
     "guiaMaestro": {
       "friccion": "El alumno debe entender que la presión es el resultado de choques cinéticos.",
-      "objetivo": "Analizar la relación directamente proporcional entre P y T.",
+      "objetivo": "Aplicar PV = nRT para predecir y alcanzar una presión.",
       "puntosClave": [
         "Gay-Lussac: P ∝ T a V constante.",
-        "Cámara de Presión: Riesgo mecánico a > 5.0 atm.",
+        "Cámara de presión: colapsa por encima de 7 atm.",
         "Energía Cinética: 1/2 mv².",
       ],
     },
-    "mision": "¡Atención, investigador! Nos encontramos en la Cámara de Pruebas Térmicas de CEN Labs. Tu objetivo es validar experimentalmente la Ley de Gay-Lussac. Deberás manipular la energía cinética de las partículas de gas aumentando la temperatura del sistema, mientras mantienes el volumen rigurosamente constante en 10 litros. Tu meta es alcanzar la presión objetivo asignada en tu telemetría sin comprometer la integridad estructural del contenedor. ¡Analiza cómo cada grado Kelvin impacta en la fuerza de colisión molecular!",
-    "misionEn": "Study of Pressure vs Temperature (Gay-Lussac's Law)",
+    "mision": "¡Atención, investigador! Nos encontramos en la Cámara de Pruebas Térmicas de CEN Labs. Tu objetivo es aplicar la ecuación del gas ideal, PV = nRT. Con el termostato (T), el compresor (V) y la inyección de gas (n) deberás llevar la cámara a la presión objetivo asignada en tu telemetría (±0.1 atm) sin rebasar el límite de seguridad de 7 atm. Antes de mover un control, predice con la ecuación hacia dónde irá la presión: a V constante P ∝ T (Gay-Lussac) y a T constante P ∝ 1/V (Boyle).",
+    "misionEn": "Ideal gas law: reach a target pressure by adjusting T, V and n",
     "pasos": [
       {
         "icon": "flame",
         "id": 1,
-        "text": "Ajusta el mechero para variar la temperatura del sistema.",
-        "textEn": "Adjust the burner to vary the system temperature.",
+        "text": "Calcula qué T o V necesitas con PV = nRT.",
+        "textEn": "Compute the T or V you need with PV = nRT.",
       },
       {
         "icon": "bar-chart",
@@ -19504,8 +19492,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "box",
         "id": 3,
-        "text": "Mantén el volumen en 10L para certificar la Ley de Gay-Lussac.",
-        "textEn": "Maintain the volume at 10L to certify Gay-Lussac's Law.",
+        "text": "No rebases 7 atm: la cámara colapsa.",
+        "textEn": "Do not exceed 7 atm: the chamber fails.",
       },
       {
         "icon": "save",
@@ -19554,17 +19542,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 2,
-        "text": "Ajusta los inyectores de masa hasta equilibrar el conteo atómico.",
+        "text": "Ajusta los coeficientes (enteros mínimos) hasta igualar el conteo atómico.",
       },
       {
         "icon": "activity",
         "id": 3,
-        "text": "Observa la estabilización del núcleo de plasma en el motor 3D.",
+        "text": "Comprueba que la masa de reactivos y productos coincide (Lavoisier).",
       },
       {
         "icon": "file-text",
         "id": 4,
-        "text": "Redacta el informe técnico de 50 palabras para certificar la fusión.",
+        "text": "Balancea 4 reacciones y valida la práctica.",
       },
     ],
     "titulo": "Motor de Fusión Estequiométrica",
@@ -19585,23 +19573,23 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Eficiencia",
       },
     ],
-    "ecuacion": "N2 + 3H2 → 2NH3",
-    "formulaGfx": "Exceso = m - (nL * ratio * PM)",
+    "ecuacion": "n = m / M ;  limitante = mín(n / coef)",
+    "formulaGfx": "Exceso = m − n_L · (coef_E / coef_L) · M_E",
     "guiaMaestro": {
       "friccion": "Muchos alumnos asumen que el reactivo con menos gramos es el limitante.",
       "objetivo": "Identificar el reactivo limitante mediante cálculos estequiométricos.",
       "puntosClave": [
-        "PM(N2) = 28, PM(H2) = 2.",
-        "Relación: 1 de N2 necesita 3 de H2.",
+        "Comparar moles ÷ coeficiente, nunca gramos.",
+        "Ej. Haber: 1 mol de N₂ consume 3 mol de H₂.",
         "Exceso: Masa que no reaccionó.",
       ],
     },
-    "mision": "¡Bienvenido a la Planta de Síntesis de Amoníaco! Tu objetivo es optimizar la reacción entre Nitrógeno e Hidrógeno. En la industria, los recursos son limitados; por ello, deberás identificar con precisión matemática cuál de tus reactivos se agotará primero (Reactivo Limitante) y calcular exactamente cuánto material quedará en exceso. Tu meta es producir la mayor cantidad posible de NH3 aplicando la proporción estequiométrica 1:3. ¡Analiza los moles, predice el rendimiento y evita el desperdicio atómico!",
+    "mision": "¡Bienvenido a la Planta de Síntesis! El reactor llega cargado con masas fijas de dos reactivos (síntesis de agua, proceso de Haber, combustión de metano o desplazamiento de plata). En la industria los recursos son limitados: deberás identificar con cálculo estequiométrico cuál de los reactivos se agotará primero (reactivo limitante) y cuántos gramos del otro quedarán sin reaccionar. Solo cuando registres una respuesta correcta el reactor ejecutará la síntesis y verás el rendimiento teórico. ¡Analiza los moles, no los gramos!",
     "pasos": [
       {
         "icon": "microscope",
         "id": 1,
-        "text": "Analiza los gramos iniciales de N2 y H2.",
+        "text": "Lee la ecuación, las masas cargadas y las masas molares.",
       },
       {
         "icon": "zap",
@@ -19616,7 +19604,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "play",
         "id": 4,
-        "text": "Inicia la síntesis y observa el flujo.",
+        "text": "Valida: si aciertas, el reactor ejecuta la síntesis.",
       },
     ],
     "titulo": "Reactivo Limitante",
@@ -19642,12 +19630,12 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "friccion": "La principal dificultad es el control del menisco.",
       "objetivo": "Dominar la técnica de pesaje y aforo volumétrico.",
       "puntosClave": [
-        "PM NaCl = 58.44.",
+        "m = M · V(L) · PM / pureza.",
         "Aforo: Medida de volumen exacto.",
         "Vidrio de Reloj: Masa amortiguadora.",
       ],
     },
-    "mision": "¡Ingresas al Laboratorio de Análisis de Precisión! Tu objetivo es preparar una solución estándar de Cloruro de Sodio (NaCl) con una molaridad específica. La exactitud es tu prioridad: deberás usar la balanza analítica para pesar el soluto considerando la masa del vidrio de reloj (TARA) y luego transferirlo a un matraz aforado. Tu éxito depende del control del menisco al añadir el solvente; una gota extra sobre la línea de aforo invalidará el proceso por dilución excesiva. ¡Domina el arte del aforo y alcanza la concentración perfecta!",
+    "mision": "¡Ingresas al Laboratorio de Análisis de Precisión! Tu objetivo es preparar una solución estándar (NaCl, CuSO₄, KMnO₄ o K₂Cr₂O₇) con la molaridad y el volumen que te asigne la misión. Primero calculas la masa necesaria corrigiendo por la pureza del reactivo; luego la pesas en la balanza analítica descontando el vidrio de reloj (TARA) y la transfieres a un matraz aforado. Tu éxito depende del control del menisco: si el agua rebasa la línea de aforo, la solución queda diluida y hay que prepararla de nuevo. La molaridad final debe quedar a ±5 % de la pedida.",
     "pasos": [
       {
         "icon": "scale",
@@ -19657,7 +19645,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 2,
-        "text": "Recuerda aplicar la TARA al vidrio de reloj (12.5g).",
+        "text": "Aplica la TARA con el vidrio de reloj (12.5 g) sobre el platillo.",
       },
       {
         "icon": "droplets",
@@ -19687,18 +19675,18 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Choque Térmico",
       },
     ],
-    "ecuacion": "S(T) = f(T²)",
+    "ecuacion": "Cristales = m_sal − S(T)",
     "formulaGfx": "KNO3 Cristalización",
     "guiaMaestro": {
       "friccion": "El alumno debe disolver completamente el soluto en caliente antes de enfriar, de lo contrario la recristalización será impura o incompleta.",
       "objetivo": "Comprender la solubilidad como propiedad termodinámica dependiente.",
       "puntosClave": [
         "KNO3: Solubilidad altamente sensible a T.",
-        "Sobresaturación: Estado inestable.",
+        "Solubilidad: tablas CRC, g por 100 g de agua.",
         "Cristalización: Proceso de ordenamiento molecular.",
       ],
     },
-    "mision": "¡Bienvenido al laboratorio de Termodinámica Molecular! Tu misión es inducir la formación de cristales puros de Nitrato de Potasio (KNO3) mediante un choque térmico controlado. Deberás calentar la solución hasta alcanzar la saturación total a alta temperatura y luego someterla a un enfriamiento brusco en un baño de hielo. Observa cómo la disminución de la solubilidad fuerza a los iones a organizarse en una red cristalina geométrica. Tu éxito depende de lograr una disolución completa antes del enfriamiento para evitar impurezas. ¡Desafía las leyes de la solubilidad!",
+    "mision": "¡Bienvenido al laboratorio de Termodinámica Molecular! Tu misión es inducir la formación de cristales puros de Nitrato de Potasio (KNO3) mediante un choque térmico controlado. Deberás añadir más sal de la que admite el agua a 20 °C, calentarla hasta que se disuelva por completo y luego enfriarla en un baño de hielo por debajo de 10 °C. Observa cómo la disminución de la solubilidad fuerza a los iones a organizarse en una red cristalina geométrica. Tu éxito depende de lograr una disolución completa antes del enfriamiento para evitar impurezas. ¡Desafía las leyes de la solubilidad!",
     "pasos": [
       {
         "icon": "scale",
@@ -19718,7 +19706,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "zap",
         "id": 4,
-        "text": "Observa la formación de cristales geométricos.",
+        "text": "Espera a bajar de 10 °C y valida la cristalización.",
       },
     ],
     "titulo": "Solubilidad y Cristalización",
@@ -19895,34 +19883,34 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "completed": true,
       "current": 1,
-      "label": "Estabilidad de Lanzamiento",
+      "label": "Primer Disparo",
       "target": 1,
     },
     {
       "completed": true,
       "current": 1,
-      "label": "Precisión Balística",
+      "label": "Muro Superado",
       "target": 1,
     },
     {
       "completed": true,
       "current": 1,
-      "label": "Optimización de Alcance",
+      "label": "Impacto Confirmado",
       "target": 1,
     },
   ],
   "fisica-10": [],
   "fisica-2": [
     {
-      "completed": true,
-      "current": 1,
-      "label": "Configuración del Plano",
+      "completed": false,
+      "current": 0,
+      "label": "Predicción Registrada",
       "target": 1,
     },
     {
-      "completed": true,
-      "current": 1,
-      "label": "Análisis de Rozamiento",
+      "completed": false,
+      "current": 0,
+      "label": "Bloque en Movimiento",
       "target": 1,
     },
     {
@@ -19934,15 +19922,15 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   ],
   "fisica-3": [
     {
-      "completed": true,
-      "current": 1,
-      "label": "Configuración de Longitud",
-      "target": 1,
+      "completed": false,
+      "current": 0,
+      "label": "Longitudes Medidas",
+      "target": 3,
     },
     {
-      "completed": true,
-      "current": 1,
-      "label": "Sincronización de MAS",
+      "completed": false,
+      "current": 0,
+      "label": "Independencia de la Masa",
       "target": 1,
     },
     {
@@ -19954,16 +19942,16 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   ],
   "fisica-4": [
     {
-      "completed": true,
-      "current": 1,
-      "label": "Prueba de Carga Estática",
-      "target": 1,
+      "completed": false,
+      "current": 0,
+      "label": "Método Estático",
+      "target": 2,
     },
     {
-      "completed": true,
-      "current": 1,
-      "label": "Análisis de Compresión",
-      "target": 1,
+      "completed": false,
+      "current": 0,
+      "label": "Método Dinámico",
+      "target": 3,
     },
     {
       "completed": true,
@@ -20136,8 +20124,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-10": [
     {
       "completed": true,
-      "current": 1,
-      "label": "Estabilidad Térmica",
+      "current": 0,
+      "label": "Ebullición controlada",
       "target": 1,
     },
     {
@@ -20147,24 +20135,24 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "target": 50,
     },
     {
-      "completed": true,
-      "current": 1,
-      "label": "Certificación de Pureza",
-      "target": 1,
+      "completed": false,
+      "current": 0,
+      "label": "Pureza del destilado (% v/v)",
+      "target": 85,
     },
   ],
   "quimica-2": [
     {
       "completed": true,
-      "current": 10,
-      "label": "Volumen Constante (L)",
-      "target": 10,
-    },
-    {
-      "completed": true,
       "current": 2,
       "label": "Presión Objetivo (atm)",
       "target": 2,
+    },
+    {
+      "completed": false,
+      "current": 0,
+      "label": "Presión Certificada",
+      "target": 1,
     },
     {
       "completed": true,
@@ -20188,12 +20176,18 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "completed": false,
-      "current": 2,
-      "label": "Nivel de Reactor",
-      "target": 6,
+      "current": 0,
+      "label": "Reacciones balanceadas",
+      "target": 4,
     },
   ],
   "quimica-4": [
+    {
+      "completed": false,
+      "current": 0,
+      "label": "Respuesta registrada",
+      "target": 1,
+    },
     {
       "completed": true,
       "current": 1,
@@ -20206,19 +20200,13 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "label": "Cálculo de Exceso",
       "target": 1,
     },
-    {
-      "completed": false,
-      "current": 3,
-      "label": "Fase de Síntesis",
-      "target": 4,
-    },
   ],
   "quimica-5": [
     {
       "completed": true,
-      "current": 7.305,
-      "label": "Pesaje Analítico",
-      "target": 7.305,
+      "current": 1,
+      "label": "Pesaje Analítico (±5 %)",
+      "target": 1,
     },
     {
       "completed": true,
@@ -20235,21 +20223,21 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   ],
   "quimica-6": [
     {
-      "completed": true,
-      "current": 50,
-      "label": "Homogeneidad Térmica",
-      "target": 50,
-    },
-    {
-      "completed": true,
-      "current": 1,
-      "label": "Punto de Saturación",
+      "completed": false,
+      "current": 0,
+      "label": "Disolución en caliente",
       "target": 1,
     },
     {
+      "completed": false,
+      "current": 50,
+      "label": "Enfriado en hielo (°C)",
+      "target": 10,
+    },
+    {
       "completed": true,
       "current": 1,
-      "label": "Análisis de Fase",
+      "label": "Cristalización",
       "target": 1,
     },
   ],
@@ -20303,13 +20291,13 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "completed": true,
       "current": 1,
-      "label": "Diferencia de Potencial",
+      "label": "Lectura positiva (COM al ánodo)",
       "target": 1,
     },
     {
-      "completed": true,
-      "current": 1,
-      "label": "Eficiencia Energética (V+)",
+      "completed": false,
+      "current": 0,
+      "label": "Ánodo y cátodo identificados",
       "target": 1,
     },
   ],

@@ -1,21 +1,21 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Fotosíntesis", mision: "Encuentra la luz ideal para producir 50ml de Oxígeno", ecuacion: "6CO₂ + 6H₂O + Luz → C₆H₁₂O₆ + 6O₂", formulaGfx: "O₂ ∝ 1/d² · ColorEff",
+    titulo: "Fotosíntesis", mision: "Diseña ensayos con una ramita de Elodea y alcanza la meta de O₂ sin calentar el agua", ecuacion: "6CO₂ + 6H₂O + Luz → C₆H₁₂O₆ + 6O₂", formulaGfx: "P_neta = Pmax·(1 − e^(−φ·η(λ)·I/Pmax)) − R ;  I ∝ 1/d²",
     pasos: [
-      { id: 1, text: "Ajusta la distancia de la lámpara sobre el riel.", icon: "move" },
-      { id: 2, text: "Selecciona una longitud de onda (color) del espectro.", icon: "palette" },
-      { id: 3, text: "Monitorea la tasa de burbujeo en el tubo de recolección.", icon: "droplets" },
-      { id: 4, text: "Alcanza la meta de 50ml de O₂ antes del tiempo límite.", icon: "zap" }
+      { id: 1, text: "Elige el color de la lámpara LED (todas emiten el mismo flujo de fotones).", icon: "palette" },
+      { id: 2, text: "Ajusta la distancia: la luz cae con el cuadrado, pero no puedes acercarte más del límite térmico.", icon: "move" },
+      { id: 3, text: "Mide 10 min y anota el O₂ recogido; cambia una sola variable por ensayo.", icon: "droplets" },
+      { id: 4, text: "Con tu tabla, elige la combinación que alcanza la meta y valida.", icon: "zap" }
     ],
     guiaMaestro: {
-      objetivo: "Visualizar el efecto de la intensidad y longitud de onda en la tasa metabólica vegetal.",
-      friccion: "La Trampa Verde: Los alumnos suelen creer que la planta absorbe luz verde. Al ver que no produce O₂, descubrirán el papel de la clorofila.",
-      puntosClave: ["Luz Roja/Azul: Máxima absorción.", "Distancia: La intensidad cae con el cuadrado de la distancia.", "Fotólisis: Ruptura de agua para liberar O₂."]
+      objetivo: "Medir cómo la intensidad (distancia) y la longitud de onda cambian la tasa neta de O₂, controlando variables.",
+      friccion: "Mito del verde: muchos creen que la luz verde no sirve. Con igual flujo de fotones rinde menos que la roja, pero SÍ produce O₂ (McCree, 1972). Y acercar la lámpara deja de ayudar cuando la fotosíntesis se satura.",
+      puntosClave: ["Por fotón, el rojo-naranja rinde más; azul y verde menos (espectro de acción de McCree).", "Intensidad ∝ 1/d², pero la tasa se satura (curva luz-respuesta).", "Lo que se mide es la tasa NETA: fotosíntesis menos respiración.", "El O₂ viene de la fotólisis del agua."]
     },
     conceptos: [
-      { titulo: "Clorofila", desc: "Pigmento primordial de las plantas que absorbe luz violeta, azul y roja." },
-      { titulo: "Espectro de Absorción", desc: "Rango de longitudes de onda que un pigmento puede captar para realizar trabajo." },
+      { titulo: "Clorofila", desc: "Pigmento que absorbe sobre todo azul y rojo; los pigmentos accesorios y la hoja también aprovechan parte del verde." },
+      { titulo: "Espectro de acción", desc: "O₂ producido por fotón de cada longitud de onda; no es igual al espectro de absorción de la clorofila aislada." },
       { titulo: "Fotólisis del Agua", desc: "Etapa de la fase clara donde se libera oxígeno como subproducto." }
     ]
   };

@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Estación Térmica',
-      mensaje: 'Haz clic en una de las jeringas y muévela a la "Plancha Caliente". Observa el cambio de color inmediato.',
+      mensaje: 'Con los botones de cada jeringa, coloca una en el "Baño de Hielo", otra a "Temp. Ambiente" y otra en la "Plancha Caliente". El color cambia a medida que cambia su temperatura.',
     },
     {
       id: 3, tipo: 'calculo', pista: 'Endotérmico',
-      mensaje: 'Como la reacción es endotérmica, el calor favorece la formación de NO₂ (gas café). ¿Ves cómo se oscurece?',
+      mensaje: 'La reacción es endotérmica hacia el NO₂: al calentar se forma más NO₂ (café rojizo). Ojo: a 20 °C ya hay bastante NO₂ y la mezcla se ve ámbar, no incolora.',
     },
     {
       id: 4, tipo: 'accion', pista: 'Choque Térmico',
-      mensaje: 'Ahora mueve esa misma jeringa al "Baño de Hielo". El equilibrio se desplazará hacia el N₂O₄ incoloro.',
+      mensaje: 'En el baño de hielo el equilibrio se desplaza hacia el N₂O₄ y la jeringa queda casi incolora (amarillo muy pálido), aunque nunca del todo.',
     },
     {
       id: 5, tipo: 'verificar', pista: 'Inercia Térmica',
@@ -23,7 +23,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 6, tipo: 'verificar', pista: 'Finalizar',
-      mensaje: 'Has demostrado el Principio de Le Châtelier. Registra tus observaciones en la bitácora y valida la práctica.',
+      mensaje: 'Cuando cada jeringa alcance la temperatura de su baño, anota en su selector el color que observas y pulsa "Verificar Equilibrio".',
       accion: 'Certificar Equilibrio',
     }
   ];

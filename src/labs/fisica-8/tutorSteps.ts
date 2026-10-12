@@ -3,36 +3,28 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Ley de Ohm',
-      mensaje: '¡Hola, {alumno}! Bienvenido al Laboratorio de Electrónica. Tu misión es diseñar un circuito seguro para un componente delicado: un LED de alta luminosidad.',
+      mensaje: '¡Hola, {alumno}! Bienvenido al Laboratorio de Electrónica. Tu misión es diseñar la resistencia que protege a un LED rojo: que trabaje a 20 mA sin quemarse.',
     },
     {
-      id: 2, tipo: 'calculo', pista: 'Trinidad Eléctrica',
-      mensaje: 'Recuerda la relación fundamental: V = I · R. El voltaje empuja, la resistencia frena y la intensidad es el flujo resultante. ¡Dominar esto es dominar la energía!',
+      id: 2, tipo: 'accion', pista: 'Sin resistencia',
+      mensaje: 'En el Módulo 01 conecta la fuente y el LED (clic en cada pieza) y cierra el circuito. Sin nada que limite la corriente, sólo la frena la resistencia interna de la fuente: mira qué le pasa al LED.',
     },
     {
-      id: 3, tipo: 'accion', pista: 'Configura la Fuente',
-      mensaje: 'Ajusta el Voltaje de la fuente de poder en el HUD. Observa cómo los indicadores de telemetría reaccionan. A mayor voltaje, mayor presión sobre los electrones.',
+      id: 3, tipo: 'calculo', pista: 'Diseña R',
+      mensaje: 'El LED se lleva unos 2 V (su caída directa V_f); el resto del voltaje cae en la resistencia. Por eso R = (V_fuente − V_f) / I. Calcula R para I = 20 mA con el voltaje de tu fuente.',
     },
     {
-      id: 4, tipo: 'accion', pista: 'Selecciona Carga',
-      mensaje: 'Elige una resistencia de carga del dock. Mira las bandas de colores en el componente SVG; representan el valor en Ohmios. Una resistencia mayor reducirá el flujo.',
+      id: 4, tipo: 'accion', pista: 'Monta y ensaya',
+      mensaje: 'En el Módulo 02 conecta fuente, resistencia y LED, escribe tu R calculada, ajusta la caja de resistencias a ese valor y cierra el circuito. Lee I, V de la resistencia y V del LED en el multímetro.',
     },
     {
-      id: 5, tipo: 'calculo', pista: 'Predicción de Flujo',
-      mensaje: 'Antes de cerrar el circuito, calcula la intensidad esperada: I = V / R. El LED se funde a los 35mA. Busca un valor cercano a los 20mA para máxima seguridad.',
-    },
-    {
-      id: 6, tipo: 'accion', pista: 'Cierra el Circuito',
-      mensaje: '¡Es hora! Presiona el interruptor "Cerrar Circuito". Observa el flujo de electrones (puntos amarillos) y el brillo del LED. ¡Si brilla en verde, lo lograste!',
-    },
-    {
-      id: 7, tipo: 'verificar', pista: 'Validar Ingeniería',
-      mensaje: 'Ingresa el valor de la resistencia que estás usando en el campo de texto y presiona "Validar V=IR". Esto certificará tu diseño en el sistema.',
+      id: 5, tipo: 'verificar', pista: 'Validar diseño',
+      mensaje: 'Si el multímetro marca unos 20 mA y el LED brilla sin quemarse, tu diseño es correcto. Pulsa "Validar práctica".',
       accion: 'Certificar Circuito',
     },
     {
-      id: 8, tipo: 'logro', pista: '¡Ingeniero Eléctrico!',
-      mensaje: '¡Excelente trabajo! Has protegido el componente y validado la Ley de Ohm. Has demostrado que puedes controlar la energía con precisión matemática.',
+      id: 6, tipo: 'logro', pista: '¡Ingeniero Eléctrico!',
+      mensaje: '¡Excelente trabajo! Has usado la Ley de Ohm teniendo en cuenta la caída del LED: así se diseña cualquier indicador luminoso.',
     },
   ];
 

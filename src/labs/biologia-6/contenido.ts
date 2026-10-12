@@ -1,16 +1,16 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Selección Natural", mision: "Observa cómo el ambiente industrial desplaza las frecuencias fenotípicas", ecuacion: "f(A) + f(a) = 1", formulaGfx: "\Delta p = p' - p",
+    titulo: "Selección Natural", mision: "Actúa como el ave depredadora y muestra que la selección desplaza la frecuencia del alelo mejor camuflado", ecuacion: "p + q = 1 ;  q ≈ √f(claras cc)", formulaGfx: "Δp = p′ − p",
     pasos: [
-      { id: 1, text: "Selecciona el ambiente (Bosque Limpio o Industrial).", icon: "tree" },
-      { id: 2, text: "Inicia la temporada de caza y actúa como el depredador.", icon: "target" },
-      { id: 3, text: "Observa la supervivencia diferencial basada en el camuflaje.", icon: "eye" },
-      { id: 4, text: "Analiza la gráfica evolutiva tras completar 5 generaciones.", icon: "line-chart" }
+      { id: 1, text: "Observa la corteza que te tocó (hollín o líquenes claros).", icon: "tree" },
+      { id: 2, text: "Caza la cuota de polillas de cada generación como lo haría un ave.", icon: "target" },
+      { id: 3, text: "Deja que las supervivientes se reproduzcan y anota % de oscuras y q.", icon: "eye" },
+      { id: 4, text: "Completa de 3 a 6 generaciones y valida.", icon: "line-chart" }
     ],
     guiaMaestro: {
       objetivo: "Comprender la selección natural mediante el mimetismo industrial.",
-      friccion: "Intervención Directa: Si el alumno no caza, la población se estabiliza. Debe experimentar cómo su rol de depredador es el motor del cambio.",
+      friccion: "Selección vs. deriva: si el alumno caza al azar, la frecuencia cambia poco y sin dirección (deriva génica); solo una caza guiada por el contraste con la corteza la desplaza. Y como C es dominante, el % de oscuras no es p: q se estima con √f(claras).",
       puntosClave: ["Presión Selectiva: El agente (ave) que elimina individuos.", "Adaptación: Ventaja reproductiva según el entorno.", "Melanismo Industrial: El caso de la polilla Biston betularia."]
     },
     conceptos: [

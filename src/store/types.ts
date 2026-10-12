@@ -1,5 +1,9 @@
 import { Session } from '@supabase/supabase-js';
 import { Profile } from '../lib/supabase-helpers';
+import type {
+  EstadoTiro1, EstadoPlano2, EstadoPendulo3, EstadoHooke4, EstadoPrensa5,
+  EstadoArquimedes6, EstadoDilatacion7, EstadoOhm8, EstadoElectrostatica9, EstadoMotor10,
+} from '../domain/fisica';
 
 export interface QuizQuestion {
   pregunta: string;
@@ -166,11 +170,14 @@ export interface SimuladorState {
     };
     isRunning: boolean; 
     status: 'idle' | 'success' | 'error'; 
+    // Lo que el alumno registra en la consola: el validador lee esto, no el panel.
+    respuesta: { limitanteIdx: number | null; exceso: number | null };
   };
   setReaccionLimitante: (index: number) => void;
   setInputMass: (idx: number, mass: number) => void;
   generarSemillaP4: () => void;
-  validarP4: (ansLimitanteIdx: number, ansExceso: number) => boolean;
+  setRespuestaP4: (limitanteIdx: number | null, exceso: number | null) => void;
+  validarP4: () => boolean;
   resetP4: () => void;
 
   soluciones: { 
@@ -200,6 +207,9 @@ export interface SimuladorState {
     sustanciaIdx: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sustancias: any[];
+    // true cuando toda la sal añadida quedó disuelta en caliente siendo más de la
+    // que admite el agua a 20 °C (la disolución que cristaliza al enfriar).
+    disueltoEnCaliente: boolean;
   };
   setUbicacionVaso: (loc: 'mesa' | 'parrilla' | 'hielo') => void;
   setSustanciaSolubilidad: (idx: number) => void;
@@ -208,102 +218,79 @@ export interface SimuladorState {
   validarP6: () => boolean;
   resetP6: () => void;
 
-  titulacion: { ca: number; va: number; cb: number; volumenBase: number; purgada: boolean; indicador: boolean; status: 'idle' | 'success' | 'alert' | 'error'; history: { vol: number; ph: number; }[]; };
+  titulacion: { ca: number; va: number; cb: number; volumenBase: number; purgada: boolean; indicador: boolean; status: 'idle' | 'success' | 'alert' | 'error'; history: { vol: number; ph: number; }[]; respuestaCa: number | null; };
   generarSemillaP7: () => void;
   addDropNaOH: (amount: number) => void;
   toggleIndicadorP7: () => void;
   togglePurgaP7: () => void;
-  validarP7: (ansCa: number) => boolean;
+  setRespuestaP7: (ca: number | null) => void;
+  validarP7: () => boolean;
   resetP7: () => void;
 
-  equilibrio: { jeringas: { id: number; ubicacion: 'mesa' | 'caliente' | 'hielo'; temp: number; }[]; status: 'idle' | 'success' | 'error'; };
+  equilibrio: { jeringas: { id: number; ubicacion: 'mesa' | 'caliente' | 'hielo'; temp: number; }[]; status: 'idle' | 'success' | 'error'; observaciones: Record<number, string>; };
   setUbicacionJeringa: (id: number, loc: 'mesa' | 'caliente' | 'hielo') => void;
   updateTemperaturaP8: (dt: number) => void;
-  validarP8: (d1: string, d2: string, d3: string) => boolean;
+  setObservacionP8: (id: number, color: string) => void;
+  validarP8: () => boolean;
   resetP8: () => void;
   generarSemillaP8: () => void;
   autoResolveP8: () => void;
 
-  celda: { vasoIzq: string | null; vasoDer: string | null; puenteSalino: boolean; cablesConectados: boolean; status: 'idle' | 'success' | 'error'; seedMetales: string[]; voltaje: number; };
+  // voltaje: lectura con signo del voltímetro (COM al vaso izquierdo, V al derecho).
+  celda: { vasoIzq: string | null; vasoDer: string | null; puenteSalino: boolean; cablesConectados: boolean; status: 'idle' | 'success' | 'error'; seedMetales: string[]; voltaje: number; respuesta: { anodo: string | null; catodo: string | null }; };
   generarSemillaP9: () => void;
   setMetalVaso: (vaso: 'izq' | 'der', metal: string | null) => void;
   togglePuenteSalino: () => void;
   toggleCables: () => void;
-  validarP9: (anodo: string, catodo: string, voltaje: number) => boolean;
+  setRespuestaP9: (anodo: string | null, catodo: string | null) => void;
+  validarP9: () => boolean;
   resetP9: () => void;
 
-  destilacion: { calorManta: number; tempMezcla: number; volEtanolMatraz: number; volAguaMatraz: number; volDestilado: number; purezaDestilado: number; status: 'idle' | 'boiling' | 'success' | 'error'; };
+  // purezaDestilado: % v/v de etanol del destilado ACUMULADO (volEtanolDest / volDestilado).
+  destilacion: { calorManta: number; tempMezcla: number; tempCabeza: number; tasa: number; volEtanolMatraz: number; volAguaMatraz: number; volDestilado: number; volEtanolDest: number; purezaDestilado: number; status: 'idle' | 'boiling' | 'success' | 'error'; };
   setCalorManta: (temp: number) => void;
   updateDestilacion: (dt: number) => void;
-  validarP10: (pureza: number) => boolean;
+  validarP10: () => boolean;
   resetP10: () => void;
 
-  // FÍSICA
-  plano2: { angulo: number; coefRozamiento: number; friccion: number; masa: number; animando: boolean; resultado: 'exito' | 'error' | null; };
+  // FÍSICA (las formas del estado viven en src/domain/fisica.ts)
+  plano2: EstadoPlano2;
   setPlano2: (data: Partial<SimuladorState['plano2']>) => void;
   validarF2: () => boolean;
 
-  pendulo3: { longitud: number; masa: number; anguloInicial: number; animando: boolean; periodo: number; oscilando: boolean; resultado: 'exito' | 'error' | null; };
+  pendulo3: EstadoPendulo3;
   setPendulo3: (data: Partial<SimuladorState['pendulo3']>) => void;
   validarF3: () => boolean;
 
-  hooke4: { k: number; masa: number; estiramiento: number; amplitud: number; oscilando: boolean; animando: boolean; t: number; resultado: 'exito' | 'error' | null; };
+  hooke4: EstadoHooke4;
   setHooke4: (data: Partial<SimuladorState['hooke4']>) => void;
   validarF4: () => boolean;
 
-  prensa5: { f1: number; r1: number; r2: number; masaCarga: number; ratio: number; presion: number; isLifting: boolean; resultado: 'exito' | 'error' | null; };
+  prensa5: EstadoPrensa5;
   setPrensa5: (data: Partial<SimuladorState['prensa5']>) => void;
   validarF5: () => boolean;
 
-  arquimedes6: { fluido: string; densidadCuerpo: number; densidadLiquido?: number; volumenCuerpo: number; sumergido: number; radio?: number; isRunning?: boolean; resultado: 'exito' | 'error' | null; };
+  arquimedes6: EstadoArquimedes6;
   setArquimedes6: (data: Partial<SimuladorState['arquimedes6']>) => void;
   validarF6: () => boolean;
 
-  dilatacion7: { material: string; tempIni: number; tempFin: number; longitud: number; resultado: 'exito' | 'error' | null; };
+  dilatacion7: EstadoDilatacion7;
   setDilatacion7: (data: Partial<SimuladorState['dilatacion7']>) => void;
   validarF7: () => boolean;
 
-  ohm8: { 
-    nivel: number; 
-    voltaje: number; 
-    resistencia: number; 
-    switchOn: boolean; 
-    ledRoto: boolean; 
-    bateriaConectada: boolean; 
-    resistenciaConectada: boolean; 
-    ledConectado: boolean; 
-    enfoqueMacro?: number;
-    enfoqueMicro?: number;
-    resultado: 'exito' | 'error' | null; 
-  };
+  ohm8: EstadoOhm8;
   setOhm8: (data: Partial<SimuladorState['ohm8']>) => void;
   validarF8: () => boolean;
 
-  electrostatica9: { q1: number; q2: number; distancia: number; resultado: 'exito' | 'error' | null; };
+  electrostatica9: EstadoElectrostatica9;
   setElectrostatica9: (data: Partial<SimuladorState['electrostatica9']>) => void;
   validarF9: () => boolean;
 
-  motor10: { imanIzq: 'N' | 'S'; imanDer: 'N' | 'S'; voltaje: number; espiras: number; interruptor: boolean; carga: number; rpm: number; encendido: boolean; resultado: 'exito' | 'error' | null; };
+  motor10: EstadoMotor10;
   setMotor10: (data: Partial<SimuladorState['motor10']>) => void;
   validarF10: () => boolean;
 
-  tiro1: { 
-    angulo: number; 
-    velocidad: number; 
-    disparando: boolean; 
-    targetX: number; 
-    resultado: 'exito' | 'fallo' | 'colision' | null; 
-    distanciaReal: number; 
-    estado: 'idle' | 'success'; 
-    y0: number; 
-    obsX: number; 
-    obsY: number; 
-    municion: number; 
-    viento: number; 
-    densidadAire: number; 
-    yImpacto: number;
-    escenario: 'tierra' | 'luna' | 'marte' | 'jupiter';
-  };
+  tiro1: EstadoTiro1;
   setTiro1: (data: Partial<SimuladorState['tiro1']>) => void;
   generarSemillaF1: () => void;
   ejecutarDisparoF1: () => void;
@@ -389,8 +376,12 @@ export interface SimuladorState {
     verCoseno: boolean; 
     status: 'idle' | 'success' | 'error'; 
     hallazgos?: Array<{ id: number; angulo: number; sin: number; cos: number; }>;
+    /** Ecuación a resolver: sen θ = valor o cos θ = valor (dos soluciones en una vuelta). */
+    objetivo?: { funcion: 'sen' | 'cos'; valor: number; texto: string };
   };
   setAnguloM5: (a: number) => void;
+  generarSemillaM5: () => void;
+  limpiarHallazgosM5: () => void;
   setAnimandoM5: (val: boolean) => void;
   setTogglesM5: (seno: boolean, cos: boolean) => void;
   registrarHallazgoM5: () => void;
@@ -406,21 +397,26 @@ export interface SimuladorState {
   optica7: { n1: number; n2: number | 'misterio'; n2Misterio: number; anguloIncidencia: number; userInputN2: string; status: 'idle' | 'success' | 'error'; };
   setOpticaM7: (n1: number, n2: number | 'misterio', angulo: number) => void;
   setUserInputM7: (val: string) => void;
+  setAnguloM7: (angulo: number) => void;
   generarSemillaM7: () => void;
   validarM7: () => boolean;
   resetM7: () => void;
 
-  derivada8: { xActual: number; mostrarDerivada: boolean; status: 'idle' | 'success' | 'error'; };
+  /** s(t) = −k·t³ + m·t² (cohete); xActual = instante t que el alumno marca. */
+  derivada8: { xActual: number; k: number; m: number; mostrarDerivada: boolean; status: 'idle' | 'success' | 'error'; };
   setXActualM8: (x: number) => void;
   setMostrarDerivadaM8: (val: boolean) => void;
   setDerivada8: (data: Partial<SimuladorState['derivada8']>) => void;
+  generarSemillaM8: () => void;
   validarM8: () => boolean;
   resetM8: () => void;
 
-  integral9: { n: number; metodo: 'izquierda' | 'derecha' | 'punto_medio'; animandoLimite: boolean; status: 'idle' | 'success' | 'error'; };
+  /** metodoReto: método que exige el reto (cada uno con su tolerancia de error relativo). */
+  integral9: { n: number; metodo: 'izquierda' | 'derecha' | 'punto_medio'; metodoReto: 'izquierda' | 'derecha' | 'punto_medio'; animandoLimite: boolean; status: 'idle' | 'success' | 'error'; };
   setIntegralM9: (n: number, metodo: 'izquierda' | 'derecha' | 'punto_medio') => void;
   setAnimandoM9: (val: boolean) => void;
-  validarM9: (errorPorcentual: number) => boolean;
+  validarM9: () => boolean;
+  generarSemillaM9: () => void;
   resetM9: () => void;
 
   galton10: { 
@@ -430,7 +426,12 @@ export interface SimuladorState {
     contenedores: number[]; 
     bolitasPendientes: number; 
     status: 'idle' | 'success' | 'error'; 
+    /** Predicción teórica del alumno (texto tal como lo escribe). */
+    prediccionMedia: string;
+    prediccionSigma: string;
   };
+  setProbabilidadM10: (p: number) => void;
+  setPrediccionM10: (media: string, sigma: string) => void;
   setGaltonM10: (poblacion: number, probabilidad: number) => void;
   lanzarBolitasM10: () => void;
   contarBolitaM10: (bin: number) => void;
@@ -441,124 +442,74 @@ export interface SimuladorState {
   setGalton10: (data: Partial<SimuladorState['galton10']>) => void;
   resetM10: () => void;
 
-  // BIOLOGÍA
-  microscopio: { 
-    muestra: 'animal' | 'vegetal' | 'bacteria' | 'nervioso'; 
-    objetivoMag: 4 | 10 | 40 | 100;
-    enfoqueZ: number;
-    focoIdealZ: number;
-    iluminacion: number; 
-    diafragmaIris: number;
-    aceiteInmersionAplicado: boolean;
-    posicionX: number; 
-    posicionY: number; 
-    targetOrganelle: string; 
-    capturas: string[];
-    magnificacionVerified: boolean;
-    abbeVerified: boolean;
-    enfoqueMacro: number;
-    enfoqueMicro: number;
-    status: 'idle' | 'success' | 'error'; 
-  };
-  setMicroscopio: (data: Partial<SimuladorState['microscopio']>) => void;
+  // BIOLOGÍA — formas de estado en las interfaces `*StateB*` (final del archivo);
+  // la ciencia y los validadores viven en src/domain/biologia.ts.
+  microscopio: MicroscopioStateB1;
+  setMicroscopio: (data: Partial<MicroscopioStateB1>) => void;
   generarSemillaB1: () => void;
   validarB1: () => boolean;
   resetB1: () => void;
   tomarCaptura: (url: string) => void;
 
-  transporte: { 
-    concExt: number; 
-    concInt: number; 
-    glucosaExt: number;
-    temperatura: number;
-    tipoCelula: 'animal' | 'vegetal'; 
-    verParticulas: boolean; 
-    volumen: number; 
-    presionOsmotica: number; 
-    history: { time: number; volumen: number }[]; 
-    status: 'idle' | 'success' | 'error'; 
-  };
-  setTransporte: (data: Partial<SimuladorState['transporte']>) => void;
-  tickTransporte: (dt: number) => void;
+  transporte: TransporteStateB2;
+  setTransporte: (data: Partial<TransporteStateB2>) => void;
   generarSemillaB2: () => void;
   validarB2: () => boolean;
   resetB2: () => void;
 
-  sintesis: { fase: 'transcripcion' | 'traduccion'; adnPlantilla: string; arnMensajero: string; proteina: { id: string; name: string; color: string }[]; errores: number; currentIndex: number; lastAddedBase: string | null; isCorrect: boolean | null; status: 'idle' | 'success' | 'error'; };
+  sintesis: SintesisStateB3;
   addNucleotido: (base: string) => void;
-  advanceRibosoma: () => void;
+  advanceRibosoma: (eleccion: string) => void;   // anticodón del ARNt elegido o LIBERACION_B3
   validarB3: () => boolean;
   generarSemillaB3: () => void;
   resetB3: () => void;
 
-  fotosintesis: { 
-    escenario: 'optimizacion_espectro' | 'ley_distancia' | 'supervivencia_marte';
-    distancia: number; 
-    color: 'blanco' | 'rojo' | 'azul' | 'verde' | 'amarillo'; 
-    oxigenoAcumulado: number; 
-    tiempo: number; 
-    simulando: boolean; 
-    targetO2: number; 
-    status: 'idle' | 'success' | 'error'; 
-  };
-  setFotosintesis: (data: Partial<SimuladorState['fotosintesis']>) => void;
-  tickFotosintesis: (dt: number) => void;
+  fotosintesis: FotosintesisStateB4;
+  setFotosintesis: (data: Partial<FotosintesisStateB4>) => void;
+  registrarEnsayoB4: () => void;
   validarB4: () => boolean;
   generarSemillaB4: () => void;
   resetB4: () => void;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  genetica: { padre1: string; padre2: string; poblacionF1: any[]; tamanioMuestra: number; status: 'idle' | 'success' | 'error'; };
-  setGenetica: (data: Partial<SimuladorState['genetica']>) => void;
+  genetica: GeneticaStateB5;
+  setGenetica: (data: Partial<GeneticaStateB5>) => void;
   validarB5: () => boolean;
   generarF1: () => void;
+  generarSemillaB5: () => void;
   resetB5: () => void;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evolucion: { ambiente: 'limpio' | 'industrial'; generacion: number; clara: number; oscura: number; cazadasClaras: number; cazadasOscuras: number; tiempo: number; isRunning: boolean; historial: { gen: number; clara: number; oscura: number }[]; bugs: any[]; status: 'idle' | 'success' | 'error'; };
-  setEvolucion: (data: Partial<SimuladorState['evolucion']>) => void;
-  tickEvolucion: (dt: number) => void;
+  evolucion: EvolucionStateB6;
+  setEvolucion: (data: Partial<EvolucionStateB6>) => void;
   cazarPolilla: (id: number) => void;
   finalizarGeneracion: () => void;
   generarSemillaB6: () => void;
   validarB6: () => boolean;
   resetB6: () => void;
 
-  sistemaNervioso: { fuerzaGolpe: number; integridadMielina: number; estado: 'reposo' | 'golpe' | 'viajando_sensorial' | 'sinapsis' | 'viajando_motor' | 'contraccion'; latenciaMedida: number; velocidadConduccion: number; status: 'idle' | 'success' | 'error'; };
-  setB7State: (data: Partial<SimuladorState['sistemaNervioso']>) => void;
-  dispararReflejo: () => void;
+  sistemaNervioso: SistemaNerviosoStateB7;
+  setB7State: (data: Partial<SistemaNerviosoStateB7>) => void;
+  registrarGolpeB7: () => EnsayoReflejoB7;
   validarB7: () => boolean;
   generarSemillaB7: () => void;
   resetB7: () => void;
 
-  cardio: { ritmoBPM: number; estadoFisiologico: 'Sueño' | 'Reposo' | 'Actividad' | 'Estrés'; faseActual: 'Diástole' | 'Onda P' | 'QRS' | 'Onda T'; targetBPM: number; status: 'idle' | 'success' | 'error'; };
-  setCardio: (data: Partial<SimuladorState['cardio']>) => void;
+  cardio: CardioStateB8;
+  setCardio: (data: Partial<CardioStateB8>) => void;
+  administrarFarmacoB8: (farmaco: FarmacoB8) => void;
   generarSemillaB8: () => void;
   validarB8: () => boolean;
   resetB8: () => void;
 
-  digestion: { macronutriente: 'almidon' | 'proteina' | 'lipido'; enzimaSeleccionada: 'amilasa' | 'pepsina' | 'lipasa' | null; nivelPH: number; estado: 'intacto' | 'desnaturalizado' | 'digerido' | 'absorbido'; monomerosAbsorbidos: number; status: 'idle' | 'success' | 'error'; };
-  setDigestion: (data: Partial<SimuladorState['digestion']>) => void;
+  digestion: DigestionStateB9;
+  setDigestion: (data: Partial<DigestionStateB9>) => void;
+  incubarB9: () => void;
   generarSemillaB9: () => void;
   validarB9: () => boolean;
   resetB9: () => void;
 
-  ecosistema: { 
-    poblacionPresas: number; 
-    poblacionDepredadores: number; 
-    parametros: {
-      alpha: number;
-      beta: number;
-      gamma: number;
-      delta: number;
-    };
-    tiempoVirtual: number; 
-    historial: Array<{ t: number, presas: number, depredadores: number }>; 
-    simulando: boolean; 
-    status: 'idle' | 'success' | 'error' | 'extinction' | 'simulating'; 
-  };
-  setEcosistema: (data: Partial<SimuladorState['ecosistema']>) => void;
-  tickEcosistema: (dt: number) => void;
+  ecosistema: EcosistemaStateB10;
+  setEcosistema: (data: Partial<EcosistemaStateB10>) => void;
+  registrarCorridaB10: (corrida: NonNullable<EcosistemaStateB10['corrida']>, presas: number, depredadores: number, historial: EcosistemaStateB10['historial']) => void;
   generarSemillaB10: () => void;
   validarB10: () => boolean;
   resetB10: () => void;
@@ -579,12 +530,12 @@ export type QuimicaSlice = Pick<SimuladorState,
   | 'particulas' | 'setParticulas' | 'validarEstructura' | 'setTargetElement' | 'setTargetCharge' | 'resetParticulas'
   | 'gases' | 'updateGases' | 'resetGases' | 'generarSemillaGases' | 'validarQ2' | 'validarQ3' | 'setGasesMission' | 'setGasType'
   | 'balanceo' | 'setCoeficiente' | 'setReaccion' | 'resetBalanceo'
-  | 'limitante' | 'setReaccionLimitante' | 'setInputMass' | 'generarSemillaP4' | 'validarP4' | 'resetP4'
+  | 'limitante' | 'setReaccionLimitante' | 'setInputMass' | 'generarSemillaP4' | 'setRespuestaP4' | 'validarP4' | 'resetP4'
   | 'soluciones' | 'generarSemillaP5' | 'addPolvo' | 'toggleTara' | 'transferirPolvo' | 'setAgua' | 'setHolding' | 'toggleJar' | 'setSal' | 'validarP5' | 'resetP5'
   | 'solubilidad' | 'setUbicacionVaso' | 'setSustanciaSolubilidad' | 'addSalSolubilidad' | 'updateTemperaturaP6' | 'validarP6' | 'resetP6'
-  | 'titulacion' | 'generarSemillaP7' | 'addDropNaOH' | 'toggleIndicadorP7' | 'togglePurgaP7' | 'validarP7' | 'resetP7'
-  | 'equilibrio' | 'setUbicacionJeringa' | 'updateTemperaturaP8' | 'validarP8' | 'resetP8' | 'generarSemillaP8' | 'autoResolveP8'
-  | 'celda' | 'generarSemillaP9' | 'setMetalVaso' | 'togglePuenteSalino' | 'toggleCables' | 'validarP9' | 'resetP9'
+  | 'titulacion' | 'generarSemillaP7' | 'addDropNaOH' | 'toggleIndicadorP7' | 'togglePurgaP7' | 'setRespuestaP7' | 'validarP7' | 'resetP7'
+  | 'equilibrio' | 'setUbicacionJeringa' | 'updateTemperaturaP8' | 'setObservacionP8' | 'validarP8' | 'resetP8' | 'generarSemillaP8' | 'autoResolveP8'
+  | 'celda' | 'generarSemillaP9' | 'setMetalVaso' | 'togglePuenteSalino' | 'toggleCables' | 'setRespuestaP9' | 'validarP9' | 'resetP9'
   | 'destilacion' | 'setCalorManta' | 'updateDestilacion' | 'validarP10' | 'resetP10'
   | 'resetQuimica' | 'entrarQuimica' | 'validarLabQuimica'
 >;
@@ -609,25 +560,175 @@ export type MatematicasSlice = Pick<SimuladorState,
   | 'sistemas2x2' | 'setSistemasCoefsM2' | 'generarSemillaM2' | 'validarM2' | 'resetM2'
   | 'richter' | 'setMagnitudM3' | 'setUserInputM3' | 'toggleLogViewM3' | 'generarSemillaM3' | 'validarM3' | 'resetM3'
   | 'pitagoras' | 'setCatetosM4' | 'setLlenadoM4' | 'setUserInputM4' | 'generarSemillaM4' | 'validarM4' | 'resetM4'
-  | 'trigonometria' | 'setAnguloM5' | 'setAnimandoM5' | 'setTogglesM5' | 'registrarHallazgoM5' | 'validarM5' | 'resetM5'
+  | 'trigonometria' | 'setAnguloM5' | 'setAnimandoM5' | 'setTogglesM5' | 'registrarHallazgoM5' | 'validarM5' | 'resetM5' | 'generarSemillaM5' | 'limpiarHallazgosM5'
   | 'geometria6' | 'setTransformM6' | 'generarSemillaM6' | 'validarM6' | 'resetM6'
-  | 'optica7' | 'setOpticaM7' | 'setUserInputM7' | 'generarSemillaM7' | 'validarM7' | 'resetM7'
-  | 'derivada8' | 'setXActualM8' | 'setMostrarDerivadaM8' | 'setDerivada8' | 'validarM8' | 'resetM8'
-  | 'integral9' | 'setIntegralM9' | 'setAnimandoM9' | 'validarM9' | 'resetM9'
-  | 'galton10' | 'setGaltonM10' | 'lanzarBolitasM10' | 'contarBolitaM10' | 'setSimulandoM10' | 'vaciarGaltonM10' | 'validarM10' | 'generarSemillaM10' | 'setGalton10' | 'resetM10'
+  | 'optica7' | 'setOpticaM7' | 'setUserInputM7' | 'setAnguloM7' | 'generarSemillaM7' | 'validarM7' | 'resetM7'
+  | 'derivada8' | 'setXActualM8' | 'setMostrarDerivadaM8' | 'setDerivada8' | 'generarSemillaM8' | 'validarM8' | 'resetM8'
+  | 'integral9' | 'setIntegralM9' | 'setAnimandoM9' | 'validarM9' | 'generarSemillaM9' | 'resetM9'
+  | 'galton10' | 'setGaltonM10' | 'lanzarBolitasM10' | 'contarBolitaM10' | 'setSimulandoM10' | 'vaciarGaltonM10' | 'validarM10' | 'generarSemillaM10' | 'setGalton10' | 'resetM10' | 'setProbabilidadM10' | 'setPrediccionM10'
   | 'resetMatematicas' | 'entrarMatematicas' | 'validarLabMatematicas'
 >;
 
 export type BiologiaSlice = Pick<SimuladorState,
   | 'microscopio' | 'setMicroscopio' | 'generarSemillaB1' | 'validarB1' | 'resetB1' | 'tomarCaptura'
-  | 'transporte' | 'setTransporte' | 'tickTransporte' | 'generarSemillaB2' | 'validarB2' | 'resetB2'
+  | 'transporte' | 'setTransporte' | 'generarSemillaB2' | 'validarB2' | 'resetB2'
   | 'sintesis' | 'addNucleotido' | 'advanceRibosoma' | 'validarB3' | 'generarSemillaB3' | 'resetB3'
-  | 'fotosintesis' | 'setFotosintesis' | 'tickFotosintesis' | 'validarB4' | 'generarSemillaB4' | 'resetB4'
-  | 'genetica' | 'setGenetica' | 'validarB5' | 'generarF1' | 'resetB5'
-  | 'evolucion' | 'setEvolucion' | 'tickEvolucion' | 'cazarPolilla' | 'finalizarGeneracion' | 'generarSemillaB6' | 'validarB6' | 'resetB6'
-  | 'sistemaNervioso' | 'setB7State' | 'dispararReflejo' | 'validarB7' | 'generarSemillaB7' | 'resetB7'
-  | 'cardio' | 'setCardio' | 'generarSemillaB8' | 'validarB8' | 'resetB8'
-  | 'digestion' | 'setDigestion' | 'generarSemillaB9' | 'validarB9' | 'resetB9'
-  | 'ecosistema' | 'setEcosistema' | 'tickEcosistema' | 'generarSemillaB10' | 'validarB10' | 'resetB10'
+  | 'fotosintesis' | 'setFotosintesis' | 'registrarEnsayoB4' | 'validarB4' | 'generarSemillaB4' | 'resetB4'
+  | 'genetica' | 'setGenetica' | 'validarB5' | 'generarF1' | 'generarSemillaB5' | 'resetB5'
+  | 'evolucion' | 'setEvolucion' | 'cazarPolilla' | 'finalizarGeneracion' | 'generarSemillaB6' | 'validarB6' | 'resetB6'
+  | 'sistemaNervioso' | 'setB7State' | 'registrarGolpeB7' | 'validarB7' | 'generarSemillaB7' | 'resetB7'
+  | 'cardio' | 'setCardio' | 'administrarFarmacoB8' | 'generarSemillaB8' | 'validarB8' | 'resetB8'
+  | 'digestion' | 'setDigestion' | 'incubarB9' | 'generarSemillaB9' | 'validarB9' | 'resetB9'
+  | 'ecosistema' | 'setEcosistema' | 'registrarCorridaB10' | 'generarSemillaB10' | 'validarB10' | 'resetB10'
   | 'resetBiologia' | 'entrarBiologia' | 'validarLabBiologia'
 >;
+
+// ── BIOLOGÍA: estado de cada lab ─────────────────────────────────────────────
+// Lo que el Piloto escribe y lo que el validador de dominio lee. Los campos
+// marcados «oculto» son la incógnita del intento: el panel no los muestra.
+type StatusLabBio = 'idle' | 'success' | 'error';
+export type ObjetivoMagB1 = 4 | 10 | 40 | 100;
+export type MuestraB1 = 'vegetal' | 'animal' | 'bacteria';
+
+export interface MicroscopioStateB1 {
+  muestra: MuestraB1;
+  objetivoMag: ObjetivoMagB1;
+  enfoqueMacro: number;          // 0..100
+  enfoqueMicro: number;          // 0..10 (décimas del macro)
+  enfoqueZ: number;              // macro + micro/10
+  focoIdealZ: number;            // oculto: plano focal de la preparación
+  iluminacion: number;           // % del reóstato
+  aceiteInmersionAplicado: boolean;
+  posicionX: number;
+  posicionY: number;
+  muestraObjetivo: MuestraB1;    // misión: preparación a observar
+  targetOrganelle: string;       // misión: estructura a localizar
+  magMin: ObjetivoMagB1;         // oculto: objetivo mínimo que la resuelve
+  capturas: string[];
+  magnificacionVerified: boolean;
+  abbeVerified: boolean;
+  status: StatusLabBio;
+}
+
+export interface TransporteStateB2 {
+  concExt: number;               // NaCl del medio (mol/L)
+  glucosaExt: number;            // glucosa del medio (mol/L)
+  concInt: number;               // oculto: NaCl-equivalente del citoplasma (mol/L)
+  temperatura: number;           // °C
+  tipoCelula: 'animal' | 'vegetal';
+  volumen: number;               // % del volumen inicial (última lectura)
+  lisada: boolean;               // hemólisis: irreversible hasta nueva muestra
+  status: StatusLabBio;
+}
+
+export interface AminoacidoB3 { id: string; name: string; color: string }
+export interface SintesisStateB3 {
+  fase: 'transcripcion' | 'traduccion';
+  adnPlantilla: string;          // hebra molde 3'→5'
+  arnMensajero: string;          // 5'→3'
+  proteina: AminoacidoB3[];
+  errores: number;
+  currentIndex: number;
+  terminada: boolean;            // el ribosoma llegó al codón de paro
+  status: StatusLabBio;
+}
+
+export type ColorLuzB4 = 'blanco' | 'rojo' | 'azul' | 'verde' | 'amarillo';
+export interface EnsayoB4 { color: ColorLuzB4; distancia: number; o2: number }
+export interface FotosintesisStateB4 {
+  distancia: number;             // cm de la lámpara a la ramita
+  color: ColorLuzB4;
+  dMin: number;                  // cm: más cerca el agua se calienta (dato)
+  meta: number;                  // mL de O₂ en un ensayo (dato)
+  ensayos: EnsayoB4[];
+  status: StatusLabBio;
+}
+
+export type ProporcionB5 = [number, number, number, number];
+export interface CruzaB5 {
+  padre1: string; padre2: string; n: number;
+  prediccion: ProporcionB5;      // la que el alumno tenía al cruzar
+  observados: ProporcionB5;      // amarilla-lisa, amarilla-rugosa, verde-lisa, verde-rugosa
+}
+export interface GeneticaStateB5 {
+  padre1: string;
+  padre2: string;
+  prediccion: ProporcionB5;
+  tamanioMuestra: number;
+  poblacionF1: string[];         // genotipos de la descendencia de la última cruza
+  cruza: CruzaB5 | null;
+  status: StatusLabBio;
+}
+
+export type GenotipoB6 = 'CC' | 'Cc' | 'cc';
+export interface PolillaB6 {
+  id: number; genotipo: GenotipoB6; tipo: 'clara' | 'oscura';
+  x: number; y: number; angle: number; cazada: boolean;
+}
+export interface EvolucionStateB6 {
+  ambiente: 'limpio' | 'industrial';
+  generacion: number;            // generación en el tronco (1 = inicial)
+  cuota: number;                 // polillas que caza el ave por generación
+  bugs: PolillaB6[];
+  pInicialFav: number;           // frecuencia inicial del alelo favorecido
+  // selectividad: fracción de cazadas que contrastaban con la corteza menos su
+  // fracción en la población (0 = caza al azar, > 0 = el ave caza lo visible).
+  historial: { gen: number; pFav: number; fOscuras: number; selectividad: number }[];
+  status: StatusLabBio;
+}
+
+export interface EnsayoReflejoB7 { fuerza: number; respuesta: boolean; latencia: number | null }
+export interface SistemaNerviosoStateB7 {
+  fuerzaGolpe: number;           // % de la fuerza máxima del martillo
+  integridadMielina: number;     // oculto: % de mielina del paciente
+  umbral: number;                // oculto: fuerza mínima que dispara el reflejo
+  distancia: number;             // m: receptor → médula → cuádriceps (dato)
+  ensayos: EnsayoReflejoB7[];
+  velocidadEstimada: number | null;
+  diagnostico: 'normal' | 'desmielinizante' | null;
+  status: StatusLabBio;
+}
+
+export type FarmacoB8 = 'atropina' | 'metoprolol' | 'adrenalina';
+export interface CardioStateB8 {
+  tipo: 'bradicardia' | 'taquicardia';  // oculto: ritmo del paciente al llegar
+  fcInicial: number;             // oculto
+  ritmoBPM: number;              // oculto: FC actual (se LEE en el trazo)
+  dosis: Record<FarmacoB8, number>;
+  diagnostico: 'bradicardia' | 'taquicardia' | 'normal' | null;
+  lecturaFC: number | null;      // FC que el alumno midió en el trazo
+  status: StatusLabBio;
+}
+
+export type MacronutrienteB9 = 'almidon' | 'proteina' | 'lipido';
+export type EnzimaB9 = 'amilasa' | 'pepsina' | 'tripsina' | 'lipasa';
+export type OrganoB9 = 'boca' | 'estomago' | 'delgado' | 'grueso';
+export type ResultadoIncubacionB9 = 'sin_reaccion' | 'desnaturalizada' | 'parcial' | 'completa';
+export interface IncubacionB9 {
+  enzima: EnzimaB9; pH: number; bilis: boolean;
+  resultado: ResultadoIncubacionB9; hidrolisis: number;  // 0..1
+}
+export interface DigestionStateB9 {
+  macronutriente: MacronutrienteB9;
+  enzimaSeleccionada: EnzimaB9 | null;
+  nivelPH: number;
+  bilis: boolean;
+  ensayo: IncubacionB9 | null;
+  organoRespuesta: OrganoB9 | null;
+  absorcionRespuesta: OrganoB9 | null;
+  status: StatusLabBio;
+}
+
+export interface ParametrosLVB10 { alpha: number; beta: number; gamma: number; delta: number }
+export interface EcosistemaStateB10 {
+  poblacionPresas: number;
+  poblacionDepredadores: number;
+  presasIniciales: number;
+  depredadoresIniciales: number;
+  parametros: ParametrosLVB10;
+  tiempoVirtual: number;         // años de la última corrida
+  historial: Array<{ t: number; presas: number; depredadores: number }>;
+  simulando: boolean;
+  corrida: { t: number; extincion: false | 'presas' | 'depredadores'; parametros: ParametrosLVB10 } | null;
+  status: StatusLabBio | 'extinction';
+}

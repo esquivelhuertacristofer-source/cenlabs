@@ -2,20 +2,23 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
+import {
+  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
   Trash2, ShieldCheck, Calculator, BookOpen,
   Binary, Compass, Bot, Volume2, Shapes, MoveHorizontal, RotateCw
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraTrigonometria() {
-  const { trigonometria, registrarHallazgoM5, resetM5, setAnguloM5 } = useSimuladorStore();
-  const { angulo, hallazgos, status } = trigonometria;
+export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () => void }) {
+  const { trigonometria, registrarHallazgoM5, resetM5 } = useSimuladorStore(
+    useShallow((s) => ({ trigonometria: s.trigonometria, registrarHallazgoM5: s.registrarHallazgoM5, resetM5: s.resetM5 })),
+  );
+  const { angulo, hallazgos, objetivo } = trigonometria;
 
   const [conclusionText, setConclusionText] = useState('');
-  const quantumMsg = `Explora las funciones trigonométricas en el círculo unitario. Observa cómo cambian el Seno (ordenada) y el Coseno (abscisa) conforme rotas el vector. ¡Registra los valores en ángulos notables para certificar la misión!`;
+  const quantumMsg = `Explora las funciones trigonométricas en el círculo unitario: el seno es la ordenada y el coseno la abscisa del vector. Resuelve la ecuación del reto: tiene dos soluciones en una vuelta, una en cada cuadrante donde la función tiene ese signo.`;
 
   const handleReset = () => {
     resetM5();
@@ -32,25 +35,25 @@ export default function BitacoraTrigonometria() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-emerald-500/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
            <Bot size={60} className="text-white" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
              <span className="text-[10px] font-black text-emerald-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
           </div>
-          
+
           <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo Trigonométrico</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
             Presiona el botón para recibir instrucciones sobre la oscilación de proyecciones en el círculo unitario.
           </p>
-          
-          <button 
+
+          <button
             onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
           >
@@ -61,7 +64,7 @@ export default function BitacoraTrigonometria() {
 
         <div className="flex gap-1 mt-4 justify-center opacity-30">
            {[...Array(12)].map((_, i) => (
-             <motion.div 
+             <motion.div
                key={i}
                animate={{ height: [4, 12, 4] }}
                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
@@ -112,7 +115,7 @@ export default function BitacoraTrigonometria() {
                      Base de Datos Trig.
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {(hallazgos?.length || 0) >= 3 ? '✓ Muestreo Suficiente' : `... Faltan ${3 - (hallazgos?.length || 0)} registros`}
+                     {objetivo ? `Reto: ${objetivo.funcion} θ = ${objetivo.texto} · ${hallazgos?.length || 0} muestra(s)` : '...'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${(hallazgos?.length || 0) >= 3 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
@@ -143,7 +146,7 @@ export default function BitacoraTrigonometria() {
            </div>
         </div>
 
-        <button 
+        <button
           onClick={() => { registrarHallazgoM5(); audio.playPop(); }}
           className="w-full py-3 bg-[#023047] hover:bg-[#054a6d] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
         >
@@ -160,8 +163,8 @@ export default function BitacoraTrigonometria() {
              </div>
              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
           </div>
-          <textarea 
-             value={conclusionText} onChange={setConclusionText as any}
+          <textarea
+             value={conclusionText} onChange={e => setConclusionText(e.target.value)}
              placeholder="Describe cómo varían el seno y el coseno al moverte por los cuatro cuadrantes del círculo unitario..."
              rows={4}
              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-emerald-500 italic"
@@ -170,19 +173,19 @@ export default function BitacoraTrigonometria() {
 
       {/* BOTONES DE ACCIÓN FINALES */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-14 h-14 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
-        <button 
-          onClick={() => { audio.playSuccess(); alert("Perfil Trigonométrico Certificado."); }}
+        <button
+          onClick={() => onValidate?.()}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >
           <ShieldCheck size={16} />
-          {canValidate ? 'Misión Certificada' : 'Someter Análisis'}
+          Someter Análisis
         </button>
       </div>
 

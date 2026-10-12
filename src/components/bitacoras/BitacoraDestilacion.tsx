@@ -8,14 +8,17 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, FlaskConical, Microscope, Thermometer, Droplets
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
+import { validarQ10 } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraDestilacion({ onValidate }: { onValidate?: () => void }) {
-  const { destilacion, validarP10 } = useSimuladorStore();
+  const { destilacion, validarP10 } = useSimuladorStore(useShallow((s) => ({ destilacion: s.destilacion, validarP10: s.validarP10 })));
+  const [aviso, setAviso] = useState<string | null>(null);
   const [purezaInput, setPurezaInput] = useState("");
   const [conclusionText, setConclusionText] = useState("");
 
-  const quantumMsg = "Monitorea el termómetro del cabezal de destilación. Para obtener etanol de alta pureza, la temperatura debe estabilizarse cerca de los 78.4°C. Si excedes los 85°C, disminuirás la pureza.";
+  const quantumMsg = "Monitorea el termómetro de la cabeza de la columna: mientras sube vapor rico en etanol marca cerca de 78 °C. Calienta la manta apenas por encima de la ebullición de la mezcla (85 a 95 °C); si la calientas a fondo, la columna se inunda y el destilado sale más aguado.";
 
   const handleReset = () => {
     setPurezaInput("");
@@ -23,15 +26,23 @@ export default function BitacoraDestilacion({ onValidate }: { onValidate?: () =>
     audio.playPop();
   };
 
+  // La pureza que registra el alumno es su lectura del alcoholímetro; el juicio es
+  // el mismo del botón «Validar práctica» (validarQ10).
   const handleValidar = () => {
-    const val = parseFloat(purezaInput);
-    if (isNaN(val)) return alert("Ingresa un valor numérico para la pureza.");
-    const ok = validarP10(val);
+    const val = parseFloat(purezaInput.replace(',', '.'));
+    if (isNaN(val)) { setAviso("Ingresa un valor numérico para la pureza."); audio.playError(); return; }
+    if (destilacion.volDestilado > 0 && Math.abs(val - destilacion.purezaDestilado) > 1) {
+      setAviso("La pureza registrada no coincide con la lectura del alcoholímetro del colector.");
+      audio.playError();
+      return;
+    }
+    const ok = validarP10();
     if (ok) {
       audio.playSuccess();
+      setAviso(null);
     } else {
       audio.playError();
-      alert("❌ Error de Análisis: La pureza registrada no coincide con los parámetros de recolección.");
+      setAviso(validarQ10(useSimuladorStore.getState().destilacion).mensaje ?? null);
     }
   };
 
@@ -145,6 +156,9 @@ export default function BitacoraDestilacion({ onValidate }: { onValidate?: () =>
            >
              {destilacion.status === 'success' ? 'Pureza Certificada' : 'Validar Fracción'}
            </button>
+           {aviso && destilacion.status !== 'success' && (
+             <p className="text-[11px] font-bold text-amber-600">{aviso}</p>
+           )}
         </div>
       </div>
 

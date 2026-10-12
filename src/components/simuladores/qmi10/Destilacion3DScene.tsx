@@ -12,6 +12,7 @@ interface Destilacion3DSceneProps {
     volMezcla: number; // 0 to 100
     volDestilado: number; // 0 to 100
     pureza: number;
+    tasa?: number; // mL/s de destilado (0 = no hierve)
 }
 
 // Cinematic Shader - Diamond State Standard
@@ -58,8 +59,12 @@ const CinematicShader = {
     `
 };
 
-export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pureza }: Destilacion3DSceneProps) {
+export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pureza, tasa = 0 }: Destilacion3DSceneProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    // El bucle se monta una vez y lee las props por ref: antes las capturaba del
+    // primer render y la escena no reaccionaba a la manta ni al destilado.
+    const stateRef = useRef({ temp, volMezcla, volDestilado, pureza, tasa });
+    stateRef.current = { temp, volMezcla, volDestilado, pureza, tasa };
     const engineRef = useRef<{
         scene: THREE.Scene;
         camera: THREE.PerspectiveCamera;
@@ -211,6 +216,9 @@ export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pure
 
             eng.controls.update();
             cinematicPass.uniforms.time.value = time;
+            const { volMezcla, volDestilado, tasa } = stateRef.current;
+            const hierve = tasa > 0;
+            const intensidad = Math.min(1, tasa / 2); // 2 mL/s ≈ ebullición vigorosa
 
             // Sync Liquids
             const mezLevel = (volMezcla / 100);
@@ -221,13 +229,13 @@ export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pure
             eng.liquidDestilado!.scale.set(1, destLevel, 1);
             eng.liquidDestilado!.position.y = 4 - (1 - destLevel) * 4;
             
-            // Color de pureza
-            (eng.liquidDestilado!.material as THREE.MeshPhysicalMaterial).color.setHSL(0.4, 0.8, 0.4 + (pureza/200));
+            // El destilado (etanol + agua) es incoloro: su pureza se lee con el
+            // alcoholímetro del panel, no con el color.
 
             // Animación Burbujas (Ebullición)
-            if (temp > 78) {
+            if (hierve) {
                 const bPos = eng.bubbleParticles!.geometry.attributes.position.array as Float32Array;
-                (eng.bubbleParticles!.material as THREE.PointsMaterial).opacity = Math.min(0.8, (temp - 78) / 10);
+                (eng.bubbleParticles!.material as THREE.PointsMaterial).opacity = 0.3 + 0.5 * intensidad;
                 for(let i=0; i<30; i++) {
                     const t = (time + i/30) % 1;
                     bPos[i*3] = -12 + (Math.random() - 0.5) * 6 * mezLevel;
@@ -238,9 +246,9 @@ export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pure
             }
 
             // Animación Vapor (Columna)
-            if (temp > 80) {
+            if (hierve) {
                 const sPos = eng.steamParticles!.geometry.attributes.position.array as Float32Array;
-                (eng.steamParticles!.material as THREE.PointsMaterial).opacity = Math.min(0.4, (temp - 80) / 15);
+                (eng.steamParticles!.material as THREE.PointsMaterial).opacity = 0.1 + 0.3 * intensidad;
                 for(let i=0; i<50; i++) {
                     const t = (time * 0.5 + i/50) % 1;
                     sPos[i*3] = -12 + (Math.random() - 0.5) * 1.5;
@@ -251,7 +259,7 @@ export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pure
             }
 
             // Animación Goteo (Receptor)
-            if (temp > 78.5) {
+            if (hierve) {
                 const dPos = eng.dripParticles!.geometry.attributes.position.array as Float32Array;
                 (eng.dripParticles!.material as THREE.PointsMaterial).opacity = 1;
                 for(let i=0; i<10; i++) {
@@ -270,12 +278,24 @@ export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pure
         };
         animate();
 
+        const contenedor = containerRef.current;
+        const ro = new ResizeObserver(() => {
+            const w = contenedor.clientWidth, h = contenedor.clientHeight;
+            if (w === 0 || h === 0) return;
+            camera.aspect = w / h; camera.updateProjectionMatrix();
+            renderer.setSize(w, h); composer.setSize(w, h);
+        });
+        ro.observe(contenedor);
+
         return () => {
-            if (engineRef.current) {
-                cancelAnimationFrame(engineRef.current.frameId);
-                composer.dispose();
-                renderer.dispose();
-            }
+            ro.disconnect();
+            if (engineRef.current) cancelAnimationFrame(engineRef.current.frameId);
+            controls.dispose();
+            composer.dispose();
+            renderer.dispose();
+            // Sin esto, en modo estricto (doble montaje) quedaban DOS lienzos apilados.
+            if (contenedor.contains(renderer.domElement)) contenedor.removeChild(renderer.domElement);
+            engineRef.current = null;
         };
     }, []);
 

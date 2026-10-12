@@ -1,34 +1,35 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
+import { COLORES_NO2, tonoMezclaNO2, validarQ8 } from '@/domain/quimica';
 import {
   Snowflake, Flame, MousePointer2, RotateCcw,
-  Info, Activity, FlaskConical
+  Info, Activity, FlaskConical, CheckCircle2
 } from 'lucide-react';
 import { audio } from '@/utils/audioEngine';
 import EquilibrioQuimico3DScene from './simuladores/qmi08/EquilibrioQuimico3DScene';
 
 interface Props {
   isWorktableDark?: boolean;
+  onValidate?: () => void;
 }
 
-export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Props) {
-  const router = useRouter();
-  const { equilibrio, setUbicacionJeringa, updateTemperaturaP8, resetP8, generarSemillaP8, validarP8 } = useSimuladorStore();
+export default function PilotoEquilibrioQuimico({ isWorktableDark = true, onValidate }: Props) {
+  const { equilibrio, setUbicacionJeringa, setObservacionP8, updateTemperaturaP8, resetP8, validarP8 } =
+    useSimuladorStore(useShallow((s) => ({
+      equilibrio: s.equilibrio, setUbicacionJeringa: s.setUbicacionJeringa, setObservacionP8: s.setObservacionP8,
+      updateTemperaturaP8: s.updateTemperaturaP8, resetP8: s.resetP8, validarP8: s.validarP8,
+    })));
 
   const [mounted, setMounted] = useState(false);
-  const [d1, setD1] = useState('');
-  const [d2, setD2] = useState('');
-  const [d3, setD3] = useState('');
+  const [intentado, setIntentado] = useState(false);
 
-  // Motor de tiempo para inercia térmica
+  // Inercia térmica: 2 pasos por segundo (el store no escribe si nada cambia).
+  // Las jeringas las pone `entrarLab('quimica-8')` antes de montar el panel.
   useEffect(() => {
     setMounted(true);
-    if (equilibrio.jeringas.length === 0) generarSemillaP8();
-
     const interval = setInterval(() => {
       updateTemperaturaP8(0.5);
     }, 500);
@@ -37,16 +38,20 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
     };
   }, [updateTemperaturaP8]);
 
+  const veredicto = validarQ8(equilibrio);
+  const validar = () => {
+    setIntentado(true);
+    // Un solo juez: el validador de la práctica (quiz + modal comunes).
+    if (onValidate) { onValidate(); return; }
+    if (validarP8()) audio?.playSuccess(); else audio?.playError();
+  };
+
   const stations = [
     { id: 'hielo', name: 'Baño de Hielo', temp: 0, icon: <Snowflake size={22} className="text-blue-400" />, color: '#3b82f6' },
     { id: 'mesa', name: 'Temp. Ambiente', temp: 20, icon: <MousePointer2 size={22} className="text-slate-400" />, color: '#94a3b8' },
     { id: 'caliente', name: 'Plancha Caliente', temp: 80, icon: <Flame size={22} className="text-orange-500" />, color: '#f59e0b' },
   ] as const;
 
-  // Temperatura media real de las jeringas → conduce el desplazamiento del reactor 3D
-  const avgTemp = equilibrio.jeringas.length > 0
-    ? equilibrio.jeringas.reduce((s, j) => s + j.temp, 0) / equilibrio.jeringas.length
-    : 20;
 
   if (!mounted) return null;
 
@@ -55,7 +60,7 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
 
       {/* ── ESCENA 3D — REACTOR DE EQUILIBRIO (fondo full-screen) ── */}
       <div className="absolute inset-0 z-0">
-        <EquilibrioQuimico3DScene temp={avgTemp} />
+        <EquilibrioQuimico3DScene jeringas={equilibrio.jeringas} />
       </div>
 
       {/* velo de contraste para legibilidad del HUD */}
@@ -71,19 +76,17 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Equilibrium Status HUD</span>
           </div>
 
+          {/* Cuántas jeringas hay en cada baño (no adelanta qué color tendrán) */}
           <div className="grid grid-cols-3 gap-4">
-            <div className={`p-4 rounded-2xl border transition-all ${equilibrio.jeringas.length > 0 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Reactivos</div>
-              <div className={`text-sm font-black italic ${equilibrio.jeringas.length > 0 ? 'text-orange-400' : 'text-white/20'}`}>{equilibrio.jeringas.length > 0 ? 'ESTABILIZADOS' : 'PENDIENTE'}</div>
-            </div>
-            <div className={`p-4 rounded-2xl border transition-all ${equilibrio.jeringas.some(j => j.ubicacion === 'caliente') ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Energía</div>
-              <div className={`text-sm font-black italic ${equilibrio.jeringas.some(j => j.ubicacion === 'caliente') ? 'text-red-400' : 'text-white/20'}`}>{equilibrio.jeringas.some(j => j.ubicacion === 'caliente') ? 'ABSORCIÓN' : 'AMBIENTE'}</div>
-            </div>
-            <div className={`p-4 rounded-2xl border transition-all ${equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-white/5 border-white/5'}`}>
-              <div className="text-[9px] font-black uppercase text-white/40 mb-2">Exotérmico</div>
-              <div className={`text-sm font-black italic ${equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? 'text-blue-400' : 'text-white/20'}`}>{equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? 'LIBERACIÓN' : 'INACTIVO'}</div>
-            </div>
+            {stations.map((st) => {
+              const n = equilibrio.jeringas.filter(j => j.ubicacion === st.id).length;
+              return (
+                <div key={st.id} className={`p-4 rounded-2xl border transition-all ${n > 0 ? 'bg-white/10 border-white/25' : 'bg-white/5 border-white/5'}`}>
+                  <div className="text-[9px] font-black uppercase text-white/50 mb-2">{st.name} · {st.temp} °C</div>
+                  <div className={`text-sm font-black italic ${n > 0 ? 'text-white' : 'text-white/30'}`}>{n} jeringa{n === 1 ? '' : 's'}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -114,7 +117,7 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
           </div>
         </div>
 
-        <button onClick={resetP8} className="h-20 w-20 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2rem] flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/10 transition-all pointer-events-auto group">
+        <button aria-label="Reiniciar jeringas" onClick={() => { resetP8(); setIntentado(false); }} className="h-20 w-20 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2rem] flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/10 transition-all pointer-events-auto group">
           <RotateCcw size={30} className="group-hover:rotate-[-180deg] transition-transform duration-1000" />
         </button>
       </div>
@@ -134,40 +137,25 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
                 jeringa={jeringa}
                 stations={stations}
                 setLoc={setUbicacionJeringa}
+                observacion={equilibrio.observaciones?.[jeringa.id] ?? ''}
+                setObs={setObservacionP8}
               />
             ))}
           </div>
         </div>
 
-        {/* ── PANEL DE OBSERVACIONES + VALIDACIÓN ── */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 p-5 bg-black/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-2xl pointer-events-auto">
-          {[
-            { label: 'Hielo', val: d1, set: setD1 },
-            { label: 'Caliente', val: d2, set: setD2 },
-            { label: 'Ambiente', val: d3, set: setD3 },
-          ].map(({ label, val, set }) => (
-            <div key={label} className="flex flex-col gap-1">
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{label}</span>
-              <select
-                value={val}
-                onChange={e => set(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs font-bold outline-none focus:border-orange-400/60 transition-all"
-              >
-                <option value="">Seleccionar...</option>
-                <option value="transparente">Transparente (N₂O₄)</option>
-                <option value="incoloro">Incoloro</option>
-                <option value="cafe">Café (NO₂)</option>
-              </select>
-            </div>
-          ))}
+        {/* ── VALIDACIÓN ── */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 p-4 bg-black/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-2xl pointer-events-auto">
+          <span className="text-[10px] font-black text-white/50 uppercase tracking-widest px-3">
+            {equilibrio.status === 'success'
+              ? 'Observaciones correctas'
+              : intentado && veredicto.mensaje ? veredicto.mensaje : 'Registra el color de cada jeringa'}
+          </span>
           <button
-            onClick={() => {
-              const ok = validarP8(d1, d2, d3);
-              if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
-            }}
-            className="px-8 py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-orange-500/30"
+            onClick={validar}
+            className="px-8 py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-orange-500/30 flex items-center gap-2"
           >
-            Verificar Equilibrio
+            {equilibrio.status === 'success' && <CheckCircle2 size={14} />} Verificar Equilibrio
           </button>
         </div>
       </main>
@@ -182,31 +170,11 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
           <div className="w-px h-8 bg-white/20" />
           <div className="flex items-center gap-4">
             <FlaskConical size={22} className="text-orange-400" />
-            <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em]">Café = NO₂ (calor desplaza →)</span>
+            <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em]">Espera a que se estabilice y anota su color</span>
           </div>
         </div>
       </div>
 
-      {equilibrio.status === 'success' && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#0a1a0a] border border-orange-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(245,158,11,0.2)]"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-orange-500/20 border border-orange-500/40 flex items-center justify-center">
-              <Activity size={36} className="text-orange-400" />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Equilibrio Comprendido!</h2>
-            <p className="text-sm text-slate-300 mb-8">Identificaste correctamente el comportamiento del sistema N₂O₄ ⇌ 2NO₂ según Le Châtelier.</p>
-            <button onClick={resetP8} className="px-10 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Nuevo Experimento
-            </button>
-            <button onClick={() => router.push('/hub')} className="w-full mt-3 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Cerrar Laboratorio
-            </button>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 }
@@ -216,10 +184,14 @@ function SyringeControl({
   jeringa,
   stations,
   setLoc,
+  observacion,
+  setObs,
 }: {
   jeringa: { id: number; ubicacion: 'mesa' | 'caliente' | 'hielo'; temp: number };
   stations: readonly { id: string; name: string; temp: number; icon: React.ReactNode; color: string }[];
   setLoc: (id: number, loc: 'mesa' | 'caliente' | 'hielo') => void;
+  observacion: string;
+  setObs: (id: number, color: string) => void;
 }) {
   const tempColor = jeringa.temp > 50 ? '#f97316' : jeringa.temp < 10 ? '#38bdf8' : '#e2e8f0';
 
@@ -230,6 +202,8 @@ function SyringeControl({
         <span className="text-xs font-black font-mono tracking-tighter" style={{ color: tempColor }}>
           {jeringa.temp.toFixed(1)}°C
         </span>
+        {/* Lo que se ve a través del vidrio: el tono real de la mezcla */}
+        <span aria-hidden className="w-5 h-5 rounded-md border border-white/30" style={{ background: tonoMezclaNO2(jeringa.temp) }} />
       </div>
       <div className="flex gap-1.5">
         {stations.map(st => (
@@ -252,6 +226,15 @@ function SyringeControl({
           </button>
         ))}
       </div>
+      <select
+        aria-label={`Color observado en la jeringa ${jeringa.id}`}
+        value={observacion}
+        onChange={e => setObs(jeringa.id, e.target.value)}
+        className="w-44 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-white text-[10px] font-bold outline-none focus:border-orange-400/60 transition-all"
+      >
+        <option value="" className="bg-slate-900">Color observado…</option>
+        {COLORES_NO2.map(c => <option key={c.id} value={c.id} className="bg-slate-900">{c.etiqueta}</option>)}
+      </select>
     </div>
   );
 }

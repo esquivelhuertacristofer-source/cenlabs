@@ -3,7 +3,7 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     { 
       id: 1, tipo: 'intro', pista: '¡Bienvenida!',
-      mensaje: '¡Hola, {alumno}! Bienvenido al laboratorio de Gases. Comienza ajustando la TEMPERATURA a 400K para observar la excitación molecular.',
+      mensaje: '¡Hola, {alumno}! Bienvenido al laboratorio de Gases. Sube la TEMPERATURA con el termostato y observa cómo se agitan las partículas y sube la presión.',
     },
     { 
       id: 2, tipo: 'accion', pista: 'Ajusta el Volumen',
@@ -11,7 +11,7 @@ const tutorSteps: TutorStep[] = [
     },
     { 
       id: 3, tipo: 'calculo', pista: 'Analiza la Isoterma',
-      mensaje: 'Observa el GRÁFICO DE ISOTERMAS. Cada punto del gráfico corresponde a un estado del gas. Intenta moverte por la curva suavemente.',
+      mensaje: 'Antes de mover otro control, calcula con PV = nRT la temperatura o el volumen que te dan la PRESIÓN OBJETIVO. R = 0.08206 atm·L/(mol·K).',
     },
     { 
       id: 4, tipo: 'accion', pista: 'Bomba de Gas',
@@ -19,7 +19,7 @@ const tutorSteps: TutorStep[] = [
     },
     { 
       id: 5, tipo: 'verificar', pista: 'Sincroniza',
-      mensaje: 'Cuando logres la PRESIÓN OBJETIVO (±0.05), el botón VALIDAR se activará. ¡Mantén el sistema en equilibrio!',
+      mensaje: 'Cuando la presión quede a ±0.1 atm del objetivo, pulsa VALIDAR. Cuidado: por encima de 7 atm la cámara colapsa.',
       accion: 'Validar Telemetría',
     }
   ];

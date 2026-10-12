@@ -3,20 +3,20 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Reactivo Limitante',
-      mensaje: '¡Hola, {alumno}! Bienvenido a la planta de amoníaco. Tu misión es optimizar la producción de NH₃ identificando el reactivo que limita la reacción.',
+      mensaje: '¡Hola, {alumno}! El reactor ya está cargado con dos reactivos. Tu misión es averiguar cuál se agota primero y cuánto sobra del otro, antes de encender la síntesis.',
     },
     {
-      id: 2, tipo: 'accion', pista: 'Carga de Reactivos',
-      mensaje: 'Ajusta la cantidad inicial de Nitrógeno (N₂) e Hidrógeno (H₂) usando los controles del dock inferior. Observa cómo cambian las proporciones molares.',
+      id: 2, tipo: 'accion', pista: 'Datos del Reactor',
+      mensaje: 'Lee en el panel izquierdo la ecuación balanceada, la masa cargada de cada reactivo y su masa molar. Con las flechas de arriba puedes cambiar de reacción.',
     },
     {
       id: 3, tipo: 'calculo', pista: 'Análisis Estequiométrico',
-      mensaje: 'Usa la proporción 1:3 para determinar el limitante. Divide los moles de cada reactivo entre su coeficiente. El menor valor te indicará quién se agota primero.',
+      mensaje: 'Calcula los moles de cada reactivo (n = m / M) y divídelos entre su coeficiente. El cociente menor indica el limitante. Con sus moles calcula cuánto del otro se consume; la diferencia, en gramos, es el exceso.',
     },
     {
-      id: 4, tipo: 'verificar', pista: 'Inicia Síntesis',
-      mensaje: 'Presiona "Iniciar Reacción". Observa el flujo de productos y cuánto reactivo queda en exceso. Si los cálculos son correctos, el rendimiento será máximo.',
-      accion: 'Ejecutar Síntesis',
+      id: 4, tipo: 'verificar', pista: 'Registrar y Validar',
+      mensaje: 'Elige el reactivo limitante, escribe la masa que sobra y pulsa «Registrar y validar». Si aciertas, el reactor ejecuta la síntesis y te muestra el rendimiento teórico.',
+      accion: 'Registrar y validar',
     }
   ];
 

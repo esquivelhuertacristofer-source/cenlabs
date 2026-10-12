@@ -1,42 +1,64 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Circle, Eye, EyeOff, Target, Waves, Zap, 
-  Activity, Pause, Play, RotateCcw, ShieldCheck, 
+import {
+  Circle, Eye, EyeOff, Target, Waves, Zap,
+  Activity, Pause, Play, RotateCcw, ShieldCheck,
   Bot, Binary, FunctionSquare
 } from 'lucide-react';
 import Trigonometria3DScene from './simuladores/mat05/Trigonometria3DScene';
 
-export default function PilotoTrigonometria() {
-  const router = useRouter();
-  const { trigonometria, setAnguloM5, setAnimandoM5, setTogglesM5, resetM5, validarM5, registrarHallazgoM5, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
-  const { angulo, animando, verSeno, verCoseno, status, hallazgos = [] } = trigonometria;
+/**
+ * MAT-05 · Círculo trigonométrico.
+ * Reto (semilla): resolver sen θ = v o cos θ = v en [0°, 360°). Hay DOS
+ * soluciones por vuelta; el alumno lleva el vector a cada una y la captura.
+ * El validador exige las dos y ninguna captura que no cumpla la ecuación.
+ */
+export default function PilotoTrigonometria({ onValidate }: { onValidate?: () => void }) {
+  const { trigonometria, setAnguloM5, setAnimandoM5, setTogglesM5, resetM5, limpiarHallazgosM5, registrarHallazgoM5, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      trigonometria: s.trigonometria, setAnguloM5: s.setAnguloM5, setAnimandoM5: s.setAnimandoM5, setTogglesM5: s.setTogglesM5,
+      resetM5: s.resetM5, limpiarHallazgosM5: s.limpiarHallazgosM5, registrarHallazgoM5: s.registrarHallazgoM5,
+      audio: s.audio, setAsistente: s.setAsistente, pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
+  const { angulo: anguloStore, animando, verSeno, verCoseno, status, hallazgos = [], objetivo } = trigonometria;
   const [verTangente, setVerTangente] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { 
-    setMounted(true); 
+  useEffect(() => {
+    setMounted(true);
     setAsistente({
       visible: true,
-      text: "Bienvenido al Analizador de Funciones Circulares. Observa cómo el Seno y el Coseno se proyectan en los ejes X e Y mientras el vector recorre el círculo unitario.",
+      text: "Bienvenido al Analizador de Funciones Circulares. El seno es la proyección vertical del vector y el coseno la horizontal. Encuentra los DOS ángulos que cumplen la ecuación del reto.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Animación en estado LOCAL (requestAnimationFrame, ~33 °/s). Al pausar se
+  // escribe el ángulo al store una sola vez: la captura lee el del store.
+  const [anguloAnim, setAnguloAnim] = useState(anguloStore);
+  const anguloAnimRef = useRef(anguloStore);
   useEffect(() => {
-    let interval: any;
-    if (animando) {
-      interval = setInterval(() => {
-        setAnguloM5((angulo + 1) % 360);
-      }, 30);
-    }
-    return () => clearInterval(interval);
-  }, [animando, angulo, setAnguloM5]);
+    if (!animando) { anguloAnimRef.current = anguloStore; setAnguloAnim(anguloStore); return; }
+    let raf = 0, prev = performance.now();
+    const paso = (t: number) => {
+      anguloAnimRef.current = (anguloAnimRef.current + ((t - prev) / 1000) * 33) % 360;
+      prev = t;
+      setAnguloAnim(anguloAnimRef.current);
+      raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(raf);
+  }, [animando, anguloStore]);
+  const pausar = () => { setAnguloM5(Math.round(anguloAnimRef.current) % 360); setAnimandoM5(false); };
+  const angulo = animando ? anguloAnim : anguloStore;
+  const rad = (angulo * Math.PI) / 180;
 
   // -- PASOS DEL HUD --
   useEffect(() => {
@@ -51,11 +73,11 @@ export default function PilotoTrigonometria() {
 
   return (
     <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
-      
+
       {/* ── GIANT TELEMETRY BACKGROUND ── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
         <span className="text-[14rem] font-black font-mono text-cyan-500 select-none italic">
-          {angulo.toFixed(0)}°
+          {Math.round(angulo)}°
         </span>
       </div>
 
@@ -97,16 +119,23 @@ export default function PilotoTrigonometria() {
       <div className="relative z-10 p-10 flex flex-col h-full pointer-events-none mt-20">
         <div className="flex justify-between items-start">
             <div className="flex gap-4 pointer-events-auto">
-                <DataCard label="Seno (sin θ)" value={Math.sin(angulo * Math.PI / 180).toFixed(4)} color="cyan" active={verSeno} onToggle={() => setTogglesM5(!verSeno, verCoseno)} />
-                <DataCard label="Coseno (cos θ)" value={Math.cos(angulo * Math.PI / 180).toFixed(4)} color="fuchsia" active={verCoseno} onToggle={() => setTogglesM5(verSeno, !verCoseno)} />
-                <DataCard label="Tangente (tan θ)" value={Math.abs(Math.cos(angulo * Math.PI / 180)) < 0.01 ? '∞' : Math.tan(angulo * Math.PI / 180).toFixed(4)} color="yellow" active={verTangente} onToggle={() => setVerTangente(!verTangente)} />
+                <DataCard label="Seno (sen θ)" value={Math.sin(rad).toFixed(4)} color="cyan" active={verSeno} onToggle={() => setTogglesM5(!verSeno, verCoseno)} />
+                <DataCard label="Coseno (cos θ)" value={Math.cos(rad).toFixed(4)} color="fuchsia" active={verCoseno} onToggle={() => setTogglesM5(verSeno, !verCoseno)} />
+                <DataCard label="Tangente (tan θ)" value={Math.abs(Math.cos(rad)) < 0.01 ? '∞' : Math.tan(rad).toFixed(4)} color="yellow" active={verTangente} onToggle={() => setVerTangente(!verTangente)} />
             </div>
 
             <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-8 shadow-2xl pointer-events-auto">
                 <div className="text-right">
+                    <span className="text-[9px] font-black text-amber-400 uppercase block mb-1">Reto · resuelve en [0°, 360°)</span>
+                    <div className="text-2xl font-black text-white italic tracking-tighter font-mono">
+                       {objetivo ? `${objetivo.funcion} θ = ${objetivo.texto}` : '—'}
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400 block mt-1">Captura las DOS soluciones de una vuelta</span>
+                </div>
+                <div className="text-right border-l border-white/10 pl-6">
                     <span className="text-[9px] font-black text-slate-500 uppercase block mb-1">Identidad Fundamental</span>
-                    <div className="text-xl font-black text-white italic tracking-tighter">
-                       sin²θ + cos²θ = 1.0000
+                    <div className="text-sm font-black text-white/80 italic tracking-tighter font-mono">
+                       sen²θ + cos²θ = {(Math.sin(rad) ** 2 + Math.cos(rad) ** 2).toFixed(4)}
                     </div>
                 </div>
             </div>
@@ -123,7 +152,7 @@ export default function PilotoTrigonometria() {
                     {hallazgos.length === 0 ? (
                         <div className="h-[200px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-4">
                             <Waves className="text-white/5 mb-4" size={32} />
-                            <p className="text-[9px] font-bold text-slate-600 uppercase leading-tight">Captura puntos críticos para validar.</p>
+                            <p className="text-[9px] font-bold text-slate-600 uppercase leading-tight">Detén el vector en cada solución y captúrala.</p>
                         </div>
                     ) : (
                         hallazgos.map((h) => (
@@ -137,13 +166,18 @@ export default function PilotoTrigonometria() {
                         ))
                     )}
                 </div>
-                <button 
-                  onClick={() => { registrarHallazgoM5(); audio?.playSuccess(); }} 
+                <button
+                  onClick={() => { registrarHallazgoM5(); audio?.playPop(); }}
                   disabled={animando}
                   className={`w-full mt-6 py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all ${animando ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg'}`}
                 >
                     <Zap size={14} /> {animando ? 'Detén la animación para capturar' : 'Capturar Hallazgo'}
                 </button>
+                {hallazgos.length > 0 && (
+                  <button onClick={() => { limpiarHallazgosM5(); audio?.playPop(); }} className="w-full mt-2 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+                    Limpiar muestras
+                  </button>
+                )}
             </div>
         </div>
 
@@ -162,23 +196,23 @@ export default function PilotoTrigonometria() {
                     </div>
                 </div>
                 <div className="relative pt-2">
-                    <input type="range" min="0" max="359" step="1" value={angulo} onChange={(e) => { setAnimandoM5(false); setAnguloM5(parseInt(e.target.value)); }} className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-cyan-500" />
+                    <input type="range" min="0" max="359" step="1" value={Math.round(angulo)} onChange={(e) => { setAnimandoM5(false); setAnguloM5(parseInt(e.target.value)); }} className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-cyan-500" />
                 </div>
             </div>
 
             <div className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 p-6 rounded-[3rem] w-[380px] shadow-2xl flex items-center justify-around gap-6">
-                <button 
-                  onClick={() => { setAnimandoM5(!animando); audio?.playPop(); }}
+                <button
+                  onClick={() => { if (animando) pausar(); else setAnimandoM5(true); audio?.playPop(); }}
                   className={`w-24 h-24 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 transition-all ${animando ? 'bg-fuchsia-600 shadow-fuchsia-600/20' : 'bg-cyan-600 shadow-cyan-600/20 hover:scale-105'}`}
                 >
                   {animando ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                   <span className="text-[9px] font-black uppercase tracking-widest">{animando ? 'PAUSA' : 'GIRAR'}</span>
                 </button>
                 <div className="flex flex-col gap-4 flex-1">
-                    <button onClick={() => { const ok = validarM5(); if (ok) audio?.playSuccess(); else audio?.playError(); }} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-600 hover:text-white transition-all">
+                    <button onClick={() => onValidate?.()} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-600 hover:text-white transition-all">
                       <Target size={16} className="text-cyan-400" /> Validar Fase
                     </button>
-                    <button onClick={() => { resetM5(); audio?.playPop(); }} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all">
+                    <button onClick={() => { resetM5(); audio?.playPop(); }} title="Vuelve el vector a 0° y borra las muestras (el reto no cambia)" className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all">
                       <RotateCcw size={16} /> Resetear
                     </button>
                 </div>
@@ -186,19 +220,6 @@ export default function PilotoTrigonometria() {
         </div>
       </div>
 
-      {/* ÉXITO FINAL */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(34,211,238,0.15)]">
-                <Circle size={100} className="text-cyan-500 mx-auto mb-8" />
-                <h3 className="text-5xl font-black text-white uppercase italic mb-6">Armonía de Fase</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has analizado las funciones trigonométricas con precisión absoluta. La sincronía del círculo unitario ha sido validada bajo el estándar **Diamond State**.</p>
-                <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-cyan-600/30">Cerrar Informe Analítico</button>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

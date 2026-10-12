@@ -11,13 +11,13 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 3, tipo: 'accion', pista: 'Trasvase de Fluidos',
-      mensaje: 'Activa el flujo de agua. Si el Teorema es cierto, el volumen de los dos cuadrados pequeños debe llenar EXACTAMENTE el cuadrado de la hipotenusa.',
+      mensaje: 'Pulsa «Verter Fluido». Si el Teorema es cierto, el agua de los dos cuadrados pequeños llena EXACTAMENTE el cuadrado de la hipotenusa.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Cálculo de C',
-      mensaje: 'Calcula la raíz cuadrada de la suma de las áreas e ingresa el valor de la hipotenusa (c).',
-      accion: 'Verificar Hipotenusa',
-    }
+      mensaje: 'Calcula la raíz cuadrada de a² + b², escribe la hipotenusa c (se acepta ±0.1) y valida.',
+      accion: 'Validar',
+    },
   ];
 
 export default tutorSteps;

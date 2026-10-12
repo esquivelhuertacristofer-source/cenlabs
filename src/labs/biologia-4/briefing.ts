@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#10b981',
     duracion: 35,
     videoUrl: 'https://youtu.be/dSoFC4PyGOA',
-    bienvenida: `¡Bienvenido al Reactor Cuántico Vegetal! Soy el Dr. Quantum.\n\nLas plantas roban energía al Sol para construir el mundo. Veremos cómo la luz rompe el agua para darnos oxígeno.\n\nTu misión: Optimizar la producción de O2 variando la longitud de onda.`,
+    bienvenida: `¡Bienvenido al Reactor Cuántico Vegetal! Soy el Dr. Quantum.\n\nLas plantas roban energía al Sol para construir el mundo. Veremos cómo la luz rompe el agua para darnos oxígeno.\n\nTu misión: diseñar ensayos controlados y alcanzar la meta de O₂ sin calentar el agua del tubo.`,
     conceptos: [
       { icono: '☀️', nombre: 'Fotólisis', descripcion: 'Ruptura del agua usando fotones de luz.' },
       { icono: '🌈', nombre: 'Espectro de Acción', descripcion: 'Colores de luz que la planta aprovecha mejor.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🔋', nombre: 'ATP y NADPH', descripcion: 'Monedas de energía producidas en la fase clara.' }
     ],
     mision: [
-      'Coloca la planta de Elodea en el tubo.',
-      'Varía el color de la lámpara (Rojo, Azul, Verde).',
-      'Mide la tasa de burbujeo de oxígeno.',
-      'Calcula la eficiencia para el color Verde (Pista: es baja).',
-      'Alcanza los 50ml de O2 producidos.'
+      'Coloca la ramita de Elodea en el tubo con agua.',
+      'Prueba colores de lámpara con el mismo flujo de fotones.',
+      'Varía la distancia sin pasar del límite térmico.',
+      'Mide 10 min por ensayo y anota el O₂ recogido.',
+      'Alcanza la meta de O₂ indicada en la misión.'
     ],
     aplicaciones: [
       { area: 'Ecología', ejemplo: 'Producción de oxígeno global en los océanos.' },

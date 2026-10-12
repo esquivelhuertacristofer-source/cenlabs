@@ -17,13 +17,13 @@ import * as THREE from 'three';
    Biología real: el impulso viaja por el axón mielinizado saltando de nodo a
    nodo de Ranvier (conducción saltatoria). En la terminal se liberan vesículas
    de neurotransmisores que cruzan la hendidura sináptica hacia la neurona
-   receptora. La velocidad y el brillo del pulso derivan del estado real del
-   store: integridadMielina (0..100) → velocidad, fuerzaGolpe (0..100) → brillo,
-   y `estado` marca la fase del arco reflejo.
-   Props: { estado, integridadMielina, fuerzaGolpe, status }.
+   receptora. El pulso recorre cada tramo en la duración EXACTA de la fase que
+   anima el Piloto (latencia medida en cámara lenta). La mielina se dibuja con un
+   espesor fijo: la del paciente es lo que el alumno debe diagnosticar.
+   Props: { fase: {estado, inicio, duracion}, fuerzaGolpe, status }.
 ──────────────────────────────────────────────────────────────────────────── */
 
-type Estado =
+export type Estado =
   | 'reposo'
   | 'golpe'
   | 'viajando_sensorial'
@@ -44,9 +44,18 @@ const RECEPTOR_X = 10.4;           // neurona receptora
 const CLEFT_A = 8.6;              // inicio de la hendidura
 const CLEFT_B = 9.9;             // fin de la hendidura
 
-// Un impulso está activo cuando viaja por el axón o cruza la sinapsis.
+/** Fase del arco que anima el Piloto: `inicio` en performance.now(), `duracion` en ms. */
+export interface FaseReflejo { estado: Estado; inicio: number; duracion: number }
+
+const CA_OFFSET = new THREE.Vector2(0.0007, 0.0007);
+const EJE_Y = new THREE.Vector3(0, 1, 0);
+// Eferente: axón de la motoneurona α que sale de la neurona receptora hacia el cuádriceps.
+const MOTOR_START = RECEPTOR_X + 1.8;
+const MOTOR_END = RECEPTOR_X + 6;
+
+// Un impulso está activo cuando viaja por un axón.
 function pulseActive(estado: Estado) {
-  return estado === 'golpe' || estado === 'viajando_sensorial' || estado === 'viajando_motor';
+  return estado === 'viajando_sensorial' || estado === 'viajando_motor';
 }
 function synapseActive(estado: Estado) {
   return estado === 'sinapsis';
@@ -58,7 +67,7 @@ function Soma({ intensity }: { intensity: number }) {
   const glowRef = useRef<THREE.Mesh>(null);
 
   const dendrites = useMemo(() => {
-    const arr: { dir: THREE.Vector3; len: number }[] = [];
+    const arr: { dir: THREE.Vector3; len: number; quat: THREE.Quaternion; mid: THREE.Vector3; childQuat: THREE.Quaternion; childBase: THREE.Vector3 }[] = [];
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2 + 0.4;
       const el = (Math.random() - 0.5) * 1.4;
@@ -67,7 +76,15 @@ function Soma({ intensity }: { intensity: number }) {
         Math.sin(a) * 1.1 + el * 0.3,
         Math.cos(a * 1.7) * 1.1,
       ).normalize();
-      arr.push({ dir, len: 1.8 + Math.random() * 1.6 });
+      const len = 1.8 + Math.random() * 1.6;
+      const childDir = dir.clone().add(new THREE.Vector3(0, 0.6, 0.4)).normalize();
+      arr.push({
+        dir, len,
+        quat: new THREE.Quaternion().setFromUnitVectors(EJE_Y, dir),
+        mid: dir.clone().multiplyScalar(1.7 + len / 2),
+        childQuat: new THREE.Quaternion().setFromUnitVectors(EJE_Y, childDir),
+        childBase: dir.clone().multiplyScalar(1.7 + len * 0.65),
+      });
     }
     return arr;
   }, []);
@@ -103,18 +120,12 @@ function Soma({ intensity }: { intensity: number }) {
       <pointLight color={CYAN} intensity={6 + intensity * 8} distance={16} />
 
       {/* dendritas ramificadas */}
-      {dendrites.map((d, i) => {
-        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.dir);
-        const mid = d.dir.clone().multiplyScalar(1.7 + d.len / 2);
-        // rama hija
-        const childDir = d.dir.clone().add(new THREE.Vector3(0, 0.6, 0.4)).normalize();
-        const childQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), childDir);
-        const childBase = d.dir.clone().multiplyScalar(1.7 + d.len * 0.65);
+      {dendrites.map(({ len, quat, mid, childQuat, childBase }, i) => {
         return (
           <group key={i}>
             <group position={[mid.x, mid.y, mid.z]} quaternion={quat}>
               <mesh>
-                <cylinderGeometry args={[0.07, 0.18, d.len, 10]} />
+                <cylinderGeometry args={[0.07, 0.18, len, 10]} />
                 <meshStandardMaterial color="#0e7490" emissive={CYAN} emissiveIntensity={0.5 + intensity} roughness={0.4} />
               </mesh>
             </group>
@@ -189,15 +200,14 @@ function Axon({ integridad }: { integridad: number }) {
 }
 
 /* ── Potencial de acción: anillo luminoso que salta de nodo a nodo ────────── */
-function ActionPotential({ estado, integridad, intensity }: {
-  estado: Estado; integridad: number; intensity: number;
+function ActionPotential({ fase, intensity }: {
+  fase: FaseReflejo; intensity: number;
 }) {
   const ringRef = useRef<THREE.Mesh>(null);
   const coreRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
-  const active = pulseActive(estado);
-  // Mielina alta → conducción saltatoria rápida.
-  const speed = 0.35 + integridad * 1.0;
+  const active = pulseActive(fase.estado);
+  const motor = fase.estado === 'viajando_motor';
 
   useFrame((state) => {
     const ring = ringRef.current;
@@ -206,12 +216,12 @@ function ActionPotential({ estado, integridad, intensity }: {
     if (!active) { ring.visible = false; core.visible = false; if (lightRef.current) lightRef.current.intensity = 0; return; }
     ring.visible = true; core.visible = true;
 
-    // Progreso 0..1 con "saltos" cuantizados hacia los nodos (conducción saltatoria).
-    const raw = (state.clock.getElapsedTime() * speed) % 1;
+    // Progreso 0..1 de la fase (una sola pasada) con "saltos" hacia los nodos (conducción saltatoria).
+    const raw = THREE.MathUtils.clamp((performance.now() - fase.inicio) / Math.max(1, fase.duracion), 0, 0.999);
     const jumps = N_MYELIN;
     const stepped = Math.floor(raw * jumps) / jumps;
     const eased = stepped + (raw * jumps - Math.floor(raw * jumps)) ** 4 / jumps; // aterriza rápido en cada nodo
-    const x = AXON_START + eased * AXON_LEN;
+    const x = motor ? MOTOR_START + eased * (MOTOR_END - MOTOR_START) : AXON_START + eased * AXON_LEN;
 
     ring.position.x = x; core.position.x = x;
     const flick = 0.85 + Math.sin(state.clock.getElapsedTime() * 40) * 0.15;
@@ -259,7 +269,8 @@ function SynapticBouton({ active }: { active: boolean }) {
           metalness={0.3}
         />
       </mesh>
-      {active && <pointLight color={MAGENTA} intensity={18} distance={10} />}
+      {/* siempre montada: montar/desmontar luces recompila los shaders */}
+      <pointLight color={MAGENTA} intensity={active ? 18 : 0} distance={10} />
     </group>
   );
 }
@@ -285,9 +296,9 @@ function Receptor({ estado }: { estado: Estado }) {
           metalness={0.25}
         />
       </mesh>
-      {/* dendrita receptora que se aleja */}
-      <mesh position={[2.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.12, 0.3, 2.4, 12]} />
+      {/* axón eferente de la motoneurona α (hacia el cuádriceps) */}
+      <mesh position={[(MOTOR_END - MOTOR_START) / 2 + 1.8, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.12, 0.3, MOTOR_END - MOTOR_START, 12]} />
         <meshStandardMaterial color="#701a75" emissive={MAGENTA} emissiveIntensity={excited ? 1.2 : 0.3} roughness={0.4} />
       </mesh>
       <pointLight color={MAGENTA} intensity={excited ? 12 : 3} distance={14} />
@@ -363,8 +374,10 @@ function SynapticCleft({ active }: { active: boolean }) {
 }
 
 /* ── Escena ───────────────────────────────────────────────────────────────── */
-function Scene({ estado, integridadMielina, fuerzaGolpe, status }: SceneProps) {
-  const integridad = THREE.MathUtils.clamp(integridadMielina / 100, 0, 1);
+function Scene({ fase, fuerzaGolpe, status }: SceneProps) {
+  const estado = fase.estado;
+  // Espesor de mielina de referencia (fijo): no se dibuja la del paciente.
+  const integridad = 1;
   const intensity = THREE.MathUtils.clamp(fuerzaGolpe / 100, 0.15, 1);
   const synActive = synapseActive(estado);
   const success = status === 'success';
@@ -380,11 +393,18 @@ function Scene({ estado, integridadMielina, fuerzaGolpe, status }: SceneProps) {
 
       <Soma intensity={intensity} />
       <Axon integridad={integridad} />
-      <ActionPotential estado={estado} integridad={integridad} intensity={intensity} />
+      <ActionPotential fase={fase} intensity={intensity} />
       <SynapticBouton active={synActive} />
       <SynapticCleft active={synActive} />
       <Neurotransmitters active={synActive || success} />
       <Receptor estado={estado} />
+
+      <Html position={[AXON_START, 3.4, 0]} center distanceFactor={16}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-cyan-300/80 select-none pointer-events-none whitespace-nowrap">Neurona sensitiva (aferente)</div>
+      </Html>
+      <Html position={[RECEPTOR_X + 2, 2.8, 0]} center distanceFactor={16}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-fuchsia-300/80 select-none pointer-events-none whitespace-nowrap">Motoneurona α (eferente)</div>
+      </Html>
 
       {/* etiqueta de la hendidura */}
       <Html position={[(CLEFT_A + CLEFT_B) / 2, 2.4, 0]} center distanceFactor={16}>
@@ -409,7 +429,7 @@ function Scene({ estado, integridadMielina, fuerzaGolpe, status }: SceneProps) {
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.7} radius={0.72} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0007, 0.0007)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={CA_OFFSET} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
@@ -417,8 +437,7 @@ function Scene({ estado, integridadMielina, fuerzaGolpe, status }: SceneProps) {
 }
 
 interface SceneProps {
-  estado: Estado;
-  integridadMielina: number;
+  fase: FaseReflejo;
   fuerzaGolpe: number;
   status: 'idle' | 'success' | 'error';
 }

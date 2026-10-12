@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { CATETO_MIN_M4, CATETO_MAX_M4 } from '@/domain/matematicas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Square, Triangle, Droplets, Target, 
@@ -11,9 +12,14 @@ import {
 } from 'lucide-react';
 import Pitagoras3DScene from './simuladores/mat04/Pitagoras3DScene';
 
-export default function PilotoPitagoras() {
-  const router = useRouter();
-  const { pitagoras, setCatetosM4, setLlenadoM4, setUserInputM4, validarM4, generarSemillaM4, resetM4, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
+export default function PilotoPitagoras({ onValidate }: { onValidate?: () => void }) {
+  const { pitagoras, setCatetosM4, setLlenadoM4, setUserInputM4, generarSemillaM4, resetM4, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      pitagoras: s.pitagoras, setCatetosM4: s.setCatetosM4, setLlenadoM4: s.setLlenadoM4, setUserInputM4: s.setUserInputM4,
+      generarSemillaM4: s.generarSemillaM4, resetM4: s.resetM4, audio: s.audio, setAsistente: s.setAsistente,
+      pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
   
   const [mounted, setMounted] = useState(false);
   const [isPouring, setIsPouring] = useState(false);
@@ -27,52 +33,47 @@ export default function PilotoPitagoras() {
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { catetoA = 3, catetoB = 4, llenado = 0, userInputC = '', status = 'idle', escenario = 'pitagoras_basico' } = pitagoras ?? {};
 
   const areaA = (catetoA || 3) * (catetoA || 3);
   const areaB = (catetoB || 4) * (catetoB || 4);
-  const sumAreas = areaA + areaB;
 
-  // Keep ref in sync with store value so interval closure is never stale
-  useEffect(() => { llenadoRef.current = llenado; }, [llenado]);
-
-  // Animación de llenado
+  // Animación de llenado: progreso LOCAL a ~60 Hz con requestAnimationFrame y una
+  // sola escritura al store (100 %) al terminar. Cambiar un cateto la interrumpe.
+  const [llenadoVista, setLlenadoVista] = useState(llenado);
+  useEffect(() => { if (!isPouring) setLlenadoVista(llenado); }, [llenado, isPouring]);
   useEffect(() => {
     if (!isPouring) return;
-    const interval = setInterval(() => {
-      const next = Math.min(100, llenadoRef.current + 2);
-      setLlenadoM4(next);
-      if (next >= 100) {
-        setIsPouring(false);
-        audio?.playSuccess();
-        clearInterval(interval);
-      }
-    }, 20);
-    return () => clearInterval(interval);
-  }, [isPouring, setLlenadoM4]);
+    let raf = 0;
+    const t0 = performance.now() - (llenadoRef.current / 100) * 1000;
+    const paso = (t: number) => {
+      const v = Math.min(100, ((t - t0) / 1000) * 100);
+      llenadoRef.current = v;
+      setLlenadoVista(v);
+      if (v >= 100) { setIsPouring(false); setLlenadoM4(100); audio?.playSuccess(); return; }
+      raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(raf);
+  }, [isPouring, setLlenadoM4, audio]);
 
   // -- PASOS DEL HUD --
   useEffect(() => {
     if (catetoA !== 3 || catetoB !== 4) {
       if (pasoActual === 0) setPasoActual(1);
     }
-    if (userInputC !== '' && pasoActual < 2) setPasoActual(2);
+    if (llenado >= 100 && userInputC !== '' && pasoActual < 2) setPasoActual(2);
     if (status === 'success' && pasoActual < 3) setPasoActual(3);
-  }, [catetoA, catetoB, userInputC, status, pasoActual, setPasoActual]);
+  }, [catetoA, catetoB, llenado, userInputC, status, pasoActual, setPasoActual]);
 
   if (!mounted || !pitagoras) return null;
 
   return (
     <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
       
-      {/* ── GIANT TELEMETRY BACKGROUND ── */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
-        <span className="text-[14rem] font-black font-mono text-emerald-500 select-none italic">
-          {sumAreas.toFixed(1)}u²
-        </span>
-      </div>
 
       {/* ── CHECKLIST HUD (DIAMOND STANDARD) ── */}
       <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-[600px] px-6 pointer-events-none">
@@ -105,15 +106,15 @@ export default function PilotoPitagoras() {
 
       {/* ── ESCENA 3D (BACKGROUND) ── */}
       <div className="absolute inset-0 z-0">
-        <Pitagoras3DScene catetoA={catetoA || 3} catetoB={catetoB || 4} llenado={llenado} escenario={escenario || 'pitagoras_basico'} />
+        <Pitagoras3DScene catetoA={catetoA || 3} catetoB={catetoB || 4} llenado={isPouring ? llenadoVista : llenado} escenario={escenario || 'pitagoras_basico'} />
       </div>
 
       {/* ── HUD SUPERIOR ── */}
       <div className="relative z-10 p-10 flex flex-col h-full pointer-events-none mt-20">
         <div className="flex justify-between items-start">
             <div className="flex gap-4 pointer-events-auto">
-                <HUDCard label="Suma de Áreas (a²+b²)" value={`${sumAreas.toFixed(1)} u²`} icon={<Activity size={14} />} color="#10b981" />
-                <HUDCard label="Catetos Activos" value={`${catetoA} | ${catetoB}`} icon={<Triangle size={14} />} color="#06b6d4" />
+                <HUDCard label="Áreas de los catetos" value={`a² = ${areaA} · b² = ${areaB} u²`} icon={<Activity size={14} />} color="#10b981" />
+                <HUDCard label="Catetos" value={`a = ${catetoA} · b = ${catetoB}`} icon={<Triangle size={14} />} color="#06b6d4" />
             </div>
 
             <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2.5rem] shadow-2xl pointer-events-auto">
@@ -134,10 +135,10 @@ export default function PilotoPitagoras() {
         <div className="mt-auto flex justify-between items-end gap-10 pointer-events-auto">
             <div className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] flex-1 shadow-2xl grid grid-cols-2 gap-16">
                 <div className="space-y-8">
-                    <SimSlider label="Longitud Cateto A" value={catetoA || 3} min={1} max={10} step={1} color="cyan" onChange={(v: any) => { setCatetosM4(v, catetoB || 4); audio?.playPop(); }} />
+                    <SimSlider label="Longitud Cateto A" value={catetoA || 3} min={CATETO_MIN_M4} max={CATETO_MAX_M4} step={1} color="cyan" onChange={(v: any) => { setCatetosM4(v, catetoB || 4); audio?.playPop(); }} />
                 </div>
                 <div className="space-y-8">
-                    <SimSlider label="Longitud Cateto B" value={catetoB || 4} min={1} max={10} step={1} color="emerald" onChange={(v: any) => { setCatetosM4(catetoA || 3, v); audio?.playPop(); }} />
+                    <SimSlider label="Longitud Cateto B" value={catetoB || 4} min={CATETO_MIN_M4} max={CATETO_MAX_M4} step={1} color="emerald" onChange={(v: any) => { setCatetosM4(catetoA || 3, v); audio?.playPop(); }} />
                 </div>
             </div>
 
@@ -147,7 +148,7 @@ export default function PilotoPitagoras() {
                    <div className="relative">
                       <Ruler className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
                       <input 
-                        type="text" value={userInputC} onChange={(e) => setUserInputM4(e.target.value)}
+                        type="text" inputMode="decimal" value={userInputC} onChange={(e) => setUserInputM4(e.target.value)}
                         placeholder="Valor de c..."
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-xl font-black text-white focus:outline-none focus:border-emerald-500 transition-all font-mono"
                       />
@@ -156,19 +157,20 @@ export default function PilotoPitagoras() {
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => { setIsPouring(true); audio?.playPop(); }}
+                    onClick={() => { llenadoRef.current = 0; setIsPouring(true); audio?.playPop(); }}
                     disabled={isPouring || llenado === 100}
                     className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 disabled:text-white/30 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
                   >
                     <Droplets size={18} className={isPouring ? 'animate-bounce' : ''} />
                     Verter Fluido
                   </button>
-                  <button onClick={() => { resetM4(); setLlenadoM4(0); setIsPouring(false); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 transition-all shadow-xl">
+                  <button onClick={() => { setIsPouring(false); llenadoRef.current = 0; resetM4(); generarSemillaM4(); audio?.playPop(); }} title="Nuevo triángulo" className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 transition-all shadow-xl">
                     <RefreshCcw size={24} />
                   </button>
                   <button
-                    onClick={() => { const ok = validarM4(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
+                    onClick={() => onValidate?.()}
                     disabled={llenado < 100}
+                    title={llenado < 100 ? 'Primero vierte el fluido' : 'Validar práctica'}
                     className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-500 border-emerald-400 text-white' : llenado >= 100 ? 'bg-emerald-600 border-emerald-500 text-white hover:scale-105 active:scale-95' : 'bg-white/10 border-white/10 text-white/20'}`}
                   >
                     {status === 'success' ? <ShieldCheck size={28} /> : <Target size={28} />}
@@ -178,19 +180,6 @@ export default function PilotoPitagoras() {
         </div>
       </div>
 
-      {/* ÉXITO FINAL */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.15)]">
-                <Triangle size={100} className="text-emerald-500 mx-auto mb-8 rotate-90" />
-                <h3 className="text-5xl font-black text-white uppercase italic mb-6">Teorema Validado</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has demostrado que la suma de los cuadrados de los catetos es igual al cuadrado de la hipotenusa mediante la transferencia de fluidos. La simulación ha sido validada bajo el estándar <strong>Diamond State</strong>.</p>
-                <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Informe Geométrico</button>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FlaskConical, Calculator, CheckCircle2, AlertCircle, Info, ChevronRight, Activity, Beaker, Bot, Volume2, Microscope, ShieldCheck, BookOpen } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
+import { validarQ7 } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraTitulacionAcidoBase({ onValidate }: { onValidate?: () => void }) {
-  const { titulacion, validarP7 } = useSimuladorStore();
+  const { titulacion, validarP7, setRespuestaP7 } = useSimuladorStore(useShallow((s) => ({ titulacion: s.titulacion, validarP7: s.validarP7, setRespuestaP7: s.setRespuestaP7 })));
   const [molaridadInput, setMolaridadInput] = useState("");
   const [activeTab, setActiveTab] = useState<'registro' | 'teoria'>('registro');
   const [conclusionText, setConclusionText] = useState("");
@@ -15,27 +17,20 @@ export default function BitacoraTitulacionAcidoBase({ onValidate }: { onValidate
   // Mensaje para el Dr. Quantum
   const quantumMsg = "Observa el color de la solución con extrema atención. El punto de equivalencia se alcanza en el momento exacto en que el incoloro vira a un rosa muy tenue. Si la solución se vuelve fucsia intenso, habrás sobrepasado el límite y el cálculo de molaridad será inexacto. ¡Usa el modo gota a gota!";
 
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  // Misma regla que el validador de la práctica (validarQ7), sin alert().
   const handleValidar = () => {
-    const ansVal = parseFloat(molaridadInput);
+    const ansVal = parseFloat(molaridadInput.replace(',', '.'));
     if (isNaN(ansVal)) return;
-    
-    if (!titulacion.purgada) {
-      audio?.playError();
-      alert("⚠️ Error de Procedimiento: No has purgado la bureta. Las burbujas de aire afectan la medición del volumen.");
-      return;
-    }
-    if (!titulacion.indicador) {
-      audio?.playError();
-      alert("⚠️ Error de Procedimiento: Falta el indicador (Fenolftaleína). Sin él, es imposible determinar visualmente el punto de equivalencia.");
-      return;
-    }
-    
-    const ok = validarP7(ansVal);
+    setRespuestaP7(ansVal);
+    const ok = validarP7();
     if (ok) {
        audio?.playSuccess();
+       setAviso(null);
     } else {
        audio?.playError();
-       alert("❌ Error de Cálculo: La concentración ingresada no coincide con el volumen de viraje observado. Revisa la fórmula: Ma = (Mb * Vb) / Va");
+       setAviso(validarQ7(useSimuladorStore.getState().titulacion).mensaje ?? null);
     }
   };
 
@@ -208,6 +203,9 @@ export default function BitacoraTitulacionAcidoBase({ onValidate }: { onValidate
                         </>
                       )}
                     </motion.button>
+                    {aviso && titulacion.status !== 'success' && (
+                      <p className="mt-3 text-[11px] font-bold text-amber-300 flex items-center gap-2"><AlertCircle size={14} /> {aviso}</p>
+                    )}
                  </div>
               </div>
 

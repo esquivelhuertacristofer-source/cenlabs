@@ -1,13 +1,13 @@
 import type { Objetivo, ObjetivosState } from '@/data/labObjetivos';
+import { dinamicaPlano } from '@/domain/fisica';
 
 export default function objetivos(s: ObjetivosState): Objetivo[] {
-  const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
-          gases, balanceo, limitante, soluciones, solubilidad,
-          titulacion, equilibrio, celda, destilacion,
-          tiroParabolico, planoInclinado, pendulo, hooke } = s;
+  const p = s.planoInclinado;
+  const prediccion = !!p?.ensayo;
+  const enMovimiento = prediccion && dinamicaPlano(p.ensayo).estado !== 'reposo';
   return [
-      { label: 'Configuración del Plano',    current: planoInclinado?.angulo > 0 ? 1 : 0,                  target: 1, completed: planoInclinado?.angulo > 0 },
-      { label: 'Análisis de Rozamiento',    current: (planoInclinado?.coefRozamiento || 0) > 0 ? 1 : 0,  target: 1, completed: (planoInclinado?.coefRozamiento || 0) > 0 },
-      { label: 'Certificación Dinámica',    current: planoInclinado?.resultado === 'exito' ? 1 : 0,       target: 1, completed: planoInclinado?.resultado === 'exito' },
+      { label: 'Predicción Registrada',  current: prediccion ? 1 : 0,               target: 1, completed: prediccion },
+      { label: 'Bloque en Movimiento',   current: enMovimiento ? 1 : 0,             target: 1, completed: enMovimiento },
+      { label: 'Certificación Dinámica', current: p?.resultado === 'exito' ? 1 : 0, target: 1, completed: p?.resultado === 'exito' },
     ];
 }

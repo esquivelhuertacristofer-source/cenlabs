@@ -11,6 +11,7 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { fuerzaCoulomb, RANGO_R9_CM } from '@/domain/fisica';
 
 /* ────────────────────────────────────────────────────────────────────────────
    Electrostatica3DScene — Campo eléctrico volumétrico con líneas de campo vivas.
@@ -23,10 +24,13 @@ import * as THREE from 'three';
 const WARM = new THREE.Color('#ff5a36'); // carga / potencial positivo
 const COOL = new THREE.Color('#38bdf8'); // carga / potencial negativo
 const BOUNDS = 7.5;
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
 
-// Mapea la distancia del slider (0.1–2.5) a una separación 3D agradable
+// Mapea la distancia del Piloto (2–40 cm) a una separación 3D lineal (la escena
+// conserva el orden y las proporciones de r; la pasada 3D pondrá una regla en cm).
 function sepFromDistancia(d: number) {
-  return THREE.MathUtils.mapLinear(THREE.MathUtils.clamp(d, 0.1, 2.5), 0.1, 2.5, 2.4, 9.5);
+  const { min, max } = RANGO_R9_CM;
+  return THREE.MathUtils.mapLinear(THREE.MathUtils.clamp(d, min, max), min, max, 2.4, 9.5);
 }
 function chargeRadius(q: number) {
   return 0.42 + Math.min(0.4, Math.abs(q) * 0.06);
@@ -42,16 +46,13 @@ function FieldFlow({ charges }: { charges: Charge[] }) {
   const colors = useMemo(() => new Float32Array(COUNT * 3), []);
 
   const posCharges = useMemo(() => charges.filter((c) => c.q > 0), [charges]);
+  const dir = useMemo(() => new THREE.Vector3(), []);
 
   // Reubica una partícula: nace en la superficie de una carga + (emisor),
   // o en la cáscara exterior si todas son negativas (campo entrante).
   const reseed = (arr: Float32Array, i: number) => {
     const ix = i * 3;
-    const dir = new THREE.Vector3(
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1,
-    ).normalize();
+    dir.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize();
     if (posCharges.length > 0) {
       const c = posCharges[(Math.random() * posCharges.length) | 0];
       const r = chargeRadius(c.q) + 0.15 + Math.random() * 0.3;
@@ -222,7 +223,7 @@ function Scene({ q1, q2, distancia, isAtraccion }: { q1: number; q2: number; dis
   const c1: Charge = useMemo(() => ({ pos: new THREE.Vector3(-sep / 2, 0, 0), q: q1 }), [sep, q1]);
   const c2: Charge = useMemo(() => ({ pos: new THREE.Vector3(sep / 2, 0, 0), q: q2 }), [sep, q2]);
   const charges = useMemo(() => [c1, c2], [c1, c2]);
-  const F = (89.87 * Math.abs(q1 * q2)) / Math.pow(Math.max(distancia, 0.05), 2);
+  const F = fuerzaCoulomb(q1, q2, distancia);
   const showForce = q1 !== 0 && q2 !== 0;
 
   return (
@@ -250,6 +251,9 @@ function Scene({ q1, q2, distancia, isAtraccion }: { q1: number; q2: number; dis
         <cylinderGeometry args={[0.012, 0.012, sep, 8]} />
         <meshBasicMaterial color="#334155" transparent opacity={0.5} />
       </mesh>
+      <Html position={[0, -1.4, 0]} center distanceFactor={12}>
+        <div className="text-[12px] font-black text-slate-300 whitespace-nowrap select-none pointer-events-none">r = {distancia} cm</div>
+      </Html>
 
       <Sparkles count={60} scale={[18, 10, 18]} size={2} speed={0.3} color="#93c5fd" opacity={0.4} />
       <Stars radius={80} depth={40} count={2500} factor={4} saturation={0} fade speed={0.6} />
@@ -267,7 +271,7 @@ function Scene({ q1, q2, distancia, isAtraccion }: { q1: number; q2: number; dis
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.15} mipmapBlur intensity={1.5} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>

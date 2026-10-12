@@ -3,7 +3,7 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Misión: Valoración',
-      mensaje: '¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta presionando el botón "Llenar Bureta".',
+      mensaje: '¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta presionando el botón "Cargar Bureta".',
     },
     {
       id: 2, tipo: 'accion', pista: 'Indicador de Color',
@@ -23,7 +23,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 6, tipo: 'verificar', pista: 'Finalizar',
-      mensaje: '¡Excelente! Ahora guarda el reporte y presiona "Validar Práctica" para terminar el análisis de concentración.',
+      mensaje: '¡Excelente! Lee el volumen de NaOH gastado y calcula [HCl] = Cb·Vb / Va (Cb = 0.1 M, Va = 25 mL). Escríbela y pulsa "Finalizar y Enviar Datos".',
       accion: 'Validar Titulación',
     }
   ];

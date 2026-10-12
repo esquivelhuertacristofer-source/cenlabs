@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#f59e0b',
     duracion: 35,
     videoUrl: 'https://youtu.be/EJKf6BCdPGY',
-    bienvenida: `¡Bienvenido al Centro de Control Neuronal! Soy el Dr. Quantum.\n\nLos impulsos viajan a la velocidad del rayo, pero requieren de cables aislados llamados mielina. Analizaremos tu velocidad de respuesta.\n\nTu misión: Evaluar el reflejo rotuliano bajo diferentes condiciones.`,
+    bienvenida: `¡Bienvenido al Centro de Control Neuronal! Soy el Dr. Quantum.\n\nLos impulsos viajan a la velocidad del rayo, pero requieren de cables aislados llamados mielina. Analizaremos tu velocidad de respuesta.\n\nTu misión: medir el reflejo rotuliano de un paciente y diagnosticar si su mielina conduce con normalidad.`,
     conceptos: [
       { icono: '⚡', nombre: 'Potencial de Acción', descripcion: 'Impulso eléctrico que viaja por el axón.' },
       { icono: '🛡️', nombre: 'Mielina', descripcion: 'Aislante que acelera la señal nerviosa.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '🧠', nombre: 'Sinapsis', descripcion: 'Conexión química entre dos neuronas.' }
     ],
     mision: [
-      'Aplica un estímulo con el martillo en el tendón.',
-      'Mide el tiempo de respuesta en milisegundos.',
-      'Reduce la integridad de la mielina al 30%.',
-      'Observa el retraso en la contracción muscular.',
-      'Valida el diagnóstico de conducción nerviosa.'
+      'Golpea el tendón con distintas fuerzas y encuentra el umbral.',
+      'Lee la latencia del reflejo en el EMG.',
+      'Resta los retardos sinápticos y calcula la velocidad de conducción.',
+      'Compara con el límite normal de 45 m/s.',
+      'Emite y valida tu diagnóstico.'
     ],
     aplicaciones: [
       { area: 'Neurología', ejemplo: 'Diagnóstico de Esclerosis Múltiple.' },

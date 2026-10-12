@@ -6,7 +6,6 @@ import {
   OrbitControls,
   PerspectiveCamera,
   Stars,
-  Sparkles,
   Html,
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
@@ -18,31 +17,29 @@ import * as THREE from 'three';
    • Una barra metálica se ESCALA en longitud según ΔL real (amplificado para verse).
    • La red cristalina (malla de átomos) VIBRA con amplitud creciente = más calor,
      y la separación media entre átomos crece con la temperatura (la red se abre).
-   • Glow térmico: gris frío → rojo/naranja incandescente → rojo vivo. Emisión ↑.
-   • Regla graduada + marcador de elongación ΔL. Bloom, Stars, Sparkles, OrbitControls.
+   • Sin incandescencia: a ≤ 100 °C un metal NO brilla (el rojo visible empieza
+     hacia ~500 °C, ley de Draper). El calor se indica con el vapor y la vibración.
+   • Regla graduada + marcador de elongación ΔL (amplificado; la etiqueta lo dice).
+   Pendiente de la pasada 3D: dilatómetro real (tubo de vapor, comparador de carátula,
+   termómetro, generador de vapor) en lugar de la red cristalina esquemática.
    Props: { alpha, longitud, tempIni, tempFin, color, encendido }.
 ──────────────────────────────────────────────────────────────────────────── */
 
-const COLD = new THREE.Color('#94a3b8'); // metal frío (gris azulado)
-const HOT = new THREE.Color('#ff4d1c');  // incandescente al rojo vivo
-const WHITE_HOT = new THREE.Color('#ffd7a0');
+// Tono de los átomos "calientes" (sólo la red esquemática, no la barra).
+const WARM = new THREE.Color('#fdba74');
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
 
-// ΔT normalizado 0..1 (rango de trabajo del Piloto: 20 → 120 °C ⇒ ΔT máx 100)
+// ΔT normalizado 0..1 (rango de trabajo: ambiente 20 °C → vapor 100 °C ⇒ ΔT máx 80)
 function heatFactor(tempFin: number, tempIni: number) {
-  return THREE.MathUtils.clamp((tempFin - tempIni) / 100, 0, 1);
+  return THREE.MathUtils.clamp((tempFin - tempIni) / 80, 0, 1);
 }
 
 // Longitud base de la barra en unidades de escena
 const BASE_BAR_LEN = 8;
 // Amplificación visual del ΔL real (ΔL suele ser fracciones de mm sobre L₀ en mm)
 const DL_GAIN = 900;
-
-/* ── Color térmico del metal según ΔT ──────────────────────────────────────── */
-function thermalColor(hf: number) {
-  const c = COLD.clone().lerp(HOT, THREE.MathUtils.clamp(hf * 1.3, 0, 1));
-  if (hf > 0.7) c.lerp(WHITE_HOT, (hf - 0.7) / 0.3 * 0.4);
-  return c;
-}
+/** Cuántas veces se exagera ΔL respecto a la barra dibujada (L₀ ↔ BASE_BAR_LEN). */
+const AMPLIFICACION = Math.round(DL_GAIN / BASE_BAR_LEN);
 
 /* ── Red cristalina: malla de átomos que vibran; amplitud ∝ temperatura ─────── */
 function CrystalLattice({ hf, spanX, baseColor }: { hf: number; spanX: number; baseColor: THREE.Color }) {
@@ -95,7 +92,7 @@ function CrystalLattice({ hf, spanX, baseColor }: { hf: number; spanX: number; b
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
       // átomos más calientes hacia el centro-brillo
-      tmpColor.copy(baseColor).lerp(WHITE_HOT, hf * 0.5);
+      tmpColor.copy(baseColor).lerp(WARM, hf * 0.35);
       mesh.setColorAt(i, tmpColor);
     }
     mesh.instanceMatrix.needsUpdate = true;
@@ -106,8 +103,8 @@ function CrystalLattice({ hf, spanX, baseColor }: { hf: number; spanX: number; b
     <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
       <sphereGeometry args={[1, 12, 12]} />
       <meshStandardMaterial
-        emissive={'#ff7a2f'}
-        emissiveIntensity={0.6 + hf * 2.6}
+        emissive={'#000000'}
+        emissiveIntensity={0}
         roughness={0.3}
         metalness={0.7}
         toneMapped={false}
@@ -141,12 +138,9 @@ function LatticeBonds({ hf, spanX }: { hf: number; spanX: number }) {
           <mesh key={i} position={[x, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.02, 0.02, len * 0.7, 6]} />
             <meshStandardMaterial
-              color={'#fbbf24'}
-              emissive={'#f97316'}
-              emissiveIntensity={0.4 + hf * 2}
+              color={'#94a3b8'}
               transparent
-              opacity={0.35 + hf * 0.4}
-              toneMapped={false}
+              opacity={0.35}
             />
           </mesh>
         );
@@ -157,31 +151,14 @@ function LatticeBonds({ hf, spanX }: { hf: number; spanX: number }) {
 
 /* ── La barra metálica: se expande en longitud según ΔL real ────────────────── */
 function MetalBar({ hf, deltaLScene, baseColor }: { hf: number; deltaLScene: number; baseColor: THREE.Color }) {
-  const matRef = useRef<THREE.MeshStandardMaterial>(null);
-  const barRef = useRef<THREE.Mesh>(null);
   const spanX = BASE_BAR_LEN + deltaLScene;
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    if (matRef.current) {
-      const c = thermalColor(hf);
-      matRef.current.color.copy(c);
-      matRef.current.emissive.copy(HOT);
-      matRef.current.emissiveIntensity = hf * (3.2 + Math.sin(t * 4) * 0.25 * hf);
-    }
-    if (barRef.current) {
-      // ligero "respiro" térmico
-      barRef.current.scale.y = 1 + Math.sin(t * 3) * 0.01 * hf;
-    }
-  });
 
   return (
     <group>
-      {/* Cuerpo sólido semitransparente que envuelve la red */}
-      <mesh ref={barRef}>
+      {/* Cuerpo sólido semitransparente que envuelve la red (color del metal: no brilla a 100 °C) */}
+      <mesh>
         <boxGeometry args={[spanX, 1.5, 1.5]} />
         <meshStandardMaterial
-          ref={matRef}
           color={baseColor}
           metalness={0.85}
           roughness={0.25}
@@ -195,8 +172,6 @@ function MetalBar({ hf, deltaLScene, baseColor }: { hf: number; deltaLScene: num
       <CrystalLattice hf={hf} spanX={spanX} baseColor={baseColor} />
       <LatticeBonds hf={hf} spanX={spanX} />
 
-      {/* Foco térmico que emana de la barra caliente */}
-      <pointLight color={'#ff6a2c'} intensity={hf * 24} distance={22} decay={1.5} />
     </group>
   );
 }
@@ -225,7 +200,7 @@ function TestBench({ span }: { span: number }) {
   );
 }
 
-/* ── Llama del quemador bajo la barra cuando se calienta ────────────────────── */
+/* ── Vapor que escapa del tubo mientras circula (no es una llama) ──────────── */
 function Burner({ active, hf }: { active: boolean; hf: number }) {
   const COUNT = 120;
   const geomRef = useRef<THREE.BufferGeometry>(null);
@@ -261,12 +236,11 @@ function Burner({ active, hf }: { active: boolean; hf: number }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
       </bufferGeometry>
       <pointsMaterial
-        color={'#ff8a3d'}
+        color={'#e2e8f0'}
         size={0.22}
         transparent
-        opacity={0.7}
+        opacity={0.35}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
         sizeAttenuation
       />
     </points>
@@ -274,7 +248,7 @@ function Burner({ active, hf }: { active: boolean; hf: number }) {
 }
 
 /* ── Regla graduada + marcador de elongación ΔL ────────────────────────────── */
-function ElongationRuler({ deltaLScene, deltaLmm }: { deltaLScene: number; deltaLmm: number }) {
+function ElongationRuler({ deltaLScene }: { deltaLScene: number }) {
   const start = BASE_BAR_LEN / 2;      // borde derecho en frío
   const end = start + deltaLScene;     // borde derecho en caliente
   const ticks = 12;
@@ -316,7 +290,7 @@ function ElongationRuler({ deltaLScene, deltaLmm }: { deltaLScene: number; delta
       {/* etiqueta ΔL */}
       <Html position={[end + 0.6, 0.35, 0]} center distanceFactor={12}>
         <div className="text-[11px] font-black text-amber-300 whitespace-nowrap select-none pointer-events-none drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
-          ΔL = {deltaLmm.toFixed(3)} mm
+          ΔL dibujado ×{AMPLIFICACION}
         </div>
       </Html>
     </group>
@@ -348,11 +322,10 @@ function Scene({ alpha, longitud, tempIni, tempFin, color, encendido }: {
       <group ref={groupRef} position={[0, 0.6, 0]}>
         <MetalBar hf={hf} deltaLScene={deltaLScene} baseColor={baseColor} />
         <TestBench span={span} />
-        <Burner active={encendido || hf > 0.02} hf={hf} />
-        <ElongationRuler deltaLScene={deltaLScene} deltaLmm={deltaLmm} />
+        <Burner active={encendido} hf={hf} />
+        <ElongationRuler deltaLScene={deltaLScene} />
       </group>
 
-      <Sparkles count={70} scale={[20, 12, 20]} size={2} speed={0.3} color="#fdba74" opacity={0.4} />
       <Stars radius={80} depth={40} count={2400} factor={4} saturation={0} fade speed={0.5} />
 
       <OrbitControls
@@ -368,7 +341,7 @@ function Scene({ alpha, longitud, tempIni, tempFin, color, encendido }: {
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.5} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>

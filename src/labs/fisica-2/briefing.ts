@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#ef4444',
     duracion: 35,
     videoUrl: 'https://youtu.be/ZmPbH8g5FZE',
-    bienvenida: `¡Bienvenido al Plano de Pruebas Dinámicas! Soy el Dr. Quantum.\n\nEntenderemos por qué los objetos se mueven o se quedan quietos. La fricción y la gravedad lucharán en cada milímetro de la rampa.\n\nTu misión: Calcular la aceleración exacta de un bloque sobre una rampa inclinada.`,
+    bienvenida: `¡Bienvenido al Plano de Pruebas Dinámicas! Soy el Dr. Quantum.\n\nEntenderemos por qué los objetos se mueven o se quedan quietos. La fricción y la gravedad lucharán en cada milímetro de la rampa.\n\nTu misión: Predecir la aceleración de un bloque sobre una rampa con fricción.`,
     conceptos: [
       { icono: '🍎', nombre: '2da Ley de Newton', descripcion: 'Fuerza = Masa x Aceleración (F=ma).' },
       { icono: '📉', nombre: 'Normal', descripcion: 'Fuerza perpendicular de soporte de la superficie.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '📐', nombre: 'Descomposición', descripcion: 'Análisis del peso en componentes X e Y.' }
     ],
     mision: [
-      'Selecciona un MATERIAL (Hielo, Madera o Caucho) en el dock.',
-      'Ajusta el ángulo de la rampa hasta que el bloque comience a deslizar.',
-      'Observa el ÁNGULO CRÍTICO donde se rompe el equilibrio estático.',
-      'Calcula la ACELERACIÓN teórica (a = g(sinθ - μk cosθ)).',
-      'Ingresa tu resultado y valida la sincronización física.'
+      'Lee los datos del ensayo: masa, μs y μk.',
+      'Ajusta el ángulo, el empuje y la carga.',
+      'Comprueba si la fricción estática alcanza para sostener el bloque.',
+      'Calcula la aceleración con la 2.ª ley de Newton (con fricción cinética).',
+      'Escribe tu predicción, suelta el bloque y compárala con la medición.'
     ],
     aplicaciones: [
       { area: 'Transporte', ejemplo: 'Diseño de frenos para camiones en pendientes.' },

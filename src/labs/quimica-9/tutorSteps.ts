@@ -7,7 +7,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Selección de Electrodos',
-      mensaje: 'Selecciona los metales para el ánodo y el cátodo en el dock inferior. Recuerda: el metal con menor potencial de reducción se oxidará (Ánodo).',
+      mensaje: 'Elige un metal del panel inferior y colócalo en un vaso; luego el otro. El vaso izquierdo va a la punta COM (−) del voltímetro y el derecho a la punta V (+). Recuerda: el metal con menor potencial de reducción se oxidará (ánodo).',
     },
     {
       id: 3, tipo: 'accion', pista: 'Cierre del Circuito',
@@ -15,11 +15,11 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 4, tipo: 'accion', pista: 'Conexión Eléctrica',
-      mensaje: 'Conecta los cables del voltímetro. Si el voltaje es negativo, intercambia la polaridad para detectar el flujo espontáneo de electrones.',
+      mensaje: 'Conecta los cables del voltímetro. Si la lectura es negativa, la punta COM quedó en el cátodo: intercambia los electrodos de vaso.',
     },
     {
       id: 5, tipo: 'verificar', pista: 'Validar Voltaje',
-      mensaje: 'Observa la telemetría gigante. Cuando detectes un potencial estable y positivo, habrás completado el circuito galvánico con éxito.',
+      mensaje: 'Con la lectura positiva, indica en el panel cuál metal es el ánodo y cuál el cátodo, y pulsa "Validar Celda".',
       accion: 'Validar Circuito',
     }
   ];

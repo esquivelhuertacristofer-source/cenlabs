@@ -115,12 +115,12 @@ function GroundPlane({ magnitud, isLightMode }: { magnitud: number, isLightMode:
       {/* Grid overlay */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <planeGeometry args={[60, 60, 60, 60]} />
-        <meshStandardMaterial 
-          color={magnitud > 7 ? (isLightMode ? "#be123c" : "#f43f5e") : isLightMode ? "#94a3b8" : "#1e3a5f"} 
-          wireframe transparent 
-          opacity={magnitud > 7 ? (isLightMode ? 0.2 : 0.08) : (isLightMode ? 0.15 : 0.04)} 
-          emissive={magnitud > 7 ? (isLightMode ? "#be123c" : "#f43f5e") : isLightMode ? "#94a3b8" : "#1e3a5f"} 
-          emissiveIntensity={isLightMode ? 0.6 : 0.3} 
+        <meshStandardMaterial
+          color={magnitud > 7 ? (isLightMode ? "#be123c" : "#f43f5e") : isLightMode ? "#94a3b8" : "#1e3a5f"}
+          wireframe transparent
+          opacity={magnitud > 7 ? (isLightMode ? 0.2 : 0.08) : (isLightMode ? 0.15 : 0.04)}
+          emissive={magnitud > 7 ? (isLightMode ? "#be123c" : "#f43f5e") : isLightMode ? "#94a3b8" : "#1e3a5f"}
+          emissiveIntensity={isLightMode ? 0.6 : 0.3}
         />
       </mesh>
     </>
@@ -298,6 +298,7 @@ function Seismograph({ magnitud, color, position, label, isLightMode }: { magnit
     for (let x = -3.5; x <= 3.5; x += 0.07) { pts.push(new THREE.Vector3(x, Math.sin(x * 10) * Math.exp(-x * x * 0.8) * amp, 0)); }
     return pts;
   }, [amp]);
+  const eco = useMemo(() => wave.map((p) => new THREE.Vector3(p.x, p.y * 0.4, 0)), [wave]);
 
   useFrame((s) => { if (lineRef.current) lineRef.current.rotation.y = Math.sin(s.clock.getElapsedTime() * 0.3) * 0.04; });
 
@@ -307,7 +308,7 @@ function Seismograph({ magnitud, color, position, label, isLightMode }: { magnit
       <Box args={[8.02, 0.008, 3.02]} position={[0, 0.01, 0]}><meshStandardMaterial color={color} transparent opacity={isLightMode ? 0.6 : 0.3} emissive={color} emissiveIntensity={isLightMode ? 3 : 2} /></Box>
       <group ref={lineRef} position={[0, 0.8, 0]}>
         <Line points={wave} color={color} lineWidth={3} />
-        {magnitud > 5 && <group position={[0, 0, 0.35]}><Line points={wave.map(p => new THREE.Vector3(p.x, p.y * 0.4, 0))} color={color} lineWidth={1} transparent opacity={0.08} /></group>}
+        {magnitud > 5 && <group position={[0, 0, 0.35]}><Line points={eco} color={color} lineWidth={1} transparent opacity={0.08} /></group>}
       </group>
       <Html position={[0, -1.2, 0]} center>
         <div className={`text-center backdrop-blur-xl p-2 rounded-lg border min-w-[80px] ${isLightMode ? 'bg-white/90 border-slate-300' : 'bg-black/80 border-white/5'}`}>
@@ -322,7 +323,6 @@ function Seismograph({ magnitud, color, position, label, isLightMode }: { magnit
 // ── MAIN SCENE ──
 function Scene({ magnitudActual, magnitudBase, isLightMode }: Props) {
   const deltaM = magnitudActual - magnitudBase;
-  const energyFactor = Math.pow(10, 1.5 * deltaM);
   const coreColor = magnitudActual > 8 ? (isLightMode ? "#be123c" : "#f43f5e") : magnitudActual > 6 ? (isLightMode ? "#c2410c" : "#fb923c") : (isLightMode ? "#ca8a04" : "#facc15");
   const rings = Math.min(Math.floor(magnitudActual / 1.5), 7);
 
@@ -358,18 +358,15 @@ function Scene({ magnitudActual, magnitudBase, isLightMode }: Props) {
       <Seismograph magnitud={magnitudBase} color={isLightMode ? "#0284c7" : "#22d3ee"} position={[-10, 0, 8]} label="Estación Ref." isLightMode={isLightMode} />
       <Seismograph magnitud={magnitudActual} color={magnitudActual > 7 ? (isLightMode ? "#be123c" : "#f43f5e") : (isLightMode ? "#c2410c" : "#fb923c")} position={[10, 0, 8]} label="Estación Exp." isLightMode={isLightMode} />
 
-      {/* Energy HUD */}
+      {/* Rótulo: solo DATOS (magnitudes). El factor de energía es lo que el alumno
+          calcula, así que la escena no lo muestra. */}
       <Html position={[0, 9, 0]} center>
-        <div className={`backdrop-blur-2xl border px-6 py-4 rounded-2xl text-center shadow-2xl transition-colors ${isLightMode ? 'bg-white/90 border-slate-200' : 'bg-black/90 border-white/10'}`}>
-          <div className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Diferencial Energético</div>
-          <div className={`text-3xl font-black italic tracking-tighter font-mono ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
-            {energyFactor > 1e6 ? (energyFactor/1e6).toFixed(1) + 'M' : energyFactor > 1000 ? (energyFactor/1000).toFixed(1) + 'k' : Math.round(energyFactor).toLocaleString()}×
+        <div className={`backdrop-blur-2xl border px-6 py-3 rounded-2xl text-center shadow-2xl transition-colors ${isLightMode ? 'bg-white/90 border-slate-200' : 'bg-black/90 border-white/10'}`}>
+          <div className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Sismo experimental</div>
+          <div className={`text-2xl font-black italic tracking-tighter font-mono ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+            Mw {magnitudActual.toFixed(1)}
           </div>
-          <div className="mt-2 flex gap-3 justify-center">
-            <div><span className="text-[6px] font-black text-cyan-500 uppercase block">Amplitud</span><span className={`text-[9px] font-black font-mono ${isLightMode ? 'text-slate-700' : 'text-white'}`}>×{Math.pow(10, deltaM).toFixed(deltaM < 1 ? 1 : 0)}</span></div>
-            <div className={`w-px h-4 ${isLightMode ? 'bg-slate-300' : 'bg-white/10'}`} />
-            <div><span className="text-[6px] font-black text-rose-500 uppercase block">Energía</span><span className={`text-[9px] font-black font-mono ${isLightMode ? 'text-slate-700' : 'text-white'}`}>×{Math.pow(31.6, deltaM).toFixed(deltaM < 1 ? 1 : 0)}</span></div>
-          </div>
+          <div className="text-[8px] font-black text-slate-500 font-mono mt-1">ΔM = {deltaM >= 0 ? '+' : ''}{deltaM.toFixed(1)} respecto a la base</div>
         </div>
       </Html>
     </>

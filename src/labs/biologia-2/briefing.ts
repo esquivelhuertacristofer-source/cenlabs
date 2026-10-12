@@ -7,19 +7,19 @@ const briefing: BriefingConfig = {
     acento: '#3b82f6',
     duracion: 30,
     videoUrl: 'https://youtu.be/_NCd2u1iMq4',
-    bienvenida: `¡Bienvenido al Centro de Homeostasis Celular! Soy el Dr. Quantum.\n\nLas células son bolsas de agua que luchan por no explotar o secarse. Veremos cómo el soluto dicta el destino de la vida.\n\nTu misión: Alcanzar el equilibrio isotónico de un eritrocito.`,
+    bienvenida: `¡Bienvenido al Centro de Homeostasis Celular! Soy el Dr. Quantum.\n\nLas células son bolsas de agua que luchan por no explotar o secarse. Veremos cómo el soluto dicta el destino de la vida.\n\nTu misión: averiguar la osmolaridad de una célula problema y preparar para ella un medio isotónico.`,
     conceptos: [
-      { icono: '💧', nombre: 'Ósmosis', descripcion: 'Movimiento de agua hacia mayor concentración de sal.' },
+      { icono: '💧', nombre: 'Ósmosis', descripcion: 'Movimiento de agua hacia la mayor osmolaridad.' },
       { icono: '⚖️', nombre: 'Isotonía', descripcion: 'Estado de equilibrio donde la célula mantiene su forma.' },
       { icono: '💥', nombre: 'Lisis', descripcion: 'Ruptura celular por exceso de agua (medio hipotónico).' },
       { icono: '🍂', nombre: 'Plasmólisis', descripcion: 'Deshidratación celular en medios hipertónicos.' }
     ],
     mision: [
-      'Selecciona el modelo de célula animal.',
-      'Aumenta la salinidad del medio externo.',
-      'Observa la deformación de la membrana.',
-      'Ajusta la concentración a 0.9% NaCl.',
-      'Valida el estado de salud celular.'
+      'Coloca la célula problema en un medio de prueba.',
+      'Espera a que el volumen se estabilice y anótalo.',
+      'Calcula la osmolaridad del citoplasma (Boyle–van ’t Hoff).',
+      'Prepara el medio isotónico con NaCl y/o glucosa.',
+      'Valida: la célula no gana ni pierde agua.'
     ],
     aplicaciones: [
       { area: 'Medicina', ejemplo: 'Uso de soluciones salinas en hidratación.' },

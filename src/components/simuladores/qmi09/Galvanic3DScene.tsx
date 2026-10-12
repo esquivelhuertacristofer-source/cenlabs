@@ -73,6 +73,10 @@ const CinematicShader = {
 export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cablesConectados, voltaje }: Galvanic3DSceneProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasTextureRef = useRef<THREE.CanvasTexture | null>(null);
+    // El bucle de animación se monta una sola vez: lee las props por ref (antes
+    // las capturaba del primer render y la escena quedaba congelada).
+    const stateRef = useRef({ puenteSalino, cablesConectados, voltaje });
+    stateRef.current = { puenteSalino, cablesConectados, voltaje };
     const engineRef = useRef<{
         scene: THREE.Scene;
         camera: THREE.PerspectiveCamera;
@@ -107,7 +111,7 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
             }
 
             // Valor principal
-            ctx.font = 'black 120px monospace';
+            ctx.font = 'bold 120px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
@@ -321,11 +325,22 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
         };
 
         // --- ANIMATION ---
+        // Trayectorias fijas (creadas una vez): los electrones van por el cable del
+        // ánodo al cátodo; los iones por el puente en sentido contrario.
+        const IZQ_CABLE = new THREE.Vector3(-12, 13, 0), DER_CABLE = new THREE.Vector3(12, 13, 0);
+        const IZQ_PUENTE = new THREE.Vector3(-12, 12, 0), DER_PUENTE = new THREE.Vector3(12, 12, 0);
+        const electronesAnodoIzq = new THREE.QuadraticBezierCurve3(IZQ_CABLE, new THREE.Vector3(0, 35, -5), DER_CABLE);
+        const electronesAnodoDer = new THREE.QuadraticBezierCurve3(DER_CABLE, new THREE.Vector3(0, 35, -5), IZQ_CABLE);
+        const ionesAnodoIzq = new THREE.QuadraticBezierCurve3(DER_PUENTE, new THREE.Vector3(0, 18, 0), IZQ_PUENTE);
+        const ionesAnodoDer = new THREE.QuadraticBezierCurve3(IZQ_PUENTE, new THREE.Vector3(0, 18, 0), DER_PUENTE);
+        const punto = new THREE.Vector3();
+
         let time = 0;
         const animate = () => {
             time += 0.016;
             const eng = engineRef.current;
             if (!eng) return;
+            const { cablesConectados, puenteSalino, voltaje } = stateRef.current;
 
             eng.controls.update();
             cinematicPass.uniforms.time.value = time;
@@ -336,16 +351,11 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
                 const mat = eng.electronParticles.material as THREE.PointsMaterial;
                 mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1, 0.1);
 
-                const isReversed = voltaje < 0;
-                const curveElectrons = new THREE.QuadraticBezierCurve3(
-                    isReversed ? new THREE.Vector3(12, 13, 0) : new THREE.Vector3(-12, 13, 0),
-                    new THREE.Vector3(0, 35, -5),
-                    isReversed ? new THREE.Vector3(-12, 13, 0) : new THREE.Vector3(12, 13, 0)
-                );
+                const curveElectrons = voltaje < 0 ? electronesAnodoDer : electronesAnodoIzq;
 
                 for (let i = 0; i < 30; i++) {
                     const t = (time * 0.4 + i / 30) % 1;
-                    const p = curveElectrons.getPoint(t);
+                    const p = curveElectrons.getPoint(t, punto);
                     pos[i * 3] = p.x + (Math.random() - 0.5) * 0.4;
                     pos[i * 3 + 1] = p.y + (Math.random() - 0.5) * 0.4;
                     pos[i * 3 + 2] = p.z + (Math.random() - 0.5) * 0.4;
@@ -361,16 +371,11 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
                 const mat = eng.ionParticles.material as THREE.PointsMaterial;
                 mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.6, 0.1);
 
-                const isReversed = voltaje < 0;
-                const curveIons = new THREE.QuadraticBezierCurve3(
-                    isReversed ? new THREE.Vector3(-12, 12, 0) : new THREE.Vector3(12, 12, 0),
-                    new THREE.Vector3(0, 18, 0),
-                    isReversed ? new THREE.Vector3(12, 12, 0) : new THREE.Vector3(-12, 12, 0)
-                );
+                const curveIons = voltaje < 0 ? ionesAnodoDer : ionesAnodoIzq;
 
                 for (let i = 0; i < 40; i++) {
                     const t = (time * 0.2 + i / 40) % 1;
-                    const p = curveIons.getPoint(t);
+                    const p = curveIons.getPoint(t, punto);
                     pos[i * 3] = p.x + (Math.random() - 0.5) * 0.8;
                     pos[i * 3 + 1] = p.y + (Math.random() - 0.5) * 0.8;
                     pos[i * 3 + 2] = p.z + (Math.random() - 0.5) * 0.8;
@@ -386,12 +391,31 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
 
         animate();
 
+        const contenedor = containerRef.current;
+        const ro = new ResizeObserver(() => {
+            const w = contenedor.clientWidth, h = contenedor.clientHeight;
+            if (w === 0 || h === 0) return;
+            camera.aspect = w / h; camera.updateProjectionMatrix();
+            renderer.setSize(w, h); composer.setSize(w, h);
+        });
+        ro.observe(contenedor);
+
         return () => {
-            if (engineRef.current) {
-                cancelAnimationFrame(engineRef.current.frameId);
-                composer.dispose();
-                renderer.dispose();
+            ro.disconnect();
+            const eng = engineRef.current;
+            if (eng) {
+                cancelAnimationFrame(eng.frameId);
+                [eng.electrodoIzq, eng.electrodoDer].forEach((m) => {
+                    if (!m) return;
+                    m.geometry.dispose(); (m.material as THREE.Material).dispose();
+                });
             }
+            controls.dispose();
+            composer.dispose();
+            renderer.dispose();
+            // Sin esto, en modo estricto (doble montaje) quedaban DOS lienzos apilados.
+            if (contenedor.contains(renderer.domElement)) contenedor.removeChild(renderer.domElement);
+            engineRef.current = null;
         };
     }, []);
 
@@ -400,8 +424,11 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
         const eng = engineRef.current;
         if (!eng) return;
 
-        if (eng.electrodoIzq) eng.scene.remove(eng.electrodoIzq);
-        if (eng.electrodoDer) eng.scene.remove(eng.electrodoDer);
+        [eng.electrodoIzq, eng.electrodoDer].forEach((m) => {
+            if (!m) return;
+            eng.scene.remove(m);
+            m.geometry.dispose(); (m.material as THREE.Material).dispose();
+        });
 
         const createElectrodo = (metal: string | null, x: number) => {
             if (!metal) return undefined;

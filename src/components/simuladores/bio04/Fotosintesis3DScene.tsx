@@ -13,22 +13,26 @@ import {
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette, Noise } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { tasaNetaB4, ppfdB4, PMAX_B4, RESPIRACION_B4, PPFD_10CM_B4 } from '@/domain/biologia';
+import type { ColorLuzB4 } from '@/store/types';
 
-// ── Espectro y eficiencia (consistente con tickFotosintesis del store) ──────────
-const SPECTRUM: Record<string, { hex: string; eff: number }> = {
-  blanco:   { hex: '#ffffff', eff: 0.7 },
-  rojo:     { hex: '#ef4444', eff: 1.0 },
-  azul:     { hex: '#3b82f6', eff: 1.2 },
-  verde:    { hex: '#22c55e', eff: 0.1 },
-  amarillo: { hex: '#eab308', eff: 0.4 },
+// Solo el color de dibujo: la productividad sale del MISMO modelo que mide el ensayo (tasaNetaB4).
+const SPECTRUM: Record<string, { hex: string }> = {
+  blanco:   { hex: '#ffffff' },
+  rojo:     { hex: '#ef4444' },
+  azul:     { hex: '#3b82f6' },
+  verde:    { hex: '#22c55e' },
+  amarillo: { hex: '#f59e0b' },
 };
+const CA_OFFSET = new THREE.Vector2(0.0008, 0.0008);
 
 const SUN_Y = 17;          // altura de la fuente de luz
 const CANOPY_Y = 3.4;      // "tapa" del cloroplasto donde rebota la luz verde
 const GRANA_Y = -0.4;      // plano del estroma donde se absorbe la luz útil
 
-// ── Fotón: cae desde el sol. Si es verde, REBOTA (clorofila refleja el verde);
-//    en cualquier otro color, se absorbe en los grana y dispara la fase clara. ──
+// ── Fotón: cae desde el sol. Con luz verde UNA PARTE rebota (la clorofila absorbe
+//    menos el verde, pero la hoja aún absorbe la mayoría y SÍ hace fotosíntesis con él);
+//    los demás se absorben en los grana y disparan la fase luminosa. ──
 function Photon({ hex, isGreen, speed, phase, seedX, seedZ, active }: {
   hex: string; isGreen: boolean; speed: number; phase: number; seedX: number; seedZ: number; active: boolean;
 }) {
@@ -97,7 +101,7 @@ function PhotonField({ hex, isGreen, irradiance, active }: {
   return (
     <group>
       {seeds.slice(0, count).map((s, i) => (
-        <Photon key={i} hex={hex} isGreen={isGreen} active={active}
+        <Photon key={i} hex={hex} isGreen={isGreen && i % 3 === 0} active={active}
           speed={s.speed} phase={s.phase} seedX={s.seedX} seedZ={s.seedZ} />
       ))}
     </group>
@@ -284,7 +288,7 @@ function Chloroplast({ hex, isGreen, irradiance, productivity, active }: {
         );
       })}
 
-      {/* Reflejo de luz verde rasante sobre la membrana (la "trampa verde") */}
+      {/* Reflejo parcial de la luz verde sobre la membrana */}
       {isGreen && (
         <mesh position={[0, CANOPY_Y - 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[2.5, 6.4, 48]} />
@@ -338,17 +342,17 @@ function LightBeam({ hex, irradiance }: { hex: string; irradiance: number }) {
   );
 }
 
-export default function Fotosintesis3DScene({ simulando, colorLuz, intensidad }: {
-  simulando: boolean; colorLuz: string; intensidad: number;
+export default function Fotosintesis3DScene({ simulando, colorLuz, distancia }: {
+  simulando: boolean; colorLuz: ColorLuzB4; distancia: number;
 }) {
   const spec = SPECTRUM[colorLuz] || SPECTRUM.blanco;
   const hex = spec.hex;
   const isGreen = colorLuz === 'verde';
 
-  // intensidad = 300/d² (≈3 lejos … 300 cerca) → irradiancia normalizada 0.1..1
-  const irradiance = THREE.MathUtils.clamp(Math.sqrt(intensidad / 300), 0.1, 1);
-  // Productividad real = irradiancia × eficiencia espectral (0..~1)
-  const productivity = THREE.MathUtils.clamp(irradiance * (spec.eff / 1.2), 0, 1);
+  // Irradiancia normalizada (inverso del cuadrado) solo para el tamaño/brillo de la lámpara.
+  const irradiance = THREE.MathUtils.clamp(Math.sqrt(ppfdB4(distancia) / PPFD_10CM_B4), 0.1, 1);
+  // Productividad = tasa NETA del modelo (saturación + espectro − respiración) normalizada.
+  const productivity = THREE.MathUtils.clamp(tasaNetaB4(colorLuz, distancia) / (PMAX_B4 - RESPIRACION_B4), 0, 1);
   const active = simulando;
 
   const o2Count = active ? Math.round(productivity * 16) : 0;     // 0 con luz verde
@@ -395,7 +399,7 @@ export default function Fotosintesis3DScene({ simulando, colorLuz, intensidad }:
 
         <EffectComposer multisampling={8}>
           <Bloom luminanceThreshold={0.25} mipmapBlur intensity={active ? 1.9 : 1.1} radius={0.6} />
-          <ChromaticAberration offset={new THREE.Vector2(0.0008, 0.0008)} />
+          <ChromaticAberration offset={CA_OFFSET} />
           <Vignette offset={0.18} darkness={1.0} />
           <Noise opacity={0.035} />
         </EffectComposer>

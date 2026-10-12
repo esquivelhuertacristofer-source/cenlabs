@@ -3,13 +3,15 @@ import { SimuladorState, QuimicaSlice } from '../types';
 import * as QuimicaDomain from '@/domain/quimica';
 
 // Constantes físico-químicas
-const GAS_CONSTANT_R = 0.08206;      // L·atm/(mol·K)
+const GAS_CONSTANT_R = QuimicaDomain.R_GAS; // L·atm/(mol·K)
 const MIN_VOLUME_L   = 0.1;          // litros — previene división por cero
 const EXPLOSION_THRESHOLD_ATM = 7.0; // presión máxima antes de fallo de cámara
 
 // --- REACCIONES CONSTANTES (Fuera del slice para estabilidad y reparación) ---
 // Enriquecidas con datos de nivel Licenciatura (Masa Molar)
-const REACCIONES_BALANCEO = [
+type MoleculaReaccion = QuimicaDomain.MoleculaBalanceo & { estado: string };
+type ReaccionDeBalanceo = { id: string; nombre: string; ecuacion: string; reactivos: MoleculaReaccion[]; productos: MoleculaReaccion[]; coeficientesCorrectos: number[] };
+const REACCIONES_BALANCEO: ReaccionDeBalanceo[] = [
   { 
     id: 'propano',
     nombre: 'Combustión de Propano',
@@ -65,18 +67,20 @@ const REACCIONES_BALANCEO = [
     coeficientesCorrectos: [1, 2, 1]
   },
   {
+    // Con HCl + NaOH los coeficientes iniciales (todos 1) ya eran la respuesta y la
+    // reacción se «completaba» sin razonar; con ácido diprótico hay que balancear.
     id: 'neutralizacion',
     nombre: 'Neutralización Ácido-Base',
-    ecuacion: 'HCl(aq) + NaOH(aq) → NaCl(aq) + H2O(l)',
+    ecuacion: 'H2SO4(aq) + NaOH(aq) → Na2SO4(aq) + H2O(l)',
     reactivos: [
-      { formula: 'HCl', atomos: { H: 1, Cl: 1 }, molar: 36.460, estado: 'aq' },
+      { formula: 'H2SO4', atomos: { H: 2, S: 1, O: 4 }, molar: 98.079, estado: 'aq' },
       { formula: 'NaOH', atomos: { Na: 1, O: 1, H: 1 }, molar: 39.997, estado: 'aq' }
     ],
     productos: [
-      { formula: 'NaCl', atomos: { Na: 1, Cl: 1 }, molar: 58.440, estado: 'aq' },
+      { formula: 'Na2SO4', atomos: { Na: 2, S: 1, O: 4 }, molar: 142.042, estado: 'aq' },
       { formula: 'H2O', atomos: { H: 2, O: 1 }, molar: 18.015, estado: 'l' }
     ],
-    coeficientesCorrectos: [1, 1, 1, 1]
+    coeficientesCorrectos: [1, 2, 1, 2]
   },
   {
     id: 'octano',
@@ -147,11 +151,12 @@ const REACCIONES_LIMITANTE = [
   }
 ];
 
+// Solubilidad tabulada (g / 100 g H₂O) — ver TABLAS_SOLUBILIDAD en el dominio (CRC).
 const SUSTANCIAS_SOLUBILIDAD = [
-  { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', a: 13.3, b: 0.02, desc: 'Alta dependencia térmica.' },
-  { id: 'nacl', nombre: 'Cloruro de Sodio', formula: 'NaCl', color: '#f8fafc', a: 35.7, b: 0.001, desc: 'Curva casi plana.' },
-  { id: 'cuso4', nombre: 'Sulfato de Cobre (II)', formula: 'CuSO₄', color: '#3b82f6', a: 14.3, b: 0.025, desc: 'Cristales azules vibrantes.' },
-  { id: 'kclo3', nombre: 'Clorato de Potasio', formula: 'KClO₃', color: '#e2e8f0', a: 3.3, b: 0.04, desc: 'Muy baja solubilidad en frío.' }
+  { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', tabla: QuimicaDomain.TABLAS_SOLUBILIDAD.kno3, desc: 'Muy dependiente de la temperatura: de 31.6 g a 20 °C a 246 g a 100 °C.' },
+  { id: 'nacl', nombre: 'Cloruro de Sodio', formula: 'NaCl', color: '#f8fafc', tabla: QuimicaDomain.TABLAS_SOLUBILIDAD.nacl, desc: 'Curva casi plana: 35.7 g a 0 °C y 39.2 g a 100 °C.' },
+  { id: 'cuso4', nombre: 'Sulfato de Cobre (II)', formula: 'CuSO₄', color: '#3b82f6', tabla: QuimicaDomain.TABLAS_SOLUBILIDAD.cuso4, desc: 'Cristaliza como pentahidrato azul (CuSO₄·5H₂O).' },
+  { id: 'kclo3', nombre: 'Clorato de Potasio', formula: 'KClO₃', color: '#e2e8f0', tabla: QuimicaDomain.TABLAS_SOLUBILIDAD.kclo3, desc: 'Muy poco soluble en frío: 3.3 g a 0 °C.' }
 ];
 
 export const SUSTANCIAS_SOLUCIONES = [
@@ -159,6 +164,46 @@ export const SUSTANCIAS_SOLUCIONES = [
   { nombre: "Sulfato de Cobre (II)", formula: "CuSO4", pm: 159.609, purity: 0.99, color: "#3b82f6" },
   { nombre: "Permanganato de Potasio", formula: "KMnO4", pm: 158.034, purity: 0.98, color: "#a855f7" },
   { nombre: "Dicromato de Potasio", formula: "K2Cr2O7", pm: 294.185, purity: 0.97, color: "#f97316" }
+];
+
+// Átomos y masas de la reacción de balanceo con los coeficientes dados.
+function estadoBalanceo(reac: (typeof REACCIONES_BALANCEO)[number], coefs: number[]) {
+  const { reactivos, productos } = QuimicaDomain.contarAtomos(reac, coefs);
+  let mR = 0, mP = 0;
+  reac.reactivos.forEach((m, i) => { mR += m.molar * (coefs[i] ?? 1); });
+  reac.productos.forEach((m, i) => { mP += m.molar * (coefs[reac.reactivos.length + i] ?? 1); });
+  return {
+    atomosReactivos: reactivos,
+    atomosProductos: productos,
+    isBalanced: QuimicaDomain.estaBalanceada(reac, coefs),
+    masaReactivos: parseFloat(mR.toFixed(3)),
+    masaProductos: parseFloat(mP.toFixed(3)),
+  };
+}
+
+// Resultados estequiométricos (los ve el panel SOLO después de validar).
+function resultadosLimitante(reacIdx: number, masas: number[]) {
+  const reac = REACCIONES_LIMITANTE[reacIdx] ?? REACCIONES_LIMITANTE[0];
+  const a = QuimicaDomain.analizarLimitante(reac, masas);
+  return {
+    moles: a.moles.map((n) => parseFloat(n.toFixed(4))),
+    limitingIdx: a.limitingIdx,
+    theoreticalYield: parseFloat(a.theoreticalYield.toFixed(3)),
+    excessMass: parseFloat(a.excessMass.toFixed(3)),
+  };
+}
+
+const DESTILACION_INICIAL = {
+  calorManta: 20, tempMezcla: 20, tempCabeza: 20, tasa: 0,
+  volEtanolMatraz: 100, volAguaMatraz: 100,
+  volDestilado: 0, volEtanolDest: 0, purezaDestilado: 0,
+  status: 'idle' as const,
+};
+
+const JERINGAS_INICIALES = () => [
+  { id: 1, ubicacion: 'mesa' as const, temp: 20 },
+  { id: 2, ubicacion: 'mesa' as const, temp: 20 },
+  { id: 3, ubicacion: 'mesa' as const, temp: 20 },
 ];
 
 export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSlice> = (set, get) => ({
@@ -169,10 +214,10 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     isStable: true, message: ""
   },
   gases: { missionId: 'sandbox', T: 300, V: 10, P: 1.0, n: 0.406, pTarget: 3.5, isExploded: false, gasType: 'He', mw: 4.002, status: 'idle' },
-  balanceo: { 
+  balanceo: {
     reaccionActual: 0,
     reacciones: REACCIONES_BALANCEO,
-    coeficientes: [1, 1, 1, 1], 
+    coeficientes: [1, 1, 1, 1],
     isBalanced: false,
     atomosReactivos: {} as Record<string, number>,
     atomosProductos: {} as Record<string, number>,
@@ -180,7 +225,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     masaProductos: 0,
     reaccionesCompletadas: [] as string[]
   },
-  limitante: { 
+  limitante: {
     reaccionActual: 0,
     reacciones: REACCIONES_LIMITANTE,
     inputMasses: [0, 0],
@@ -191,37 +236,47 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
       theoreticalYield: 0,
       excessMass: 0
     },
-    isRunning: false, 
-    status: 'idle' 
+    isRunning: false,
+    status: 'idle',
+    respuesta: { limitanteIdx: null, exceso: null },
   },
-  soluciones: { 
-    mTarget: 0.5, vTarget: 250, mRequerida: 7.3, 
+  soluciones: {
+    mTarget: 0.5, vTarget: 250, mRequerida: 7.3,
     sal: { nombre: "Cloruro de Sodio", formula: "NaCl", pm: 58.443, purity: 0.985 },
-    balanza: { polvo: 0, tara: false, encendida: true }, 
-    matraz: { polvo: 0, agua: 0 }, 
+    balanza: { polvo: 0, tara: false, encendida: true },
+    matraz: { polvo: 0, agua: 0 },
     interaccion: { holding: null, jarraAbierta: false },
-    status: 'idle' 
+    status: 'idle'
   },
-  solubilidad: { 
-    temp: 20, 
-    salAgregada: 0, 
-    ubicacion: 'mesa', 
+  solubilidad: {
+    temp: 20,
+    salAgregada: 0,
+    ubicacion: 'mesa',
     status: 'idle',
     sustanciaIdx: 0,
-    sustancias: SUSTANCIAS_SOLUBILIDAD
+    sustancias: SUSTANCIAS_SOLUBILIDAD,
+    disueltoEnCaliente: false,
   },
-  titulacion: { ca: 0.1, va: 25, cb: 0.1, volumenBase: 0, purgada: false, indicador: false, status: 'idle', history: [] },
-  equilibrio: { jeringas: [], status: 'idle' },
-  celda: { vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', seedMetales: [], voltaje: 0 },
-  destilacion: { calorManta: 20, tempMezcla: 20, volEtanolMatraz: 100, volAguaMatraz: 100, volDestilado: 0, purezaDestilado: 0, status: 'idle' },
+  titulacion: { ca: 0.1, va: 25, cb: 0.1, volumenBase: 0, purgada: false, indicador: false, status: 'idle', history: [], respuestaCa: null },
+  equilibrio: { jeringas: [], status: 'idle', observaciones: {} },
+  celda: { vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', seedMetales: [], voltaje: 0, respuesta: { anodo: null, catodo: null } },
+  destilacion: { ...DESTILACION_INICIAL },
 
-  setParticulas: (p: number, n: number, e: number) => set((state) => ({ 
-    particulas: { ...state.particulas, protones: Math.max(0, p), neutrones: Math.max(0, n), electrones: Math.max(0, e) } 
+  // ── Q1 · Construcción atómica ─────────────────────────────────────────────
+  // El catálogo llega hasta el neón (Z = 10) y la configuración hasta 2p (10 e⁻).
+  setParticulas: (p: number, n: number, e: number) => set((state) => ({
+    particulas: {
+      ...state.particulas,
+      protones: Math.min(10, Math.max(0, p)),
+      neutrones: Math.max(0, n),
+      electrones: Math.min(10, Math.max(0, e)),
+    }
   })),
   validarEstructura: () => {
     const particulas = get().particulas;
     const result = QuimicaDomain.validarQ1(particulas);
     if (result.isOk) {
+      get().registrarHallazgo('qmi01_success', { p: particulas.protones, n: particulas.neutrones, e: particulas.electrones });
       set((state) => ({
         particulas: {
           ...state.particulas,
@@ -243,43 +298,49 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return result.isOk;
   },
   setTargetElement: (z: number, a: number) => set((state) => ({
-    particulas: { ...state.particulas, targetZ: z, targetA: a, targetCharge: 0, intentos: 0, estrellas: 3 }
+    particulas: { ...state.particulas, targetZ: z, targetA: a, targetCharge: 0, intentos: 0, estrellas: 3, message: '', isStable: true }
   })),
   setTargetCharge: (charge: number) => set((state) => ({
-    particulas: { ...state.particulas, targetCharge: charge, intentos: 0, estrellas: 3 }
+    particulas: { ...state.particulas, targetCharge: charge, intentos: 0, estrellas: 3, message: '', isStable: true }
   })),
-  resetParticulas: () => set((state) => ({ 
-    particulas: { 
+  resetParticulas: () => set((state) => ({
+    particulas: {
       ...state.particulas,
-      protones: 0, neutrones: 0, electrones: 0, 
-      isStable: true, message: "", intentos: 0, estrellas: 3 
-    } 
+      protones: 0, neutrones: 0, electrones: 0,
+      isStable: true, message: "", intentos: 0, estrellas: 3
+    }
   })),
+
+  // ── Q2 · Gases ideales ────────────────────────────────────────────────────
   updateGases: (t: number, v: number, n?: number) => set((state) => {
     if (state.gases.isExploded) return state;
     const currentN = n !== undefined ? n : state.gases.n;
     const safeV = Math.max(MIN_VOLUME_L, v);
     const computedP = (currentN * GAS_CONSTANT_R * t) / safeV;
     const willExplode = computedP > EXPLOSION_THRESHOLD_ATM;
-    return { 
-      gases: { 
-        ...state.gases, 
+    return {
+      gases: {
+        ...state.gases,
         T: t, V: safeV, n: currentN,
-        P: parseFloat(computedP.toFixed(3)), 
+        P: parseFloat(computedP.toFixed(3)),
         isExploded: willExplode
-      } 
+      }
     };
   }),
   validarQ2: () => {
-    const isOk = QuimicaDomain.validarQ2(get().gases);
+    const g = get().gases;
+    const isOk = QuimicaDomain.validarQ2(g);
+    if (isOk) get().registrarHallazgo('qui_gases', { T: g.T, V: g.V, P: g.P, n: g.n, pTarget: g.pTarget });
     set((state) => ({ gases: { ...state.gases, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
-  resetGases: () => set((state) => ({ 
-    gases: { 
-      ...state.gases, 
+  // Reiniciar la cámara (p. ej. tras una explosión) conserva el objetivo de presión:
+  // el reto sigue siendo el mismo. La semilla nueva la pone `entrarQuimica`.
+  resetGases: () => set((state) => ({
+    gases: {
+      ...state.gases,
       missionId: 'sandbox',
-      T: 300, V: 10, P: 1.0, n: 0.406, isExploded: false, pTarget: 3.5,
+      T: 300, V: 10, P: 1.0, n: 0.406, isExploded: false,
       gasType: 'He', mw: 4.002,
       status: 'idle'
     },
@@ -287,7 +348,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   })),
   setGasesMission: (missionId: 'sandbox' | 'boyle' | 'charles' | 'gaylussac' | 'avogadro') => set((state) => {
     let T = 300, V = 10, n = 0.406, pTarget = 3.5;
-    const R = 0.08206;
+    const R = GAS_CONSTANT_R;
 
     switch(missionId) {
       case 'boyle': // T and n fixed
@@ -335,249 +396,138 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
       }
     };
   }),
-  generarSemillaGases: () => set((state) => ({ 
-    gases: { 
-      ...state.gases, 
-      pTarget: parseFloat((1.5 + Math.random() * 4.5).toFixed(2)) 
-    } 
+  generarSemillaGases: () => set((state) => ({
+    gases: {
+      ...state.gases,
+      pTarget: parseFloat((1.5 + Math.random() * 4.5).toFixed(2))
+    }
   })),
-  // --- SCIENTIFIC BALANCER ENGINE (Diamond State Edition) ---
+
+  // ── Q3 · Balanceo de ecuaciones ───────────────────────────────────────────
+  // Una reacción cuenta como completada solo con los coeficientes enteros MÍNIMOS.
   setCoeficiente: (index: number, value: number) => set((state) => {
-    const b = state.balanceo || {};
-    const reactions = b.reacciones || REACCIONES_BALANCEO;
-    const reac = reactions[b.reaccionActual || 0] || reactions[0];
-    if (!reac) return state;
-
-    const nCoef = [...(b.coeficientes || Array(reac.reactivos.length + reac.productos.length).fill(1))];
-    nCoef[index] = Math.max(1, value);
-
-    const rAtoms: Record<string, number> = {};
-    const pAtoms: Record<string, number> = {};
-    let totalMassR = 0;
-    let totalMassP = 0;
-
-    // Reactivos: Átomos y Masa
-    reac.reactivos.forEach((mol: any, i: number) => {
-      const coef = nCoef[i];
-      Object.entries(mol.atomos).forEach(([sym, count]: [string, any]) => {
-        rAtoms[sym] = (rAtoms[sym] || 0) + (count * coef);
-      });
-      totalMassR += mol.molar * coef;
-    });
-
-    // Productos: Átomos y Masa
-    reac.productos.forEach((mol: any, i: number) => {
-      const coef = nCoef[reac.reactivos.length + i];
-      Object.entries(mol.atomos).forEach(([sym, count]: [string, any]) => {
-        pAtoms[sym] = (pAtoms[sym] || 0) + (count * coef);
-      });
-      totalMassP += mol.molar * coef;
-    });
-
-    const syms = new Set([...Object.keys(rAtoms), ...Object.keys(pAtoms)]);
-    const isBalanced = Array.from(syms).every(s => rAtoms[s] === pAtoms[s]);
+    const b = state.balanceo;
+    const reac = REACCIONES_BALANCEO[b.reaccionActual ?? 0] ?? REACCIONES_BALANCEO[0];
+    const size = reac.reactivos.length + reac.productos.length;
+    const nCoef = Array.from({ length: size }, (_, i) => b.coeficientes?.[i] ?? 1);
+    nCoef[index] = Math.min(30, Math.max(1, Math.round(value)));
 
     const nCompletadas = [...(b.reaccionesCompletadas || [])];
-    if (isBalanced && !nCompletadas.includes(reac.id)) {
+    if (QuimicaDomain.esBalanceoMinimo(reac, nCoef) && !nCompletadas.includes(reac.id)) {
       nCompletadas.push(reac.id);
     }
-
-    return { 
-      balanceo: { 
-        ...b, 
-        reacciones: REACCIONES_BALANCEO,
-        coeficientes: nCoef, 
-        isBalanced,
-        atomosReactivos: rAtoms,
-        atomosProductos: pAtoms,
-        masaReactivos: parseFloat(totalMassR.toFixed(3)),
-        masaProductos: parseFloat(totalMassP.toFixed(3)),
-        reaccionesCompletadas: nCompletadas
-      } 
-    };
-  }),
-  setReaccion: (index: number) => set((state) => {
-    const b = state.balanceo || {};
-    const reactions = REACCIONES_BALANCEO;
-    if (index > 0) {
-      const prevReac = reactions[index - 1];
-      const isPrevCompleted = b.reaccionesCompletadas?.includes(prevReac.id);
-      if (!isPrevCompleted) return state; // Bloqueado
-    }
-
-    const reac = reactions[index] || reactions[0];
-    const size = reac.reactivos.length + reac.productos.length;
-    const initialCoefs = Array(size).fill(1);
-    
-    // Cálculo inicial de masa y ATOMOS
-    const rAtoms: Record<string, number> = {};
-    const pAtoms: Record<string, number> = {};
-    let mR = 0, mP = 0;
-
-    reac.reactivos.forEach((m: any, i: number) => {
-      mR += m.molar;
-      Object.entries(m.atomos).forEach(([sym, count]: [string, any]) => {
-        rAtoms[sym] = (rAtoms[sym] || 0) + count;
-      });
-    });
-    reac.productos.forEach((m: any, i: number) => {
-      mP += m.molar;
-      Object.entries(m.atomos).forEach(([sym, count]: [string, any]) => {
-        pAtoms[sym] = (pAtoms[sym] || 0) + count;
-      });
-    });
-
-    return { 
-      balanceo: { 
-        ...b, 
-        reacciones: reactions,
-        reaccionActual: index, 
-        coeficientes: initialCoefs, 
-        isBalanced: false,
-        atomosReactivos: rAtoms,
-        atomosProductos: pAtoms,
-        masaReactivos: parseFloat(mR.toFixed(3)),
-        masaProductos: parseFloat(mP.toFixed(3))
-      } 
-    };
-  }),
-  resetBalanceo: () => set((state) => {
-    const b = state.balanceo || {};
-    const reactions = b.reacciones || REACCIONES_BALANCEO;
-    const reac = reactions[b.reaccionActual || 0] || reactions[0];
-    const size = reac.reactivos.length + reac.productos.length;
-
-    let mR = 0, mP = 0;
-    reac.reactivos.forEach((m: any) => mR += m.molar);
-    reac.productos.forEach((m: any) => mP += m.molar);
 
     return {
       balanceo: {
         ...b,
         reacciones: REACCIONES_BALANCEO,
+        coeficientes: nCoef,
+        ...estadoBalanceo(reac, nCoef),
+        reaccionesCompletadas: nCompletadas
+      }
+    };
+  }),
+  setReaccion: (index: number) => set((state) => {
+    const b = state.balanceo;
+    if (index < 0 || index >= REACCIONES_BALANCEO.length) return state;
+    if (index > 0) {
+      const prevReac = REACCIONES_BALANCEO[index - 1];
+      if (!b.reaccionesCompletadas?.includes(prevReac.id)) return state; // Bloqueado
+    }
+    const reac = REACCIONES_BALANCEO[index];
+    const coefs = Array(reac.reactivos.length + reac.productos.length).fill(1);
+    return {
+      balanceo: {
+        ...b,
+        reacciones: REACCIONES_BALANCEO,
+        reaccionActual: index,
+        coeficientes: coefs,
+        ...estadoBalanceo(reac, coefs),
+      }
+    };
+  }),
+  resetBalanceo: () => set((state) => {
+    const reac = REACCIONES_BALANCEO[0];
+    const coefs = Array(reac.reactivos.length + reac.productos.length).fill(1);
+    return {
+      balanceo: {
+        ...state.balanceo,
+        reacciones: REACCIONES_BALANCEO,
         reaccionActual: 0,
-        coeficientes: Array(size).fill(1),
-        isBalanced: false,
+        coeficientes: coefs,
         reaccionesCompletadas: [],
-        atomosReactivos: {} as Record<string, number>,
-        atomosProductos: {} as Record<string, number>,
-        masaReactivos: parseFloat(mR.toFixed(3)),
-        masaProductos: parseFloat(mP.toFixed(3))
+        ...estadoBalanceo(reac, coefs),
       }
     };
   }),
   validarQ3: () => QuimicaDomain.validarQ3(get().balanceo),
-  setReaccionLimitante: (index: number) => set((state) => {
-    const r = REACCIONES_LIMITANTE[index] || REACCIONES_LIMITANTE[0];
-    return { 
-      limitante: { 
-        ...state.limitante, 
-        reaccionActual: index, 
-        inputMasses: [0, 0],
-        targetYield: parseFloat((10 + Math.random() * 40).toFixed(1)),
-        results: { moles: [0, 0], limitingIdx: -1, theoreticalYield: 0, excessMass: 0 },
-        isRunning: false, status: 'idle' 
-      } 
-    };
-  }),
+
+  // ── Q4 · Reactivo limitante ───────────────────────────────────────────────
+  // Cada misión trae masas sembradas con un limitante claro; el alumno identifica
+  // el limitante y calcula el exceso en la consola. Los resultados se guardan para
+  // la animación y el informe, pero el panel no los muestra hasta validar.
+  setReaccionLimitante: (index: number) => {
+    const idx = REACCIONES_LIMITANTE[index] ? index : 0;
+    set((state) => ({ limitante: { ...state.limitante, reaccionActual: idx } }));
+    get().generarSemillaP4();
+  },
   setInputMass: (idx: number, mass: number) => set((state) => {
-    const l = state.limitante || {};
-    const actIdx = l.reaccionActual ?? 0;
-    const reac = REACCIONES_LIMITANTE[actIdx];
+    const l = state.limitante;
     const newMasses = [...(l.inputMasses || [0, 0])];
     newMasses[idx] = Math.max(0, mass);
-
-    // Cálculos Estequiométricos
-    const moles = newMasses.map((m, i) => m / (reac.reactivos[i]?.molar || 1));
-    
-    // Identificar limitante: moles / coeficiente
-    const ratios = moles.map((n, i) => n / (reac.reactivos[i]?.coef || 1));
-    const limitingIdx = ratios[0] < ratios[1] ? 0 : 1;
-    const excessIdx = limitingIdx === 0 ? 1 : 0;
-
-    // Rendimiento Teórico basado en el limitante
-    const nLimitante = moles[limitingIdx];
-    const nProduct = (nLimitante / reac.reactivos[limitingIdx].coef) * reac.productos[0].coef;
-    const theoreticalYield = nProduct * reac.productos[0].molar;
-
-    // Exceso consumido
-    const nExcessNeeded = (nLimitante / reac.reactivos[limitingIdx].coef) * reac.reactivos[excessIdx].coef;
-    const excessMass = (moles[excessIdx] - nExcessNeeded) * reac.reactivos[excessIdx].molar;
-
-    return {
-      limitante: {
-        ...l,
-        inputMasses: newMasses,
-        results: {
-          moles: moles.map(n => parseFloat(n.toFixed(4))),
-          limitingIdx,
-          theoreticalYield: parseFloat(theoreticalYield.toFixed(3)),
-          excessMass: parseFloat(Math.max(0, excessMass).toFixed(3))
-        }
-      }
-    };
+    const results = resultadosLimitante(l.reaccionActual ?? 0, newMasses);
+    return { limitante: { ...l, inputMasses: newMasses, results, targetYield: results.theoreticalYield, status: 'idle' } };
   }),
   generarSemillaP4: () => set((state) => {
-    const l = state.limitante || {};
-    const actIdx = l.reaccionActual ?? 0;
-    const reac = REACCIONES_LIMITANTE[actIdx];
-    
-    // Generamos masas aleatorias coherentes
-    const m1 = 10 + Math.random() * 90;
-    const m2 = 10 + Math.random() * 90;
-    
-    const moles = [m1 / (reac.reactivos[0]?.molar || 1), m2 / (reac.reactivos[1]?.molar || 1)];
-    const ratios = moles.map((n, i) => n / (reac.reactivos[i]?.coef || 1));
-    const limitingIdx = ratios[0] < ratios[1] ? 0 : 1;
-    const excessIdx = limitingIdx === 0 ? 1 : 0;
-    const nLimitante = moles[limitingIdx];
-    const nProduct = (nLimitante / reac.reactivos[limitingIdx].coef) * reac.productos[0].coef;
-    const theoreticalYield = nProduct * reac.productos[0].molar;
-    const nExcessNeeded = (nLimitante / reac.reactivos[limitingIdx].coef) * reac.reactivos[excessIdx].coef;
-    const excessMass = (moles[excessIdx] - nExcessNeeded) * reac.reactivos[excessIdx].molar;
-
+    const l = state.limitante;
+    const actIdx = REACCIONES_LIMITANTE[l.reaccionActual ?? 0] ? (l.reaccionActual ?? 0) : 0;
+    const masas = QuimicaDomain.generarMasasLimitante(REACCIONES_LIMITANTE[actIdx]);
+    const results = resultadosLimitante(actIdx, masas);
     return {
       limitante: {
         ...l,
-        reacciones: REACCIONES_LIMITANTE, // Restaurar si faltaba
+        reacciones: REACCIONES_LIMITANTE,
         reaccionActual: actIdx,
-        inputMasses: [m1, m2],
-        targetYield: parseFloat(theoreticalYield.toFixed(3)),
-        results: {
-          moles: moles.map(n => parseFloat(n.toFixed(4))),
-          limitingIdx,
-          theoreticalYield: parseFloat(theoreticalYield.toFixed(3)),
-          excessMass: parseFloat(Math.max(0, excessMass).toFixed(3))
-        },
+        inputMasses: masas,
+        targetYield: results.theoreticalYield,
+        results,
+        respuesta: { limitanteIdx: null, exceso: null },
         status: 'idle',
         isRunning: false
       }
     };
   }),
-  validarP4: (ansLimitanteIdx: number, ansExceso: number) => {
-    const isOk = QuimicaDomain.validarQ4(get().limitante, ansLimitanteIdx, ansExceso);
-    if (isOk) {
+  setRespuestaP4: (limitanteIdx: number | null, exceso: number | null) => set((state) => ({
+    limitante: { ...state.limitante, respuesta: { limitanteIdx, exceso }, status: state.limitante.status === 'success' ? 'success' : 'idle' }
+  })),
+  validarP4: () => {
+    const veredicto = QuimicaDomain.validarQ4(get().limitante);
+    if (veredicto.ok) {
       const l = get().limitante;
       get().registrarHallazgo('reactivo_limitante', {
         reaccion: l.reacciones?.[l.reaccionActual]?.nombre,
-        limitanteIdx: ansLimitanteIdx,
-        exceso: ansExceso,
+        masas: l.inputMasses,
+        limitanteIdx: l.respuesta.limitanteIdx,
+        exceso: l.respuesta.exceso,
         rendimientoTeorico: l.results?.theoreticalYield,
       });
     }
-    set((state) => ({ limitante: { ...state.limitante, status: isOk ? 'success' : 'error', isRunning: isOk } }));
-    return isOk;
+    set((state) => ({ limitante: { ...state.limitante, status: veredicto.ok ? 'success' : 'error', isRunning: veredicto.ok } }));
+    return veredicto.ok;
   },
-  resetP4: () => set((state) => ({ 
-    limitante: { 
-      ...state.limitante, 
+  resetP4: () => set((state) => ({
+    limitante: {
+      ...state.limitante,
       reaccionActual: 0,
       inputMasses: [0, 0],
       results: { moles: [0, 0], limitingIdx: -1, theoreticalYield: 0, excessMass: 0 },
-      isRunning: false, 
-      status: 'idle' 
-    } 
+      respuesta: { limitanteIdx: null, exceso: null },
+      isRunning: false,
+      status: 'idle'
+    }
   })),
+
+  // ── Q5 · Preparación de soluciones ────────────────────────────────────────
   generarSemillaP5: () => set((state) => {
     const s = state.soluciones;
     const mTarget = parseFloat((0.1 + Math.random() * 0.9).toFixed(2)), vTarget = [100, 250, 500][Math.floor(Math.random() * 3)];
@@ -587,15 +537,24 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     const mRequerida = parseFloat(((mTarget * (vTarget / 1000) * pm) / purity).toFixed(3));
     return { soluciones: { ...s, mTarget, vTarget, mRequerida, sal, status: 'idle' }, bitacoraData: { ...state.bitacoraData, mTarget, vTarget, mReq: mRequerida } };
   }),
+  // Se pesa sobre el vidrio de reloj ya tarado: sin tara no se puede añadir (la
+  // lectura incluiría el vidrio). Un monto negativo es retirar con la espátula.
   addPolvo: (amount: number) => set((state) => {
-    if (!state.soluciones.balanza.encendida) return state;
-    const tara = state.soluciones.balanza.tara ? state.soluciones.balanza.polvo : 0;
-    const next = Math.max(0, state.soluciones.balanza.polvo + amount - tara);
-    return { soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, polvo: next } } };
+    const b = state.soluciones.balanza;
+    if (!b.encendida || !b.tara) return state;
+    const next = Math.max(0, parseFloat((b.polvo + amount).toFixed(3)));
+    if (next === b.polvo) return state;
+    return { soluciones: { ...state.soluciones, balanza: { ...b, polvo: next } } };
   }),
-  toggleTara: () => set((state) => ({ soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, tara: !state.soluciones.balanza.tara } } })),
+  // TARA pone a cero la balanza con el vidrio de reloj encima. Con polvo ya pesado
+  // no se re-tara (borraría la lectura); vacía, se puede quitar la tara.
+  toggleTara: () => set((state) => {
+    const b = state.soluciones.balanza;
+    if (b.tara && b.polvo > 0) return state;
+    return { soluciones: { ...state.soluciones, balanza: { ...b, tara: !b.tara } } };
+  }),
   transferirPolvo: () => set((state) => ({ soluciones: { ...state.soluciones, matraz: { ...state.soluciones.matraz, polvo: state.soluciones.balanza.polvo }, balanza: { ...state.soluciones.balanza, polvo: 0 }, status: 'transferred' } })),
-  setAgua: (amount: number) => set((state) => ({ soluciones: { ...state.soluciones, matraz: { ...state.soluciones.matraz, agua: amount } } })),
+  setAgua: (amount: number) => set((state) => ({ soluciones: { ...state.soluciones, matraz: { ...state.soluciones.matraz, agua: Math.max(0, parseFloat(amount.toFixed(2))) } } })),
   setHolding: (item: string | null) => set((state) => ({ soluciones: { ...state.soluciones, interaccion: { ...(state.soluciones.interaccion || { holding: null, jarraAbierta: false }), holding: item } } })),
   toggleJar: () => set((state) => ({ soluciones: { ...state.soluciones, interaccion: { ...(state.soluciones.interaccion || { holding: null, jarraAbierta: false }), jarraAbierta: !state.soluciones.interaccion?.jarraAbierta } } })),
   setSal: (idx: number) => set((state) => {
@@ -615,11 +574,9 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   }),
   validarP5: () => {
     const soluciones = get().soluciones;
-    const isOk = QuimicaDomain.validarQ5(soluciones);
-    if (isOk) {
-      const pm     = soluciones.sal?.pm ?? 58.443;
-      const purity = soluciones.sal?.purity ?? 1.0;
-      const mActual = (soluciones.matraz.polvo * purity / pm) / (Math.max(1, soluciones.matraz.agua) / 1000);
+    const veredicto = QuimicaDomain.validarQ5(soluciones);
+    if (veredicto.ok) {
+      const mActual = QuimicaDomain.molaridadSolucion(soluciones);
       get().registrarHallazgo('preparacion_soluciones', {
         sustancia: soluciones.sal?.nombre,
         m_objetivo: soluciones.mTarget,
@@ -629,130 +586,158 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
         precision: parseFloat((100 - Math.abs((mActual - soluciones.mTarget) / soluciones.mTarget) * 100).toFixed(2)),
       });
     }
-    set((state) => ({ soluciones: { ...state.soluciones, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+    set((state) => ({ soluciones: { ...state.soluciones, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
-  resetP5: () => set((state) => ({ 
-    soluciones: { 
-      ...state.soluciones, 
-      matraz: { polvo: 0, agua: 0 }, 
+  resetP5: () => set((state) => ({
+    soluciones: {
+      ...state.soluciones,
+      matraz: { polvo: 0, agua: 0 },
       balanza: { polvo: 0, tara: false, encendida: true },
-      status: 'idle' 
-    } 
+      status: 'idle'
+    }
   })),
+
+  // ── Q6 · Solubilidad y cristalización ─────────────────────────────────────
   setUbicacionVaso: (loc: 'mesa' | 'parrilla' | 'hielo') => set((state) => ({ solubilidad: { ...state.solubilidad, ubicacion: loc } })),
-  setSustanciaSolubilidad: (idx: number) => set((state) => ({ 
-    solubilidad: { 
-      ...state.solubilidad, 
-      sustanciaIdx: idx, 
-      salAgregada: 0, 
-      temp: 20, 
-      status: 'idle' 
-    } 
+  setSustanciaSolubilidad: (idx: number) => set((state) => ({
+    solubilidad: {
+      ...state.solubilidad,
+      sustanciaIdx: idx,
+      salAgregada: 0,
+      temp: 20,
+      disueltoEnCaliente: false,
+      status: 'idle'
+    }
   })),
-  addSalSolubilidad: (amount: number) => set((state) => ({ solubilidad: { ...state.solubilidad, salAgregada: state.solubilidad.salAgregada + amount } })),
+  // Añadir sal que no se disuelve a la temperatura actual anula la disolución en
+  // caliente lograda antes: hay que volver a disolverla toda.
+  addSalSolubilidad: (amount: number) => set((state) => {
+    const sol = state.solubilidad;
+    const s = sol.sustancias[sol.sustanciaIdx];
+    const salAgregada = Math.min(300, Math.max(0, sol.salAgregada + amount));
+    return { solubilidad: { ...sol, salAgregada, disueltoEnCaliente: s ? QuimicaDomain.disueltaEnCaliente(s.tabla, salAgregada, sol.temp) : false, status: 'idle' } };
+  }),
+  // dt en segundos. La parrilla calienta ~4 °C/s hasta 100 °C; el hielo y la mesa
+  // llevan el vaso hacia 0 °C y 20 °C (enfriamiento de Newton). Sin cambio, no escribe.
   updateTemperaturaP6: (dt: number) => set((state) => {
-    let newTemp = state.solubilidad.temp;
-    if (state.solubilidad.ubicacion === 'parrilla') newTemp = Math.min(100, newTemp + dt);
-    else if (state.solubilidad.ubicacion === 'hielo') newTemp = Math.max(0, newTemp - dt * 2.5);
-    return { solubilidad: { ...state.solubilidad, temp: newTemp } };
+    const sol = state.solubilidad;
+    let newTemp = sol.temp;
+    if (sol.ubicacion === 'parrilla') newTemp = Math.min(100, newTemp + 4 * dt);
+    else if (sol.ubicacion === 'hielo') newTemp = newTemp * Math.exp(-dt / 6);
+    else newTemp = 20 + (newTemp - 20) * Math.exp(-dt / 25);
+    if (Math.abs(newTemp - sol.temp) < 0.01) return state;
+    const s = sol.sustancias[sol.sustanciaIdx];
+    const disuelto = sol.disueltoEnCaliente || (s ? QuimicaDomain.disueltaEnCaliente(s.tabla, sol.salAgregada, newTemp) : false);
+    return { solubilidad: { ...sol, temp: newTemp, disueltoEnCaliente: disuelto } };
   }),
   validarP6: () => {
     const solubilidad = get().solubilidad;
-    const isOk = QuimicaDomain.validarQ6(solubilidad);
-    if (isOk) {
+    const veredicto = QuimicaDomain.validarQ6(solubilidad);
+    if (veredicto.ok) {
       const s = solubilidad.sustancias[solubilidad.sustanciaIdx];
       get().registrarHallazgo('solubilidad_cristalizacion', {
         sustancia: s?.nombre,
-        temperatura: solubilidad.temp,
+        temperatura: parseFloat(solubilidad.temp.toFixed(1)),
         masa_agregada: solubilidad.salAgregada,
-        limite_solubilidad: s ? (s.a as number) * Math.exp((s.b as number) * solubilidad.temp) : 0,
-        condicion: 'sobresaturada',
+        limite_solubilidad: s ? parseFloat(QuimicaDomain.solubilidadA(s.tabla, solubilidad.temp).toFixed(1)) : 0,
+        cristales: s ? parseFloat((solubilidad.salAgregada - QuimicaDomain.solubilidadA(s.tabla, solubilidad.temp)).toFixed(1)) : 0,
       });
     }
-    set((state) => ({ solubilidad: { ...state.solubilidad, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+    set((state) => ({ solubilidad: { ...state.solubilidad, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
-  resetP6: () => set((state) => ({ solubilidad: { ...state.solubilidad, temp: 20, salAgregada: 0, ubicacion: 'mesa', status: 'idle' } })),
+  resetP6: () => set((state) => ({ solubilidad: { ...state.solubilidad, temp: 20, salAgregada: 0, ubicacion: 'mesa', disueltoEnCaliente: false, status: 'idle' } })),
+
+  // ── Q7 · Titulación ácido-base ────────────────────────────────────────────
+  // [HCl] entre 0.050 y 0.180 M → V_eq = 12.5–45 mL, siempre dentro de la bureta de 50 mL.
   generarSemillaP7: () => set((state) => {
-    const ca = parseFloat((0.05 + Math.random() * 0.15).toFixed(3)), cb = 0.1, va = 25;
-    return { titulacion: { ...state.titulacion, ca, cb, va, volumenBase: 0, status: 'idle', history: [] } };
+    const ca = parseFloat((0.05 + Math.random() * 0.13).toFixed(3)), cb = 0.1, va = 25;
+    return { titulacion: { ...state.titulacion, ca, cb, va, volumenBase: 0, status: 'idle', history: [], respuestaCa: null } };
   }),
   addDropNaOH: (amount: number) => set((state) => {
-    const newVol = state.titulacion.volumenBase + amount;
-    
-    // Lógica logarítmica de pH (Aproximación de titulación Ácido Fuerte / Base Fuerte)
-    const nA = state.titulacion.ca * (state.titulacion.va / 1000);
-    const nB = state.titulacion.cb * (newVol / 1000);
-    const vTotal = (state.titulacion.va + newVol) / 1000;
-    
-    let ph = 7;
-    if (nA > nB) {
-      const concH = (nA - nB) / vTotal;
-      ph = -Math.log10(concH);
-    } else if (nB > nA) {
-      const concOH = (nB - nA) / vTotal;
-      const pOH = -Math.log10(concOH);
-      ph = 14 - pOH;
-    }
-    
-    return { titulacion: { ...state.titulacion, volumenBase: newVol, history: [...state.titulacion.history, { vol: newVol, ph: parseFloat(ph.toFixed(2)) }].slice(-50) } };
+    const t = state.titulacion;
+    const newVol = Math.min(QuimicaDomain.CAPACIDAD_BURETA_ML, parseFloat((t.volumenBase + amount).toFixed(3)));
+    if (newVol === t.volumenBase) return state;
+    const ph = QuimicaDomain.phTitulacion(t.ca, t.va, t.cb, newVol);
+    return { titulacion: { ...t, volumenBase: newVol, history: [...t.history, { vol: newVol, ph: parseFloat(ph.toFixed(2)) }].slice(-1200) } };
   }),
   toggleIndicadorP7: () => set((state) => ({ titulacion: { ...state.titulacion, indicador: !state.titulacion.indicador } })),
   togglePurgaP7: () => set((state) => ({ titulacion: { ...state.titulacion, purgada: !state.titulacion.purgada } })),
-  validarP7: (ansCa: number) => {
-    const isOk = QuimicaDomain.validarQ7(get().titulacion, ansCa);
-    if (isOk) {
+  setRespuestaP7: (ca: number | null) => set((state) => ({ titulacion: { ...state.titulacion, respuestaCa: ca } })),
+  validarP7: () => {
+    const veredicto = QuimicaDomain.validarQ7(get().titulacion);
+    if (veredicto.ok) {
       const t = get().titulacion;
       get().registrarHallazgo('titulacion_acido_base', {
         ca_real: t.ca,
-        ca_respuesta: ansCa,
+        ca_respuesta: t.respuestaCa,
         vol_base: t.volumenBase,
         cb: t.cb,
         va: t.va,
       });
     }
-    set((state) => ({ titulacion: { ...state.titulacion, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+    set((state) => ({ titulacion: { ...state.titulacion, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
-  resetP7: () => set((state) => ({ titulacion: { ...state.titulacion, volumenBase: 0, status: 'idle', history: [], purgada: false, indicador: false } })),
-  setUbicacionJeringa: (id: number, loc: 'mesa' | 'caliente' | 'hielo') => set((state) => ({
-    equilibrio: { ...state.equilibrio, jeringas: state.equilibrio.jeringas.map(j => j.id === id ? { ...j, ubicacion: loc } : j) }
+  resetP7: () => set((state) => ({ titulacion: { ...state.titulacion, volumenBase: 0, status: 'idle', history: [], purgada: false, indicador: false, respuestaCa: null } })),
+
+  // ── Q8 · Equilibrio N₂O₄ ⇌ 2NO₂ ───────────────────────────────────────────
+  // Mover una jeringa invalida lo que se había anotado de ella.
+  setUbicacionJeringa: (id: number, loc: 'mesa' | 'caliente' | 'hielo') => set((state) => {
+    const observaciones = { ...state.equilibrio.observaciones };
+    delete observaciones[id];
+    return {
+      equilibrio: {
+        ...state.equilibrio,
+        observaciones,
+        status: 'idle',
+        jeringas: state.equilibrio.jeringas.map(j => j.id === id ? { ...j, ubicacion: loc } : j),
+      }
+    };
+  }),
+  // dt en segundos: cada jeringa tiende a la temperatura de su baño (τ ≈ 2.5 s).
+  updateTemperaturaP8: (dt: number) => set((state) => {
+    let cambio = false;
+    const jeringas = state.equilibrio.jeringas.map(j => {
+      const target = QuimicaDomain.TEMP_BANO_Q8[j.ubicacion];
+      if (j.temp === target) return j;
+      let temp = target + (j.temp - target) * Math.exp(-dt / 2.5);
+      if (Math.abs(temp - target) < 0.05) temp = target;
+      cambio = true;
+      return { ...j, temp };
+    });
+    return cambio ? { equilibrio: { ...state.equilibrio, jeringas } } : state;
+  }),
+  setObservacionP8: (id: number, color: string) => set((state) => ({
+    equilibrio: { ...state.equilibrio, status: 'idle', observaciones: { ...state.equilibrio.observaciones, [id]: color } }
   })),
-  updateTemperaturaP8: (dt: number) => set((state) => ({
-    equilibrio: { 
-      ...state.equilibrio, 
-      jeringas: state.equilibrio.jeringas.map(j => {
-        const targets: Record<string, number> = { mesa: 20, caliente: 80, hielo: 0 };
-        const target = targets[j.ubicacion];
-        const step = (target - j.temp) * dt * 0.2;
-        return { ...j, temp: j.temp + step };
-      })
-    }
-  })),
-  validarP8: (d1: string, d2: string, d3: string) => {
-    const isOk = QuimicaDomain.validarQ8(get().equilibrio, d1, d2, d3);
-    if (isOk) {
+  validarP8: () => {
+    const veredicto = QuimicaDomain.validarQ8(get().equilibrio);
+    if (veredicto.ok) {
+      const eq = get().equilibrio;
       get().registrarHallazgo('equilibrio_quimico', {
-        obs_hielo: d1,
-        obs_caliente: d2,
-        obs_mesa: d3,
-        jeringas: get().equilibrio.jeringas.map(j => ({ id: j.id, ubicacion: j.ubicacion, temp: j.temp })),
+        jeringas: eq.jeringas.map(j => ({ id: j.id, ubicacion: j.ubicacion, temp: parseFloat(j.temp.toFixed(1)), color: eq.observaciones[j.id] })),
       });
     }
-    set((state) => ({ equilibrio: { ...state.equilibrio, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+    set((state) => ({ equilibrio: { ...state.equilibrio, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
-  resetP8: () => set((state) => ({ equilibrio: { jeringas: [{ id: 1, ubicacion: 'mesa', temp: 20 }, { id: 2, ubicacion: 'mesa', temp: 20 }, { id: 3, ubicacion: 'mesa', temp: 20 }], status: 'idle' } })),
-  generarSemillaP8: () => set((state) => ({ equilibrio: { jeringas: [{ id: 1, ubicacion: 'mesa', temp: 20 }, { id: 2, ubicacion: 'mesa', temp: 20 }, { id: 3, ubicacion: 'mesa', temp: 20 }], status: 'idle' } })),
+  resetP8: () => set(() => ({ equilibrio: { jeringas: JERINGAS_INICIALES(), status: 'idle', observaciones: {} } })),
+  generarSemillaP8: () => set(() => ({ equilibrio: { jeringas: JERINGAS_INICIALES(), status: 'idle', observaciones: {} } })),
   autoResolveP8: () => {},
+
+  // ── Q9 · Celda galvánica ──────────────────────────────────────────────────
   generarSemillaP9: () => set((state) => {
-    const metals = ['Zn', 'Cu', 'Ag', 'Mg'], shuffled = [...metals].sort(() => Math.random() - 0.5);
-    return { celda: { ...state.celda, seedMetales: shuffled.slice(0, 2), vasoIzq: null, vasoDer: null, status: 'idle', puenteSalino: false, cablesConectados: false, voltaje: 0 } };
+    const metals = ['Zn', 'Cu', 'Ag', 'Mg'];
+    const i = Math.floor(Math.random() * metals.length);
+    let j = Math.floor(Math.random() * (metals.length - 1));
+    if (j >= i) j++;
+    return { celda: { ...state.celda, seedMetales: [metals[i], metals[j]], vasoIzq: null, vasoDer: null, status: 'idle', puenteSalino: false, cablesConectados: false, voltaje: 0, respuesta: { anodo: null, catodo: null } } };
   }),
 
   setMetalVaso: (vaso: 'izq' | 'der', metal: string | null) => set((state) => {
-    const nCelda = { ...state.celda, [vaso === 'izq' ? 'vasoIzq' : 'vasoDer']: metal };
+    const nCelda = { ...state.celda, [vaso === 'izq' ? 'vasoIzq' : 'vasoDer']: metal, status: 'idle' as const };
     nCelda.voltaje = calculateVoltaje(nCelda);
     return { celda: nCelda };
   }),
@@ -769,41 +754,50 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return { celda: nCelda };
   }),
 
-  validarP9: (anodo: string, catodo: string, v: number) => {
-    const isOk = QuimicaDomain.validarQ9(get().celda, anodo, catodo, v);
-    set((state) => ({ celda: { ...state.celda, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+  setRespuestaP9: (anodo: string | null, catodo: string | null) => set((state) => ({
+    celda: { ...state.celda, respuesta: { anodo, catodo }, status: 'idle' }
+  })),
+
+  validarP9: () => {
+    const veredicto = QuimicaDomain.validarQ9(get().celda);
+    if (veredicto.ok) {
+      const c = get().celda;
+      get().registrarHallazgo('qui_celda_galvanica', { anodo: c.respuesta.anodo, catodo: c.respuesta.catodo, voltaje: c.voltaje });
+    }
+    set((state) => ({ celda: { ...state.celda, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
 
-  resetP9: () => set((state) => ({ celda: { ...state.celda, vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', voltaje: 0, seedMetales: [] } })),
-  setCalorManta: (temp: number) => set((state) => ({ destilacion: { ...state.destilacion, calorManta: temp } })),
+  // Desmonta la celda pero conserva la pareja de metales del reto (la nueva la pone generarSemillaP9).
+  resetP9: () => set((state) => ({ celda: { ...state.celda, vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', voltaje: 0, respuesta: { anodo: null, catodo: null } } })),
+
+  // ── Q10 · Destilación fraccionada ─────────────────────────────────────────
+  setCalorManta: (temp: number) => set((state) => ({ destilacion: { ...state.destilacion, calorManta: Math.min(150, Math.max(20, temp)) } })),
   updateDestilacion: (dt: number) => set((state) => {
     const d = state.destilacion;
     if (d.status === 'success') return state;
-    const diff = d.calorManta - d.tempMezcla, step = diff * dt * 0.05;
-    const newTemp = d.tempMezcla + step;
-    const isBoiling = newTemp > 78;
-    const distillRate = isBoiling ? dt * 0.5 : 0;
-    const newVolDestilado = Math.min(d.volEtanolMatraz, d.volDestilado + distillRate);
-    return { destilacion: { ...d, tempMezcla: newTemp, volDestilado: newVolDestilado, status: isBoiling ? 'boiling' : 'idle' } };
+    // Frío y apagado: nada que simular, no se reescribe el store.
+    if (d.calorManta <= 20 && Math.abs(d.tempMezcla - 20) < 0.01 && Math.abs(d.tempCabeza - 20) < 0.01) return state;
+    return { destilacion: QuimicaDomain.pasoDestilacion(d, dt) };
   }),
-  validarP10: (pureza: number) => {
-    const isOk = QuimicaDomain.validarQ10(get().destilacion, pureza);
-    set((state) => ({ destilacion: { ...state.destilacion, status: isOk ? 'success' : 'error', purezaDestilado: pureza } }));
-    return isOk;
+  validarP10: () => {
+    const veredicto = QuimicaDomain.validarQ10(get().destilacion);
+    if (veredicto.ok) {
+      const d = get().destilacion;
+      get().registrarHallazgo('qui_destilacion_fraccionada', { volDestilado: parseFloat(d.volDestilado.toFixed(1)), pureza: parseFloat(d.purezaDestilado.toFixed(1)) });
+    }
+    set((state) => ({ destilacion: { ...state.destilacion, status: veredicto.ok ? 'success' : 'error' } }));
+    return veredicto.ok;
   },
-  resetP10: () => set((state) => ({ destilacion: { calorManta: 20, tempMezcla: 20, volEtanolMatraz: 100, volAguaMatraz: 100, volDestilado: 0, purezaDestilado: 0, status: 'idle' } })),
+  resetP10: () => set(() => ({ destilacion: { ...DESTILACION_INICIAL } })),
+
   // Cada vez que se abre un lab de química: intento nuevo (reset + semilla).
   entrarQuimica: (n: number) => {
     const g = get();
     switch (n) {
       case 1: g.resetParticulas(); break;
       case 2: g.resetGases(); g.generarSemillaGases(); break;
-      case 3:
-        g.resetBalanceo();
-        set((state) => ({ balanceo: { ...state.balanceo, reaccionesCompletadas: [] } }));
-        g.setReaccion(0);
-        break;
+      case 3: g.resetBalanceo(); break;
       case 4: g.resetP4(); g.generarSemillaP4(); break;
       case 5: g.resetP5(); g.generarSemillaP5(); break;
       case 6: g.resetP6(); break;
@@ -813,39 +807,33 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
       case 10: g.resetP10(); break;
     }
   },
-  // Único juez del botón «Validar práctica» para química.
+  // Único juez del botón «Validar práctica» para química. Cada caso evalúa el reto
+  // con el validador de dominio sobre el estado del store y devuelve su mensaje.
   validarLabQuimica: (n: number) => {
     const g = get();
     switch (n) {
-      case 1: return { ok: g.validarEstructura() };
+      case 1: {
+        const ok = g.validarEstructura();
+        return { ok, mensaje: ok ? undefined : get().particulas.message || undefined };
+      }
       case 2: {
         const ok = g.validarQ2();
-        return { ok, mensaje: ok ? undefined : 'Presión fuera de rango o cámara colapsada. Ajusta T o V para alcanzar el objetivo.' };
+        return { ok, mensaje: ok ? undefined : g.gases.isExploded
+          ? 'La cámara colapsó. Reiníciala y alcanza la presión objetivo sin pasar de 7 atm.'
+          : 'La presión aún no coincide con el objetivo (±0.1 atm). Ajusta T, V o los moles.' };
       }
       case 3: {
         const ok = g.validarQ3();
-        const completed = g.balanceo.reaccionesCompletadas?.length || 0;
-        return { ok, mensaje: ok ? undefined : `Balanceo incompleto. Has estabilizado ${completed} de 4 reacciones requeridas para la certificación.` };
+        const completed = get().balanceo.reaccionesCompletadas?.length || 0;
+        return { ok, mensaje: ok ? undefined : `Balanceo incompleto: llevas ${completed} de ${QuimicaDomain.REACCIONES_REQUERIDAS_Q3} reacciones balanceadas con coeficientes mínimos.` };
       }
-      case 4: {
-        const ok = g.limitante.status === 'success';
-        return { ok, mensaje: ok ? undefined : 'Debes identificar correctamente el reactivo limitante y el exceso en la consola.' };
-      }
-      case 5: {
-        const ok = g.validarP5();
-        return { ok, mensaje: ok ? undefined : 'Molaridad incorrecta. La precisión analítica debe ser superior al 95%.' };
-      }
-      case 6: return { ok: g.validarP6() };
-      case 7: return { ok: g.titulacion.status === 'success' };
-      case 8: return { ok: g.equilibrio.status === 'success' };
-      case 9: return { ok: g.celda.status === 'success' };
-      case 10: {
-        const d = g.destilacion;
-        const ok = d.volDestilado >= 50 && d.purezaDestilado >= 85;
-        return { ok, mensaje: ok ? undefined : d.volDestilado < 50
-          ? 'Volumen de destilado insuficiente. Se requieren ≥50 mL para la certificación.'
-          : 'Pureza del destilado insuficiente (< 85%). Ajusta la temperatura de la manta calefactora.' };
-      }
+      case 4: { const v = QuimicaDomain.validarQ4(g.limitante); g.validarP4(); return v; }
+      case 5: { const v = QuimicaDomain.validarQ5(g.soluciones); g.validarP5(); return v; }
+      case 6: { const v = QuimicaDomain.validarQ6(g.solubilidad); g.validarP6(); return v; }
+      case 7: { const v = QuimicaDomain.validarQ7(g.titulacion); g.validarP7(); return v; }
+      case 8: { const v = QuimicaDomain.validarQ8(g.equilibrio); g.validarP8(); return v; }
+      case 9: { const v = QuimicaDomain.validarQ9(g.celda); g.validarP9(); return v; }
+      case 10: { const v = QuimicaDomain.validarQ10(g.destilacion); g.validarP10(); return v; }
     }
     return { ok: false };
   },
@@ -863,13 +851,9 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   },
 });
 
-// Helper de cálculo Electroquímico (Fuera del slice)
-const calculateVoltaje = (celda: any) => {
+// Lectura del voltímetro: 0 con el circuito abierto; con él cerrado, E°(der) − E°(izq)
+// con signo (la punta COM va al vaso izquierdo). Ver `lecturaVoltimetro` en el dominio.
+const calculateVoltaje = (celda: SimuladorState['celda']) => {
   if (!celda.vasoIzq || !celda.vasoDer || !celda.puenteSalino || !celda.cablesConectados) return 0;
-  const pots: Record<string, number> = { Zn: -0.76, Cu: 0.34, Ag: 0.80, Mg: -2.37 };
-  // E°celda = E°cátodo - E°ánodo. Una celda galvánica (espontánea) tiene E°celda > 0,
-  // así que tomamos el valor absoluto: el cátodo es siempre el metal de mayor potencial.
-  const eIzq = pots[celda.vasoIzq];
-  const eDer = pots[celda.vasoDer];
-  return parseFloat(Math.abs(eDer - eIzq).toFixed(2));
+  return QuimicaDomain.lecturaVoltimetro(celda.vasoIzq, celda.vasoDer);
 };

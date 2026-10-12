@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { Plus, Minus, Power, Activity, Target, Zap, FlaskConical, AlertTriangle, Volume2 } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { audio } from '@/utils/audioEngine';
 import Atomic3DScene from './simuladores/qmi01/Atomic3DScene';
 import {
@@ -72,12 +72,18 @@ const PARTICLE_PATHS = {
 };
 
 // ─── Main Component ─────────────────────────────────────────────────────────
-export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { isWorktableDark?: boolean }) {
-  const router = useRouter();
-  const { particulas, setParticulas, validarEstructura, registrarHallazgo, resetParticulas, setTargetElement, setTargetCharge } = useSimuladorStore();
+// El catálogo llega hasta el neón (Z = 10) y la configuración hasta 2p⁶: el store
+// limita protones y electrones a 10.
+const MAX_Z = 10;
+
+export default function PilotoConstruccionAtomica({ isWorktableDark = true, onValidate }: { isWorktableDark?: boolean; onValidate?: () => void }) {
+  const { particulas, setParticulas, validarEstructura, registrarHallazgo, resetParticulas, setTargetElement, setTargetCharge } =
+    useSimuladorStore(useShallow((s) => ({
+      particulas: s.particulas, setParticulas: s.setParticulas, validarEstructura: s.validarEstructura,
+      registrarHallazgo: s.registrarHallazgo, resetParticulas: s.resetParticulas,
+      setTargetElement: s.setTargetElement, setTargetCharge: s.setTargetCharge,
+    })));
   const [mounted, setMounted] = useState(false);
-  const [assetErrors, setAssetErrors] = useState<Record<string, boolean>>({});
-  const [validated, setValidated] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -310,11 +316,11 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
       {/* ── CONTROL PANEL ── */}
       <div className="absolute bottom-6 inset-x-8 bg-black/50 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] flex flex-wrap md:flex-nowrap items-center justify-center md:justify-start px-8 py-4 gap-6 md:gap-8 z-30">
 
-        <ControlModule label="PROTONES (Z)"   count={currentP}   color="bg-red-500"    onAdd={() => { setParticulas(currentP + 1, currentN, currentE); audio.playProton(); }} onSub={() => { setParticulas(currentP - 1, currentN, currentE); audio.playRemove(); }} />
+        <ControlModule label="PROTONES (Z)"   count={currentP}   color="bg-red-500"    onAdd={() => { if (currentP >= MAX_Z) return; setParticulas(currentP + 1, currentN, currentE); audio.playProton(); }} onSub={() => { setParticulas(currentP - 1, currentN, currentE); audio.playRemove(); }} />
         <div className="w-px h-14 bg-white/10" />
         <ControlModule label="NEUTRONES (N)"  count={currentN}  color="bg-blue-500"   onAdd={() => { setParticulas(currentP, currentN + 1, currentE); audio.playNeutron(); }} onSub={() => { setParticulas(currentP, currentN - 1, currentE); audio.playRemove(); }} />
         <div className="w-px h-14 bg-white/10" />
-        <ControlModule label="ELECTRONES (e⁻)" count={currentE} color="bg-yellow-400" onAdd={() => { setParticulas(currentP, currentN, currentE + 1); audio.playElectron(); }} onSub={() => { setParticulas(currentP, currentN, currentE - 1); audio.playRemove(); }} />
+        <ControlModule label="ELECTRONES (e⁻)" count={currentE} color="bg-yellow-400" onAdd={() => { if (currentE >= MAX_Z) return; setParticulas(currentP, currentN, currentE + 1); audio.playElectron(); }} onSub={() => { setParticulas(currentP, currentN, currentE - 1); audio.playRemove(); }} />
 
         {/* Ion mode selector (if target has ions) */}
         {ELEMENT_CATALOGUE.find(e => e.z === tZ && e.a === tA)?.ions?.length ? (
@@ -350,15 +356,10 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
             <Activity size={20} />
           </button>
           <button
-            onClick={() => { 
-              const ok = validarEstructura();
-              if (ok) {
-                audio.playSuccess();
-                registrarHallazgo('qmi01_success', { p: protones, n: neutrones, e: electrones });
-                setValidated(true);
-              } else {
-                audio.playError(); 
-              }
+            onClick={() => {
+              // Un solo juez: el validador de la práctica (quiz + modal comunes).
+              if (onValidate) { onValidate(); return; }
+              if (validarEstructura()) audio.playSuccess(); else audio.playError();
             }}
             className="h-14 px-8 rounded-2xl bg-[#219EBC] hover:bg-[#8ECAE6] text-white flex items-center gap-3 shadow-xl shadow-[#219EBC]/20 transition-all group"
           >
@@ -382,18 +383,7 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {validated && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(33,158,188,0.1)]">
-              <Target size={100} className="text-cyan-500 mx-auto mb-8" />
-              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Estructura Certificada</h3>
-              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has construido correctamente el átomo objetivo. La configuración nuclear e iónica ha sido verificada y registrada en la bitácora científica.</p>
-              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-cyan-600/30">Cerrar Laboratorio</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+{/* El éxito lo anuncia el flujo común (quiz + modal); aquí solo queda la barra de mensaje. */}
     </div>
   );
 }

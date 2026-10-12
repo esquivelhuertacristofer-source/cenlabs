@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#f43f5e',
     duracion: 40,
     videoUrl: 'https://youtu.be/B_0q1tpaZbk',
-    bienvenida: `¡Bienvenido al Centro de Monitoreo Sismológico! Soy el Dr. Quantum. Hoy descubriremos por qué los terremotos no se miden en una escala lineal común.\n\nLa escala de Magnitud de Momento (Mw) es logarítmica. Esto significa que un sismo de magnitud 7.0 no es "un poco" más fuerte que uno de 6.0 — su onda es 10 veces más alta y libera 32 veces más energía.\n\nTu misión: Analizar hitos históricos como Valdivia 1960 o Tohoku 2011 y visualizar el poder destructivo del crecimiento logarítmico.`,
+    bienvenida: `¡Bienvenido al Centro de Monitoreo Sismológico! Soy el Dr. Quantum. Hoy descubriremos por qué los terremotos no se miden en una escala lineal común.\n\nLa escala de Magnitud de Momento (Mw) es logarítmica. Esto significa que un sismo de magnitud 7.0 no es "un poco" más fuerte que uno de 6.0 — su onda es 10 veces más alta y libera 32 veces más energía.\n\nTu misión: calcular cuántas veces más energía liberaron hitos como Valdivia 1960 o Tohoku 2011 frente a un sismo de referencia, usando el crecimiento logarítmico.`,
     conceptos: [
       { icono: 'log', nombre: 'Base Logarítmica', descripcion: 'La escala Mw usa base 10 para la altura de la onda. Cada grado aumenta la altura x10.' },
       { icono: '🌋', nombre: 'Factor de Energía (x32)', descripcion: 'Cada incremento de 1.0 en la magnitud libera aproximadamente 32 veces más energía.' },
@@ -15,12 +15,12 @@ const briefing: BriefingConfig = {
       { icono: '📈', nombre: 'Crecimiento Exponencial', descripcion: 'Pequeños cambios en Mw resultan en cambios masivos en el volumen de energía.' },
     ],
     mision: [
-      'Selecciona uno de los CASOS HISTÓRICOS (Valdivia, CDMX o Tohoku).',
-      'Observa la Estación de REFERENCIA configurada en Mw 5.0.',
-      'Ajusta la Estación EXPERIMENTAL hasta alcanzar la magnitud del evento histórico.',
-      'Analiza las notas de impacto físico que aparecen en el HUD al subir la intensidad.',
-      'Calcula cuántas veces más energía se liberó en ese evento frente a la referencia.',
-      'Documenta el colapso estructural simulado a magnitudes superiores a 9.0.',
+      'Selecciona uno de los CASOS HISTÓRICOS (Valdivia, CDMX, Tohoku…).',
+      'Lee la magnitud de la estación BASE y la del sismo objetivo.',
+      'Lleva la estación EXPERIMENTAL a la magnitud del evento histórico.',
+      'Cambia a la Escala Log para ver por qué la energía se mide con logaritmos.',
+      'Calcula el factor de energía 10^(1.5·ΔM) frente a la base.',
+      'Escribe el factor en el panel y valida (±5 %).'
     ],
     aplicaciones: [
       { area: 'Sismología Avanzada', ejemplo: 'Cuantificación del daño potencial basado en el momento sísmico liberado.' },

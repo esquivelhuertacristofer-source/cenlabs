@@ -3,36 +3,32 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: '¡Bienvenida!',
-      mensaje: '¡Hola, {alumno}! Soy el Dr. Quantum. Tu misión es ajustar los controles del piloto hasta que tu parábola coincida con la trayectoria guía (la línea punteada blanca). ¡Empecemos!',
+      mensaje: '¡Hola, {alumno}! Soy el Dr. Quantum. La trayectoria objetivo no trae su ecuación: sólo conoces TRES PUNTOS MEDIDOS (la guía punteada y la tabla del panel). Tu misión es deducir a, b y c.',
     },
     {
-      id: 2, tipo: 'calculo', pista: 'Calcula Δ',
-      mensaje: 'Primero calcula el DISCRIMINANTE. La fórmula es: Δ = b² − 4ac. Sustituye los valores a, b y c que ves en la Sonda de Telemetría del piloto. Anota el resultado en la Bitácora.',
+      id: 2, tipo: 'calculo', pista: 'Usa los puntos',
+      mensaje: 'Con x = −1, 0 y 1 el sistema sale directo: f(0) = c; f(1) − f(−1) = 2b; f(1) + f(−1) = 2a + 2c. Despeja los tres coeficientes.',
     },
     {
-      id: 3, tipo: 'calculo', pista: 'Ubica el Vértice',
-      mensaje: '¡Bien! Ahora calcula la abscisa del vértice: h = −b ÷ (2a). Ese punto es el máximo o mínimo de la parábola — lo verás marcado en rojo en la gráfica. Verifícalo en la Bitácora.',
+      id: 3, tipo: 'accion', pista: 'Ajusta a, b y c',
+      mensaje: 'Mueve los controles del dock. La tabla compara tu f(x) con cada punto medido: cuando las tres filas coincidan, tu parábola es la de la trayectoria.',
     },
     {
-      id: 4, tipo: 'accion', pista: 'Ajusta el coeficiente a',
-      mensaje: 'Usa el control "Amplitud (a)" del dock inferior. Si a > 0, la parábola abre hacia ARRIBA (mínimo). Si a < 0, abre hacia ABAJO (máximo). Asegúrate de que tu parábola tenga la misma concavidad que la guía.',
+      id: 4, tipo: 'calculo', pista: 'Calcula Δ',
+      mensaje: 'Con TUS coeficientes calcula el discriminante Δ = b² − 4ac y compruébalo en la Bitácora. Su signo dice cuántas raíces reales tiene la parábola.',
     },
     {
-      id: 5, tipo: 'accion', pista: 'Ajusta b y c',
-      mensaje: 'El control "Simetría (b)" desplaza el vértice horizontalmente. El control "Intercepto (c)" mueve toda la parábola arriba o abajo. Ajusta ambos para acercar tu curva a la trayectoria guía.',
+      id: 5, tipo: 'calculo', pista: 'Ubica el Vértice',
+      mensaje: 'Calcula la abscisa del vértice h = −b ÷ (2a) y compruébala en la Bitácora. Ese punto es el máximo o el mínimo de la parábola.',
     },
     {
-      id: 6, tipo: 'calculo', pista: 'Verifica las 3 Formas',
-      mensaje: 'Observa el panel "3 Formas Equivalentes". Verifica que la Forma Vértice a(x−h)²+k y la Forma Factorizada a(x−r₁)(x−r₂) representen la misma ecuación. Son tres expresiones algebraicamente idénticas.',
+      id: 6, tipo: 'verificar', pista: 'Valida la Trayectoria',
+      mensaje: 'Con Δ y h comprobados y la parábola sobre los tres puntos, presiona «Validar» en el dock.',
+      accion: 'Validar',
     },
     {
-      id: 7, tipo: 'verificar', pista: 'Valida la Trayectoria',
-      mensaje: '¡Listo! Cuando tu parábola coincida visualmente con la guía y el % SYNC esté alto, presiona "Validar Trayectoria" en el dock. Validar en el primer intento te da ⭐⭐⭐.',
-      accion: 'Ir a Validar →',
-    },
-    {
-      id: 8, tipo: 'logro', pista: '¡Misión Cumplida!',
-      mensaje: '¡Fenomenal! Has dominado las tres formas de la ecuación cuadrática. Recuerda: esta función describe trayectorias reales — desde proyectiles hasta antenas parabólicas. ¡La matemática está en todas partes!',
+      id: 7, tipo: 'logro', pista: '¡Misión Cumplida!',
+      mensaje: '¡Fenomenal! Reconstruiste una función cuadrática a partir de mediciones: así se ajustan trayectorias reales, desde proyectiles hasta antenas parabólicas.',
     },
   ];
 

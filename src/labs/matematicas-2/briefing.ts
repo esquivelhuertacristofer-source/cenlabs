@@ -16,13 +16,13 @@ const briefing: BriefingConfig = {
       { icono: '🎯', nombre: 'Método Gráfico', descripcion: 'Visualización directa de la solución mediante la superposición de trayectorias en el plano.' },
     ],
     mision: [
-      'Selecciona un CASO DE ESTUDIO (Rastreo Satelital, Intersección Vial o Triangulación).',
       'Identifica las coordenadas del OBJETIVO en el radar (X, Y).',
-      'Ajusta m₁ y b₁ del Haz Alpha para aproximarte al cuadrante del objetivo.',
-      'Configura m₂ y b₂ del Haz Omega para crear el punto de intersección exacto.',
+      'Ajusta m₁ y b₁ del Haz Alpha para que pase por el objetivo.',
+      'Configura m₂ y b₂ del Haz Omega para que corte al primero justo ahí.',
       'Observa cómo cambian las ecuaciones y = mx + b en tiempo real sobre los láseres.',
-      'Sincroniza la intersección hasta activar el mensaje "COORDINATES MATCHED".',
-      'Registra los coeficientes finales en tu bitácora para validar la misión.',
+      'Si las pendientes son iguales el sistema es inconsistente (paralelas) o dependiente (la misma recta): cambia una.',
+      'Valida cuando la intersección quede a menos de 0.1 del objetivo en X y en Y.',
+      'Registra los coeficientes finales en tu bitácora.'
     ],
     aplicaciones: [
       { area: 'Telecomunicaciones', ejemplo: 'Localización de un dispositivo mediante la potencia de dos torres base.' },

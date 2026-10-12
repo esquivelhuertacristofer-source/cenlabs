@@ -8,10 +8,13 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, FlaskConical, Microscope, Settings
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraReactivoLimitante({ onValidate }: { onValidate?: () => void }) {
-  const { limitante, validarP4, resetP4 } = useSimuladorStore();
+  const { limitante, validarP4, setRespuestaP4, generarSemillaP4 } = useSimuladorStore(useShallow((s) => ({
+    limitante: s.limitante, validarP4: s.validarP4, setRespuestaP4: s.setRespuestaP4, generarSemillaP4: s.generarSemillaP4,
+  })));
   const [ansLimitante, setAnsLimitante] = useState("");
   const [ansExceso, setAnsExceso] = useState("");
   const [conclusionText, setConclusionText] = useState("");
@@ -28,7 +31,7 @@ export default function BitacoraReactivoLimitante({ onValidate }: { onValidate?:
     setConclusionText("");
   }, [reaccionActual]);
   const handleReset = () => {
-    resetP4();
+    generarSemillaP4();
     setAnsLimitante("");
     setAnsExceso("");
     setConclusionText("");
@@ -37,11 +40,11 @@ export default function BitacoraReactivoLimitante({ onValidate }: { onValidate?:
 
 
   const handleValidar = () => {
-    const masaExceso = parseFloat(ansExceso);
-    if (ansLimitante === "") return alert("Selecciona un reactivo limitante.");
-    if (isNaN(masaExceso)) return alert("Ingresa un valor numérico para el exceso.");
-    
-    const isOk = validarP4(parseInt(ansLimitante), masaExceso);
+    const masaExceso = parseFloat(ansExceso.replace(',', '.'));
+    if (ansLimitante === "" || isNaN(masaExceso)) { audio.playError(); return; }
+
+    setRespuestaP4(parseInt(ansLimitante), masaExceso);
+    const isOk = validarP4();
     if (isOk) {
       audio.playSuccess();
     } else {

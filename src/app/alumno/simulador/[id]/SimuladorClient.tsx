@@ -207,9 +207,10 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
     if (normalizedId === 'quimica-1') {
       if (pActual > 0 && pasoActual === 1) setPasoActual(2);
       if (pActual === targetZ && nActual === (targetA - targetZ) && pasoActual === 2) setPasoActual(3);
-      if (pActual === targetZ && nActual === (targetA - targetZ) && eActual === targetZ && pasoActual === 3) setPasoActual(4);
+      // e⁻ esperados = Z − carga (un ion O²⁻ lleva 10 electrones, no 8).
+      if (pActual === targetZ && nActual === (targetA - targetZ) && eActual === targetZ - (targetCharge ?? 0) && pasoActual === 3) setPasoActual(4);
     }
-  }, [pActual, nActual, eActual, targetZ, targetA, pasoActual, setPasoActual, normalizedId]);
+  }, [pActual, nActual, eActual, targetZ, targetA, targetCharge, pasoActual, setPasoActual, normalizedId]);
 
   // ── Intento nuevo al entrar ──────────────────────────────────────────────
   // Cada apertura del lab lo deja en un intento NUEVO (reset + semilla) desde el
@@ -328,12 +329,6 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
     }
     if (normalizedId === 'quimica-2') {
       specialProps.isProfesor = false;
-    }
-    if (['biologia-3', 'biologia-4', 'biologia-5'].includes(normalizedId)) {
-      // Estos paneles anuncian su éxito con setShowSuccess(true). Abrir el modal
-      // directamente se saltaba el quiz y el registro del intento: el éxito pasa
-      // por la misma validación que el botón «Validar práctica».
-      specialProps.setShowSuccess = (v: boolean) => { if (v) handleManualValidation(); };
     }
 
     return <Component {...specialProps} onValidate={handleManualValidation} />;

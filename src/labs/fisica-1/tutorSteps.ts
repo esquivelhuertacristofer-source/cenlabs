@@ -7,7 +7,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'calculo', pista: 'Parábola General',
-      mensaje: 'La cinemática escolar se acabó. El terreno NO es simétrico. Usa la ecuación y(x) = y₀ + x·tan(θ) - (g·x²) / (2v₀²·cos²(θ)). Esta ecuación define estrictamente tu trayectoria en 2D.',
+      mensaje: 'El terreno NO es simétrico: el cañón está a una altura y₀. En el vacío la trayectoria es y(x) = y₀ + x·tan(θ) − g·x² / (2v₀²·cos²(θ)). Úsala para una primera estimación: el aire y el viento la desvían un poco.',
     },
     {
       id: 3, tipo: 'accion', pista: 'Librar el Muro',
@@ -15,7 +15,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 4, tipo: 'verificar', pista: 'Impacto Confirmado',
-      mensaje: 'Cuando visualices que la parábola predictora (línea verde) atraviesa el centro del objetivo, ejecuta el disparo. ¡Buena suerte, cadete!',
+      mensaje: 'Dispara con tu estimación. La traza del disparo queda dibujada: compárala con tu cálculo y corrige ángulo o velocidad. Tienes 3 disparos por misión; un impacto confirmado basta para validar.',
       accion: 'Ejecutar Fuego',
     }
   ];

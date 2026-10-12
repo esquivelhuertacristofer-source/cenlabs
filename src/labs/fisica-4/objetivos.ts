@@ -1,13 +1,12 @@
 import type { Objetivo, ObjetivosState } from '@/data/labObjetivos';
 
 export default function objetivos(s: ObjetivosState): Objetivo[] {
-  const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
-          gases, balanceo, limitante, soluciones, solubilidad,
-          titulacion, equilibrio, celda, destilacion,
-          tiroParabolico, planoInclinado, pendulo, hooke } = s;
+  const h = s.hooke;
+  const est = new Set((h?.estatica ?? []).map((m: { m: number }) => m.m)).size;
+  const din = new Set((h?.dinamica ?? []).map((m: { m: number }) => m.m)).size;
   return [
-      { label: 'Prueba de Carga Estática',  current: hooke?.masa > 0 ? 1 : 0,                       target: 1, completed: hooke?.masa > 0 },
-      { label: 'Análisis de Compresión',    current: (hooke?.estiramiento || 0) !== 0 ? 1 : 0,      target: 1, completed: (hooke?.estiramiento || 0) !== 0 },
-      { label: 'Certificación de Rigidez',  current: hooke?.resultado === 'exito' ? 1 : 0,          target: 1, completed: hooke?.resultado === 'exito' },
+      { label: 'Método Estático',          current: Math.min(est, 2), target: 2, completed: est >= 2 },
+      { label: 'Método Dinámico',          current: Math.min(din, 3), target: 3, completed: din >= 3 },
+      { label: 'Certificación de Rigidez', current: h?.resultado === 'exito' ? 1 : 0, target: 1, completed: h?.resultado === 'exito' },
     ];
 }

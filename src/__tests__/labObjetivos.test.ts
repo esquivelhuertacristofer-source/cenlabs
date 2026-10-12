@@ -54,14 +54,14 @@ describe('getLabObjetivos', () => {
   });
 
   describe('quimica-5 (Soluciones)', () => {
-    it('pesaje marks complete within 0.05g tolerance', () => {
+    it('pesaje marks complete within ±5 % of the computed mass', () => {
       const mReq = 7.305;
       const s = { ...base, soluciones: { matraz: { polvo: 7.32, agua: 250 }, mRequerida: mReq, vTarget: 250, status: 'idle' } };
       const objs = getLabObjetivos('quimica-5', s);
       expect(objs[0].completed).toBe(true);
     });
 
-    it('pesaje fails outside 0.05g tolerance', () => {
+    it('pesaje fails outside ±5 % of the computed mass', () => {
       const s = { ...base, soluciones: { matraz: { polvo: 6.0, agua: 0 }, mRequerida: 7.305, vTarget: 250, status: 'idle' } };
       const objs = getLabObjetivos('quimica-5', s);
       expect(objs[0].completed).toBe(false);
@@ -79,11 +79,12 @@ describe('getLabObjetivos', () => {
       expect(objs[1].completed).toBe(true);
     });
 
-    it('alcance marks complete only at 45 degrees', () => {
-      const s45 = { ...base, tiroParabolico: { resultado: null, disparando: false, angulo: 45 } };
-      const s30 = { ...base, tiroParabolico: { resultado: null, disparando: false, angulo: 30 } };
-      expect(getLabObjetivos('fisica-1', s45)[2].completed).toBe(true);
-      expect(getLabObjetivos('fisica-1', s30)[2].completed).toBe(false);
+    it('impacto marks complete with a confirmed hit, even after a later miss', () => {
+      const tras = { ...base, tiroParabolico: { resultado: 'fallo', disparando: false, aciertos: 1 } };
+      const nada = { ...base, tiroParabolico: { resultado: 'colision', disparando: false, aciertos: 0 } };
+      expect(getLabObjetivos('fisica-1', tras)[2].completed).toBe(true);
+      expect(getLabObjetivos('fisica-1', nada)[1].completed).toBe(false);
+      expect(getLabObjetivos('fisica-1', nada)[2].completed).toBe(false);
     });
   });
 
@@ -92,10 +93,11 @@ describe('getLabObjetivos', () => {
       expect(getLabObjetivos('fisica-4', base)).toHaveLength(3);
     });
 
-    it('carga marks complete when masa > 0', () => {
-      const s = { ...base, hooke: { masa: 2.0, estiramiento: 0.5, resultado: null } };
+    it('estático marks complete with two different loads', () => {
+      const s = { ...base, hooke: { estatica: [{ m: 1, x: 0.2 }, { m: 2, x: 0.4 }], dinamica: [], resultado: null } };
       const objs = getLabObjetivos('fisica-4', s);
       expect(objs[0].completed).toBe(true);
+      expect(objs[1].completed).toBe(false);
     });
   });
 

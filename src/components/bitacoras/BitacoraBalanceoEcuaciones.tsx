@@ -8,12 +8,13 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, Microscope, Scale, Plus, Minus, Terminal
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { audio } from '@/utils/audioEngine';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
 export default function BitacoraBalanceoEcuaciones({ onValidate }: { onValidate?: () => void }) {
-  const { balanceo, setCoeficiente } = useSimuladorStore();
+  const { balanceo, setCoeficiente } = useSimuladorStore(useShallow((s) => ({ balanceo: s.balanceo, setCoeficiente: s.setCoeficiente })));
   const [conclusionText, setConclusionText] = useState("");
 
   const { 
@@ -64,7 +65,7 @@ export default function BitacoraBalanceoEcuaciones({ onValidate }: { onValidate?
              <span className="text-[10px] font-black text-cyan-400/80 uppercase tracking-[0.2em]">Sincronía Cuántica Activa</span>
           </div>
           
-          <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo de Fusión {currentReac.id.toUpperCase()}</h4>
+          <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo de Balanceo {currentReac.id.toUpperCase()}</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
             Estamos operando en el reactor central. La estabilidad del sistema depende de la igualdad de masas moleculares.
           </p>
@@ -106,10 +107,10 @@ export default function BitacoraBalanceoEcuaciones({ onValidate }: { onValidate?
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${isBalanced ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
                <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase tracking-widest ${isBalanced ? 'text-emerald-600' : 'text-slate-400'}`}>
-                     Estado de Fusión
+                     Estado del Balanceo
                   </span>
                   <span className="text-xs font-bold text-[#023047]">
-                     {isBalanced ? '✓ Reactor Estable (100%)' : '... Inestabilidad de Coeficientes'}
+                     {isBalanced ? '✓ Ecuación balanceada' : '... Átomos sin igualar'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${isBalanced ? 'bg-emerald-500 shadow-[0_0_15px_#10b981]' : 'bg-slate-300 animate-pulse'}`} />

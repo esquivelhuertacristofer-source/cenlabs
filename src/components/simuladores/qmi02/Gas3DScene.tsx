@@ -79,14 +79,14 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
         if (!containerRef.current) return;
 
         // --- CONSTANTES DEL PLASMA ENGINE ---
-        const MAX_PARTICLES = 100;
+        const MAX_PARTICLES = 240; // n máx. 2 mol × 120 partículas/mol
         const CYLINDER_RADIUS = 8;
         const BASE_Y = -12;
 
         const GAS_PROPS = {
-            He: { color: 0x38bdf8, size: 1.0 },
-            Ne: { color: 0xfb8500, size: 1.5 },
-            CO2: { color: 0xe2e8f0, size: 2.2 }
+            He: { color: 0x38bdf8, size: 1.0, M: 4.003 },
+            Ne: { color: 0xfb8500, size: 1.5, M: 20.18 },
+            CO2: { color: 0xe2e8f0, size: 2.2, M: 44.01 }
         };
 
         const currentGas = GAS_PROPS[gasType as keyof typeof GAS_PROPS] || GAS_PROPS.He;
@@ -257,6 +257,13 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
             baseY: BASE_Y, cylinderRadius: CYLINDER_RADIUS, clock: new THREE.Clock()
         };
 
+        // Objetos reutilizados en cada cuadro (nada de `new THREE.*` dentro del bucle).
+        const COLOR_FRIO = new THREE.Color(0x0ea5e9);
+        const COLOR_CALIENTE = new THREE.Color(0xff3300);
+        const activeColor = new THREE.Color();
+        const gasColor = new THREE.Color();
+        const escalaObjetivo = new THREE.Vector3();
+
         const animate = () => {
             const eng = engineRef.current; if (!eng) return;
             const state = stateRef.current;
@@ -278,9 +285,12 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
 
             // Estados Visuales (Temperatura)
             const tNorm = (T_TARGET - 100) / 900;
-            const activeColor = new THREE.Color(0x0ea5e9).lerp(new THREE.Color(0xff3300), tNorm);
+            activeColor.copy(COLOR_FRIO).lerp(COLOR_CALIENTE, tNorm);
             
             if (!state.isExploded) {
+                // Tras reiniciar una cámara que explotó, el vidrio y el gas vuelven a verse.
+                eng.glassCylinder.visible = true;
+                eng.gasFog.visible = true;
                 (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissive.copy(activeColor);
                 (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissiveIntensity = tNorm * 4;
                 eng.heatLight.color.copy(activeColor);
@@ -290,7 +300,7 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
                 const density = state.moles / state.volume;
                 (eng.gasFog.material as THREE.MeshBasicMaterial).opacity = Math.min(0.6, density * 1.5);
                 // Color mezclado entre el gas y la temperatura
-                eng.pMat.color.copy(activeColor).lerp(new THREE.Color(gasInfo.color), 0.5);
+                eng.pMat.color.copy(activeColor).lerp(gasColor.setHex(gasInfo.color), 0.5);
             } else {
                 eng.glassCylinder.visible = false;
                 eng.gasFog.visible = false;
@@ -299,9 +309,11 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
             }
 
             // Partículas
-            const activeCount = Math.floor(state.moles * 150); // Ajustado para 100 max
-            const speedFactor = GAS_TYPE === 'He' ? 1.0 : GAS_TYPE === 'Ne' ? 0.6 : 0.3;
-            const speed = state.isExploded ? 0.4 : (0.05 + (T_TARGET / 1000) * 0.4) * speedFactor;
+            // Número de partículas ∝ n; rapidez ∝ √(T/M) (velocidad cuadrática media),
+            // escalada por el tiempo real del cuadro (no por cuadro a 60 Hz).
+            const activeCount = Math.min(MAX_PARTICLES, Math.round(state.moles * 120));
+            const paso = Math.min(delta, 0.05) * 60;
+            const speed = (state.isExploded ? 0.4 : 0.0285 * Math.sqrt(T_TARGET / gasInfo.M)) * paso;
 
             eng.particles.forEach((p, i) => {
                 if (i < activeCount) {
@@ -309,7 +321,7 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
 
                     // Reactividad del tamaño al tipo de gas
                     const targetSize = gasInfo.size * p.baseSize;
-                    p.mesh.scale.lerp(new THREE.Vector3(targetSize, targetSize, 1), 0.1);
+                    p.mesh.scale.lerp(escalaObjetivo.set(targetSize, targetSize, 1), 0.1);
 
                     if (!state.isExploded) {
                         p.mesh.position.addScaledVector(p.dir, speed);

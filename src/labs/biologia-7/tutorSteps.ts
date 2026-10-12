@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Golpe de Martillo',
-      mensaje: 'Ajusta la fuerza del impacto. El sensor detectará el estímulo y la respuesta motora.',
+      mensaje: 'Golpea con varias fuerzas. ¿Hay una fuerza que no produzca reflejo? ¿Cambia la latencia al golpear más fuerte?',
     },
     {
       id: 3, tipo: 'calculo', pista: 'Latencia',
-      mensaje: 'Mide el tiempo entre el golpe y la contracción. Calcula la velocidad basándote en la longitud del nervio.',
+      mensaje: 'A la latencia réstale los retardos de la sinapsis y de la placa; divide la distancia del arco entre ese tiempo.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Validar Respuesta',
-      mensaje: 'Confirma que el arco reflejo funciona correctamente para los parámetros de mielina actuales.',
+      mensaje: 'Escribe tu velocidad, elige el diagnóstico y valida.',
       accion: 'Validar Reflejo',
     }
   ];

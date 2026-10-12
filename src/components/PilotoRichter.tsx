@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Zap, ShieldCheck, Waves, AlertTriangle, ChevronRight, MapPin, Calendar, Skull, Flame, X, Sun, Moon } from 'lucide-react';
+import { Activity, ShieldCheck, Waves, AlertTriangle, ChevronRight, MapPin, Calendar, Skull, Flame, X, Sun, Moon, Target, CheckCircle2 } from 'lucide-react';
 import Richter3DScene from './simuladores/mat03/Richter3DScene';
+import { SISMOS_M3 } from '@/domain/matematicas';
 
 const EARTHQUAKES = [
   { id: 'sanfrancisco_1906', nombre: 'San Francisco', pais: 'EE.UU.', anio: 1906, magnitud: 7.9, victimas: '~3,000', descripcion: 'El Gran Terremoto destruyó el 80% de la ciudad. Los incendios posteriores ardieron 3 días causando más daño que el sismo.', dato: 'Ruptura de 477 km en la Falla de San Andrés', imagen: '/images/eq-sanfrancisco-1906.webp', color: '#f59e0b' },
@@ -16,15 +17,25 @@ const EARTHQUAKES = [
   { id: 'tohoku_2011', nombre: 'Tōhoku', pais: 'Japón', anio: 2011, magnitud: 9.1, victimas: '~19,759', descripcion: 'Desplazó Japón 2.4 m al este. El tsunami superó muros de 10 m y provocó el desastre nuclear de Fukushima.', dato: 'Aceleró la rotación terrestre en 1.8 μs/día', imagen: '/images/eq-tohoku-2011.webp', color: '#f43f5e' },
 ];
 
-export default function PilotoRichter() {
-  const router = useRouter();
-  const { richter, setMagnitudM3, toggleLogViewM3, setUserInputM3, validarM3, generarSemillaM3, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
-  const { magnitudActual, magnitudBase, isLogView, status } = richter;
+/**
+ * MAT-03 · Logaritmos y magnitud de momento.
+ * El reto: el sismo OBJETIVO (dato) se compara con la base Mw 6.0 y el alumno
+ * calcula el factor de energía 10^(1.5·ΔM). Ningún panel muestra ese factor ya
+ * calculado; «Escala Log» cambia la gráfica E/E_base contra Mw entre eje lineal
+ * y logarítmico (en log es una recta de pendiente 1.5).
+ */
+export default function PilotoRichter({ onValidate }: { onValidate?: () => void }) {
+  const { richter, setMagnitudM3, toggleLogViewM3, setUserInputM3, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore(
+    useShallow((s) => ({
+      richter: s.richter, setMagnitudM3: s.setMagnitudM3, toggleLogViewM3: s.toggleLogViewM3, setUserInputM3: s.setUserInputM3,
+      audio: s.audio, setAsistente: s.setAsistente, pasoActual: s.pasoActual, setPasoActual: s.setPasoActual,
+    })),
+  );
+  const { magnitudActual, magnitudBase, isLogView, status, targetM, userInputFactor } = richter;
   const [mounted, setMounted] = useState(false);
-  const [wavePoints, setWavePoints] = useState<number[]>([]);
   const [selectedEq, setSelectedEq] = useState<string | null>(null);
   const [isLightMode, setIsLightMode] = useState(false);
-  const [userInputFactor, setUserInputFactor] = useState('');
+  const sismoObjetivo = SISMOS_M3.find((x) => x.id === richter.escenario) ?? SISMOS_M3[0];
 
   const getModeColor = (color: string) => {
     if (!isLightMode) return color;
@@ -43,28 +54,10 @@ export default function PilotoRichter() {
 
   useEffect(() => {
     setMounted(true);
-    generarSemillaM3();
-    setAsistente({ visible: true, text: "Bienvenido al Centro de Alerta Sísmica. Ajusta la magnitud para observar cómo la energía crece exponencialmente.", pose: "thinking" });
+    setAsistente({ visible: true, text: "Bienvenido al Centro de Alerta Sísmica. Compara el sismo objetivo con la base Mw 6.0: ¿cuántas veces más energía liberó? Calcula 10^(1.5·ΔM).", pose: "thinking" });
     return () => setAsistente({ visible: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const deltaM = magnitudActual - magnitudBase;
-  const multiplicadorEnergetico = Math.pow(10, 1.5 * deltaM);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setWavePoints(prev => {
-        const amp = magnitudActual > 3 ? Math.pow(1.7, magnitudActual - 3) * 1.5 : 1;
-        const np = (Math.random() - 0.5) * amp;
-        const arr = [...prev, np];
-        if (arr.length > 200) arr.shift();
-        return arr;
-      });
-    }, 80);
-    return () => clearInterval(interval);
-  }, [magnitudActual]);
-
-  const polylinePath = useMemo(() => wavePoints.map((y, x) => `${x * 5},${100 + y}`).join(' '), [wavePoints]);
 
   const closestEq = useMemo(() => {
     let c = EARTHQUAKES[0], d = Infinity;
@@ -75,10 +68,10 @@ export default function PilotoRichter() {
   const activeEq = EARTHQUAKES.find(e => e.id === selectedEq) || null;
 
   useEffect(() => {
-    if (magnitudActual !== 1 && pasoActual === 0) setPasoActual(1);
+    if (magnitudActual !== magnitudBase && pasoActual === 0) setPasoActual(1);
     if (isLogView && pasoActual < 2) setPasoActual(2);
-    if (status !== 'idle' && pasoActual < 3) setPasoActual(3);
-  }, [magnitudActual, isLogView, status, pasoActual, setPasoActual]);
+    if (status === 'success' && pasoActual < 3) setPasoActual(3);
+  }, [magnitudActual, magnitudBase, isLogView, status, pasoActual, setPasoActual]);
 
   if (!mounted) return null;
 
@@ -142,8 +135,9 @@ export default function PilotoRichter() {
         {/* TOP METRICS */}
         <div className="flex justify-between items-start mt-10">
           <div className="flex gap-2 pointer-events-auto">
-            <MiniCard label="Magnitud" value={`Mw ${magnitudActual.toFixed(1)}`} icon={<Waves size={10} />} color="#f43f5e" isLightMode={isLightMode} />
-            <MiniCard label="Intensidad" value={`${multiplicadorEnergetico > 1000 ? (multiplicadorEnergetico/1000).toFixed(1) + 'k' : Math.round(multiplicadorEnergetico).toLocaleString()}×`} icon={<Zap size={10} />} color={isLightMode ? "#eab308" : "#facc15"} isLightMode={isLightMode} />
+            <MiniCard label="Sismo objetivo" value={`${sismoObjetivo.nombre}${sismoObjetivo.anio ? ` ${sismoObjetivo.anio}` : ''} · Mw ${targetM.toFixed(1)}`} icon={<Target size={10} />} color="#fb923c" isLightMode={isLightMode} />
+            <MiniCard label="Base de comparación" value={`Mw ${magnitudBase.toFixed(1)}`} icon={<Waves size={10} />} color="#22d3ee" isLightMode={isLightMode} />
+            <MiniCard label="Experimental" value={`Mw ${magnitudActual.toFixed(1)}`} icon={<Waves size={10} />} color="#f43f5e" isLightMode={isLightMode} />
           </div>
           <div className="flex gap-2 pointer-events-auto">
             <button 
@@ -194,16 +188,6 @@ export default function PilotoRichter() {
                   <div className={`flex items-start gap-2 rounded-xl p-3 border ${isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
                     <Flame size={12} className="text-amber-400 mt-0.5 flex-shrink-0" />
                     <span className={`text-[10px] font-bold italic ${isLightMode ? 'text-amber-700' : 'text-amber-200/80'}`}>{activeEq.dato}</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className={`flex-1 rounded-xl p-3 border text-center ${isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
-                      <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest block">Energía vs Mw 6.0</span>
-                      <span className="text-lg font-black font-mono" style={{ color: getModeColor(activeEq.color) }}>×{Math.round(Math.pow(10, 1.5 * (activeEq.magnitud - 6.0))).toLocaleString()}</span>
-                    </div>
-                    <div className={`flex-1 rounded-xl p-3 border text-center ${isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
-                      <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest block">Amplitud vs Mw 6.0</span>
-                      <span className={`text-lg font-black font-mono ${isLightMode ? 'text-slate-900' : 'text-white'}`}>×{Math.round(Math.pow(10, activeEq.magnitud - 6.0)).toLocaleString()}</span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -285,15 +269,15 @@ export default function PilotoRichter() {
                 </span>
                 <div className="flex gap-2 items-center">
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={userInputFactor}
-                    onChange={e => { setUserInputFactor(e.target.value); setUserInputM3(e.target.value); }}
-                    placeholder="Ej: 31.62"
+                    onChange={e => setUserInputM3(e.target.value)}
+                    placeholder="E / E₀"
                     className={`w-28 px-3 py-2 rounded-xl text-[11px] font-black font-mono outline-none border transition-all ${isLightMode ? 'bg-white border-slate-200 text-slate-900' : 'bg-white/5 border-white/10 text-white focus:border-rose-500'}`}
                   />
                   <button
-                    onClick={() => { const ok = validarM3(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
+                    onClick={() => onValidate?.()}
                     className={`px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-500'}`}
                   >
                     {status === 'success' ? 'Verificado' : 'Verificar Factor'}
@@ -301,40 +285,17 @@ export default function PilotoRichter() {
                   {status === 'error' && (
                     <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Revisa el cálculo</span>
                   )}
+                  {status === 'success' && (
+                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1"><CheckCircle2 size={11} /> Correcto</span>
+                  )}
                 </div>
               </div>
-              <div className={`w-[180px] h-12 rounded-xl overflow-hidden p-2 border ${isLightMode ? 'bg-white border-slate-200' : 'bg-black/40 border-white/5'}`}>
-                <svg width="100%" height="100%" viewBox="0 0 1000 200" preserveAspectRatio="none">
-                  <polyline 
-                    points={polylinePath} 
-                    fill="none" 
-                    stroke={magnitudActual > 7 ? "#ef4444" : magnitudActual > 4 ? "#f43f5e" : "#fb7185"} 
-                    strokeWidth={magnitudActual > 7 ? "8" : "4"} 
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
+              <GraficaEnergia mExp={magnitudActual} mBase={magnitudBase} log={isLogView} isLightMode={isLightMode} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* SUCCESS / ERROR OVERLAY */}
-      <AnimatePresence>
-        {status === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-rose-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(244,63,94,0.15)]">
-              <Waves size={100} className="text-rose-500 mx-auto mb-8" />
-              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Factor Certificado</h3>
-              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
-                Has calculado correctamente el factor energético usando la fórmula 10^(1.5·ΔM).
-                El análisis logarítmico ha sido validado bajo el estándar <strong>Diamond State</strong>.
-              </p>
-              <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-rose-600/30">Cerrar Informe Sísmico</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* COLLAPSE WARNING */}
       <AnimatePresence>
@@ -348,6 +309,48 @@ export default function PilotoRichter() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * E/E_base contra Mw (1–10). En escala lineal la curva es una «L» (casi todo es
+ * ~0 frente a los sismos grandes); en logarítmica es una RECTA de pendiente 1.5
+ * por unidad de Mw. Marca solo la magnitud experimental, sin rotular su factor.
+ */
+function GraficaEnergia({ mExp, mBase, log, isLightMode }: { mExp: number; mBase: number; log: boolean; isLightMode: boolean }) {
+  const W = 220, H = 90, M0 = 1, M1 = 10;
+  const yLog = (m: number) => 1.5 * (m - mBase);                 // log10(E/E_base)
+  const yMin = yLog(M0), yMax = yLog(M1);
+  const yDe = (m: number) => log
+    ? H - ((yLog(m) - yMin) / (yMax - yMin)) * H
+    : H - (Math.pow(10, yLog(m)) / Math.pow(10, yMax)) * H;
+  const xDe = (m: number) => ((m - M0) / (M1 - M0)) * W;
+  const pts = useMemo(
+    () => Array.from({ length: 91 }, (_, i) => M0 + i * 0.1).map((m) => `${xDe(m).toFixed(1)},${yDe(m).toFixed(1)}`).join(' '),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [log, mBase],
+  );
+  const yDecada = (d: number) => H - ((d - yMin) / (yMax - yMin)) * H;
+  const decadas = log ? Array.from({ length: Math.floor(yMax) - Math.ceil(yMin) + 1 }, (_, i) => Math.ceil(yMin) + i) : [];
+  return (
+    <div className={`rounded-xl p-2 border ${isLightMode ? 'bg-white border-slate-200' : 'bg-black/40 border-white/5'}`}>
+      <div className="flex justify-between gap-3 text-[7px] font-black uppercase tracking-widest text-slate-500 mb-1">
+        <span>E/E₀ vs Mw</span><span>{log ? 'eje y logarítmico' : 'eje y lineal'}</span>
+      </div>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        {decadas.map((d) => (
+          <g key={d}>
+            <line x1={0} x2={W} y1={yDecada(d)} y2={yDecada(d)} stroke={isLightMode ? '#e2e8f0' : '#1e293b'} strokeWidth={1} />
+            {d % 2 === 0 && <text x={2} y={yDecada(d) - 2} fontSize={7} fill="#64748b">{`10^${d}`}</text>}
+          </g>
+        ))}
+        {[2, 4, 6, 8, 10].map((m) => (
+          <text key={m} x={xDe(m) - 3} y={H - 1} fontSize={7} fill="#64748b">{m}</text>
+        ))}
+        <polyline points={pts} fill="none" stroke="#f43f5e" strokeWidth={2} />
+        <circle cx={xDe(mExp)} cy={yDe(mExp)} r={3.5} fill="#facc15" />
+      </svg>
     </div>
   );
 }

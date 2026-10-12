@@ -2,20 +2,22 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
+import {
+  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
   Trash2, ShieldCheck, Calculator, BookOpen,
   Binary, Compass, Bot, Volume2, Shapes, TrendingUp, MousePointer2
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { posicionM8, velocidadM8 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraDerivadas() {
-  const { derivada8, setXActualM8, resetM8, validarM8 } = useSimuladorStore();
-  const { xActual, status } = derivada8;
+export default function BitacoraDerivadas({ onValidate }: { onValidate?: () => void }) {
+  const { derivada8, resetM8 } = useSimuladorStore(useShallow((s) => ({ derivada8: s.derivada8, resetM8: s.resetM8 })));
+  const { xActual, status, k, m } = derivada8;
 
   const [conclusionText, setConclusionText] = useState('');
-  const quantumMsg = `Identifica los puntos críticos de la función. Mueve el cursor hasta que la pendiente (m) de la recta tangente sea exactamente cero. ¡En ese instante habrás localizado un máximo o mínimo local!`;
+  const quantumMsg = `La posición del cohete es s(t) = −${k}·t³ + ${m}·t². Su derivada v(t) = s'(t) es la pendiente de la recta tangente. La velocidad es MÁXIMA donde su propia derivada, la aceleración a(t) = v'(t), se anula: deriva dos veces y resuelve a(t) = 0.`;
 
   const handleReset = () => {
     resetM8();
@@ -26,32 +28,33 @@ export default function BitacoraDerivadas() {
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
   const canValidate = wordCount >= 30;
 
-  // Cálculos en vivo
-  const f_prime = 3 * xActual * xActual - 3; // Ejemplo para f(x) = x^3 - 3x + 2
-  const checkZeroSlope = Math.abs(f_prime) < 0.2;
-  const isCritical = Math.abs(xActual - 1) < 0.1 || Math.abs(xActual + 1) < 0.1;
+  // Cálculos en vivo: la MISMA función del panel, la escena y el validador.
+  const cohete = { k, m };
+  const vMarcada = velocidadM8(cohete, xActual);
+  const sMarcada = posicionM8(cohete, xActual);
+  const checkZeroSlope = xActual > 0; // ya hay un instante marcado
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
+
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-indigo-500/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
            <Bot size={60} className="text-white" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
              <span className="text-[10px] font-black text-indigo-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
           </div>
-          
+
           <h4 className="text-white font-black text-lg leading-tight mb-2">Análisis de Pendientes</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre la localización de puntos estacionarios mediante la derivada.
+            La velocidad del cohete es la pendiente de la tangente a s(t). Busca el instante en que esa velocidad es máxima: ahí la aceleración se anula.
           </p>
-          
-          <button 
+
+          <button
             onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-500 hover:to-indigo-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-indigo-600/20"
           >
@@ -62,7 +65,7 @@ export default function BitacoraDerivadas() {
 
         <div className="flex gap-1 mt-4 justify-center opacity-30">
            {[...Array(12)].map((_, i) => (
-             <motion.div 
+             <motion.div
                key={i}
                animate={{ height: [4, 12, 4] }}
                transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
@@ -97,10 +100,10 @@ export default function BitacoraDerivadas() {
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkZeroSlope ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase tracking-widest ${checkZeroSlope ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Detección de Punto Crítico
+                     Instante marcado
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {checkZeroSlope ? '✓ Pendiente m ≈ 0 Localizada' : '... Buscando Mínimo/Máximo'}
+                     {checkZeroSlope ? `✓ t = ${xActual.toFixed(2)} s · s = ${sMarcada.toFixed(1)} m` : '... Marca un instante en el panel'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${checkZeroSlope ? 'bg-emerald-400' : 'bg-slate-600'}`} />
@@ -110,10 +113,10 @@ export default function BitacoraDerivadas() {
             <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${status === 'success' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                <div className="flex flex-col">
                    <span className={`text-[8px] font-black uppercase tracking-widest ${status === 'success' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Base de Datos Derivada
+                     Validación
                   </span>
                   <span className="text-xs font-bold text-white">
-                      {status === 'success' ? '✓ Análisis de Inflexión OK' : '... Buscando Puntos Críticos'}
+                      {status === 'success' ? '✓ Velocidad máxima localizada' : '... Pendiente de validar'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
@@ -128,28 +131,22 @@ export default function BitacoraDerivadas() {
             <Activity size={20} />
           </div>
           <div>
-            <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Monitor f'(x)</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Valor instantáneo de la derivada</p>
+            <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Monitor s'(t)</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Velocidad en el instante marcado</p>
           </div>
         </div>
 
         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
            <div>
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 italic">Pendiente (m)</span>
-              <span className={`text-sm font-black font-mono ${checkZeroSlope ? 'text-emerald-500' : 'text-indigo-600'}`}>{f_prime.toFixed(4)}</span>
+              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 italic">v(t) = pendiente de la tangente</span>
+              <span className="text-sm font-black font-mono text-indigo-600">{vMarcada.toFixed(3)} m/s</span>
            </div>
            <div className="text-right">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 italic">Estado</span>
-              <span className="text-[10px] font-black text-[#023047] uppercase">{checkZeroSlope ? 'Punto Estacionario' : 'En Crecimiento'}</span>
+              <span className="text-[10px] font-black text-[#023047] uppercase">{vMarcada > 0 ? 'Ascenso' : vMarcada < 0 ? 'Descenso' : 'Reposo'}</span>
            </div>
         </div>
 
-        <button 
-          onClick={() => { validarM8(); audio.playPop(); }}
-          className="w-full py-3 bg-[#023047] hover:bg-[#054a6d] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
-        >
-          Capturar Punto Crítico
-        </button>
       </div>
 
       {/* ENSAYO CRÍTICO */}
@@ -161,7 +158,7 @@ export default function BitacoraDerivadas() {
              </div>
              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
           </div>
-          <textarea 
+          <textarea
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
              placeholder="Explica qué relación existe entre el valor de la derivada y el crecimiento o decrecimiento de la función..."
              rows={4}
@@ -171,19 +168,19 @@ export default function BitacoraDerivadas() {
 
       {/* BOTONES DE ACCIÓN FINALES */}
       <div className="flex gap-3">
-        <button 
+        <button
           onClick={handleReset}
           className="w-14 h-14 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
-        <button 
-          onClick={() => { audio.playSuccess(); alert("Perfil de Derivadas Certificado."); }}
+        <button
+          onClick={() => onValidate?.()}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >
           <ShieldCheck size={16} />
-          {canValidate ? 'Misión Certificada' : 'Someter Análisis'}
+          Someter Análisis
         </button>
       </div>
 

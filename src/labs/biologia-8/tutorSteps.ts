@@ -3,19 +3,19 @@ import type { TutorStep } from '@/components/DrQuantumTutor';
 const tutorSteps: TutorStep[] = [
     {
       id: 1, tipo: 'intro', pista: 'Ciclo Cardíaco',
-      mensaje: 'Analizaremos la sístole y diástole. ¡Escucha el latido del motor de la vida!',
+      mensaje: 'Tienes un paciente monitorizado. El monitor no muestra la FC: hay que medirla en el trazo.',
     },
     {
-      id: 2, tipo: 'accion', pista: 'Estado Fisiológico',
-      mensaje: 'Cambia entre reposo y ejercicio. Observa cómo el corazón ajusta su frecuencia cardíaca (BPM).',
+      id: 2, tipo: 'accion', pista: 'Medir el R-R',
+      mensaje: 'Cuenta los cuadros grandes (200 ms) entre dos picos R: FC = 300 / n. Con eso diagnostica el ritmo de llegada.',
     },
     {
-      id: 3, tipo: 'accion', pista: 'Presión Arterial',
-      mensaje: 'Observa la variación de presión en las cámaras. El cierre de las válvulas crea los sonidos cardíacos.',
+      id: 3, tipo: 'accion', pista: 'Tratamiento',
+      mensaje: 'Elige un fármaco según su mecanismo (vagal, β1 o antagonista β1). Tras cada bolo, vuelve a medir.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Validar Ritmo',
-      mensaje: 'Alcanza el ritmo objetivo para el escenario actual y valida el análisis hemodinámico.',
+      mensaje: 'Cuando el ritmo esté entre 60 y 100 lpm, registra la FC medida y valida.',
       accion: 'Validar Cardio',
     }
   ];

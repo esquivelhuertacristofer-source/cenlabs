@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#ef4444',
     duracion: 35,
     videoUrl: 'https://youtu.be/jKbnyd23BY0',
-    bienvenida: `¡Bienvenido a la Clínica de Cardiología! Soy el Dr. Quantum.\n\nEscucharemos el ritmo de la vida. Cada latido es una coreografía eléctrica perfecta entre el nodo sinusal y los ventrículos.\n\nTu misión: Sincronizar el ECG de un paciente en esfuerzo.`,
+    bienvenida: `¡Bienvenido a la Clínica de Cardiología! Soy el Dr. Quantum.\n\nEscucharemos el ritmo de la vida. Cada latido es una coreografía eléctrica perfecta entre el nodo sinusal y los ventrículos.\n\nTu misión: leer el ECG de un paciente, diagnosticar su ritmo y devolverlo a ritmo sinusal normal.`,
     conceptos: [
       { icono: '❤️', nombre: 'Ciclo Cardíaco', descripcion: 'Sístole (contracción) y Diástole (relajación).' },
       { icono: '📈', nombre: 'Onda P-QRS-T', descripcion: 'Firma eléctrica de cada parte del latido.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '⚡', nombre: 'Nodo SA', descripcion: 'El marcapasos natural del corazón.' }
     ],
     mision: [
-      'Conecta los electrodos al paciente.',
-      'Inicia la prueba de esfuerzo en la caminadora.',
-      'Modula la intensidad para alcanzar 140 BPM.',
-      'Identifica la onda QRS en el monitor.',
-      'Registra la recuperación cardíaca exitosa.'
+      'Identifica las ondas P, QRS y T en el monitor.',
+      'Mide el intervalo R-R y calcula la frecuencia cardíaca.',
+      'Diagnostica bradicardia o taquicardia sinusal.',
+      'Administra el fármaco adecuado por bolos.',
+      'Vuelve a medir y valida un ritmo de 60 a 100 lpm.'
     ],
     aplicaciones: [
       { area: 'Medicina', ejemplo: 'Detección de arritmias y soplos.' },

@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows, SoftShadows, Grid, Sky } from '@react-three/drei';
+import { OrbitControls, Environment, ContactShadows, Grid, Sky } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface PenduloSceneProps {
@@ -10,25 +10,31 @@ interface PenduloSceneProps {
   masa: number;
   isOscilando: boolean;
   gravedad: number;
+  /** Se llama con el número de oscilaciones COMPLETAS desde que se soltó (fotopuerta). */
+  onOscilacion?: (n: number) => void;
 }
 
-const MAX_ANGLE_DEG = 15;
+const MAX_ANGLE_DEG = 10;
 const MAX_ANGLE_RAD = (MAX_ANGLE_DEG * Math.PI) / 180;
 
-function PendulumModel({ longitud, masa, isOscilando, gravedad }: PenduloSceneProps) {
+function PendulumModel({ longitud, masa, isOscilando, gravedad, onOscilacion }: PenduloSceneProps) {
   const pivotRef = useRef<THREE.Group>(null);
-  const timeRef = useRef(0);
-  const T = 2 * Math.PI * Math.sqrt(longitud / gravedad);
+  // Fase acumulada: si L cambiara a media oscilación, el péndulo no «salta».
+  const faseRef = useRef(0);
+  const cuentaRef = useRef(0);
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (!pivotRef.current) return;
-    
     if (isOscilando) {
-      timeRef.current += delta;
-      // Movimiento armónico simple
-      pivotRef.current.rotation.z = Math.cos((2 * Math.PI / T) * timeRef.current) * MAX_ANGLE_RAD;
+      const omega = Math.sqrt(gravedad / longitud);
+      faseRef.current += omega * Math.min(delta, 0.1);
+      // Movimiento armónico simple (ángulos pequeños)
+      pivotRef.current.rotation.z = Math.cos(faseRef.current) * MAX_ANGLE_RAD;
+      const n = Math.floor(faseRef.current / (2 * Math.PI));
+      if (n !== cuentaRef.current) { cuentaRef.current = n; onOscilacion?.(n); }
     } else {
-      timeRef.current = 0;
+      faseRef.current = 0;
+      if (cuentaRef.current !== 0) { cuentaRef.current = 0; onOscilacion?.(0); }
       // Posición inicial antes de soltar (ángulo máximo)
       pivotRef.current.rotation.z = MAX_ANGLE_RAD;
     }
@@ -87,10 +93,11 @@ function PendulumModel({ longitud, masa, isOscilando, gravedad }: PenduloScenePr
   );
 }
 
-export default function PenduloSimple3DScene({ longitud, masa, isOscilando, gravedad }: PenduloSceneProps) {
+export default function PenduloSimple3DScene({ longitud, masa, isOscilando, gravedad, onOscilacion }: PenduloSceneProps) {
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 10], fov: 45 }}>
-      <SoftShadows size={10} samples={16} focus={0.5} />
+      {/* Sin <SoftShadows>: su parche PCSS llama a unpackRGBAToDepth con la firma
+          vieja, el shader de MeshStandardMaterial no compila y el péndulo desaparecía. */}
       
       {/* Iluminación Ambiental y Cielo */}
       <color attach="background" args={["#020617"]} />
@@ -109,7 +116,7 @@ export default function PenduloSimple3DScene({ longitud, masa, isOscilando, grav
       />
       <pointLight position={[-5, 2, 5]} intensity={1.5} color="#38bdf8" distance={20} />
 
-      <PendulumModel longitud={longitud} masa={masa} isOscilando={isOscilando} gravedad={gravedad} />
+      <PendulumModel longitud={longitud} masa={masa} isOscilando={isOscilando} gravedad={gravedad} onOscilacion={onOscilacion} />
 
       {/* Grid de Laboratorio */}
       <Grid 

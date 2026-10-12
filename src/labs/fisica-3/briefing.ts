@@ -15,10 +15,10 @@ const briefing: BriefingConfig = {
       { icono: '⚡', nombre: 'Energía', descripcion: 'Intercambio constante entre potencial y cinética.' }
     ],
     mision: [
-      'Ajusta la longitud de la cuerda a 1.0m.',
-      'Desplaza la masa exactamente 10 grados.',
+      'Elige una longitud de cuerda.',
+      'Suelta el péndulo con amplitud pequeña (10°).',
       'Cronometra 10 oscilaciones completas.',
-      'Calcula el periodo promedio.',
+      'Repite con tres longitudes y con dos masas.',
       'Despeja g de la fórmula T = 2π√(L/g).'
     ],
     aplicaciones: [

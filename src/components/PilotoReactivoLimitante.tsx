@@ -1,186 +1,78 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import { useSimuladorStore } from "@/store/simuladorStore";
+import { validarQ4 } from "@/domain/quimica";
 import {
   Zap, ChevronLeft, ChevronRight, BookOpen,
   RefreshCw, Info, Target, AlertCircle,
-  FlaskConical, ArrowRight, MousePointer2,
-  CheckCircle2, Trophy, TrendingUp
+  FlaskConical, ArrowRight, CheckCircle2, Scale,
 } from "lucide-react";
-import { useRouter } from 'next/navigation';
 
 import Limitante3DScene from './simuladores/qmi04/Limitante3DScene';
 
-export default function PilotoReactivoLimitante() {
-  const router = useRouter();
-  const { limitante, setInputMass, setReaccionLimitante, generarSemillaP4, validarP4, audio, setAsistente } = useSimuladorStore();
-  const [mounted, setMounted] = useState(false);
-  const [isSynthesizing, setIsSynthesizing] = useState(false);
+// Resultados enmascarados: la escena no puede anunciar el limitante ni el exceso
+// antes de que el alumno los haya calculado y validado.
+const RESULTADOS_OCULTOS = { moles: [0, 0], limitingIdx: -1, theoreticalYield: 0, excessMass: 0 };
+
+const fmt = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : '—');
+
+export default function PilotoReactivoLimitante({ onValidate }: { onValidate?: () => void }) {
+  const { limitante, setReaccionLimitante, generarSemillaP4, setRespuestaP4, validarP4, audio } =
+    useSimuladorStore(useShallow((s) => ({
+      limitante: s.limitante, setReaccionLimitante: s.setReaccionLimitante,
+      generarSemillaP4: s.generarSemillaP4, setRespuestaP4: s.setRespuestaP4,
+      validarP4: s.validarP4, audio: s.audio,
+    })));
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [injectingIdx, setInjectingIdx] = useState<number | null>(null);
+  const [elegido, setElegido] = useState<number | null>(null);
+  const [excesoTxt, setExcesoTxt] = useState('');
+  const [intentado, setIntentado] = useState(false);
+  const [sintetizando, setSintetizando] = useState(false);
 
   const {
     reaccionActual = 0, reacciones = [], inputMasses = [0, 0],
-    targetYield = 50,
-    results = { moles: [0, 0], limitingIdx: -1, theoreticalYield: 0, excessMass: 0 },
-    status = 'idle'
+    results = RESULTADOS_OCULTOS, status = 'idle',
   } = limitante;
-
   const currentReac = reacciones[reaccionActual] || reacciones[0];
+  const resuelto = status === 'success';
 
-  const injectionInterval = useRef<any>(null);
+  // Nueva misión o nueva reacción → la consola se limpia.
+  const claveMision = `${reaccionActual}:${inputMasses.join(',')}`;
+  useEffect(() => { setElegido(null); setExcesoTxt(''); setIntentado(false); }, [claveMision]);
 
+  // Al validar con éxito corre la síntesis: el reactivo limitante se agota y sobra el otro.
   useEffect(() => {
-    if (injectingIdx !== null) {
-      injectionInterval.current = setInterval(() => {
-        const currentMass = useSimuladorStore.getState().limitante.inputMasses[injectingIdx];
-        setInputMass(injectingIdx, currentMass + 0.5);
-        if (Math.random() > 0.7) audio?.playClick();
-      }, 50);
-    } else {
-      clearInterval(injectionInterval.current);
-    }
-    return () => clearInterval(injectionInterval.current);
-  }, [injectingIdx]);
+    if (!resuelto) return;
+    setSintetizando(true);
+    audio?.playNotification?.();
+    const t = setTimeout(() => setSintetizando(false), 2500);
+    return () => clearTimeout(t);
+  }, [resuelto, audio]);
 
-  useEffect(() => {
-    setMounted(true);
-    if (inputMasses[0] === 0) generarSemillaP4();
-    setAsistente({ visible: false });
-    return () => setAsistente({ visible: false });
-  }, []);
+  // Retroalimentación del panel = la misma función de dominio que juzga la práctica.
+  const veredicto = useMemo(() => validarQ4(limitante), [limitante]);
 
-  const currentRatio = useMemo(() => {
-    if (results.moles[1] === 0) return 0;
-    return parseFloat((results.moles[0] / results.moles[1]).toFixed(2));
-  }, [results.moles]);
+  const exceso = parseFloat(excesoTxt.replace(',', '.'));
+  const puedeRegistrar = elegido !== null && Number.isFinite(exceso) && exceso >= 0;
 
-  const targetRatio = useMemo(() => {
-    if (!currentReac?.reactivos) return 1;
-    return (currentReac.reactivos[0]?.coef || 1) / (currentReac.reactivos[1]?.coef || 1);
-  }, [currentReac]);
-
-  const ratioAccuracy = useMemo(() => {
-    if (!targetRatio) return 0;
-    const acc = 100 - Math.abs((currentRatio / targetRatio) - 1) * 100;
-    return Math.max(0, Math.min(100, acc));
-  }, [currentRatio, targetRatio]);
-
-  const yieldAccuracy = useMemo(() => {
-    const acc = 100 - Math.abs((results.theoreticalYield / targetYield) - 1) * 100;
-    return Math.max(0, Math.min(100, acc));
-  }, [results.theoreticalYield, targetYield]);
-
-  const startSynthesis = () => {
-    setIsSynthesizing(true);
-    audio?.playClick();
-    audio?.playNotification();
-    setTimeout(() => {
-      setIsSynthesizing(false);
-      setShowReport(true);
-      if (yieldAccuracy > 95 && ratioAccuracy > 95) {
-        audio?.playSuccess?.();
-        validarP4(results.limitingIdx, results.excessMass);
-      } else {
-        audio?.playError?.();
-      }
-    }, 2500);
+  const registrar = () => {
+    if (!puedeRegistrar) return;
+    setRespuestaP4(elegido, exceso);
+    setIntentado(true);
+    audio?.playClick?.();
+    if (onValidate) onValidate();
+    else validarP4();
   };
 
-  if (!mounted || !currentReac) return null;
+  if (!currentReac) return null;
+  const reac = currentReac.reactivos;
+  const otro = elegido === null ? null : 1 - elegido;
 
   return (
     <div className="relative w-full h-full overflow-hidden font-['Outfit'] bg-[#01080E] text-white">
-
-      {/* ── OVERLAY ÉXITO ── */}
-      <AnimatePresence>
-        {status === 'success' && !showReport && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute z-[120] inset-0 flex items-center justify-center p-10 bg-black/80 backdrop-blur-3xl"
-          >
-            <motion.div initial={{ scale: 0.85, y: 30 }} animate={{ scale: 1, y: 0 }}
-              className="w-full max-w-md p-1 bg-gradient-to-b from-emerald-500/40 to-transparent rounded-[3.5rem]">
-              <div className="bg-[#012a1a] p-12 rounded-[3.4rem] flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6">
-                  <Trophy size={48} />
-                </div>
-                <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-2 text-emerald-400">Certificado</h2>
-                <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                  Has identificado correctamente el reactivo limitante y optimizado la producción.
-                </p>
-                <button onClick={() => generarSemillaP4()}
-                  className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black uppercase text-xs tracking-widest transition-all mb-3">
-                  Nueva Misión
-                </button>
-                <button onClick={() => router.push('/hub')}
-                  className="w-full h-12 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all">
-                  Cerrar Laboratorio
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── REPORTE ── */}
-      <AnimatePresence>
-        {showReport && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute z-[110] inset-0 flex items-center justify-center p-10 bg-black/90 backdrop-blur-3xl"
-          >
-            <motion.div initial={{ scale: 0.85, y: 40 }} animate={{ scale: 1, y: 0 }}
-              className={`w-full max-w-xl p-1 bg-gradient-to-b ${yieldAccuracy > 95 ? 'from-emerald-500/30' : 'from-red-500/30'} to-transparent rounded-[3.5rem]`}>
-              <div className="bg-[#023047] p-10 rounded-[3.4rem] flex flex-col items-center text-center">
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${yieldAccuracy > 95 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                  {yieldAccuracy > 95 ? <Trophy size={48} /> : <AlertCircle size={48} />}
-                </div>
-                <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-1">
-                  {yieldAccuracy > 95 ? 'Misión Cumplida' : 'Producción Fallida'}
-                </h2>
-                <p className="text-white/30 text-[10px] uppercase tracking-[0.3em] mb-8">Control de Calidad</p>
-
-                <div className="grid grid-cols-2 gap-4 w-full mb-6">
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
-                    <span className="text-[8px] font-black text-white/30 uppercase tracking-widest block mb-1">Eficiencia</span>
-                    <span className={`text-3xl font-black font-mono ${yieldAccuracy > 90 ? 'text-emerald-400' : 'text-yellow-400'}`}>{yieldAccuracy.toFixed(1)}%</span>
-                  </div>
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
-                    <span className="text-[8px] font-black text-white/30 uppercase tracking-widest block mb-1">Desperdicio</span>
-                    <span className="text-3xl font-black font-mono text-orange-400">{results.excessMass}g</span>
-                  </div>
-                </div>
-
-                <div className="bg-black/40 p-5 rounded-[2rem] border border-white/10 w-full text-left mb-8">
-                  <p className="text-sm text-white/60 italic leading-relaxed">
-                    {yieldAccuracy > 95
-                      ? "Proporciones perfectas. Sin desperdicio, producción óptima."
-                      : results.theoreticalYield < targetYield
-                        ? `Faltan ${(targetYield - results.theoreticalYield).toFixed(1)}g. Inyecta más de ambos reactivos cuidando la proporción.`
-                        : `Exceso de ${results.excessMass}g de ${results.limitingIdx === 0 ? currentReac.reactivos[1].formula : currentReac.reactivos[0].formula}. Ajusta el ratio.`
-                    }
-                  </p>
-                </div>
-
-                <div className="flex gap-4 w-full">
-                  <button onClick={() => { setShowReport(false); generarSemillaP4(); }}
-                    className="flex-1 h-14 bg-white/10 hover:bg-white/20 rounded-2xl font-black uppercase text-xs tracking-widest transition-all">
-                    Reintentar
-                  </button>
-                  <button onClick={() => setShowReport(false)}
-                    className="flex-1 h-14 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black uppercase text-xs tracking-widest transition-all">
-                    Aceptar
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── INFO ACADÉMICA ── */}
       <AnimatePresence>
@@ -188,8 +80,10 @@ export default function PilotoReactivoLimitante() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute z-[100] inset-0 flex items-center justify-center p-10 bg-black/80 backdrop-blur-2xl"
+            onClick={() => setShowAcademicInfo(false)}
           >
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              onClick={(e) => e.stopPropagation()}
               className="max-w-2xl bg-[#023047] border border-cyan-500/30 p-12 rounded-[3.5rem] shadow-2xl relative">
               <button onClick={() => setShowAcademicInfo(false)} className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors">Cerrar</button>
               <div className="flex items-center gap-4 mb-8">
@@ -197,9 +91,9 @@ export default function PilotoReactivoLimitante() {
                 <h2 className="text-3xl font-black uppercase italic tracking-tighter">Reactivo Limitante</h2>
               </div>
               <div className="space-y-5 text-sm text-cyan-100/70 leading-relaxed">
-                <p><strong className="text-white">Reactivo Limitante:</strong> El componente que se agota primero y detiene la reacción. Aumentar el otro reactivo no produce más producto.</p>
-                <p><strong className="text-white">Reactivo en Exceso:</strong> Lo que sobra una vez que el limitante se consume. Ese sobrante es desperdicio industrial.</p>
-                <p><strong className="text-white">Ratio estequiométrico:</strong> La proporción exacta de moles que la ecuación química exige. Ajusta ambas masas para alcanzarlo.</p>
+                <p><strong className="text-white">1. Moles:</strong> n = m / M para cada reactivo.</p>
+                <p><strong className="text-white">2. Limitante:</strong> divide los moles de cada reactivo entre su coeficiente en la ecuación. El cociente menor indica el reactivo que se agota primero.</p>
+                <p><strong className="text-white">3. Exceso:</strong> con los moles del limitante calcula, por la proporción de coeficientes, cuántos moles del otro reactivo se consumen. Lo que no se consume (en gramos) es el exceso.</p>
               </div>
             </motion.div>
           </motion.div>
@@ -208,212 +102,120 @@ export default function PilotoReactivoLimitante() {
 
       {/* ── 3D ENGINE ── */}
       <div className="absolute inset-0 z-0">
-        <Limitante3DScene limitanteData={limitante} isRunning={isSynthesizing} />
+        <Limitante3DScene
+          limitanteData={resuelto ? limitante : { ...limitante, results: RESULTADOS_OCULTOS }}
+          isRunning={sintetizando}
+        />
       </div>
 
       {/* ── HEADER ── */}
       <header className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-10 pt-8 pointer-events-none">
-
-        {/* Selector de reacción */}
         <div className="flex items-center gap-2 bg-black/50 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] pointer-events-auto">
-          <button onClick={() => { setReaccionLimitante((reaccionActual + 3) % 4); audio?.playClick?.(); }}
+          <button aria-label="Reacción anterior" onClick={() => { setReaccionLimitante((reaccionActual + reacciones.length - 1) % reacciones.length); audio?.playClick?.(); }}
             className="p-3 hover:bg-white/10 rounded-2xl transition-all"><ChevronLeft size={18} /></button>
-          <div className="px-4 text-center min-w-[160px]">
-            <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.5em] block">Síntesis 0{reaccionActual + 1}</span>
+          <div className="px-4 text-center min-w-[200px]">
+            <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.5em] block">Síntesis 0{reaccionActual + 1}</span>
             <span className="text-lg font-black tracking-tighter uppercase">{currentReac.nombre}</span>
           </div>
-          <button onClick={() => { setReaccionLimitante((reaccionActual + 1) % 4); audio?.playClick?.(); }}
+          <button aria-label="Reacción siguiente" onClick={() => { setReaccionLimitante((reaccionActual + 1) % reacciones.length); audio?.playClick?.(); }}
             className="p-3 hover:bg-white/10 rounded-2xl transition-all"><ChevronRight size={18} /></button>
         </div>
 
-        {/* Objetivo + acciones */}
         <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="px-6 py-3 bg-emerald-500/10 backdrop-blur-xl border border-emerald-500/20 rounded-[1.5rem] flex items-center gap-3">
-            <FlaskConical size={16} className="text-emerald-400 shrink-0" />
-            <div>
-              <span className="text-[8px] font-black text-emerald-400 uppercase tracking-[0.4em] block leading-none mb-0.5">Objetivo</span>
-              <span className="text-xl font-black italic tracking-tighter">{targetYield}g <span className="text-xs font-medium text-white/50">{currentReac.productos[0].formula}</span></span>
-            </div>
-          </div>
-          <button onClick={() => setShowAcademicInfo(true)}
-            className="w-12 h-12 rounded-2xl bg-black/50 hover:bg-cyan-500/20 border border-white/10 flex items-center justify-center text-white/40 hover:text-cyan-400 transition-all backdrop-blur-xl">
+          <button aria-label="Guía del cálculo" onClick={() => setShowAcademicInfo(true)}
+            className="w-12 h-12 rounded-2xl bg-black/50 hover:bg-cyan-500/20 border border-white/10 flex items-center justify-center text-white/60 hover:text-cyan-400 transition-all backdrop-blur-xl">
             <Info size={18} />
           </button>
-          <button onClick={() => { generarSemillaP4(); audio?.playClick?.(); }}
-            className="w-12 h-12 rounded-2xl bg-black/50 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all backdrop-blur-xl">
-            <RefreshCw size={18} />
+          <button aria-label="Nueva misión" onClick={() => { generarSemillaP4(); audio?.playClick?.(); }}
+            className="h-12 px-4 rounded-2xl bg-black/50 hover:bg-white/10 border border-white/10 flex items-center gap-2 text-white/70 hover:text-white transition-all backdrop-blur-xl text-[10px] font-black uppercase tracking-widest">
+            <RefreshCw size={16} /> Nueva misión
           </button>
         </div>
       </header>
 
-      {/* ── INYECTORES + GAUGE CENTRAL ── */}
-      <div className="absolute inset-0 z-10 flex items-center justify-between px-16 pointer-events-none">
-
-        {/* INYECTOR A */}
-        <motion.button
-          onMouseDown={() => setInjectingIdx(0)}
-          onMouseUp={() => setInjectingIdx(null)}
-          onMouseLeave={() => setInjectingIdx(null)}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.96 }}
-          className={`flex flex-col items-center gap-3 p-6 rounded-[3rem] backdrop-blur-2xl border transition-all cursor-pointer pointer-events-auto
-            ${injectingIdx === 0
-              ? 'bg-cyan-500/15 border-cyan-400/60 shadow-[0_0_40px_rgba(34,211,238,0.15)]'
-              : 'bg-black/40 border-white/10'}`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-sm font-black text-cyan-400 tracking-widest">{currentReac.reactivos[0].formula}</span>
-            <MousePointer2 size={12} className="text-white/20" />
-          </div>
-
-          <div className="w-20 h-36 bg-black/50 rounded-[1.5rem] relative overflow-hidden border border-white/5">
-            <motion.div
-              animate={{ height: `${Math.min(100, (inputMasses[0] / 100) * 100)}%` }}
-              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-700 to-cyan-400 rounded-b-[1.5rem]"
-            />
-            <div className="absolute inset-0 flex items-center justify-center text-3xl font-black text-white/5 italic">A</div>
-          </div>
-
-          <div className="text-center">
-            <span className="text-2xl font-black font-mono tracking-tighter">{inputMasses[0].toFixed(1)}<span className="text-xs text-white/30">g</span></span>
-            <span className="text-[9px] font-black text-cyan-400/60 uppercase block">{results.moles[0]} mol</span>
-          </div>
-
-          <span className="text-[8px] font-black text-white/30 uppercase tracking-widest animate-pulse">
-            {injectingIdx === 0 ? '● Inyectando' : 'Mantener'}
-          </span>
-        </motion.button>
-
-        {/* GAUGE CENTRAL */}
-        <div className="flex flex-col items-center gap-5 pointer-events-none">
-
-          {/* Precisión */}
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-2">Precisión de Síntesis</span>
-            <motion.span
-              key={yieldAccuracy.toFixed(0)}
-              initial={{ scale: 0.9, opacity: 0.5 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className={`text-6xl font-black italic tracking-tighter ${
-                yieldAccuracy > 95 ? 'text-emerald-400' : yieldAccuracy > 70 ? 'text-cyan-400' : 'text-red-400'
-              }`}
-            >
-              {yieldAccuracy.toFixed(0)}<span className="text-2xl">%</span>
-            </motion.span>
-          </div>
-
-          {/* Barra de progreso */}
-          <div className="w-56 h-1.5 bg-white/5 rounded-full overflow-hidden">
-            <motion.div
-              animate={{ width: `${yieldAccuracy}%` }}
-              transition={{ type: 'spring', stiffness: 80 }}
-              className={`h-full ${yieldAccuracy > 95 ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : yieldAccuracy > 70 ? 'bg-cyan-500' : 'bg-red-500'}`}
-            />
-          </div>
-
-          {/* Ratio estequiométrico — solo 1 dato, compacto */}
-          <div className={`flex items-center gap-2 px-5 py-3 rounded-2xl border transition-all ${ratioAccuracy > 95 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-white/60'}`}>
-            <TrendingUp size={14} />
-            <span className="text-sm font-black font-mono">{currentRatio} : 1</span>
-            <span className="text-[9px] font-black text-white/30 uppercase">ratio</span>
-          </div>
-
-          {/* Monitor de desperdicio — sutil */}
-          <AnimatePresence>
-            {results.excessMass > 0.5 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">{results.excessMass}g exceso</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* ── DATOS DE LA MISIÓN ── */}
+      <aside className="absolute left-10 top-32 z-10 w-[330px] bg-black/55 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Scale size={14} className="text-cyan-400" />
+          <span className="text-[9px] font-black text-white/60 uppercase tracking-[0.3em]">Datos del reactor</span>
         </div>
-
-        {/* INYECTOR B */}
-        <motion.button
-          onMouseDown={() => setInjectingIdx(1)}
-          onMouseUp={() => setInjectingIdx(null)}
-          onMouseLeave={() => setInjectingIdx(null)}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.96 }}
-          className={`flex flex-col items-center gap-3 p-6 rounded-[3rem] backdrop-blur-2xl border transition-all cursor-pointer pointer-events-auto
-            ${injectingIdx === 1
-              ? 'bg-yellow-500/15 border-yellow-400/60 shadow-[0_0_40px_rgba(251,191,36,0.15)]'
-              : 'bg-black/40 border-white/10'}`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-sm font-black text-yellow-400 tracking-widest">{currentReac.reactivos[1].formula}</span>
-            <MousePointer2 size={12} className="text-white/20" />
+        <div className="font-mono text-sm text-white bg-white/5 rounded-xl px-3 py-2 border border-white/10">{currentReac.ecuacion}</div>
+        {reac.map((r: { formula: string; molar: number; coef: number }, i: number) => (
+          <div key={r.formula} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+            <div>
+              <span className={`text-base font-black ${i === 0 ? 'text-cyan-400' : 'text-yellow-400'}`}>{r.formula}</span>
+              <span className="text-[10px] text-white/50 block">M = {r.molar} g/mol · coef. {r.coef}</span>
+            </div>
+            <span className="text-2xl font-black font-mono">{fmt(inputMasses[i], 1)}<span className="text-xs text-white/50"> g</span></span>
           </div>
-
-          <div className="w-20 h-36 bg-black/50 rounded-[1.5rem] relative overflow-hidden border border-white/5">
-            <motion.div
-              animate={{ height: `${Math.min(100, (inputMasses[1] / 100) * 100)}%` }}
-              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-yellow-700 to-yellow-400 rounded-b-[1.5rem]"
-            />
-            <div className="absolute inset-0 flex items-center justify-center text-3xl font-black text-white/5 italic">B</div>
-          </div>
-
-          <div className="text-center">
-            <span className="text-2xl font-black font-mono tracking-tighter">{inputMasses[1].toFixed(1)}<span className="text-xs text-white/30">g</span></span>
-            <span className="text-[9px] font-black text-yellow-400/60 uppercase block">{results.moles[1]} mol</span>
-          </div>
-
-          <span className="text-[8px] font-black text-white/30 uppercase tracking-widest animate-pulse">
-            {injectingIdx === 1 ? '● Inyectando' : 'Mantener'}
-          </span>
-        </motion.button>
-      </div>
-
-      {/* ── FOOTER ── */}
-      <footer className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-10 pb-8 gap-6">
-
-        {/* Status strip — compact */}
-        <div className="flex items-center gap-6 bg-black/50 backdrop-blur-2xl border border-white/10 px-8 py-4 rounded-[2rem]">
-          <div className="flex items-center gap-2">
-            <Target size={14} className="text-red-400" />
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Limitante</span>
-            <span className="text-base font-black text-red-400 italic ml-1">
-              {results.limitingIdx !== -1 ? currentReac.reactivos[results.limitingIdx].formula : '—'}
-            </span>
-          </div>
-          <div className="w-px h-6 bg-white/10" />
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={14} className={yieldAccuracy > 95 ? 'text-emerald-400' : 'text-white/20'} />
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Producción</span>
-            <span className={`text-base font-black italic ml-1 ${yieldAccuracy > 95 ? 'text-emerald-400' : 'text-white'}`}>
-              {results.theoreticalYield}g
-            </span>
-          </div>
-          <div className="w-px h-6 bg-white/10" />
-          <div className="flex items-center gap-2">
-            <ArrowRight size={14} className="text-orange-400" />
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Exceso</span>
-            <span className="text-base font-black italic text-orange-400 ml-1">{results.excessMass}g</span>
-          </div>
+        ))}
+        <div className="text-[10px] text-white/50 leading-relaxed">
+          Productos: {currentReac.productos.map((p: { formula: string; molar: number }) => `${p.formula} (${p.molar} g/mol)`).join(' · ')}
         </div>
+      </aside>
 
-        {/* Botón Sintetizar */}
-        <motion.button
-          disabled={isSynthesizing || inputMasses[0] === 0 || inputMasses[1] === 0}
-          onClick={startSynthesis}
-          whileHover={!isSynthesizing ? { scale: 1.03 } : {}}
-          whileTap={!isSynthesizing ? { scale: 0.96 } : {}}
-          className={`flex items-center gap-4 h-16 px-10 rounded-[2rem] font-black text-sm uppercase tracking-widest transition-colors
-            ${isSynthesizing
-              ? 'bg-white/5 text-white/20 cursor-wait'
-              : 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_10px_30px_rgba(6,182,212,0.25)]'}`}
-        >
-          {isSynthesizing
-            ? <><RefreshCw size={20} className="animate-spin" /> Sintetizando...</>
-            : <><Zap size={20} /> Iniciar Ciclo</>
-          }
-        </motion.button>
+      {/* ── RESULTADOS (solo tras validar) ── */}
+      {resuelto && !sintetizando && (
+        <div className="absolute right-10 top-32 z-10 w-[300px] bg-emerald-950/70 backdrop-blur-2xl border border-emerald-500/30 rounded-[2rem] p-6 space-y-3">
+          <div className="flex items-center gap-2 text-emerald-300">
+            <CheckCircle2 size={16} />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Síntesis completada</span>
+          </div>
+          <div className="flex justify-between text-sm"><span className="text-white/60">Limitante</span><span className="font-black text-red-300">{reac[results.limitingIdx]?.formula}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-white/60">Sobra</span><span className="font-black text-orange-300">{fmt(results.excessMass)} g de {reac[1 - results.limitingIdx]?.formula}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-white/60">Rendimiento teórico</span><span className="font-black text-emerald-300">{fmt(results.theoreticalYield)} g {currentReac.productos[0].formula}</span></div>
+        </div>
+      )}
+
+      {/* ── CONSOLA DE RESPUESTA ── */}
+      <footer className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-center px-10 pb-8">
+        <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-8 py-5 flex items-end gap-6 flex-wrap justify-center">
+          <div>
+            <span className="text-[9px] font-black text-white/60 uppercase tracking-widest flex items-center gap-1 mb-2"><Target size={12} className="text-red-400" /> ¿Cuál se agota primero?</span>
+            <div className="flex gap-2">
+              {reac.map((r: { formula: string }, i: number) => (
+                <button key={r.formula} disabled={resuelto}
+                  onClick={() => { setElegido(i); audio?.playClick?.(); }}
+                  aria-pressed={elegido === i}
+                  className={`h-12 px-5 rounded-xl border font-black text-sm transition-all ${elegido === i
+                    ? 'bg-red-500/25 border-red-400/60 text-white'
+                    : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
+                  {r.formula}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label htmlFor="exceso-q4" className="text-[9px] font-black text-white/60 uppercase tracking-widest flex items-center gap-1 mb-2">
+              <ArrowRight size={12} className="text-orange-400" /> Masa que sobra {otro !== null ? `de ${reac[otro].formula}` : 'del otro reactivo'}
+            </label>
+            <div className="flex items-center gap-2">
+              <input id="exceso-q4" inputMode="decimal" value={excesoTxt} disabled={resuelto}
+                onChange={(e) => setExcesoTxt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && registrar()}
+                placeholder="0.00"
+                className="w-32 h-12 rounded-xl bg-white/5 border border-white/15 px-4 font-mono text-lg text-white outline-none focus:border-cyan-400/60" />
+              <span className="text-sm text-white/60">g</span>
+            </div>
+          </div>
+          <motion.button
+            disabled={!puedeRegistrar || resuelto}
+            onClick={registrar}
+            whileTap={{ scale: 0.96 }}
+            className="flex items-center gap-3 h-12 px-8 rounded-xl font-black text-xs uppercase tracking-widest bg-cyan-500 hover:bg-cyan-400 text-black disabled:bg-white/5 disabled:text-white/30 transition-colors">
+            <Zap size={18} /> Registrar y validar
+          </motion.button>
+          {intentado && !resuelto && status === 'error' && veredicto.mensaje && (
+            <div className="basis-full flex items-center gap-2 text-[11px] text-amber-200">
+              <AlertCircle size={14} className="text-amber-400 shrink-0" /> {veredicto.mensaje}
+            </div>
+          )}
+          {resuelto && (
+            <div className="basis-full flex items-center gap-2 text-[11px] text-emerald-300">
+              <FlaskConical size={14} /> Respuesta correcta. Pulsa «Nueva misión» para practicar con otras masas.
+            </div>
+          )}
+        </div>
       </footer>
     </div>
   );

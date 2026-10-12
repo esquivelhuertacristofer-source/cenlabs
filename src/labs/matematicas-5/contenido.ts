@@ -1,12 +1,12 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Círculo Trigonométrico", mision: "Visualiza el origen geométrico de las ondas Seno y Coseno", ecuacion: "y = sin(θ), x = cos(θ)", formulaGfx: "Unitario (r=1)",
+    titulo: "Círculo Trigonométrico", mision: "Encuentra los dos ángulos de una vuelta que cumplen la ecuación trigonométrica asignada", ecuacion: "y = sin(θ), x = cos(θ)", formulaGfx: "Unitario (r=1)",
     pasos: [
-      { id: 1, text: "Gira el vector en el círculo unitario usando el deslizador.", icon: "rotate-cw" },
-      { id: 2, text: "Usa el 'Auto-Giro' para ver cómo se desenrolla la onda en el osciloscopio.", icon: "activity" },
-      { id: 3, text: "Observa el punto de cruce en 45° donde Seno y Coseno son idénticos.", icon: "target" },
-      { id: 4, text: "Presiona 'Validar Ángulo' exactamente en el punto de intersección.", icon: "check" }
+      { id: 1, text: "Lee la ecuación objetivo del panel (sen θ o cos θ igual a un valor notable).", icon: "target" },
+      { id: 2, text: "Gira el vector con el deslizador o el auto-giro y observa la proyección que corresponde.", icon: "rotate-cw" },
+      { id: 3, text: "Detén el vector y captura cada ángulo que cumpla la ecuación: hay DOS en [0°, 360°).", icon: "activity" },
+      { id: 4, text: "Si capturaste uno que no cumple, limpia las muestras. Luego valida.", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Deducir las funciones trigonométricas a partir de la geometría del círculo.",

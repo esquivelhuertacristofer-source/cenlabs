@@ -1,223 +1,208 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { 
-  Activity, Zap, AlertTriangle, RotateCcw, 
-  Target, Droplet, FlaskConical, Beaker, ShieldAlert, CheckCircle2,
-  Thermometer, Gauge, Microchip, Fingerprint
-} from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
-import { useRouter } from 'next/navigation';
+import { AlertTriangle, CheckCircle2, Thermometer, Microchip, Fingerprint, NotebookPen, RotateCcw } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import {
+  osmolaridadMedioB2, osmolaridadCitoplasmaB2, pasoVolumenB2, UMBRAL_LISIS_B2, VMAX_VEGETAL_B2,
+} from '@/domain/biologia';
 
-const Transporte3DScene = dynamic(() => import('./simuladores/bio02/Transporte3DScene'), { 
+const Transporte3DScene = dynamic(() => import('./simuladores/bio02/Transporte3DScene'), {
   ssr: false,
-  loading: () => <div className="w-full h-full bg-[#020617] flex items-center justify-center text-cyan-500 font-black text-xs uppercase tracking-widest animate-pulse">Sincronizando Terminal Biomédica...</div>
+  loading: () => <div className="w-full h-full bg-[#020617] flex items-center justify-center text-cyan-500 font-black text-xs uppercase tracking-widest animate-pulse">Sincronizando terminal biomédica...</div>
 });
 
-export default function PilotoTransporteCelular() {
-  const router = useRouter();
-  const store = useSimuladorStore();
-  const transporte = store?.transporte;
+type Lectura = { nacl: number; glucosa: number; v: number };
 
-  // FUNCIÓN DE SEGURIDAD ABSOLUTA
-  const f = (val: any, d: number = 2) => {
-    const n = parseFloat(val);
-    return isNaN(n) ? "0.00" : n.toFixed(d);
-  };
+/**
+ * Ósmosis con la ley de Boyle–van 't Hoff. La osmolaridad del citoplasma es la
+ * incógnita: el alumno la deduce del volumen que alcanza la célula en un medio
+ * que él prepara (Osm_int0 = Osm_ext · V_eq / V0) y luego prepara el medio isotónico.
+ * El volumen se integra aquí en local (requestAnimationFrame) y solo se escribe
+ * al store en eventos: hemólisis y cuando la célula se estabiliza.
+ */
+export default function PilotoTransporteCelular({ onValidate }: { onValidate?: () => void }) {
+  const transporte = useSimuladorStore((s) => s.transporte);
+  const setTransporte = useSimuladorStore((s) => s.setTransporte);
+  const generarSemillaB2 = useSimuladorStore((s) => s.generarSemillaB2);
+  const { concExt, glucosaExt, temperatura, concInt, tipoCelula, lisada } = transporte;
 
-  const concExt = transporte?.concExt ?? 0.3;
-  const glucosaExt = transporte?.glucosaExt ?? 0.0;
-  const temperatura = transporte?.temperatura ?? 25;
-  const concInt = transporte?.concInt ?? 0.3;
-  const tipoCelula = transporte?.tipoCelula ?? 'animal';
-  const volumen = transporte?.volumen ?? 100;
-  const history = transporte?.history ?? [];
-  const transporteStatus = transporte?.status ?? 'idle';
+  const [volumen, setVolumen] = useState(100);
+  const [tendencia, setTendencia] = useState<'gana' | 'pierde' | 'estable'>('estable');
+  const [lecturas, setLecturas] = useState<Lectura[]>([]);
+  const vRef = useRef(100);
+  const estableRef = useRef(0);
+  const escritoRef = useRef(true);
 
-  const osmExt = useMemo(() => (2 * (concExt || 0)) + (1 * (glucosaExt || 0)), [concExt, glucosaExt]);
-  const osmInt = useMemo(() => 2 * (concInt || 0.3), [concInt]);
-  const deltaOsm = useMemo(() => osmExt - osmInt, [osmExt, osmInt]);
-  
-  const isBurst = volumen > 180;
-  const isCritical = volumen > 160 || volumen < 70;
+  // Parámetros vivos para el bucle sin re-crearlo en cada render.
+  const paramsRef = useRef({ concExt, glucosaExt, temperatura, concInt, tipoCelula, lisada });
+  paramsRef.current = { concExt, glucosaExt, temperatura, concInt, tipoCelula, lisada };
 
-  const [feedback, setFeedback] = useState<{ msg: string, type: 'error' | 'success' } | null>(null);
-
-  const handleValidar = () => {
-    if (!store?.validarB2) return;
-    if (isBurst) {
-      setFeedback({ msg: "Muestra destruida por Citólisis. Reinicia.", type: 'error' });
-      setTimeout(() => setFeedback(null), 3000);
-      return;
-    }
-    const ok = store.validarB2();
-    if (ok) {
-      setFeedback({ msg: "¡Isotonía Detectada! Éxito.", type: 'success' });
-    } else {
-      setFeedback({ msg: deltaOsm > 0 ? "Hipertónico: Baja solutos." : "Hipotónico: Sube solutos.", type: 'error' });
-    }
-    setTimeout(() => setFeedback(null), 3000);
-  };
+  // Muestra nueva (nueva incógnita o cambio de tipo celular): vuelve al volumen inicial.
+  useEffect(() => {
+    vRef.current = 100; setVolumen(100); setLecturas([]); escritoRef.current = true;
+  }, [concInt, tipoCelula]);
 
   useEffect(() => {
-    if (!store?.tickTransporte) return;
-    const interval = setInterval(() => store.tickTransporte(0.1), 100);
-    return () => clearInterval(interval);
-  }, [store?.tickTransporte]);
+    let frame = 0, ultimo = performance.now(), ultimoPintado = 0;
+    const bucle = (ahora: number) => {
+      const dt = Math.min(0.1, (ahora - ultimo) / 1000);
+      ultimo = ahora;
+      const p = paramsRef.current;
+      if (!p.lisada) {
+        const osmExt = osmolaridadMedioB2(p.concExt, p.glucosaExt);
+        const osmInt0 = osmolaridadCitoplasmaB2(p.concInt);
+        const antes = vRef.current;
+        let v = antes;
+        for (let i = 0; i < 4; i++) v = pasoVolumenB2(v, p.tipoCelula, osmInt0, osmExt, p.temperatura, dt / 4);
+        vRef.current = v;
+        const dvdt = (v - antes) / Math.max(dt, 1e-3);
+        if (p.tipoCelula === 'animal' && v >= UMBRAL_LISIS_B2) {
+          setTransporte({ lisada: true, volumen: Math.round(v) });
+        } else if (Math.abs(dvdt) < 0.05) {
+          estableRef.current += dt;
+          if (estableRef.current > 0.8 && !escritoRef.current) {
+            escritoRef.current = true;
+            setTransporte({ volumen: Math.round(v * 10) / 10 });
+          }
+        } else {
+          estableRef.current = 0; escritoRef.current = false;
+        }
+        if (ahora - ultimoPintado > 100) {
+          ultimoPintado = ahora;
+          setVolumen(v);
+          setTendencia(Math.abs(dvdt) < 0.05 ? 'estable' : dvdt > 0 ? 'gana' : 'pierde');
+        }
+      }
+      frame = requestAnimationFrame(bucle);
+    };
+    frame = requestAnimationFrame(bucle);
+    return () => cancelAnimationFrame(frame);
+  }, [setTransporte]);
 
-  if (!transporte) return <div className="w-full h-full bg-[#020617] flex items-center justify-center text-white font-black uppercase tracking-widest">Cargando Núcleo de Simulación...</div>;
+  const anotar = () => setLecturas((l) => [...l, { nacl: concExt, glucosa: glucosaExt, v: Math.round(vRef.current * 10) / 10 }].slice(-6));
+  const nuevaMuestra = () => generarSemillaB2();
+
+  const estadoCelula = tipoCelula === 'animal'
+    ? (volumen > 130 ? 'Hinchada: riesgo de hemólisis' : volumen < 90 ? 'Crenada (arrugada)' : 'Forma normal')
+    : (volumen >= VMAX_VEGETAL_B2 - 1 ? 'Turgente: la pared frena la entrada de agua' : volumen < 90 ? 'Plasmolizada: la membrana se separa de la pared' : 'Flácida');
 
   return (
-    <div className={`w-full h-full bg-[#020617] font-['Outfit'] text-white overflow-hidden relative transition-all duration-700 ${isCritical ? 'bg-red-950/20' : ''}`}>
-      
+    <div className="w-full h-full bg-[#020617] font-['Outfit'] text-white overflow-hidden relative">
+
       <div className="absolute inset-0 z-0">
         <Transporte3DScene tipo={tipoCelula} volumen={volumen} concExt={concExt} />
       </div>
 
-      {/* HEADER */}
-      <div className="absolute top-10 left-10 z-40">
-         <div className="px-6 py-3 bg-blue-600/20 backdrop-blur-xl border border-blue-500/30 rounded-2xl inline-flex items-center gap-4">
-            <Fingerprint size={20} className="text-blue-400" />
-            <div>
-               <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">ID Muestra Desconocida</span>
-               <span className="text-sm font-black text-white italic">Incógnita: ??? M</span>
-            </div>
-         </div>
+      {/* MUESTRA */}
+      <div className="absolute top-8 left-8 z-40 flex flex-col gap-3 max-w-sm">
+        <div className="px-6 py-4 bg-blue-600/20 backdrop-blur-xl border border-blue-500/30 rounded-2xl flex items-center gap-4">
+          <Fingerprint size={20} className="text-blue-400" />
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">Muestra problema · {tipoCelula === 'animal' ? 'eritrocito' : 'célula de epidermis vegetal'}</span>
+            <span className="text-sm font-black text-white">Osmolaridad del citoplasma: desconocida</span>
+          </div>
+        </div>
+        <div className="px-6 py-4 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl text-[11px] text-slate-300 leading-relaxed">
+          <b className="text-cyan-300">Método.</b> Osm = i·M (NaCl: i = 2, glucosa: i = 1). Los solutos del citoplasma no salen: Osm<sub>int</sub>·V = constante. Cuando la célula deja de cambiar, Osm<sub>int</sub> = Osm<sub>ext</sub>.
+        </div>
       </div>
 
-      {/* DASHBOARD DERECHO */}
-      <div className="absolute top-10 right-10 z-40 w-[300px] flex flex-col gap-4 pointer-events-none">
-         <div className="px-8 py-6 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] pointer-events-auto shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-               <Microchip size={16} className="text-cyan-400" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Análisis Osmolar</span>
-            </div>
-            <div className="space-y-4">
-               <div className="flex justify-between items-end">
-                  <span className="text-[9px] font-black text-slate-500 uppercase">Osm. Exterior</span>
-                  <span className="text-xl font-black font-mono text-white">{f(osmExt)} <span className="text-[10px] text-cyan-500">Osm</span></span>
-               </div>
-               <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div animate={{ width: `${Math.min(100, (osmExt || 0) * 50)}%` }} className="h-full bg-cyan-500" />
-               </div>
-               <div className="flex justify-between text-[10px] font-black">
-                  <span className="text-slate-500 uppercase tracking-tighter">Gradiente ($\Delta$Osm)</span>
-                  <span className={deltaOsm > 0 ? 'text-rose-400' : 'text-cyan-400'}>{f(deltaOsm)}</span>
-               </div>
-            </div>
-         </div>
+      {/* LECTURAS */}
+      <div className="absolute top-8 right-8 z-40 w-[300px] flex flex-col gap-4">
+        <div className="px-7 py-6 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem]">
+          <div className="flex items-center gap-3 mb-3">
+            <Microchip size={16} className="text-cyan-400" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Volumen celular (V/V₀)</span>
+          </div>
+          <div className="text-4xl font-black font-mono">{volumen.toFixed(1)} <span className="text-base text-cyan-400">%</span></div>
+          <div className="text-[11px] font-bold mt-2 text-slate-300">
+            {tendencia === 'estable' ? 'Volumen estable' : tendencia === 'gana' ? 'La célula está ganando agua…' : 'La célula está perdiendo agua…'}
+          </div>
+          <div className="text-[11px] font-bold text-amber-300">{estadoCelula}</div>
+          <button onClick={anotar} className="mt-4 w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+            <NotebookPen size={14} /> Anotar lectura
+          </button>
+          {lecturas.length > 0 && (
+            <table className="w-full mt-3 text-[11px] font-mono">
+              <thead><tr className="text-slate-500"><th className="text-left">NaCl (M)</th><th className="text-left">Glu (M)</th><th className="text-right">V/V₀</th></tr></thead>
+              <tbody>{lecturas.map((l, i) => <tr key={i}><td>{l.nacl.toFixed(3)}</td><td>{l.glucosa.toFixed(2)}</td><td className="text-right">{l.v.toFixed(1)} %</td></tr>)}</tbody>
+            </table>
+          )}
+        </div>
 
-         <div className="px-8 py-6 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] pointer-events-auto shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-               <div className="flex items-center gap-3">
-                  <Thermometer size={16} className="text-orange-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Temperatura</span>
-               </div>
-               <span className="text-xl font-black font-mono text-orange-400">{f(temperatura, 0)}°C</span>
-            </div>
-            <input 
-              type="range" min="0" max="50" step="1" value={temperatura}
-              onChange={(e) => store.setTransporte && store.setTransporte({ temperatura: parseInt(e.target.value) })}
-              className="w-full h-1.5 bg-orange-950/50 rounded-full appearance-none cursor-pointer accent-orange-500"
-            />
-         </div>
+        <div className="px-7 py-5 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem]">
+          <div className="flex justify-between items-center mb-3">
+            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Thermometer size={16} className="text-orange-400" /> Temperatura</span>
+            <span className="text-xl font-black font-mono text-orange-400">{temperatura} °C</span>
+          </div>
+          <input type="range" min="5" max="40" step="1" value={temperatura}
+            onChange={(e) => setTransporte({ temperatura: parseInt(e.target.value, 10) })}
+            className="w-full h-1.5 bg-orange-950/50 rounded-full appearance-none cursor-pointer accent-orange-500" />
+          <p className="text-[10px] text-slate-500 mt-2">La temperatura cambia la RAPIDEZ de la ósmosis, no el volumen final.</p>
+        </div>
       </div>
 
-      {/* LISIS OVERLAY */}
+      {/* HEMÓLISIS */}
       <AnimatePresence>
-        {isBurst && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-10"
-          >
-             <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mb-6">
-                <AlertTriangle size={40} className="text-white" />
-             </div>
-             <h2 className="text-6xl font-black uppercase tracking-tighter mb-4 text-red-500">MUESTRA DESTRUIDA</h2>
-             <p className="text-xl text-slate-300 max-w-md mb-12">Fallo en la membrana por desequilibrio osmótico.</p>
-             <button onClick={() => store.generarSemillaB2 && store.generarSemillaB2()} className="px-12 py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-110 transition-all shadow-2xl">Nueva Muestra</button>
+        {lisada && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center text-center p-10">
+            <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mb-6"><AlertTriangle size={40} /></div>
+            <h2 className="text-5xl font-black uppercase tracking-tighter mb-4 text-red-500">Hemólisis</h2>
+            <p className="text-lg text-slate-300 max-w-md mb-10">El medio era tan hipotónico que la célula superó su volumen crítico y la membrana se rompió. Es irreversible.</p>
+            <button onClick={nuevaMuestra} className="px-12 py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-105 transition-all">Nueva muestra</button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* DOCK INFERIOR */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-full max-w-6xl px-8 pointer-events-auto">
-         <div className="bg-black/80 backdrop-blur-3xl border-2 border-white/20 rounded-[3rem] p-10 flex items-center gap-12 shadow-2xl relative">
-            
-            <AnimatePresence>
-               {feedback && (
-                 <motion.div 
-                    initial={{ y: 20, opacity: 0 }} animate={{ y: -70, opacity: 1 }} exit={{ opacity: 0 }}
-                    className={`absolute left-0 right-0 mx-auto w-fit px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl ${feedback.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-500 text-black'}`}
-                 >
-                    {feedback.msg}
-                 </motion.div>
-               )}
-            </AnimatePresence>
-
-            <div className="flex flex-col gap-4 shrink-0">
-               <div className="flex bg-white/10 rounded-2xl p-1.5 border border-white/10">
-                  {['animal', 'vegetal'].map(t => (
-                    <button 
-                      key={t}
-                      onClick={() => store.setTransporte && store.setTransporte({ tipoCelula: t as any, volumen: 100, history: [] })}
-                      className={`px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tipoCelula === t ? 'bg-white text-black shadow-xl' : 'text-slate-500 hover:text-white'}`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-               </div>
-               <button onClick={() => store.generarSemillaB2 && store.generarSemillaB2()} className="py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all">Nueva Incógnita</button>
+      {/* CONTROLES */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-6xl px-8">
+        <div className="bg-black/80 backdrop-blur-3xl border-2 border-white/20 rounded-[3rem] p-8 flex items-center gap-10">
+          <div className="flex flex-col gap-3 shrink-0">
+            <div className="flex bg-white/10 rounded-2xl p-1.5 border border-white/10">
+              {(['animal', 'vegetal'] as const).map((t) => (
+                <button key={t} onClick={() => setTransporte({ tipoCelula: t, volumen: 100, lisada: false })}
+                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tipoCelula === t ? 'bg-white text-black' : 'text-slate-400 hover:text-white'}`}>
+                  {t}
+                </button>
+              ))}
             </div>
-
-            <div className="w-px h-24 bg-white/10" />
-
-            <div className="flex-1 grid grid-cols-2 gap-10">
-               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                     <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">NaCl Inyector ($i=2$)</span>
-                     <span className="text-xl font-black font-mono">{f(concExt)} M</span>
-                  </div>
-                  <input 
-                    type="range" min="0.01" max="1.0" step="0.01" value={concExt}
-                    onChange={(e) => store.setTransporte && store.setTransporte({ concExt: parseFloat(e.target.value) })}
-                    className="w-full h-3 bg-blue-900/50 rounded-full appearance-none cursor-pointer accent-blue-400"
-                  />
-               </div>
-               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                     <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">Glucosa Inyector ($i=1$)</span>
-                     <span className="text-xl font-black font-mono">{f(glucosaExt)} M</span>
-                  </div>
-                  <input 
-                    type="range" min="0.0" max="1.0" step="0.01" value={glucosaExt}
-                    onChange={(e) => store.setTransporte && store.setTransporte({ glucosaExt: parseFloat(e.target.value) })}
-                    className="w-full h-3 bg-yellow-900/50 rounded-full appearance-none cursor-pointer accent-yellow-500"
-                  />
-               </div>
-            </div>
-
-            <button onClick={handleValidar} className="px-10 py-6 bg-emerald-500 text-black font-black text-xs uppercase tracking-widest rounded-3xl hover:scale-105 transition-all shadow-2xl flex items-center gap-3">
-               <CheckCircle2 size={18} /> Validar Punto
+            <button onClick={nuevaMuestra} className="py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 flex items-center justify-center gap-2">
+              <RotateCcw size={14} /> Nueva incógnita
             </button>
-         </div>
-      </div>
+          </div>
 
-      <AnimatePresence>
-        {transporteStatus === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
-              <CheckCircle2 size={100} className="text-emerald-500 mx-auto mb-8" />
-              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Isotonía Certificada</h3>
-              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has equilibrado correctamente la concentración osmótica de la muestra celular. Los parámetros de transporte han sido validados y registrados.</p>
-              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Finalizar Análisis Celular</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div className="w-px h-24 bg-white/10" />
+
+          <div className="flex-1 grid grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">NaCl en el medio</span>
+                <span className="text-xl font-black font-mono">{concExt.toFixed(3)} M</span>
+              </div>
+              <input type="range" min="0" max="0.4" step="0.005" value={concExt}
+                onChange={(e) => setTransporte({ concExt: parseFloat(e.target.value) })}
+                className="w-full h-3 bg-blue-900/50 rounded-full appearance-none cursor-pointer accent-blue-400" />
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">Glucosa en el medio</span>
+                <span className="text-xl font-black font-mono">{glucosaExt.toFixed(2)} M</span>
+              </div>
+              <input type="range" min="0" max="0.4" step="0.01" value={glucosaExt}
+                onChange={(e) => setTransporte({ glucosaExt: parseFloat(e.target.value) })}
+                className="w-full h-3 bg-yellow-900/50 rounded-full appearance-none cursor-pointer accent-yellow-500" />
+            </div>
+          </div>
+
+          <button onClick={() => onValidate?.()} className="px-8 py-5 bg-emerald-500 text-black font-black text-xs uppercase tracking-widest rounded-3xl hover:scale-105 transition-all flex items-center gap-3">
+            <CheckCircle2 size={18} /> Validar medio isotónico
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

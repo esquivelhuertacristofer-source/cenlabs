@@ -1,22 +1,22 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Ingeniería: Suspensión Rover (Ley Hooke)", mision: "¡Protocolo de Estabilidad de Chasis Activo! Tu misión como ingeniero de sistemas de aterrizaje es calibrar con precisión milimétrica la rigidez del amortiguador principal para la próxima misión exploratoria. Utilizando la Ley de Hooke, deberás someter el pistón telescópico a cargas estáticas variables, registrar la telemetría láser de compresión y determinar la constante elástica (k) del ensamble. El éxito de la misión depende de tu capacidad para predecir la respuesta mecánica del sistema y asegurar que la energía potencial elástica almacenada no exceda los límites de fatiga del material. ¡Asegura el aterrizaje y domina la elasticidad industrial!", ecuacion: "F = -k·x", formulaGfx: "Ep = ½·k·x²",
+    titulo: "Ingeniería: Rigidez de un Resorte (Ley de Hooke)", mision: "¡Protocolo de calibración de suspensión! Antes de montar el resorte en el tren de aterrizaje hay que conocer su constante elástica k. La medirás por dos caminos independientes: colgando cargas y leyendo la elongación en reposo (F = k·x), y haciendo oscilar la carga para cronometrar su periodo (T = 2π√(m/k)). Si ambos métodos coinciden, el resorte queda certificado.", ecuacion: "F = -k·x", formulaGfx: "Ep = ½·k·x²",
     pasos: [
-      { id: 1, text: "Aplica masa de prueba sobre el pistón telescópico.", icon: "box" },
-      { id: 2, text: "Lee la telemetría láser de compresión estática (x).", icon: "target" },
-      { id: 3, text: "Registra la elongación en la matriz de análisis.", icon: "activity" },
-      { id: 4, text: "Calcula la rigidez (k) del ensamble mecánico.", icon: "zap" }
+      { id: 1, text: "Cuelga una carga de prueba y espera a que quede en reposo.", icon: "box" },
+      { id: 2, text: "Lee la elongación x en la regla; repite con otra carga.", icon: "target" },
+      { id: 3, text: "Suelta la carga desde una amplitud A y cronometra 10 oscilaciones.", icon: "activity" },
+      { id: 4, text: "Calcula k por los dos métodos y comprueba que coinciden.", icon: "zap" }
     ],
     guiaMaestro: {
-      objetivo: "Analizar la respuesta elástica de un sistema de suspensión sometido a carga estática.",
-      friccion: "No relacionar correctamente la compresión (x) con la fuerza aplicada por la gravedad sobre la masa.",
+      objetivo: "Determinar la constante elástica de un resorte por el método estático y por el dinámico.",
+      friccion: "No relacionar la elongación (x) con el peso de la carga (m·g), o creer que el periodo depende de la amplitud.",
       puntosClave: ["Rigidez Mecánica (k): Capacidad de absorción del impacto.", "Límite Elástico: Riesgo de falla catastrófica del chasis.", "Amortiguación: Disipación de energía cinética al tocar la superficie."]
     },
     conceptos: [
-      { titulo: "Constante de Rigidez", desc: "Resistencia del pistón a la deformación axial." },
-      { titulo: "Compresión", desc: "Reducción de longitud respecto a su estado libre." },
-      { titulo: "Energía Potencial", desc: "Energía almacenada en el amortiguador lista para disiparse." }
+      { titulo: "Constante de Rigidez", desc: "Fuerza por unidad de deformación del resorte (N/m)." },
+      { titulo: "Elongación", desc: "Aumento de longitud respecto a su estado libre." },
+      { titulo: "Energía Potencial", desc: "Energía almacenada en el resorte deformado: ½·k·x²." }
     ]
   };
 

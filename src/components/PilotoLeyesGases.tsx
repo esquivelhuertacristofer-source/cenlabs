@@ -8,10 +8,10 @@ import {
   RefreshCcw, CheckCircle2, Flame, Info, 
   Wind, Activity, Zap, Beaker, ChevronRight,
   TrendingUp, Scaling, Atom, Rocket, MousePointer2,
-  Clock, Binary, Droplets, Target
+  Clock, Droplets, Target
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { audio } from '@/utils/audioEngine';
+import { validarQ2 } from '@/domain/quimica';
 import dynamic from 'next/dynamic';
 
 const Gas3DScene = dynamic(() => import('./simuladores/qmi02/Gas3DScene'), {
@@ -25,13 +25,9 @@ const Gas3DScene = dynamic(() => import('./simuladores/qmi02/Gas3DScene'), {
 });
 
 export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValidate }: { isWorktableDark: boolean, isProfesor: boolean, onValidate?: () => void }) {
-  const router = useRouter();
   const updateGases = useSimuladorStore(state => state.updateGases);
   const resetGases = useSimuladorStore(state => state.resetGases);
-  const generarSemillaGases = useSimuladorStore(state => state.generarSemillaGases);
-  const stopTimer = useSimuladorStore(state => state.stopTimer);
-  const pasoActual = useSimuladorStore(state => state.pasoActual);
-  const setPasoActual = useSimuladorStore(state => state.setPasoActual);
+  const validarQ2Store = useSimuladorStore(state => state.validarQ2);
 
   // Selectores atómicos para el estado de los gases
   const T = useSimuladorStore(state => state.gases.T || 300);
@@ -44,11 +40,11 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
   const gasStatus = useSimuladorStore(state => state.gases.status ?? 'idle');
 
   const [mounted, setMounted] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    generarSemillaGases();
-  }, []);
+  // La semilla (presión objetivo) la pone `entrarLab('quimica-2')` antes de montar el panel.
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { setAviso(null); }, [T, V, n]);
 
   // Efecto para Audio de Error (Explosión)
   useEffect(() => {
@@ -58,25 +54,17 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
     }
   }, [isExploded]);
 
+  // Un solo juez: el validador de la práctica. Sin `onValidate` (uso aislado) se
+  // valida en el store y se avisa con la misma regla de dominio.
   const handleValidar = () => {
-    const state = useSimuladorStore.getState();
-    const isOk = state.validarQ2();
-
-    if (isOk) {
-      state.registrarHallazgo('qui_gases', { T, V, P, n, pTarget });
-      if (onValidate) {
-        onValidate();
-      } else {
-        audio.playSuccess();
-        stopTimer();
-        setPasoActual(5);
-      }
-    } else {
+    if (onValidate) { onValidate(); return; }
+    if (validarQ2Store()) audio.playSuccess();
+    else {
       audio.playError();
-      const diff = Math.abs(P - pTarget);
-      alert(`Aún no alcanzas el objetivo. Diferencia: ${diff.toFixed(3)} atm.`);
+      setAviso('La presión aún no coincide con el objetivo (±0.1 atm).');
     }
   };
+  const enObjetivo = validarQ2({ P, pTarget, isExploded } as any);
 
   if (!mounted) return null;
 
@@ -227,30 +215,18 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {gasStatus === 'success' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-sky-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(14,165,233,0.1)]">
-              <CheckCircle2 size={100} className="text-sky-500 mx-auto mb-8" />
-              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Presión Certificada</h3>
-              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has alcanzado el objetivo de presión aplicando correctamente la Ley del Gas Ideal. Los datos han sido registrados en tu bitácora científica.</p>
-              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-sky-600 hover:bg-sky-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-sky-600/30">Cerrar Cámara de Presión</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
+      {(gasStatus === 'success' || enObjetivo || aviso) && !isExploded && (
+        <div className={`absolute top-32 left-1/2 -translate-x-1/2 z-30 pointer-events-none rounded-full px-5 py-2 flex items-center gap-2 shadow-xl border ${gasStatus === 'success' || enObjetivo ? 'bg-emerald-600/90 border-emerald-400/50' : 'bg-amber-600/90 border-amber-400/50'}`}>
+          <CheckCircle2 size={14} className="text-white" />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">
+            {gasStatus === 'success' ? 'Presión certificada' : enObjetivo ? 'Presión en el objetivo: valida la práctica' : aviso}
+          </span>
+        </div>
+      )}
 
       {/* 5. HERRAMIENTAS LATERALES */}
       <div className="absolute top-1/2 -translate-y-1/2 right-8 flex flex-col gap-4 z-20">
-        <ToolButton 
-          icon={<Binary size={18} />} 
-          label="Auto-Cal" 
-          onClick={() => {
-            const R = 0.08206;
-            const targetT = (pTarget * V) / (n * R);
-            updateGases(Math.round(targetT), V, n);
-          }}
-        />
         <ToolButton 
           icon={<Droplets size={18} />} 
           label="Tipo" 

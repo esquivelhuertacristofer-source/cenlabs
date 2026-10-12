@@ -7,15 +7,15 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 2, tipo: 'accion', pista: 'Camuflaje',
-      mensaje: 'Cambia el color del fondo. Las polillas que contrasten más serán cazadas primero. Inicia la simulación.',
+      mensaje: 'Fíjate en la corteza. Un ave caza lo que alcanza a ver: caza la cuota de esta generación.',
     },
     {
-      id: 3, tipo: 'accion', pista: 'Deriva Genética',
-      mensaje: 'Tras varias generaciones, observa cómo cambia la frecuencia de los colores en la población.',
+      id: 3, tipo: 'accion', pista: 'Generaciones',
+      mensaje: 'Pulsa «Siguiente generación»: las supervivientes se reproducen. Compara el % de oscuras y q de cada generación.',
     },
     {
       id: 4, tipo: 'verificar', pista: 'Validar Adaptación',
-      mensaje: 'Analiza los datos del gráfico de población y valida el proceso evolutivo.',
+      mensaje: 'Con al menos 3 generaciones registradas, valida el proceso evolutivo.',
       accion: 'Validar Selección',
     }
   ];

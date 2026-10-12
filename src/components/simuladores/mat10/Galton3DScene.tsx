@@ -4,7 +4,9 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, RoundedBox, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { pmfBinomialM10 } from '@/domain/matematicas';
 
 interface Galton3DSceneProps {
   probabilidad: number;
@@ -31,8 +33,10 @@ function BallSystem({ probabilidad }: {
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const { galton10, contarBolitaM10, setGalton10 } = useSimuladorStore();
-  const { bolitasPendientes } = galton10;
+  const { bolitasPendientes, contenedores, contarBolitaM10, setGalton10 } = useSimuladorStore(useShallow((s) => ({
+    bolitasPendientes: s.galton10.bolitasPendientes, contenedores: s.galton10.contenedores,
+    contarBolitaM10: s.contarBolitaM10, setGalton10: s.setGalton10,
+  })));
 
   // Ball pool — all refs, never triggers re-render
   const pool = useRef({
@@ -55,17 +59,18 @@ function BallSystem({ probabilidad }: {
     }
   }, [bolitasPendientes, setGalton10]);
 
-  // Handle reset
+  // Vaciado: `vaciarGaltonM10`, `setProbabilidadM10` y los reinicios crean un
+  // arreglo de contenedores NUEVO y vacío. Sólo entonces se descarta la cola y
+  // las bolitas en vuelo (lanzar no cambia la referencia de `contenedores`, así
+  // que no borra lo que se acaba de pedir).
   useEffect(() => {
-    const total = galton10.contenedores.reduce((a, b) => a + b, 0);
-    if (total === 0 && bolitasPendientes === 0) {
-      pendingToSpawn.current = 0;
-      const p = pool.current;
-      for (let i = 0; i < MAX_BALLS; i++) p.active[i] = 0;
-    }
-  }, [galton10.contenedores, bolitasPendientes]);
+    if (contenedores.some((c) => c > 0)) return;
+    pendingToSpawn.current = 0;
+    const p = pool.current;
+    for (let i = 0; i < MAX_BALLS; i++) p.active[i] = 0;
+  }, [contenedores]);
 
-  const spawnBall = useCallback(() => {
+  const spawnBall = useCallback((): boolean => {
     const p = pool.current;
     for (let i = 0; i < MAX_BALLS; i++) {
       if (!p.active[i]) {
@@ -75,9 +80,10 @@ function BallSystem({ probabilidad }: {
         p.bounces[i] = ROWS;
         p.active[i]  = 1;
         p.hue[i]     = 0.05 + Math.random() * 0.12;
-        return;
+        return true;
       }
     }
+    return false; // reserva llena: se reintenta en el siguiente turno
   }, []);
 
   useFrame((_, delta) => {
@@ -91,8 +97,7 @@ function BallSystem({ probabilidad }: {
     spawnTimer.current += delta;
     if (spawnTimer.current >= 0.1 && pendingToSpawn.current > 0) {
       spawnTimer.current = 0;
-      spawnBall();
-      pendingToSpawn.current--;
+      if (spawnBall()) pendingToSpawn.current--;
     }
 
     let visible = 0;
@@ -126,8 +131,9 @@ function BallSystem({ probabilidad }: {
       // Settle at bottom
       if (p.y[i] < -1.5 && p.bounces[i] <= 0) {
         p.active[i] = 0;
-        const totalW = COLS * PEG_SX;
-        const bi = Math.round((p.x[i] + totalW / 2) / PEG_SX);
+        // Tras 10 rebotes de ±PEG_SX/2, x = (D − 5)·PEG_SX con D = nº de
+        // desvíos a la derecha (0…10): el contenedor ES D = round(x/PEG_SX + 5).
+        const bi = Math.round(p.x[i] / PEG_SX + (COLS - 1) / 2);
         const finalBin = Math.max(0, Math.min(COLS - 1, bi));
         contarBolitaM10(finalBin);
         // Hide
@@ -159,24 +165,17 @@ function BallSystem({ probabilidad }: {
     }
   });
 
-  // Pre-fill color buffer so no ball is transparent on first frame
+  // Búfer de color creado una vez al montar (ninguna bolita sale transparente).
   useEffect(() => {
-    const iv = setInterval(() => {
-      if (!meshRef.current) return;
-      // Ensure instanceColor buffer exists
-      if (!meshRef.current.instanceColor) {
-        const colors = new Float32Array(MAX_BALLS * 3);
-        for (let i = 0; i < MAX_BALLS; i++) {
-          colorObj.setHSL(0.08, 0.85, 0.52);
-          colors[i*3]   = colorObj.r;
-          colors[i*3+1] = colorObj.g;
-          colors[i*3+2] = colorObj.b;
-        }
-        meshRef.current.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
-      }
-      clearInterval(iv);
-    }, 100);
-    return () => clearInterval(iv);
+    if (!meshRef.current || meshRef.current.instanceColor) return;
+    const colors = new Float32Array(MAX_BALLS * 3);
+    colorObj.setHSL(0.08, 0.85, 0.52);
+    for (let i = 0; i < MAX_BALLS; i++) {
+      colors[i*3]   = colorObj.r;
+      colors[i*3+1] = colorObj.g;
+      colors[i*3+2] = colorObj.b;
+    }
+    meshRef.current.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
   }, [colorObj]);
 
   return (
@@ -236,10 +235,12 @@ function Pegs() {
 /* ═══════════════════════════════════════════════════════════
    HISTOGRAM — Animated bars with smooth lerp
    ═══════════════════════════════════════════════════════════ */
+const HIST_MAX_H = 5.5;
+const HIST_BASE_Y = -3.2;
 function HistogramBars({ contenedores }: { contenedores: number[] }) {
   const maxC      = Math.max(1, ...contenedores);
-  const MAX_H     = 5.5;
-  const BASE_Y    = -3.2;
+  const MAX_H     = HIST_MAX_H;
+  const BASE_Y    = HIST_BASE_Y;
   const barsRef   = useRef<(THREE.Mesh | null)[]>([]);
   const heights   = useRef<number[]>(new Array(COLS).fill(0.02));
 
@@ -284,37 +285,63 @@ function HistogramBars({ contenedores }: { contenedores: number[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   GAUSSIAN CURVE — Pure Three.js, no React state
+   CURVA ESPERADA — N·f(k) de la normal N(np, np(1−p)) (De Moivre–Laplace),
+   en la MISMA escala que las barras (cuentas / máximo observado · MAX_H).
+   Un único búfer de 101 puntos que se reescribe sólo cuando cambian los datos.
    ═══════════════════════════════════════════════════════════ */
-function GaussianCurve({ total, probabilidad }: { total: number; probabilidad: number }) {
-  const lineRef = useRef<THREE.Line>(null!);
-  const prevTotal = useRef(-1);
+const PUNTOS_CURVA = 101;
+function GaussianCurve({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
+  const { geo, linea } = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(PUNTOS_CURVA * 3), 3));
+    const m = new THREE.LineBasicMaterial({ color: '#e11d48', transparent: true, opacity: 0.85 });
+    const l = new THREE.Line(g, m);
+    l.visible = false;
+    return { geo: g, linea: l };
+  }, []);
+  useEffect(() => () => { geo.dispose(); (linea.material as THREE.Material).dispose(); }, [geo, linea]);
 
-  useFrame(() => {
-    if (total < 10 || total === prevTotal.current || !lineRef.current) return;
-    prevTotal.current = total;
+  const total = contenedores.reduce((a, b) => a + b, 0);
+  const maxC = Math.max(1, ...contenedores);
+
+  useEffect(() => {
+    linea.visible = total >= 10;
+    if (total < 10) return;
     const mu     = ROWS * probabilidad;
     const sigma  = Math.sqrt(ROWS * probabilidad * (1 - probabilidad));
-    const maxH   = 5.5;
-    const BASE_Y = -3.2;
-    const pts: number[] = [];
-    for (let t = 0; t <= 100; t++) {
-      const xn = (t / 100) * COLS;
-      const g  = Math.exp(-0.5 * ((xn - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
-      const h  = g * total * PEG_SX * maxH * 0.85;
-      pts.push((xn - (COLS - 1) / 2) * PEG_SX, h + BASE_Y, 0.5);
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    for (let t = 0; t < PUNTOS_CURVA; t++) {
+      const k  = -0.5 + (t / (PUNTOS_CURVA - 1)) * COLS;      // contenedor continuo −0.5…10.5
+      const g  = Math.exp(-0.5 * ((k - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+      const h  = Math.min(HIST_MAX_H * 1.4, (total * g / maxC) * HIST_MAX_H);
+      pos.setXYZ(t, (k - (COLS - 1) / 2) * PEG_SX, h + HIST_BASE_Y, 0.5);
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    lineRef.current.geometry.dispose();
-    lineRef.current.geometry = geo;
-  });
+    pos.needsUpdate = true;
+    geo.computeBoundingSphere();
+  }, [total, maxC, probabilidad, geo, linea]);
 
   return (
-    <line ref={lineRef as any}>
-      <bufferGeometry />
-      <lineBasicMaterial color="#e11d48" transparent opacity={0.75} />
-    </line>
+    <primitive object={linea} />
+  );
+}
+
+/* Marca de lo esperado por contenedor (N·P(K = k)) para comparar con cada barra. */
+function EsperadoBinomial({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
+  const total = contenedores.reduce((a, b) => a + b, 0);
+  const maxC = Math.max(1, ...contenedores);
+  if (total < 10) return null;
+  return (
+    <group>
+      {Array.from({ length: COLS }, (_, k) => {
+        const h = Math.min(HIST_MAX_H * 1.4, (total * pmfBinomialM10(k, probabilidad) / maxC) * HIST_MAX_H);
+        return (
+          <mesh key={k} position={[(k - (COLS - 1) / 2) * PEG_SX, HIST_BASE_Y + h, 0.45]}>
+            <boxGeometry args={[PEG_SX * 0.86, 0.06, 0.06]} />
+            <meshBasicMaterial color="#0f172a" />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
@@ -356,7 +383,6 @@ function MachineFrame() {
    MAIN SCENE
    ═══════════════════════════════════════════════════════════ */
 export default function Galton3DScene({ probabilidad, contenedores }: Galton3DSceneProps) {
-  const total = useMemo(() => contenedores.reduce((a, b) => a + b, 0), [contenedores]);
 
   return (
     <div className="w-full h-full bg-[#f1f5f9]">
@@ -376,7 +402,8 @@ export default function Galton3DScene({ probabilidad, contenedores }: Galton3DSc
         <Pegs />
         <BallSystem probabilidad={probabilidad} />
         <HistogramBars contenedores={contenedores} />
-        <GaussianCurve total={total} probabilidad={probabilidad} />
+        <GaussianCurve contenedores={contenedores} probabilidad={probabilidad} />
+        <EsperadoBinomial contenedores={contenedores} probabilidad={probabilidad} />
 
         <ContactShadows position={[0, -3.9, 0]} opacity={0.2} scale={22} blur={2} far={8} />
 

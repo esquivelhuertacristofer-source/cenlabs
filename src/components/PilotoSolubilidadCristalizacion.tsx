@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
+import { solubilidadA, TABLAS_SOLUBILIDAD, type TablaSolubilidad } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 import {
   Flame, Snowflake, Layout,
@@ -12,9 +13,27 @@ import {
 } from 'lucide-react';
 import Solubilidad3DScene from './simuladores/qmi06/Solubilidad3DScene';
 
-export default function PilotoSolubilidadCristalizacion() {
-  const router = useRouter();
-  const { solubilidad, setUbicacionVaso, addSalSolubilidad, setSustanciaSolubilidad, updateTemperaturaP6, resetP6, validarP6 } = useSimuladorStore();
+type Sustancia = { id: string; nombre: string; formula: string; color: string; tabla: TablaSolubilidad; desc: string };
+
+// Respaldo por si el store aún no trae el catálogo (mismas tablas CRC del dominio).
+const SUSTANCIAS_RESPALDO: Sustancia[] = [
+  { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', tabla: TABLAS_SOLUBILIDAD.kno3, desc: 'Muy dependiente de la temperatura.' },
+  { id: 'nacl', nombre: 'Cloruro de Sodio', formula: 'NaCl', color: '#f8fafc', tabla: TABLAS_SOLUBILIDAD.nacl, desc: 'Curva casi plana.' },
+  { id: 'cuso4', nombre: 'Sulfato de Cobre (II)', formula: 'CuSO₄', color: '#3b82f6', tabla: TABLAS_SOLUBILIDAD.cuso4, desc: 'Cristaliza como pentahidrato azul.' },
+  { id: 'kclo3', nombre: 'Clorato de Potasio', formula: 'KClO₃', color: '#e2e8f0', tabla: TABLAS_SOLUBILIDAD.kclo3, desc: 'Muy poco soluble en frío.' },
+];
+
+// La temperatura avanza 4 veces por segundo con el tiempo real (dt en s); el
+// store no escribe si el cambio es despreciable.
+const PASO_TERMICO_MS = 250;
+
+export default function PilotoSolubilidadCristalizacion({ onValidate }: { onValidate?: () => void }) {
+  const { solubilidad, setUbicacionVaso, addSalSolubilidad, setSustanciaSolubilidad, updateTemperaturaP6, resetP6, validarP6 } =
+    useSimuladorStore(useShallow((s) => ({
+      solubilidad: s.solubilidad, setUbicacionVaso: s.setUbicacionVaso, addSalSolubilidad: s.addSalSolubilidad,
+      setSustanciaSolubilidad: s.setSustanciaSolubilidad, updateTemperaturaP6: s.updateTemperaturaP6,
+      resetP6: s.resetP6, validarP6: s.validarP6,
+    })));
   const [mounted, setMounted] = useState(false);
   const tempInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -23,28 +42,26 @@ export default function PilotoSolubilidadCristalizacion() {
   }, []);
 
   useEffect(() => {
-    if (tempInterval.current) clearInterval(tempInterval.current);
+    let ultimo = performance.now();
     tempInterval.current = setInterval(() => {
-      updateTemperaturaP6(0.5);
-    }, 100);
+      const ahora = performance.now();
+      updateTemperaturaP6(Math.min(1, (ahora - ultimo) / 1000));
+      ultimo = ahora;
+    }, PASO_TERMICO_MS);
     return () => { if (tempInterval.current) clearInterval(tempInterval.current); };
-  }, [solubilidad.ubicacion, updateTemperaturaP6]);
+  }, [updateTemperaturaP6]);
 
-  // Fallback substances to avoid crashes if store state hasn't updated yet
-  const sustanciasFallback = [
-    { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', a: 13.3, b: 0.02, desc: 'Alta dependencia térmica.' },
-    { id: 'nacl', nombre: 'Cloruro de Sodio', formula: 'NaCl', color: '#f8fafc', a: 35.7, b: 0.001, desc: 'Curva casi plana.' },
-    { id: 'cuso4', nombre: 'Sulfato de Cobre (II)', formula: 'CuSO₄', color: '#3b82f6', a: 14.3, b: 0.025, desc: 'Cristales azules vibrantes.' },
-    { id: 'kclo3', nombre: 'Clorato de Potasio', formula: 'KClO₃', color: '#e2e8f0', a: 3.3, b: 0.04, desc: 'Muy baja solubilidad en frío.' }
-  ];
-
-  const sustancias = solubilidad.sustancias || sustanciasFallback;
+  const sustancias: Sustancia[] = solubilidad.sustancias?.length ? solubilidad.sustancias : SUSTANCIAS_RESPALDO;
   const sIdx = (typeof solubilidad.sustanciaIdx === 'number') ? solubilidad.sustanciaIdx : 0;
   const sActual = sustancias[sIdx] || sustancias[0];
 
-  const limite = sActual.a * Math.exp(sActual.b * solubilidad.temp);
+  // Solubilidad tabulada (CRC) interpolada a la temperatura actual, g / 100 g de agua.
+  const limite = solubilidadA(sActual.tabla, solubilidad.temp);
   const salSolida = Math.max(0, solubilidad.salAgregada - limite);
   const saturationRatio = Math.min(1, solubilidad.salAgregada / (limite || 1));
+  const estadoQuimico = salSolida > 0.05
+    ? 'SATURADA + CRISTALES'
+    : solubilidad.salAgregada / (limite || 1) > 0.98 ? 'SATURADA' : 'INSATURADA';
 
   // Alerta de Cristalización Narrativa
   useEffect(() => {
@@ -136,7 +153,7 @@ export default function PilotoSolubilidadCristalizacion() {
             <div className="flex flex-col items-end">
               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Estado Químico</span>
               <div className={`px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-tighter ${salSolida > 0 ? 'bg-orange-500 text-black' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
-                {salSolida > 0 ? 'SOBRESATURADA' : (saturationRatio > 0.9 ? 'SATURADA' : 'INSATURADA')}
+                {estadoQuimico}
               </div>
             </div>
           </div>
@@ -169,7 +186,7 @@ export default function PilotoSolubilidadCristalizacion() {
             <div className="flex flex-col px-6 border-r border-white/10">
               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Selector de Reactivo</span>
               <div className="flex gap-2">
-                {sustancias.map((s: (typeof sustanciasFallback)[number], i: number) => (
+                {sustancias.map((s, i) => (
                   <button
                     key={s.id}
                     onClick={() => { setSustanciaSolubilidad(i); audio.playPop(); }}
@@ -183,19 +200,27 @@ export default function PilotoSolubilidadCristalizacion() {
             </div>
 
             <div className="flex gap-3 p-1">
-              <button
-                onClick={() => { addSalSolubilidad(20); audio.playPop(); }}
-                disabled={solubilidad.salAgregada >= 200}
-                className="group relative flex items-center gap-4 px-10 py-6 bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-2xl shadow-orange-500/30 overflow-hidden"
-              >
-                <span>Añadir 20g</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Añadir sal</span>
+                <div className="flex gap-1.5">
+                  {[1, 5, 20].map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => { addSalSolubilidad(g); audio.playPop(); }}
+                      disabled={solubilidad.salAgregada + g > 300}
+                      className="flex items-center gap-1 px-4 py-4 bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-orange-500/30"
+                    >
+                      +{g} g {g === 20 && <ArrowRight className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <button
                 onClick={() => {
-                  const ok = validarP6();
-                  if (ok) { audio.playSuccess(); } else { audio.playError(); }
+                  // Un solo juez: el validador de la práctica (quiz + modal comunes).
+                  if (onValidate) { onValidate(); return; }
+                  if (validarP6()) audio.playSuccess(); else audio.playError();
                 }}
                 className="px-8 py-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-2xl shadow-cyan-600/30"
               >
@@ -233,13 +258,17 @@ export default function PilotoSolubilidadCristalizacion() {
                 />
               </div>
 
-              <p className="mt-3 text-[9px] text-slate-500 leading-tight italic font-bold">{sActual.desc}</p>
+              <p className="mt-3 text-[9px] text-slate-400 leading-tight italic font-bold">{sActual.desc} Solubilidad a {solubilidad.temp.toFixed(0)} °C según tablas CRC, por 100 g de agua.</p>
+              <div className={`mt-3 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${solubilidad.disueltoEnCaliente ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {solubilidad.disueltoEnCaliente ? 'Disolución en caliente lograda' : 'Aún sin disolución en caliente'}
+              </div>
             </div>
 
             <div className="flex gap-3">
               <div className="px-6 py-3 bg-white/5 backdrop-blur-2xl rounded-full border border-white/10 flex items-center gap-3 shadow-xl">
                 <Waves className="w-4 h-4 text-cyan-400" />
-                <span className="text-[9px] font-black text-white/80 uppercase tracking-widest italic">H₂O Pura: 100mL</span>
+                <span className="text-[9px] font-black text-white/80 uppercase tracking-widest italic">H₂O Pura: 100 g</span>
               </div>
               <div className="px-6 py-3 bg-white/5 backdrop-blur-2xl rounded-full border border-white/10 flex items-center gap-3 shadow-xl">
                 <Gauge className="w-4 h-4 text-slate-400" />
@@ -250,24 +279,11 @@ export default function PilotoSolubilidadCristalizacion() {
         </div>
       </main>
 
+      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
       {solubilidad.status === 'success' && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#071a10] border border-emerald-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(16,185,129,0.2)]"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-              <CheckCircle2 size={36} className="text-emerald-400" />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Cristalización Exitosa!</h2>
-            <p className="text-sm text-slate-300 mb-8">Lograste la sobresaturación en condiciones de enfriamiento. Los cristales precipitan correctamente.</p>
-            <button onClick={resetP6} className="px-10 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Nuevo Experimento
-            </button>
-            <button onClick={() => router.push('/hub')} className="w-full mt-3 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-              Cerrar Laboratorio
-            </button>
-          </motion.div>
+        <div className="absolute top-44 left-1/2 -translate-x-1/2 z-30 pointer-events-none bg-emerald-600/90 border border-emerald-400/50 rounded-full px-5 py-2 flex items-center gap-2 shadow-xl">
+          <CheckCircle2 size={14} className="text-white" />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">Cristalización por enfriamiento lograda</span>
         </div>
       )}
 

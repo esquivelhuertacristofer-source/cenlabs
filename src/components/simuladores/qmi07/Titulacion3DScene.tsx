@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
+import React, { useRef, useMemo, useEffect, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
@@ -28,11 +28,15 @@ import * as THREE from 'three';
      volumenBase        — mL de titulante añadido (titulacion.volumenBase)
      ph                 — pH actual (último history)
      indicador          — fenolftaleína presente
-     equivalenceVolume  — Veq = ca·va/cb  (mL en el punto de equivalencia)
+     (sin volumen de equivalencia: la escena no puede delatar el punto final;
+      el matraz y la bureta se escalan con la capacidad fija de 50 mL)
      flowRate           — 0..1 apertura de la válvula (activa el goteo)
      history            — [{vol, ph}] para la curva flotante
 ──────────────────────────────────────────────────────────────────────────── */
 
+const CAPACIDAD_BURETA = 50;   // mL
+const VOLUMEN_ANALITO = 25;    // mL de HCl en el matraz
+const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
 const CLEAR = new THREE.Color('#dff2ff');   // disolución incolora (pre-viraje)
 const PINK = new THREE.Color('#ec4899');    // rosa fenolftaleína (viraje)
 const TITRANT = new THREE.Color('#7dd3fc'); // titulante en la bureta
@@ -314,12 +318,12 @@ function Stand() {
 }
 
 /* ── Curva de titulación pH vs volumen flotando en 3D ───────────────────────── */
-function TitrationCurve({ history, equivalenceVolume, ph }: {
-  history: { vol: number; ph: number }[]; equivalenceVolume: number; ph: number;
+function TitrationCurve({ history, ph }: {
+  history: { vol: number; ph: number }[]; ph: number;
 }) {
   const W = 4.2;
   const H = 3.0;
-  const maxVol = Math.max(equivalenceVolume * 1.8, 5);
+  const maxVol = CAPACIDAD_BURETA; // eje fijo: no se reescala alrededor de la equivalencia
 
   const points = useMemo(() => {
     if (history.length < 2) return null;
@@ -335,8 +339,10 @@ function TitrationCurve({ history, equivalenceVolume, ph }: {
     if (!points) return null;
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [points]);
-
-  const eqX = THREE.MathUtils.clamp(equivalenceVolume / maxVol, 0, 1) * W - W / 2;
+  useEffect(() => () => { geom?.dispose(); }, [geom]);
+  const lineMat = useMemo(() => new THREE.LineBasicMaterial({ color: '#38bdf8', linewidth: 2 }), []);
+  useEffect(() => () => lineMat.dispose(), [lineMat]);
+  const line = useMemo(() => (geom ? new THREE.Line(geom, lineMat) : null), [geom, lineMat]);
 
   return (
     <group position={[6.5, 1.5, -1]} rotation={[0, -0.5, 0]}>
@@ -354,26 +360,16 @@ function TitrationCurve({ history, equivalenceVolume, ph }: {
         <boxGeometry args={[W, 0.02, 0.02]} />
         <meshBasicMaterial color="#475569" />
       </mesh>
-      {/* Línea de equivalencia */}
-      <mesh position={[eqX, 0, 0]}>
-        <boxGeometry args={[0.015, H, 0.015]} />
-        <meshBasicMaterial color="#ec4899" transparent opacity={0.6} />
-      </mesh>
       {/* Curva */}
-      {geom && (
-        <primitive object={new THREE.Line(
-          geom,
-          new THREE.LineBasicMaterial({ color: '#38bdf8', linewidth: 2 }),
-        )} />
-      )}
+      {line && <primitive object={line} />}
       <Html center position={[0, H / 2 + 0.35, 0]} distanceFactor={12}>
         <div className="text-[10px] font-black text-sky-300 uppercase tracking-widest whitespace-nowrap select-none pointer-events-none">
           Curva de Valoración
         </div>
       </Html>
-      <Html center position={[eqX, -H / 2 - 0.3, 0]} distanceFactor={12}>
-        <div className="text-[9px] font-black text-pink-400 uppercase tracking-widest whitespace-nowrap select-none pointer-events-none">
-          V. equiv. {equivalenceVolume.toFixed(1)} mL
+      <Html center position={[0, -H / 2 - 0.3, 0]} distanceFactor={12}>
+        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap select-none pointer-events-none">
+          0 — {CAPACIDAD_BURETA} mL de NaOH
         </div>
       </Html>
       <Html center position={[-W / 2 - 0.5, 0, 0]} distanceFactor={12}>
@@ -384,22 +380,20 @@ function TitrationCurve({ history, equivalenceVolume, ph }: {
 }
 
 /* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, history }: {
-  volumenBase: number; ph: number; indicador: boolean; equivalenceVolume: number; flowRate: number;
+function Scene({ volumenBase, ph, indicador, flowRate, history }: {
+  volumenBase: number; ph: number; indicador: boolean; flowRate: number;
   history: { vol: number; ph: number }[];
 }) {
   const solColor = useMemo(() => new THREE.Color(), []);
   const opacity = solutionColor(ph, indicador, solColor);
 
-  // Nivel del matraz: crece con el volumen añadido (normalizado)
-  const fill = THREE.MathUtils.clamp(volumenBase / Math.max(equivalenceVolume * 1.6, 8), 0, 1);
-  // Nivel de la bureta: baja conforme se añade titulante
-  const buretteLevel = THREE.MathUtils.clamp(1 - volumenBase / Math.max(equivalenceVolume * 2, 12), 0.05, 1);
+  // Matraz: 25 mL de HCl más lo añadido, sobre un máximo de 25 + 50 mL.
+  const fill = THREE.MathUtils.clamp((VOLUMEN_ANALITO + volumenBase) / (VOLUMEN_ANALITO + CAPACIDAD_BURETA), 0, 1);
+  // Bureta de 50 mL: baja en proporción a lo vertido.
+  const buretteLevel = THREE.MathUtils.clamp(1 - volumenBase / CAPACIDAD_BURETA, 0.02, 1);
 
   const surfaceY = FLASK_BASE_Y + 0.2 + fill * 2.4;
 
-  // intensidad de agitación / brillo cerca del viraje
-  const nearEq = 1 - THREE.MathUtils.clamp(Math.abs(volumenBase - equivalenceVolume) / (equivalenceVolume * 0.4 + 1), 0, 1);
   const active = flowRate > 0.03;
 
   // Gotas activas proporcionales al caudal
@@ -418,7 +412,7 @@ function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, histor
       <ambientLight intensity={0.4} />
       <hemisphereLight args={['#1e3a8a', '#020617', 0.5]} />
       <directionalLight position={[5, 10, 6]} intensity={1.1} color="#e0f2fe" />
-      <pointLight position={[0, surfaceY + 0.5, 3]} color={indicador ? '#ec4899' : '#7dd3fc'} intensity={2 + nearEq * 6} distance={12} />
+      <pointLight position={[0, surfaceY + 0.5, 3]} color={indicador ? '#ec4899' : '#7dd3fc'} intensity={3} distance={12} />
 
       <Stand />
       <Burette level={buretteLevel} flowRate={flowRate} />
@@ -429,7 +423,7 @@ function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, histor
           color={solColor}
           opacity={opacity}
           indicador={indicador}
-          intensity={0.3 + nearEq * 0.8}
+          intensity={0.6}
         />
       </Float>
 
@@ -439,7 +433,7 @@ function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, histor
       ))}
 
       {/* Curva flotante */}
-      <TitrationCurve history={history} equivalenceVolume={equivalenceVolume} ph={ph} />
+      <TitrationCurve history={history} ph={ph} />
 
       <ContactShadows position={[0, FLASK_BASE_Y - 0.75, 0]} opacity={0.5} scale={16} blur={2.4} far={8} color="#020617" />
       <Sparkles count={70} scale={[16, 12, 16]} size={2} speed={0.25} color={indicador && ph > 8.2 ? '#f9a8d4' : '#93c5fd'} opacity={0.4} />
@@ -459,7 +453,7 @@ function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, histor
 
       <EffectComposer multisampling={8}>
         <Bloom luminanceThreshold={0.2} mipmapBlur intensity={1.4} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0006, 0.0006)} radialModulation={false} modulationOffset={0} />
+        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.2} darkness={1.05} />
       </EffectComposer>
     </>
@@ -470,14 +464,12 @@ export default function Titulacion3DScene({
   volumenBase,
   ph,
   indicador,
-  equivalenceVolume,
   flowRate,
   history,
 }: {
   volumenBase: number;
   ph: number;
   indicador: boolean;
-  equivalenceVolume: number;
   flowRate: number;
   history: { vol: number; ph: number }[];
 }) {
@@ -489,7 +481,6 @@ export default function Titulacion3DScene({
             volumenBase={volumenBase}
             ph={ph}
             indicador={indicador}
-            equivalenceVolume={equivalenceVolume}
             flowRate={flowRate}
             history={history}
           />

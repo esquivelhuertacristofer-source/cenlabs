@@ -12,7 +12,7 @@ interface Pitagoras3DSceneProps {
   escenario: 'pitagoras_basico' | 'diseno_rampas' | 'navegacion_maritima';
 }
 
-function FluidBox({ size, fillLevel, color, position, rotation }: { size: number, fillLevel: number, color: string, position: [number, number, number], rotation?: [number, number, number] }) {
+function FluidBox({ size, fillLevel, color, position, rotation, etiqueta }: { size: number, fillLevel: number, color: string, position: [number, number, number], rotation?: [number, number, number], etiqueta?: string }) {
   const safeSize = Math.max(0.1, size);
   const fillH = Math.max(0.001, safeSize * (fillLevel / 100));
 
@@ -50,7 +50,7 @@ function FluidBox({ size, fillLevel, color, position, rotation }: { size: number
       {/* Etiqueta */}
       <Html position={[0, 0, 0.8]} center>
         <div className="bg-black/90 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[10px] font-bold text-white shadow-lg">
-           {(safeSize * safeSize).toFixed(1)} u²
+           {etiqueta ?? `${(safeSize * safeSize).toFixed(1)} u²`}
         </div>
       </Html>
     </group>
@@ -146,6 +146,7 @@ function SceneLogic({ catetoA, catetoB, llenado, escenario }: Pitagoras3DScenePr
             0
           ]}
           rotation={[0, 0, angle]}
+          etiqueta="c² = ?"
         />
       </group>
 

@@ -42,14 +42,15 @@ function paintDisplay(ctx:CanvasRenderingContext2D,tex:THREE.CanvasTexture,
   for(let y=0;y<H;y+=4){ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(0,y,W,1);}
   ctx.font='bold 13px monospace'; ctx.textAlign='center';
   ctx.fillStyle='#164424'; ctx.fillText('ANALYTICAL BALANCE',W/2,20);
-  const inRange=!tara&&mReq>0&&Math.abs(polvo-mReq)/mReq<=0.05;
-  const col=tara?'#3a8a4a':inRange?'#20e860':'#00d4f0';
+  // Sin tara la balanza marca el vidrio de reloj (12.500 g); tarada, solo el polvo.
+  const inRange=tara&&mReq>0&&Math.abs(polvo-mReq)/mReq<=0.05;
+  const col=!tara?'#3a8a4a':inRange?'#20e860':'#00d4f0';
   ctx.save();
   ctx.font='bold 82px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.shadowBlur=12; ctx.shadowColor=col; ctx.fillStyle=col;
-  ctx.fillText((tara?'0.000':polvo.toFixed(3))+'  g',W/2,H/2+6);
+  ctx.fillText((tara?polvo.toFixed(3):'12.500')+'  g',W/2,H/2+6);
   ctx.restore();
-  if(mReq>0&&!tara){
+  if(mReq>0&&tara&&polvo>0){
     const pct=Math.max(0,100-Math.abs(polvo-mReq)/mReq*100);
     const c2=pct>95?'#20e860':pct>70?'#f0c020':'#e04040';
     ctx.font='bold 15px monospace'; ctx.fillStyle=c2; ctx.shadowBlur=4; ctx.shadowColor=c2;
@@ -326,7 +327,9 @@ export default function Soluciones3DScene(props:SceneProps){
         color:0xff3300,emissive:0xff2200,emissiveIntensity:2.0,
       })
     );
-    calibRing.position.y=13.5; flaskGrp.add(calibRing);
+    // A la altura del menisco al 100 % (NECK_START_Y + NECK_MAX_H del bucle): antes
+    // estaba en 13.5 y el líquido aforado quedaba 6 unidades por encima de la marca.
+    calibRing.position.y=18; flaskGrp.add(calibRing);
 
     // Volume graduation marks (thin white rings for detail)
     [12.0,11.0,10.0].forEach((y,i)=>{
@@ -433,8 +436,9 @@ export default function Soluciones3DScene(props:SceneProps){
     // ── ANIMATION LOOP ────────────────────────────────────────────────────────
     const BODY_MAX_H=9.4;
     const NECK_START_Y=13;
-    const NECK_MAX_H=6.5;
+    const NECK_MAX_H=5;   // 13 + 5 = 18 → la marca de aforo
 
+    const liqColor=new THREE.Color();
     const animate=()=>{
       const eng=engRef.current; if(!eng) return;
       eng.time+=0.016;
@@ -495,7 +499,7 @@ export default function Soluciones3DScene(props:SceneProps){
 
       // Liquid color
       if(p.matrazPolvo>0){
-        const lc=new THREE.Color(p.salColor);
+        const lc=liqColor.set(p.salColor);
         const setLiqColor=(m:THREE.Material)=>{
           const ms=m as THREE.MeshStandardMaterial;
           ms.color.set(lc); ms.emissive.set(lc); ms.emissiveIntensity=0.18;
@@ -572,18 +576,21 @@ export default function Soluciones3DScene(props:SceneProps){
     const eng=engRef.current; if(!eng) return;
     eng.cached={...props};
     paintDisplay(eng.dispCtx,eng.dispTex,props.polvo,props.tara,props.mRequerida??0);
+  },[props]);
+
+  // El encuadre cambia solo al cambiar de fase (o al llegar al cuello del matraz):
+  // re-apuntar en cada gota anulaba la órbita del alumno.
+  const cercaDeLaMarca=props.matrazAgua>props.vTarget*0.88;
+  useEffect(()=>{
+    const eng=engRef.current; if(!eng) return;
     switch(props.phase){
       case 'prelab':   controls_focus(eng,0,6,0); break;
       case 'weighing': controls_focus(eng,-6,8,0); break;
       case 'dissolving': controls_focus(eng,0,10,0); break;
       case 'aforo':
-        controls_focus(eng,
-          props.matrazAgua>props.vTarget*0.88?12:8,
-          props.matrazAgua>props.vTarget*0.88?14:8,
-          0
-        ); break;
+        controls_focus(eng, cercaDeLaMarca?12:8, cercaDeLaMarca?14:8, 0); break;
     }
-  },[props]);
+  },[props.phase,cercaDeLaMarca]);
 
   return <div ref={containerRef} className="w-full h-full outline-none"/>;
 }

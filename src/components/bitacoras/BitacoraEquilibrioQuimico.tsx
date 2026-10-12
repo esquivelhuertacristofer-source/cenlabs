@@ -8,13 +8,14 @@ import {
   Binary, Compass, Bot, Volume2, Shapes, FlaskConical, Microscope, Thermometer, TrendingUp
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { audio } from '@/utils/audioEngine';
 
 export default function BitacoraEquilibrioQuimico({ onValidate }: { onValidate?: () => void }) {
-  const { equilibrio, validarP8 } = useSimuladorStore();
+  const { equilibrio, validarP8 } = useSimuladorStore(useShallow((s) => ({ equilibrio: s.equilibrio, validarP8: s.validarP8 })));
   const [conclusionText, setConclusionText] = useState('');
 
-  const quantumMsg = "Observa el cambio de color en las jeringas. El gas incoloro es el dímero N2O4, mientras que el gas café es el monómero NO2. Según Le Châtelier, si la reacción es endotérmica, el aumento de temperatura desplazará el equilibrio hacia el color café.";
+  const quantumMsg = "Observa el color de cada jeringa cuando alcance la temperatura de su baño. El N2O4 es incoloro y el NO2 es café rojizo; la mezcla nunca es puramente una de las dos. Según Le Châtelier, como la reacción es endotérmica, al subir la temperatura aumenta la proporción de NO2.";
 
   const handleReset = () => {
     // El reset se maneja usualmente re-ubicando jeringas en el simulador
@@ -84,7 +85,7 @@ export default function BitacoraEquilibrioQuimico({ onValidate }: { onValidate?:
                      Estrés Térmico (-)
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? '✓ Formación de N₂O₄ (Incoloro)' : '... Sin Frío Extremo'}
+                     {equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? '✓ Jeringa en baño de hielo' : '... Sin Frío Extremo'}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${equilibrio.jeringas.some(j => j.ubicacion === 'hielo') ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />

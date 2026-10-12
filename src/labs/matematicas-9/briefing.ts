@@ -7,7 +7,7 @@ const briefing: BriefingConfig = {
     acento: '#8b5cf6',
     duracion: 40,
     videoUrl: 'https://youtu.be/ntOBoqrNb6E',
-    bienvenida: `¡Bienvenido al Taller de Integración Numérica! Soy el Dr. Quantum.\n\n¿Cómo medimos el área de algo que no tiene bordes rectos? Lo dividiremos en miles de pedazos diminutos.\n\nTu misión: Aproximar el área bajo la curva con error menor al 1%.`,
+    bienvenida: `¡Bienvenido al Taller de Integración Numérica! Soy el Dr. Quantum.\n\n¿Cómo medimos el área de algo que no tiene bordes rectos? Lo dividiremos en miles de pedazos diminutos.\n\nTu misión: aproximar el área bajo f(x) = 0.1x² + 1 en [0, 10] con el método que te asigne el reto y un error relativo menor a su tolerancia (2 % con extremos, 0.1 % con punto medio).`,
     conceptos: [
       { icono: '📊', nombre: 'Rectángulos', descripcion: 'Subdivisiones del área bajo la curva.' },
       { icono: '🔢', nombre: 'Resolución (n)', descripcion: 'Número de divisiones; a mayor n, mayor precisión.' },
@@ -15,11 +15,11 @@ const briefing: BriefingConfig = {
       { icono: '♾️', nombre: 'Integral', descripcion: 'El límite de la suma cuando n tiende a infinito.' }
     ],
     mision: [
-      'Define el rango de la función (a, b).',
+      'Lee el RETO: método asignado y tolerancia de error.',
       'Inicia con 4 rectángulos para ver el error visual.',
-      'Aumenta la resolución progresivamente.',
-      'Observa cómo el área "Suma" se acerca a la "Real".',
-      'Logra la precisión requerida para validar.'
+      'Selecciona el método del reto (izquierda, derecha o punto medio).',
+      'Aumenta n y observa cómo baja el error relativo.',
+      'Valida cuando el error quede bajo la tolerancia.'
     ],
     aplicaciones: [
       { area: 'Ingeniería', ejemplo: 'Cálculo de volúmenes de tanques irregulares.' },
