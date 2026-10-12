@@ -4,10 +4,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { useShallow } from 'zustand/react/shallow';
-import { Plus, Minus, Power, Activity, Target, Zap, FlaskConical, AlertTriangle, Volume2 } from 'lucide-react';
-import Image from 'next/image';
+import { Plus, Minus, Power, Activity, Target, AlertTriangle } from 'lucide-react';
 import { audio } from '@/utils/audioEngine';
 import Atomic3DScene from './simuladores/qmi01/Atomic3DScene';
+import LabLayout, { Lectura, BotonLab } from '@/components/simulador/LabLayout';
 import {
   assessNuclearStability,
   calcBindingEnergyPerNucleon,
@@ -63,13 +63,6 @@ function getElectronConfig(e: number): string {
   }
   return parts.join(' ');
 }
-
-const PARTICLE_PATHS = {
-  bg:       '/assets/art/fondos/atom_bg.webp',
-  proton:   '/assets/art/simuladores/proton.webp',
-  neutron:  '/assets/art/simuladores/neutron.webp',
-  electron: '/assets/art/simuladores/electron.webp',
-};
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 // El catálogo llega hasta el neón (Z = 10) y la configuración hasta 2p⁶: el store
@@ -180,245 +173,165 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
 
   if (!mounted) return null;
 
-  return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden font-sans bg-[#020205]">
-      {/* ── ATOMIC SCENE (3D ENGINE) — CUBRE TODO EL FONDO ── */}
+  const ionesDelObjetivo = ELEMENT_CATALOGUE.find((e) => e.z === tZ && e.a === tA)?.ions ?? [];
 
-      {/* ── ATOMIC SCENE (3D ENGINE) — CUBRE TODO EL FONDO ── */}
-      <div className="absolute inset-0 z-0">
-        <Atomic3DScene 
-          protons={protones}
-          neutrons={neutrones}
-          electrons={electrones}
-          instability={instabilityLevel}
-        />
+  // La escena (con su aviso de colapso) ocupa el área garantizada de LabLayout.
+  const escena = (
+    <div className="relative h-full w-full">
+      <Atomic3DScene protons={protones} neutrons={neutrones} electrons={electrones} instability={instabilityLevel} />
+      <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-3 rounded-lg bg-[#0f1a2b]/80 px-2.5 py-1.5 text-[11px] text-slate-200">
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#d6382d]" /> protón (+)</span>
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#3f6fc4]" /> neutrón</span>
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#f0bd22]" /> electrón (−)</span>
       </div>
-
-      {/* ── TOP HUD ── */}
-      <div className="absolute top-10 left-10 right-10 flex justify-between items-start z-20 pointer-events-none gap-4">
-        
-        {/* Overlay de Explosión */}
-        <AnimatePresence>
-          {isExploded && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-red-950/80 backdrop-blur-md pointer-events-auto"
-            >
-              <motion.div 
-                initial={{ scale: 0.8, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                className="text-center p-12 bg-black/60 rounded-[3rem] border-2 border-red-500 shadow-[0_0_100px_rgba(239,68,68,0.4)]"
+      <AnimatePresence>
+        {isExploded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center px-3"
+          >
+            <div className="pointer-events-auto max-w-sm rounded-2xl border border-red-400/50 bg-[#0f1a2b] p-3 text-center shadow-2xl">
+              <AlertTriangle className="mx-auto mb-1 h-6 w-6 text-red-400" />
+              <h2 className="text-base font-bold text-white">Núcleo desintegrado</h2>
+              <p className="mt-1 text-[13px] text-slate-300">La relación neutrones/protones es tan extrema que el núcleo no se sostiene y se desintegra.</p>
+              <button
+                onClick={handleReset}
+                className="mx-auto mt-2 flex items-center gap-2 rounded-lg bg-red-600 px-4 py-1.5 text-[12px] font-semibold text-white hover:bg-red-500"
               >
-                <AlertTriangle className="w-20 h-20 text-red-500 mx-auto mb-6 animate-pulse" />
-                <h2 className="text-5xl font-black text-white mb-2 uppercase tracking-tighter">Colapso Nuclear</h2>
-                <p className="text-red-300 text-lg mb-8 font-medium">La muestra ha alcanzado un estado crítico de inestabilidad y se ha desintegrado.</p>
-                <button 
-                  onClick={handleReset}
-                  className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-full transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center gap-3 mx-auto uppercase tracking-widest"
-                >
-                  <Power className="w-5 h-5" />
-                  Reiniciar Muestra
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Left: Z-Index card + element name */}
-        <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex gap-4 pointer-events-auto">
-          <div className="w-24 h-24 bg-black/50 backdrop-blur-3xl rounded-[2rem] border border-white/10 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden">
-            <span className="text-[9px] font-black text-[#219EBC] absolute top-2 tracking-widest uppercase">Z = {currentP}</span>
-            <span className="text-4xl font-black text-white">{masaAtomica > 0 ? masaAtomica : '--'}</span>
-            <span className="text-[8px] text-slate-400 absolute bottom-2">masa (u)</span>
-            <div className="absolute bottom-0 inset-x-0 h-1 rounded-full" style={{ background: nucleusColor, width: `${Math.min(100, (currentP / 10) * 100)}%`, opacity: 0.6 }} />
-          </div>
-
-          <div className="flex flex-col justify-center gap-2">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none drop-shadow-lg">{currentEl.name}</h2>
-            {/* IUPAC Notation */}
-            <div className="font-mono text-lg font-black tracking-widest text-[#8ECAE6] drop-shadow">{iupacCurrent}</div>
-            <div className="flex items-center gap-2">
-              <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cargaNeta === 0 ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-orange-500/20 text-orange-400 border-orange-500/30'}`}>
-                {cargaNeta === 0 ? 'NEUTRO' : `IÓN ${cargaNeta > 0 ? '+' : ''}${cargaNeta}`}
-              </div>
+                <Power className="h-4 w-4" /> Reiniciar muestra
+              </button>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 
-        {/* Right: Nuclear status + Mission */}
-        <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col gap-3 pointer-events-auto">
+  const barraSuperior = (
+    <>
+      <div className="flex shrink-0 items-baseline gap-2 pr-1">
+        <span className="text-[15px] font-bold text-white">{currentEl.name}</span>
+        {currentP > 0 && <span className="font-mono text-[14px] font-bold tracking-wider text-[#8ECAE6]">{iupacCurrent}</span>}
+      </div>
+      <Lectura etiqueta="Z" valor={currentP} title="Número atómico: protones" />
+      <Lectura etiqueta="A" valor={masaAtomica > 0 ? masaAtomica : '—'} title="Número másico: protones + neutrones" />
+      <Lectura etiqueta="Carga" valor={cargaNeta === 0 ? 'neutro' : `${cargaNeta > 0 ? '+' : ''}${cargaNeta}`} acento={cargaNeta !== 0} />
+      <Lectura etiqueta="e⁻" valor={electronicConf} />
+    </>
+  );
 
-          {/* Nuclear stability card */}
-          <div className="bg-black/50 backdrop-blur-3xl p-5 rounded-[2rem] border flex flex-col gap-3 min-w-[200px]" style={{ borderColor: nucleusColor + '66' }}>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: nucleusColor }} />
-              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Estado Nuclear</span>
-            </div>
-            <p className="text-[10px] font-bold leading-snug" style={{ color: nucleusColor }}>
-              {nuclearStatus.label}
-            </p>
-            <div className="flex justify-between text-[9px]">
-              <span className="text-slate-500">N/Z =</span>
-              <span className="font-black text-white/80">{protones > 0 ? (neutrones / protones).toFixed(2) : '—'}</span>
-            </div>
-            <div className="flex justify-between text-[9px]">
-              <span className="text-slate-500">Decaimiento:</span>
-              <span className="font-black text-white/80">{nuclearStatus.decay}</span>
-            </div>
-            {bindingEnergy > 0 && (
-              <div className="flex justify-between text-[9px]">
-                <span className="text-slate-500">B/A:</span>
-                <span className="font-black" style={{ color: nucleusColor }}>{bindingEnergy.toFixed(2)} MeV</span>
-              </div>
-            )}
-          </div>
-
-          {/* Mission target */}
-          <div className="bg-black/40 backdrop-blur-2xl p-4 rounded-[1.5rem] border border-[#FB8500]/30 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FB8500]/20 flex items-center justify-center font-black text-[#FB8500] text-sm border border-[#FB8500]/30">
-              {tZ}
-            </div>
-            <div>
-              <span className="text-[8px] font-black text-[#FB8500] uppercase tracking-widest block">Misión</span>
-              <span className="text-[11px] font-black text-white">{targetEl.name} — A={tA}{tC !== 0 ? ` (${tC > 0 ? '+' : ''}${tC})` : ''}</span>
-            </div>
-          </div>
-
-          <div className="bg-black/40 backdrop-blur-2xl p-3 rounded-[1.5rem] border border-[#219EBC]/20">
-            <span className="text-[8px] font-black text-[#219EBC] uppercase tracking-widest block mb-1">Configuración e⁻</span>
-            <span className="text-[13px] font-black text-slate-200 tracking-wider font-mono">{electronicConf}</span>
-          </div>
-
-        </motion.div>
+  const panelLateral = (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-lg border bg-white/[0.03] p-2.5" style={{ borderColor: nucleusColor + '88' }}>
+        <div className="mb-1 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ background: nucleusColor }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Estado nuclear</span>
+        </div>
+        <p className="text-[12px] font-semibold leading-snug" style={{ color: nucleusColor }}>{nuclearStatus.label}</p>
+        <div className="mt-1.5 flex justify-between text-[11px]"><span className="text-slate-400">N/Z</span><span className="font-mono text-white">{protones > 0 ? (neutrones / protones).toFixed(2) : '—'}</span></div>
+        <div className="flex justify-between text-[11px]"><span className="text-slate-400">Decaimiento</span><span className="text-right text-white">{nuclearStatus.decay}</span></div>
+        {bindingEnergy > 0 && (
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">B/A</span><span className="font-mono text-white">{bindingEnergy.toFixed(2)} MeV</span></div>
+        )}
       </div>
 
-      {/* ── ELEMENT SELECTOR (Right rail) ── */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-30">
-        {ELEMENT_CATALOGUE.map((el) => {
-          const isSelected = targetZ === el.z && targetA === el.a;
-          return (
-            <button
-              key={`${el.z}-${el.a}`}
-              onClick={() => { setTargetElement(el.z, el.a); audio.playPop(); }}
-              className={`w-14 h-12 rounded-2xl border text-[10px] flex flex-col items-center justify-center font-black transition-all ${isSelected ? 'bg-[#FB8500] text-white border-[#FB8500] shadow-lg scale-110' : 'bg-black/40 text-white/40 border-white/10 hover:bg-white/10 hover:text-white'}`}
-              title={el.label}
-            >
-              <span className="text-[13px] leading-none">{el.sym}</span>
-              <span className="text-[7px] opacity-70">{el.a}</span>
-            </button>
-          );
-        })}
+      <div className="rounded-lg border border-[#FB8500]/40 bg-[#FB8500]/10 p-2.5">
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-[#FB8500]">Misión</span>
+        <span className="text-[12px] font-semibold text-white">{targetEl.name} · A = {tA}{tC !== 0 ? ` (${tC > 0 ? '+' : ''}${tC})` : ''}</span>
       </div>
 
-      {/* ── ELEMENT SELECTOR (Right rail) ── */}
+      <div>
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Elemento objetivo</span>
+        <div className="grid grid-cols-4 gap-1.5">
+          {ELEMENT_CATALOGUE.map((el) => {
+            const isSelected = targetZ === el.z && targetA === el.a;
+            return (
+              <button
+                key={`${el.z}-${el.a}`}
+                onClick={() => { setTargetElement(el.z, el.a); audio.playPop(); }}
+                className={`flex h-11 flex-col items-center justify-center rounded-lg border text-[10px] font-bold transition-colors ${isSelected ? 'border-[#FB8500] bg-[#FB8500] text-white' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-[#219EBC] hover:text-white'}`}
+                title={el.label}
+              >
+                <span className="text-[13px] leading-none">{el.sym}</span>
+                <span className="text-[9px] opacity-75">{el.a}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 
-      {/* ── CONTROL PANEL ── */}
-      <div className="absolute bottom-6 inset-x-8 bg-black/50 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] flex flex-wrap md:flex-nowrap items-center justify-center md:justify-start px-8 py-4 gap-6 md:gap-8 z-30">
+  const controles = (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <ControlModule label="Protones (Z)" count={currentP} color="bg-red-500" onAdd={() => { if (currentP >= MAX_Z) return; setParticulas(currentP + 1, currentN, currentE); audio.playProton(); }} onSub={() => { setParticulas(currentP - 1, currentN, currentE); audio.playRemove(); }} />
+        <ControlModule label="Neutrones (N)" count={currentN} color="bg-blue-500" onAdd={() => { setParticulas(currentP, currentN + 1, currentE); audio.playNeutron(); }} onSub={() => { setParticulas(currentP, currentN - 1, currentE); audio.playRemove(); }} />
+        <ControlModule label="Electrones (e⁻)" count={currentE} color="bg-yellow-400" onAdd={() => { if (currentE >= MAX_Z) return; setParticulas(currentP, currentN, currentE + 1); audio.playElectron(); }} onSub={() => { setParticulas(currentP, currentN, currentE - 1); audio.playRemove(); }} />
 
-        <ControlModule label="PROTONES (Z)"   count={currentP}   color="bg-red-500"    onAdd={() => { if (currentP >= MAX_Z) return; setParticulas(currentP + 1, currentN, currentE); audio.playProton(); }} onSub={() => { setParticulas(currentP - 1, currentN, currentE); audio.playRemove(); }} />
-        <div className="w-px h-14 bg-white/10" />
-        <ControlModule label="NEUTRONES (N)"  count={currentN}  color="bg-blue-500"   onAdd={() => { setParticulas(currentP, currentN + 1, currentE); audio.playNeutron(); }} onSub={() => { setParticulas(currentP, currentN - 1, currentE); audio.playRemove(); }} />
-        <div className="w-px h-14 bg-white/10" />
-        <ControlModule label="ELECTRONES (e⁻)" count={currentE} color="bg-yellow-400" onAdd={() => { if (currentE >= MAX_Z) return; setParticulas(currentP, currentN, currentE + 1); audio.playElectron(); }} onSub={() => { setParticulas(currentP, currentN, currentE - 1); audio.playRemove(); }} />
-
-        {/* Ion mode selector (if target has ions) */}
-        {ELEMENT_CATALOGUE.find(e => e.z === tZ && e.a === tA)?.ions?.length ? (
-          <>
-            <div className="w-px h-14 bg-white/10" />
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] font-black text-[#FB8500] uppercase tracking-widest">Modo Ión</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => { setTargetCharge(0); audio.playPop(); }}
-                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all border ${tC === 0 ? 'bg-white/20 text-white border-white/30' : 'bg-white/5 text-white/30 border-white/5 hover:bg-white/10'}`}
-                >Neutro</button>
-                {ELEMENT_CATALOGUE.find(e => e.z === tZ && e.a === tA)!.ions.map(ion => (
-                  <button
-                    key={ion.charge}
-                    onClick={() => { setTargetCharge(ion.charge); audio.playPop(); }}
-                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all border ${tC === ion.charge ? 'bg-[#FB8500] text-white border-[#FB8500]' : 'bg-white/5 text-white/30 border-white/5 hover:bg-white/10'}`}
-                  >{ion.label}</button>
-                ))}
-              </div>
+        {ionesDelObjetivo.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FB8500]">Modo ión</span>
+            <div className="flex gap-1">
+              <button onClick={() => { setTargetCharge(0); audio.playPop(); }} className={`h-7 rounded-md border px-2.5 text-[11px] font-semibold ${tC === 0 ? 'border-white/30 bg-white/20 text-white' : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'}`}>Neutro</button>
+              {ionesDelObjetivo.map((ion) => (
+                <button key={ion.charge} onClick={() => { setTargetCharge(ion.charge); audio.playPop(); }} className={`h-7 rounded-md border px-2.5 text-[11px] font-semibold ${tC === ion.charge ? 'border-[#FB8500] bg-[#FB8500] text-white' : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'}`}>{ion.label}</button>
+              ))}
             </div>
-          </>
-        ) : null}
+          </div>
+        )}
 
-        <div className="flex-1" />
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => { resetParticulas(); audio.playRemove(); }} className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Reiniciar">
-            <Power size={20} />
-          </button>
-          <button onClick={() => { registrarHallazgo('qmi01_manual', { p: protones, n: neutrones, e: electrones }); audio.playSuccess(); }} className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-[#219EBC] hover:bg-[#219EBC]/10 transition-all" title="Registrar hallazgo">
-            <Activity size={20} />
-          </button>
-          <button
+        <div className="ml-auto flex items-center gap-2">
+          <BotonLab variante="secundario" title="Reiniciar" onClick={() => { resetParticulas(); audio.playRemove(); }}><Power size={14} /> Reiniciar</BotonLab>
+          <BotonLab variante="secundario" title="Registrar hallazgo" onClick={() => { registrarHallazgo('qmi01_manual', { p: protones, n: neutrones, e: electrones }); audio.playSuccess(); }}><Activity size={14} /> Registrar</BotonLab>
+          <BotonLab
             onClick={() => {
               // Un solo juez: el validador de la práctica (quiz + modal comunes).
               if (onValidate) { onValidate(); return; }
               if (validarEstructura()) audio.playSuccess(); else audio.playError();
             }}
-            className="h-14 px-8 rounded-2xl bg-[#219EBC] hover:bg-[#8ECAE6] text-white flex items-center gap-3 shadow-xl shadow-[#219EBC]/20 transition-all group"
           >
-            <Target size={18} className="group-hover:rotate-12 transition-transform" />
-            <span className="text-[11px] font-black uppercase tracking-widest">Validar</span>
-          </button>
+            <Target size={14} /> Validar
+          </BotonLab>
         </div>
       </div>
-
-      {/* Global message bar */}
-      <AnimatePresence>
-        {message && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            className={`absolute bottom-28 left-1/2 -translate-x-1/2 z-40 px-8 py-3 rounded-2xl border text-sm font-bold backdrop-blur-2xl shadow-2xl max-w-lg text-center ${isStable ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-red-500/20 border-red-500/40 text-red-300'}`}
-          >
-            {message}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-{/* El éxito lo anuncia el flujo común (quiz + modal); aquí solo queda la barra de mensaje. */}
+      {message && (
+        <div className={`rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${isStable ? 'border-green-500/40 bg-green-500/15 text-green-300' : 'border-red-500/40 bg-red-500/15 text-red-300'}`}>
+          {message}
+        </div>
+      )}
     </div>
+  );
+
+  // El éxito lo anuncia el flujo común (quiz + modal); aquí solo queda la barra de mensaje.
+  return (
+    <LabLayout
+      escena={escena}
+      barraSuperior={barraSuperior}
+      controles={controles}
+      panelLateral={panelLateral}
+      tituloPanel="Núcleo y misión"
+    />
   );
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 function ControlModule({ label, count, color, onAdd, onSub }: { label: string; count: number; color: string; onAdd: () => void; onSub: () => void }) {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2.5">
       <div className="flex flex-col">
-        <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-3xl font-black text-white leading-none">{count}</span>
-          <div className={`w-1.5 h-1.5 rounded-full ${count > 0 ? color : 'bg-white/10'}`} />
+          <span className="text-2xl font-bold leading-none text-white tabular-nums">{count}</span>
+          <div className={`h-2 w-2 rounded-full ${count > 0 ? color : 'bg-white/10'}`} />
         </div>
       </div>
-      <div className="flex bg-white/5 rounded-2xl p-1 border border-white/10">
-        <button onClick={onSub} aria-label="Reducir cantidad" className="w-9 h-9 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-all"><Minus size={14} /></button>
-        <button onClick={onAdd} aria-label="Aumentar cantidad" className="w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl text-white shadow-xl transition-all"><Plus size={14} /></button>
+      <div className="flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+        <button onClick={onSub} aria-label={`Reducir ${label}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10 hover:text-white"><Minus size={14} /></button>
+        <button onClick={onAdd} aria-label={`Aumentar ${label}`} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-white transition-colors hover:bg-white/20"><Plus size={14} /></button>
       </div>
-    </div>
-  );
-}
-
-function ParticleAsset({ type, size, path, error, onError }: { type: string; size: number; path: string; error: boolean; onError: () => void }) {
-  if (error) {
-    const colors: Record<string, string> = { proton: 'bg-red-500', neutron: 'bg-blue-500', electron: 'bg-yellow-400' };
-    return (
-      <div className={`rounded-full ${colors[type]} shadow-xl border border-white/20 flex items-center justify-center text-[9px] font-black text-white`} style={{ width: size, height: size }}>
-        {type === 'proton' ? '+' : type === 'neutron' ? 'n' : '−'}
-      </div>
-    );
-  }
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <Image src={path} alt={type} width={size} height={size} className="object-contain" onError={onError} />
     </div>
   );
 }

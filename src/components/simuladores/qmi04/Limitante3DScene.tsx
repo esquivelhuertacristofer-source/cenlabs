@@ -1,196 +1,160 @@
 "use client";
+/**
+ * Q4 · Reactivo limitante — reactor de vidrio con dos dosificadores y colector (R3F + kit).
+ *
+ *   ANTES de validar (la escena NO conoce el limitante ni el exceso): cada dosificador
+ *   muestra la masa cargada (lectura de instrumento) y su contenido; el reactor y el
+ *   colector están vacíos.
+ *   AL validar con éxito: los dosificadores se vacían en el reactor, las moléculas
+ *   (bolas y varillas con geometría real) reaccionan, el reactivo limitante desaparece, el
+ *   otro queda en el reactor como exceso y el producto cae al colector. Un cuenta
+ *   molecular entero y consistente: los átomos se conservan.
+ */
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, SoporteUniversal, Aro, Etiqueta } from '../_kit';
+import { MoleculasEnBandeja, type EspecieBandeja } from '../qmi03/moleculas';
+import {
+  Dosificador, TuboVidrio, Reactor, Colector, alturaConoEnRadio, PUERTOS, Y_FONDO, R_REACTOR, R_COLECTOR,
+} from './piezas';
 
-import React, { useRef, Suspense, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { 
-  OrbitControls, 
-  Float, 
-  MeshDistortMaterial, 
-  PerspectiveCamera,
-  Stars,
-  Html,
-  MeshWobbleMaterial,
-  Sparkles
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
-import { motion, AnimatePresence } from "framer-motion";
-import * as THREE from 'three';
+type V3 = [number, number, number];
 
-// Partícula que representa una molécula de reactivo o exceso
-function MoleculeParticle({ color, position, speed = 1 }: { color: string, position: [number, number, number], speed?: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const initialPos = useRef(new THREE.Vector3(...position));
-  
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime() * speed;
-    if (meshRef.current) {
-      // Movimiento errático tipo Browniano ligero
-      meshRef.current.position.x = initialPos.current.x + Math.sin(t + initialPos.current.z) * 0.5;
-      meshRef.current.position.y = initialPos.current.y + Math.cos(t + initialPos.current.x) * 0.5;
-      meshRef.current.position.z = initialPos.current.z + Math.sin(t * 0.5) * 0.5;
-      meshRef.current.rotation.x += 0.01;
-      meshRef.current.rotation.y += 0.01;
-    }
-  });
+const COLOR_A = '#3f9fc4';
+const COLOR_B = '#d9a21b';
+const POS_REACTOR: V3 = [-0.9, 0, 0];
+const POS_COLECTOR: V3 = [3.7, 0, 0.75];
+const X_TOLVA: [number, number] = [-4.0, 2.3];
+const Z_VARILLA = -2.7;
+const R_ARO = 0.4;
+const Y_ARO = 5.1;
+const Z_TOLVA = Z_VARILLA + 0.62 + R_ARO;     // centro del aro
+const Y_BOQUILLA = Y_ARO + 0.0035 - alturaConoEnRadio(R_ARO);
 
-  return (
-    <mesh ref={meshRef} position={position}>
-      <sphereGeometry args={[0.15, 8, 8]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} />
-    </mesh>
-  );
+interface Props {
+  limitanteData: any;
+  isRunning?: boolean;
 }
 
-function SynthesisCore({ isRunning, isBalanced, themeColor }: { isRunning: boolean, isBalanced: boolean, themeColor: string }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    if (meshRef.current) {
-      meshRef.current.rotation.y = t * 0.2;
-      meshRef.current.rotation.z = t * 0.1;
-      const scale = isRunning ? 1.2 + Math.sin(t * 10) * 0.1 : 1;
-      meshRef.current.scale.set(scale, scale, scale);
+/** Cuenta molecular entera y consistente (conserva los átomos) para dibujar la síntesis. */
+function cuentaMolecular(reac: any, moles: number[], limIdx: number) {
+  const c = reac.reactivos.map((r: any) => r.coef as number);
+  const cp = reac.productos.map((p: any) => p.coef as number);
+  const total = Math.max(1e-9, moles[0] + moles[1]);
+  const k = 28 / total;
+  const otro = 1 - limIdx;
+  const xi = Math.max(1, Math.round((moles[limIdx] / c[limIdx]) * k)); // «extensión» en moléculas
+  const N: number[] = [0, 0];
+  N[limIdx] = c[limIdx] * xi;
+  N[otro] = Math.min(46, Math.max(Math.round(moles[otro] * k), c[otro] * xi + 1));
+  return { N, xi, c, cp };
+}
+
+function Montaje({ limitanteData }: Props) {
+  const ld = limitanteData ?? {};
+  const reac = ld.reacciones?.[ld.reaccionActual ?? 0] ?? ld.reacciones?.[0];
+  const resuelto = ld.status === 'success';
+  const masas: number[] = ld.inputMasses ?? [0, 0];
+
+  // progreso de la síntesis (0 → 1): arranca al validar; si ya estaba resuelta al montar, queda al final
+  const progreso = useRef(resuelto ? 1 : 0);
+  const previa = useRef(resuelto);
+  useEffect(() => {
+    if (resuelto && !previa.current) progreso.current = 0;
+    if (!resuelto) progreso.current = 0;
+    previa.current = resuelto;
+  }, [resuelto]);
+
+  const fin = useMemo(() => {
+    if (!resuelto || !reac || !ld.results || ld.results.limitingIdx < 0) return null;
+    return cuentaMolecular(reac, ld.results.moles, ld.results.limitingIdx);
+  }, [resuelto, reac, ld.results]);
+
+  const [estado, setEstado] = useState({ nA: 0, nB: 0, prod: 0, drenado: 0, agitando: false });
+  const ultimo = useRef('');
+  useFrame((_, dtReal) => {
+    const dt = Math.min(dtReal, 0.05);
+    if (resuelto && progreso.current < 1) progreso.current = Math.min(1, progreso.current + dt / 2.6);
+    const p = resuelto ? progreso.current : 0;
+    let nA = 0, nB = 0, prod = 0;
+    const drenado = Math.min(1, p / 0.5);
+    if (fin && resuelto) {
+      const { N, xi, c } = fin;
+      const entra = Math.min(1, p / 0.5);
+      const reaccionado = p <= 0.5 ? 0 : Math.floor(xi * Math.min(1, (p - 0.5) / 0.4) + 1e-9);
+      const cant = (i: number) => Math.round(N[i] * entra) - (p <= 0.5 ? 0 : c[i] * reaccionado);
+      nA = Math.max(0, cant(0)); nB = Math.max(0, cant(1));
+      prod = reaccionado;
     }
+    const agitando = resuelto && p < 0.95;
+    const clave = `${nA}|${nB}|${prod}|${drenado.toFixed(2)}|${agitando}`;
+    if (clave !== ultimo.current) { ultimo.current = clave; setEstado({ nA, nB, prod, drenado, agitando }); }
   });
+
+  if (!reac) return null;
+  const mx = Math.max(masas[0], masas[1], 1e-6);
+  const nivel = (i: number) => Math.max(0.12, Math.min(1, masas[i] / (1.25 * mx))) * (1 - estado.drenado);
+  const f = (v: number) => (Number.isFinite(v) ? v.toFixed(1) : '—');
+
+  const especiesReactor: EspecieBandeja[] = [
+    { formula: reac.reactivos[0].formula, copias: estado.nA },
+    { formula: reac.reactivos[1].formula, copias: estado.nB },
+  ];
+  const especiesColector: EspecieBandeja[] = reac.productos.map((p: any) => ({ formula: p.formula, copias: estado.prod * (fin?.cp[reac.productos.indexOf(p)] ?? 0) }));
+  const puertoA: V3 = [POS_REACTOR[0] + PUERTOS[0][0], PUERTOS[0][1], 0];
+  const puertoB: V3 = [POS_REACTOR[0] + PUERTOS[1][0], PUERTOS[1][1], 0];
+  const bq = (i: number): V3 => [X_TOLVA[i], Y_BOQUILLA - 0.28, Z_TOLVA];
+  const tuboA: V3[] = [bq(0), [X_TOLVA[0] + 0.2, bq(0)[1] - 0.18, Z_TOLVA + 0.2], [-2.6, 4.18, -0.55], [puertoA[0], 4.12, 0], [puertoA[0], 3.9, 0]];
+  const tuboB: V3[] = [bq(1), [X_TOLVA[1] - 0.2, bq(1)[1] - 0.18, Z_TOLVA + 0.2], [0.9, 4.2, -0.55], [puertoB[0], 4.14, 0], [puertoB[0], 3.9, 0]];
+  const salidaX = POS_REACTOR[0];
+  const tuboSalida: V3[] = [[salidaX, 0.46, 0], [salidaX, 0.27, 0], [0.6, 0.27, 0.05], [2.2, 0.27, 0.35], [POS_COLECTOR[0] - 0.55, 0.62, POS_COLECTOR[2]], [POS_COLECTOR[0] - 0.55, 0.78, POS_COLECTOR[2]]];
 
   return (
     <group>
-      <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-        <mesh ref={meshRef}>
-          <octahedronGeometry args={[2, 0]} />
-          <MeshDistortMaterial
-            color={isBalanced ? "#00ffcc" : themeColor}
-            speed={isRunning ? 10 : 2}
-            distort={isRunning ? 0.6 : 0.3}
-            radius={1}
-            emissive={isBalanced ? "#00ffcc" : themeColor}
-            emissiveIntensity={isRunning ? 10 : 2}
-            metalness={0.8}
-            roughness={0.2}
-          />
-        </mesh>
-        
-        {/* Aura de energía */}
-        <mesh scale={1.2}>
-          <octahedronGeometry args={[2, 0]} />
-          <MeshWobbleMaterial 
-            color={themeColor} 
-            factor={isRunning ? 1 : 0.2} 
-            speed={isRunning ? 5 : 1} 
-            transparent 
-            opacity={0.3} 
-          />
-        </mesh>
-      </Float>
+      {/* dosificadores sobre soportes universales con aro */}
+      {[0, 1].map((i) => (
+        <SoporteUniversal key={i} position={[X_TOLVA[i], 0, Z_VARILLA]} alturaVarilla={Y_ARO + 0.5}>
+          <Aro altura={Y_ARO} diametro={R_ARO * 2}>
+            <Dosificador
+              position={[0, -alturaConoEnRadio(R_ARO), 0]}
+              color={i === 0 ? COLOR_A : COLOR_B}
+              nivel={nivel(i)}
+              formula={reac.reactivos[i].formula}
+              rotulo={i === 0 ? 'A' : 'B'}
+              masa={`m = ${f(masas[i])} g`}
+              abierta={resuelto && estado.drenado < 1 ? 1 : 0}
+            />
+          </Aro>
+        </SoporteUniversal>
+      ))}
 
-      {isBalanced && <Sparkles count={50} scale={5} size={3} speed={2} color="#00ffcc" />}
-      {isRunning && <Sparkles count={100} scale={3} size={2} speed={5} color="#ffffff" />}
+      <TuboVidrio puntos={tuboA} />
+      <TuboVidrio puntos={tuboB} />
+      <TuboVidrio puntos={tuboSalida} radio={0.08} />
+
+      <Reactor position={POS_REACTOR} agitando={estado.agitando} descarga={resuelto && estado.prod > 0 ? 1 : 0} />
+      <group position={[POS_REACTOR[0], Y_FONDO + 0.01, POS_REACTOR[2]]}>
+        <MoleculasEnBandeja especies={especiesReactor} radio={R_REACTOR - 0.12} />
+      </group>
+      <Etiqueta texto="Reactor" modo="plano" position={[POS_REACTOR[0], 0.14, 1.95]} tamano={0.17} peso={700} color="#ffffff" fondo="#3b4a54" />
+
+      <Colector position={POS_COLECTOR} />
+      <group position={[POS_COLECTOR[0], POS_COLECTOR[1] + 0.08, POS_COLECTOR[2]]}>
+        <MoleculasEnBandeja especies={especiesColector} radio={R_COLECTOR - 0.12} />
+      </group>
     </group>
   );
 }
 
-const ABERRACION = new THREE.Vector2(0.0005, 0.0005);
-
-export default function Limitante3DScene({ 
-  limitanteData, 
-  isRunning 
-}: { 
-  limitanteData: any, 
-  isRunning: boolean 
-}) {
-  const { results, inputMasses, reaccionActual, reacciones = [] } = limitanteData;
-  const currentReac = reacciones[reaccionActual] || { nombre: 'Default' };
-  
-  // Colores por reactivo
-  const colorA = "#22d3ee"; // Cyan
-  const colorB = "#fbbf24"; // Ambar
-  // limitingIdx = -1 mientras el panel oculta los resultados (antes de validar).
-  const isBalanced = results.limitingIdx !== -1 && results.excessMass < 0.1 && inputMasses[0] > 0 && inputMasses[1] > 0;
-
-  // Generar posiciones para las partículas de exceso
-  const excessParticles = useMemo(() => {
-    const particles = [];
-    const count = Math.min(30, Math.floor(results.excessMass / 2));
-    const color = results.limitingIdx === 0 ? colorB : colorA;
-    
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos((Math.random() * 2) - 1);
-      const r = 5 + Math.random() * 3;
-      particles.push({
-        id: i,
-        color,
-        position: [
-          r * Math.sin(phi) * Math.cos(theta),
-          r * Math.sin(phi) * Math.sin(theta),
-          r * Math.cos(phi)
-        ] as [number, number, number],
-        speed: 0.5 + Math.random()
-      });
-    }
-    return particles;
-  }, [results.excessMass, results.limitingIdx]);
-
+export default function Limitante3DScene({ limitanteData }: Props) {
   return (
-    <div className="w-full h-full relative bg-[#01080E]">
-      <Canvas shadows dpr={[1, 2]}>
-        <color attach="background" args={['#01080E']} />
-        
-        <Suspense fallback={null}>
-          <PerspectiveCamera makeDefault position={[0, 2, 15]} fov={40} />
-          
-          <ambientLight intensity={0.4} />
-          <pointLight position={[10, 10, 10]} intensity={100} color="#ffffff" />
-          <pointLight position={[-10, -10, 10]} intensity={50} color={colorA} />
-          <pointLight position={[0, 0, -5]} intensity={50} color={colorB} />
-
-          <SynthesisCore 
-            isRunning={isRunning} 
-            isBalanced={isBalanced} 
-            themeColor={isBalanced ? "#00ffcc" : "#219EBC"} 
-          />
-
-          {/* Partículas de Exceso */}
-          {excessParticles.map(p => (
-            <MoleculeParticle key={p.id} color={p.color} position={p.position} speed={p.speed} />
-          ))}
-
-          {/* Efectos de Ambiente */}
-          <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-          
-          <OrbitControls 
-            enableZoom={true} 
-            enablePan={false} 
-            minDistance={10} 
-            maxDistance={25}
-            minPolarAngle={Math.PI / 4}
-            maxPolarAngle={Math.PI / 1.8}
-          />
-
-          <EffectComposer multisampling={4}>
-            <Bloom luminanceThreshold={0.2} mipmapBlur intensity={isBalanced ? 3 : 1.2} radius={0.4} />
-            <ChromaticAberration offset={ABERRACION} />
-            <Vignette offset={0.1} darkness={1.1} />
-          </EffectComposer>
-
-          {/* Etiquetas de Exceso en 3D */}
-          {results.excessMass > 0.1 && (
-            <Html center position={[0, 4, 0]} distanceFactor={15}>
-               <motion.div 
-                 initial={{ opacity: 0, scale: 0.8 }}
-                 animate={{ opacity: 1, scale: 1 }}
-                 className="px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/50 backdrop-blur-md flex items-center gap-2 shadow-[0_0_20px_rgba(249,115,22,0.3)] pointer-events-none"
-               >
-                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest whitespace-nowrap">
-                    Exceso Detectado: {results.excessMass}g de {results.limitingIdx === 0 ? currentReac.reactivos?.[1]?.formula : currentReac.reactivos?.[0]?.formula}
-                  </span>
-               </motion.div>
-            </Html>
-          )}
-        </Suspense>
-      </Canvas>
-    </div>
+    <LabCanvas
+      fondo="laboratorio"
+      camara={{ posicion: [0, 5, 17], objetivo: [0, 3, 0], fov: 35 }}
+      controles={{ minDistancia: 6, maxDistancia: 30, cajaObjetivo: [[-3, 1, -1], [3, 5, 1]] }}
+    >
+      <EncuadrarCaja caja={[[-5.2, 0, -3.4], [5.6, 7.3, 2.4]]} margen={0.98} direccion={[0.04, 0.17, 1]} />
+      <Montaje limitanteData={limitanteData} />
+    </LabCanvas>
   );
 }

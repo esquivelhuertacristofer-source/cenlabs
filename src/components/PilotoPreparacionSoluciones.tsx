@@ -3,28 +3,32 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Scale, Droplet, Beaker, Target, CheckCircle2, RefreshCw,
-  FlaskConical, Info, BookOpen, Box, ChevronRight, Calculator,
-  Zap, AlertTriangle, Award,
+  Droplet, Beaker, Target, CheckCircle2, RefreshCw,
+  FlaskConical, Info, BookOpen, ChevronRight, Calculator,
+  AlertTriangle, Award,
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { useShallow } from 'zustand/react/shallow';
 import { aforoCorrecto, sobrepasaAforo, toleranciaAforo, TOLERANCIA_Q5_REL } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
 import dynamic from 'next/dynamic';
+import LabLayout, { Lectura, BotonLab } from '@/components/simulador/LabLayout';
 const Soluciones3DScene = dynamic(() => import('./simuladores/qmi05/Soluciones3DScene'), { ssr: false });
 import { SUSTANCIAS_SOLUCIONES } from '@/store/slices/quimicaSlice';
 
 type Phase = 'prelab' | 'weighing' | 'dissolving' | 'aforo';
+type Sal = (typeof SUSTANCIAS_SOLUCIONES)[number];
 
-// ── Pre-lab calculation overlay ────────────────────────────────────────────────
-function PreLabOverlay({
-  sal, mTarget, vTarget, mRequerida,
-  onConfirm,
+/** Fórmula con subíndices (sin HTML crudo). */
+function Formula({ f }: { f: string }) {
+  return <>{f.split(/(\d+)/).map((t, i) => (/^\d+$/.test(t) ? <sub key={i}>{t}</sub> : <React.Fragment key={i}>{t}</React.Fragment>))}</>;
+}
+
+// ── Pre-laboratorio: el cálculo se hace con la mesa a la vista ────────────────────
+function PreLab({
+  sal, mTarget, vTarget, mRequerida, onConfirm,
 }: {
-  sal: (typeof SUSTANCIAS_SOLUCIONES)[number];
-  mTarget: number; vTarget: number; mRequerida: number;
-  onConfirm: () => void;
+  sal: Sal; mTarget: number; vTarget: number; mRequerida: number; onConfirm: () => void;
 }) {
   const [input, setInput] = useState('');
   const [error, setError] = useState(false);
@@ -48,161 +52,69 @@ function PreLabOverlay({
   }, [input, mRequerida, onConfirm]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="absolute inset-0 z-40 flex items-center justify-center p-6"
-      style={{ background: 'rgba(1,8,15,0.88)', backdropFilter: 'blur(16px)' }}
-    >
-      <motion.div
-        initial={{ scale: 0.92, y: 24 }} animate={{ scale: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-        className="bg-[#0d1f38] border border-white/20 rounded-[2.5rem] p-10 max-w-xl w-full shadow-[0_40px_120px_rgba(0,0,0,0.8)]"
-      >
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
-            <Calculator size={22} />
-          </div>
-          <div>
-            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.35em] mb-0.5">Pre-Laboratorio</p>
-            <h2 className="text-xl font-black text-white tracking-tight">Cálculo de Masa</h2>
-          </div>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300"><Calculator size={13} /> Pre-laboratorio · cálculo de masa</span>
+        <span className="text-[13px] text-slate-200">
+          Prepara <b className="text-white">{vTarget} mL</b> de <b className="text-indigo-300">{sal.nombre}</b> a <b className="text-white">{mTarget} M</b>. ¿Cuántos gramos pesas?
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-[#0a1628]/90 px-3 py-1.5 font-mono text-[12px] text-slate-200">
+        <span><span className="font-bold text-indigo-400">m</span> = M × V(L) × PM / pureza</span>
+        <span><span className="font-bold text-indigo-400">m</span> = {mTarget} × {(vTarget / 1000).toFixed(3)} × {sal.pm} / {sal.purity}</span>
+      </div>
+      {hint && (
+        <div className="flex items-center gap-2 text-[12px] text-amber-200">
+          <Info size={13} className="shrink-0 text-amber-400" />
+          Revisa las unidades: el volumen va en litros (mL ÷ 1000) y la masa se divide entre la pureza (en fracción, no en %). Se acepta ±8 % de error.
         </div>
-
-        {/* Objective */}
-        <div className="bg-[#0d1f38]/80 border border-white/20 rounded-2xl p-4 mb-6">
-          <p className="text-sm text-slate-200 leading-relaxed">
-            Necesitas preparar{' '}
-            <span className="font-black text-white">{vTarget} mL</span> de{' '}
-            <span className="font-black text-indigo-300">{sal.nombre}</span> a una
-            concentración de{' '}
-            <span className="font-black text-white">{mTarget} M</span>.
-          </p>
-          <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-            ¿Cuántos gramos necesitas pesar?
-          </p>
-        </div>
-
-        {/* Formula */}
-        <div className="bg-[#0a1628]/90 border border-white/20 rounded-2xl p-5 mb-6 font-mono text-sm">
-          <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mb-3">Fórmula</p>
-          <div className="space-y-1.5 text-slate-200">
-            <p><span className="text-indigo-400 font-bold">m</span> = M × V(L) × PM / pureza</p>
-            <p><span className="text-indigo-400 font-bold">m</span> = {mTarget} × {(vTarget / 1000).toFixed(3)} × {sal.pm} / {sal.purity}</p>
-            <p className="text-slate-200">m = <span className="text-white font-black">_____ g</span></p>
-          </div>
-        </div>
-
-        {hint && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-500/15 border border-amber-500/40 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3"
-          >
-            <Info size={14} className="text-amber-400 shrink-0" />
-            <p className="text-[11px] text-amber-200">
-              Revisa las unidades: el volumen va en litros (mL ÷ 1000) y la masa se
-              divide entre la pureza (en fracción, no en %). Se acepta ±8 % de error.
-            </p>
-          </motion.div>
-        )}
-
-        {/* Input */}
-        <div className="flex gap-3">
-          <motion.input
-            ref={inputRef}
-            value={input}
-            onChange={e => { setInput(e.target.value); setError(false); }}
-            onKeyDown={e => e.key === 'Enter' && check()}
-            placeholder="Escribe tu respuesta en gramos..."
-            animate={error ? { x: [-8, 8, -6, 6, 0] } : { x: 0 }}
-            transition={{ duration: 0.35 }}
-            className={`flex-1 bg-[#0d1f38]/80 border rounded-2xl px-5 py-3.5 text-white font-mono text-sm placeholder:text-slate-500 outline-none transition-all ${
-              error ? 'border-red-500/60 bg-red-500/8' : 'border-white/15 focus:border-indigo-500/70'
-            }`}
-          />
-          <button
-            onClick={check}
-            className="px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-indigo-900/50"
-          >
-            <ChevronRight size={16} /> Confirmar
-          </button>
-        </div>
-
-        <p className="text-[9px] text-slate-500 mt-4 text-center uppercase tracking-widest">
-          Debes calcular esto correctamente para acceder al laboratorio
-        </p>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ── Over-dilution error overlay ────────────────────────────────────────────────
-function OverDilutionError({ onReset }: { vTarget?: number; onReset: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="absolute inset-0 z-40 flex items-center justify-center p-6"
-      style={{ background: 'rgba(120,10,10,0.65)', backdropFilter: 'blur(14px)' }}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="bg-[#180808] border border-red-500/40 rounded-[2.5rem] p-10 max-w-lg shadow-2xl"
-      >
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
-            <AlertTriangle size={22} />
-          </div>
-          <h2 className="text-xl font-black text-white">¡Solución Contaminada!</h2>
-        </div>
-        <p className="text-slate-200 text-sm leading-relaxed mb-4">
-          Pasaste el volumen de aforo. En química analítica, la sobre-dilución es{' '}
-          <strong className="text-red-300">irreversible</strong>: no podés evaporar
-          el agua sin alterar la concentración del soluto.
-        </p>
-        <p className="text-slate-400 text-sm leading-relaxed mb-8">
-          La solución debe desecharse. Hay que preparar una nueva.
-        </p>
-        <button
-          onClick={onReset}
-          className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-red-900/50"
-        >
-          <RefreshCw size={14} /> Reiniciar experimento
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ── Dissolving overlay ─────────────────────────────────────────────────────────
-function DissolvingOverlay({ progress }: { progress: number }) {
-  return (
-    <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-white/12 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 flex items-center gap-4 shadow-2xl"
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-        >
-          <Zap size={18} className="text-cyan-300" />
-        </motion.div>
-        <div>
-          <p className="text-[9px] font-black text-slate-200 uppercase tracking-widest mb-1">Disolución en curso</p>
-          <div className="w-44 h-1.5 bg-white/15 rounded-full overflow-hidden">
-            <motion.div
-              animate={{ width: `${progress * 100}%` }}
-              className="h-full bg-cyan-400 rounded-full"
-            />
-          </div>
-        </div>
-      </motion.div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <motion.input
+          ref={inputRef}
+          value={input}
+          inputMode="decimal"
+          onChange={(e) => { setInput(e.target.value); setError(false); }}
+          onKeyDown={(e) => e.key === 'Enter' && check()}
+          placeholder="Escribe tu respuesta en gramos..."
+          animate={error ? { x: [-8, 8, -6, 6, 0] } : { x: 0 }}
+          transition={{ duration: 0.35 }}
+          className={`h-9 min-w-[220px] flex-1 rounded-lg border bg-white/5 px-3 font-mono text-[13px] text-white outline-none placeholder:text-slate-500 ${error ? 'border-red-500/60' : 'border-white/15 focus:border-indigo-400/70'}`}
+        />
+        <BotonLab onClick={check}><ChevronRight size={14} /> Confirmar</BotonLab>
+      </div>
     </div>
+  );
+}
+
+/** Lupa del cuello del matraz: el menisco (ampliado) frente a la marca de aforo y su banda de tolerancia. */
+function LupaMenisco({ agua, vTarget, tol }: { agua: number; vTarget: number; tol: number }) {
+  const delta = (agua - vTarget) / Math.max(tol, 1e-6);          // en unidades de tolerancia
+  const K = 12;                                                    // px por tolerancia
+  const y = 46 - Math.max(-3.6, Math.min(3.6, delta)) * K;
+  const dentro = Math.abs(delta) <= 1;
+  const color = delta > 1 ? '#ef4444' : dentro ? '#34d399' : '#38bdf8';
+  return (
+    <svg width="132" height="92" viewBox="0 0 132 92" role="img" aria-label="Lupa del menisco frente a la marca de aforo" className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03]">
+      <rect x="16" y="0" width="22" height="92" fill="#cfe6ef" opacity="0.08" />
+      <path d={`M16 ${y} Q27 ${y + 5} 38 ${y} L38 92 L16 92 Z`} fill={color} opacity="0.55" />
+      <path d={`M16 ${y} Q27 ${y + 5} 38 ${y}`} stroke={color} strokeWidth="1.5" fill="none" />
+      <line x1="16" y1="0" x2="16" y2="92" stroke="#cfe6ef" strokeWidth="1.5" opacity="0.7" />
+      <line x1="38" y1="0" x2="38" y2="92" stroke="#cfe6ef" strokeWidth="1.5" opacity="0.7" />
+      <rect x="12" y={46 - K} width="30" height={2 * K} fill="#34d399" opacity="0.12" />
+      <line x1="8" y1="46" x2="46" y2="46" stroke="#f8fafc" strokeWidth="2" />
+      <text x="52" y="43" fontSize="9" fill="#f8fafc" fontWeight="700">marca</text>
+      <text x="52" y="54" fontSize="9" fill="#94a3b8">{vTarget} mL</text>
+      <text x="52" y="22" fontSize="8" fill="#94a3b8">±{tol.toFixed(1)} mL</text>
+      <text x="52" y="82" fontSize="8" fill="#94a3b8">lupa ×</text>
+    </svg>
   );
 }
 
 // Masa del vidrio de reloj vacío: es lo que marca la balanza antes de tarar.
 const VIDRIO_RELOJ_G = 12.5;
+
+const btnPulso = 'h-9 flex-1 min-w-[88px] rounded-lg px-2 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-30';
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function PilotoPreparacionSoluciones({
@@ -231,7 +143,6 @@ export default function PilotoPreparacionSoluciones({
   const [phase, setPhase]                 = useState<Phase>('prelab');
   const [dissolveProgress, setDissolveProgress] = useState(0);
   const [isOverDiluted, setIsOverDiluted] = useState(false);
-  const [showReagents, setShowReagents]   = useState(false);
   const [showInfo, setShowInfo]           = useState(false);
 
   // ── Interval refs (no window.xxx hacks) ─────────────────────────────────────
@@ -301,6 +212,7 @@ export default function PilotoPreparacionSoluciones({
   };
 
   const handleReset = () => {
+    stopPolvo(); stopAgua();
     resetP5();
     setIsOverDiluted(false);
     setPhase('prelab');
@@ -323,6 +235,7 @@ export default function PilotoPreparacionSoluciones({
   const tolAforo       = toleranciaAforo(vTarget);
   const canCertify     = isAfored && !isOverDiluted && phase === 'aforo';
   const lecturaBalanza = balanza.tara ? balanza.polvo : VIDRIO_RELOJ_G;
+  const salActual      = sal as Sal;
 
   const steps = [
     { label: 'Pre-Lab', done: phase !== 'prelab' },
@@ -338,427 +251,297 @@ export default function PilotoPreparacionSoluciones({
     aforo:      'Aforo del Matraz',
   };
 
-  return (
-    <div className="w-full h-full relative overflow-hidden font-['Outfit'] select-none">
+  // ── Escena (área garantizada) ────────────────────────────────────────────────
+  const escena = (
+    <div className="relative h-full w-full">
+      <Soluciones3DScene
+        polvo={balanza.polvo}
+        tara={balanza.tara}
+        matrazPolvo={matraz.polvo}
+        matrazAgua={matraz.agua}
+        vTarget={vTarget}
+        salColor={salActual?.color ?? '#f8fafc'}
+        salFormula={salActual?.formula}
+        salNombre={salActual?.nombre}
+        phase={phase}
+        progresoDisolucion={dissolveProgress}
+      />
 
-      {/* ── 3D SCENE ──────────────────────────────────────────────────────────── */}
-      <div className="absolute inset-0 z-0">
-        <Soluciones3DScene
-          polvo={balanza.polvo}
-          tara={balanza.tara}
-          matrazPolvo={matraz.polvo}
-          matrazAgua={matraz.agua}
-          vTarget={vTarget}
-          salColor={(sal as typeof SUSTANCIAS_SOLUCIONES[number])?.color ?? '#f8fafc'}
-          phase={phase}
-          mRequerida={phase === 'prelab' ? 0 : mRequerida}
-        />
-      </div>
-
-      {/* ── PRE-LAB OVERLAY ───────────────────────────────────────────────────── */}
+      {/* Sobre-dilución: tarjeta compacta, la mesa sigue a la vista */}
       <AnimatePresence>
-        {phase === 'prelab' && (
-          <PreLabOverlay
-            sal={sal as typeof SUSTANCIAS_SOLUCIONES[number]}
-            mTarget={mTarget}
-            vTarget={vTarget}
-            mRequerida={mRequerida}
-            onConfirm={() => setPhase('weighing')}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── OVER-DILUTION ERROR ────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {isOverDiluted && <OverDilutionError vTarget={vTarget} onReset={handleReset} />}
-      </AnimatePresence>
-
-      {/* ── DISSOLVING PROGRESS ───────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {phase === 'dissolving' && <DissolvingOverlay progress={dissolveProgress} />}
-      </AnimatePresence>
-
-      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
-      {status === 'success' && (
-        <div className="absolute bottom-40 left-1/2 -translate-x-1/2 z-30 pointer-events-none bg-emerald-600/90 border border-emerald-400/50 rounded-full px-5 py-2 flex items-center gap-2 shadow-xl">
-          <CheckCircle2 size={14} className="text-white" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Solución preparada dentro de tolerancia</span>
-        </div>
-      )}
-
-      {/* ── HEADER ────────────────────────────────────────────────────────────── */}
-      <header className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-5 pointer-events-none">
-
-        {/* Mission card + reagent */}
-        <div className="flex flex-col gap-2.5 pointer-events-auto">
-          <div className="bg-[#0d1f38]/95 backdrop-blur-md border border-white/20 px-5 py-3.5 rounded-[1.8rem] shadow-2xl flex items-center gap-4">
-            <div className="w-10 h-10 rounded-[0.8rem] bg-indigo-600/80 flex items-center justify-center text-white shrink-0">
-              <Beaker size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-sm font-black text-white tracking-tight">{sal?.nombre}</h1>
-                <span className="text-[9px] font-mono text-slate-400">({sal?.formula})</span>
-              </div>
-              <div className="flex items-center gap-3 mt-0.5">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                  <Target size={8} /> {mTarget} M · {vTarget} mL
-                </span>
-                {phase !== 'prelab' && (
-                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-                    Meta: {mRequerida} g
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => { setShowReagents(!showReagents); audio?.playPop?.(); }}
-              aria-label="Catálogo de reactivos"
-              aria-expanded={showReagents}
-              className="ml-1 w-8 h-8 rounded-xl bg-white/8 hover:bg-white/15 text-slate-300 hover:text-white transition-all flex items-center justify-center"
-            >
-              <Box size={14} />
-            </button>
-          </div>
-
-          {/* Reagent dropdown */}
-          <AnimatePresence>
-            {showReagents && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}
-                className="bg-[#0d1f38]/98 backdrop-blur-2xl border border-white/20 p-4 rounded-[1.8rem] shadow-2xl w-[320px]"
-              >
-                <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-3 px-1">Catálogo de Reactivos</div>
-                <div className="flex flex-col gap-1.5">
-                  {SUSTANCIAS_SOLUCIONES.map((s, idx) => (
-                    <button key={s.formula}
-                      onClick={() => {
-                        // Otro reactivo es otro cálculo: se vuelve al pre-laboratorio.
-                        stopPolvo(); stopAgua();
-                        setSal(idx); setIsOverDiluted(false); setPhase('prelab');
-                        setShowReagents(false); audio?.playSuccess?.();
-                      }}
-                      className={`p-3 rounded-xl border transition-all flex items-center gap-3 ${
-                        sal?.formula === s.formula
-                          ? 'bg-indigo-500/25 border-indigo-500/50 text-white'
-                          : 'bg-[#0d1f38]/80 border-white/20 hover:bg-[#0d1f38] text-slate-200'
-                      }`}
-                    >
-                      <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.color + '30' }}>
-                        <FlaskConical size={11} style={{ color: s.color }} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <div className="text-[11px] font-black">{s.nombre}</div>
-                        <div className="text-[9px] text-slate-400">{s.formula} · PM {s.pm}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Steps + util buttons */}
-        <div className="flex flex-col items-end gap-2.5 pointer-events-auto">
-          <div className="flex items-center gap-2">
-            {/* Current phase badge */}
-            <div className="bg-[#0d1f38]/95 border border-white/20 px-4 py-2 rounded-full">
-              <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">
-                {phaseLabel[phase]}
-              </span>
-            </div>
-            <button onClick={() => setShowInfo(true)}
-              aria-label="Ver protocolo e información del experimento"
-              className="w-9 h-9 rounded-xl bg-[#0d1f38]/90 border border-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-all">
-              <Info size={14} />
-            </button>
-            {phase !== 'prelab' && (
+        {isOverDiluted && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="absolute left-1/2 top-3 z-30 flex w-[min(92%,520px)] -translate-x-1/2 items-start gap-3 rounded-xl border border-red-500/50 bg-[#1b0b0b]/95 p-3 shadow-2xl"
+            role="alert"
+          >
+            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-400" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[14px] font-black text-white">¡Solución contaminada!</h2>
+              <p className="mt-0.5 text-[12px] leading-snug text-slate-300">
+                Pasaste el volumen de aforo. La sobre-dilución es <strong className="text-red-300">irreversible</strong>: no se puede evaporar el agua sin alterar la concentración. Hay que preparar una nueva solución.
+              </p>
               <button onClick={handleReset}
-                aria-label="Reiniciar experimento"
-                className="w-9 h-9 rounded-xl bg-[#0d1f38]/90 border border-white/20 flex items-center justify-center text-slate-300 hover:text-red-400 transition-all">
-                <RefreshCw size={14} />
+                className="mt-2 flex h-8 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-red-500">
+                <RefreshCw size={13} /> Reiniciar experimento
               </button>
-            )}
-          </div>
-
-          <div className="flex gap-1.5">
-            {steps.map((s, i) => (
-              <div key={i} className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest transition-all ${
-                s.done
-                  ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
-                  : 'bg-[#0d1f38]/80 border-white/20 text-slate-300'
-              }`}>
-                {s.done ? <CheckCircle2 size={9} /> : <div className="w-1 h-1 rounded-full bg-slate-500" />}
-                {s.label}
-              </div>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* ── PHASE-SPECIFIC FOOTER CONTROLS ────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-        {phase === 'weighing' && (
-          <motion.footer key="weighing"
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-0 left-0 right-0 z-20 p-5"
-          >
-            <div className="flex items-end gap-4 justify-center">
-
-              {/* Balance panel */}
-              <div className="bg-[#0d1f38]/97 backdrop-blur-2xl border border-white/20 rounded-[2rem] p-5 shadow-2xl w-72 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Balanza Analítica</span>
-                  <Scale size={12} className="text-slate-400" />
-                </div>
-
-                {/* Lectura: sin tara la balanza marca el vidrio de reloj; tarada, solo el polvo. */}
-                <div className="bg-black/70 rounded-2xl px-3 py-3 flex items-center justify-center border border-white/20">
-                  <span className={`text-2xl font-black font-mono tracking-tight ${!balanza.tara ? 'text-slate-400' : enRangoMasa ? 'text-emerald-400' : 'text-sky-300'}`}>
-                    {lecturaBalanza.toFixed(3)}
-                    <span className="text-xs ml-1 opacity-50">g</span>
-                  </span>
-                </div>
-
-                {/* Rango alrededor de la masa que calculaste en el pre-laboratorio */}
-                {balanza.tara && mRequerida > 0 && (
-                  <div>
-                    <div className="flex justify-between text-[8px] text-slate-400 mb-1">
-                      <span>0 g</span>
-                      <span className="text-slate-300">Meta: {mRequerida} g (±5 %)</span>
-                      <span>{(mRequerida * 1.3).toFixed(1)} g</span>
-                    </div>
-                    <div className="relative h-2 bg-white/15 rounded-full overflow-hidden">
-                      <div className="absolute h-full bg-emerald-500/25 rounded-full"
-                        style={{
-                          left: `${((1 - TOLERANCIA_Q5_REL) / 1.3) * 100}%`,
-                          width: `${((2 * TOLERANCIA_Q5_REL) / 1.3) * 100}%`,
-                        }} />
-                      <motion.div
-                        animate={{ left: `${Math.min(100, (balanza.polvo / (mRequerida * 1.3)) * 100)}%` }}
-                        className={`absolute top-0 w-1 h-full rounded-full ${enRangoMasa ? 'bg-emerald-400' : 'bg-sky-400'}`}
-                        style={{ transform: 'translateX(-50%)' }}
-                      />
-                    </div>
-                    <div className="text-[8px] text-center mt-1">
-                      <span className={enRangoMasa ? 'text-emerald-400 font-black' : 'text-slate-400'}>
-                        {enRangoMasa ? '✓ En rango' : balanza.polvo > mRequerida ? 'Te pasaste: retira con la espátula' : 'Sigue añadiendo'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tara required notice */}
-                {!balanza.tara && (
-                  <p className="text-[8px] text-amber-300/80 text-center uppercase tracking-widest">
-                    ↑ Activa TARA antes de pesar
-                  </p>
-                )}
-
-                {/* Controls */}
-                <div className="flex gap-2">
-                  <button onClick={() => { toggleTara(); audio?.playPop?.(); }}
-                    aria-label={balanza.tara ? 'Desactivar tara de la balanza' : 'Activar tara de la balanza'}
-                    aria-pressed={balanza.tara}
-                    className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${
-                      balanza.tara ? 'bg-orange-500/90 text-white shadow-md shadow-orange-900/50' : 'bg-white/10 text-slate-200 hover:bg-white/15'
-                    }`}>
-                    Tara
-                  </button>
-                  <button
-                    onPointerDown={() => startPolvo(0.1, 80)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
-                    disabled={!balanza.tara}
-                    aria-label="Añadir reactivo en cantidad gruesa (0.1 g)"
-                    className="flex-1 h-10 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-20 text-slate-200 font-black text-[9px] uppercase tracking-widest transition-all"
-                  >
-                    + Grueso
-                  </button>
-                  <button
-                    onPointerDown={() => startPolvo(0.005, 60)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
-                    disabled={!balanza.tara}
-                    aria-label="Añadir reactivo en cantidad fina (0.005 g)"
-                    className="flex-1 h-10 rounded-xl bg-sky-600/70 hover:bg-sky-500/80 disabled:opacity-20 text-white font-black text-[9px] uppercase tracking-widest transition-all"
-                  >
-                    + Fino
-                  </button>
-                  <button
-                    onPointerDown={() => startPolvo(-0.005, 60)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
-                    disabled={!balanza.tara || balanza.polvo <= 0}
-                    aria-label="Retirar reactivo con la espátula (0.005 g)"
-                    className="flex-1 h-10 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-20 text-slate-200 font-black text-[9px] uppercase tracking-widest transition-all"
-                  >
-                    − Retirar
-                  </button>
-                </div>
-
-                <button onClick={handleTransfer} disabled={!canTransfer}
-                  className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-20 text-white font-black text-[9px] uppercase tracking-widest transition-all shadow-md shadow-indigo-900/50">
-                  Transferir al Matraz →
-                </button>
-              </div>
-
-              {/* Telemetry */}
-              <div className="bg-[#0d1f38]/97 backdrop-blur-2xl border border-white/20 rounded-[2rem] p-5 shadow-2xl w-60">
-                <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-3">Telemetría</div>
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Moles en platillo</div>
-                    <div className="text-lg font-black text-slate-100">
-                      {!balanza.tara ? '--' : ((balanza.polvo * (sal?.purity ?? 1)) / (sal?.pm ?? 58.44)).toFixed(4)}
-                      <span className="text-xs text-slate-400 ml-1">mol</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Pureza reactivo</div>
-                    <div className="text-lg font-black text-slate-100">
-                      {((sal?.purity ?? 1) * 100).toFixed(1)}
-                      <span className="text-xs text-slate-400 ml-1">%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
-          </motion.footer>
-        )}
-
-        {phase === 'aforo' && (
-          <motion.footer key="aforo"
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-0 left-0 right-0 z-20 p-5"
-          >
-            <div className="flex items-end gap-4 justify-center">
-
-              {/* Telemetry */}
-              <div className="bg-[#0d1f38]/97 backdrop-blur-2xl border border-white/20 rounded-[2rem] p-5 shadow-2xl w-64">
-                <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-3">Solución en curso</div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <div className="text-[7px] text-slate-400 uppercase tracking-wider mb-0.5">Soluto transferido</div>
-                    <div className="text-xl font-black text-white">
-                      {matraz.polvo.toFixed(3)} <span className="text-xs text-slate-400">g</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[7px] text-slate-400 uppercase tracking-wider mb-0.5">Aforo</div>
-                    <div className="text-xl font-black text-white">
-                      {vTarget} <span className="text-xs text-slate-400">± {tolAforo.toFixed(1)} mL</span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[7px] text-slate-400 mb-1">
-                    <span>0</span>
-                    <span>{matraz.agua.toFixed(1)} / {vTarget} mL</span>
-                  </div>
-                  <div className="h-2 bg-white/15 rounded-full overflow-hidden">
-                    <motion.div
-                      animate={{ width: `${Math.min(100, (matraz.agua / vTarget) * 100)}%` }}
-                      className={`h-full rounded-full ${sobrepasaAforo(matraz.agua, vTarget) ? 'bg-red-500' : isPrecision ? 'bg-cyan-400' : 'bg-blue-500'}`}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Water panel */}
-              <div className="bg-[#0d1f38]/97 backdrop-blur-2xl border border-white/20 rounded-[2rem] p-5 shadow-2xl w-72 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Solvente (H₂O)</span>
-                  <Droplet size={12} className="text-blue-400" />
-                </div>
-
-                <button
-                  onPointerDown={() => startAgua(1, vTarget * 0.88)} onPointerUp={stopAgua} onPointerLeave={stopAgua}
-                  disabled={matraz.agua >= vTarget * 0.88}
-                  aria-label={`Llenado rápido — añadir agua en volumen grueso hasta el 88% (${(vTarget * 0.88).toFixed(0)} mL)`}
-                  className="h-11 rounded-xl bg-blue-600/80 hover:bg-blue-500/90 disabled:opacity-25 text-white font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all shadow-md shadow-blue-900/40"
-                >
-                  Llenado Rápido
-                </button>
-
-                <button
-                  onPointerDown={() => { if (isPrecision) startAgua(0.05, vTarget + 5); }}
-                  onPointerUp={stopAgua} onPointerLeave={stopAgua}
-                  aria-label="Goteo de precisión — añadir agua gota a gota para ajustar al menisco"
-                  disabled={!isPrecision || isOverDiluted}
-                  className={`h-11 rounded-xl border font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all ${
-                    isPrecision && !isOverDiluted
-                      ? 'border-cyan-500/60 text-cyan-300 bg-cyan-500/15 shadow-[0_0_24px_rgba(6,182,212,0.2)]'
-                      : 'border-white/20 text-slate-300 bg-[#0d1f38]/80 cursor-not-allowed'
-                  }`}
-                >
-                  {isPrecision ? '● Goteo de Precisión' : 'Goteo (activa al 88%)'}
-                </button>
-
-                {isPrecision && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-[8px] text-cyan-300/80 text-center uppercase tracking-widest">
-                    Ajusta al menisco con precisión
-                  </motion.p>
-                )}
-
-                {/* Aforo confirmation */}
-                {isAfored && !canCertify && (
-                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                    className="bg-emerald-500/15 border border-emerald-500/40 rounded-xl px-3 py-2.5 flex items-center gap-2 justify-center">
-                    <CheckCircle2 size={14} className="text-emerald-400" />
-                    <span className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">Volumen exacto</span>
-                  </motion.div>
-                )}
-
-                {/* Certify button — appears when perfectly afored */}
-                {canCertify && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-                    onClick={handleCertify}
-                    className="h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-2 border border-emerald-500/40"
-                  >
-                    <Award size={14} /> Certificar Solución
-                  </motion.button>
-                )}
-              </div>
-            </div>
-          </motion.footer>
-        )}
-      </AnimatePresence>
-
-      {/* ── INFO MODAL ─────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showInfo && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center p-10 bg-black/75 backdrop-blur-xl"
-            onClick={() => setShowInfo(false)}
-          >
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              onClick={e => e.stopPropagation()}
-              className="bg-[#0d1f38] border border-white/20 p-10 rounded-[3rem] shadow-2xl max-w-xl"
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-indigo-500/15 rounded-2xl text-indigo-300 border border-indigo-500/30">
-                  <BookOpen size={24} />
-                </div>
-                <h2 className="text-xl font-black text-white tracking-tight">Protocolo de Soluciones</h2>
-              </div>
-              <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
-                <p><strong className="text-white">Molaridad (M):</strong> mol de soluto / L de solución. M = n / V</p>
-                <p><strong className="text-white">Masa requerida:</strong>{' '}
-                  m = M × V(L) × PM / pureza
-                  {phase !== 'prelab' && <> =&nbsp;<strong className="text-indigo-300">{mRequerida} g</strong> de {sal?.nombre}</>}
-                </p>
-                <p><strong className="text-white">El Menisco:</strong> La parte inferior de la curva del líquido debe tocar exactamente la línea de calibración.</p>
-                <p><strong className="text-white">Tolerancia:</strong> la molaridad debe quedar a ±5 % de {mTarget} M, y el menisco a ±{tolAforo.toFixed(1)} mL de la marca de {vTarget} mL.</p>
-                <p><strong className="text-red-300">Sobre-dilución:</strong> Si pasás el volumen objetivo, la solución se descarta. No es reversible.</p>
-              </div>
-              <button onClick={() => setShowInfo(false)}
-                className="mt-7 px-6 py-3 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-white/15">
-                Entendido
-              </button>
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Protocolo (a petición del alumno) */}
+      <AnimatePresence>
+        {showInfo && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-4"
+            onClick={() => setShowInfo(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}
+              className="relative max-h-full max-w-xl overflow-y-auto rounded-2xl border border-indigo-400/30 bg-[#0d1f38] p-6 shadow-2xl">
+              <div className="mb-3 flex items-center gap-3">
+                <BookOpen className="text-indigo-300" size={26} />
+                <h2 className="text-lg font-black text-white">Protocolo de soluciones</h2>
+              </div>
+              <div className="space-y-2.5 text-[13px] leading-relaxed text-slate-300">
+                <p><strong className="text-white">Molaridad (M):</strong> mol de soluto / L de solución. M = n / V</p>
+                <p><strong className="text-white">Masa requerida:</strong>{' '}
+                  m = M × V(L) × PM / pureza
+                  {phase !== 'prelab' && <> =&nbsp;<strong className="text-indigo-300">{mRequerida} g</strong> de {salActual?.nombre}</>}
+                </p>
+                <p><strong className="text-white">El menisco:</strong> la parte inferior de la curva del líquido debe tocar exactamente la línea de calibración del cuello.</p>
+                <p><strong className="text-white">Tolerancia:</strong> la molaridad debe quedar a ±5 % de {mTarget} M, y el menisco a ±{tolAforo.toFixed(1)} mL de la marca de {vTarget} mL.</p>
+                <p><strong className="text-red-300">Sobre-dilución:</strong> si pasas el volumen objetivo, la solución se descarta. No es reversible.</p>
+              </div>
+              <button onClick={() => setShowInfo(false)}
+                className="mt-5 rounded-lg border border-white/15 bg-white/10 px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-white hover:bg-white/15">
+                Entendido
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
+
+  // ── Barra superior ───────────────────────────────────────────────────────────
+  const barraSuperior = (
+    <>
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600/80 text-white"><Beaker size={15} /></div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-[13px] font-bold text-white">{salActual?.nombre} <span className="font-mono text-[10px] font-normal text-slate-400">(<Formula f={salActual?.formula ?? ''} />)</span></span>
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300"><Target size={9} /> {mTarget} M · {vTarget} mL{phase !== 'prelab' ? ` · meta ${mRequerida} g` : ''}</span>
+        </div>
+      </div>
+      <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-200">
+        {({ prelab: 1, weighing: 2, dissolving: 3, aforo: 4 } as Record<Phase, number>)[phase]}/4 · {phaseLabel[phase]}
+      </span>
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <button onClick={() => setShowInfo(true)} aria-label="Ver protocolo e información del experimento" title="Protocolo"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-200 hover:border-[#219EBC]"><Info size={15} /></button>
+        {phase !== 'prelab' && (
+          <button onClick={handleReset} aria-label="Reiniciar experimento" title="Reiniciar"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-200 hover:border-red-400"><RefreshCw size={15} /></button>
+        )}
+      </div>
+    </>
+  );
+
+  // ── Panel lateral: catálogo de reactivos ─────────────────────────────────────
+  const panelLateral = (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-1" aria-label="Progreso de la práctica">
+        {steps.map((st, i) => (
+          <span key={i} className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-wider ${st.done ? 'border-emerald-500/35 bg-emerald-500/15 text-emerald-300' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}>
+            {st.done ? <CheckCircle2 size={9} /> : <span className="h-1 w-1 rounded-full bg-slate-500" />}{st.label}
+          </span>
+        ))}
+      </div>
+      <div>
+        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Catálogo de reactivos</div>
+        <div className="flex flex-col gap-1.5" role="group" aria-label="Catálogo de reactivos">
+          {SUSTANCIAS_SOLUCIONES.map((s, idx) => (
+            <button key={s.formula}
+              aria-pressed={salActual?.formula === s.formula}
+              onClick={() => {
+                // Otro reactivo es otro cálculo: se vuelve al pre-laboratorio.
+                stopPolvo(); stopAgua();
+                setSal(idx); setIsOverDiluted(false); setPhase('prelab');
+                audio?.playSuccess?.();
+              }}
+              className={`flex items-center gap-2.5 rounded-lg border p-2 text-left transition-colors ${salActual?.formula === s.formula
+                ? 'border-indigo-400/50 bg-indigo-500/20 text-white'
+                : 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/10'}`}
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: s.color + '33' }}>
+                <FlaskConical size={12} style={{ color: s.color }} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-bold leading-tight">{s.nombre}</span>
+                <span className="block text-[10px] text-slate-400"><Formula f={s.formula} /> · PM {s.pm}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5 text-[11px] leading-snug text-slate-300">
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Reactivo en uso</div>
+        <div><b className="text-white">PM</b> {salActual?.pm} g/mol</div>
+        <div><b className="text-white">Pureza</b> {((salActual?.purity ?? 1) * 100).toFixed(1)} %</div>
+        <div className="mt-1 text-slate-400">Cambiar de reactivo reinicia la práctica en el pre-laboratorio.</div>
+      </div>
+    </div>
+  );
+
+  // ── Controles por fase ───────────────────────────────────────────────────────
+  let controles: React.ReactNode;
+  if (phase === 'prelab') {
+    controles = (
+      <PreLab sal={salActual} mTarget={mTarget} vTarget={vTarget} mRequerida={mRequerida} onConfirm={() => setPhase('weighing')} />
+    );
+  } else if (phase === 'weighing') {
+    controles = (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-baseline gap-1.5 rounded-lg border border-white/15 bg-black/60 px-3 py-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Balanza</span>
+            <span className={`font-mono text-[20px] font-black tabular-nums ${!balanza.tara ? 'text-slate-400' : enRangoMasa ? 'text-emerald-400' : 'text-sky-300'}`}>{lecturaBalanza.toFixed(3)}</span>
+            <span className="text-[11px] text-slate-400">g</span>
+          </div>
+          <Lectura etiqueta="Moles en platillo" valor={!balanza.tara ? '--' : ((balanza.polvo * (salActual?.purity ?? 1)) / (salActual?.pm ?? 58.44)).toFixed(4)} unidad="mol" />
+          <Lectura etiqueta="Pureza" valor={((salActual?.purity ?? 1) * 100).toFixed(1)} unidad="%" />
+          {balanza.tara && mRequerida > 0 && (
+            <div className="min-w-[170px] flex-1">
+              <div className="mb-0.5 flex justify-between text-[9px] text-slate-400">
+                <span>0 g</span><span className="text-slate-300">Meta {mRequerida} g (±5 %)</span><span>{(mRequerida * 1.3).toFixed(1)} g</span>
+              </div>
+              <div className="relative h-2 overflow-hidden rounded-full bg-white/15">
+                <div className="absolute h-full rounded-full bg-emerald-500/30"
+                  style={{ left: `${((1 - TOLERANCIA_Q5_REL) / 1.3) * 100}%`, width: `${((2 * TOLERANCIA_Q5_REL) / 1.3) * 100}%` }} />
+                <div className={`absolute top-0 h-full w-1 rounded-full ${enRangoMasa ? 'bg-emerald-400' : 'bg-sky-400'}`}
+                  style={{ left: `${Math.min(100, (balanza.polvo / (mRequerida * 1.3)) * 100)}%`, transform: 'translateX(-50%)' }} />
+              </div>
+              <div className="mt-0.5 text-center text-[10px]">
+                <span className={enRangoMasa ? 'font-bold text-emerald-400' : 'text-slate-400'}>
+                  {enRangoMasa ? '✓ En rango' : balanza.polvo > mRequerida ? 'Te pasaste: retira con la espátula' : 'Sigue añadiendo'}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+        {!balanza.tara && (
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/90">Activa TARA con el vidrio de reloj vacío antes de pesar</p>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button onClick={() => { toggleTara(); audio?.playPop?.(); }}
+            aria-label={balanza.tara ? 'Desactivar tara de la balanza' : 'Activar tara de la balanza'}
+            aria-pressed={balanza.tara}
+            className={`${btnPulso} ${balanza.tara ? 'bg-orange-500/90 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/15'}`}>
+            Tara
+          </button>
+          <button
+            onPointerDown={() => startPolvo(0.1, 80)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
+            disabled={!balanza.tara}
+            aria-label="Añadir reactivo en cantidad gruesa (0.1 g)"
+            className={`${btnPulso} bg-white/10 text-slate-200 hover:bg-white/15`}>
+            + Grueso
+          </button>
+          <button
+            onPointerDown={() => startPolvo(0.005, 60)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
+            disabled={!balanza.tara}
+            aria-label="Añadir reactivo en cantidad fina (0.005 g)"
+            className={`${btnPulso} bg-sky-600/70 text-white hover:bg-sky-500/80`}>
+            + Fino
+          </button>
+          <button
+            onPointerDown={() => startPolvo(-0.005, 60)} onPointerUp={stopPolvo} onPointerLeave={stopPolvo}
+            disabled={!balanza.tara || balanza.polvo <= 0}
+            aria-label="Retirar reactivo con la espátula (0.005 g)"
+            className={`${btnPulso} bg-white/10 text-slate-200 hover:bg-white/15`}>
+            − Retirar
+          </button>
+          <button onClick={handleTransfer} disabled={!canTransfer}
+            className={`${btnPulso} min-w-[170px] bg-indigo-600 text-white hover:bg-indigo-500`}>
+            Transferir al Matraz →
+          </button>
+        </div>
+      </div>
+    );
+  } else if (phase === 'dissolving') {
+    controles = (
+      <div className="flex items-center gap-3">
+        <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-200">Disolución en curso</span>
+        <div className="h-2 w-full max-w-md overflow-hidden rounded-full bg-white/15">
+          <div className="h-full rounded-full bg-cyan-400" style={{ width: `${dissolveProgress * 100}%` }} />
+        </div>
+        <span className="font-mono text-[12px] text-slate-300">{Math.round(dissolveProgress * 100)} %</span>
+      </div>
+    );
+  } else {
+    controles = (
+      <div className="flex items-stretch gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Lectura etiqueta="Soluto transferido" valor={matraz.polvo.toFixed(3)} unidad="g" />
+            <Lectura etiqueta="Aforo" valor={`${vTarget} ± ${tolAforo.toFixed(1)}`} unidad="mL" />
+            <Lectura etiqueta="Agua añadida" valor={matraz.agua.toFixed(1)} unidad="mL" acento={isAfored} />
+            <div className="min-w-[120px] flex-1">
+              <div className="h-2 overflow-hidden rounded-full bg-white/15">
+                <div className={`h-full rounded-full ${sobrepasaAforo(matraz.agua, vTarget) ? 'bg-red-500' : isPrecision ? 'bg-cyan-400' : 'bg-blue-500'}`}
+                  style={{ width: `${Math.min(100, (matraz.agua / vTarget) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400"><Droplet size={12} className="text-blue-400" /> Piseta</span>
+            <button
+              onPointerDown={() => startAgua(1, vTarget * 0.88)} onPointerUp={stopAgua} onPointerLeave={stopAgua}
+              disabled={matraz.agua >= vTarget * 0.88}
+              aria-label={`Llenado rápido — añadir agua en volumen grueso hasta el 88% (${(vTarget * 0.88).toFixed(0)} mL)`}
+              className={`${btnPulso} min-w-[130px] bg-blue-600/80 text-white hover:bg-blue-500/90`}>
+              Llenado Rápido
+            </button>
+            <button
+              onPointerDown={() => { if (isPrecision) startAgua(0.05, vTarget + 5); }}
+              onPointerUp={stopAgua} onPointerLeave={stopAgua}
+              aria-label="Goteo de precisión — añadir agua gota a gota para ajustar al menisco"
+              disabled={!isPrecision || isOverDiluted}
+              className={`${btnPulso} min-w-[170px] border ${isPrecision && !isOverDiluted ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-300' : 'border-white/15 bg-white/[0.04] text-slate-300'}`}>
+              {isPrecision ? '● Goteo de Precisión' : 'Goteo (activa al 88%)'}
+            </button>
+            {isAfored && !canCertify && (
+              <span className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                <CheckCircle2 size={14} /> Volumen exacto
+              </span>
+            )}
+            {canCertify && (
+              <button onClick={handleCertify}
+                className="flex h-9 min-w-[170px] flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-600 px-3 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-emerald-500">
+                <Award size={14} /> Certificar Solución
+              </button>
+            )}
+          </div>
+          {isPrecision && !isAfored && (
+            <p className="text-[10px] uppercase tracking-wider text-cyan-300/80">Ajusta el menisco a la marca del cuello con el goteo de precisión</p>
+          )}
+        </div>
+        {isPrecision && <LupaMenisco agua={matraz.agua} vTarget={vTarget} tol={tolAforo} />}
+      </div>
+    );
+  }
+
+  // El éxito lo anuncia el flujo común (quiz + modal); aquí sólo una nota en la franja de controles.
+  if (status === 'success') {
+    controles = (
+      <div className="flex flex-col gap-2">
+        {controles}
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-semibold text-emerald-300">
+          <CheckCircle2 size={14} /> Solución preparada dentro de tolerancia
+        </div>
+      </div>
+    );
+  }
+
+  return <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} panelLateral={panelLateral} tituloPanel="Reactivos" />;
 }

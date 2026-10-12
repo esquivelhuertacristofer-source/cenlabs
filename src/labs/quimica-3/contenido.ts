@@ -1,7 +1,7 @@
 import type { SimuladorContenido } from '@/data/simuladoresData';
 
 const contenido: SimuladorContenido = {
-    titulo: "Motor de Fusión Estequiométrica", 
+    titulo: "Balanceo de Ecuaciones Químicas", 
     videoUrl: "",
     mision: "¡Bienvenido al núcleo del Reactor CEN! Soy el Dr. Quantum y hoy vamos a certificar uno de los principios fundamentales del cosmos: la Conservación de la Materia. En un reactor químico, nada se crea ni se destruye por azar. Cada átomo de hidrógeno, carbono u oxígeno que entra en la reacción debe estar presente al final, aunque su estructura molecular haya cambiado por completo. Tu misión es balancear reacciones críticas asegurando que la balanza de masa sea perfecta. ¡Sincroniza el universo átomo por átomo!", 
     ecuacion: "Σ m(Reactivos) = Σ m(Productos)", 

@@ -1,397 +1,226 @@
 "use client";
-
-import React, { useEffect, useRef } from 'react';
+/**
+ * Q2 · Leyes de los gases (R3F + kit): cilindro de vidrio con pistón, chaqueta
+ * termostática, manómetro de carátula y válvula de entrada de gas.
+ *
+ *   · V (L) = área × altura: el pistón está EXACTAMENTE a V/AREA sobre el fondo.
+ *   · n (mol) → número de moléculas dibujadas (120 por mol), rapidez ∝ √(T/M).
+ *   · El manómetro lee la presión del estado (P = nRT/V del slice), nunca el objetivo.
+ *   · Sobrepresión (isExploded): el pistón sale despedido y el gas escapa por arriba.
+ */
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } from 'three-stdlib';
+import { useFrame } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, Manometro, Cable, useMateriales, esfera, cilindro, azar } from '../_kit';
+import {
+  CilindroGas, PistonGas, EscalaVolumen, BanoTermostatico, BotellaGas, ValvulaAguja, puntoRacor, alturaGas,
+  R_IN, Y_BASE, Y_TAPA, POS_BANO, RACORES_BANO, SALIDA_BOTELLA,
+} from './piezas';
 
-const CinematicShader = {
-    uniforms: {
-        "tDiffuse": { value: null },
-        "time": { value: 0.0 },
-        "distortion": { value: 0.0015 }
-    },
-    vertexShader: `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform float time;
-        uniform float distortion;
-        varying vec2 vUv;
-        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-        void main() {
-            vec2 offset = vec2(distortion * (vUv.x - 0.5), distortion * (vUv.y - 0.5));
-            float r = texture2D(tDiffuse, vUv + offset).r;
-            float g = texture2D(tDiffuse, vUv).g;
-            float b = texture2D(tDiffuse, vUv - offset).b;
-            vec3 color = vec3(r, g, b);
-            vec2 uv = vUv * (1.0 - vUv.yx);
-            float vig = clamp(uv.x * uv.y * 15.0, 0.0, 1.0);
-            color *= mix(0.82, 1.0, vig);
-            float noise = (rand(vUv * time) - 0.5) * 0.015;
-            color += noise;
-            gl_FragColor = vec4(color, 1.0);
-        }
-    `
-};
-
-interface Gas3DSceneProps {
-    temperature: number;
-    volume: number;
-    moles: number;
-    isExploded: boolean;
-    gasType?: 'He' | 'Ne' | 'CO2';
+export interface Gas3DSceneProps {
+  temperature: number;
+  volume: number;
+  moles: number;
+  pressure?: number;
+  isExploded: boolean;
+  gasType?: 'He' | 'Ne' | 'CO2';
 }
 
-const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isExploded, gasType = 'He' }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const engineRef = useRef<{
-        scene: THREE.Scene,
-        camera: THREE.PerspectiveCamera,
-        renderer: THREE.WebGLRenderer,
-        controls: OrbitControls,
-        composer: EffectComposer,
-        piston: THREE.Mesh,
-        pistonRod: THREE.Mesh,
-        heaterCoil: THREE.Mesh,
-        gasFog: THREE.Mesh,
-        heatLight: THREE.PointLight,
-        glassCylinder: THREE.Mesh,
-        particles: any[],
-        pMat: THREE.SpriteMaterial,
-        baseY: number,
-        cylinderRadius: number,
-        clock: THREE.Clock,
-        frameId?: number
-    } | null>(null);
+type V3 = [number, number, number];
 
-    const stateRef = useRef({ temperature, volume, moles, isExploded, gasType });
+const MAX_PARTICULAS = 260;
+const POR_MOL = 120;
+// masa molar (g/mol) y aspecto de cada gas
+const GAS = {
+  He: { M: 4.003, r: 0.085, color: '#2f8fd8', molecula: false },
+  Ne: { M: 20.18, r: 0.12, color: '#f08a1c', molecula: false },
+  CO2: { M: 44.01, r: 0.1, color: '#3d4247', molecula: true },
+} as const;
+const V_REF = 3.6; // u/s para He a 300 K
 
-    useEffect(() => {
-        stateRef.current = { temperature, volume, moles, isExploded, gasType };
-    }, [temperature, volume, moles, isExploded, gasType]);
+function Particulas({ temperature, volume, moles, isExploded, gasType, alturaPiston }: {
+  temperature: number; volume: number; moles: number; isExploded: boolean; gasType: 'He' | 'Ne' | 'CO2';
+  alturaPiston: React.MutableRefObject<number>;
+}) {
+  const m = useMateriales();
+  const info = GAS[gasType];
+  const dato = useRef({ temperature, moles, isExploded, gasType });
+  dato.current = { temperature, moles, isExploded, gasType };
 
-    useEffect(() => {
-        if (!containerRef.current) return;
+  const buf = useMemo(() => {
+    const rnd = azar(2024);
+    const pos = new Float32Array(MAX_PARTICULAS * 3), dir = new Float32Array(MAX_PARTICULAS * 3), eje = new Float32Array(MAX_PARTICULAS * 3);
+    const f = new Float32Array(MAX_PARTICULAS);
+    const unit = (o: Float32Array, i: number) => {
+      let x = rnd() * 2 - 1, y = rnd() * 2 - 1, z = rnd() * 2 - 1;
+      const l = Math.hypot(x, y, z) || 1; x /= l; y /= l; z /= l;
+      o[i * 3] = x; o[i * 3 + 1] = y; o[i * 3 + 2] = z;
+    };
+    for (let i = 0; i < MAX_PARTICULAS; i++) {
+      const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * (R_IN - 0.2);
+      pos[i * 3] = Math.cos(a) * rr; pos[i * 3 + 1] = rnd(); pos[i * 3 + 2] = Math.sin(a) * rr; // y se reescala al primer fotograma
+      unit(dir, i); unit(eje, i);
+      f[i] = 0.55 + rnd() * 0.9;
+    }
+    return { pos, dir, eje, f, ini: false };
+  }, []);
 
-        // --- CONSTANTES DEL PLASMA ENGINE ---
-        const MAX_PARTICLES = 240; // n máx. 2 mol × 120 partículas/mol
-        const CYLINDER_RADIUS = 8;
-        const BASE_Y = -12;
+  const mallaA = useRef<THREE.InstancedMesh>(null);
+  const mallaB = useRef<THREE.InstancedMesh>(null);
+  const mallaC = useRef<THREE.InstancedMesh>(null);
+  const aux = useMemo(() => new THREE.Object3D(), []);
+  const matA = useMemo(() => m.plastico(info.color, 0.3), [m, info.color]);
+  const matC = useMemo(() => m.plastico('#6b737a', 0.35), [m]);
+  const matO = useMemo(() => m.plastico('#e5322d', 0.35), [m]);
+  const tiempo = useRef(0);
 
-        const GAS_PROPS = {
-            He: { color: 0x38bdf8, size: 1.0, M: 4.003 },
-            Ne: { color: 0xfb8500, size: 1.5, M: 20.18 },
-            CO2: { color: 0xe2e8f0, size: 2.2, M: 44.01 }
-        };
-
-        const currentGas = GAS_PROPS[gasType as keyof typeof GAS_PROPS] || GAS_PROPS.He;
-
-        // --- CONFIGURACIÓN BASE (MÁS ILUMINADA) ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0A1E3D);
-        scene.fog = new THREE.FogExp2(0x0A1E3D, 0.001);
-
-        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-        camera.position.set(30, 10, 45);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ReinhardToneMapping;
-        renderer.toneMappingExposure = 2.2;
-        
-        // FIX ESTRICTO: Purgar cualquier canvas "zombie" generado por el StrictMode de React 18
-        while (containerRef.current.firstChild) {
-            containerRef.current.removeChild(containerRef.current.firstChild);
+  useFrame((_, dtReal) => {
+    const dt = Math.min(dtReal, 0.05);
+    tiempo.current += dt;
+    const d = dato.current;
+    const gi = GAS[d.gasType];
+    const cuenta = Math.min(MAX_PARTICULAS, Math.round(d.moles * POR_MOL));
+    const rapidez = V_REF * Math.sqrt(d.temperature / 300) * Math.sqrt(GAS.He.M / gi.M) * (d.isExploded ? 0.7 : 1);
+    const yMin = Y_BASE + gi.r + 0.02;
+    const yMax = Y_BASE + alturaGas(volume) - gi.r - 0.02;
+    const rMax = R_IN - gi.r - 0.08;
+    const { pos, dir, eje, f } = buf;
+    const rot = tiempo.current * 1.6;
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+    if (!buf.ini) {
+      for (let i = 0; i < MAX_PARTICULAS; i++) pos[i * 3 + 1] = yMin + pos[i * 3 + 1] * Math.max(0.05, yMax - yMin);
+      buf.ini = true;
+    }
+    for (let i = 0; i < cuenta; i++) {
+      const o = i * 3;
+      const v = rapidez * f[i] * dt;
+      pos[o] += dir[o] * v; pos[o + 1] += dir[o + 1] * v; pos[o + 2] += dir[o + 2] * v;
+      if (d.isExploded) {
+        dir[o + 1] += dt * 1.2; // el gas sube y escapa por la boca abierta
+        const dentro = pos[o + 1] < Y_TAPA + 0.1;
+        if (dentro) {
+          const l = Math.hypot(pos[o], pos[o + 2]);
+          if (l > rMax) { const nx = pos[o] / l, nz = pos[o + 2] / l, pr = dir[o] * nx + dir[o + 2] * nz; dir[o] -= 2 * pr * nx; dir[o + 2] -= 2 * pr * nz; pos[o] = nx * rMax; pos[o + 2] = nz * rMax; }
+          if (pos[o + 1] < yMin) { pos[o + 1] = yMin; dir[o + 1] = Math.abs(dir[o + 1]); }
+        } else if (pos[o + 1] > Y_TAPA + 9) { pos[o + 1] = -50; } // fuera de escena
+      } else {
+        if (pos[o + 1] < yMin) { pos[o + 1] = yMin; dir[o + 1] = Math.abs(dir[o + 1]); }
+        else if (pos[o + 1] > yMax) { pos[o + 1] = Math.max(yMin, yMax); dir[o + 1] = -Math.abs(dir[o + 1]); }
+        const l = Math.hypot(pos[o], pos[o + 2]);
+        if (l > rMax) {
+          const nx = pos[o] / l, nz = pos[o + 2] / l, pr = dir[o] * nx + dir[o + 2] * nz;
+          dir[o] -= 2 * pr * nx; dir[o + 2] -= 2 * pr * nz;
+          pos[o] = nx * rMax; pos[o + 2] = nz * rMax;
         }
-        containerRef.current.appendChild(renderer.domElement);
+      }
+    }
+    const A = mallaA.current, B = mallaB.current, C = mallaC.current;
+    if (A) {
+      A.count = cuenta;
+      for (let i = 0; i < cuenta; i++) {
+        const o = i * 3;
+        aux.position.set(pos[o], pos[o + 1], pos[o + 2]); aux.scale.setScalar(gi.molecula ? 1 : 1); aux.updateMatrix();
+        A.setMatrixAt(i, aux.matrix);
+      }
+      A.instanceMatrix.needsUpdate = true;
+    }
+    if (B && C) {
+      const n = gi.molecula ? cuenta : 0;
+      B.count = n; C.count = n;
+      for (let i = 0; i < n; i++) {
+        const o = i * 3;
+        // eje de la molécula lineal O=C=O: gira despacio sobre la vertical
+        const ex = eje[o] * cr - eje[o + 2] * sr, ez = eje[o] * sr + eje[o + 2] * cr, ey = eje[o + 1];
+        aux.scale.setScalar(1);
+        aux.position.set(pos[o] + ex * 0.19, pos[o + 1] + ey * 0.19, pos[o + 2] + ez * 0.19); aux.updateMatrix(); B.setMatrixAt(i, aux.matrix);
+        aux.position.set(pos[o] - ex * 0.19, pos[o + 1] - ey * 0.19, pos[o + 2] - ez * 0.19); aux.updateMatrix(); C.setMatrixAt(i, aux.matrix);
+      }
+      B.instanceMatrix.needsUpdate = true; C.instanceMatrix.needsUpdate = true;
+    }
+  });
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.target.set(0, -2, 0);
+  const geoA = esfera(gasType === 'CO2' ? 0.1 : info.r, 14);
+  const geoO = esfera(0.095, 12);
+  return (
+    <group>
+      <instancedMesh key={gasType} ref={mallaA} args={[geoA, gasType === 'CO2' ? matC : matA, MAX_PARTICULAS]} frustumCulled={false} />
+      <instancedMesh ref={mallaB} args={[geoO, matO, MAX_PARTICULAS]} frustumCulled={false} />
+      <instancedMesh ref={mallaC} args={[geoO, matO, MAX_PARTICULAS]} frustumCulled={false} />
+    </group>
+  );
+}
 
-        // --- POST-PROCESAMIENTO (BLOOM) EXACTO AL ORIGINAL ---
-        const renderPass = new RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 1.0, 0.5, 0.6);
-        const composer = new EffectComposer(renderer);
-        composer.addPass(renderPass);
-        composer.addPass(bloomPass);
-        const cinematicPass = new ShaderPass(CinematicShader);
-        composer.addPass(cinematicPass);
+function Montaje({ temperature, volume, moles, pressure, isExploded, gasType }: Required<Gas3DSceneProps>) {
+  const pistonRef = useRef<THREE.Group>(null);
+  const alturaPiston = useRef(alturaGas(volume));
+  const vel = useRef(0);
+  const yExp = useRef(0);
+  const objetivo = useRef(volume);
+  objetivo.current = volume;
 
-        // --- ENTORNO ORIGINAL (SUELO Y GRID MÁS CLAROS) ---
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x1A3A6E, roughness: 0.8, metalness: 0.2 });
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -18;
-        scene.add(floor);
+  useFrame((_, dtReal) => {
+    const dt = Math.min(dtReal, 0.05);
+    const p = pistonRef.current; if (!p) return;
+    if (isExploded) {
+      // El pistón sale despedido hacia arriba y cae fuera de escena.
+      vel.current = vel.current === 0 ? 7 : vel.current - 9.8 * dt * 1.5;
+      yExp.current += vel.current * dt;
+      if (yExp.current > 14) { p.visible = false; }
+      p.position.y = Y_BASE + alturaPiston.current + Math.max(0, yExp.current);
+      p.rotation.z = yExp.current * 0.12;
+    } else {
+      vel.current = 0; yExp.current = 0; p.visible = true; p.rotation.z = 0;
+      const meta = alturaGas(objetivo.current);
+      alturaPiston.current += (meta - alturaPiston.current) * Math.min(1, dt * 7);
+      p.position.y = Y_BASE + alturaPiston.current;
+    }
+  });
 
-        const grid = new THREE.GridHelper(200, 40, 0x5B85C8, 0x2D5A9E);
-        grid.position.y = -17.9;
-        scene.add(grid);
+  const racorAbajo = puntoRacor(false), racorArriba = puntoRacor(true);
+  const volante = Math.round(moles * 400) * 0.05; // gira un poco cada vez que se inyecta gas
+  const salida: V3 = [-3.7 + SALIDA_BOTELLA[0] + 0.15, SALIDA_BOTELLA[1], -2.0 + SALIDA_BOTELLA[2]];
 
-        // --- ILUMINACIÓN DE ESTUDIO REFORZADA ---
-        scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+  return (
+    <group>
+      <CilindroGas temperatura={temperature} />
+      <PistonGas ref={pistonRef} position={[0, Y_BASE + alturaGas(volume), 0]} />
+      <Particulas temperature={temperature} volume={volume} moles={moles} isExploded={isExploded} gasType={gasType} alturaPiston={alturaPiston} />
 
-        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0D2040, 1.5);
-        scene.add(hemiLight);
+      {/* escala de volumen: la marca 0 queda a la altura del fondo del cilindro */}
+      <EscalaVolumen position={[-2.5, Y_BASE, 1.0]} alturaPiston={alturaPiston} />
 
-        const frontLight = new THREE.DirectionalLight(0xffffff, 3.5);
-        frontLight.position.set(0, 20, 30);
-        scene.add(frontLight);
+      {/* entrada de gas: botella → válvula de aguja → base del cilindro */}
+      <BotellaGas gas={gasType} position={[-3.7, 0, -2.0]} />
+      <ValvulaAguja position={[-2.3, 0.5, 0]} giro={volante} />
+      <mesh geometry={cilindro(0.06, 0.06, 0.6, 12)} position={[-1.95, 0.5, 0]} rotation-z={Math.PI / 2}><meshStandardMaterial color="#c9a24e" metalness={1} roughness={0.3} /></mesh>
+      <Cable desde={salida} hasta={[-2.7, 0.5, 0.02]} holgura={0.5} grosor={0.05} color="#2e3338" />
 
-        const backLight = new THREE.DirectionalLight(0x4488ff, 2.0);
-        backLight.position.set(0, 10, -30);
-        scene.add(backLight);
+      {/* toma de presión → manómetro de carátula */}
+      <mesh geometry={cilindro(0.06, 0.06, 0.9, 12)} position={[2.35, 0.5, 0]} rotation-z={Math.PI / 2}><meshStandardMaterial color="#c9a24e" metalness={1} roughness={0.3} /></mesh>
+      <mesh geometry={cilindro(0.06, 0.06, 0.95, 12)} position={[2.7, 0.95, 0]}><meshStandardMaterial color="#c9a24e" metalness={1} roughness={0.3} /></mesh>
+      <Manometro position={[2.7, 1.95, 0.05]} valor={pressure} min={0} max={8} divisiones={8} menores={5} unidad="atm" titulo="Presión" zonaRoja={[7, 8]} diametro={1.15} decimales={0} conVastago={false} />
 
-        const spotLight = new THREE.SpotLight(0xffffff, 3.0);
-        spotLight.position.set(20, 50, 20);
-        spotLight.angle = Math.PI / 6;
-        spotLight.penumbra = 0.5;
-        scene.add(spotLight);
+      {/* baño termostático y mangueras de la chaqueta */}
+      <BanoTermostatico position={POS_BANO} temperatura={temperature} />
+      <Cable desde={RACORES_BANO.retorno} hasta={racorAbajo} holgura={0.35} grosor={0.075} color="#3b6ea5" ySuelo={0} />
+      <Cable desde={RACORES_BANO.impulsion} hasta={racorArriba} holgura={0.3} grosor={0.075} color="#b8452c" />
 
-        const heatLight = new THREE.PointLight(0xff3333, 0, 40);
-        heatLight.position.set(0, BASE_Y + 2, 0);
-        scene.add(heatLight);
+      <EncuadrarCaja caja={[[-4.2, 0, -3.0], [5.6, 7.0, 1.7]]} margen={0.96} direccion={[0.1, 0.17, 1]} />
+    </group>
+  );
+}
 
-        // --- CONSTRUCCIÓN DEL CONTENEDOR EXACTO ---
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1E3F70, metalness: 0.6, roughness: 0.6 });
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 11, 4, 32), baseMat);
-        base.position.y = BASE_Y - 2;
-        scene.add(base);
-
-        const heaterCoil = new THREE.Mesh(
-            new THREE.TorusGeometry(7, 0.4, 16, 64),
-            new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x000000, emissiveIntensity: 0 })
-        );
-        heaterCoil.rotation.x = Math.PI / 2;
-        heaterCoil.position.y = BASE_Y + 0.5;
-        scene.add(heaterCoil);
-
-        const glassCylinder = new THREE.Mesh(
-            new THREE.CylinderGeometry(CYLINDER_RADIUS, CYLINDER_RADIUS, 30, 32, 1, true),
-            new THREE.MeshStandardMaterial({
-                color: 0x38bdf8,
-                transparent: true,
-                opacity: 0.25,
-                roughness: 0.1,
-                metalness: 0.8,
-                emissive: 0x38bdf8,
-                emissiveIntensity: 0.2, // Falso efecto de refracción/glow en los bordes
-                side: THREE.DoubleSide,
-                depthWrite: false
-            })
-        );
-        glassCylinder.position.y = BASE_Y + 15;
-        scene.add(glassCylinder);
-
-        // Anillos del cilindro originales
-        for(let i=1; i<=5; i++) {
-            const ring = new THREE.Mesh(
-                new THREE.TorusGeometry(CYLINDER_RADIUS + 0.05, 0.05, 8, 64),
-                new THREE.MeshBasicMaterial({ color: 0x475569 })
-            );
-            ring.rotation.x = Math.PI / 2;
-            ring.position.y = BASE_Y + (i * 5);
-            scene.add(ring);
-        }
-
-        const pistonMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.5 });
-        const piston = new THREE.Mesh(new THREE.CylinderGeometry(CYLINDER_RADIUS - 0.2, CYLINDER_RADIUS - 0.2, 1.5, 32), pistonMat);
-        scene.add(piston);
-
-        const pistonRod = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 40, 16), pistonMat);
-        scene.add(pistonRod);
-
-        const gasFog = new THREE.Mesh(
-            new THREE.CylinderGeometry(CYLINDER_RADIUS - 0.1, CYLINDER_RADIUS - 0.1, 1, 32),
-            new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
-        );
-        gasFog.geometry.translate(0, 0.5, 0); 
-        gasFog.position.y = BASE_Y + 1;
-        scene.add(gasFog);
-
-        // --- PARTÍCULAS (PLASMA ENGINE) ---
-        const canvas = document.createElement('canvas');
-        canvas.width = 64; canvas.height = 64;
-        const ctx = canvas.getContext('2d')!;
-        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        grad.addColorStop(0.4, 'rgba(255, 255, 255, 0.2)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = grad; ctx.fillRect(0, 0, 64, 64);
-        const plasmaTex = new THREE.CanvasTexture(canvas);
-
-        const pMat = new THREE.SpriteMaterial({ 
-            map: plasmaTex, 
-            color: 0x38bdf8, // Sincronizado con var(--accent)
-            transparent: true, 
-            blending: THREE.AdditiveBlending, 
-            depthWrite: false 
-        });
-        const particles: any[] = [];
-        for(let i=0; i<MAX_PARTICLES; i++) {
-            const sprite = new THREE.Sprite(pMat);
-            const size = currentGas.size * (0.8 + Math.random() * 0.4); 
-            sprite.scale.set(size, size, 1);
-            scene.add(sprite);
-            sprite.visible = false;
-            
-            const dir = new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)).normalize();
-            
-            sprite.position.set(
-                (Math.random() - 0.5) * (CYLINDER_RADIUS - 2),
-                BASE_Y + 5 + Math.random() * 5,
-                (Math.random() - 0.5) * (CYLINDER_RADIUS - 2)
-            );
-
-            particles.push({ mesh: sprite, dir: dir, baseSize: size, phase: Math.random() * Math.PI * 2 });
-        }
-
-        engineRef.current = {
-            scene, camera, renderer, controls, composer, piston, pistonRod, heaterCoil, gasFog, heatLight, glassCylinder, particles, pMat,
-            baseY: BASE_Y, cylinderRadius: CYLINDER_RADIUS, clock: new THREE.Clock()
-        };
-
-        // Objetos reutilizados en cada cuadro (nada de `new THREE.*` dentro del bucle).
-        const COLOR_FRIO = new THREE.Color(0x0ea5e9);
-        const COLOR_CALIENTE = new THREE.Color(0xff3300);
-        const activeColor = new THREE.Color();
-        const gasColor = new THREE.Color();
-        const escalaObjetivo = new THREE.Vector3();
-
-        const animate = () => {
-            const eng = engineRef.current; if (!eng) return;
-            const state = stateRef.current;
-            eng.frameId = requestAnimationFrame(animate);
-
-            const delta = eng.clock.getDelta();
-            const time = eng.clock.getElapsedTime();
-
-            // Lógica de Pistón
-            const targetPistonY = eng.baseY + (state.volume * 2);
-            eng.piston.position.y += (targetPistonY - eng.piston.position.y) * 0.1;
-            eng.pistonRod.position.y = eng.piston.position.y + 20;
-            const currentCeilingY = eng.piston.position.y - 0.75;
-
-            const T_TARGET = state.temperature;
-            const V_TARGET = state.volume;
-            const GAS_TYPE = state.gasType;
-            const gasInfo = GAS_PROPS[GAS_TYPE as keyof typeof GAS_PROPS] || GAS_PROPS.He;
-
-            // Estados Visuales (Temperatura)
-            const tNorm = (T_TARGET - 100) / 900;
-            activeColor.copy(COLOR_FRIO).lerp(COLOR_CALIENTE, tNorm);
-            
-            if (!state.isExploded) {
-                // Tras reiniciar una cámara que explotó, el vidrio y el gas vuelven a verse.
-                eng.glassCylinder.visible = true;
-                eng.gasFog.visible = true;
-                (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissive.copy(activeColor);
-                (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissiveIntensity = tNorm * 4;
-                eng.heatLight.color.copy(activeColor);
-                eng.heatLight.intensity = tNorm * 15;
-                (eng.gasFog.material as THREE.MeshBasicMaterial).color.copy(activeColor);
-                eng.gasFog.scale.y = Math.max(0.1, currentCeilingY - (eng.baseY + 1));
-                const density = state.moles / state.volume;
-                (eng.gasFog.material as THREE.MeshBasicMaterial).opacity = Math.min(0.6, density * 1.5);
-                // Color mezclado entre el gas y la temperatura
-                eng.pMat.color.copy(activeColor).lerp(gasColor.setHex(gasInfo.color), 0.5);
-            } else {
-                eng.glassCylinder.visible = false;
-                eng.gasFog.visible = false;
-                (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissive.setHex(0xff0000);
-                (eng.heaterCoil.material as THREE.MeshStandardMaterial).emissiveIntensity = 8;
-            }
-
-            // Partículas
-            // Número de partículas ∝ n; rapidez ∝ √(T/M) (velocidad cuadrática media),
-            // escalada por el tiempo real del cuadro (no por cuadro a 60 Hz).
-            const activeCount = Math.min(MAX_PARTICLES, Math.round(state.moles * 120));
-            const paso = Math.min(delta, 0.05) * 60;
-            const speed = (state.isExploded ? 0.4 : 0.0285 * Math.sqrt(T_TARGET / gasInfo.M)) * paso;
-
-            eng.particles.forEach((p, i) => {
-                if (i < activeCount) {
-                    p.mesh.visible = true;
-
-                    // Reactividad del tamaño al tipo de gas
-                    const targetSize = gasInfo.size * p.baseSize;
-                    p.mesh.scale.lerp(escalaObjetivo.set(targetSize, targetSize, 1), 0.1);
-
-                    if (!state.isExploded) {
-                        p.mesh.position.addScaledVector(p.dir, speed);
-                        // Rebote
-                        const r = 0.4;
-                        if (p.mesh.position.y < eng.baseY + 1 + r) { p.mesh.position.y = eng.baseY + 1 + r; p.dir.y = Math.abs(p.dir.y); }
-                        else if (p.mesh.position.y > currentCeilingY - r) { p.mesh.position.y = currentCeilingY - r; p.dir.y = -Math.abs(p.dir.y); }
-                        
-                        const dist = Math.hypot(p.mesh.position.x, p.mesh.position.z);
-                        if (dist > eng.cylinderRadius - r) {
-                            const nx = p.mesh.position.x / dist; const nz = p.mesh.position.z / dist;
-                            const dot = p.dir.x * nx + p.dir.z * nz;
-                            p.dir.x -= 2 * dot * nx; p.dir.z -= 2 * dot * nz;
-                            p.mesh.position.x = nx * (eng.cylinderRadius - r);
-                            p.mesh.position.z = nz * (eng.cylinderRadius - r);
-                        }
-                    } else {
-                        p.dir.y -= 0.01; p.mesh.position.addScaledVector(p.dir, speed);
-                        if (p.mesh.position.y < -18) { p.mesh.position.y = -18; p.dir.y *= -0.5; }
-                    }
-                } else { p.mesh.visible = false; }
-            });
-
-            eng.controls.update();
-            cinematicPass.uniforms.time.value += delta;
-            eng.composer.render();
-        };
-
-        animate();
-
-        const handleResize = () => {
-            if (!containerRef.current || !engineRef.current) return;
-            const w = containerRef.current.clientWidth;
-            const h = containerRef.current.clientHeight;
-            
-            // Protección contra renders fantasma (w o h = 0)
-            if (w === 0 || h === 0) return;
-
-            engineRef.current.camera.aspect = w / h;
-            engineRef.current.camera.updateProjectionMatrix();
-            engineRef.current.renderer.setSize(w, h);
-            engineRef.current.composer.setSize(w, h);
-        };
-
-        // Disparar resize inicial con un pequeño delay para asegurar que el DOM esté listo
-        const resizeTimeout = setTimeout(handleResize, 100);
-        
-        // Usar ResizeObserver para detectar cuando el panel lateral se abre o cierra (Responsive Layout)
-        const resizeObserver = new ResizeObserver(() => {
-            handleResize();
-        });
-        if (containerRef.current) {
-            resizeObserver.observe(containerRef.current);
-        }
-
-        return () => {
-            clearTimeout(resizeTimeout);
-            resizeObserver.disconnect();
-            if (engineRef.current?.frameId) cancelAnimationFrame(engineRef.current.frameId);
-            composer.dispose();
-            renderer.dispose();
-            
-            // ELIMINAR EL CANVAS DEL DOM AL DESMONTAR (Fix React 18 Strict Mode Double Render)
-            if (containerRef.current && renderer.domElement && containerRef.current.contains(renderer.domElement)) {
-                containerRef.current.removeChild(renderer.domElement);
-            }
-        };
-    }, []);
-
-    return <div ref={containerRef} className="w-full h-full" />;
+const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, pressure, isExploded, gasType = 'He' }) => {
+  const P = pressure ?? (moles * 0.082057 * temperature) / Math.max(0.1, volume);
+  return (
+    <LabCanvas
+      fondo="laboratorio"
+      camara={{ posicion: [0.4, 4.2, 15], objetivo: [0.6, 2.8, -0.3], fov: 35 }}
+      controles={{ minDistancia: 5, maxDistancia: 26, cajaObjetivo: [[-3, 0.5, -2], [4, 6, 1]] }}
+    >
+      <Montaje temperature={temperature} volume={volume} moles={moles} pressure={P} isExploded={isExploded} gasType={gasType} />
+    </LabCanvas>
+  );
 };
 
 export default Gas3DScene;

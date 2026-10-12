@@ -2,7 +2,7 @@ import type { BriefingConfig } from '@/components/MissionBriefing';
 
 const briefing: BriefingConfig = {
     codigo: 'QMI-03',
-    titulo: 'Motor de Fusión Estequiométrica',
+    titulo: 'Balanceo de Ecuaciones Químicas',
     subtitulo: 'Sincronización de Masas y Ley de Lavoisier',
     acento: '#06b6d4',
     duracion: 50,

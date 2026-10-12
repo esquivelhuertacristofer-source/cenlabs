@@ -1,600 +1,184 @@
 "use client";
-
-import React, { useEffect, useRef } from 'react';
+/**
+ * Q5 · Preparación de soluciones — mesa de laboratorio (R3F + kit).
+ *
+ *   Balanza analítica con vidrio de reloj (lectura = instrumento: masa del reloj antes de
+ *   tarar, masa del soluto después), frasco de reactivo con espátula, matraz aforado con
+ *   su marca de aforo en el cuello, embudo para la transferencia y piseta de agua.
+ *
+ *   La escena NO muestra la masa que hay que pesar: sólo lo que marca la balanza y el
+ *   nivel real del agua frente a la marca del cuello.
+ */
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass }    from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass }    from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { useFrame } from '@react-three/fiber';
+import {
+  LabCanvas, EncuadrarCaja, BalanzaAnalitica, BALANZA_PLATO, VidrioReloj, MatrazAforado, Embudo, defAforado,
+  alturaSuperficie, Etiqueta, useMateriales, cilindro, toro,
+} from '../_kit';
+import { Espatula, Frasco, Piseta, MontonPolvo, PUNTA_PISETA } from './piezas';
 
-// ── Vignette + film grain (no bloom — bloom was causing overexposure) ──────────
-const CinematicShader = {
-  uniforms: { tDiffuse:{value:null}, vignette:{value:0.28}, time:{value:0} },
-  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`
-    uniform sampler2D tDiffuse;uniform float vignette,time;varying vec2 vUv;
-    float rand(vec2 c){return fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);}
-    void main(){
-      vec4 col=texture2D(tDiffuse,vUv);
-      float grain=(rand(vUv+time*.007)-.5)*.014;
-      float vig=smoothstep(1.,.2,distance(vUv,vec2(.5))*vignette);
-      gl_FragColor=vec4((col.rgb+grain)*vig,1.);
-    }`,
-};
+type V3 = [number, number, number];
 
-interface SceneProps {
-  polvo:number; tara:boolean;
-  matrazPolvo:number; matrazAgua:number; vTarget:number;
-  salColor:string;
-  phase:'prelab'|'weighing'|'dissolving'|'aforo';
-  mRequerida?:number;
+export interface Soluciones3DProps {
+  polvo: number; tara: boolean;
+  matrazPolvo: number; matrazAgua: number; vTarget: number;
+  salColor: string; salFormula?: string; salNombre?: string;
+  phase: 'prelab' | 'weighing' | 'dissolving' | 'aforo';
+  /** avance 0–1 de la disolución (sólo en la fase `dissolving`) */
+  progresoDisolucion?: number;
 }
 
-// ── LCD display canvas ─────────────────────────────────────────────────────────
-function makeDisplay():[CanvasRenderingContext2D,THREE.CanvasTexture]{
-  const c=document.createElement('canvas'); c.width=512; c.height=192;
-  return [c.getContext('2d')!, new THREE.CanvasTexture(c)];
-}
-function paintDisplay(ctx:CanvasRenderingContext2D,tex:THREE.CanvasTexture,
-  polvo:number,tara:boolean,mReq:number){
-  const W=512,H=192;
-  ctx.fillStyle='#060f08'; ctx.fillRect(0,0,W,H);
-  for(let y=0;y<H;y+=4){ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(0,y,W,1);}
-  ctx.font='bold 13px monospace'; ctx.textAlign='center';
-  ctx.fillStyle='#164424'; ctx.fillText('ANALYTICAL BALANCE',W/2,20);
-  // Sin tara la balanza marca el vidrio de reloj (12.500 g); tarada, solo el polvo.
-  const inRange=tara&&mReq>0&&Math.abs(polvo-mReq)/mReq<=0.05;
-  const col=!tara?'#3a8a4a':inRange?'#20e860':'#00d4f0';
-  ctx.save();
-  ctx.font='bold 82px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.shadowBlur=12; ctx.shadowColor=col; ctx.fillStyle=col;
-  ctx.fillText((tara?polvo.toFixed(3):'12.500')+'  g',W/2,H/2+6);
-  ctx.restore();
-  if(mReq>0&&tara&&polvo>0){
-    const pct=Math.max(0,100-Math.abs(polvo-mReq)/mReq*100);
-    const c2=pct>95?'#20e860':pct>70?'#f0c020':'#e04040';
-    ctx.font='bold 15px monospace'; ctx.fillStyle=c2; ctx.shadowBlur=4; ctx.shadowColor=c2;
-    ctx.fillText(`${pct.toFixed(1)}%  |  target ${mReq} g`,W/2,H-14);
-  }
-  tex.needsUpdate=true;
+// Dos filas en profundidad (la zona útil es casi cuadrada): al fondo, balanza y matraz; delante, frasco, espátula y piseta.
+const X_BAL = -1.9;
+const Z_BAL = -1.4;
+const POS_BAL: V3 = [X_BAL, 0, Z_BAL];
+const PLATO: V3 = [X_BAL + BALANZA_PLATO[0], BALANZA_PLATO[1], Z_BAL + BALANZA_PLATO[2]];
+const X_FRASCO = 0.5;
+const Z_FRASCO = 1.9;
+const X_MATRAZ = 1.5;
+const Z_MATRAZ = -1.4;
+const REPOSO_PISETA: V3 = [3.3, 0, 1.0];
+const GIRO_PISETA = 0.5;
+// Espátula (origen = arranque de la hoja; mango hacia +X). Reposo: sobre la mesa, junto al frasco.
+const TIP_REPOSO: V3 = [1.5, 0.05, Z_FRASCO + 0.3];
+const TIP_AFUERA: V3 = [0.6, 1.55, PLATO[2] + 0.05];   // junto a la puerta abierta de la balanza
+const TIP_PLATO: V3 = [PLATO[0] + 0.15, PLATO[1] + 0.42, PLATO[2] + 0.05];
+
+/** Posición de la piseta inclinada para que su pico quede sobre la boca del matraz, a `yPunta`. */
+function posicionPisetaActiva(yPunta: number): V3 {
+  const c = Math.cos(GIRO_PISETA), s = Math.sin(GIRO_PISETA);
+  const rx = PUNTA_PISETA[0] * c - PUNTA_PISETA[1] * s;
+  const ry = PUNTA_PISETA[0] * s + PUNTA_PISETA[1] * c;
+  return [X_MATRAZ - rx, yPunta - ry, Z_MATRAZ];
 }
 
-interface Eng {
-  renderer:THREE.WebGLRenderer; scene:THREE.Scene;
-  camera:THREE.PerspectiveCamera; composer:EffectComposer;
-  controls:OrbitControls; cin:ShaderPass;
-  frameId:number; time:number;
-  balPowder:THREE.Mesh; dispCtx:CanvasRenderingContext2D; dispTex:THREE.CanvasTexture;
-  balRing:THREE.Mesh;
-  bodyLiq:THREE.Mesh; neckLiq:THREE.Mesh; sediment:THREE.Mesh;
-  liqSurface:THREE.Mesh; calibRing:THREE.Mesh;
-  molPts:THREE.Points; transPts:THREE.Points;
-  transCurve:THREE.QuadraticBezierCurve3; transT:number;
-  cached:SceneProps;
+function capacidadMatraz(v: number): 100 | 250 | 500 {
+  return v <= 100 ? 100 : v <= 250 ? 250 : 500;
 }
 
-export default function Soluciones3DScene(props:SceneProps){
-  const containerRef=useRef<HTMLDivElement>(null);
-  const engRef=useRef<Eng|null>(null);
+/** Mezcla de colores hex (t = peso de b). */
+function mezcla(a: string, b: string, t: number): string {
+  const ca = new THREE.Color(a), cb = new THREE.Color(b);
+  return '#' + ca.lerp(cb, t).getHexString();
+}
 
-  useEffect(()=>{
-    const el=containerRef.current; if(!el) return;
-    const W=el.clientWidth||900, H=el.clientHeight||600;
+function Montaje({ polvo, tara, matrazPolvo, matrazAgua, vTarget, salColor, salFormula, salNombre, phase, progresoDisolucion = 0 }: Soluciones3DProps) {
+  const m = useMateriales();
+  const cap = capacidadMatraz(vTarget);
+  const def = useMemo(() => defAforado(cap), [cap]);
+  const hMatraz = def.altura;
+  const yAforo = def.extra.yAforo;
+  const rBulbo = def.extra.radioBulbo;
 
-    // ── Renderer ─────────────────────────────────────────────────────────────
-    const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
-    renderer.setSize(W,H);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
-    renderer.toneMapping=THREE.ReinhardToneMapping;
-    renderer.toneMappingExposure=1.55;
-    renderer.shadowMap.enabled=true;
-    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    renderer.domElement.style.cssText='display:block;width:100%;height:100%;';
-    el.appendChild(renderer.domElement);
-
-    // ── Scene ─────────────────────────────────────────────────────────────────
-    const scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x0c1828);
-    scene.fog=new THREE.Fog(0x0c1828,60,130);
-
-    // ── Camera ────────────────────────────────────────────────────────────────
-    const camera=new THREE.PerspectiveCamera(52,W/H,0.1,300);
-    camera.position.set(0,18,46);
-    camera.lookAt(0,5,0);
-
-    const controls=new OrbitControls(camera,renderer.domElement);
-    controls.enableDamping=true; controls.dampingFactor=0.06;
-    controls.target.set(0,6,0);
-    controls.maxPolarAngle=Math.PI/2.0;
-    controls.minDistance=14; controls.maxDistance=70;
-
-    // ── Post — only vignette, NO bloom ───────────────────────────────────────
-    const composer=new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene,camera));
-    const cin=new ShaderPass(CinematicShader);
-    composer.addPass(cin);
-
-    // ── LIGHTING — professional 3-point + environment ────────────────────────
-    // Hemisphere: sky cool / ground warm bounce
-    const hemi=new THREE.HemisphereLight(0xc8dcf0,0x4a6070,2.2);
-    scene.add(hemi);
-
-    // Key: warm overhead front-right, with shadows
-    const key=new THREE.DirectionalLight(0xfff8f0,3.2);
-    key.position.set(10,30,20);
-    key.castShadow=true;
-    key.shadow.mapSize.set(2048,2048);
-    key.shadow.camera.near=1; key.shadow.camera.far=120;
-    key.shadow.camera.left=-35; key.shadow.camera.right=35;
-    key.shadow.camera.top=30; key.shadow.camera.bottom=-10;
-    key.shadow.bias=-0.001;
-    scene.add(key);
-
-    // Fill: cool from left
-    const fill=new THREE.DirectionalLight(0xb8d0f0,1.6);
-    fill.position.set(-15,12,18);
-    scene.add(fill);
-
-    // Rim: behind for silhouette separation
-    const rim=new THREE.DirectionalLight(0x7aaad0,1.0);
-    rim.position.set(0,12,-18);
-    scene.add(rim);
-
-    // Floor bounce: simulates reflective lab floor
-    const bounce=new THREE.DirectionalLight(0x8ab0d0,0.8);
-    bounce.position.set(0,-8,12);
-    scene.add(bounce);
-
-    // Overhead strip light (ceiling — fills upper scene)
-    const ceiling=new THREE.DirectionalLight(0xddeeff,1.4);
-    ceiling.position.set(0,50,5);
-    scene.add(ceiling);
-
-    // ── ENVIRONMENT ───────────────────────────────────────────────────────────
-    // Floor — polished lab tile
-    const floorMat=new THREE.MeshStandardMaterial({
-      color:0x1a2e44,roughness:0.15,metalness:0.55,
-    });
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),floorMat);
-    floor.rotation.x=-Math.PI/2; floor.position.y=-0.3;
-    floor.receiveShadow=true;
-    scene.add(floor);
-
-    // Grid
-    const grid=new THREE.GridHelper(80,40,0x243a52,0x162438);
-    grid.position.y=-0.28;
-    scene.add(grid);
-
-    // Lab bench — visible slate surface
-    const benchMat=new THREE.MeshStandardMaterial({
-      color:0x2a3e54,roughness:0.38,metalness:0.30,
-    });
-    const bench=new THREE.Mesh(new THREE.BoxGeometry(80,1.2,18),benchMat);
-    bench.position.y=-0.6; bench.receiveShadow=true; bench.castShadow=true;
-    scene.add(bench);
-
-    // Bench edge highlight
-    const edgeMat=new THREE.MeshStandardMaterial({
-      color:0x3a5878,roughness:0.2,metalness:0.7,
-      emissive:0x162840,emissiveIntensity:1.2,
-    });
-    const edge=new THREE.Mesh(new THREE.BoxGeometry(80,0.07,0.3),edgeMat);
-    edge.position.set(0,0.02,9);
-    scene.add(edge);
-
-    // Back wall — medium dark, clearly visible
-    const wallMat=new THREE.MeshStandardMaterial({color:0x1e3048,roughness:0.88});
-    const wall=new THREE.Mesh(new THREE.PlaneGeometry(120,55),wallMat);
-    wall.position.set(0,24,-15);
-    scene.add(wall);
-
-    // Wall tile lines (horizontal — lab aesthetic)
-    const tileMat=new THREE.MeshStandardMaterial({
-      color:0x243850,roughness:0.9,
-      emissive:0x0e1e30,emissiveIntensity:0.5,
-    });
-    for(let y=2;y<40;y+=8){
-      const tile=new THREE.Mesh(new THREE.BoxGeometry(120,0.05,0.1),tileMat);
-      tile.position.set(0,y,-14.9);
-      scene.add(tile);
-    }
-
-    // Overhead lab neon strip (emissive — gives ambient ceiling feel)
-    const neonMat=new THREE.MeshStandardMaterial({
-      color:0xffffff,emissive:0xddeeff,emissiveIntensity:1.5,
-    });
-    const neon=new THREE.Mesh(new THREE.BoxGeometry(28,0.15,1.2),neonMat);
-    neon.position.set(0,36,0);
-    scene.add(neon);
-
-    // ── ANALYTICAL BALANCE — medium gray (realistic, not white-overblown) ─────
-    const BX=-12;
-    const balGrp=new THREE.Group(); balGrp.position.set(BX,-0.5,0);
-
-    const houseMat=new THREE.MeshStandardMaterial({
-      color:0xa8b4be,   // light-medium gray — realistic analytical balance
-      metalness:0.08,roughness:0.48,
-    });
-
-    const base=new THREE.Mesh(new THREE.BoxGeometry(9.5,0.7,7.2),houseMat);
-    base.position.y=0.35; base.castShadow=true; base.receiveShadow=true; balGrp.add(base);
-
-    const housing=new THREE.Mesh(new THREE.BoxGeometry(8.8,9.0,6.5),houseMat);
-    housing.position.y=5.1; housing.castShadow=true; housing.receiveShadow=true; balGrp.add(housing);
-
-    const topCapMat=new THREE.MeshStandardMaterial({color:0x6878888,roughness:0.5,metalness:0.1});
-    const topCap=new THREE.Mesh(new THREE.BoxGeometry(8.8,0.4,6.5),topCapMat);
-    topCap.position.y=9.8; balGrp.add(topCap);
-
-    // Glass chamber — very subtle, barely visible
-    const glassDoor=new THREE.MeshPhysicalMaterial({
-      color:0xe0ecff,transparent:true,opacity:0.10,
-      roughness:0.0,metalness:0,side:THREE.DoubleSide,
-    });
-    const door=new THREE.Mesh(new THREE.PlaneGeometry(7.4,6.8),glassDoor);
-    door.position.set(0,5.9,3.26); balGrp.add(door);
-    [-3.26,3.26].forEach(z=>{
-      const side=new THREE.Mesh(new THREE.PlaneGeometry(6.0,6.8),glassDoor);
-      side.position.set(z>0?4.45:-4.45,5.9,0);
-      side.rotation.y=Math.PI/2; balGrp.add(side);
-    });
-
-    // Control strip
-    const ctrlMat=new THREE.MeshStandardMaterial({color:0x707880,roughness:0.55,metalness:0.12});
-    const ctrl=new THREE.Mesh(new THREE.BoxGeometry(8.8,2.0,0.5),ctrlMat);
-    ctrl.position.set(0,1.3,3.26); balGrp.add(ctrl);
-
-    // Buttons
-    const btnMat=new THREE.MeshStandardMaterial({color:0x3a5068,roughness:0.4,metalness:0.3});
-    [-2,-0.5,1].forEach(x=>{
-      const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.12,12),btnMat);
-      btn.rotation.x=Math.PI/2; btn.position.set(x,1.3,3.52); balGrp.add(btn);
-    });
-
-    // Display inset
-    const dispInset=new THREE.Mesh(
-      new THREE.BoxGeometry(6.2,1.6,0.05),
-      new THREE.MeshStandardMaterial({color:0x060c08,roughness:0.3})
-    );
-    dispInset.position.set(0,1.2,3.54); balGrp.add(dispInset);
-
-    const [dispCtx,dispTex]=makeDisplay();
-    paintDisplay(dispCtx,dispTex,props.polvo,props.tara,props.mRequerida??0);
-    const dispMesh=new THREE.Mesh(
-      new THREE.PlaneGeometry(5.8,1.4),
-      new THREE.MeshBasicMaterial({map:dispTex})
-    );
-    dispMesh.position.set(0,1.2,3.57); balGrp.add(dispMesh);
-
-    // Column + pan
-    const silvMat=new THREE.MeshStandardMaterial({color:0x8898a8,metalness:0.85,roughness:0.12});
-    const col=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,2.4,16),silvMat);
-    col.position.set(0,11.2,-0.5); balGrp.add(col);
-
-    const pan=new THREE.Mesh(new THREE.CylinderGeometry(2.9,2.5,0.14,40),silvMat);
-    pan.position.set(0,12.5,-0.5); pan.castShadow=true; balGrp.add(pan);
-
-    // Active ring (emissive accent — the ONLY thing that glows)
-    const balRing=new THREE.Mesh(
-      new THREE.TorusGeometry(2.9,0.07,8,48),
-      new THREE.MeshStandardMaterial({
-        color:0x00ccee,emissive:0x00ccee,emissiveIntensity:0.0,
-        roughness:0.2,metalness:0.3,
-      })
-    );
-    balRing.rotation.x=Math.PI/2; balRing.position.set(0,12.62,-0.5); balGrp.add(balRing);
-
-    // Powder pile
-    const balPowder=new THREE.Mesh(
-      new THREE.CylinderGeometry(2.3,2.5,0.8,32),
-      new THREE.MeshStandardMaterial({color:0xeeeae0,roughness:0.90,metalness:0.0})
-    );
-    balPowder.position.set(0,12.95,-0.5); balPowder.visible=false;
-    balPowder.castShadow=true; balGrp.add(balPowder);
-
-    scene.add(balGrp);
-
-    // ── VOLUMETRIC FLASK — clear borosilicate glass ───────────────────────────
-    const FX=12;
-    const flaskGrp=new THREE.Group(); flaskGrp.position.set(FX,-0.5,0);
-
-    // Borosilicate: very low opacity, subtle blue tint — looks like real lab glass
-    const glassMat=new THREE.MeshPhysicalMaterial({
-      color:0xdceeff,
-      transparent:true, opacity:0.22,
-      roughness:0.04, metalness:0.0,
-      side:THREE.DoubleSide,
-    });
-
-    const bulb=new THREE.Mesh(new THREE.SphereGeometry(5,32,24),glassMat);
-    bulb.position.y=5.2; bulb.castShadow=true; flaskGrp.add(bulb);
-
-    const shoulder=new THREE.Mesh(new THREE.CylinderGeometry(1.4,4.6,3.5,32),glassMat);
-    shoulder.position.y=11.4; flaskGrp.add(shoulder);
-
-    const neck=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,9,24),glassMat);
-    neck.position.y=16.4; flaskGrp.add(neck);
-
-    // Neck rim — stainless
-    const rimMat=new THREE.MeshStandardMaterial({color:0x788898,metalness:0.7,roughness:0.18});
-    const neckRim=new THREE.Mesh(new THREE.TorusGeometry(1.5,0.12,8,32),rimMat);
-    neckRim.position.y=20.8; flaskGrp.add(neckRim);
-
-    // Calibration mark — the main emissive accent of the flask
-    const calibRing=new THREE.Mesh(
-      new THREE.TorusGeometry(1.46,0.09,8,64),
-      new THREE.MeshStandardMaterial({
-        color:0xff3300,emissive:0xff2200,emissiveIntensity:2.0,
-      })
-    );
-    // A la altura del menisco al 100 % (NECK_START_Y + NECK_MAX_H del bucle): antes
-    // estaba en 13.5 y el líquido aforado quedaba 6 unidades por encima de la marca.
-    calibRing.position.y=18; flaskGrp.add(calibRing);
-
-    // Volume graduation marks (thin white rings for detail)
-    [12.0,11.0,10.0].forEach((y,i)=>{
-      const mark=new THREE.Mesh(
-        new THREE.TorusGeometry(1.48,0.025,4,48),
-        new THREE.MeshStandardMaterial({
-          color:0xffffff,emissive:0x888888,
-          emissiveIntensity:i===0?0.6:0.3,
-        })
+  // ── actividad: la espátula entra cuando cambia la masa; la piseta, cuando sube el agua ──
+  const refs = useRef({ polvo, agua: matrazAgua, tEsp: 0, tAgua: 0, esp: 0, pis: 0 });
+  const espatula = useRef<THREE.Group>(null);
+  const piseta = useRef<THREE.Group>(null);
+  const chorro = useRef<THREE.Mesh>(null);
+  const [puerta, setPuerta] = useState(0);
+  const ultimaPuerta = useRef(0);
+  const yPunta = hMatraz + 0.55;
+  const posActiva = useMemo(() => posicionPisetaActiva(yPunta), [yPunta]);
+  const suave = (t: number) => t * t * (3 - 2 * t);
+  useFrame((_, dtReal) => {
+    const dt = Math.min(dtReal, 0.05);
+    const R = refs.current;
+    if (Math.abs(polvo - R.polvo) > 1e-6) { R.tEsp = 0.9; R.polvo = polvo; }
+    if (matrazAgua > R.agua + 1e-6) R.tAgua = 0.35;
+    R.agua = matrazAgua;
+    R.tEsp = Math.max(0, R.tEsp - dt); R.tAgua = Math.max(0, R.tAgua - dt);
+    const k = 1 - Math.exp(-dt * 6);
+    R.esp += ((R.tEsp > 0 && phase === 'weighing' ? 1 : 0) - R.esp) * k;
+    R.pis += ((R.tAgua > 0 && phase === 'aforo' ? 1 : 0) - R.pis) * k;
+    // espátula: de la mesa a la puerta de la balanza y, por ella, al vidrio de reloj
+    if (espatula.current) {
+      const e = R.esp;
+      const a = suave(Math.min(1, e * 2)), b = suave(Math.max(0, e * 2 - 1));
+      espatula.current.position.set(
+        THREE.MathUtils.lerp(THREE.MathUtils.lerp(TIP_REPOSO[0], TIP_AFUERA[0], a), TIP_PLATO[0], b),
+        THREE.MathUtils.lerp(THREE.MathUtils.lerp(TIP_REPOSO[1], TIP_AFUERA[1], a), TIP_PLATO[1], b),
+        THREE.MathUtils.lerp(THREE.MathUtils.lerp(TIP_REPOSO[2], TIP_AFUERA[2], a), TIP_PLATO[2], b),
       );
-      mark.position.y=y; flaskGrp.add(mark);
-    });
-
-    // Stand
-    const standMat=new THREE.MeshStandardMaterial({color:0x3c4a58,metalness:0.82,roughness:0.22});
-    const standRing=new THREE.Mesh(new THREE.TorusGeometry(3.6,0.48,8,32),standMat);
-    standRing.rotation.x=Math.PI/2; standRing.position.y=0.2;
-    standRing.castShadow=true; flaskGrp.add(standRing);
-    for(let a=0;a<3;a++){
-      const ang=a*(Math.PI*2/3);
-      const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.22,1.5,8),standMat);
-      leg.position.set(Math.cos(ang)*2.8,-0.55,Math.sin(ang)*2.8);
-      flaskGrp.add(leg);
+      espatula.current.rotation.set(0, THREE.MathUtils.lerp(0.12, 0, a), THREE.MathUtils.lerp(0, 0.3, a));
     }
-
-    // ── LIQUID ────────────────────────────────────────────────────────────────
-    const liqBaseMat=new THREE.MeshStandardMaterial({
-      color:0x60a5fa,transparent:true,opacity:0.80,
-      roughness:0.04,emissive:0x1a3a80,emissiveIntensity:0.2,
-    });
-
-    const bodyLiq=new THREE.Mesh(
-      new THREE.CylinderGeometry(4.5,4.5,1,36),
-      liqBaseMat.clone()
-    );
-    bodyLiq.position.y=0.5; bodyLiq.visible=false; flaskGrp.add(bodyLiq);
-
-    const neckLiq=new THREE.Mesh(
-      new THREE.CylinderGeometry(1.3,1.3,1,24),
-      liqBaseMat.clone()
-    );
-    neckLiq.position.y=13.5; neckLiq.visible=false; flaskGrp.add(neckLiq);
-
-    const liqSurfMat=new THREE.MeshStandardMaterial({
-      color:0x93c5fd,emissive:0x2a60c0,emissiveIntensity:0.35,
-      transparent:true,opacity:0.55,
-    });
-    const liqSurface=new THREE.Mesh(new THREE.CircleGeometry(4.3,32),liqSurfMat.clone());
-    liqSurface.rotation.x=-Math.PI/2; liqSurface.position.y=0.5; liqSurface.visible=false;
-    flaskGrp.add(liqSurface);
-
-    const sediment=new THREE.Mesh(
-      new THREE.CylinderGeometry(3.4,1.0,0.5,32),
-      new THREE.MeshStandardMaterial({color:0xeeeae0,roughness:0.88,transparent:true,opacity:0.65})
-    );
-    sediment.position.y=0.8; sediment.visible=false; flaskGrp.add(sediment);
-
-    scene.add(flaskGrp);
-
-    // ── MOLECULE PARTICLES ────────────────────────────────────────────────────
-    const N=70;
-    const molGeo=new THREE.BufferGeometry();
-    molGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*3),3));
-    const molPts=new THREE.Points(molGeo,new THREE.PointsMaterial({
-      color:0x93c5fd,size:0.26,transparent:true,opacity:0,
-      blending:THREE.AdditiveBlending,depthWrite:false,
-    }));
-    scene.add(molPts);
-
-    // ── TRANSFER PARTICLES ────────────────────────────────────────────────────
-    const T=60;
-    const transGeo=new THREE.BufferGeometry();
-    transGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(T*3),3));
-    const transPts=new THREE.Points(transGeo,new THREE.PointsMaterial({
-      color:0xffffff,size:0.28,transparent:true,opacity:0,
-      blending:THREE.AdditiveBlending,depthWrite:false,
-    }));
-    scene.add(transPts);
-
-    const transCurve=new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(BX,13.5,0),
-      new THREE.Vector3(0,30,0),
-      new THREE.Vector3(FX,22,0)
-    );
-
-    // ── Engine ref ────────────────────────────────────────────────────────────
-    engRef.current={
-      renderer,scene,camera,composer,controls,cin,frameId:0,time:0,
-      balPowder,dispCtx,dispTex,balRing,
-      bodyLiq,neckLiq,sediment,liqSurface,calibRing,
-      molPts,transPts,transCurve,transT:0,
-      cached:{...props},
-    };
-
-    // Resize
-    const ro=new ResizeObserver(()=>{
-      if(!el) return;
-      const w=el.clientWidth,h=el.clientHeight;
-      renderer.setSize(w,h); composer.setSize(w,h);
-      camera.aspect=w/h; camera.updateProjectionMatrix();
-    });
-    ro.observe(el);
-
-    // ── ANIMATION LOOP ────────────────────────────────────────────────────────
-    const BODY_MAX_H=9.4;
-    const NECK_START_Y=13;
-    const NECK_MAX_H=5;   // 13 + 5 = 18 → la marca de aforo
-
-    const liqColor=new THREE.Color();
-    const animate=()=>{
-      const eng=engRef.current; if(!eng) return;
-      eng.time+=0.016;
-      const t=eng.time; const p=eng.cached;
-      cin.uniforms.time.value=t;
-      controls.update();
-
-      // Balance powder
-      if(p.polvo>0.001){
-        const h=Math.min(2.0,p.polvo*0.28);
-        eng.balPowder.scale.y=Math.max(0.01,h);
-        eng.balPowder.position.set(0,12.55+h*0.5,-0.5);
-        eng.balPowder.visible=true;
-        const inRange=!!(p.mRequerida&&Math.abs(p.polvo-p.mRequerida)/p.mRequerida<=0.05);
-        const rm=eng.balRing.material as THREE.MeshStandardMaterial;
-        const targetIntensity=inRange?3.5:0.6;
-        rm.emissiveIntensity=THREE.MathUtils.lerp(rm.emissiveIntensity,targetIntensity,0.08);
-        const ringColor=inRange?0x22ee66:0x00ccee;
-        rm.color.setHex(ringColor); rm.emissive.setHex(ringColor);
-      } else {
-        eng.balPowder.visible=false;
-        const rm=eng.balRing.material as THREE.MeshStandardMaterial;
-        rm.emissiveIntensity=THREE.MathUtils.lerp(rm.emissiveIntensity,0,0.06);
-      }
-
-      // Flask liquid
-      const fr=p.matrazAgua/Math.max(1,p.vTarget);
-      if(p.matrazAgua>0){
-        const bodyR=Math.min(1,fr/0.8);
-        const bodyH=Math.max(0.001,bodyR*BODY_MAX_H);
-        eng.bodyLiq.visible=true;
-        eng.bodyLiq.scale.y=bodyH;
-        eng.bodyLiq.position.y=0.5+bodyH*0.5;
-        eng.liqSurface.visible=true;
-        eng.liqSurface.position.y=0.5+bodyH;
-      } else {
-        eng.bodyLiq.visible=false;
-        eng.liqSurface.visible=false;
-      }
-      if(fr>0.8){
-        const neckR=(fr-0.8)/0.2;
-        const neckH=Math.max(0.001,neckR*NECK_MAX_H);
-        eng.neckLiq.visible=true;
-        eng.neckLiq.scale.y=neckH;
-        eng.neckLiq.position.y=NECK_START_Y+neckH*0.5;
-        eng.liqSurface.position.y=NECK_START_Y+neckH;
-      } else {
-        eng.neckLiq.visible=false;
-      }
-      eng.sediment.visible=p.matrazPolvo>0;
-
-      // Calibration ring — red stays, turns cyan when near target
-      const nearMark=p.matrazAgua>p.vTarget*0.88;
-      const cm=eng.calibRing.material as THREE.MeshStandardMaterial;
-      cm.emissive.setHex(nearMark?0x00ffdd:0xff2200);
-      cm.color.setHex(nearMark?0x00ffdd:0xff3300);
-      cm.emissiveIntensity=THREE.MathUtils.lerp(cm.emissiveIntensity,nearMark?3.5:2.0,0.07);
-
-      // Liquid color
-      if(p.matrazPolvo>0){
-        const lc=liqColor.set(p.salColor);
-        const setLiqColor=(m:THREE.Material)=>{
-          const ms=m as THREE.MeshStandardMaterial;
-          ms.color.set(lc); ms.emissive.set(lc); ms.emissiveIntensity=0.18;
-        };
-        setLiqColor(eng.bodyLiq.material as THREE.Material);
-        setLiqColor(eng.neckLiq.material as THREE.Material);
-        setLiqColor(eng.liqSurface.material as THREE.Material);
-        (eng.sediment.material as THREE.MeshStandardMaterial).color.set(lc);
-      }
-
-      // Molecule particles
-      const hasSol=p.matrazPolvo>0&&p.matrazAgua>0&&p.phase!=='dissolving';
-      const mm=eng.molPts.material as THREE.PointsMaterial;
-      mm.opacity=THREE.MathUtils.lerp(mm.opacity,hasSol?0.65:0,0.04);
-      if(hasSol){
-        mm.color.set(p.salColor);
-        const pos=eng.molPts.geometry.attributes.position.array as Float32Array;
-        const fillH=Math.min(BODY_MAX_H,fr*BODY_MAX_H);
-        for(let i=0;i<N;i++){
-          const a=t*0.18+i*(Math.PI*2/N);
-          const r=((i%4)+1)*0.88;
-          const yo=Math.sin(t*0.4+i*0.62)*0.7;
-          pos[i*3]  =FX+r*Math.cos(a);
-          pos[i*3+1]=-0.5+1+(i/N)*fillH*0.9+yo;
-          pos[i*3+2]=r*Math.sin(a);
-        }
-        eng.molPts.geometry.attributes.position.needsUpdate=true;
-      }
-
-      // Transfer particles
-      const tm=eng.transPts.material as THREE.PointsMaterial;
-      if(p.phase==='dissolving'){
-        eng.transT=Math.min(1,eng.transT+0.007);
-        tm.opacity=THREE.MathUtils.lerp(tm.opacity,0.8,0.08);
-        const pos=eng.transPts.geometry.attributes.position.array as Float32Array;
-        for(let i=0;i<T;i++){
-          const param=(eng.transT+(i/T)*0.65)%1;
-          const pt=eng.transCurve.getPoint(param);
-          const j=(Math.sin(t*3+i)-.5)*0.55;
-          pos[i*3]=pt.x+j; pos[i*3+1]=pt.y+j*.3; pos[i*3+2]=pt.z+j;
-        }
-        eng.transPts.geometry.attributes.position.needsUpdate=true;
-      } else {
-        eng.transT=0;
-        tm.opacity=THREE.MathUtils.lerp(tm.opacity,0,0.1);
-      }
-
-      composer.render();
-      eng.frameId=requestAnimationFrame(animate);
-    };
-    animate();
-
-    return ()=>{
-      ro.disconnect();
-      if(engRef.current) cancelAnimationFrame(engRef.current.frameId);
-      controls.dispose();
-      scene.traverse(obj=>{
-        if(obj instanceof THREE.Mesh){
-          obj.geometry.dispose();
-          if(Array.isArray(obj.material)) obj.material.forEach(m=>m.dispose());
-          else obj.material.dispose();
-        }
-      });
-      composer.dispose();
-      renderer.dispose();
-      if(el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
-      engRef.current=null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
-
-  // ── Sync props → engine ────────────────────────────────────────────────────
-  useEffect(()=>{
-    const eng=engRef.current; if(!eng) return;
-    eng.cached={...props};
-    paintDisplay(eng.dispCtx,eng.dispTex,props.polvo,props.tara,props.mRequerida??0);
-  },[props]);
-
-  // El encuadre cambia solo al cambiar de fase (o al llegar al cuello del matraz):
-  // re-apuntar en cada gota anulaba la órbita del alumno.
-  const cercaDeLaMarca=props.matrazAgua>props.vTarget*0.88;
-  useEffect(()=>{
-    const eng=engRef.current; if(!eng) return;
-    switch(props.phase){
-      case 'prelab':   controls_focus(eng,0,6,0); break;
-      case 'weighing': controls_focus(eng,-6,8,0); break;
-      case 'dissolving': controls_focus(eng,0,10,0); break;
-      case 'aforo':
-        controls_focus(eng, cercaDeLaMarca?12:8, cercaDeLaMarca?14:8, 0); break;
+    // piseta: de pie en su sitio a inclinada sobre la boca del matraz
+    if (piseta.current) {
+      const p = suave(R.pis);
+      piseta.current.position.set(
+        THREE.MathUtils.lerp(REPOSO_PISETA[0], posActiva[0], p),
+        THREE.MathUtils.lerp(REPOSO_PISETA[1], posActiva[1], p),
+        THREE.MathUtils.lerp(REPOSO_PISETA[2], posActiva[2], p),
+      );
+      piseta.current.rotation.z = GIRO_PISETA * p;
     }
-  },[props.phase,cercaDeLaMarca]);
+    if (chorro.current) {
+      const sup = matrazAgua > 0 ? Math.max(0.2, alturaSuperficie(def, matrazAgua)) : 0.2;
+      const largo = Math.max(0.01, yPunta - sup);
+      chorro.current.visible = R.pis > 0.9 && R.tAgua > 0;
+      chorro.current.scale.y = largo;
+      chorro.current.position.y = sup + largo / 2;
+    }
+    const abierta = R.esp > 0.15 ? 1 : 0;
+    if (abierta !== ultimaPuerta.current) { ultimaPuerta.current = abierta; setPuerta(abierta); }
+  });
 
-  return <div ref={containerRef} className="w-full h-full outline-none"/>;
+  const lectura = tara ? polvo : 12.5;
+  const tinte = useMemo(() => {
+    const esBlanca = new THREE.Color(salColor).getHSL({ h: 0, s: 0, l: 0 }).s < 0.1;
+    return esBlanca ? '#8fc6e2' : mezcla('#8fc6e2', salColor, 0.6);
+  }, [salColor]);
+  const cantidadVidrio = Math.round(Math.min(1, 0.15 + polvo / 30) * 20) / 20;
+  const rMonton = Math.min(rBulbo * 0.55, 0.12 + 0.05 * Math.sqrt(Math.max(0, matrazPolvo)));
+  const escalaMonton = matrazPolvo > 0 && phase !== 'aforo' ? (phase === 'dissolving' ? 1 - progresoDisolucion : 1) : 0;
+  const hayEmbudo = phase !== 'aforo';
+  const yBoca = hMatraz;
+
+  return (
+    <group>
+      {/* balanza con el vidrio de reloj y el soluto pesado */}
+      <BalanzaAnalitica position={POS_BAL} lectura={lectura} decimales={3} encendida estable puertaAbierta={puerta} />
+      {/* anillo de corcho que sostiene el vidrio de reloj sobre el platillo */}
+      <mesh geometry={toro(0.2, 0.045, 10, 28)} material={m.plastico('#c9a77c', 0.9)} rotation-x={Math.PI / 2} position={[PLATO[0], PLATO[1] + 0.045, PLATO[2]]} castShadow />
+      <group position={[PLATO[0], PLATO[1] + 0.085, PLATO[2]]}>
+        <VidrioReloj diametro={75} polvo={polvo > 0.0005 ? (salColor.toLowerCase() === '#ffffff' ? '#f4f4f0' : salColor) : undefined} cantidadPolvo={cantidadVidrio} />
+      </group>
+
+      {/* frasco de reactivo y espátula */}
+      <Frasco position={[X_FRASCO, 0, Z_FRASCO]} formula={salFormula ?? ''} nombre={salNombre ?? ''} />
+      <group ref={espatula} position={TIP_REPOSO}><Espatula /></group>
+
+      {/* matraz aforado con su marca en el cuello */}
+      <group position={[X_MATRAZ, 0, Z_MATRAZ]}>
+        <MatrazAforado
+          capacidad={cap}
+          tapon={false}
+          liquido={matrazAgua > 0.01 ? { volumenML: matrazAgua, color: tinte } : undefined}
+        />
+        <group position={[0, def.grosor + 0.012, 0]}>
+          <MontonPolvo color={salColor.toLowerCase() === '#ffffff' ? '#f1f1ec' : salColor} radio={rMonton} escala={escalaMonton} />
+        </group>
+        {hayEmbudo && <Embudo diametro={75} position={[0, hMatraz - 0.32, 0]} />}
+        <Etiqueta texto={`aforo · ${cap} mL`} modo="plano" position={[0.75, yAforo, 0]} tamano={0.15} peso={700} color="#12202b" fondo="#ffffff" borde="#9aa6ad" />
+        <mesh geometry={cilindro(0.004, 0.004, 0.3, 6)} material={m.acero} rotation-z={Math.PI / 2} position={[0.28, yAforo, 0]} />
+      </group>
+
+      {/* piseta de agua destilada */}
+      <group ref={piseta} position={REPOSO_PISETA}><Piseta /></group>
+      <mesh ref={chorro} geometry={cilindro(0.018, 0.018, 1, 8)} material={m.liquido('#bfe0ee')} position={[X_MATRAZ, 1, Z_MATRAZ]} visible={false} renderOrder={6} />
+    </group>
+  );
 }
 
-function controls_focus(eng:Eng,x:number,y:number,z:number){
-  eng.controls.target.set(x,y,z);
+export default function Soluciones3DScene(props: Soluciones3DProps) {
+  return (
+    <LabCanvas
+      fondo="laboratorio"
+      camara={{ posicion: [0, 7, 13], objetivo: [0, 1.4, 0], fov: 35 }}
+      controles={{ minDistancia: 5, maxDistancia: 26, cajaObjetivo: [[-3, 0.5, -2], [3, 3, 2]] }}
+    >
+      <EncuadrarCaja caja={[[-3.3, 0, -3.1], [4.2, 3.7, 3.0]]} margen={0.98} direccion={[0.02, 0.55, 1]} />
+      <Montaje {...props} />
+    </LabCanvas>
+  );
 }

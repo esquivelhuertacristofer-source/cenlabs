@@ -1,25 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { 
-  AlertTriangle, Thermometer, Gauge, Box, 
-  RefreshCcw, CheckCircle2, Flame, Info, 
-  Wind, Activity, Zap, Beaker, ChevronRight,
-  TrendingUp, Scaling, Atom, Rocket, MousePointer2,
-  Clock, Droplets, Target
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCcw, Wind } from 'lucide-react';
 import { audio } from '@/utils/audioEngine';
 import { validarQ2 } from '@/domain/quimica';
 import dynamic from 'next/dynamic';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab, Segmentado } from '@/components/simulador/LabLayout';
 
 const Gas3DScene = dynamic(() => import('./simuladores/qmi02/Gas3DScene'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-[#1e293b] flex flex-col items-center justify-center gap-4">
-      <div className="w-16 h-16 border-4 border-[#38bdf8]/20 border-t-[#38bdf8] rounded-full animate-spin" />
-      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#38bdf8]">Cargando Cámara de Presión...</span>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#1e293b]">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#38bdf8]/20 border-t-[#38bdf8]" />
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-[#38bdf8]">Cargando cámara de presión…</span>
     </div>
   )
 });
@@ -68,209 +62,61 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
 
   if (!mounted) return null;
 
-  return (
-    <div className="w-full h-full relative select-none font-['Outfit'] overflow-hidden bg-[#0D2040]">
-      
-      {/* 1. MOTOR 3D INMERSIVO (FULL SCREEN) */}
-      <div className="absolute inset-0 z-0">
-        <Gas3DScene 
-          temperature={T}
-          volume={V}
-          moles={n}
-          isExploded={isExploded}
-          gasType={gasType as any}
-        />
-      </div>
+  const mensaje = gasStatus === 'success' ? 'Presión certificada' : enObjetivo ? 'Presión en el objetivo: valida la práctica' : aviso;
 
-      {/* 2. HUD SUPERIOR (TELEMETRÍA DIAMOND) */}
-      <div className="absolute top-8 left-8 right-8 flex justify-between items-start z-20 pointer-events-none">
-        <div className="flex gap-4">
-          <HUDCard 
-            label="Temperatura" 
-            value={`${T.toFixed(0)}K`} 
-            icon={<Thermometer size={14} />} 
-            color="#EF4444" 
-          />
-          <HUDCard 
-            label="Volumen" 
-            value={`${V.toFixed(1)}L`} 
-            icon={<Box size={14} />} 
-            color="#38bdf8" 
-          />
-          <HUDCard 
-            label="Moles (n)" 
-            value={`${n.toFixed(3)}`} 
-            icon={<Atom size={14} />} 
-            color="#A855F7" 
-          />
-        </div>
-
-        <div className="flex gap-4">
-          <HUDCard 
-            label="Presión Actual" 
-            value={`${P.toFixed(2)} atm`} 
-            icon={<Gauge size={14} />} 
-            color={P > 6.0 ? "#EF4444" : "#22C55E"} 
-            highlight={P > 6.0}
-          />
-          <HUDCard 
-            label="Objetivo" 
-            value={`${pTarget.toFixed(2)} atm`} 
-            icon={<Target size={14} />} 
-            color="#F59E0B" 
-            isStatic
-          />
-        </div>
-      </div>
-
-      {/* 3. PANEL DE CONTROL (DOCK INFERIOR) */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-4xl px-8 pointer-events-auto">
-        <motion.div 
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="bg-[#0D2040]/85 backdrop-blur-2xl border border-white/15 rounded-[2.5rem] p-8 shadow-[0_40px_100px_rgba(0,0,0,0.4)] flex items-center justify-between gap-12"
-        >
-          {/* Controles de Variables */}
-          <div className="flex-1 flex gap-12 items-center">
-            {/* Slider Temperatura */}
-            <div className="flex-1 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Termostato (K)</span>
-                <span className="text-xs font-black text-red-400">{T}K</span>
-              </div>
-              <input 
-                type="range" min="100" max="1000" step="10" value={T}
-                onChange={(e) => updateGases(parseInt(e.target.value), V, n)}
-                className="w-full accent-red-500 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
-              />
-            </div>
-
-            {/* Slider Volumen */}
-            <div className="flex-1 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Compresor (V)</span>
-                <span className="text-xs font-black text-blue-400">{V.toFixed(1)}L</span>
-              </div>
-              <input 
-                type="range" min="2" max="15" step="0.1" value={V}
-                onChange={(e) => updateGases(T, parseFloat(e.target.value), n)}
-                className="w-full accent-blue-500 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
-              />
-            </div>
-
-            {/* Inyección de Moles */}
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Masa</span>
-              <button 
-                onClick={() => updateGases(T, V, Math.min(2.0, n + 0.05))}
-                className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 hover:bg-purple-500 hover:text-white transition-all active:scale-90"
-                title="Inyectar Gas"
-              >
-                <Wind size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Botón de Acción Principal */}
-          <div className="flex items-center gap-4 border-l border-white/10 pl-12">
-            <button 
-              onClick={handleValidar}
-              className="group h-16 px-10 bg-gradient-to-br from-[#22C55E] to-[#16A34A] rounded-3xl flex items-center gap-4 shadow-xl shadow-green-500/20 hover:scale-105 active:scale-95 transition-all"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                <CheckCircle2 size={18} className="text-white" />
-              </div>
-              <div className="text-left">
-                <span className="block text-[9px] font-black uppercase tracking-widest text-green-100/60 leading-none">Protocolo</span>
-                <span className="block text-sm font-black text-white uppercase tracking-tighter">Validar</span>
-              </div>
-            </button>
-
-            <button 
-              onClick={resetGases}
-              className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all"
-              title="Reiniciar"
-            >
-              <RefreshCcw size={20} />
+  const escena = (
+    <div className="relative h-full w-full">
+      <Gas3DScene temperature={T} volume={V} moles={n} pressure={P} isExploded={isExploded} gasType={gasType as any} />
+      {isExploded && (
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center px-3">
+          <div className="pointer-events-auto max-w-sm rounded-2xl border border-red-400/50 bg-[#0f1a2b] p-3 text-center shadow-2xl">
+            <AlertTriangle className="mx-auto mb-1 h-6 w-6 text-red-400" />
+            <h2 className="text-base font-bold text-white">Falla de contención</h2>
+            <p className="mt-1 text-[13px] leading-snug text-slate-300">La presión interna superó el límite de seguridad de <b className="text-red-300">7,0 atm</b> y el pistón salió despedido. Reinicia la cámara para continuar.</p>
+            <button onClick={resetGases} className="mx-auto mt-2 flex items-center gap-2 rounded-lg bg-red-600 px-4 py-1.5 text-[12px] font-semibold text-white hover:bg-red-500">
+              <RefreshCcw size={14} /> Reiniciar cámara
             </button>
           </div>
-        </motion.div>
-      </div>
-
-      {/* 4. OVERLAYS DE ESTADO (EXPLOSIÓN) */}
-      <AnimatePresence>
-        {isExploded && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-red-950/40 backdrop-blur-2xl flex items-center justify-center p-12">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-[#0A1121] p-12 rounded-[3.5rem] border border-red-500/30 shadow-2xl text-center max-w-lg">
-              <div className="w-24 h-24 bg-red-500/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner border border-red-500/20 animate-pulse">
-                <AlertTriangle size={56} />
-              </div>
-              <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 italic">Falla de Contención</h2>
-              <p className="text-white/40 font-bold mb-10 leading-relaxed text-sm">La presión interna superó el límite de seguridad de <span className="text-red-500">7.0 atm</span>, provocando una descompresión explosiva. Reinicie el sistema para continuar.</p>
-              <button onClick={resetGases} className="w-full py-6 bg-red-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-red-500/30 hover:bg-red-600 transition-all flex items-center justify-center gap-3 active:scale-95">
-                <RefreshCcw size={20} /> Reiniciar Cámara
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Aviso pequeño, no modal: el éxito lo anuncia el flujo común (quiz + modal). */}
-      {(gasStatus === 'success' || enObjetivo || aviso) && !isExploded && (
-        <div className={`absolute top-32 left-1/2 -translate-x-1/2 z-30 pointer-events-none rounded-full px-5 py-2 flex items-center gap-2 shadow-xl border ${gasStatus === 'success' || enObjetivo ? 'bg-emerald-600/90 border-emerald-400/50' : 'bg-amber-600/90 border-amber-400/50'}`}>
-          <CheckCircle2 size={14} className="text-white" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">
-            {gasStatus === 'success' ? 'Presión certificada' : enObjetivo ? 'Presión en el objetivo: valida la práctica' : aviso}
-          </span>
         </div>
       )}
-
-      {/* 5. HERRAMIENTAS LATERALES */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-8 flex flex-col gap-4 z-20">
-        <ToolButton 
-          icon={<Droplets size={18} />} 
-          label="Tipo" 
-          onClick={() => {
-            const types: any[] = ['He', 'Ne', 'CO2'];
-            const next = types[(types.indexOf(gasType) + 1) % types.length];
-            useSimuladorStore.getState().setGasType(next);
-          }}
-        />
-      </div>
     </div>
   );
-}
 
-// --- COMPONENTES AUXILIARES ---
-
-function HUDCard({ label, value, icon, color, highlight = false, isStatic = false }: any) {
-  return (
-    <motion.div 
-      animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
-      transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
-      className={`px-6 py-4 rounded-3xl border border-white/15 flex items-center gap-4 transition-all ${isStatic ? 'bg-white/8' : 'bg-[#0D2040]/70 backdrop-blur-md shadow-2xl'}`}
-    >
-      <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${color}20`, color }}>
-        {icon}
-      </div>
-      <div>
-        <span className="block text-[8px] font-black uppercase tracking-[0.2em] text-white/30 leading-none mb-1">{label}</span>
-        <span className="block text-lg font-black text-white tracking-tighter leading-none">{value}</span>
-      </div>
-    </motion.div>
+  const barraSuperior = (
+    <>
+      <Lectura etiqueta="Presión" valor={P.toFixed(2)} unidad="atm" acento={P > 6.0} title="Lectura del manómetro" />
+      <Lectura etiqueta="Objetivo" valor={pTarget.toFixed(2)} unidad="atm" />
+      <Lectura etiqueta="T" valor={T.toFixed(0)} unidad="K" />
+      <Lectura etiqueta="V" valor={V.toFixed(1)} unidad="L" />
+      <Lectura etiqueta="n" valor={n.toFixed(3)} unidad="mol" />
+    </>
   );
-}
 
-function ToolButton({ icon, label, onClick }: any) {
-  return (
-    <button 
-      onClick={onClick}
-      className="group flex items-center gap-3 bg-[#0D2040]/70 backdrop-blur-md border border-white/15 p-4 rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all active:scale-90"
-    >
-      <div className="text-white/40 group-hover:text-white transition-colors">
-        {icon}
-      </div>
-      <span className="hidden group-hover:block text-[9px] font-black uppercase tracking-widest text-white animate-in slide-in-from-right-2 fade-in">{label}</span>
-    </button>
+  const controles = (
+    <div className="flex flex-col gap-2">
+      <GrupoControles>
+        <Deslizador etiqueta="Termostato" valor={T} min={100} max={1000} paso={10} unidad="K" onChange={(v) => updateGases(v, V, n)} ancho="w-44" />
+        <Deslizador etiqueta="Pistón (volumen)" valor={V} min={2} max={15} paso={0.1} unidad="L" onChange={(v) => updateGases(T, v, n)} ancho="w-44" />
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-slate-300">Gas</span>
+          <Segmentado
+            opciones={[{ valor: 'He', texto: 'He' }, { valor: 'Ne', texto: 'Ne' }, { valor: 'CO2', texto: 'CO₂' }]}
+            valor={gasType as 'He' | 'Ne' | 'CO2'}
+            onChange={(g) => useSimuladorStore.getState().setGasType(g as any)}
+          />
+        </div>
+        <BotonLab variante="secundario" title="Abrir la válvula: inyecta 0,05 mol" onClick={() => updateGases(T, V, Math.min(2.0, n + 0.05))}><Wind size={14} /> Inyectar gas</BotonLab>
+        <div className="ml-auto flex items-center gap-2">
+          <BotonLab variante="secundario" title="Reiniciar" onClick={resetGases}><RefreshCcw size={14} /> Reiniciar</BotonLab>
+          <BotonLab onClick={handleValidar}><CheckCircle2 size={14} /> Validar</BotonLab>
+        </div>
+      </GrupoControles>
+      {mensaje && !isExploded && (
+        <div className={`rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${gasStatus === 'success' || enObjetivo ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' : 'border-amber-500/40 bg-amber-500/15 text-amber-300'}`}>{mensaje}</div>
+      )}
+    </div>
   );
+
+  // El éxito lo anuncia el flujo común (quiz + modal); aquí solo un aviso pequeño.
+  return <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} />;
 }

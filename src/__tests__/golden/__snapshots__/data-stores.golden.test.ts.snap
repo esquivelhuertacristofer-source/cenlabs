@@ -9981,7 +9981,7 @@ Tu misión: Balancear reacciones críticas, desde la combustión de propano hast
       "Certificación Lavoisier: Logra el 100% de eficiencia en los 6 niveles del reactor.",
     ],
     "subtitulo": "Sincronización de Masas y Ley de Lavoisier",
-    "titulo": "Motor de Fusión Estequiométrica",
+    "titulo": "Balanceo de Ecuaciones Químicas",
     "videoUrl": "https://youtu.be/TNdAO9w06Ko",
   },
   "quimica-4": {
@@ -19555,7 +19555,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "text": "Balancea 4 reacciones y valida la práctica.",
       },
     ],
-    "titulo": "Motor de Fusión Estequiométrica",
+    "titulo": "Balanceo de Ecuaciones Químicas",
     "videoUrl": "",
   },
   "quimica-4": {

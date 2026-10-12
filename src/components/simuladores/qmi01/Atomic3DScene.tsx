@@ -1,335 +1,154 @@
 "use client";
-
-import React, { useEffect, useRef } from 'react';
+/**
+ * Q1 · Construcción atómica — modelo de Bohr de libro de texto (R3F + kit).
+ *
+ *   · Núcleo: protones (rojo) y neutrones (azul) EMPAQUETADOS (red cúbica centrada
+ *     en las caras, los vecinos se tocan) y mezclados.
+ *   · Capas K (n = 1, máx. 2 e⁻) y L (n = 2, máx. 8 e⁻) como órbitas circulares
+ *     dibujadas en un plano; cada electrón recorre la suya y los de una capa van
+ *     equiespaciados.
+ *   · Fondo neutro (pizarrón del kit), sin estrellas ni postproceso.
+ *   · Inestabilidad: a nivel 2 el núcleo vibra; a nivel 3 se desintegra (los
+ *     nucleones se separan y se encogen). Los electrones de la corteza NO salen
+ *     disparados: la inestabilidad del núcleo no los afecta.
+ */
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { useFrame } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, Etiqueta, useMateriales, esfera, toro } from '../_kit';
 
 interface Atomic3DSceneProps {
-    protons: number;
-    neutrons: number;
-    electrons: number;
-    instability: number; 
+  protons: number;
+  neutrons: number;
+  electrons: number;
+  instability: number;
 }
 
-const CinematicShader = {
-    uniforms: {
-        "tDiffuse": { value: null },
-        "time": { value: 0.0 },
-        "distortion": { value: 0.0015 }
-    },
-    vertexShader: `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform float time;
-        uniform float distortion;
-        varying vec2 vUv;
-        float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-        void main() {
-            vec2 offset = vec2(distortion * (vUv.x - 0.5), distortion * (vUv.y - 0.5));
-            float r = texture2D(tDiffuse, vUv + offset).r;
-            float g = texture2D(tDiffuse, vUv).g;
-            float b = texture2D(tDiffuse, vUv - offset).b;
-            vec3 color = vec3(r, g, b);
-            vec2 uv = vUv * (1.0 - vUv.yx);
-            float vig = uv.x * uv.y * 15.0; 
-            vig = pow(vig, 0.3);
-            color *= vig;
-            float noise = (rand(vUv * time) - 0.5) * 0.04;
-            color += noise;
-            gl_FragColor = vec4(color, 1.0);
-        }
-    `
-};
+type V3 = [number, number, number];
 
-// Materiales y geometrías compartidos: se crean UNA vez por escena (antes se
-// creaban en cada cambio de partículas y nunca se liberaban).
-type RecursosAtomo = {
-    protonMat: THREE.Material; neutronMat: THREE.Material; geoNuc: THREE.BufferGeometry;
-    eGeo: THREE.BufferGeometry; electronMat: THREE.Material; haloGeo: THREE.BufferGeometry;
-    haloMat: THREE.Material; cloudMat: THREE.Material; orbitMat: THREE.Material;
-    orbitGeos: Map<number, THREE.BufferGeometry>;
-};
+// Geometría del modelo (u arbitrarias: es un esquema, no un montaje de mesa)
+const R_NUCLEON = 0.4;
+const R_K = 2.7;
+const R_L = 4.5;
+const R_ELECTRON = 0.14;
+const CAP_K = 2;
+const CAP_L = 8;
+const MAX_VISIBLES = 160;
 
-function crearRecursos(): RecursosAtomo {
-    return {
-        protonMat: new THREE.MeshPhysicalMaterial({
-            color: 0xff1a40, emissive: 0xff1a40, emissiveIntensity: 0.5,
-            roughness: 0.3, metalness: 0.1, transmission: 0.05, clearcoat: 0.5
-        }),
-        neutronMat: new THREE.MeshPhysicalMaterial({
-            color: 0x1a66ff, emissive: 0x1a66ff, emissiveIntensity: 0.5,
-            roughness: 0.3, metalness: 0.1, transmission: 0.05, clearcoat: 0.5
-        }),
-        geoNuc: new THREE.SphereGeometry(0.45, 32, 32),
-        eGeo: new THREE.SphereGeometry(0.15, 16, 16),
-        electronMat: new THREE.MeshBasicMaterial({ color: 0xffffff }),
-        haloGeo: new THREE.SphereGeometry(0.35, 16, 16),
-        haloMat: new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
-        cloudMat: new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.04, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }),
-        orbitMat: new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending }),
-        orbitGeos: new Map(),
-    };
+/** Posiciones del núcleo: los N sitios de una red FCC más cercanos al centro, recentrados. */
+function sitiosNucleo(n: number, r: number): V3[] {
+  const cand: { p: V3; d: number }[] = [];
+  const paso = (2 * r) / Math.SQRT2; // vecinos a 2r → se tocan
+  const off: V3 = [0.07, 0.05, 0.03];
+  for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) for (let k = -6; k <= 6; k++) {
+    if ((i + j + k) % 2 !== 0) continue;
+    const p: V3 = [i * paso, j * paso, k * paso];
+    cand.push({ p, d: Math.hypot(p[0] - off[0] * r, p[1] - off[1] * r, p[2] - off[2] * r) });
+  }
+  cand.sort((a, b) => a.d - b.d || a.p[0] - b.p[0] || a.p[1] - b.p[1] || a.p[2] - b.p[2]);
+  const sel = cand.slice(0, n).map((c) => c.p);
+  if (sel.length === 0) return [];
+  const c: V3 = [0, 0, 0];
+  sel.forEach((p) => { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; });
+  c[0] /= sel.length; c[1] /= sel.length; c[2] /= sel.length;
+  return sel.map((p) => [p[0] - c[0], p[1] - c[1], p[2] - c[2]] as V3);
 }
 
-function liberarRecursos(r: RecursosAtomo) {
-    [r.protonMat, r.neutronMat, r.electronMat, r.haloMat, r.cloudMat, r.orbitMat].forEach(m => m.dispose());
-    [r.geoNuc, r.eGeo, r.haloGeo].forEach(g => g.dispose());
-    r.orbitGeos.forEach(g => g.dispose());
+/** ¿El sitio i es protón? Reparto uniforme (Bresenham) para que se vean mezclados. */
+function esProton(i: number, total: number, p: number): boolean {
+  return Math.floor(((i + 1) * p) / total) > Math.floor((i * p) / total);
+}
+
+function Nucleo({ protons, neutrons, instability }: { protons: number; neutrons: number; instability: number }) {
+  const m = useMateriales();
+  const total = Math.min(MAX_VISIBLES, protons + neutrons);
+  const r = R_NUCLEON * Math.min(1, Math.cbrt(40 / Math.max(1, total)));
+  const sitios = useMemo(() => sitiosNucleo(total, r), [total, r]);
+  const pVis = Math.round((protons / Math.max(1, protons + neutrons)) * total);
+  const geo = esfera(r, 28);
+  const matP = useMemo(() => m.plastico('#d6382d', 0.32), [m]);
+  const matN = useMemo(() => m.plastico('#3f6fc4', 0.32), [m]);
+  const grupo = useRef<THREE.Group>(null);
+  const expl = useRef(0);
+
+  useFrame((s, dt) => {
+    const g = grupo.current; if (!g) return;
+    const t = s.clock.elapsedTime;
+    const destruye = instability >= 3;
+    expl.current = destruye ? Math.min(1, expl.current + dt * 0.5) : Math.max(0, expl.current - dt * 2);
+    const e = expl.current;
+    const vib = instability >= 2 ? 0.018 * (instability - 1) : 0;
+    for (let i = 0; i < g.children.length; i++) {
+      const hijo = g.children[i];
+      const b = sitios[i]; if (!b) continue;
+      const fase = i * 1.7;
+      const j = vib * Math.sin(t * 38 + fase);
+      const k = 1 + e * 6 + j;
+      hijo.position.set(b[0] * k, b[1] * k, b[2] * k);
+      hijo.scale.setScalar(1 - 0.8 * e);
+    }
+  });
+
+  return (
+    <group ref={grupo}>
+      {sitios.map((p, i) => (
+        <mesh key={i} geometry={geo} material={esProton(i, total, pVis) ? matP : matN} position={p} castShadow={false} />
+      ))}
+    </group>
+  );
+}
+
+function Corteza({ electrons }: { electrons: number }) {
+  const m = useMateriales();
+  const nK = Math.min(CAP_K, electrons);
+  const nL = Math.min(CAP_L, Math.max(0, electrons - CAP_K));
+  const geoE = esfera(R_ELECTRON, 20);
+  const matE = useMemo(() => m.plastico('#f0bd22', 0.28), [m]);
+  const matOrbLlena = useMemo(() => new THREE.MeshBasicMaterial({ color: '#dfe7ec', transparent: true, opacity: 0.85 }), []);
+  const matOrbVacia = useMemo(() => new THREE.MeshBasicMaterial({ color: '#dfe7ec', transparent: true, opacity: 0.32 }), []);
+  useEffect(() => () => { matOrbLlena.dispose(); matOrbVacia.dispose(); }, [matOrbLlena, matOrbVacia]);
+
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  useFrame((s) => {
+    const t = s.clock.elapsedTime;
+    for (let i = 0; i < nK + nL; i++) {
+      const me = refs.current[i]; if (!me) continue;
+      const enK = i < nK;
+      const idx = enK ? i : i - nK, cuantos = enK ? nK : nL;
+      const R = enK ? R_K : R_L;
+      const w = enK ? 0.9 : 0.5;
+      const a = t * w + (idx / cuantos) * Math.PI * 2 + (enK ? 0.6 : 0);
+      me.position.set(Math.cos(a) * R, Math.sin(a) * R, 0);
+    }
+  });
+
+  return (
+    <group>
+      <mesh geometry={toro(R_K, 0.022, 8, 120)} material={nK > 0 ? matOrbLlena : matOrbVacia} />
+      <mesh geometry={toro(R_L, 0.022, 8, 160)} material={nL > 0 ? matOrbLlena : matOrbVacia} />
+      {Array.from({ length: nK + nL }, (_, i) => (
+        <mesh key={i} ref={(o) => { refs.current[i] = o; }} geometry={geoE} material={matE} />
+      ))}
+      <Etiqueta texto={`Capa K (n = 1) · ${nK}/${CAP_K}`} position={[0, R_K + 0.1, 0]} tamano={0.27} ancla={[0.5, 0]} color="#f4f7f8" />
+      <Etiqueta texto={`Capa L (n = 2) · ${nL}/${CAP_L}`} position={[0, R_L + 0.1, 0]} tamano={0.27} ancla={[0.5, 0]} color="#f4f7f8" />
+    </group>
+  );
 }
 
 export default function Atomic3DScene({ protons, neutrons, electrons, instability }: Atomic3DSceneProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const stateRef = useRef({ protons, neutrons, electrons, instability });
-    
-    useEffect(() => {
-        stateRef.current = { protons, neutrons, electrons, instability };
-    }, [protons, neutrons, electrons, instability]);
-
-    const engineRef = useRef<{
-        scene?: THREE.Scene, camera?: THREE.PerspectiveCamera, renderer?: THREE.WebGLRenderer,
-        composer?: EffectComposer, controls?: OrbitControls,
-        nucleusGroup?: THREE.Group, electronsGroup?: THREE.Group,
-        hudGroup?: THREE.Group, nebulaPoints?: THREE.Points, dustPoints?: THREE.Points,
-        nucleonMeshes: any[], electronMeshes: any[],
-        cinematicPass?: ShaderPass, frameId?: number, clock: THREE.Clock,
-        baseCameraPos: THREE.Vector3,
-        res?: RecursosAtomo
-    }>({
-        nucleonMeshes: [], electronMeshes: [], clock: new THREE.Clock(),
-        baseCameraPos: new THREE.Vector3(0, 6, 28)
-    });
-
-    const buildAtom = () => {
-        const eng = engineRef.current;
-        const { protons: p, neutrons: n, electrons: e } = stateRef.current;
-        if (!eng.scene || !eng.nucleusGroup || !eng.electronsGroup || !eng.res) return;
-        const { protonMat, neutronMat, geoNuc } = eng.res;
-
-        // --- NUCLEUS UPDATE ---
-        const totalNucleons = p + n;
-        const currentNucleons = eng.nucleusGroup.children.length;
-
-        // Adjust nucleon count without clearing
-        if (totalNucleons > currentNucleons) {
-            for (let i = currentNucleons; i < totalNucleons; i++) {
-                const mesh = new THREE.Mesh(geoNuc, protonMat);
-                eng.nucleusGroup.add(mesh);
-                eng.nucleonMeshes.push({ mesh, basePos: new THREE.Vector3(), phase: Math.random() * Math.PI * 2 });
-            }
-        } else if (totalNucleons < currentNucleons) {
-            for (let i = currentNucleons - 1; i >= totalNucleons; i--) {
-                const mesh = eng.nucleusGroup.children[i];
-                eng.nucleusGroup.remove(mesh);
-                eng.nucleonMeshes.splice(i, 1);
-            }
-        }
-
-        // Update materials and target positions
-        const phi = Math.PI * (3 - Math.sqrt(5));
-        const typeList: string[] = [];
-        for(let i=0; i<p; i++) typeList.push('p');
-        for(let i=0; i<n; i++) typeList.push('n');
-        
-        eng.nucleonMeshes.forEach((nData, i) => {
-            nData.mesh.material = typeList[i] === 'p' ? protonMat : neutronMat;
-            const y = 1 - (i / (totalNucleons - 1 || 1)) * 2; 
-            const radius = Math.sqrt(1 - y * y); 
-            const theta = phi * i; 
-            const spread = Math.max(0.8, Math.pow(totalNucleons, 1/3) * 0.45);
-            nData.basePos.set(Math.cos(theta) * radius * spread, y * spread, Math.sin(theta) * radius * spread);
-        });
-
-        // --- ELECTRONS UPDATE ---
-        const currentE = eng.electronsGroup.children.length;
-        const { eGeo, electronMat, cloudMat, haloGeo, haloMat, orbitMat, orbitGeos } = eng.res;
-
-        if (e > currentE) {
-            for (let i = currentE; i < e; i++) {
-                let sIdx = 0; let ePrev = 0;
-                const caps = [2, 8, 18, 32];
-                for(let s = 0; s < caps.length; s++) { if (i < ePrev + caps[s]) { sIdx = s; break; } ePrev += caps[s]; }
-                const oR = 4.5 + (sIdx * 3.5);
-                
-                const oG = new THREE.Group();
-                oG.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-                let orbitGeo = orbitGeos.get(oR);
-                if (!orbitGeo) { orbitGeo = new THREE.TorusGeometry(oR, 0.012, 16, 100); orbitGeos.set(oR, orbitGeo); }
-                oG.add(new THREE.Mesh(orbitGeo, orbitMat));
-                
-                const cloudPtsGeo = new THREE.BufferGeometry();
-                const cloudArray = [];
-                for(let pIdx = 0; pIdx < 300; pIdx++) {
-                    const u = Math.random() * Math.PI * 2;
-                    const rF = oR + (Math.random() + Math.random() - 1) * 0.4;
-                    const hF = (Math.random() + Math.random() - 1) * 0.2;
-                    cloudArray.push(Math.cos(u) * rF, hF, Math.sin(u) * rF);
-                }
-                cloudPtsGeo.setAttribute('position', new THREE.Float32BufferAttribute(cloudArray, 3));
-                oG.add(new THREE.Points(cloudPtsGeo, cloudMat));
-
-                const eM = new THREE.Mesh(eGeo, electronMat);
-                eM.add(new THREE.Mesh(haloGeo, haloMat));
-                oG.add(eM);
-                eng.electronsGroup.add(oG);
-                eng.electronMeshes.push({ mesh: eM, cloudGeo: cloudPtsGeo, radius: oR, speed: (4 - sIdx * 0.6) * (Math.random() > 0.5 ? 1 : -1), angle: Math.random() * Math.PI * 2 });
-            }
-        } else if (e < currentE) {
-            for (let i = currentE - 1; i >= e; i--) {
-                const group = eng.electronsGroup.children[i];
-                eng.electronsGroup.remove(group);
-                const [quitado] = eng.electronMeshes.splice(i, 1);
-                quitado?.cloudGeo?.dispose(); // la nube de cada electrón es propia
-            }
-        }
-    };
-
-    useEffect(() => {
-        if (!containerRef.current) return;
-        const eng = engineRef.current;
-        const container = containerRef.current!;
-
-        const init3D = () => {
-            eng.res = crearRecursos();
-            eng.scene = new THREE.Scene();
-            eng.scene.fog = new THREE.FogExp2(0x020205, 0.015);
-            eng.camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
-            eng.camera.position.set(0, 6, 28);
-            eng.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: "high-performance" });
-            eng.renderer.setSize(container.clientWidth, container.clientHeight);
-            eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            eng.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            eng.renderer.toneMappingExposure = 1.2;
-            container.appendChild(eng.renderer.domElement);
-
-            eng.composer = new EffectComposer(eng.renderer);
-            eng.composer.addPass(new RenderPass(eng.scene, eng.camera));
-            eng.composer.addPass(new UnrealBloomPass(new THREE.Vector2(container.clientWidth, container.clientHeight), 0.55, 0.35, 0.55));
-            eng.cinematicPass = new ShaderPass(CinematicShader);
-            eng.composer.addPass(eng.cinematicPass);
-
-            eng.controls = new OrbitControls(eng.camera, eng.renderer.domElement);
-            eng.controls.enableDamping = true; eng.controls.dampingFactor = 0.03; eng.controls.enablePan = false; eng.controls.minDistance = 8; eng.controls.maxDistance = 60;
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Más luz base
-            eng.scene.add(ambientLight);
-            
-            const kL = new THREE.DirectionalLight(0xffffff, 1.5); kL.position.set(15, 20, 15); eng.scene.add(kL);
-            const rL = new THREE.DirectionalLight(0x00ffcc, 1.0); rL.position.set(-15, -10, -15); eng.scene.add(rL);
-            // Eliminada PointLight central para evitar puntos de parpadeo
-
-            eng.nucleusGroup = new THREE.Group(); eng.scene.add(eng.nucleusGroup);
-            eng.electronsGroup = new THREE.Group(); eng.scene.add(eng.electronsGroup);
-
-            // PARTÍCULAS GALÁCTICAS 1:1
-            const gD = new THREE.BufferGeometry(); const pD = new Float32Array(800 * 3);
-            for(let i=0; i<800*3; i++) pD[i] = (Math.random()-0.5)*40;
-            gD.setAttribute('position', new THREE.BufferAttribute(pD, 3));
-            eng.scene.add(new THREE.Points(gD, new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.05, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending })));
-
-            const gN = new THREE.BufferGeometry(); const pN = new Float32Array(3000 * 3); const cN = new Float32Array(3000 * 3);
-            const c1 = new THREE.Color(0x001133); const c2 = new THREE.Color(0x330033);
-            for(let i=0; i<3000*3; i+=3) {
-                pN[i] = (Math.random()-0.5)*200; pN[i+1] = (Math.random()-0.5)*200; pN[i+2] = (Math.random()-0.5)*200;
-                const mC = c1.clone().lerp(c2, Math.random()); cN[i] = mC.r; cN[i+1] = mC.g; cN[i+2] = mC.b;
-            }
-            gN.setAttribute('position', new THREE.BufferAttribute(pN, 3)); gN.setAttribute('color', new THREE.BufferAttribute(cN, 3));
-            eng.scene.add(new THREE.Points(gN, new THREE.PointsMaterial({ size: 0.2, vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending })));
-
-            eng.hudGroup = new THREE.Group(); eng.hudGroup.position.y = -12; 
-            const hM = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.15, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-            const r1 = new THREE.Mesh(new THREE.RingGeometry(14, 14.1, 64), hM);
-            const r2 = new THREE.Mesh(new THREE.RingGeometry(12, 12.05, 64), hM);
-            const r3 = new THREE.Mesh(new THREE.RingGeometry(18, 18.2, 32, 1, 0, Math.PI), hM);
-            r1.rotation.x = r2.rotation.x = r3.rotation.x = Math.PI / 2;
-            eng.hudGroup.add(r1, r2, r3);
-            const gH = new THREE.GridHelper(30, 30, 0x00ffcc, 0x00ffcc); gH.material.opacity = 0.05; gH.material.transparent = true; gH.position.y = 0.1;
-            eng.hudGroup.add(gH); eng.scene.add(eng.hudGroup);
-        };
-
-        const tmpDir = new THREE.Vector3();
-        const animate = () => {
-            const eng = engineRef.current; 
-            const state = stateRef.current;
-            const isExploding = state.instability >= 3; // Definida al inicio para todo el bucle
-
-            eng.frameId = requestAnimationFrame(animate);
-            const delta = eng.clock.getDelta(); const time = eng.clock.getElapsedTime();
-            if (eng.controls) eng.controls.update();
-            if (eng.cinematicPass) eng.cinematicPass.uniforms["time"].value = time * 2.0;
-            if (eng.hudGroup) { eng.hudGroup.children[0].rotation.z += delta * 0.1; eng.hudGroup.children[1].rotation.z -= delta * 0.15; eng.hudGroup.children[2].rotation.z += delta * 0.05; }
-            
-            if (eng.nucleusGroup) {
-                const nI = Math.max(0, state.instability - 1); 
-
-                eng.nucleusGroup.rotation.y += delta * (isExploding ? 2.0 : 0.15);
-                eng.nucleusGroup.rotation.z += delta * (isExploding ? 1.0 : 0.08);
-
-                eng.nucleonMeshes.forEach(n => {
-                    if (isExploding) {
-                        // FÍSICA DE EXPLOSIÓN
-                        n.mesh.position.add(tmpDir.copy(n.mesh.position).normalize().multiplyScalar(delta * 20));
-                        n.mesh.scale.multiplyScalar(0.98); // Se desintegran
-                        if (eng.composer?.passes[1]) (eng.composer.passes[1] as any).strength = 4.0; // Flash!
-                    } else {
-                        const wave1 = Math.sin(time * 12 + n.phase) * 0.02;
-                        const wave2 = nI > 0 ? Math.sin(time * 40 + n.phase) * 0.04 * nI : 0;
-                        const jitter = wave1 + wave2;
-                        n.mesh.position.copy(n.basePos).multiplyScalar(1 + jitter);
-                        if (eng.composer?.passes[1]) (eng.composer.passes[1] as any).strength = 0.8; 
-                    }
-                });
-            }
-            // La inestabilidad del NÚCLEO no arranca electrones de la corteza (antes
-            // salían disparados: enseñaba algo falso). Cada e⁻ sigue en su capa.
-            eng.electronMeshes.forEach((el) => {
-                el.angle += el.speed * delta;
-                el.mesh.position.set(Math.cos(el.angle) * el.radius, 0, Math.sin(el.angle) * el.radius);
-            });
-            if (eng.camera) {
-                // Solo agitar si hay inestabilidad crítica, sin bloquear los controles de mouse
-                if (state.instability > 2) {
-                    const sAmt = 0.15; 
-                    eng.camera.position.x += (Math.random() - 0.5) * sAmt; 
-                    eng.camera.position.y += (Math.random() - 0.5) * sAmt;
-                }
-                
-                // Si el átomo se resetea (0 partículas), devolvemos la cámara a la base
-                if (state.protons === 0 && state.neutrons === 0 && !isExploding) {
-                    eng.camera.position.lerp(eng.baseCameraPos, 0.05);
-                }
-            }
-            if (eng.composer) eng.composer.render();
-        };
-
-        init3D(); buildAtom(); animate();
-        const res = new ResizeObserver(() => {
-            const w = container.clientWidth, h = container.clientHeight; if (w === 0 || h === 0) return;
-            eng.camera!.aspect = w / h; eng.camera!.updateProjectionMatrix();
-            eng.renderer!.setSize(w, h); eng.composer!.setSize(w, h);
-        });
-        res.observe(container);
-        return () => {
-            res.disconnect(); if (eng.frameId) cancelAnimationFrame(eng.frameId);
-            eng.electronMeshes.forEach(({ cloudGeo }) => cloudGeo?.dispose());
-            eng.nucleonMeshes = []; eng.electronMeshes = [];
-            if (eng.res) { liberarRecursos(eng.res); eng.res = undefined; }
-            eng.controls?.dispose();
-            eng.composer?.dispose();
-            if (eng.renderer) { eng.renderer.dispose(); if (container.contains(eng.renderer.domElement)) container.removeChild(eng.renderer.domElement); }
-        };
-    }, []);
-
-    useEffect(() => { buildAtom(); }, [protons, neutrons, electrons]);
-
-    return <div ref={containerRef} className="w-full h-full" style={{ background: '#020205' }} />;
+  return (
+    <LabCanvas
+      fondo="pizarron"
+      sombras={false}
+      camara={{ posicion: [0, 1.2, 16], objetivo: [0, 0, 0], fov: 35 }}
+      controles={{ minDistancia: 6, maxDistancia: 30, paneo: false }}
+    >
+      <EncuadrarCaja caja={[[-6.2, -5.1, -1], [5.2, 5.4, 1]]} margen={1.02} direccion={[0, 0.07, 1]} />
+      {/* El plano de las órbitas se inclina un poco para que se lea el volumen */}
+      <group rotation={[-0.32, 0.12, 0]}>
+        <Nucleo protons={protons} neutrons={neutrons} instability={instability} />
+        <Corteza electrons={electrons} />
+      </group>
+    </LabCanvas>
+  );
 }
