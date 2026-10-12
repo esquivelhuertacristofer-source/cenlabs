@@ -328,6 +328,35 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
       status: 'idle'
     }
   })),
+  // Cada vez que se abre un lab de matemáticas: intento nuevo (reset + semilla).
+  entrarMatematicas: (n: number) => {
+    const g = get();
+    const resets = [g.resetM1, g.resetM2, g.resetM3, g.resetM4, g.resetM5, g.resetM6, g.resetM7, g.resetM8, g.resetM9, g.resetM10];
+    resets[n - 1]?.();
+    const semillas: Record<number, () => void> = {
+      1: () => g.generarSemillaM1(), 2: () => g.generarSemillaM2(), 3: () => g.generarSemillaM3(),
+      4: () => g.generarSemillaM4(), 6: () => g.generarSemillaM6(), 7: () => g.generarSemillaM7(),
+      10: () => g.generarSemillaM10(),
+    };
+    semillas[n]?.();
+  },
+  // Único juez del botón «Validar práctica» para matemáticas.
+  validarLabMatematicas: (n: number) => {
+    const g = get();
+    switch (n) {
+      case 1: return { ok: g.validarM1() };
+      case 2: return { ok: g.validarM2() };
+      case 3: return { ok: g.validarM3() };
+      case 4: return { ok: g.validarM4() };
+      case 5: return { ok: g.validarM5() };
+      case 6: return { ok: g.validarM6() };
+      case 7: return { ok: g.validarM7() };
+      case 8: return { ok: g.validarM8() };
+      case 9: return { ok: g.validarM9(0.15) };
+      case 10: return { ok: g.validarM10() };
+    }
+    return { ok: false };
+  },
   resetMatematicas: () => {
     get().resetM1();
     get().resetM2();

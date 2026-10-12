@@ -793,6 +793,62 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return isOk;
   },
   resetP10: () => set((state) => ({ destilacion: { calorManta: 20, tempMezcla: 20, volEtanolMatraz: 100, volAguaMatraz: 100, volDestilado: 0, purezaDestilado: 0, status: 'idle' } })),
+  // Cada vez que se abre un lab de química: intento nuevo (reset + semilla).
+  entrarQuimica: (n: number) => {
+    const g = get();
+    switch (n) {
+      case 1: g.resetParticulas(); break;
+      case 2: g.resetGases(); g.generarSemillaGases(); break;
+      case 3:
+        g.resetBalanceo();
+        set((state) => ({ balanceo: { ...state.balanceo, reaccionesCompletadas: [] } }));
+        g.setReaccion(0);
+        break;
+      case 4: g.resetP4(); g.generarSemillaP4(); break;
+      case 5: g.resetP5(); g.generarSemillaP5(); break;
+      case 6: g.resetP6(); break;
+      case 7: g.resetP7(); g.generarSemillaP7(); break;
+      case 8: g.resetP8(); g.generarSemillaP8(); break;
+      case 9: g.resetP9(); g.generarSemillaP9(); break;
+      case 10: g.resetP10(); break;
+    }
+  },
+  // Único juez del botón «Validar práctica» para química.
+  validarLabQuimica: (n: number) => {
+    const g = get();
+    switch (n) {
+      case 1: return { ok: g.validarEstructura() };
+      case 2: {
+        const ok = g.validarQ2();
+        return { ok, mensaje: ok ? undefined : 'Presión fuera de rango o cámara colapsada. Ajusta T o V para alcanzar el objetivo.' };
+      }
+      case 3: {
+        const ok = g.validarQ3();
+        const completed = g.balanceo.reaccionesCompletadas?.length || 0;
+        return { ok, mensaje: ok ? undefined : `Balanceo incompleto. Has estabilizado ${completed} de 4 reacciones requeridas para la certificación.` };
+      }
+      case 4: {
+        const ok = g.limitante.status === 'success';
+        return { ok, mensaje: ok ? undefined : 'Debes identificar correctamente el reactivo limitante y el exceso en la consola.' };
+      }
+      case 5: {
+        const ok = g.validarP5();
+        return { ok, mensaje: ok ? undefined : 'Molaridad incorrecta. La precisión analítica debe ser superior al 95%.' };
+      }
+      case 6: return { ok: g.validarP6() };
+      case 7: return { ok: g.titulacion.status === 'success' };
+      case 8: return { ok: g.equilibrio.status === 'success' };
+      case 9: return { ok: g.celda.status === 'success' };
+      case 10: {
+        const d = g.destilacion;
+        const ok = d.volDestilado >= 50 && d.purezaDestilado >= 85;
+        return { ok, mensaje: ok ? undefined : d.volDestilado < 50
+          ? 'Volumen de destilado insuficiente. Se requieren ≥50 mL para la certificación.'
+          : 'Pureza del destilado insuficiente (< 85%). Ajusta la temperatura de la manta calefactora.' };
+      }
+    }
+    return { ok: false };
+  },
   resetQuimica: () => {
     get().resetParticulas();
     get().resetGases();

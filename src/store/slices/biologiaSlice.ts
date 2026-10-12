@@ -561,6 +561,41 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
       capturas: [url, ...state.microscopio.capturas].slice(0, 6)
     }
   })),
+  // Cada vez que se abre un lab de biología: intento nuevo (reset + semilla).
+  entrarBiologia: (n: number) => {
+    const g = get();
+    const resets = [g.resetB1, g.resetB2, g.resetB3, g.resetB4, g.resetB5, g.resetB6, g.resetB7, g.resetB8, g.resetB9, g.resetB10];
+    resets[n - 1]?.();
+    const semillas: Record<number, () => void> = {
+      1: () => g.generarSemillaB1(), 2: () => g.generarSemillaB2(), 3: () => g.generarSemillaB3(),
+      4: () => g.generarSemillaB4(), 6: () => g.generarSemillaB6(), 7: () => g.generarSemillaB7(),
+      8: () => g.generarSemillaB8(), 9: () => g.generarSemillaB9(), 10: () => g.generarSemillaB10(),
+    };
+    semillas[n]?.();
+  },
+  // Único juez del botón «Validar práctica» para biología.
+  validarLabBiologia: (n: number) => {
+    const g = get();
+    switch (n) {
+      case 1: {
+        const ok = g.validarB1();
+        return { ok, mensaje: ok ? undefined : 'Muestra fuera de foco o iluminación insuficiente. Revisa la magnificación requerida.' };
+      }
+      case 2: {
+        const ok = g.validarB2();
+        return { ok, mensaje: ok ? undefined : 'El sistema aún no está en equilibrio osmótico (C_int ≠ C_ext).' };
+      }
+      case 3: return { ok: g.validarB3() };
+      case 4: return { ok: g.validarB4() };
+      case 5: return { ok: g.validarB5() };
+      case 6: return { ok: g.validarB6() };
+      case 7: return { ok: g.validarB7() };
+      case 8: return { ok: g.validarB8() };
+      case 9: return { ok: g.validarB9() };
+      case 10: return { ok: g.validarB10() };
+    }
+    return { ok: false };
+  },
   resetBiologia: () => {
     get().resetB1();
     get().resetB2();

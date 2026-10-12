@@ -284,6 +284,33 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
   resetF8: () => set({ ohm8: { nivel: 1, voltaje: 12, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null } }),
   resetF9: () => set({ electrostatica9: { q1: 1, q2: 1, distancia: 0.1, resultado: null } }),
   resetF10: () => set({ motor10: { imanIzq: 'N', imanDer: 'S', voltaje: 0, espiras: 10, interruptor: false, carga: 5, rpm: 0, encendido: false, resultado: null } }),
+  // Cada vez que se abre un lab de física: intento nuevo (reset + semilla).
+  entrarFisica: (n: number) => {
+    const g = get();
+    const resets = [g.resetF1, g.resetF2, g.resetF3, g.resetF4, g.resetF5, g.resetF6, g.resetF7, g.resetF8, g.resetF9, g.resetF10];
+    resets[n - 1]?.();
+    if (n === 1) g.generarSemillaF1();
+  },
+  // Único juez del botón «Validar práctica» para física.
+  validarLabFisica: (n: number) => {
+    const g = get();
+    switch (n) {
+      case 1: {
+        const ok = g.validarF1();
+        return { ok, mensaje: ok ? undefined : 'Debes lograr al menos un impacto confirmado en el blanco para certificar la balística.' };
+      }
+      case 2: return { ok: g.validarF2() };
+      case 3: return { ok: g.validarF3() };
+      case 4: return { ok: g.validarF4() };
+      case 5: return { ok: g.validarF5() };
+      case 6: return { ok: g.validarF6() };
+      case 7: return { ok: g.validarF7() };
+      case 8: return { ok: g.validarF8() };
+      case 9: return { ok: g.validarF9() };
+      case 10: return { ok: g.validarF10() };
+    }
+    return { ok: false };
+  },
   resetFisica: () => {
     get().resetF1();
     get().resetF2();

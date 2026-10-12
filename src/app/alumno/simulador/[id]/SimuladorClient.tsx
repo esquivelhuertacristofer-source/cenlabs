@@ -211,39 +211,17 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
     }
   }, [pActual, nActual, eActual, targetZ, targetA, pasoActual, setPasoActual, normalizedId]);
 
-  // ── Auto-reparación e Inicialización de Estado (Diamond State Persistence Fix) ─────────
+  // ── Intento nuevo al entrar ──────────────────────────────────────────────
+  // Cada apertura del lab lo deja en un intento NUEVO (reset + semilla) desde el
+  // store. El panel del lab no se monta hasta que esto ha corrido: los efectos de
+  // un hijo corren ANTES que los del padre, así que un Piloto montado en el mismo
+  // commit habría sembrado primero y el reset le habría borrado la semilla.
+  const [labListo, setLabListo] = useState(false);
   useEffect(() => {
-    if (mounted) {
-      const state = useSimuladorStore.getState();
-      
-      // Inicializadores de Biología
-      if (normalizedId === 'biologia-1') state.generarSemillaB1();
-      if (normalizedId === 'biologia-2') state.generarSemillaB2();
-      if (normalizedId === 'biologia-3') state.generarSemillaB3();
-      if (normalizedId === 'biologia-4') state.generarSemillaB4();
-      if (normalizedId === 'biologia-7') state.generarSemillaB7();
-      if (normalizedId === 'biologia-8') state.generarSemillaB8();
-      if (normalizedId === 'biologia-9') state.generarSemillaB9();
-      if (normalizedId === 'biologia-10') state.generarSemillaB10();
-
-      // Inicializadores de Matemáticas
-      if (normalizedId === 'matematicas-1') state.generarSemillaM1();
-      if (normalizedId === 'matematicas-2') state.generarSemillaM2();
-      if (normalizedId === 'matematicas-3') state.generarSemillaM3();
-      if (normalizedId === 'matematicas-4') state.generarSemillaM4();
-      if (normalizedId === 'matematicas-7') state.generarSemillaM7();
-      if (normalizedId === 'matematicas-10') state.generarSemillaM10();
-
-      // Inicializadores de Química
-      if (normalizedId === 'quimica-2') state.generarSemillaGases();
-      if (normalizedId === 'quimica-5') state.generarSemillaP5();
-      if (normalizedId === 'quimica-3') {
-        // Si el estado está corrupto (sin reacciones), forzar inicialización
-        if (!state.balanceo || !state.balanceo.reacciones || state.balanceo.reacciones.length === 0) {
-          state.setReaccion(0);
-        }
-      }
-    }
+    if (!mounted) return;
+    useSimuladorStore.getState().entrarLab(normalizedId);
+    setLabListo(true);
+    return () => setLabListo(false);
   }, [mounted, normalizedId]);
 
   // Se espera también al briefing (activo estático): sin esto se vería un instante
@@ -313,91 +291,10 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
       let errorMsg = "";
       const state = useSimuladorStore.getState();
 
-      // --- ENGINE DE VALIDACIÓN UNIVERSAL (40 LABS) ---
-      switch(normalizedId) {
-        // QUÍMICA
-        case 'quimica-1': ok = state.validarEstructura(); break;
-        case 'quimica-2': 
-          ok = state.validarQ2(); 
-          if (!ok) errorMsg = "Presión fuera de rango o cámara colapsada. Ajusta T o V para alcanzar el objetivo.";
-          break;
-        case 'quimica-3': 
-          ok = state.validarQ3(); 
-          if (!ok) {
-            const completed = state.balanceo.reaccionesCompletadas?.length || 0;
-            errorMsg = `Balanceo incompleto. Has estabilizado ${completed} de 4 reacciones requeridas para la certificación.`;
-          }
-          break;
-        case 'quimica-4': 
-          ok = state.limitante.status === 'success'; 
-          if (!ok) errorMsg = "Debes identificar correctamente el reactivo limitante y el exceso en la consola.";
-          break;
-        case 'quimica-5': 
-          ok = state.validarP5(); 
-          if (!ok) errorMsg = "Molaridad incorrecta. La precisión analítica debe ser superior al 95%.";
-          break;
-        case 'quimica-6': ok = state.validarP6(); break;
-        case 'quimica-7': ok = state.titulacion.status === 'success'; break;
-        case 'quimica-8': ok = state.equilibrio.status === 'success'; break;
-        case 'quimica-9': ok = state.celda.status === 'success'; break;
-        case 'quimica-10':
-          ok = state.destilacion.volDestilado >= 50 && state.destilacion.purezaDestilado >= 85;
-          if (!ok) errorMsg = state.destilacion.volDestilado < 50
-            ? "Volumen de destilado insuficiente. Se requieren ≥50 mL para la certificación."
-            : "Pureza del destilado insuficiente (< 85%). Ajusta la temperatura de la manta calefactora.";
-          break;
-
-        // FÍSICA
-        case 'fisica-1': 
-          ok = state.validarF1(); 
-          if (!ok) errorMsg = "Debes lograr al menos un impacto confirmado en el blanco para certificar la balística.";
-          break;
-        case 'fisica-2': ok = state.validarF2(); break;
-        case 'fisica-3': ok = state.validarF3(); break;
-        case 'fisica-4': ok = state.validarF4(); break;
-        case 'fisica-5': ok = state.validarF5(); break;
-        case 'fisica-6': ok = state.validarF6(); break;
-        case 'fisica-7': ok = state.validarF7(); break;
-        case 'fisica-8': ok = state.validarF8(); break;
-        case 'fisica-9': ok = state.validarF9(); break;
-        case 'fisica-10': ok = state.validarF10(); break;
-
-        // MATEMÁTICAS
-        case 'matematicas-1': ok = state.validarM1(); break;
-        case 'matematicas-2': ok = state.validarM2(); break;
-        case 'matematicas-3': ok = state.validarM3(); break;
-        case 'matematicas-4': ok = state.validarM4(); break;
-        case 'matematicas-5': ok = state.validarM5(); break;
-        case 'matematicas-6': ok = state.validarM6(); break;
-        case 'matematicas-7': ok = state.validarM7(); break;
-        case 'matematicas-8': ok = state.validarM8(); break;
-        case 'matematicas-9': ok = state.validarM9(0.15); break;
-        case 'matematicas-10': ok = state.validarM10(); break;
-
-        // BIOLOGÍA
-        case 'biologia-1': 
-          ok = state.validarB1(); 
-          if (!ok) errorMsg = "Muestra fuera de foco o iluminación insuficiente. Revisa la magnificación requerida.";
-          break;
-        case 'biologia-2': 
-          ok = state.validarB2(); 
-          if (!ok) errorMsg = "El sistema aún no está en equilibrio osmótico (C_int ≠ C_ext).";
-          break;
-        case 'biologia-3': ok = state.validarB3(); break;
-        case 'biologia-4': ok = state.validarB4(); break;
-        case 'biologia-5': ok = state.validarB5(); break;
-        case 'biologia-6': ok = state.validarB6(); break;
-        case 'biologia-7': ok = state.validarB7(); break;
-        case 'biologia-8': ok = state.validarB8(); break;
-        case 'biologia-9': ok = state.validarB9(); break;
-        case 'biologia-10': ok = state.validarB10(); break;
-        
-        default:
-          ok = false;
-          errorMsg = `Lab "${normalizedId}" no tiene validador registrado en el Engine. Reportar al equipo técnico.`;
-          console.error('[Diamond Engine] Validador faltante:', normalizedId);
-          break;
-      }
+      // Único juez: el validador de dominio de cada lab (ver `validarLab` en el store).
+      const veredicto = state.validarLab(normalizedId);
+      ok = veredicto.ok;
+      errorMsg = veredicto.mensaje ?? "";
 
       if (ok) {
         audio.playSuccess();
@@ -433,7 +330,10 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
       specialProps.isProfesor = false;
     }
     if (['biologia-3', 'biologia-4', 'biologia-5'].includes(normalizedId)) {
-      specialProps.setShowSuccess = setShowSuccess;
+      // Estos paneles anuncian su éxito con setShowSuccess(true). Abrir el modal
+      // directamente se saltaba el quiz y el registro del intento: el éxito pasa
+      // por la misma validación que el botón «Validar práctica».
+      specialProps.setShowSuccess = (v: boolean) => { if (v) handleManualValidation(); };
     }
 
     return <Component {...specialProps} onValidate={handleManualValidation} />;
@@ -726,7 +626,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                  }} 
                />
              )}
-             {!mostrarPortada && renderPiloto()}
+             {!mostrarPortada && labListo && renderPiloto()}
            </div>
            
            {/* Backdrop de la bitácora (solo móvil) */}
@@ -745,7 +645,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                  </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
-                 {renderBitacora()}
+                 {labListo && renderBitacora()}
               </div>
            </div>
         </div>

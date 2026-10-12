@@ -56,7 +56,8 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = 
         hallazgos: [
           ...hallazgos,
           {
-            id: crypto.randomUUID(),
+            // randomUUID solo existe en contextos seguros (https/localhost) y no en jsdom.
+            id: globalThis.crypto?.randomUUID?.() ?? `h-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
             tipo,
             data,
             timestamp: new Date().toISOString()
@@ -72,6 +73,38 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = 
   }),
   language: 'es',
   setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
+  entrarLab: (id: string) => {
+    const [materia, num] = id.split('-');
+    const n = Number(num);
+    const st = get();
+    if (materia === 'quimica') st.entrarQuimica(n);
+    else if (materia === 'fisica') st.entrarFisica(n);
+    else if (materia === 'biologia') st.entrarBiologia(n);
+    else if (materia === 'matematicas') st.entrarMatematicas(n);
+    // La bitácora (notas y ensayos del alumno) sobrevive a una recarga del MISMO
+    // lab; al cambiar de lab empieza en blanco. Nunca sobrevive un veredicto:
+    // las claves `fisicaN`, `quimicaN`… eran banderas de éxito que reabrían el
+    // overlay de «misión cumplida» y aprobaban sin repetir la práctica.
+    set((state) => {
+      const previa = state.bitacoraData ?? { hallazgos: [] };
+      if (previa.labId !== id) return { pasoActual: 1, score: 100, bitacoraData: { hallazgos: [], labId: id } };
+      const limpia: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(previa)) {
+        if (!/^(quimica|fisica|biologia|matematicas)\d+$/.test(k)) limpia[k] = v;
+      }
+      return { pasoActual: 1, score: 100, bitacoraData: { ...limpia, hallazgos: previa.hallazgos ?? [], labId: id } };
+    });
+  },
+  validarLab: (id: string) => {
+    const [materia, num] = id.split('-');
+    const n = Number(num);
+    const st = get();
+    if (materia === 'quimica') return st.validarLabQuimica(n);
+    if (materia === 'fisica') return st.validarLabFisica(n);
+    if (materia === 'biologia') return st.validarLabBiologia(n);
+    if (materia === 'matematicas') return st.validarLabMatematicas(n);
+    return { ok: false, mensaje: `Lab "${id}" no tiene validador registrado. Reportar al equipo técnico.` };
+  },
   resetPractica: () => {
     set({
       timer: 0,

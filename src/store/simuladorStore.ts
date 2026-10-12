@@ -44,89 +44,16 @@ export const useSimuladorStore = create<SimuladorState>()(
     {
       name: 'cen-sim-v10',
       merge: deepMergeState,
-      partialize: (state: SimuladorState) => {
-        // Slice off fields that must NOT be persisted:
-        //   - reacciones/sustancias: large constant arrays already in slice code
-        //   - history/historial/bugs: ephemeral display-only data
-        //   - capturas: transient lab screenshots
-        //   - hallazgos (cuadraticas): exploration log, not needed on reload
-        //   - bolitasPendientes: animation counter, always reset to 0
-        // The deepMergeState function above ensures these fields are always
-        // filled from the initial slice state after rehydration.
-        const { reacciones: _br, ...balanceoSlim }      = state.balanceo;
-        const { reacciones: _lr, ...limitanteSlim }     = state.limitante;
-        const { sustancias: _ss, ...solubilidadSlim }   = state.solubilidad;
-        const { history:    _th, ...titulacionSlim }    = state.titulacion;
-        const { history:    _trh, ...transporteSlim }   = state.transporte;
-        const { historial:  _evoh, bugs: _bug, ...evolucionSlim }  = state.evolucion;
-        const { historial:  _ecoh, ...ecosistemaSlim }  = state.ecosistema;
-        const { capturas:   _cap, ...microscopioSlim }  = state.microscopio;
-        const { hallazgos:  _cuh, ...cuadraticasSlim }  = state.cuadraticas;
-        const { bolitasPendientes: _bp, ...galton10Slim } = state.galton10;
-
-        // B3/B4/B5/B7: status excluido — validarBX leen datos reales en su lugar.
-        // Un estudiante que edite localStorage no puede marcar estos simuladores
-        // como completados manipulando un único campo.
-        const { status: _sst, ...sintesisSlim }          = state.sintesis;
-        const { status: _sft, ...fotosintesisSlim }      = state.fotosintesis;
-        const { status: _sgt, ...geneticaSlim }          = state.genetica;
-        const { status: _snt, ...sistemaNerviosoSlim }   = state.sistemaNervioso;
-
-        return {
-          // Core
-          bitacoraData: state.bitacoraData,
-          pasoActual:   state.pasoActual,
-          score:        state.score,
-
-          // Química
-          particulas:   state.particulas,
-          gases:        state.gases,
-          balanceo:     balanceoSlim,
-          limitante:    limitanteSlim,
-          soluciones:   state.soluciones,
-          solubilidad:  solubilidadSlim,
-          titulacion:   titulacionSlim,
-          equilibrio:   state.equilibrio,
-          celda:        state.celda,
-          destilacion:  state.destilacion,
-
-          // Física
-          tiro1:          state.tiro1,
-          plano2:         state.plano2,
-          pendulo3:       state.pendulo3,
-          hooke4:         state.hooke4,
-          prensa5:        state.prensa5,
-          arquimedes6:    state.arquimedes6,
-          dilatacion7:    state.dilatacion7,
-          ohm8:           state.ohm8,
-          electrostatica9: state.electrostatica9,
-          motor10:        state.motor10,
-
-          // Matemáticas
-          cuadraticas:   cuadraticasSlim,
-          sistemas2x2:   state.sistemas2x2,
-          richter:       state.richter,
-          pitagoras:     state.pitagoras,
-          trigonometria: state.trigonometria,
-          geometria6:    state.geometria6,
-          optica7:       state.optica7,
-          derivada8:     state.derivada8,
-          integral9:     state.integral9,
-          galton10:      galton10Slim,
-
-          // Biología
-          microscopio:     microscopioSlim,
-          transporte:      transporteSlim,
-          sintesis:        sintesisSlim,
-          fotosintesis:    fotosintesisSlim,
-          genetica:        geneticaSlim,
-          evolucion:       evolucionSlim,
-          sistemaNervioso: sistemaNerviosoSlim,
-          cardio:          state.cardio,
-          digestion:       state.digestion,
-          ecosistema:      ecosistemaSlim,
-        };
-      },
+      // Solo se guarda la bitácora (notas y ensayos del alumno, etiquetada con su
+      // `labId`). El estado de cada lab NO se persiste: `entrarLab` lo reinicia en
+      // cada apertura, y guardarlo solo servía para que un éxito viejo reabriera
+      // el overlay de «misión cumplida», para aprobar editando localStorage y
+      // para serializar todo el store en cada tick de animación.
+      partialize: (state: SimuladorState) => ({
+        bitacoraData: state.bitacoraData,
+        pasoActual:   state.pasoActual,
+        score:        state.score,
+      }),
     }
   )
 );

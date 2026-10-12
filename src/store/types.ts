@@ -21,6 +21,12 @@ export interface BitacoraData {
   [key: string]: any;
 }
 
+/** Veredicto de un lab: `ok` y, si falla, qué decirle al alumno. */
+export interface ResultadoValidacion {
+  ok: boolean;
+  mensaje?: string;
+}
+
 export interface SimuladorState {
   // Auth & Sync
   user: Profile | null;
@@ -72,6 +78,20 @@ export interface SimuladorState {
   resetFisica: () => void;
   resetBiologia: () => void;
   resetMatematicas: () => void;
+
+  // Entrada y validación por lab. `entrarLab` deja el lab en un intento NUEVO
+  // (reset + semilla) cada vez que se abre; `validarLab` es el único juez que
+  // usa el botón «Validar práctica». Cada materia resuelve los suyos en su slice.
+  entrarLab: (id: string) => void;
+  validarLab: (id: string) => ResultadoValidacion;
+  entrarQuimica: (n: number) => void;
+  entrarFisica: (n: number) => void;
+  entrarBiologia: (n: number) => void;
+  entrarMatematicas: (n: number) => void;
+  validarLabQuimica: (n: number) => ResultadoValidacion;
+  validarLabFisica: (n: number) => ResultadoValidacion;
+  validarLabBiologia: (n: number) => ResultadoValidacion;
+  validarLabMatematicas: (n: number) => ResultadoValidacion;
   showQuiz: boolean;
   setShowQuiz: (show: boolean) => void;
   quizQuestions: QuizQuestion[];
@@ -552,6 +572,7 @@ export type CoreSlice = Pick<SimuladorState,
   | 'setAsistente' | 'startTimer' | 'stopTimer' | 'resetTimer' | 'tick'
   | 'updateScore' | 'setPasoActual' | 'setBitacora' | 'registrarHallazgo' | 'unlockBadge' | 'setLanguage'
   | 'resetPractica' | 'showQuiz' | 'setShowQuiz' | 'quizQuestions' | 'setQuizQuestions'
+  | 'entrarLab' | 'validarLab'
 >;
 
 export type QuimicaSlice = Pick<SimuladorState,
@@ -565,7 +586,7 @@ export type QuimicaSlice = Pick<SimuladorState,
   | 'equilibrio' | 'setUbicacionJeringa' | 'updateTemperaturaP8' | 'validarP8' | 'resetP8' | 'generarSemillaP8' | 'autoResolveP8'
   | 'celda' | 'generarSemillaP9' | 'setMetalVaso' | 'togglePuenteSalino' | 'toggleCables' | 'validarP9' | 'resetP9'
   | 'destilacion' | 'setCalorManta' | 'updateDestilacion' | 'validarP10' | 'resetP10'
-  | 'resetQuimica'
+  | 'resetQuimica' | 'entrarQuimica' | 'validarLabQuimica'
 >;
 
 export type FisicaSlice = Pick<SimuladorState,
@@ -580,7 +601,7 @@ export type FisicaSlice = Pick<SimuladorState,
   | 'motor10' | 'setMotor10' | 'validarF10'
   | 'tiro1' | 'setTiro1' | 'generarSemillaF1' | 'ejecutarDisparoF1' | 'validarF1'
   | 'resetF1' | 'resetF2' | 'resetF3' | 'resetF4' | 'resetF5' | 'resetF6' | 'resetF7' | 'resetF8' | 'resetF9' | 'resetF10'
-  | 'resetFisica'
+  | 'resetFisica' | 'entrarFisica' | 'validarLabFisica'
 >;
 
 export type MatematicasSlice = Pick<SimuladorState,
@@ -594,7 +615,7 @@ export type MatematicasSlice = Pick<SimuladorState,
   | 'derivada8' | 'setXActualM8' | 'setMostrarDerivadaM8' | 'setDerivada8' | 'validarM8' | 'resetM8'
   | 'integral9' | 'setIntegralM9' | 'setAnimandoM9' | 'validarM9' | 'resetM9'
   | 'galton10' | 'setGaltonM10' | 'lanzarBolitasM10' | 'contarBolitaM10' | 'setSimulandoM10' | 'vaciarGaltonM10' | 'validarM10' | 'generarSemillaM10' | 'setGalton10' | 'resetM10'
-  | 'resetMatematicas'
+  | 'resetMatematicas' | 'entrarMatematicas' | 'validarLabMatematicas'
 >;
 
 export type BiologiaSlice = Pick<SimuladorState,
@@ -608,5 +629,5 @@ export type BiologiaSlice = Pick<SimuladorState,
   | 'cardio' | 'setCardio' | 'generarSemillaB8' | 'validarB8' | 'resetB8'
   | 'digestion' | 'setDigestion' | 'generarSemillaB9' | 'validarB9' | 'resetB9'
   | 'ecosistema' | 'setEcosistema' | 'tickEcosistema' | 'generarSemillaB10' | 'validarB10' | 'resetB10'
-  | 'resetBiologia'
+  | 'resetBiologia' | 'entrarBiologia' | 'validarLabBiologia'
 >;
