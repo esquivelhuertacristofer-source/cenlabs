@@ -435,27 +435,33 @@ function makeSynth(opts={}){
 
 // ===== 1) Escenario base =====
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.2,3.3,6.2],target:[0,0.85,0.1],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[0.5,3.1,6.6],target:[0.05,1.5,0.3],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.34,minD:3.2,maxD:16});
 const {scene}=S;
 
 const std=o=>new THREE.MeshStandardMaterial(o);
-const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
+const {osciloscopioBanco,bnc,cableCoaxial,plugBNC}=P3;   // §15–§17-B de la biblioteca de piezas
+/* Los nombres con los que trabaja la biblioteca de piezas, traducidos una vez a los materiales de oficio de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ab,roughness:0.45,metalness:0.7,envMapIntensity:0.7}),
+  acero:std({color:0x8c949b,roughness:0.4,metalness:0.85,envMapIntensity:0.7}),
+  cromo:std({color:0x9aa1a8,roughness:0.4,metalness:0.8,envMapIntensity:0.45}),
+  chapa:std({color:0x2a313b,roughness:0.6,metalness:0.4}),
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.8}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.85,metalness:0.02}),
+  blanco:std({color:0xcfd6dd,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xcfd6dd,roughness:0.60,metalness:0.05}),
+};
 const MAT={
-  bench: std({...plas, metalness:0.15, roughness:0.75}),
-  scopeBody: std({...plas, color:0x1c2230, metalness:0.35, roughness:0.55}),
-  jackCh1: std({...brush, color:0xe0b23c, metalness:0.85, roughness:0.3}),
-  termCap: std({...brush, color:0xc77dff, metalness:0.75, roughness:0.35}),
-  knobBase: std({...plas, color:0x11141a, metalness:0.3, roughness:0.6}),
-  knobRub: std({...rub, color:0x2a2f38, roughness:0.9, metalness:0.0}),
-  knobTick: std({color:0xffd166, roughness:0.4, metalness:0.1}),
+  bench: std({color:0x1b232b,roughness:0.55,metalness:0.12,envMapIntensity:0.5}),     // laminado liso del banco
+  benchEdge: std({color:0x5d6772,roughness:0.4,metalness:0.8,envMapIntensity:0.6}),   // canto de aluminio
+  benchLeg: std({color:0x2c333b,roughness:0.5,metalness:0.6,envMapIntensity:0.5}),
   btnLit: std({color:0x0a1210, emissive:0x3ad9c2, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
-  srcBody: std({...alu, color:0x3a4048, metalness:0.5, roughness:0.6}),
-  post: std({...brush, color:0xd8b24a, metalness:0.9, roughness:0.3}),
-  wireGen: std({...rub, color:0xe0b23c, roughness:0.85, metalness:0.0}),
-  switchBase: std({...plas, color:0x11141a, metalness:0.3, roughness:0.6}),
-  switchSlide: std({color:0xffd166, metalness:0.3, roughness:0.5}),
-  filterBody: std({...plas, color:0x232a36, metalness:0.3, roughness:0.6}),
+  switchBase: std({color:0x0d1013,roughness:0.6,metalness:0.3}),
+  switchSlide: std({color:0xc9a02c,metalness:0.3,roughness:0.5}),
+  filterBody: std({color:0x5b646e,roughness:0.45,metalness:0.75,envMapIntensity:0.6}),
   filterLit: std({color:0x0a1210, emissive:0xe879f9, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
+  cord: std({color:0x12151a,roughness:0.8,metalness:0.02}),
 };
 
 const PARTS=[];
@@ -479,177 +485,138 @@ function showToast(html){
   showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);
 }
 
-// ===== 2) Banco =====
-const bench=roundedBox(6.6,0.28,3.7,MAT.bench,0.05);
-bench.position.set(0,0,0);
-scene.add(bench);
+// ===== 2) Banco: laminado liso sobre patas, con canto de aluminio =====
+const BT=0.90;                                   // altura de la cubierta del banco
+{
+  const top=roundedBox(5.4,0.10,2.9,MAT.bench,0.08); top.position.set(0,BT-0.05,0.25); scene.add(top);
+  const canto=roundedBox(5.44,0.03,2.94,MAT.benchEdge,0.3); canto.position.set(0,BT-0.115,0.25); scene.add(canto);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.10,BT-0.13,0.10),MAT.benchLeg);
+    leg.position.set(sx*2.55,(BT-0.13)/2,0.25+sz*1.30); leg.castShadow=true; scene.add(leg);
+  }
+  for(const sz of [-1,1]){ const tr=new THREE.Mesh(new THREE.BoxGeometry(5.1,0.06,0.05),MAT.benchLeg); tr.position.set(0,0.30,0.25+sz*1.30); scene.add(tr); }
+  for(const sx of [-1,1]){ const tr=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.06,2.6),MAT.benchLeg); tr.position.set(sx*2.55,0.30,0.25); scene.add(tr); }
+}
 
 // ===== 3) Osciloscopio (secundario en esta práctica: pantalla + entrada CH1) =====
-const scopeGroup=new THREE.Group();
-scopeGroup.position.set(-1.6,0.72,-0.1);
+const scopeGroup=osciloscopioBanco(MATP,{ancho:1.9,alto:1.2,fondo:0.8,color:0x232a38,
+  mandos:[{id:'vdiv',x:0.50,y:0.36,r:0.085,rotulo:'VOLTS/DIV'},{id:'tdiv',x:0.78,y:0.36,r:0.085,rotulo:'TIME/DIV'},{id:'pos',x:0.50,y:0.02,r:0.065,rotulo:'POSICIÓN'},{id:'trig',x:0.78,y:0.02,r:0.065,rotulo:'NIVEL'}],
+  bnc:[{x:-0.55,color:0xc9a02c,id:'ch1'},{x:-0.25,color:0x3ad9c2,id:'ch2'}]});
+scopeGroup.position.set(-1.38,BT+scopeGroup.userData.apoyo,-0.2);
 scene.add(scopeGroup);
-
-const scopeBody=roundedBox(1.7,1.15,1.05,MAT.scopeBody,0.09);
-scopeGroup.add(scopeBody);
-registerPart(scopeBody,'Osciloscopio digital','En esta práctica actúa como instrumento de lectura: un solo canal (CH1) conectado directamente a la salida del generador de funciones.','#ffd166');
+registerPart(scopeGroup,'Osciloscopio digital','En esta práctica actúa como instrumento de lectura: un solo canal (CH1) conectado directamente a la salida del generador de funciones.','#ffd166');
 
 const scrCanvas=document.createElement('canvas');
 scrCanvas.width=300; scrCanvas.height=240;
 const scrTex=new THREE.CanvasTexture(scrCanvas);
-/* LA PANTALLA a la izquierda del frente y el mando a la derecha. Con 0,80 de
-   alto centrada en 0,26 el borde superior caia en 0,66, por encima de la tapa
-   de la caja (0,575): el marco quedaba en el aire. */
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.80,0.64),new THREE.MeshBasicMaterial({map:scrTex}));
-screenMesh.position.set(-0.36,0.16,0.526);
-scopeGroup.add(screenMesh);
+scrTex.colorSpace=THREE.SRGBColorSpace;
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(scopeGroup.userData.visor.ancho,scopeGroup.userData.visor.alto),new THREE.MeshBasicMaterial({map:scrTex}));
+scopeGroup.userData.pantalla.add(screenMesh);
 registerPart(screenMesh,'Pantalla','Traza, espectro o curva de Bode se dibujan aquí según el caso activo.','#ffd166');
 
-/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
-   importa), traducidos una vez a los materiales de este laboratorio. */
-const MATP={
-  aluminio:MAT.knobBase, acero:MAT.knobBase, cromo:MAT.knobBase, chapa:MAT.knobBase,
-  cobre:new THREE.MeshStandardMaterial({color:0xb87333,roughness:0.35,metalness:0.75}),
-  negro:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.62,metalness:0.06}),
-  goma:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.80,metalness:0.02}),
-  blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.40,metalness:0.20}),
-  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.60,metalness:0.05}),
-};
-/* EL BNC no es un cilindro de color: lleva los DOS TETONES de la bayoneta —se
-   mete y se gira un cuarto de vuelta—, el aislante y el pin central. Los tetones
-   son lo que hace que el cable no se salga solo de un tiron, que es justo por lo
-   que un osciloscopio no lleva bananas; el anillo de color dice el canal. */
-const jackCh1=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh1.color.getHex()});
-jackCh1.position.set(-0.56,-0.40,0.516);
-scopeGroup.add(jackCh1);
+const jackCh1=scopeGroup.userData.bnc[0];
 registerPart(jackCh1,'Entrada CH1 (BNC)','Entrada de alta impedancia (Hi-Z) del osciloscopio, salvo que se le conecte un terminador externo de 50 Ω.','#ffd166');
-
-/* EL VESTIDO DEL INSTRUMENTO: MARCO de la pantalla, ASA de transporte, PATAS y
-   REJILLA de ventilacion. Sin ellos la caja no se distingue de un cajon: son las
-   cuatro cosas por las que un aparato de banco se reconoce como aparato. */
-{
-  const marco=new THREE.Mesh(P3.extruido(
-    [[-0.44,-0.36],[0.44,-0.36],[0.44,0.36],[-0.44,0.36]],
-    {huecos:[[[-0.40,-0.32],[0.40,-0.32],[0.40,0.32],[-0.40,0.32]]],
-     espesor:0.035,bisel:0.006}),MAT.knobBase);
-  marco.position.set(-0.36,0.16,0.526-0.030);scopeGroup.add(marco);
-  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.88,0.26,0),new THREE.Vector3(-0.88,0.64,0),
-    new THREE.Vector3(0,0.78,0),
-    new THREE.Vector3(0.88,0.64,0),new THREE.Vector3(0.88,0.26,0)],false),
-    26,0.032,8,false),MAT.knobRub);
-  asa.castShadow=true;scopeGroup.add(asa);
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
-    const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.062,0.05,12),MAT.knobRub);
-    pa.position.set(sx*0.72,-0.60,sz*0.40);scopeGroup.add(pa);
-  });
-  for(let i=0;i<7;i++){
-    const r=new THREE.Mesh(new THREE.BoxGeometry(1.00,0.014,0.035),MAT.knobRub);
-    r.position.set(0,0.577,-0.36+i*0.06);scopeGroup.add(r);
-  }
-}
-const termCap=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.12,16),MAT.termCap);
-termCap.rotation.x=Math.PI/2;
-termCap.position.set(-0.56,-0.40,0.585);
-termCap.visible=false;
-scopeGroup.add(termCap);
-registerPart(termCap,'Terminador de 50 Ω','Adaptador que presenta una carga real de 50 Ω a la entrada del osciloscopio. Sin él, la entrada es de alta impedancia (Hi-Z). Solo relevante en el Caso 1 (Carga).','#c77dff');
-
-function makeKnob(group,x,y,z,name,desc){
-  const g=new THREE.Group();
-  g.position.set(x,y,z);
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.08,0.05,20),MAT.knobBase);
-  base.rotation.x=Math.PI/2;
-  g.add(base);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.055,20),MAT.knobRub);
-  grip.rotation.x=Math.PI/2;
-  grip.position.z=0.03;
-  g.add(grip);
-  const tick=new THREE.Mesh(new THREE.BoxGeometry(0.01,0.045,0.01),MAT.knobTick);
-  tick.position.set(0,0.045,0.06);
-  grip.add(tick);
-  group.add(g);
-  registerPart(grip,name,desc,'#8aa0b8');
-  return g;
-}
-makeKnob(scopeGroup,0.45,0.22,0.526,'Volts/división','Fija en esta práctica para que la lectura dependa de la carga y no de la escala vertical.');
+registerPart(scopeGroup.userData.mandos.vdiv.grip,'Volts/división','Fija en esta práctica para que la lectura dependa de la carga y no de la escala vertical.','#8aa0b8');
 
 // ===== 4) Generador de funciones (protagonista de esta práctica) =====
-const srcGroup=new THREE.Group();
-srcGroup.position.set(1.7,0.45,0.3);
+const srcGroup=osciloscopioBanco(MATP,{ancho:1.62,alto:0.66,fondo:0.70,color:0x3a4553,teclas:false,
+  pantallaX:-0.40,pantallaY:0.07,visor:[0.66,0.30],
+  mandos:[{id:'amp',x:0.14,y:0.10,r:0.075,rotulo:'AMPL'},{id:'freq',x:0.40,y:0.10,r:0.075,rotulo:'FREQ'},{id:'off',x:0.66,y:0.10,r:0.075,rotulo:'OFFSET'}],
+  botones:[{id:'sine',x:0.15,y:-0.12,ancho:0.15,alto:0.06,luz:true},{id:'square',x:0.37,y:-0.12,ancho:0.15,alto:0.06,luz:true}],
+  bnc:[{x:0.67,color:0xc9a02c,id:'out'}]});
+srcGroup.position.set(1.42,BT+srcGroup.userData.apoyo,-0.15);
 scene.add(srcGroup);
-
-const srcBody=roundedBox(1.4,0.62,0.72,MAT.srcBody,0.08);
-srcGroup.add(srcBody);
-registerPart(srcBody,'Generador de funciones','Produce la señal de prueba (senoidal o cuadrada) para los cuatro casos de esta práctica: carga, forma de onda, barrido en frecuencia y offset de CD.','#8aa0b8');
+registerPart(srcGroup,'Generador de funciones','Produce la señal de prueba (senoidal o cuadrada) para los cuatro casos de esta práctica: carga, forma de onda, barrido en frecuencia y offset de CD.','#8aa0b8');
 
 const genCanvas=document.createElement('canvas');
 genCanvas.width=220; genCanvas.height=100;
 const genTex=new THREE.CanvasTexture(genCanvas);
-const genScreenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.46,0.20),new THREE.MeshBasicMaterial({map:genTex}));
-genScreenMesh.position.set(0,0.15,0.362);
-srcGroup.add(genScreenMesh);
+genTex.colorSpace=THREE.SRGBColorSpace;
+const genScreenMesh=new THREE.Mesh(new THREE.PlaneGeometry(srcGroup.userData.visor.ancho,srcGroup.userData.visor.alto),new THREE.MeshBasicMaterial({map:genTex}));
+srcGroup.userData.pantalla.add(genScreenMesh);
 registerPart(genScreenMesh,'Lectura del generador','Muestra la amplitud y frecuencia PROGRAMADAS. En el Caso 3 (Barrido), esta lectura de Vin se toma como referencia confiable, ya que proviene directamente de la fuente.','#8aa0b8');
 
-const ampKnob=makeKnob(srcGroup,-0.50,-0.16,0.362,'Perilla de amplitud','Ajusta la amplitud programada (Vpp). El valor real que llega a la carga depende también del ajuste de carga (Load) y de la impedancia realmente conectada.');
-const freqKnob=makeKnob(srcGroup,-0.22,-0.16,0.362,'Perilla de frecuencia','Ajusta la frecuencia de la señal de salida — variable en el Caso 3 (Barrido/Bode).');
-const offsetKnob=makeKnob(srcGroup,0.08,-0.16,0.362,'Perilla de offset de CD','Suma un nivel de voltaje de corriente directa constante sobre la señal alterna — Caso 4.');
+const ampKnob=srcGroup.userData.mandos.amp, freqKnob=srcGroup.userData.mandos.freq, offsetKnob=srcGroup.userData.mandos.off;
+registerPart(ampKnob.grip,'Perilla de amplitud','Ajusta la amplitud programada (Vpp). El valor real que llega a la carga depende también del ajuste de carga (Load) y de la impedancia realmente conectada.','#8aa0b8');
+registerPart(freqKnob.grip,'Perilla de frecuencia','Ajusta la frecuencia de la señal de salida — variable en el Caso 3 (Barrido/Bode).','#8aa0b8');
+registerPart(offsetKnob.grip,'Perilla de offset de CD','Suma un nivel de voltaje de corriente directa constante sobre la señal alterna — Caso 4.','#8aa0b8');
+srcGroup.userData.rotulo('SENO',0.15,-0.185,0.16,30);
+srcGroup.userData.rotulo('CUADRADA',0.37,-0.185,0.20,26);
 
-const waveBtnSine=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit.clone());
-waveBtnSine.position.set(0.40,0.02,0.362);
-srcGroup.add(waveBtnSine);
+const waveBtnSine=srcGroup.userData.botones.sine;
 registerPart(waveBtnSine,'Forma de onda: senoidal','Selecciona una salida senoidal — espectralmente pura, un único tono. Caso 2.','#5eead4');
-
-const waveBtnSquare=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit.clone());
-waveBtnSquare.position.set(0.40,-0.12,0.362);
-srcGroup.add(waveBtnSquare);
+const waveBtnSquare=srcGroup.userData.botones.square;
 registerPart(waveBtnSquare,'Forma de onda: cuadrada','Selecciona una salida cuadrada — contiene una fundamental más armónicos impares (3f, 5f, 7f…). Caso 2.','#5eead4');
 
-const loadTrack=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.02,0.05),MAT.switchBase);
-loadTrack.position.set(-0.32,-0.26,0.362);
+// selector de carga: interruptor deslizante 50 Ω / Hi-Z en el frente
+const ZFg=srcGroup.userData.frente;
+const loadTrack=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.022,0.020),MAT.switchBase);
+loadTrack.position.set(-0.50,-0.17,ZFg+0.004);
 srcGroup.add(loadTrack);
-const LOAD_X={'50':-0.365,'hiz':-0.275};
-const loadSlide=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.03,0.06),MAT.switchSlide);
-loadSlide.position.set(LOAD_X['50'],-0.26,0.362);
+const LOAD_X={'50':-0.555,'hiz':-0.445};
+const loadSlide=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.045,0.04),MAT.switchSlide);
+loadSlide.position.set(LOAD_X['50'],-0.17,ZFg+0.014);
 srcGroup.add(loadSlide);
+srcGroup.userData.rotulo('LOAD',-0.50,-0.095,0.16,26);
+srcGroup.userData.rotulo('50Ω',-0.58,-0.235,0.12,24);
+srcGroup.userData.rotulo('Hi-Z',-0.42,-0.235,0.12,24);
 registerPart(loadSlide,'Selector de carga (Load: 50 Ω / Hi-Z)','Le indica al generador qué impedancia de carga asumir para calibrar su voltaje de salida. Debe coincidir con la carga realmente conectada, o la amplitud leída será incorrecta por un factor de 2 (dato de hoja de fabricante). Caso 1.','#ffd166');
 
-const termOut=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.10,12),MAT.post);
-termOut.rotation.x=Math.PI/2;
-termOut.position.set(0.52,-0.24,0.362);
-srcGroup.add(termOut);
+const termOut=srcGroup.userData.bnc[0];
+srcGroup.userData.rotulo('SALIDA 50Ω',0.67,-0.31,0.22,22);
 registerPart(termOut,'Salida de señal (BNC)','Punto de salida hacia el cable que conecta con el osciloscopio (directamente, o a través del filtro RC en el Caso 3).','#8aa0b8');
 
-// ===== 5) Filtro RC (accesorio del Caso 3 · Barrido/Bode) =====
+// ===== 5) Filtro RC (accesorio del Caso 3 · Barrido/Bode): caja de aluminio con BNC de entrada y salida =====
 const filterGroup=new THREE.Group();
-filterGroup.position.set(0.15,0.19,1.15);
+filterGroup.position.set(0.05,BT+0.075,1.42);
 scene.add(filterGroup);
-
-const filterBody=roundedBox(0.55,0.10,0.30,MAT.filterBody,0.03);
+const filterBody=roundedBox(0.70,0.15,0.34,MAT.filterBody,0.12);
 filterGroup.add(filterBody);
 registerPart(filterBody,'Filtro RC (paso bajo, un polo)','R = 1.6 kΩ, C = 100 nF → f_c = 1/(2πRC) ≈ 995 Hz. Solo interviene en el Caso 3 (Barrido/Bode); en los demás casos el generador se conecta directo al osciloscopio.','#e879f9');
-
-const filterPostIn=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.07,10),MAT.post);
-filterPostIn.rotation.x=Math.PI/2;
-filterPostIn.position.set(-0.20,0.06,0);
-filterGroup.add(filterPostIn);
-const filterPostOut=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.07,10),MAT.post);
-filterPostOut.rotation.x=Math.PI/2;
-filterPostOut.position.set(0.20,0.06,0);
-filterGroup.add(filterPostOut);
-
-const filterLed=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.03,0.02),MAT.filterLit);
-filterLed.position.set(0,0.06,0.14);
+for(const s of [-1,1]){
+  const j=bnc(MATP,{d:0.10,largo:0.09,color:s<0?0x3ad9c2:0xc9a02c});
+  j.rotation.y=s*Math.PI/2; j.position.set(s*0.35,0.0,0); filterGroup.add(j);
+}
+{ const tx=new THREE.CanvasTexture((()=>{ const c=document.createElement('canvas'); c.width=256; c.height=96; const x=c.getContext('2d');
+    x.clearRect(0,0,256,96); x.fillStyle='#e8edf2'; x.textAlign='center'; x.textBaseline='middle';
+    x.font='bold 40px sans-serif'; x.fillText('FILTRO RC',128,30); x.font='bold 28px sans-serif'; x.fillText('1,6 kΩ · 100 nF',128,70); return c; })());
+  tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8;
+  const et=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshStandardMaterial({map:tx,transparent:true,roughness:0.6,metalness:0,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  et.rotation.x=-Math.PI/2; et.position.set(0,0.0765,0.02); filterGroup.add(et); }
+const filterLed=new THREE.Mesh(new THREE.SphereGeometry(0.026,14,10),MAT.filterLit);
+filterLed.position.set(0.22,0.074,-0.10); filterLed.scale.y=0.55;
 filterGroup.add(filterLed);
 registerPart(filterLed,'Indicador del filtro','Se ilumina cuando el Caso 3 (Barrido/Bode) está activo, recordando que la señal pasa por el filtro RC antes de llegar al osciloscopio.','#e879f9');
 
-// ===== 6) Cableado =====
-function cableTube(points,radius,mat){
-  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
-  const geo=new THREE.TubeGeometry(curve,24,radius,8,false);
-  return new THREE.Mesh(geo,mat);
+// ===== 6) Cableado: coaxial negro con conectores BNC, y los cordones de red =====
+scene.updateMatrixWorld(true);
+const bocaGen=termOut.localToWorld(new THREE.Vector3(0,0,0.10));
+const bocaScope=jackCh1.localToWorld(new THREE.Vector3(0,0,0.10));
+/* En el CH1 va un adaptador en T: por un brazo entra el cable, por el otro cuelga el terminador de 50 Ω cuando la carga real es de 50 Ω. */
+const teeLargo=0.13;
+const tee=new THREE.Group(); tee.position.copy(bocaScope); scene.add(tee);
+{
+  const mm=MATP.cromo;
+  const br=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,teeLargo,16),mm); br.rotation.x=Math.PI/2; br.position.z=teeLargo/2; br.castShadow=true; tee.add(br);
+  const an=new THREE.Mesh(new THREE.CylinderGeometry(0.066,0.066,0.03,16),mm); an.rotation.x=Math.PI/2; an.position.z=0.016; tee.add(an);
+  const st=new THREE.Mesh(new THREE.CylinderGeometry(0.043,0.043,0.10,14),mm); st.rotation.z=Math.PI/2; st.position.set(0.05,0,teeLargo*0.55); tee.add(st);
 }
-const cableGenScope=cableTube([[2.22,0.21,0.66],[0.15,0.75,1.05],[-2.16,0.32,0.43]],0.026,MAT.wireGen);
+const termCap=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.13,16),std({color:0x3a2a5a,roughness:0.55,metalness:0.2}));
+termCap.rotation.z=Math.PI/2;
+termCap.position.set(0.165,0,teeLargo*0.55);
+termCap.visible=false;
+{ const an=new THREE.Mesh(new THREE.TorusGeometry(0.058,0.011,8,18),std({color:0xc77dff,roughness:0.5,metalness:0.2})); an.rotation.y=Math.PI/2; an.position.set(0.10,0,0); termCap.add(an); }
+tee.add(termCap);
+registerPart(termCap,'Terminador de 50 Ω','Adaptador que presenta una carga real de 50 Ω a la entrada del osciloscopio. Sin él, la entrada es de alta impedancia (Hi-Z). Solo relevante en el Caso 1 (Carga).','#c77dff');
+const cableGenScope=cableCoaxial(MATP,bocaGen,new THREE.Vector3(0,0,1),bocaScope.clone().add(new THREE.Vector3(0,0,teeLargo)),new THREE.Vector3(0,0,1),{r:0.026,suelo:BT});
 scene.add(cableGenScope);
+// cordones de alimentación hacia el fondo del banco
+for(const [g,dx] of [[scopeGroup,-0.5],[srcGroup,0.4]]){
+  const p0=g.localToWorld(new THREE.Vector3(dx,-0.2,-g.userData.fondo/2));
+  const cur=new THREE.CatmullRomCurve3([p0,p0.clone().add(new THREE.Vector3(0,-0.05,-0.18)),new THREE.Vector3(p0.x,BT+0.02,p0.z-0.35),new THREE.Vector3(p0.x+dx*0.4,BT+0.02,-1.15)]);
+  scene.add(new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.016,8,false),MAT.cord));
+}
+
 
 // ===== 7) Pantalla: dibujo =====
 const DIVX=10, DIVY=8;
@@ -1258,7 +1225,7 @@ btnEnergize.onclick=()=>{
   btnEnergize.classList.toggle('on',energized);
   btnEnergize.textContent=energized?'🔌 Desconectar generador':'🔌 Conectar generador';
   if(energized){
-    S.moveTo([3.2,2.1,4.6],[0.4,0.6,0.3],1.3);
+    S.moveTo([2.6,2.6,5.6],[0.05,1.45,0.3],1.3);
     S.setCinematicIdle(true);
     synth.beep(660,0.08,0.04);
   } else {

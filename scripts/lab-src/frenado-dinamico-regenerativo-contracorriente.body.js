@@ -46,7 +46,7 @@
    maestra — ver ficha técnica para referencias tangenciales.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[6.6,4.6,8.4],target:[0.3,1.2,0],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
+const S=createStage(mount,{cam:[4.9,3.5,6.0],target:[0.3,1.7,-0.3],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.7});
 
 /* ---------- §1 Modelo físico ---------- */
@@ -115,15 +115,11 @@ const MAT={
   frame:std({color:0x1c2a33,metalness:0.6,roughness:0.4}),
   board:std({color:0x0c141a,metalness:0.1,roughness:0.9}),
   bench:std({color:0x14202a,metalness:0.3,roughness:0.7}),
-  bus:std({color:0xffb703,metalness:0.8,roughness:0.3,emissive:0x3a2600,emissiveIntensity:0.3}),
   motorBody:std({color:0x2c3e46,metalness:0.7,roughness:0.35}),
   motorEnd:std({color:0x40555f,metalness:0.7,roughness:0.3}),
   shaft:std({color:0xb9c4c9,metalness:0.9,roughness:0.2}),
   flywheel:std({color:0x35505c,metalness:0.75,roughness:0.3}),
-  resBody:std({color:0x4a3320,metalness:0.4,roughness:0.6,emissive:0x2a1000,emissiveIntensity:0.25}),
   resFin:std({color:0x6b4a2a,metalness:0.5,roughness:0.5}),
-  gridBody:std({color:0x1a3a42,metalness:0.5,roughness:0.5,emissive:0x0d3a3a,emissiveIntensity:0.25}),
-  contBody:std({color:0x3a1e1e,metalness:0.45,roughness:0.55,emissive:0x3a0d0d,emissiveIntensity:0.25}),
   panelBody:std({color:0x101a20,metalness:0.4,roughness:0.6}),
   cable:std({color:0x1a1a1a,metalness:0.2,roughness:0.8}),
 };
@@ -411,45 +407,7 @@ function boardClick(u,v){
   synth.beep(420,0.08,0.05);
 }
 
-/* ---------- §5 Banco 3D modesto ---------- */
-function cable(pts,mat){
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve,24,0.035,8,false);
-  return new THREE.Mesh(geo,mat);
-}
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=roundedBox(w,h,dp,MAT.panelBody,0.05); g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tx=new THREE.CanvasTexture(cv);
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshBasicMaterial({map:tx}));
-  screen.position.set(0,0,dp/2+0.005);
-  g.add(screen);
-  return {g,cv,cx,tx};
-}
-
-const boardG=new THREE.Group();
-const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
-board.position.z=0.07;
-board.userData={title:'Tablero — balance de energía de los tres frenados'};
-boardFrame.userData=board.userData;
-boardG.add(boardFrame,board);
-boardG.position.set(0.3,2.35,-1.55);
-S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=roundedBox(6.6,0.28,3.0,MAT.bench,0.08);
-mesa.position.set(0.3,0.85,0); mesa.receiveShadow=true;
-benchG.add(mesa);
-
-const busBar=new THREE.Mesh(new THREE.BoxGeometry(4.9,0.06,0.06),MAT.bus);
-busBar.position.set(0.3,1.85,-0.8);
-benchG.add(busBar);
-
-// motor + volante
-const motG=new THREE.Group();
+/* ---------- §5 Banco 3D ---------- */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -460,81 +418,109 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
-   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
-   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
-   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
-   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
-   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
-const maq=P3.maquinaElectrica(MATP,{d:0.80,largo:0.70,eje:0.42,aletas:14});
-const flyG=new THREE.Group();
-const flyDisc=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.1,28),MAT.flywheel);
-flyDisc.rotation.z=Math.PI/2;
-flyG.add(flyDisc);
-for(let i=0;i<6;i++){
-  const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.6),MAT.shaft);
-  spoke.position.z=0; spoke.rotation.x=(i/6)*Math.PI*2;
-  flyG.add(spoke);
+function cable(pts,mat,r=0.03){
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,40,r,8,false),mat);
+  m.castShadow=true; return m;
 }
-flyG.position.x=0.55;
+function makeCanvasScreen(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=160;
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8;
+  return {cv,cx:cv.getContext('2d'),tx};
+}
+function screenPlane(w,h,tx){
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+}
+function tagAct(root,ud){ Object.assign(root.userData,ud); }
+function labelAt(g,txt,col,x,y,z){ const s=labelSprite(txt,col); s.position.set(x,y,z); g.add(s); return s; }
+function bancoInstrumento(w,h,d,ud,color){
+  const g=P3.instrumentoConPantalla(MATP,{ancho:w,alto:h,fondo:d,mandos:2,cw:256,visor:0.70,visorAlto:0.70*w/(1.6*h),color:color||0x56626b});
+  const o={g,cv:g.userData.cv,cx:g.userData.cx,tx:g.userData.tex,apoyo:g.userData.apoyo};
+  tagAct(g,ud); return o;
+}
+
+/* El pizarrón, COLGADO de un soporte y no flotando sobre la mesa. */
+const boardG=new THREE.Group();
+const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.z=0.07;
+board.userData={title:'Tablero — balance de energía de los tres frenados'};
+boardFrame.userData=board.userData;
+boardG.add(boardFrame,board);
+boardG.position.set(0.3,2.65,-1.55);
+S.scene.add(boardG);
+const standG=P3.soportePizarron(MATP,{ancho:3.2,alto:2.35,y:2.65});
+standG.position.set(0.3,0,-1.55); S.scene.add(standG);
+
+const benchG=new THREE.Group();
+const banco=P3.bancoPruebasMaquinas(MATP,{ancho:5.8,fondo:2.2,alto:0.95,respaldo:0.42});
+banco.position.x=0.3; benchG.add(banco);
+const TOP=0.95;
+const mCab=std({color:0x15181e,metalness:0.2,roughness:0.75});
+
+// motor + volante de inercia, sobre su placa base
+const placa=P3.placaBaseRanurada(MATP,{largo:2.4,ancho:1.1,ranuras:3});
+placa.position.set(-1.75,TOP,-0.25); benchG.add(placa);
+const AXY=TOP+0.07+0.508, AXZ=-0.25;
+const motG=new THREE.Group();
+/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
+   taller: ALETAS, TAPA DEL VENTILADOR, PATAS, CAJA DE BORNES y placa de datos. */
+const maq=P3.maquinaElectrica(MATP,{d:0.80,largo:0.70,eje:0.42,aletas:14});
+/* EL VOLANTE, calado al eje: es la energía cinética que hay que disipar. */
+const flyG=new THREE.Group();
+flyG.add(P3.volanteInercia(MATP,{d:0.72,ancho:0.12,dEje:0.08}));
+flyG.position.x=0.56;
 motG.add(maq,flyG);
-motG.add(labelSprite('M+J','#8ab4f8'));
-motG.position.set(-1.7,1.15,-0.05);
-motG.userData={act:'mot3d',title:'Motor + volante de inercia (energía cinética a disipar)'};
-maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
+labelAt(motG,'M+J','#8ab4f8',0.25,0.95,0);
+motG.position.set(-2.15,AXY,AXZ);
+tagAct(motG,{act:'mot3d',title:'Motor + volante de inercia (energía cinética a disipar)'});
 benchG.add(motG);
 
-// banco de resistencias (dinámico)
+// banco de resistencias (frenado dinámico)
 const resG=new THREE.Group();
-const resBody=roundedBox(0.6,0.55,0.4,MAT.resBody,0.05);
-resG.add(resBody);
-for(let i=0;i<4;i++){
-  const fin=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,10),MAT.resFin);
-  fin.position.set(-0.2+i*0.13,0,0.25); fin.rotation.x=Math.PI/2;
-  resG.add(fin);
-}
-resG.add(labelSprite('R_ext','#ff9f5c'));
-resG.position.set(-0.35,1.3,-0.05);
-resG.userData={act:'res3d',title:'Banco de resistencias externas (frenado dinámico)'};
-resBody.userData=resG.userData;
+const resBank=P3.bancoResistenciasFrenado(MATP,{ancho:0.80,alto:0.62,fondo:0.46,tubos:5});
+resG.add(resBank);
+labelAt(resG,'R_ext','#ff9f5c',0,0.95,0);
+resG.position.set(-0.25,TOP,-0.45);
+tagAct(resG,{act:'res3d',title:'Banco de resistencias externas (frenado dinámico)'});
 benchG.add(resG);
 
-// inversor a red (regenerativo)
+// inversor de regreso a la red (frenado regenerativo)
 const gridG=new THREE.Group();
-const gridBody=roundedBox(0.6,0.6,0.4,MAT.gridBody,0.06);
-gridG.add(gridBody);
-gridG.add(labelSprite('RED','#4fd1c5'));
-gridG.position.set(0.9,1.3,-0.05);
-gridG.userData={act:'grid3d',title:'Inversor de regreso a la red (frenado regenerativo)'};
-gridBody.userData=gridG.userData;
+const gridDrive=P3.variadorMural(MATP,{ancho:0.70,alto:0.90,fondo:0.28,color:0x2a5a55,tapa:0x1d3a38,rotulo:'RED 3~',glandulas:3});
+gridG.add(gridDrive);
+const panelGrid=makeCanvasScreen();
+gridDrive.userData.pantalla.add(screenPlane(gridDrive.userData.visor.ancho*0.99,gridDrive.userData.visor.alto*0.99,panelGrid.tx));
+labelAt(gridG,'RED','#4fd1c5',0,1.28,0.2);
+gridG.position.set(1.0,TOP,-0.62);
+tagAct(gridG,{act:'grid3d',title:'Inversor de regreso a la red (frenado regenerativo)'});
 benchG.add(gridG);
 
-// contactores de inversión (contracorriente)
+// contactores de inversión de fases (frenado a contracorriente), sobre su panel y su riel
 const contG=new THREE.Group();
-const cont1=roundedBox(0.32,0.5,0.35,MAT.contBody,0.05); cont1.position.x=-0.2;
-const cont2=roundedBox(0.32,0.5,0.35,MAT.contBody,0.05); cont2.position.x=0.2;
-contG.add(cont1,cont2);
-contG.add(labelSprite('K1/K2','#ff6b6b'));
-contG.position.set(2.15,1.28,-0.05);
-contG.userData={act:'cont3d',title:'Contactores de inversión de fases (frenado a contracorriente)'};
-cont1.userData=contG.userData; cont2.userData=contG.userData;
+const panelK=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.78,0.03),MAT.motorBody);
+panelK.position.set(0,0.07+0.39,0.015); contG.add(panelK);
+for(const s of [-1,1]){ const pie=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.07,0.22),MAT.motorBody); pie.position.set(s*0.42,0.035,0.11); contG.add(pie); }
+const riel=P3.rielOmega(MATP,{largo:0.92}); riel.position.set(0,0.07+0.39,0.034); contG.add(riel);
+const kA=P3.contactorModular(MATP,{ancho:0.36,alto:0.50,fondo:0.26,rotulo:'K1'}); kA.position.set(-0.23,0.07+0.39,0.034); contG.add(kA);
+const kB=P3.contactorModular(MATP,{ancho:0.36,alto:0.50,fondo:0.26,rotulo:'K2'}); kB.position.set(0.23,0.07+0.39,0.034); contG.add(kB);
+labelAt(contG,'K1/K2','#ff6b6b',0,1.14,0.2);
+contG.position.set(2.25,TOP,-0.70);
+tagAct(contG,{act:'cont3d',title:'Contactores de inversión de fases (frenado a contracorriente)'});
 benchG.add(contG);
 
-const panelD=makeDisplayBox(1.0,0.6,0.08,256,160);
-panelD.g.position.set(-1.95,1.85,0.7);
-panelD.g.userData={act:'paneld3d',title:'Display — tipo de frenado y ω₀'};
-benchG.add(panelD.g);
+// instrumentos de banco: display del frenado y medidor de energía
+const panelD=bancoInstrumento(0.9,0.6,0.38,{act:'paneld3d',title:'Display — tipo de frenado y ω₀'});
+panelD.g.position.set(-0.6,TOP+panelD.apoyo,0.80); benchG.add(panelD.g);
+const meter=bancoInstrumento(0.9,0.6,0.38,{act:'meter3d',title:'Medidor de energía disipada/recuperada'});
+meter.g.position.set(0.8,TOP+meter.apoyo,0.80); benchG.add(meter.g);
 
-const meter=makeDisplayBox(1.0,0.6,0.08,256,160);
-meter.g.position.set(2.15,1.85,0.7);
-meter.g.userData={act:'meter3d',title:'Medidor de energía disipada/recuperada'};
-benchG.add(meter.g);
-
-benchG.add(
-  cable([new THREE.Vector3(-1.7,1.5,-0.05),new THREE.Vector3(-1.0,1.6,-0.4),new THREE.Vector3(-0.35,1.55,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(-1.7,1.5,-0.05),new THREE.Vector3(-0.3,1.7,-0.7),new THREE.Vector3(0.9,1.58,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(-1.7,1.5,-0.05),new THREE.Vector3(0.5,1.75,-0.8),new THREE.Vector3(2.15,1.52,-0.05)],MAT.cable),
-);
+// la potencia del motor a cada uno de los tres bloques, por encima del respaldo
+{ const A=new THREE.Vector3(-2.15,AXY+0.50,AXZ), yb=1.9;
+  benchG.add(cable([A,new THREE.Vector3(-2.15,AXY+0.80,-0.55),new THREE.Vector3(-1.3,yb,-0.80),new THREE.Vector3(-0.37,TOP+0.95,-0.55),new THREE.Vector3(-0.37,TOP+0.66,-0.39)],mCab,0.028));
+  benchG.add(cable([A,new THREE.Vector3(-2.15,AXY+0.90,-0.55),new THREE.Vector3(-0.4,yb+0.15,-0.85),new THREE.Vector3(0.8,TOP+1.2,-0.8),new THREE.Vector3(0.88,TOP+0.40,-0.35)],mCab,0.028));
+  benchG.add(cable([A,new THREE.Vector3(-2.15,AXY+1.0,-0.55),new THREE.Vector3(0.0,yb+0.3,-0.9),new THREE.Vector3(2.0,TOP+1.15,-0.8),new THREE.Vector3(2.02,TOP+0.78,-0.56)],mCab,0.028));
+}
 
 benchG.traverse(o=>{ if(o.isMesh&&o!==board){ o.castShadow=true; o.receiveShadow=true; } });
 S.scene.add(benchG);
@@ -574,12 +560,17 @@ function drawMeter3D(){
 }
 function refreshBenchDyn(){
   drawPanelD(); drawMeter3D();
-  ['res3d','grid3d','cont3d'].forEach((act,i)=>{
-    const key=['dinamico','regenerativo','contracorriente'][i];
-    const g=[resG,gridG,contG][i];
-    const on=(tipo===key);
-    g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissiveIntensity!==undefined) o.material.emissiveIntensity=on?0.55:0.2; });
-  });
+  /* Lo que se enciende es lo que de verdad trabaja: el hilo de la resistencia
+     se pone al rojo cuando disipa (frenado dinámico), el piloto del inversor
+     indica que devuelve a la red y los pilotos de bobina de K1/K2, que están
+     accionados (contracorriente). */
+  { const c=panelGrid.cx; c.fillStyle='#0a1116'; c.fillRect(0,0,256,160);
+    c.fillStyle='#6a8088'; c.font='13px system-ui'; c.textAlign='left'; c.fillText('INVERSOR A RED',10,22);
+    c.font='bold 24px system-ui'; c.fillStyle=tipo==='regenerativo'?'#4fd1c5':'#7a9098';
+    c.fillText(tipo==='regenerativo'?'REGENERANDO':'EN ESPERA',10,78); panelGrid.tx.needsUpdate=true; }
+  resBank.userData.brillo(tipo==='dinamico'?0.9:0);
+  gridDrive.userData.leds[0].material.emissiveIntensity=tipo==='regenerativo'?1.4:0.12;
+  kA.userData.piloto.emissiveIntensity=kB.userData.piloto.emissiveIntensity=tipo==='contracorriente'?1.4:0;
 }
 
 /* ---------- §6 HUD + panel ---------- */
@@ -670,9 +661,9 @@ function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add
 
 /* ---------- §8 Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[6.6,4.6,8.4],[0.3,1.2,0]],mision:'EXPLORA · elige un tipo de frenado, ajusta ω₀ y su parámetro (R_ext o η), y observa a dónde va la energía cinética.'},
-  comparar:{nombre:'Comparar',cam:[[0.3,4.6,9.6],[0.3,1.4,-0.6]],mision:'COMPARA · los tres métodos lado a lado con la misma ω₀: calor disipado, energía recuperada y corriente pico relativa.'},
-  reto:{nombre:'Reto',cam:[[2.0,3.6,7.4],[0.3,1.4,-0.2]],mision:'RETO · calcula a mano la energía pedida usando E_k=½Jω₀² y la fórmula del método correspondiente.'},
+  explora:{nombre:'Explora',cam:[[4.9,3.5,6.0],[0.3,1.7,-0.3]],mision:'EXPLORA · elige un tipo de frenado, ajusta ω₀ y su parámetro (R_ext o η), y observa a dónde va la energía cinética.'},
+  comparar:{nombre:'Comparar',cam:[[0.3,3.4,8.4],[0.3,2.1,-0.8]],mision:'COMPARA · los tres métodos lado a lado con la misma ω₀: calor disipado, energía recuperada y corriente pico relativa.'},
+  reto:{nombre:'Reto',cam:[[3.3,3.0,5.6],[0.3,1.7,-0.4]],mision:'RETO · calcula a mano la energía pedida usando E_k=½Jω₀² y la fórmula del método correspondiente.'},
 };
 const KIND_TIPO={dinamicoExt:'dinamico',regenRecuperada:'regenerativo',contracorrienteEnergia:'contracorriente'};
 
@@ -1045,6 +1036,7 @@ async function runAuto(){
 
 S.setAnimate(()=>{
   flyG.rotation.x += 0.01 + 0.14*flySpeedFrac*(rpm0/RPM_MAX);
+  maq.userData.gira(flyG.rotation.x);
 });
 
 ['m_explora','m_comparar','m_reto'].forEach(id=>{

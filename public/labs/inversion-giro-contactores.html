@@ -456,8 +456,8 @@ function makeSynth(opts={}){
 
 const mount = document.getElementById('stage');
 const S = createStage(mount, {
-  cam: [3.2, 2.4, 4.2],
-  target: [0, 1.35, 0],
+  cam: [1.7, 3.4, 7.5],
+  target: [1.35, 1.3, 0.4],
   bgTop: '#0d1720',
   bgBot: '#050a0e',
   bloom: 0.32,
@@ -484,7 +484,7 @@ function showToast(html, ms = 3300) {
 /* ---------------- Materiales ---------------- */
 const alu = castAluminum(), brush = brushedMetal();
 const MAT = {
-  panel: std({ ...brush, color: 0x2b323a, metalness: 0.55, roughness: 0.55, envMapIntensity: 0.9 }),
+  panel: std({ color: 0x2b323a, metalness: 0.4, roughness: 0.6, envMapIntensity: 0.7 }),
   dinRail: std({ ...alu, color: 0x9aa4ad, metalness: 0.75, roughness: 0.35, envMapIntensity: 1.0 }),
   contactorBody: std({ color: 0x23272c, metalness: 0.15, roughness: 0.75 }),
   contactorClear: std({ color: 0x8fd1ff, metalness: 0.1, roughness: 0.2, transparent: true, opacity: 0.35 }),
@@ -494,10 +494,10 @@ const MAT = {
   needleRed: std({ color: 0xd64545, emissive: 0x4a0e0e, emissiveIntensity: 0.4, metalness: 0.3, roughness: 0.4 }),
   wireInterlock: std({ color: 0xf4c95d, metalness: 0.1, roughness: 0.5 }),
   bench: std({ color: 0x2a2f35, metalness: 0.3, roughness: 0.7 }),
-  benchLeg: std({ ...alu, color: 0x7a828a, metalness: 0.7, roughness: 0.4 }),
+  benchLeg: std({ color: 0x3a4149, metalness: 0.6, roughness: 0.5 }),
   ped: std({ color: 0x1c2126, metalness: 0.25, roughness: 0.7 }),
-  pedTop: std({ color: 0x3a4149, metalness: 0.3, roughness: 0.55 }),
-  pedRing: std({ color: 0x43D9AD, emissive: 0x0e3d30, emissiveIntensity: 0.5, metalness: 0.2, roughness: 0.4 }),
+  pedTop: std({ color: 0x454d56, metalness: 0.4, roughness: 0.55 }),
+  pedRing: std({ color: 0x2a9a7e, emissive: 0x0e3d30, emissiveIntensity: 0.15, metalness: 0.1, roughness: 0.6 }),
 };
 
 /* ============================================================
@@ -528,178 +528,92 @@ const RETO_SCENARIOS = [
   { m: 6.5, ts: 30 }, { m: 7.0, ts: 26 }, { m: 7.5, ts: 23 },
 ];
 
-/* ---------------- Constructores de piezas ---------------- */
+/* ---------------- piezas de la biblioteca (§17-B) y ayudas ---------------- */
+const { revolucion, gabinete, maquinaElectrica, contactorTripolar, enclavamientoMecanico, releTermico, botoneraControl, regletaBornes, rielDIN, canaleta } = P3;   // §17-B de la biblioteca
+/* ---------------- Constructores de piezas (3D de oficio, §17-B de la biblioteca) ---------------- */
+const MATP = {
+  aluminio: std({ color: 0xb6bdc4, roughness: 0.42, metalness: 0.7, envMapIntensity: 0.8 }),
+  acero: std({ color: 0x8f979f, roughness: 0.38, metalness: 0.85, envMapIntensity: 0.8 }),
+  cromo: std({ color: 0xc4cad0, roughness: 0.3, metalness: 0.9, envMapIntensity: 0.8 }),
+  chapa: std({ color: 0x9aa2aa, roughness: 0.5, metalness: 0.6 }),
+  cobre: std({ color: 0xb87333, roughness: 0.4, metalness: 0.8 }),
+  negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+  goma: std({ color: 0x14181e, roughness: 0.85, metalness: 0.02 }),
+  blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+  ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+  hierro: std({ color: 0x4a4f55, roughness: 0.55, metalness: 0.7 }),
+};
+const lbl = (g, txt, col, y, sc) => { const lb = labelSprite(txt, col); lb.position.set(0, y, 0); lb.scale.multiplyScalar(sc); g.add(lb); };
+const WCOL = [0x8a5a2e, 0x3c4046, 0x8d949b];          // L1 café · L2 negro · L3 gris (código de colores de fase)
+
 function buildPanelMontaje() {
   const g = new THREE.Group();
-  const back = roundedBox(1.5, 2.5, 0.06, MAT.panel, 0.03);
-  back.position.set(0, 0, -0.06);
-  back.castShadow = true; back.receiveShadow = true;
-  g.add(back);
-  for (let i = 0; i < 4; i++) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.035, 0.03), MAT.dinRail);
-    rail.position.set(0, 1.0 - i * 0.6, -0.02);
-    rail.castShadow = true; rail.receiveShadow = true;
-    g.add(rail);
-  }
-  const lb = labelSprite('Panel de montaje', '#8A94A0');
-  lb.position.set(0, -1.4, 0.05);
-  lb.scale.multiplyScalar(0.6);
-  g.add(lb);
+  // el gabinete con su placa de montaje naranja galvanizada; la placa queda en z = −0,03
+  const gab = gabinete(MATP, { ancho: 1.95, alto: 2.6, fondo: 0.44, puerta: false, color: 0x8c949b, colorPlaca: 0xc4701a });
+  gab.position.set(0, -1.30, 0.156); g.add(gab);
+  // rieles DIN (uno por hilera de aparatos) y canaletas ranuradas entre ellas
+  [0.98, 0.42, -0.10, -0.75].forEach((y) => { const r = rielDIN(MATP, { largo: 1.72 }); r.position.set(0, y, -0.03); g.add(r); });
+  [[0.77, [0x8a5a2e, 0x3c4046, 0x8d949b]], [0.13, [0x8a5a2e, 0x3c4046, 0x8d949b]], [-0.46, [0x8a5a2e, 0x3c4046, 0x8d949b]]].forEach(([y, cs]) => {
+    const c = canaleta(MATP, { largo: 1.72, ancho: 0.10, alto: 0.07, cables: cs }); c.position.set(0, y, -0.03); g.add(c); });
+  [-0.84, 0.84].forEach((x) => { const c = canaleta(MATP, { largo: 2.34, ancho: 0.10, alto: 0.07, cables: [0x3c4046, 0x2f9e6a] }); c.rotation.z = Math.PI / 2; c.position.set(x, 0.02, -0.03); g.add(c); });
   return g;
 }
 
-function buildTerminalBlock(labelText, tags) {
+function buildTerminalesLinea(l = true) {
   const g = new THREE.Group();
-  const base = roundedBox(0.5, 0.16, 0.16, MAT.termLid, 0.02);
-  base.castShadow = true; base.receiveShadow = true;
-  g.add(base);
-  for (let i = 0; i < 3; i++) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 12), MAT.termMetal);
-    post.position.set(-0.16 + i * 0.16, 0.1, 0);
-    post.castShadow = true;
-    g.add(post);
-    const tl = labelSprite(tags[i], '#dfe7ee');
-    tl.position.set(-0.16 + i * 0.16, 0.17, 0);
-    tl.scale.multiplyScalar(0.22);
-    g.add(tl);
-  }
-  const lb = labelSprite(labelText, '#8A94A0');
-  lb.position.set(0, -0.16, 0);
-  lb.scale.multiplyScalar(0.52);
-  g.add(lb);
+  g.add(regletaBornes(MATP, { vias: 3, rotulos: ['L1', 'L2', 'L3'], colores: WCOL }));
+  if (l) lbl(g, 'Terminales de línea', '#8A94A0', 0.26, 0.52);
   return g;
 }
-function buildTerminalesLinea() { return buildTerminalBlock('Terminales de línea', ['L1', 'L2', 'L3']); }
-function buildTerminalesMotor() { return buildTerminalBlock('Terminales al motor', ['U', 'V', 'W']); }
-
-function buildContactorBody(labelText, hex) {
+function buildTerminalesMotor(l = true) {
+  const g = new THREE.Group();
+  g.add(regletaBornes(MATP, { vias: 3, rotulos: ['U', 'V', 'W'], colores: WCOL }));
+  if (l) lbl(g, 'Terminales al motor', '#8A94A0', 0.26, 0.52);
+  return g;
+}
+function buildContactorBody(labelText, hex, rotulo, aux, l = true) {
   const cssColor = '#' + hex.toString(16).padStart(6, '0');
   const g = new THREE.Group();
-  const body = roundedBox(0.34, 0.4, 0.28, MAT.contactorBody, 0.04);
-  body.castShadow = true; body.receiveShadow = true;
-  g.add(body);
-  const clear = roundedBox(0.24, 0.16, 0.02, MAT.contactorClear, 0.02);
-  clear.position.set(0, 0.1, 0.15);
-  g.add(clear);
-  for (let i = 0; i < 3; i++) {
-    const term = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.05, 10), MAT.termMetal);
-    term.position.set(-0.1 + i * 0.1, 0.22, 0);
-    term.castShadow = true;
-    g.add(term);
-    const term2 = term.clone();
-    term2.position.set(-0.1 + i * 0.1, -0.22, 0);
-    g.add(term2);
-  }
-  const led = new THREE.Mesh(new THREE.SphereGeometry(0.028, 14, 10), std({
-    color: hex, emissive: hex, emissiveIntensity: 0.05, metalness: 0.2, roughness: 0.4,
-  }));
-  led.position.set(0, -0.05, 0.15);
-  g.add(led);
-  g.userData.coilLed = led;
-  const lb = labelSprite(labelText, cssColor);
-  lb.position.set(0, -0.32, 0);
-  lb.scale.multiplyScalar(0.55);
-  g.add(lb);
+  const c = contactorTripolar(MATP, { rotulo, ledColor: hex, aux }); g.add(c);
+  g.userData.coilLed = c.userData.led;
+  if (l) lbl(g, labelText, cssColor, 0.36, 0.55);
   return g;
 }
-function buildKM1() { return buildContactorBody('KM1 · Adelante', 0x43D9AD); }
-function buildKM2() { return buildContactorBody('KM2 · Reversa', 0xe0b23c); }
+function buildKM1(l = true) { return buildContactorBody('KM1 · Adelante', 0x43D9AD, 'KM1', 1, l); }
+function buildKM2(l = true) { return buildContactorBody('KM2 · Reversa', 0xe0b23c, 'KM2', -1, l); }
 
-function buildEnclavamientoMecanico() {
+function buildEnclavamientoMecanico(l = true) {
   const g = new THREE.Group();
-  const bar = roundedBox(0.46, 0.05, 0.05, MAT.dark, 0.015);
-  bar.castShadow = true; bar.receiveShadow = true;
-  g.add(bar);
-  for (let i = -1; i <= 1; i += 2) {
-    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.07, 10), MAT.termMetal);
-    bolt.rotation.z = Math.PI / 2;
-    bolt.position.set(i * 0.2, 0, 0);
-    bolt.castShadow = true;
-    g.add(bolt);
-  }
-  const lb = labelSprite('Enclavamiento mecánico', '#8A94A0');
-  lb.position.set(0, -0.14, 0);
-  lb.scale.multiplyScalar(0.5);
-  g.add(lb);
+  const e = enclavamientoMecanico(MATP, { ancho: 0.52 }); g.add(e);
+  g.userData.balancin = e.userData.balancin;
+  if (l) lbl(g, 'Enclavamiento mecánico', '#8A94A0', 0.22, 0.5);
   return g;
 }
-
-function buildPuenteElectrico() {
+function buildPuenteElectrico(l = true) {
+  // dos hilos que cruzan el contacto NC de cada contactor a la bobina del otro, con sus puntas (casquillos)
   const g = new THREE.Group();
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.22, 0.06, 0),
-    new THREE.Vector3(0, 0.14, 0.05),
-    new THREE.Vector3(0.22, 0.06, 0),
-  ]);
-  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.012, 8, false), MAT.wireInterlock);
-  tube.castShadow = true;
-  g.add(tube);
-  const curve2 = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.22, -0.06, 0),
-    new THREE.Vector3(0, -0.14, 0.05),
-    new THREE.Vector3(0.22, -0.06, 0),
-  ]);
-  const tube2 = new THREE.Mesh(new THREE.TubeGeometry(curve2, 24, 0.012, 8, false), MAT.wireInterlock);
-  tube2.castShadow = true;
-  g.add(tube2);
-  const lb = labelSprite('Enclavamiento eléctrico (NC cruzado)', '#f4c95d');
-  lb.position.set(0, -0.28, 0);
-  lb.scale.multiplyScalar(0.48);
-  g.add(lb);
-  return g;
-}
-
-function buildRelevadorTermico() {
-  const g = new THREE.Group();
-  const body = roundedBox(0.4, 0.32, 0.2, MAT.termMetal, 0.03);
-  body.castShadow = true; body.receiveShadow = true;
-  g.add(body);
-  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.015, 24), MAT.dark);
-  dial.rotation.x = Math.PI / 2;
-  dial.position.set(0, 0.02, 0.11);
-  g.add(dial);
-  const needleGeo = new THREE.BoxGeometry(0.075, 0.008, 0.006);
-  needleGeo.translate(0.0375, 0, 0);
-  const needle = new THREE.Mesh(needleGeo, MAT.needleRed);
-  needle.position.set(0, 0.02, 0.12);
-  g.add(needle);
-  g.userData.needle = needle;
-  for (let i = 0; i < 3; i++) {
-    const term = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.04, 10), MAT.termMetal);
-    term.position.set(-0.12 + i * 0.12, -0.19, 0);
-    term.castShadow = true;
-    g.add(term);
-  }
-  const lb = labelSprite('Relevador térmico', '#8A94A0');
-  lb.position.set(0, -0.32, 0);
-  lb.scale.multiplyScalar(0.5);
-  g.add(lb);
-  return g;
-}
-
-function buildBotonera() {
-  const g = new THREE.Group();
-  const box = roundedBox(0.3, 0.5, 0.16, MAT.panel, 0.04);
-  box.castShadow = true; box.receiveShadow = true;
-  g.add(box);
-  const btns = [
-    { y: 0.15, color: 0x43D9AD, name: 'Adelante' },
-    { y: 0, color: 0xd64545, name: 'Paro' },
-    { y: -0.15, color: 0xe0b23c, name: 'Reversa' },
-  ];
-  btns.forEach((b) => {
-    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, 20), std({
-      color: b.color, metalness: 0.3, roughness: 0.4,
-    }));
-    knob.rotation.x = Math.PI / 2;
-    knob.position.set(0, b.y, 0.1);
-    knob.castShadow = true;
-    g.add(knob);
+  const mW = std({ color: 0xc9a02c, metalness: 0.1, roughness: 0.55 });
+  const mF = std({ color: 0xb8bfc6, metalness: 0.85, roughness: 0.35 });
+  const w = [[-0.175, 0.0156, 0.175, -0.0258, 0.050], [-0.175, -0.0258, 0.175, 0.0156, 0.034]];
+  w.forEach(([x0, y0, x1, y1, bz]) => {
+    const cur = new THREE.CatmullRomCurve3([V(x0, y0, 0.082), V(x0 + 0.04, y0, 0.082 + bz * 0.8), V(0, (y0 + y1) / 2, 0.082 + bz), V(x1 - 0.04, y1, 0.082 + bz * 0.8), V(x1, y1, 0.082)]);
+    const t = new THREE.Mesh(new THREE.TubeGeometry(cur, 30, 0.0095, 6, false), mW); t.castShadow = true; g.add(t);
+    [[x0, y0], [x1, y1]].forEach(([x, y]) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.022, 8), mF); c.rotation.x = Math.PI / 2; c.position.set(x, y, 0.086); g.add(c); });
   });
-  const lb = labelSprite('Botonera 3 hilos', '#8A94A0');
-  lb.position.set(0, -0.32, 0);
-  lb.scale.multiplyScalar(0.55);
-  g.add(lb);
+  if (l) lbl(g, 'Enclavamiento eléctrico (NC cruzado)', '#f4c95d', 0.20, 0.46);
+  return g;
+}
+function buildRelevadorTermico(l = true) {
+  const g = new THREE.Group();
+  const r = releTermico(MATP, { rotulo: 'F1', escala: [4, 8] }); g.add(r);
+  g.userData.needle = r.userData.needle;
+  if (l) lbl(g, 'Relevador térmico', '#8A94A0', 0.26, 0.5);
+  return g;
+}
+function buildBotonera(l = true) {
+  const g = new THREE.Group();
+  g.add(botoneraControl(MATP, { ancho: 0.30, fondo: 0.14 }));
+  if (l) lbl(g, 'Botonera 3 hilos', '#8A94A0', 0.40, 0.55);
   return g;
 }
 
@@ -709,14 +623,14 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const H = (dx, dy, dz) => V(HUB[0] + dx, HUB[1] + dy, HUB[2] + dz);
 
 const PARTS = [
-  { id: 'terminalesLinea', name: 'Terminales de línea', build: () => buildTerminalesLinea(), home: H(0, 0.62, 0.12), note: 'L1, L2, L3 llegan aquí desde la acometida trifásica — el punto de partida del circuito de fuerza.' },
-  { id: 'km1', name: 'Contactor KM1 (Adelante)', build: () => buildKM1(), home: H(-0.42, 0.16, 0.15), note: 'KM1 energizado conecta L1→U, L2→V, L3→W: el motor gira en sentido Adelante.' },
-  { id: 'km2', name: 'Contactor KM2 (Reversa)', build: () => buildKM2(), home: H(0.42, 0.16, 0.15), note: 'KM2 energizado invierte dos fases: L1→W, L2→V, L3→U — el motor gira en sentido Reversa.' },
-  { id: 'enclavamiento', name: 'Enclavamiento mecánico', build: () => buildEnclavamientoMecanico(), home: H(0, 0.16, 0.3), note: 'Barra física entre KM1 y KM2: si uno está cerrado, impide mecánicamente que el otro cierre.' },
-  { id: 'puenteElectrico', name: 'Enclavamiento eléctrico', build: () => buildPuenteElectrico(), home: H(0, 0.4, 0.24), note: 'Contacto NC de cada contactor cableado en la bobina del otro: segunda barrera, independiente de la mecánica.' },
-  { id: 'relevadorTermico', name: 'Relevador térmico', build: () => buildRelevadorTermico(), home: H(0, -0.24, 0.15), note: 'Protege el motor por sobrecarga sostenida — su clase de disparo (10/20/30) se explora en el modo Térmico.' },
-  { id: 'terminalesMotor', name: 'Terminales al motor', build: () => buildTerminalesMotor(), home: H(0, -0.6, 0.12), note: 'U, V, W: el lado de carga del arrancador, cableado al motor trifásico.' },
-  { id: 'botonera', name: 'Botonera de 3 hilos', build: () => buildBotonera(), home: H(1.3, 0, 0.06), note: 'Paro (NC), Adelante (NO) y Reversa (NO) con contacto de sello — el circuito de control clásico de arranque reversible.' },
+  { id: 'terminalesLinea', name: 'Terminales de línea', build: (l) => buildTerminalesLinea(l), s: 0.62, home: H(0, 0.98, 0.04), note: 'L1, L2, L3 llegan aquí desde la acometida trifásica — el punto de partida del circuito de fuerza.' },
+  { id: 'km1', name: 'Contactor KM1 (Adelante)', build: (l) => buildKM1(l), s: 0.55, home: H(-0.42, 0.42, 0.10), note: 'KM1 energizado conecta L1→U, L2→V, L3→W: el motor gira en sentido Adelante.' },
+  { id: 'km2', name: 'Contactor KM2 (Reversa)', build: (l) => buildKM2(l), s: 0.55, home: H(0.42, 0.42, 0.10), note: 'KM2 energizado invierte dos fases: L1→W, L2→V, L3→U — el motor gira en sentido Reversa.' },
+  { id: 'enclavamiento', name: 'Enclavamiento mecánico', build: (l) => buildEnclavamientoMecanico(l), s: 0.7, home: H(0, 0.57, 0.09), note: 'Barra física entre KM1 y KM2: si uno está cerrado, impide mecánicamente que el otro cierre.' },
+  { id: 'puenteElectrico', name: 'Enclavamiento eléctrico', build: (l) => buildPuenteElectrico(l), s: 0.8, home: H(0, 0.42, 0.16), note: 'Contacto NC de cada contactor cableado en la bobina del otro: segunda barrera, independiente de la mecánica.' },
+  { id: 'relevadorTermico', name: 'Relevador térmico', build: (l) => buildRelevadorTermico(l), s: 0.6, home: H(0, -0.10, 0.07), note: 'Protege el motor por sobrecarga sostenida — su clase de disparo (10/20/30) se explora en el modo Térmico.' },
+  { id: 'terminalesMotor', name: 'Terminales al motor', build: (l) => buildTerminalesMotor(l), s: 0.62, home: H(0, -0.75, 0.04), note: 'U, V, W: el lado de carga del arrancador, cableado al motor trifásico.' },
+  { id: 'botonera', name: 'Botonera de 3 hilos', build: (l) => buildBotonera(l), s: 0.5, home: H(1.40, 0.18, 0.07), note: 'Paro (NC), Adelante (NO) y Reversa (NO) con contacto de sello — el circuito de control clásico de arranque reversible.' },
 ];
 const ORDER = PARTS.map((p) => p.id);
 const PART = Object.fromEntries(PARTS.map((p) => [p.id, p]));
@@ -725,53 +639,110 @@ const panelMontaje = buildPanelMontaje();
 panelMontaje.position.set(...HUB);
 scene.add(panelMontaje);
 
+/* el motor trifásico (fijo) con su caja de bornes y el conducto flexible hasta el tablero */
+const motor = (() => {
+  const g = new THREE.Group();
+  const pad = roundedBox(1.55, 0.08, 0.86, std({ color: 0x6d7077, roughness: 0.92, metalness: 0.02 }), 0.06); pad.position.set(2.75, 0.04, 0.50); g.add(pad);
+  const base = roundedBox(1.25, 0.04, 0.62, MATP.hierro, 0.2); base.position.set(2.75, 0.10, 0.50); g.add(base);
+  const m = maquinaElectrica({ ...MATP, aluminio: std({ color: 0x2b5584, roughness: 0.5, metalness: 0.35, envMapIntensity: 0.7 }) }, { d: 0.62, largo: 0.90, aletas: 16, patas: true, bornes: false, ventilador: true, eje: 0.32, placa: true });
+  m.position.set(2.75, 0.503, 0.50); g.add(m);
+  // caja de bornes: tapa con tornillos y prensaestopas hacia el tablero
+  const cb = roundedBox(0.30, 0.15, 0.24, std({ color: 0x7d858d, roughness: 0.5, metalness: 0.5 }), 0.1); cb.position.set(2.75, 0.503 + 0.31 + 0.075, 0.50); g.add(cb);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 6), MATP.acero); t.position.set(2.75 + sx * 0.11, 0.503 + 0.31 + 0.156, 0.50 + sz * 0.085); g.add(t); }
+  const gl = new THREE.Mesh(revolucion([[0, 0], [0.04, 0], [0.04, 0.016], [0.03, 0.03], [0.03, 0.07], [0, 0.07]], { seg: 14 }), std({ color: 0x15181c, roughness: 0.8 }));
+  gl.rotation.z = Math.PI / 2; gl.position.set(2.75 - 0.15 - 0.0, 0.503 + 0.31 + 0.075, 0.50); gl.rotation.z = Math.PI / 2; g.add(gl);
+  // conducto flexible corrugado: de la caja de bornes al costado del tablero
+  const tx = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = 64; c.height = 16; const x = c.getContext('2d');
+    x.fillStyle = '#2a2f36'; x.fillRect(0, 0, 64, 16); x.fillStyle = '#12151a'; x.fillRect(0, 0, 24, 16); return c; })());
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(70, 1); tx.colorSpace = THREE.SRGBColorSpace;
+  const cur = new THREE.CatmullRomCurve3([V(2.60 - 0.05, 0.503 + 0.31 + 0.075, 0.50), V(2.30, 1.10, 0.48), V(1.70, 1.05, 0.40), V(1.25, 0.80, 0.30), V(1.02, 0.60, 0.16)]);
+  const cd = new THREE.Mesh(new THREE.TubeGeometry(cur, 70, 0.032, 10, false), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.7, metalness: 0.1 }));
+  cd.castShadow = true; g.add(cd);
+  scene.add(g);
+  return m;
+})();
+
+/* cables de fuerza entre aparatos: sólo existen cuando están colocados los dos extremos */
+const wiresG = new THREE.Group(); scene.add(wiresG);
+const WIRES = [];
+function buildCables() {
+  const km = contactorTripolar(MATP, { rotulo: 'KM1', aux: 1 }).userData;
+  const rl = releTermico(MATP, {}).userData;
+  const rg = regletaBornes(MATP, { vias: 3 }).userData;
+  const P = (id) => PART[id].home;
+  const hilo = (A, B, ductY, i, col, need) => {
+    const dz = -0.014;
+    const mx = (A.x + B.x) / 2 + (i - 1) * 0.018;
+    const pts = [A, V(A.x, A.y + (ductY > A.y ? 0.05 : -0.05), A.z + 0.03), V(A.x + (B.x - A.x) * 0.25, ductY + (i - 1) * 0.022, dz),
+                 V(mx, ductY + (i - 1) * 0.022, dz), V(B.x + (A.x - B.x) * 0.25, ductY + (i - 1) * 0.022, dz), V(B.x, B.y + (ductY > B.y ? 0.05 : -0.05), B.z + 0.03), B];
+    const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3), 50, 0.0105, 6, false), std({ color: col, roughness: 0.6, metalness: 0.05 }));
+    m.castShadow = true; m.visible = false; wiresG.add(m); WIRES.push({ m, need });
+  };
+  for (let i = 0; i < 3; i++) {
+    const L = P('terminalesLinea').clone().add(rg.bornas[i]);
+    hilo(L, P('km1').clone().add(km.sup[i]), HUB[1] + 0.77, i, WCOL[i], ['terminalesLinea', 'km1']);
+    hilo(L, P('km2').clone().add(km.sup[i]), HUB[1] + 0.77, i, WCOL[i], ['terminalesLinea', 'km2']);
+    hilo(P('km1').clone().add(km.inf[i]), P('relevadorTermico').clone().add(rl.sup[i]), HUB[1] + 0.13, i, WCOL[i], ['km1', 'relevadorTermico']);
+    hilo(P('km2').clone().add(km.inf[i]), P('relevadorTermico').clone().add(rl.sup[2 - i]), HUB[1] + 0.13, i, WCOL[i], ['km2', 'relevadorTermico']);
+    hilo(P('relevadorTermico').clone().add(rl.inf[i]), P('terminalesMotor').clone().add(rg.bornas[i]), HUB[1] - 0.46, i, WCOL[i], ['relevadorTermico', 'terminalesMotor']);
+  }
+  // el cable colgante de la botonera, hasta el costado del tablero
+  const bt = P('botonera');
+  const cur = new THREE.CatmullRomCurve3([bt.clone().add(V(0, 0.31 * 1 + 0.10, 0)), bt.clone().add(V(0, 0.50, 0.02)), V(1.32, 1.62, 0.14), V(1.10, 1.82, 0.18), V(0.99, 1.78, 0.16)]);
+  const m = new THREE.Mesh(new THREE.TubeGeometry(cur, 40, 0.016, 8, false), std({ color: 0x1d2025, roughness: 0.8 }));
+  m.castShadow = true; m.visible = false; wiresG.add(m); WIRES.push({ m, need: ['botonera'] });
+}
+buildCables();
+
 /* ---------------- Estado de ensamble (patrón genérico — reutilizable en las 150 prácticas) ---------------- */
-const STAGE_S = 0.42;
+const STAGE_S = 0.5;
+const stageS = (id) => PART[id].s || STAGE_S;
 const groups = {}, ghosts = {}, labels = {};
 let placed = {}, selectedId = null, progress = 0, simUnlocked = false;
 const tweens = [];
 const trayObjs = [], ghostObjs = [], scratch = [];
 
+/* banco de piezas: una mesa baja delante del tablero, con dos hileras de pedestales */
+const BENCH_Y = 0.50;
 const benchG = new THREE.Group();
-scene.add(benchG);
+const pedG = new THREE.Group();
+scene.add(benchG); scene.add(pedG);
 function pedBaseXZ(i) {
-  const n = PARTS.length;
   const cols = 4;
   const row = Math.floor(i / cols), col = i % cols;
-  const x = -1.7 + col * 0.62;
-  const z = 2.0 + row * 0.62;
-  return [x, z];
+  return [-0.05 + col * 0.62, 2.10 + row * 0.66];
 }
 (() => {
-  const top = roundedBox(3.0, 0.08, 1.6, MAT.bench, 0.02);
-  top.position.set(-0.5, -0.05, 2.3);
+  const top = roundedBox(2.75, 0.09, 1.60, MAT.bench, 0.2);
+  top.position.set(0.88, BENCH_Y - 0.045, 2.43);
   top.receiveShadow = true;
   benchG.add(top);
-  [[-1.9, -0.55, 1.55], [-1.9, -0.55, 3.05], [0.9, -0.55, 1.55], [0.9, -0.55, 3.05]].forEach((p) => {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 10), MAT.benchLeg);
-    leg.position.set(p[0], p[1], p[2]);
+  [[-0.37, 1.75], [-0.37, 3.11], [2.13, 1.75], [2.13, 3.11]].forEach((p) => {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, BENCH_Y - 0.09, 0.09), MAT.benchLeg);
+    leg.position.set(p[0], (BENCH_Y - 0.09) / 2, p[1]);
     leg.castShadow = true;
     benchG.add(leg);
   });
 })();
+const PED_TOP = BENCH_Y + 0.10;
 function resetPedestals() {
-  benchG.children.slice(2).forEach((c) => benchG.remove(c));
+  pedG.children.slice().forEach((c) => pedG.remove(c));
   PARTS.forEach((p, i) => {
     const [x, z] = pedBaseXZ(i);
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 20), MAT.ped);
-    ped.position.set(x, 0.03, z);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.21, 0.08, 24), MAT.ped);
+    ped.position.set(x, BENCH_Y + 0.04, z);
     ped.receiveShadow = true;
-    benchG.add(ped);
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.02, 20), MAT.pedTop);
-    top.position.set(x, 0.08, z);
-    benchG.add(top);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.008, 8, 24), MAT.pedRing);
+    pedG.add(ped);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.02, 24), MAT.pedTop);
+    top.position.set(x, BENCH_Y + 0.09, z);
+    pedG.add(top);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.009, 8, 28), MAT.pedRing.clone());
     ring.rotation.x = Math.PI / 2;
-    ring.position.set(x, 0.09, z);
-    ring.material = ring.material.clone();
+    ring.position.set(x, BENCH_Y + 0.10, z);
     ring.material.opacity = 0;
     ring.material.transparent = true;
-    benchG.add(ring);
+    pedG.add(ring);
     p._ped = { ped, top, ring, x, z };
   });
 }
@@ -786,7 +757,7 @@ function ghostMat() {
   return new THREE.MeshBasicMaterial({ color: 0x8fd1ff, transparent: true, opacity: 0.18, wireframe: false, depthWrite: false });
 }
 function makeGhost(part) {
-  const g = part.build();
+  const g = part.build(true);
   g.traverse((o) => { if (o.isMesh) { o.material = ghostMat(); o.castShadow = false; o.receiveShadow = false; } });
   g.position.copy(part.home);
   g.userData.kind = 'slot';
@@ -801,17 +772,23 @@ function updateLabels() {}
 function tagged(obj) { let o = obj; while (o && !o.userData.kind) o = o.parent; return o; }
 
 function makePart(part, i) {
-  const g = part.build();
+  const g = part.build(true);
+  g.userData.sprites = [];
+  g.traverse((o) => { if (o.isSprite) { o.scale.multiplyScalar(1.5); g.userData.sprites.push(o); o.visible = false; } });
+  const s = part.s || STAGE_S;
+  g.scale.setScalar(s);
   const [x, z] = pedBaseXZ(i);
-  g.position.set(x, 0.14, z);
-  g.scale.setScalar(STAGE_S * 0 + 1);
+  const box = new THREE.Box3().setFromObject(g);
+  const y = PED_TOP + 0.012 - box.min.y;
+  g.position.set(x, y, z);
   g.userData.kind = 'part';
   g.userData.partId = part.id;
-  g.userData.homePos = { x, y: 0.14, z };
+  g.userData.homePos = { x, y, z };
   scene.add(g);
   trayObjs.push(g);
   return g;
 }
+
 
 function initAssembly() {
   Object.values(groups).forEach((g) => scene.remove(g));
@@ -830,7 +807,7 @@ function initAssembly() {
   });
   renderChecklist();
   renderProg();
-  S.moveTo([3.2, 2.4, 4.2], [0, 1.35, 0], 1.3);
+  S.moveTo([1.7, 3.4, 7.5], [1.35, 1.3, 0.4], 1.3);
 }
 
 function selectPart(id) {
@@ -849,10 +826,13 @@ function placePart(id) {
   const g = groups[id];
   const i = ORDER.indexOf(id);
   const targetPos = part.home.clone();
+  g.userData.kind = 'placed';
+  g.traverse((o) => { if (o.isSprite) o.visible = false; });
   tweens.push({
     obj: g, t: 0, dur: 0.75,
-    from: g.position.clone(), to: targetPos,
+    from: g.position.clone(), to: targetPos, fromS: g.scale.x, toS: 1,
     onDone: () => {
+      g.rotation.set(0, 0, 0); g.scale.setScalar(1);
       placed[id] = true;
       progress++;
       markPedestalDone(i);
@@ -909,8 +889,10 @@ function renderProg() {
 
 /* ---------------- Tablero de simulación (canvas 1024×768) ---------------- */
 const boardG = new THREE.Group();
-const bFrame = roundedBox(1.66, 1.26, 0.06, MAT.termLid, 0.04);
+const bFrame = roundedBox(1.66, 1.26, 0.06, MAT.panel, 0.04);
+bFrame.position.z = -0.02;   // el marco va DETRÁS del plano del pizarrón: con z=0 lo tapaba y el tablero de simulación no se veía
 boardG.add(bFrame);
+const bLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 16), MAT.panel); bLeg.position.set(0, -1.38, -0.02); bLeg.castShadow = true; boardG.add(bLeg);   // el pizarrón no flota: tiene su pie
 const bCv = document.createElement('canvas');
 bCv.width = 1024; bCv.height = 768;
 const bCx = bCv.getContext('2d');
@@ -1124,7 +1106,7 @@ function setTermClase(c) { STATE.term.clase = Number(c); refreshAll(); }
 
 /* ---------------- Modos ---------------- */
 const MODE_META = {
-  ensamble: { nombre: 'Ensamble', cam: [[3.2, 2.4, 4.2], [0, 1.35, 0]] },
+  ensamble: { nombre: 'Ensamble', cam: [[1.7, 3.4, 7.5], [1.35, 1.3, 0.4]] },
   circuito: { nombre: 'Circuito', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
   termico: { nombre: 'Térmico', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
   reto: { nombre: 'Reto', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
@@ -1137,7 +1119,7 @@ function setMode(k) {
     showToast('<span style="color:var(--bad)">🔒 Arma primero el arrancador completo en el modo Ensamble.</span>');
     return;
   }
-  mode = k;
+  mode = k; boardG.visible = (k !== 'ensamble');
   document.querySelectorAll('.modebar .b').forEach((b) => b.classList.toggle('on', b.dataset.mode === k));
   modes.forEach((m) => { const sec = el('sec' + m[0].toUpperCase() + m.slice(1)); if (sec) sec.style.display = m === k ? '' : 'none'; });
   const meta = MODE_META[k];
@@ -1196,12 +1178,22 @@ async function autoTermicoTour() {
 }
 
 /* ---------------- Loop de animación ---------------- */
+let motorW = 0, motorA = 0;
 S.setAnimate((dt, t) => {
+  WIRES.forEach((w) => { w.m.visible = !tweens.length && w.need.every((id) => placed[id]); });
+  {
+    const cc = STATE.circ;
+    const tgt = simUnlocked ? (cc.mode === 'adelante' ? 1 : cc.mode === 'reversa' ? -1 : 0) : 0;
+    motorW += (tgt * 9 - motorW) * Math.min(1, dt * 3); motorA += motorW * dt; motor.userData.gira(motorA);
+    const bal = groups.enclavamiento && groups.enclavamiento.userData.balancin;
+    if (bal && placed.enclavamiento) bal.rotation.z += ((cc.mode === 'adelante' ? 0.22 : cc.mode === 'reversa' ? -0.22 : 0) - bal.rotation.z) * Math.min(1, dt * 6);
+  }
   for (let i = tweens.length - 1; i >= 0; i--) {
     const tw = tweens[i];
     tw.t += dt / tw.dur;
     const k = ease(Math.min(1, tw.t));
     tw.obj.position.lerpVectors(tw.from, tw.to, k);
+    if (tw.toS !== undefined) tw.obj.scale.setScalar(tw.fromS + (tw.toS - tw.fromS) * k);
     if (tw.t >= 1) { tw.obj.position.copy(tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
   }
   for (let i = scratch.length - 1; i >= 0; i--) {
@@ -1213,10 +1205,11 @@ S.setAnimate((dt, t) => {
   trayObjs.forEach((g) => {
     const isSel = g.userData.partId === selectedId;
     const home = g.userData.homePos;
-    if (!home) return;
+    if (!home || g.userData.kind !== 'part') return;   // una pieza ya colocada no vuelve al banco
     const targetY = home.y + (isSel ? 0.08 + Math.sin(t * 3) * 0.02 : 0);
     g.position.y += (targetY - g.position.y) * Math.min(1, dt * 6);
     if (isSel) g.rotation.y += dt * 1.4;
+    (g.userData.sprites || []).forEach((sp) => { sp.visible = isSel; });   // el rótulo sólo de la pieza elegida: en el banco se leen por su forma
   });
   ghostObjs.forEach((g) => {
     if (!g.visible) return;

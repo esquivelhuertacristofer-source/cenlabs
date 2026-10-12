@@ -478,7 +478,7 @@ function makeSynth(opts={}){
    como un retardo de tiempo fijo).
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[7.6,5.0,8.6],target:[0,1.1,0],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
+const S=createStage(mount,{cam:[4.6,3.5,6.0],target:[0,1.7,-0.3],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.7});
 
 /* ---------- §1 Modelo físico ---------- */
@@ -536,14 +536,12 @@ const MAT={
   frame:std({color:0x1c2a33,metalness:0.6,roughness:0.4}),
   board:std({color:0x0c141a,metalness:0.1,roughness:0.9}),
   bench:std({color:0x14202a,metalness:0.3,roughness:0.7}),
-  bus:std({color:0xffb703,metalness:0.8,roughness:0.3,emissive:0x3a2600,emissiveIntensity:0.3}),
   invBody:std({color:0x233542,metalness:0.6,roughness:0.35}),
   invDoor:std({color:0x2f4552,metalness:0.55,roughness:0.3}),
   motorBody:std({color:0x2c3e46,metalness:0.7,roughness:0.35}),
   motorEnd:std({color:0x40555f,metalness:0.7,roughness:0.3}),
   shaft:std({color:0xb9c4c9,metalness:0.9,roughness:0.2}),
   dialBody:std({color:0x223038,metalness:0.6,roughness:0.4}),
-  dialArm:std({color:0x4fd1c5,metalness:0.5,roughness:0.3,emissive:0x0d3a35,emissiveIntensity:0.4}),
   hallBlock:std({color:0x5a4a3b,metalness:0.5,roughness:0.5}),
   panelBody:std({color:0x101a20,metalness:0.4,roughness:0.6}),
   cable:std({color:0x1a1a1a,metalness:0.2,roughness:0.8}),
@@ -727,70 +725,7 @@ function boardClick(u,v){
   synth.beep(420,0.08,0.05);
 }
 
-/* ---------- §5 Banco 3D modesto ---------- */
-function cable(pts,mat){
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve,24,0.035,8,false);
-  return new THREE.Mesh(geo,mat);
-}
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=roundedBox(w,h,dp,MAT.panelBody,0.05); g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tx=new THREE.CanvasTexture(cv);
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshBasicMaterial({map:tx}));
-  screen.position.set(0,0,dp/2+0.005);
-  g.add(screen);
-  return {g,cv,cx,tx};
-}
-
-const boardG=new THREE.Group();
-const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
-board.position.z=0.07; board.castShadow=false;
-board.userData={title:'Tablero — FEM, corriente y par de conmutación'};
-boardFrame.userData=board.userData;
-boardG.add(boardFrame,board);
-boardG.position.set(0,2.35,-1.55);
-S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=roundedBox(6.2,0.28,3.0,MAT.bench,0.08);
-mesa.position.set(0,0.85,0); mesa.receiveShadow=true;
-benchG.add(mesa);
-
-const busBar=new THREE.Mesh(new THREE.BoxGeometry(4.6,0.06,0.06),MAT.bus);
-busBar.position.set(0,1.85,-0.8);
-benchG.add(busBar);
-
-// inversor trifásico
-const invG=new THREE.Group();
-const invBody=roundedBox(0.66,0.9,0.5,MAT.invBody,0.06);
-const invDoor=roundedBox(0.5,0.7,0.06,MAT.invDoor,0.05);
-invDoor.position.set(0,0,0.28);
-invG.add(invBody,invDoor);
-invG.add(labelSprite('INV','#4fd1c5'));
-invG.position.set(-2.0,1.25,-0.05);
-invG.userData={act:'inv3d',title:'Inversor trifásico (puente de seis pasos)'};
-invBody.userData=invG.userData; invDoor.userData=invG.userData;
-benchG.add(invG);
-
-// perilla de error de conmutación δ
-const dialG=new THREE.Group();
-const dialBody=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.12,24),MAT.dialBody);
-dialBody.rotation.x=Math.PI/2; dialBody.castShadow=true;
-const dialArm=new THREE.Mesh(new THREE.BoxGeometry(0.19,0.04,0.04),MAT.dialArm);
-dialArm.position.set(0.095,0,0.078);
-dialG.add(dialBody,dialArm);
-dialG.add(labelSprite('δ','#4fd1c5'));
-dialG.position.set(-1.55,1.32,-0.05);
-dialG.userData={act:'dial3d',title:'Perilla de error de conmutación (δ)'};
-dialBody.userData=dialG.userData;
-benchG.add(dialG);
-
-// motor BLDC/PMSM
-const motG=new THREE.Group();
+/* ---------- §5 Banco 3D ---------- */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -801,51 +736,111 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
-   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
-   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
-   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
-   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
-   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
-const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:0.95,eje:0.62,aletas:16});
-/* EL ACOPLE de garras, que es por donde sale el par hacia la carga. */
-const couplingG=new THREE.Group();
-for(let i=0;i<6;i++){
-  const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.05),MAT.shaft);
-  spoke.rotation.x=(i/6)*Math.PI*2; couplingG.add(spoke);
+function cable(pts,mat,r=0.03){
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,32,r,8,false),mat);
+  m.castShadow=true; return m;
 }
-couplingG.position.x=1.05;
-motG.add(maq,couplingG);
-motG.add(labelSprite('M 3~','#8ab4f8'));
-motG.position.set(-0.3,1.15,-0.05);
-motG.userData={act:'mot3d',title:'Motor BLDC/PMSM (FEM trapezoidal)'};
-maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
+function makeCanvasScreen(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=160;
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8;
+  return {cv,cx:cv.getContext('2d'),tx};
+}
+function screenPlane(w,h,tx){
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+}
+function tagAct(root,ud){ Object.assign(root.userData,ud); }
+function labelAt(g,txt,col,x,y,z){ const s=labelSprite(txt,col); s.position.set(x,y,z); g.add(s); return s; }
+function bancoInstrumento(w,h,d,ud,color){
+  const g=P3.instrumentoConPantalla(MATP,{ancho:w,alto:h,fondo:d,mandos:2,cw:256,visor:0.70,visorAlto:0.70*w/(1.6*h),color:color||0x56626b});
+  const o={g,cv:g.userData.cv,cx:g.userData.cx,tx:g.userData.tex,apoyo:g.userData.apoyo};
+  tagAct(g,ud); return o;
+}
+
+/* El pizarrón, COLGADO de un soporte y no flotando sobre la mesa. */
+const boardG=new THREE.Group();
+const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.z=0.07; board.castShadow=false;
+board.userData={title:'Tablero — FEM, corriente y par de conmutación'};
+boardFrame.userData=board.userData;
+boardG.add(boardFrame,board);
+boardG.position.set(0,2.65,-1.55);
+S.scene.add(boardG);
+const standG=P3.soportePizarron(MATP,{ancho:3.2,alto:2.35,y:2.65});
+standG.position.set(0,0,-1.55); S.scene.add(standG);
+
+const benchG=new THREE.Group();
+const banco=P3.bancoPruebasMaquinas(MATP,{ancho:5.4,fondo:2.2,alto:0.95,respaldo:0.42});
+benchG.add(banco);
+const TOP=0.95;
+const placa=P3.placaBaseRanurada(MATP,{largo:3.7,ancho:1.5,ranuras:3});
+placa.position.set(0.35,TOP,0.05); benchG.add(placa);
+const AXY=TOP+0.07+0.533, AXZ=-0.25;
+const mCab=std({color:0x15181e,metalness:0.2,roughness:0.75});
+
+// inversor trifásico (puente de seis pasos) sobre su placa de montaje
+const invG=new THREE.Group();
+const inv=P3.variadorMural(MATP,{ancho:0.74,alto:1.0,fondo:0.30,color:0x35485a,tapa:0x222d38,rotulo:'INVERSOR 3~'});
+invG.add(inv);
+const panelD=makeCanvasScreen();
+inv.userData.pantalla.add(screenPlane(inv.userData.visor.ancho*0.99,inv.userData.visor.alto*0.99,panelD.tx));
+invG.position.set(-2.05,TOP,-0.55);
+labelAt(invG,'INV','#4fd1c5',0,1.38,0.2);
+tagAct(invG,{act:'inv3d',title:'Inversor trifásico (puente de seis pasos)'});
+benchG.add(invG);
+
+// perilla del error de conmutación δ, en su caja de mando
+const dialG=new THREE.Group();
+const perilla=P3.perillaGraduada(MATP,{etiqueta:'δ  [°]',min:DELTA_MIN,max:DELTA_MAX,marcas:7});
+dialG.add(perilla);
+dialG.position.set(-1.62,TOP,0.62);
+labelAt(dialG,'δ','#4fd1c5',0,0.78,0.2);
+tagAct(dialG,{act:'dial3d',title:'Perilla de error de conmutación (δ)'});
+benchG.add(dialG);
+
+// motor BLDC/PMSM: servomotor de brida sobre dos cunas
+const motG=new THREE.Group();
+const servo=P3.servoMotor(MATP,{d:0.62,largo:0.78,eje:0.34,cuna:0.2236});
+motG.add(servo);
+labelAt(motG,'M 3~','#8ab4f8',0,0.85,0);
+const XM=-0.95;
+motG.position.set(XM,AXY,AXZ);
+tagAct(motG,{act:'mot3d',title:'Motor BLDC/PMSM (FEM trapezoidal)'});
 benchG.add(motG);
 
-// sensor Hall
+// el acople y el freno de Foucault que carga el eje y mide el par
+const XC=XM+servo.userData.frente+0.04+0.0;
+const couplingG=P3.acopleElastico(MATP,{d:0.26,largo:0.36,dEje:0.09});
+couplingG.position.set(XC,AXY,AXZ); benchG.add(couplingG);
+const freno=P3.dinamometroFreno(MATP,{d:0.66,largo:0.56,eje:0.26,base:0.203});
+const frenoG=new THREE.Group(); frenoG.add(freno);
+frenoG.position.set(XC+0.71,AXY,AXZ);
+labelAt(frenoG,'T','#e0c38a',0,0.85,0);
+tagAct(frenoG,{title:'Freno de carga con célula de par'});
+benchG.add(frenoG);
+
+// la tarjeta de sensores Hall, con el imán del rotor, de pie delante del motor
 const hallG=new THREE.Group();
-const hallBox=roundedBox(0.5,0.4,0.4,MAT.hallBlock,0.06);
-hallG.add(hallBox);
-hallG.add(labelSprite('Hall','#8ae0a3'));
-hallG.position.set(1.6,1.2,-0.05);
-hallG.userData={act:'hall3d',title:'Sensor Hall de posición del rotor'};
-hallBox.userData=hallG.userData;
+const tarjeta=P3.tarjetaHall(MATP,{d:0.50,polos:4});
+hallG.add(tarjeta);
+hallG.position.set(-0.25,TOP+0.07,0.78);
+labelAt(hallG,'Hall','#8ae0a3',0,0.85,0.1);
+tagAct(hallG,{act:'hall3d',title:'Sensor Hall de posición del rotor'});
 benchG.add(hallG);
 
-const panelD=makeDisplayBox(1.0,0.6,0.08,256,160);
-panelD.g.position.set(-2.35,1.85,0.7);
-panelD.g.userData={act:'paneld3d',title:'Display del inversor — δ, I_cmd'};
-benchG.add(panelD.g);
+// medidor de par: instrumento de banco con su pantalla
+const meter=bancoInstrumento(0.96,0.64,0.40,{act:'meter3d',title:'Medidor de par — promedio y rizo'});
+meter.g.position.set(1.95,TOP+meter.apoyo,0.78); benchG.add(meter.g);
 
-const meter=makeDisplayBox(1.0,0.6,0.08,256,160);
-meter.g.position.set(2.35,1.85,0.7);
-meter.g.userData={act:'meter3d',title:'Medidor de par — promedio y rizo'};
-benchG.add(meter.g);
-
-benchG.add(
-  cable([new THREE.Vector3(-2.0,1.85,-0.8),new THREE.Vector3(-2.0,1.6,-0.4),new THREE.Vector3(-2.0,1.4,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(-2.0,1.1,-0.05),new THREE.Vector3(-1.3,1.0,-0.1),new THREE.Vector3(-0.75,1.05,-0.05)],MAT.cable),
-);
+// potencia del inversor al motor (tres fases) y cable de señal de los Hall
+{ const b=inv.userData.bocas;
+  b.forEach((p,i)=>{
+    const q=new THREE.Vector3(p.x,p.y,p.z).add(new THREE.Vector3(-2.05,TOP,-0.55));
+    benchG.add(cable([q,new THREE.Vector3(q.x+0.05,q.y-0.02,q.z+0.18),new THREE.Vector3(q.x+0.45+i*0.1,TOP+0.03,q.z+0.30+i*0.06),
+      new THREE.Vector3(-1.45+i*0.1,TOP+0.12,-0.12+i*0.05),new THREE.Vector3(XM-0.14,AXY+0.50,AXZ+0.02)],mCab,0.024));
+  });
+}
 
 benchG.traverse(o=>{ if(o.isMesh&&o!==board){ o.castShadow=true; o.receiveShadow=true; } });
 S.scene.add(benchG);
@@ -886,7 +881,7 @@ function drawMeter3D(){
 function refreshBenchDyn(){
   drawPanelD(); drawMeter3D();
   const t=(delta-DELTA_MIN)/(DELTA_MAX-DELTA_MIN);
-  dialArm.rotation.y=-Math.PI*0.66+t*Math.PI*1.32;
+  perilla.userData.pone(t);
 }
 
 /* ---------- §6 HUD + panel ---------- */
@@ -981,9 +976,9 @@ function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add
 
 /* ---------- §8 Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[7.6,5.0,8.6],[0,1.1,0]],mision:'EXPLORA · mueve δ (error de conmutación) e I_cmd. Observa cómo el par instantáneo deja de ser plano y cae el par promedio cuando δ≠0.'},
-  comparar:{nombre:'Comparar',cam:[[0,4.4,9.6],[0,1.6,-0.6]],mision:'COMPARA · Hall (δ=0, línea blanca) contra sensorless con retardo fijo (línea roja). Sube la velocidad o el retardo y observa cómo crece δ_ef.'},
-  reto:{nombre:'Reto',cam:[[3.4,3.4,7.2],[0,1.4,-0.4]],mision:'RETO · calcula I_cmd a mano, o encuentra δ por tanteo, según el tipo de reto.'},
+  explora:{nombre:'Explora',cam:[[4.6,3.5,6.0],[0,1.7,-0.3]],mision:'EXPLORA · mueve δ (error de conmutación) e I_cmd. Observa cómo el par instantáneo deja de ser plano y cae el par promedio cuando δ≠0.'},
+  comparar:{nombre:'Comparar',cam:[[0,3.4,8.2],[0,2.1,-0.8]],mision:'COMPARA · Hall (δ=0, línea blanca) contra sensorless con retardo fijo (línea roja). Sube la velocidad o el retardo y observa cómo crece δ_ef.'},
+  reto:{nombre:'Reto',cam:[[3.0,3.0,5.6],[0,1.7,-0.4]],mision:'RETO · calcula I_cmd a mano, o encuentra δ por tanteo, según el tipo de reto.'},
 };
 
 function tolText(){ if(!MYST) return ''; return MYST.kind==='calcularICmd' ? `± ${MYST.tol.toFixed(2)} A` : `± ${MYST.tol.toFixed(1)} °`; }
@@ -1310,6 +1305,7 @@ async function runAuto(){
 S.setAnimate(()=>{
   const speedFrac=Math.min(1,icmd/ICMD_MAX);
   couplingG.rotation.x += 0.01 + 0.05*speedFrac;
+  servo.userData.gira(couplingG.rotation.x); freno.userData.gira(couplingG.rotation.x); tarjeta.userData.giraIman(couplingG.rotation.x);
 });
 
 ['m_explora','m_comparar','m_reto'].forEach(id=>{

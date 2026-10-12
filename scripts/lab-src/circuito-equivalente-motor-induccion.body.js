@@ -41,7 +41,7 @@
    de forma determinista.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.9,2.7,5.0],target:[0.1,1.35,-0.1],bgTop:'#0d1a1e',bgBot:'#04070a',bloom:0.35,minD:2.8,maxD:15});
+const S=createStage(mount,{cam:[3.2,2.7,4.6],target:[0.2,1.35,0.1],bgTop:'#0d1a1e',bgBot:'#04070a',bloom:0.35,minD:2.8,maxD:15});
 const {scene}=S;
 const el=id=>document.getElementById(id);
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:1800,Q:0.9});
@@ -51,13 +51,11 @@ const MAT={
   carcasa: std({...brush, color:0x2f4f66, metalness:0.5, roughness:0.55, envMapIntensity:0.9}),
   cap:     std({...alu, color:0x6a7078, metalness:0.75, roughness:0.5, envMapIntensity:1.1}),
   shaft:   std({...brush, color:0xc9ced3, metalness:0.95, roughness:0.18, envMapIntensity:1.4}),
-  lock:    std({color:0xd6483c, metalness:0.3, roughness:0.5, emissive:0x5a140f, emissiveIntensity:0.35}),
   termBox: std({color:0x22262b, metalness:0.3, roughness:0.7}),
   dark:    std({color:0x05070a, roughness:0.8, metalness:0.2}),
   bench:   std({...brush, color:0x2b3138, metalness:0.55, roughness:0.5, envMapIntensity:0.7}),
   benchLeg:std({color:0x171b20, metalness:0.7, roughness:0.4}),
   dial:    std({...alu, color:0x828a93, metalness:0.9, roughness:0.3, envMapIntensity:1.1}),
-  needle:  std({color:0x2A9D8F, metalness:0.2, roughness:0.5, emissive:0x1e6f63, emissiveIntensity:0.6}),
   cableRed:std({color:0xb03a3a, roughness:0.55}),
   cableBlk:std({color:0x1c1f22, roughness:0.55}),
 };
@@ -154,10 +152,10 @@ const CASES={
 };
 const CASE_ORDER=['ensayoDC','ensayoVacio','rotorBloqueado','circuitoEquivalente'];
 const CASE_CAM={
-  ensayoDC:            [[3.4,2.2,3.6],[0.5,1.15,0.1]],
-  ensayoVacio:          [[3.9,2.7,5.0],[0.1,1.35,-0.1]],
-  rotorBloqueado:       [[3.4,2.2,3.6],[0.5,1.15,0.1]],
-  circuitoEquivalente:  [[0.2,1.9,4.6],[-1.7,1.55,-0.85]],
+  ensayoDC:            [[2.5,2.7,5.4],[-0.1,1.25,0.3]],
+  ensayoVacio:          [[3.0,2.7,5.4],[0.2,1.3,0.2]],
+  rotorBloqueado:       [[2.5,2.7,5.4],[-0.1,1.25,0.3]],
+  circuitoEquivalente:  [[0.3,2.7,6.6],[0.3,1.8,-0.4]],
 };
 
 /* ---------- estado ---------- */
@@ -375,35 +373,17 @@ function boardClick(u,v){
 const boardCanvas=document.createElement('canvas'); boardCanvas.width=1024; boardCanvas.height=768;
 const bctx=boardCanvas.getContext('2d');
 const boardTex=new THREE.CanvasTexture(boardCanvas); boardTex.colorSpace=THREE.SRGBColorSpace; boardTex.minFilter=THREE.LinearFilter; boardTex.generateMipmaps=false;
+/* El pizarrón del esquema, COLGADO de un soporte (y no flotando sobre la mesa). */
 const boardG=new THREE.Group();
 const boardFrame=roundedBox(4.32,3.27,0.06,MAT.dark,0.04); boardFrame.castShadow=true; boardG.add(boardFrame);
 const boardPlane=new THREE.Mesh(new THREE.PlaneGeometry(4.2,3.15),new THREE.MeshBasicMaterial({map:boardTex,toneMapped:false}));
 boardPlane.position.z=0.035; boardG.add(boardPlane);
 boardPlane.userData={act:'board'};
-boardG.position.set(0.3,2.15,-1.3); scene.add(boardG);
+boardG.scale.setScalar(0.86);
+boardG.position.set(0.3,2.50,-1.25); scene.add(boardG);
 function drawBoard(){ drawSchematic(bctx); boardTex.needsUpdate=true; }
 
-/* ---------- banco 3D (modesto) ---------- */
-function cable(pts,mat){ const cur=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
-  const m=new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.014,8),mat); m.castShadow=true; scene.add(m); return m; }
-function makeDisplayBox(w,h,d,cw,ch){
-  const g=new THREE.Group();
-  const body=roundedBox(w,h,d,MAT.dark,0.03); body.castShadow=true; g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace; tx.minFilter=THREE.LinearFilter; tx.generateMipmaps=false;
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.82,h*0.6),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  screen.position.set(0,0.03,d/2+0.001); g.add(screen);
-  return {g,cv,cx,tx};
-}
-const benchG=new THREE.Group(); scene.add(benchG);
-const mesa=roundedBox(3.6,0.14,1.9,MAT.bench,0.05); mesa.position.set(0.3,0.82,0.55); mesa.receiveShadow=true; mesa.castShadow=true; benchG.add(mesa);
-[[-1.35,0.15],[1.35,0.15],[-1.35,0.95],[1.35,0.95]].forEach(([dx,dz])=>{
-  const leg=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.75,0.09),MAT.benchLeg); leg.position.set(0.3+dx,0.42,0.55+dz); leg.castShadow=true; benchG.add(leg);
-});
-
-/* motor bajo prueba */
-const motG=new THREE.Group(); motG.position.set(-0.85,0.96,0.5);
+/* ---------- banco 3D ---------- */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -414,13 +394,32 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
+function cable(pts,mat,r=0.016){ const cur=new THREE.CatmullRomCurve3(pts.map(p=>p.isVector3?p:new THREE.Vector3(...p)));
+  const m=new THREE.Mesh(new THREE.TubeGeometry(cur,32,r,8),mat); m.castShadow=true; scene.add(m); return m; }
+function tagAct(root,ud){ Object.assign(root.userData,ud); }
+/* Un instrumento de banco con su visor, cuyo lienzo (`cv`) lo pinta el laboratorio. */
+function makeDisplayBox(w,h,d,cw,ch){
+  const g=P3.instrumentoConPantalla(MATP,{ancho:w,alto:h,fondo:d,mandos:2,cw,visor:0.70,visorAlto:0.70*w/((cw/ch)*h),color:0x56626b});
+  const u=g.userData; u.cv.width=cw; u.cv.height=ch;
+  return {g,cv:u.cv,cx:u.cx,tx:u.tex,apoyo:u.apoyo};
+}
+
+const benchG=new THREE.Group(); scene.add(benchG);
+const TOP=0.90;
+const banco=P3.bancoPruebasMaquinas(MATP,{ancho:4.5,fondo:1.9,alto:TOP,respaldo:0.34});
+banco.position.set(0.2,0,0.45); benchG.add(banco);
+const standG=P3.soportePizarron(MATP,{ancho:4.32*0.86,alto:3.27*0.86,y:2.50});
+standG.position.set(0.3,0,-1.25); scene.add(standG);
+
+/* motor bajo prueba, sobre su placa base ranurada */
+const placa=P3.placaBaseRanurada(MATP,{largo:2.1,ancho:0.95,ranuras:3});
+placa.position.set(-0.75,TOP,0.30); benchG.add(placa);
+const motG=new THREE.Group(); motG.position.set(-1.0,TOP+0.07+0.33,0.30);
 /* LA MAQUINA, con la silueta por la que se reconoce un motor desde el otro lado
    del taller: ALETAS —la superficie por la que evacua lo que no convierte en
    par—, TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje
    —por eso a media velocidad ventila la mitad—, PATAS por donde se atornilla a
-   la bancada, CAJA DE BORNES por donde entra la alimentacion y placa de datos.
-   Ninguna de las cinco es decorativa, y ninguna estaba dibujada: era un tubo
-   liso con un disco pegado en la punta. */
+   la bancada, CAJA DE BORNES por donde entra la alimentacion y placa de datos. */
 const motMaq=P3.maquinaElectrica(MATP,{d:0.52,largo:0.62,eje:0.34,aletas:14});
 let motGiro=0;   // el angulo del eje y del ventilador, que van calados juntos
 motG.add(motMaq);
@@ -430,29 +429,62 @@ const pulleyG=new THREE.Group(); pulleyG.position.x=0.74;
 const pol=P3.polea({acero:MAT.cap},{d:0.26,ancho:0.10,gargantas:2,dEje:0.09});
 pol.rotation.z=Math.PI/2;pulleyG.add(pol);
 motG.add(pulleyG);
-const lockClamp=roundedBox(0.11,0.15,0.11,MAT.lock,0.02); lockClamp.position.set(0.7,-0.16,0); lockClamp.visible=false; lockClamp.castShadow=true; motG.add(lockClamp);
+/* EL BLOQUEO del rotor: una horquilla roja sobre un poste atornillado a la placa
+   que agarra la polea por el borde. Sólo está puesta en el ensayo de rotor bloqueado. */
+const lockClamp=new THREE.Group(); lockClamp.position.set(0.74,0,0); lockClamp.visible=false;
+{ const mL=std({color:0xc4382d,metalness:0.35,roughness:0.5});
+  const poste=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.20,0.10),mL); poste.position.set(0,-0.23,0); lockClamp.add(poste);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.02,0.24),mL); base.position.set(0,-0.33,0); lockClamp.add(base);
+  for(const s of [-1,1]){ const ceja=new THREE.Mesh(new THREE.BoxGeometry(0.025,0.16,0.12),mL); ceja.position.set(s*0.07,-0.10,0); lockClamp.add(ceja); }
+  const per=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.18,8),MAT.shaft); per.rotation.z=Math.PI/2; per.position.set(0,-0.10,0); lockClamp.add(per);
+  lockClamp.traverse(o=>{ if(o.isMesh){ o.castShadow=true; } });
+}
+motG.add(lockClamp);
 motG.userData={act:'motor',title:'Motor de inducción bajo prueba'};
 motG.traverse(o=>{ if(o.isMesh) o.userData.act='motor'; });
 benchG.add(motG);
 
-/* fuente de ensayo */
-const fuenteG=new THREE.Group(); fuenteG.position.set(-0.05,1.0,0.9);
-const fBody=roundedBox(0.4,0.46,0.3,MAT.termBox,0.04); fBody.castShadow=true; fuenteG.add(fBody);
-const dialG=new THREE.Group(); dialG.position.set(0,0.14,0.16);
-const dialFace=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.03,24),MAT.dial); dialFace.rotation.x=Math.PI/2; dialG.add(dialFace);
-const needle=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.012,0.012),MAT.needle); needle.position.x=0.03; dialG.add(needle);
-fuenteG.add(dialG);
+/* fuente de ensayo: caja de banco con su VOLTÍMETRO ANALÓGICO de aguja, mandos y bornas */
+const fuenteG=new THREE.Group(); fuenteG.position.set(0.55,TOP,0.15);
+const fCaja=P3.instrumentoBanco(MATP,{ancho:1.0,alto:0.66,fondo:0.46,color:0x56626b,visor:0.42,visorAlto:0.66,mandos:3,bnc:0,rejilla:true});
+fCaja.position.y=0.66/2+0.66*0.0535; fuenteG.add(fCaja);
+const needle=new THREE.Group();
+{ const R=0.19, px=256, cvG=document.createElement('canvas'); cvG.width=cvG.height=px;
+  const c=cvG.getContext('2d'); c.fillStyle='#e4e7ea'; c.fillRect(0,0,px,px);
+  c.strokeStyle='#14181e'; c.fillStyle='#14181e'; c.textAlign='center'; c.textBaseline='middle';
+  for(let i=0;i<=10;i++){ const a=2.55-i*0.195, ca=Math.cos(a), sa=Math.sin(a);
+    c.lineWidth=i%5===0?5:3; c.beginPath(); c.moveTo(px/2+ca*88,px/2-sa*88); c.lineTo(px/2+ca*108,px/2-sa*108); c.stroke();
+    if(i%5===0){ c.font='bold 20px system-ui'; c.fillText(String(i*10),px/2+ca*70,px/2-sa*70); } }
+  c.font='bold 26px system-ui'; c.fillText('V  (% nom.)',px/2,px*0.80);
+  const tG=new THREE.CanvasTexture(cvG); tG.colorSpace=THREE.SRGBColorSpace; tG.anisotropy=8;
+  const cara=new THREE.Mesh(new THREE.CircleGeometry(R,40),new THREE.MeshStandardMaterial({map:tG,color:0xaab0b5,roughness:0.8,metalness:0}));
+  const aro=new THREE.Mesh(new THREE.TorusGeometry(R*1.02,0.012,8,40),MATP.negro);
+  const aguja=new THREE.Mesh(new THREE.BoxGeometry(R*0.92,0.010,0.004),std({color:0xc0392b,roughness:0.5})); aguja.position.x=R*0.36;
+  const buje=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.01,12),MATP.negro); buje.rotation.x=Math.PI/2;
+  needle.add(aguja,buje); needle.position.z=0.006;
+  fCaja.userData.pantalla.add(cara,aro,needle);
+}
+// las tres bornas de salida (rojo, negro, tierra) en la franja inferior izquierda
+const bocasF=[];
+[0xd64545,0x14181e,0x2f9e6f].forEach((col,i)=>{
+  const b=P3.bornaBanana(MATP,{d:0.07,color:col}); b.rotation.x=Math.PI/2;
+  b.position.set(-0.40+i*0.11,0.33-0.66*0.30+0.66*0.0535+0.0,0.46/2); fuenteG.add(b);
+  bocasF.push(b.position.clone().add(new THREE.Vector3(0,0,b.userData.boca.y)));
+});
 fuenteG.userData={act:'fuente',title:'Fuente / banco de ensayo (CD y CA a frecuencia variable)'};
 fuenteG.traverse(o=>{ if(o.isMesh) o.userData.act='fuente'; });
 benchG.add(fuenteG);
 
-/* pantallas digitales */
-const readings=makeDisplayBox(0.5,0.32,0.1,300,192); readings.g.position.set(0.85,1.15,0.95); readings.g.userData={act:'readings',title:'Lecturas de instrumentos'}; benchG.add(readings.g);
-const params=makeDisplayBox(0.5,0.32,0.1,300,192); params.g.position.set(1.5,1.15,0.95); params.g.userData={act:'params',title:'Parámetros calculados'}; benchG.add(params.g);
+/* pantallas digitales: dos instrumentos de banco delante de la fuente */
+const readings=makeDisplayBox(0.86,0.58,0.36,300,192); readings.g.position.set(0.85,TOP+readings.apoyo,1.05); tagAct(readings.g,{act:'readings',title:'Lecturas de instrumentos'}); benchG.add(readings.g);
+const params=makeDisplayBox(0.86,0.58,0.36,300,192); params.g.position.set(1.85,TOP+params.apoyo,1.05); tagAct(params.g,{act:'params',title:'Parámetros calculados'}); benchG.add(params.g);
 
-cable([[-0.05,0.86,0.78],[0.35,0.9,0.86],[0.62,0.94,0.7],[0.75,0.96,0.55]],MAT.cableRed);
-cable([[0.75,0.9,0.55],[0.85,1.0,0.75],[0.85,1.1,0.9]],MAT.cableBlk);
-cable([[0.85,1.1,0.95],[1.2,1.15,0.95],[1.5,1.15,0.95]],MAT.cableBlk);
+// del borne de la fuente a la caja de bornes del motor: línea roja y negra; la tercera, a tierra
+{ const bw=bocasF.map(p=>p.clone().add(fuenteG.position));
+  const box=new THREE.Vector3(motG.position.x,motG.position.y+0.52/2+0.52*0.075+0.04,motG.position.z);
+  cable([bw[0],new THREE.Vector3(bw[0].x-0.05,TOP+0.05,bw[0].z+0.25),new THREE.Vector3(-0.30,TOP+0.28,0.55),new THREE.Vector3(box.x+0.06,box.y+0.25,box.z+0.1),box],MAT.cableRed,0.016);
+  cable([bw[1],new THREE.Vector3(bw[1].x-0.05,TOP+0.04,bw[1].z+0.30),new THREE.Vector3(-0.35,TOP+0.24,0.65),new THREE.Vector3(box.x-0.06,box.y+0.22,box.z+0.12),new THREE.Vector3(box.x-0.05,box.y,box.z)],MAT.cableBlk,0.016);
+}
 
 function drawReadings(){
   const {cx,cv,tx}=readings; cx.clearRect(0,0,cv.width,cv.height); cx.fillStyle='#0b1116'; cx.fillRect(0,0,cv.width,cv.height);
@@ -587,7 +619,7 @@ function updateReport(){
   el('report').innerHTML=html;
 }
 function refreshBench(){ drawReadings(); drawParams();
-  if(needle) needle.rotation.z=(active?(vVal/(caseTargets(caseKey).v||1)):0)*1.6-0.1;
+  if(needle) needle.rotation.z=2.55-(active?Math.min(1.05,vVal/(caseTargets(caseKey).v||1)):0)*1.95;   // la aguja del voltímetro: de 146° (0 %) a 34° (100 %)
 }
 function refreshAll(){ updateTele(); updateReport(); drawBoard(); refreshBench(); }
 

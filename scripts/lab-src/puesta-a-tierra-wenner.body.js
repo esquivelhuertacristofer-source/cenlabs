@@ -31,7 +31,7 @@
    selección aleatoria: qué par suelo/objetivo se sortea).
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.8,2.8,4.8],target:[0.4,0.5,0.2],bgTop:'#0d1620',bgBot:'#05070a',bloom:0.4,minD:2.6,maxD:18});
+const S=createStage(mount,{cam:[0.0,4.0,7.4],target:[-0.15,1.55,0.9],bgTop:'#0d1620',bgBot:'#05070a',bloom:0.4,minD:2.6,maxD:18});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2400,Q:0.8});
 const std=o=>new THREE.MeshStandardMaterial(o);
@@ -46,20 +46,20 @@ function showToast(html,ms=3300){ const t=el('toast'); t.innerHTML=html; t.class
 /* ---------- materiales PBR (biblioteca compartida) ---------- */
 const alu=castAluminum(), brush=brushedMetal();
 const MAT={
-  copper:  std({color:0xc0703a, metalness:0.9,  roughness:0.28, envMapIntensity:1.3}),   // cobre desnudo (varilla / conductor)
+  copper:  std({color:0xa8602f, metalness:0.55, roughness:0.5,  envMapIntensity:0.6}),   // cobre desnudo (varilla / conductor)
   copperW: std({...brush, color:0xb7bec4, metalness:0.9, roughness:0.32, envMapIntensity:1.1}), // alma de acero copperweld (punta)
   bronze:  std({color:0xa07a3c, metalness:0.85, roughness:0.4,  envMapIntensity:1.1}),    // abrazadera de bronce
   busbar:  std({color:0xc9853f, metalness:0.9,  roughness:0.3,  envMapIntensity:1.2}),    // barra de tierra (cobre)
-  panel:   std({...brush, color:0x2f4f66, metalness:0.5, roughness:0.55, envMapIntensity:0.9}), // placa/tablero
+  panel:   std({color:0x2f4f66, metalness:0.4, roughness:0.6, envMapIntensity:0.7}), // placa/tablero
   meter:   std({color:0xd9a521, metalness:0.35, roughness:0.55, envMapIntensity:0.8}),    // caja del telurómetro (amarillo instrumento)
   meterDk: std({color:0x2a2410, metalness:0.3,  roughness:0.6}),                           // carátula / detalle oscuro
   probe:   std({...brush, color:0xa8b0b6, metalness:0.9, roughness:0.35, envMapIntensity:1.1}), // electrodos auxiliares (acero)
   dark:    std({color:0x05070a, roughness:0.8, metalness:0.2}),
-  bench:   std({...brush, color:0x2b3138, metalness:0.55, roughness:0.5, envMapIntensity:0.7}),
+  bench:   std({color:0x262c33, metalness:0.4, roughness:0.62, envMapIntensity:0.5}),
   benchLeg:std({color:0x171b20, metalness:0.7, roughness:0.4}),
-  ped:     std({...brush, color:0x3a4149, metalness:0.85, roughness:0.42, envMapIntensity:0.85}),
-  pedTop:  std({...brush, color:0x828a93, metalness:0.95, roughness:0.28, envMapIntensity:1.15}),
-  pedRing: std({color:0x2A9D8F, metalness:0.3, roughness:0.5, emissive:0x1e6f63, emissiveIntensity:0.5}),
+  ped:     std({color:0x2c333b, metalness:0.5, roughness:0.55, envMapIntensity:0.6}),
+  pedTop:  std({color:0x555d66, metalness:0.55, roughness:0.5, envMapIntensity:0.6}),
+  pedRing: std({color:0x1f7f74, metalness:0.1, roughness:0.7, emissive:0x1e6f63, emissiveIntensity:0.12}),
 };
 
 /* ---------- datos de ingeniería (verificados con node -e antes de escribir este archivo) ---------- */
@@ -99,101 +99,207 @@ function tfVs(R,t){ let d=1; while(d<4 && (Number(R.toFixed(d))<=t)!==(R<=t)) d+
 const RETO_PAIRS=[];
 SOIL_ORDER.forEach(sk=>TARGETS.forEach(t=>{ if(bestConfig(SOILS[sk].rho,t)) RETO_PAIRS.push({soil:sk,target:t}); }));
 
-/* ---------- constructores de piezas (three.js primitivo) ---------- */
-function buildVarilla(){
+/* ---------- constructores de piezas (3D de oficio) ---------- */
+const {extruido,contornoRedondeado,normalizaUV,telurometro,picaTierra,abrazaderaTierra,carreteCable,registroTierra,gabinete}=P3;   // §17-B de la biblioteca
+const _V=(x,y,z)=>new THREE.Vector3(x,y,z);
+function _etiqueta(w,h,pinta){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const c=cv.getContext('2d'); pinta(c,w,h);
+  const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8; return t; }
+function _tinta(tex,w,h){ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tex,transparent:true,roughness:0.55,metalness:0,
+  depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})); m.renderOrder=2; return m; }
+/* ---------- piezas de la biblioteca (_piezas3d.js §17-B) y materiales de oficio ---------- */
+const MATP={
+  aluminio:std({color:0xb6bdc4,roughness:0.42,metalness:0.7,envMapIntensity:1.0}),
+  acero:std({color:0x8f979f,roughness:0.38,metalness:0.85,envMapIntensity:1.0}),
+  cromo:std({color:0xc4cad0,roughness:0.28,metalness:0.9,envMapIntensity:1.1}),
+  chapa:std({color:0x9aa2aa,roughness:0.5,metalness:0.6}),
+  cobre:std({color:0xb87333,roughness:0.32,metalness:0.85}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.85,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+const GY=1.70;                       // cota de la superficie del terreno (el bloque de suelo apoya en el piso)
+const lbl=(g,txt,col,y,sc)=>{ const lb=labelSprite(txt,col); lb.position.set(0,y,0); lb.scale.multiplyScalar(sc); g.add(lb); };
+
+/* ---------- constructores de piezas (el 3D real: telurómetro, picas, abrazadera, gabinete) ---------- */
+const WEN_A=0.44;                    // separación entre picas del arreglo de Wenner (unidades de escena)
+function buildVarilla(l=true){
   const g=new THREE.Group();
-  const len=1.7, R=0.045;
-  const rod=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,20),MAT.copper); rod.castShadow=true; g.add(rod);
-  const tip=new THREE.Mesh(new THREE.ConeGeometry(R,0.16,20),MAT.copperW); tip.position.y=-len/2-0.06; tip.castShadow=true; g.add(tip);
-  // marcas de acoplamiento
-  [-1,1].forEach(s=>{ const band=new THREE.Mesh(new THREE.CylinderGeometry(R+0.004,R+0.004,0.02,20),MAT.dark); band.position.y=s*0.35; g.add(band); });
-  const lb=labelSprite('Varilla de tierra (copperweld 5/8")','#8A94A0'); lb.position.set(0,len/2+0.24,0); lb.scale.multiplyScalar(0.58); g.add(lb);
+  g.add(picaTierra(MATP,{largo:1.4,sobre:0.16,r:0.04,color:0xb87333,cabeza:'hongo'}));
+  if(l) lbl(g,'Varilla de tierra (copperweld 5/8")','#8A94A0',0.62,0.58);
   return g;
 }
-function buildAbrazadera(){
+function buildAbrazadera(l=true){
   const g=new THREE.Group();
-  const body=roundedBox(0.16,0.12,0.14,MAT.bronze,0.02); body.castShadow=true; g.add(body);
-  const boltH=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.2,10),MAT.bronze); boltH.rotation.z=Math.PI/2; boltH.position.y=0.02; boltH.castShadow=true; g.add(boltH);
-  const nut=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,6),MAT.dark); nut.rotation.z=Math.PI/2; nut.position.set(0.1,0.02,0); g.add(nut);
-  const lb=labelSprite('Conector / abrazadera','#8A94A0'); lb.position.set(0,0.3,0); lb.scale.multiplyScalar(0.52); g.add(lb);
+  g.add(abrazaderaTierra(MATP,{r:0.04}));
+  if(l) lbl(g,'Conector / abrazadera','#8A94A0',0.28,0.52);
   return g;
 }
-function buildConductor(){
+const COND_PATH=[[0,0,0],[0.17,0,0],[0.40,-0.04,0.01],[1.2,-0.04,0.02],[2.8,-0.04,0],[3.20,-0.04,-0.6],[3.01,-0.05,-1.28],[2.73,-0.02,-1.68],[2.69,0.01,-1.90],[2.69,0.23,-2.12],[2.55,0.55,-2.12],[2.495,0.73,-2.11]];
+function buildConductor(l=true){
   const g=new THREE.Group();
-  // trayectoria en L desde la abrazadera (abajo-izq) hacia la barra (arriba-der)
-  const pts=[new THREE.Vector3(0,0,0),new THREE.Vector3(0,0.35,0),new THREE.Vector3(0.55,0.6,0),new THREE.Vector3(1.15,0.62,-0.18)];
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.022,10,false),MAT.copper); tube.castShadow=true; g.add(tube);
-  const lb=labelSprite('Conductor de puesta a tierra (Cu)','#8A94A0'); lb.position.set(0.5,0.9,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  // del lado de la abrazadera por el pasamuros del registro, sobre el terreno y hasta la barra del gabinete
+  const curve=new THREE.CatmullRomCurve3(COND_PATH.map(p=>V(p[0],p[1],p[2])),false,'catmullrom',0.2);
+  const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,120,0.019,10,false),MAT.copper); tube.castShadow=true; g.add(tube);
+  const ter=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.034,0.03,12),MAT.bronze); ter.rotation.x=Math.PI/2; ter.position.set(2.495,0.73,-2.11); g.add(ter);
+  if(l) lbl(g,'Conductor de puesta a tierra (Cu)','#8A94A0',0.45,0.56);
   return g;
 }
-function buildBarraTierra(){
+function buildBarraTierra(l=true){
   const g=new THREE.Group();
-  const plate=roundedBox(0.5,0.7,0.05,MAT.panel,0.03); plate.castShadow=true; g.add(plate);
-  const bar=roundedBox(0.42,0.07,0.05,MAT.busbar,0.015); bar.position.set(0,0.04,0.04); bar.castShadow=true; g.add(bar);
-  for(let i=0;i<5;i++){ const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.06,10),MAT.dark); hole.rotation.x=Math.PI/2; hole.position.set(-0.16+i*0.08,0.04,0.06); g.add(hole); }
-  const gsym=labelSprite('⏚','#43D9AD'); gsym.position.set(0,-0.18,0.05); gsym.scale.multiplyScalar(0.5); g.add(gsym);
-  const lb=labelSprite('Barra de tierra (tablero)','#8A94A0'); lb.position.set(0,0.46,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  const plate=roundedBox(0.5,0.7,0.05,std({color:0x6c7782,metalness:0.4,roughness:0.55,envMapIntensity:0.6}),0.03); plate.castShadow=true; g.add(plate);
+  const bar=new THREE.Mesh(extruido(contornoRedondeado([[-0.21,-0.035],[0.21,-0.035],[0.21,0.035],[-0.21,0.035]],0.008,2),{espesor:0.012,bisel:0.002}),MAT.busbar);
+  bar.position.set(0,0.0,0.052); bar.castShadow=true; g.add(bar);
+  for(const sx of [-1,1]){ const ais=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.03,10),MATP.ceramica); ais.rotation.x=Math.PI/2; ais.position.set(sx*0.17,0,0.036); g.add(ais); }
+  for(let i=0;i<6;i++){ const hx=-0.165+i*0.066;
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.012,6),MATP.acero); t.rotation.x=Math.PI/2; t.position.set(hx,0.0,0.064); g.add(t);
+    const ho=new THREE.Mesh(new THREE.CylinderGeometry(0.0055,0.0055,0.002,8),MATP.negro); ho.rotation.x=Math.PI/2; ho.position.set(hx,0.0,0.0705); g.add(ho); }
+  const gs=_etiqueta(128,128,(c,w,h)=>{ c.clearRect(0,0,w,h); c.strokeStyle='#e6c15a'; c.lineWidth=8; c.beginPath(); c.moveTo(64,20); c.lineTo(64,62); c.stroke();
+    for(let i=0;i<3;i++){ c.beginPath(); c.moveTo(64-(40-i*13),66+i*15); c.lineTo(64+(40-i*13),66+i*15); c.stroke(); } });
+  const ink=_tinta(gs,0.2,0.2); ink.position.set(0,-0.19,0.0275); g.add(ink);
+  if(l) lbl(g,'Barra de tierra (tablero)','#8A94A0',0.46,0.56);
   return g;
 }
-function buildTelurometro(){
+function buildTelurometro(l=true){
   const g=new THREE.Group();
-  const box=roundedBox(0.42,0.3,0.32,MAT.meter,0.04); box.castShadow=true; g.add(box);
-  const dial=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.02,28),MAT.meterDk); dial.rotation.x=Math.PI/2; dial.position.set(0,0.06,0.17); g.add(dial);
-  const needle=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.09,0.01),new THREE.MeshBasicMaterial({color:0xff5544})); needle.position.set(0,0.09,0.18); needle.rotation.z=0.5; g.add(needle);
-  for(let i=0;i<4;i++){ const term=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.03,10),MAT.busbar); term.rotation.x=Math.PI/2; term.position.set(-0.15+i*0.1,-0.1,0.17); g.add(term); }
-  const lb=labelSprite('Telurómetro (4 terminales)','#8A94A0'); lb.position.set(0,0.34,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  const t=telurometro(MATP,{}); g.add(t); g.userData.tele=t;
+  if(l) lbl(g,'Telurómetro (4 terminales)','#8A94A0',0.62,0.56);
   return g;
 }
-function buildElectrodosAux(){
+function buildElectrodosAux(l=true){
   const g=new THREE.Group();
-  // dos picas auxiliares en línea (P y C del arreglo de 4 puntos)
-  [-0.35,0.35].forEach((dx,i)=>{
-    const len=0.5, R=0.02;
-    const pk=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,12),MAT.probe); pk.position.set(dx,0,0); pk.castShadow=true; g.add(pk);
-    const tip=new THREE.Mesh(new THREE.ConeGeometry(R,0.08,12),MAT.probe); tip.position.set(dx,-len/2-0.03,0); g.add(tip);
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,8),new THREE.MeshBasicMaterial({color:i?0x43D9AD:0x8fd1ff})); cap.position.set(dx,len/2+0.02,0); g.add(cap);
+  // cuatro picas de acero en línea, equidistantes (a): C1 · P1 · P2 · C2 — el arreglo de Wenner
+  const cols=[0xd64545,0xc9a02c,0x3aa86b,0x3a7fd6];
+  for(let i=0;i<4;i++){
+    const p=picaTierra(MATP,{largo:0.62,sobre:0.30,r:0.016,color:0x9aa2aa,cabeza:'anilla',borna:cols[i],punta:0.12});
+    p.position.set((i-1.5)*WEN_A,0,0); g.add(p);
+  }
+  if(l) lbl(g,'Electrodos auxiliares (P · C)','#8A94A0',0.62,0.52);
+  return g;
+}
+
+/* ---------- el terreno: un bloque en corte con sus estratos ---------- */
+const _rng=(s)=>()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
+function granoTex(base,seed,tam=256,manchas=70,pedr=0){
+  const r=_rng(seed);
+  return _etiqueta(tam,tam,(c,w,h)=>{
+    c.fillStyle=base; c.fillRect(0,0,w,h);
+    for(let i=0;i<manchas;i++){ c.fillStyle=r()<0.5?'rgba(0,0,0,.07)':'rgba(255,255,255,.06)'; c.beginPath(); c.ellipse(r()*w,r()*h,10+r()*30,4+r()*12,0,0,7); c.fill(); }
+    for(let i=0;i<pedr;i++){ const x=r()*w,y=r()*h,rr=4+r()*9; c.fillStyle='rgba(60,56,50,.55)'; c.beginPath(); c.ellipse(x,y,rr*1.2,rr,0,0,7); c.fill();
+      c.fillStyle='rgba(235,228,214,.25)'; c.beginPath(); c.ellipse(x-1,y-1.5,rr*0.8,rr*0.55,0,0,7); c.fill(); }
   });
-  const lb=labelSprite('Electrodos auxiliares (P · C)','#8A94A0'); lb.position.set(0,0.5,0); lb.scale.multiplyScalar(0.52); g.add(lb);
-  return g;
 }
-/* pieza fija de referencia: bloque de suelo (terreno) */
 let soilTop=null;
+const SOIL_W=4.4, SOIL_D=2.8, SOIL_Y0=0.10;
+const REG={x:-1.30,z:1.18};                       // posición de la varilla: el corte pasa justo por ella
 function buildSuelo(){
   const g=new THREE.Group();
-  const w=5.2, d=3.4, h=1.6;
-  const block=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),std({color:0x3b322a, roughness:0.95, metalness:0.05}));
-  block.position.y=-h/2; block.receiveShadow=true; g.add(block);
-  soilTop=new THREE.Mesh(new THREE.BoxGeometry(w,0.06,d),std({color:0x5a4a38, roughness:0.95, metalness:0.05}));
-  soilTop.position.y=0; soilTop.receiveShadow=true; g.add(soilTop);
+  const hw=SOIL_W/2, hd=SOIL_D/2;
+  // contorno visto desde arriba: x → x, z del mundo → −y del contorno; el frente (z=+hd) lleva el registro y la ranura de la varilla
+  const mk=(pit,slot)=>{
+    const P=[[-hw,-hd],[hw,-hd],[hw,hd]];
+    P.push([REG.x+0.28,hd]);
+    if(pit){ P.push([REG.x+0.23,hd],[REG.x+0.23,hd-0.43],[REG.x-0.23,hd-0.43],[REG.x-0.23,hd]); }
+    else if(slot){ P.push([REG.x+0.08,hd],[REG.x+0.08,hd-0.30],[REG.x-0.08,hd-0.30],[REG.x-0.08,hd]); }
+    P.push([REG.x-0.28,hd],[-hw,hd]);
+    return P.map(([x,z])=>[x,-z]);
+  };
+  const capas=[ // de arriba abajo: espesor, color, semilla, pedriscos
+    {t:0.40,c:0x5a4a38,s:11,p:0,top:true},
+    {t:0.38,c:0x70502f,s:23,p:0},
+    {t:0.36,c:0x8f8a7e,s:37,p:42},
+    {t:0.26,c:0xcdb98f,s:51,p:0},
+    {t:0.20,c:0x626a72,s:67,p:6},
+  ];
+  let y=GY;
+  capas.forEach((cp,i)=>{
+    const geo=extruido(mk(cp.top,!cp.top),{espesor:cp.t,bisel:0,curvaSeg:2});
+    normalizaUV(geo,1.5);
+    const tx=granoTex('#e6e6e6',cp.s,256,cp.top?60:70,cp.p); tx.wrapS=tx.wrapT=THREE.RepeatWrapping;
+    const m=new THREE.MeshStandardMaterial({color:cp.c,map:tx,roughness:0.97,metalness:0.0});
+    const me=new THREE.Mesh(geo,m); me.rotation.x=-Math.PI/2; me.position.y=y-cp.t/2; me.castShadow=me.receiveShadow=true; g.add(me);
+    if(cp.top) soilTop=me;
+    y-=cp.t;
+  });
+  // zócalo de acero bajo el corte
+  const base=roundedBox(SOIL_W+0.16,0.1,SOIL_D+0.16,MAT.bench,0.12); base.position.y=SOIL_Y0-0.04; g.add(base);
   return g;
 }
+/* escenografía fija alrededor del terreno: registro, cabina de medición, carretes */
+const escenario=new THREE.Group();
+function buildEscenario(){
+  const g=escenario;
+  // registro de concreto sobre la varilla, cortado por el frente
+  const reg=registroTierra(MATP,{ancho:0.60,fondo:0.50,alto:0.26,pared:0.07,corte:true,tapa:true});
+  reg.position.set(REG.x,GY,SOIL_D/2-0.25); g.add(reg);
+  // pasamuros de PVC por donde sale el conductor del registro
+  const pv=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.034,0.2,14),std({color:0xd9d4c4,roughness:0.6,metalness:0.0}));
+  pv.rotation.z=Math.PI/2; pv.position.set(REG.x+0.30,GY+0.09,REG.z); g.add(pv);
+  // gabinete con la barra de tierra
+  const gab=gabinete(MATP,{ancho:0.92,alto:1.36,fondo:0.40,apertura:2.2,puerta:true});
+  gab.position.set(1.55,GY,-0.86); g.add(gab); escenario.userData.gab=gab;
+  // dos carretes de cable de medida, junto al instrumento
+  const c1=carreteCable(MATP,{d:0.46,ancho:0.20,color:0xd64545}); c1.position.set(-1.78,GY,-0.18); c1.rotation.y=0.35; g.add(c1);
+  const c2=carreteCable(MATP,{d:0.46,ancho:0.20,color:0xc9a02c}); c2.position.set(-0.20,GY,-0.55); c2.rotation.y=-0.5; g.add(c2);
+  // cable suelto de cada carrete tendido en el terreno
+  [[c1,0xd64545],[c2,0xc9a02c]].forEach(([c,col],i)=>{
+    g.updateMatrixWorld(true); const p0=c.localToWorld(c.userData.punta.clone());
+    const dir=i?V(0.5,0,0.6):V(0.3,0,0.8);
+    const cur=new THREE.CatmullRomCurve3([p0,p0.clone().add(V(0,-0.1,0.02)),V(p0.x+dir.x*0.5,GY+0.015,p0.z+dir.z*0.4),V(p0.x+dir.x*0.9,GY+0.015,p0.z+dir.z*0.8)]);
+    const t=new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.009,6,false),std({color:col,roughness:0.7})); g.add(t);
+  });
+  scene.add(g);
+}
+
+/* cables de medida del arreglo de Wenner y cotas «a»: sólo aparecen con telurómetro y picas instalados */
+const medida=new THREE.Group(); medida.visible=false; scene.add(medida);
+function buildMedida(){
+  const tel=PART.telurometro.home, aux=PART.electrodosAux.home;
+  const T=telurometro(MATP,{}); const bornas=T.userData.bornas;
+  const cols=[0xd64545,0xc9a02c,0x3aa86b,0x3a7fd6];
+  for(let i=0;i<4;i++){
+    const a=V(tel.x+bornas[i].x,tel.y+bornas[i].y,tel.z+bornas[i].z);
+    const px=aux.x+(i-1.5)*WEN_A, b=V(px+0.03,GY+0.285,aux.z-0.01);
+    const cur=new THREE.CatmullRomCurve3([a,a.clone().add(V(0,-0.01,0.10+0.03*i)),V(px-0.06,GY+0.018,aux.z-0.20),V(px,GY+0.14,aux.z-0.05),b]);
+    const tu=new THREE.Mesh(new THREE.TubeGeometry(cur,40,0.0095,6,false),std({color:cols[i],roughness:0.6})); tu.castShadow=true; medida.add(tu);
+  }
+  // cotas «a» entre picas, pintadas sobre el terreno
+  for(let i=0;i<3;i++){
+    const x0=aux.x+(i-1.5)*WEN_A+0.02, x1=aux.x+(i-0.5)*WEN_A-0.02, z=aux.z+0.26;
+    const ln=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,0.004,0.012),std({color:0x9aa6b0,roughness:0.7})); ln.position.set((x0+x1)/2,GY+0.032,z); medida.add(ln);
+    for(const x of [x0,x1]){ const tk=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.004,0.08),std({color:0x9aa6b0,roughness:0.7})); tk.position.set(x,GY+0.032,z); medida.add(tk); }
+    const sp=labelSprite('a','#43D9AD'); sp.position.set((x0+x1)/2,GY+0.14,z); sp.scale.multiplyScalar(0.28); medida.add(sp);
+  }
+}
+
 
 /* ---------- registro de piezas (posición HOGAR en mundo) ---------- */
 const HUB=[0,0,0];                      // punto de instalación en la superficie del suelo
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 const H=(dx,dy,dz)=>V(HUB[0]+dx,HUB[1]+dy,HUB[2]+dz);
 const PARTS=[
-  {id:'varilla',       name:'Varilla de tierra',           build:()=>buildVarilla(),       home:H(0,0.05,0),       note:'Electrodo copperweld 5/8": alma de acero recubierta de cobre. Se clava vertical en el suelo; a mayor longitud, menor resistencia (fórmula de Dwight).'},
-  {id:'abrazadera',    name:'Conector / abrazadera',       build:()=>buildAbrazadera(),    home:H(0,0.95,0),       note:'Sujeta mecánica y eléctricamente el conductor a la varilla. Debe ser del material adecuado (bronce/cobre) para evitar corrosión galvánica.'},
-  {id:'conductor',     name:'Conductor de puesta a tierra',build:()=>buildConductor(),     home:H(0,0.95,0),       note:'Une el electrodo con la barra de tierra del tablero. Su calibre lo fija la NOM (Tabla 250-*) según la protección de la instalación.'},
-  {id:'barraTierra',   name:'Barra de tierra (tablero)',   build:()=>buildBarraTierra(),   home:H(1.4,1.15,-0.2),  note:'Punto común donde se conectan todas las tierras de la instalación. De aquí parte el conductor al electrodo.'},
-  {id:'telurometro',   name:'Telurómetro',                 build:()=>buildTelurometro(),   home:H(-1.5,0.32,0.7),  note:'Instrumento de 4 terminales que inyecta corriente y mide tensión para obtener la resistencia. Es la herramienta del método de Wenner y de la caída de potencial.'},
-  {id:'electrodosAux', name:'Electrodos auxiliares (P·C)', build:()=>buildElectrodosAux(), home:H(1.1,0.28,0.95),  note:'Picas auxiliares de potencial (P) y corriente (C). En el método de Wenner van en línea y equidistantes con el electrodo bajo prueba.'},
+  {id:'varilla',       name:'Varilla de tierra',           build:(l)=>buildVarilla(l),       home:V(REG.x,GY,REG.z),            note:'Electrodo copperweld 5/8": alma de acero recubierta de cobre. Se clava vertical en el suelo; a mayor longitud, menor resistencia (fórmula de Dwight).'},
+  {id:'abrazadera',    name:'Conector / abrazadera',       build:(l)=>buildAbrazadera(l),    home:V(REG.x,GY+0.07,REG.z),       note:'Sujeta mecánica y eléctricamente el conductor a la varilla. Debe ser del material adecuado (bronce/cobre) para evitar corrosión galvánica.'},
+  {id:'conductor',     name:'Conductor de puesta a tierra',build:(l)=>buildConductor(l),     home:V(REG.x+0.19,GY+0.07,REG.z), s:0.17, note:'Une el electrodo con la barra de tierra del tablero. Su calibre lo fija la NOM (Tabla 250-*) según la protección de la instalación.'},
+  {id:'barraTierra',   name:'Barra de tierra (tablero)',   build:(l)=>buildBarraTierra(l),   home:V(1.55,GY+0.80,-0.995), s:0.55, note:'Punto común donde se conectan todas las tierras de la instalación. De aquí parte el conductor al electrodo.'},
+  {id:'telurometro',   name:'Telurómetro',                 build:(l)=>buildTelurometro(l),   home:V(-1.0,GY,-0.10), s:0.6, note:'Instrumento de 4 terminales que inyecta corriente y mide tensión para obtener la resistencia. Es la herramienta del método de Wenner y de la caída de potencial.'},
+  {id:'electrodosAux', name:'Electrodos auxiliares (P·C)', build:(l)=>buildElectrodosAux(l), home:V(0.50,GY,0.55), s:0.4, note:'Picas auxiliares de potencial (P) y corriente (C). En el método de Wenner van en línea y equidistantes con el electrodo bajo prueba.'},
 ];
 const ORDER=PARTS.map(p=>p.id);
 const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
 
 /* ---------- estado ---------- */
 const STAGE_S=0.5;
+const stageS=id=>PART[id].s||STAGE_S;
 const groups={}, ghosts={}, labels={};
 let placed={}, selectedId=null, progress=0, simUnlocked=false;
 const tweens=[];
 const trayObjs=[], ghostObjs=[], scratch=[];
 const suelo=buildSuelo(); scene.add(suelo);
+buildEscenario(); buildMedida();
 
 /* ---------- banco de trabajo + pedestales (paramétrico, plantilla reutilizable) ---------- */
-const BENCH={cx:3.3, cz:0.9, top:1.0, cols:2, dx:1.05, dz:1.1, pedH:0.30};
+const BENCH={cx:0, cz:3.15, top:0.9, cols:6, dx:0.58, dz:1.1, pedH:0.28};
 const N_ROWS=Math.ceil(PARTS.length/BENCH.cols);
 const PED_TOP_Y=BENCH.top+BENCH.pedH;
 function pedBaseXZ(i){ const c=i%BENCH.cols, r=(i/BENCH.cols)|0;
@@ -201,7 +307,7 @@ function pedBaseXZ(i){ const c=i%BENCH.cols, r=(i/BENCH.cols)|0;
 const pedestals=[];
 (function buildStaging(){
   const staging=new THREE.Group(); scene.add(staging);
-  const spanX=(BENCH.cols-1)*BENCH.dx+1.25, spanZ=(N_ROWS-1)*BENCH.dz+1.25;
+  const spanX=(BENCH.cols-1)*BENCH.dx+0.70, spanZ=(N_ROWS-1)*BENCH.dz+0.95;
   const topSlab=roundedBox(spanX,0.16,spanZ,MAT.bench,0.05); topSlab.position.set(BENCH.cx,BENCH.top-0.08,BENCH.cz); topSlab.receiveShadow=true; staging.add(topSlab);
   const legH=BENCH.top-0.08;
   for(const sx of [-1,1]) for(const sz of [-1,1]){
@@ -212,23 +318,23 @@ const pedestals=[];
   PARTS.forEach((p,i)=>{
     const {x,z}=pedBaseXZ(i);
     const pg=new THREE.Group(); pg.position.set(x,0,z);
-    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.30,BENCH.pedH,28),MAT.ped); post.position.y=BENCH.top+BENCH.pedH/2; post.castShadow=true; pg.add(post);
-    const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.05,40),MAT.pedTop); plate.position.y=PED_TOP_Y; plate.receiveShadow=true; pg.add(plate);
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.345,0.02,12,44),MAT.pedRing.clone()); ring.rotation.x=Math.PI/2; ring.position.y=PED_TOP_Y+0.035; pg.add(ring);
-    const lb=labelSprite(p.name.split('(')[0].trim(),'#9fb2c0'); lb.position.set(0,BENCH.top+0.14,0.4); lb.scale.multiplyScalar(0.7); pg.add(lb);
-    const ck=labelSprite('✓ colocada','#43D9AD'); ck.position.set(0,PED_TOP_Y+0.42,0); ck.scale.multiplyScalar(0.66); ck.visible=false; pg.add(ck);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.24,BENCH.pedH,28),MAT.ped); post.position.y=BENCH.top+BENCH.pedH/2; post.castShadow=true; pg.add(post);
+    const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.05,40),MAT.pedTop); plate.position.y=PED_TOP_Y; plate.receiveShadow=true; pg.add(plate);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.275,0.016,12,44),MAT.pedRing.clone()); ring.rotation.x=Math.PI/2; ring.position.y=PED_TOP_Y+0.035; pg.add(ring);
+    const lb=labelSprite(p.name.split('(')[0].trim(),'#9fb2c0'); lb.position.set(0,BENCH.top+0.12,0.46); lb.scale.multiplyScalar(0.34); pg.add(lb);
+    const ck=labelSprite('✓ colocada','#43D9AD'); ck.position.set(0,PED_TOP_Y+0.42,0); ck.scale.multiplyScalar(0.42); ck.visible=false; pg.add(ck);
     staging.add(pg);
     pedestals[i]={g:pg, ring, plate, label:lb, check:ck};
   });
 })();
 function resetPedestals(){ pedestals.forEach(pd=>{ pd.check.visible=false; if(pd.label)pd.label.visible=true;
-  pd.ring.material.color.set(0x2A9D8F); pd.ring.material.emissive.set(0x1e6f63); pd.ring.material.emissiveIntensity=0.5; }); }
+  pd.ring.material.color.set(0x1f7f74); pd.ring.material.emissive.set(0x1e6f63); pd.ring.material.emissiveIntensity=0.12; }); }
 function markPedestalDone(i){ const pd=pedestals[i]; if(!pd)return; pd.check.visible=true; if(pd.label)pd.label.visible=false;
-  pd.ring.material.color.set(0x43D9AD); pd.ring.material.emissive.set(0x2f9e86); pd.ring.material.emissiveIntensity=0.9; }
+  pd.ring.material.color.set(0x2a9a7e); pd.ring.material.emissive.set(0x1e6f56); pd.ring.material.emissiveIntensity=0.1; }
 
 function ghostMat(){ return new THREE.MeshStandardMaterial({color:0x4FD1C5, transparent:true, opacity:0.3, metalness:0.0, roughness:0.6, emissive:0x2A9D8F, emissiveIntensity:0.6, depthWrite:false}); }
 function makeGhost(part){
-  const gh=part.build(); const gm=ghostMat();
+  const gh=part.build(true); const gm=ghostMat();
   gh.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; } });
   gh.position.copy(part.home); gh.userData={kind:'slot',id:part.id,gm,homeX:part.home.x,shake:0,fading:false}; return gh;
 }
@@ -238,7 +344,7 @@ function showGhostFor(id){
 }
 function updateLabels(){ pedestals.forEach((pd,i)=>{ if(pd&&pd.label) pd.label.visible=!placed[PARTS[i].id]; }); }
 function makePart(part,i){
-  const g=part.build(); g.scale.setScalar(STAGE_S);
+  const g=part.build(false); g.scale.setScalar(part.s||STAGE_S);
   const {x,z}=pedBaseXZ(i);
   const box=new THREE.Box3().setFromObject(g);
   const baseY=PED_TOP_Y+0.03-box.min.y;
@@ -260,7 +366,7 @@ function initAssembly(){
   updateLabels(); renderChecklist(); renderProg();
   syncCtrlbar();
   if(mode!=='ensamble') setMode('ensamble');
-  S.moveTo([3.8,2.8,4.8],[0.4,0.5,0.2],1.2);
+  S.moveTo([0.0,4.0,7.4],[-0.15,1.55,0.9],1.2);
   el('asmStatus').innerHTML='Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.';
 }
 
@@ -299,7 +405,7 @@ function finishAssembly(){
   el('asmStatus').innerHTML='<span style="color:var(--good)">✅ Sistema de tierra instalado.</span> Ahora mide el suelo y diseña el electrodo (arriba).';
   showToast('<span style="color:var(--good)">✅ Sistema instalado.</span><br><span style="color:var(--dim);font-size:11px">Cambia de modo arriba: mide la resistividad (Wenner), diseña el electrodo y resuelve el reto.</span>',4200);
   synth.beep(1046,0.14,0.06); setTimeout(()=>synth.beep(1568,0.16,0.06),150);
-  S.moveTo([3.8,2.8,4.8],[0.4,0.5,0.2],1.4); S.setCinematicIdle(true);
+  S.moveTo([0.0,4.0,7.4],[-0.15,1.55,0.9],1.4); S.setCinematicIdle(true);
 }
 
 /* ---------- picker: tocar pieza → tocar hueco ---------- */
@@ -336,7 +442,7 @@ const bCx=bCv.getContext('2d');
 const bTex=new THREE.CanvasTexture(bCv); bTex.colorSpace=THREE.SRGBColorSpace; bTex.minFilter=THREE.LinearFilter; bTex.generateMipmaps=false;
 const board=new THREE.Mesh(new THREE.PlaneGeometry(1.56,1.16),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
 board.position.set(0,0,0.015); boardG.add(board);
-boardG.position.set(-2.7,1.95,-0.2); boardG.rotation.y=0.3;
+boardG.position.set(-3.3,2.5,-0.2); boardG.rotation.y=0.3;
 scene.add(boardG);
 
 function line(x1,y1,x2,y2,color,w=3){ bCx.strokeStyle=color; bCx.lineWidth=w; bCx.beginPath(); bCx.moveTo(x1,y1); bCx.lineTo(x2,y2); bCx.stroke(); }
@@ -466,16 +572,16 @@ function refreshAll(){ updateTele(); if(mode!=='ensamble') drawBoard(); syncSoil
 
 /* ---------- máquina de modos ---------- */
 const MODE_META={
-  ensamble:{nombre:'Ensamble', cam:[[3.8,2.8,4.8],[0.4,0.5,0.2]]},
-  suelo:{nombre:'Suelo (Wenner)', cam:[[-1.0,2.2,2.5],[-2.7,1.9,-0.2]]},
-  electrodo:{nombre:'Electrodo', cam:[[-1.0,2.2,2.5],[-2.7,1.9,-0.2]]},
-  reto:{nombre:'Reto', cam:[[-1.0,2.2,2.5],[-2.7,1.9,-0.2]]},
+  ensamble:{nombre:'Ensamble', cam:[[0.0,4.0,7.4],[-0.15,1.55,0.9]]},
+  suelo:{nombre:'Suelo (Wenner)', cam:[[-1.5,2.75,2.5],[-3.3,2.45,-0.2]]},
+  electrodo:{nombre:'Electrodo', cam:[[-1.5,2.75,2.5],[-3.3,2.45,-0.2]]},
+  reto:{nombre:'Reto', cam:[[-1.5,2.75,2.5],[-3.3,2.45,-0.2]]},
 };
 const modes=['ensamble','suelo','electrodo','reto'];
 let mode='ensamble';
 function setMode(k){
   if(k!=='ensamble' && !simUnlocked){ showToast('<span style="color:var(--bad)">🔒 Termina el ensamble primero.</span>'); synth.beep(220,0.08,0.05); return; }
-  mode=k;
+  mode=k; boardG.visible=(k!=='ensamble');
   modes.forEach(m=>{ const b=el('m_'+m); if(b) b.classList.toggle('on',m===k); });
   el('p_mode').textContent=MODE_META[k].nombre;
   el('secEnsamble').style.display=k==='ensamble'?'':'none';
@@ -552,6 +658,8 @@ async function autoWennerTour(){
 
 /* ---------- lazo de animación ---------- */
 S.setAnimate((dt,t)=>{
+  medida.visible=!!(placed.telurometro&&placed.electrodosAux&&!tweens.length);
+  { const tg=groups.telurometro; if(tg&&tg.userData.tele){ const tt=tg.userData.tele.userData; const txt=simUnlocked?tf(wennerR(SOILS[WEN.soil].rho,WEN.a),2):'0.00'; if(tt._txt!==txt){ tt._txt=txt; tt.pinta(txt); } } }
   for(let i=tweens.length-1;i>=0;i--){ const w=tweens[i]; w.t=Math.min(1,w.t+dt/w.dur); const e=ease(w.t);
     w.obj.position.lerpVectors(w.fromP,w.toP,e); const s=w.fromS+(w.toS-w.fromS)*e; w.obj.scale.setScalar(s);
     if('roty0' in w) w.obj.rotation.y=w.roty0*(1-e);
@@ -562,7 +670,7 @@ S.setAnimate((dt,t)=>{
     const L=ease(g.userData.lift);
     g.position.y=g.userData.baseY + L*0.5 + (1-L)*0.02*Math.sin(t*1.8+g.userData.phase);
     if(sel) g.rotation.y+=dt*1.25; else g.rotation.y*=(1-Math.min(1,dt*5));
-    g.scale.setScalar(STAGE_S*(1+L*0.06)); });
+    g.scale.setScalar(stageS(id)*(1+L*0.06)); });
   ghostObjs.forEach(gh=>{ if(!gh.parent) return; const gm=gh.userData.gm;
     if(gh.userData.fading){ gm.opacity=Math.max(0,gm.opacity-dt*1.4); if(gm.opacity<=0){ gh.visible=false; scene.remove(gh); } return; }
     gm.opacity=0.24+0.14*Math.sin(t*3.2);

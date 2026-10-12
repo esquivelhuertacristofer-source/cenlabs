@@ -30,7 +30,7 @@
    o de núcleo.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[7.5,5.2,8.4],target:[0,1.1,0],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
+const S=createStage(mount,{cam:[4.6,3.5,6.0],target:[0,1.7,-0.3],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.7});
 
 /* ---------- §1 Modelo físico ---------- */
@@ -148,12 +148,10 @@ const MAT={
   frame:std({color:0x1c2a33,metalness:0.6,roughness:0.4}),
   board:std({color:0x0c141a,metalness:0.1,roughness:0.9}),
   bench:std({color:0x14202a,metalness:0.3,roughness:0.7}),
-  bus:std({color:0xffb703,metalness:0.8,roughness:0.3,emissive:0x3a2600,emissiveIntensity:0.3}),
   motorBody:std({color:0x2c3e46,metalness:0.7,roughness:0.35}),
   motorEnd:std({color:0x40555f,metalness:0.7,roughness:0.3}),
   shaft:std({color:0xb9c4c9,metalness:0.9,roughness:0.2}),
   dialBody:std({color:0x223038,metalness:0.6,roughness:0.4}),
-  dialArm:std({color:0x4fd1c5,metalness:0.5,roughness:0.3,emissive:0x0d3a35,emissiveIntensity:0.4}),
   loadBlock:std({color:0x5a3b3b,metalness:0.5,roughness:0.5}),
   panelBody:std({color:0x101a20,metalness:0.4,roughness:0.6}),
   cable:std({color:0x1a1a1a,metalness:0.2,roughness:0.8}),
@@ -328,47 +326,7 @@ function boardClick(u,v){
   synth.beep(420,0.08,0.05);
 }
 
-/* ---------- §5 Banco 3D modesto ---------- */
-// sin objeto físico de inspección detallada — el tablero y la telemetría llevan el peso pedagógico
-function cable(pts,mat){
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve,24,0.035,8,false);
-  return new THREE.Mesh(geo,mat);
-}
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=roundedBox(w,h,dp,MAT.panelBody,0.05); g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tx=new THREE.CanvasTexture(cv);
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshBasicMaterial({map:tx}));
-  screen.position.set(0,0,dp/2+0.005);
-  g.add(screen);
-  return {g,cv,cx,tx};
-}
-
-const boardG=new THREE.Group();
-const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
-board.position.z=0.07; board.castShadow=false;
-board.userData={title:'Tablero — curvas V del motor síncrono'};
-boardFrame.userData=board.userData;
-boardG.add(boardFrame,board);
-boardG.position.set(0,2.35,-1.55);
-S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=roundedBox(6.2,0.28,3.0,MAT.bench,0.08);
-mesa.position.set(0,0.85,0); mesa.receiveShadow=true;
-benchG.add(mesa);
-
-// barra de bus
-const busBar=new THREE.Mesh(new THREE.BoxGeometry(4.6,0.06,0.06),MAT.bus);
-busBar.position.set(0,1.85,-0.8);
-benchG.add(busBar);
-
-// motor síncrono (housing + tapas + eje + acople)
-const motG=new THREE.Group();
+/* ---------- §5 Banco 3D ---------- */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -379,65 +337,101 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
-   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
-   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
-   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
-   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
-   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
-const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:0.95,eje:0.62,aletas:16});
-/* EL ACOPLE de garras, que es por donde sale el par hacia la carga. */
-const couplingG=new THREE.Group();
-for(let i=0;i<6;i++){
-  const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.05),MAT.shaft);
-  spoke.rotation.x=(i/6)*Math.PI*2; couplingG.add(spoke);
+const MATP_SYN=Object.assign({},MATP,{aluminio:std({color:0x2c6a67,roughness:0.42,metalness:0.45})});   // el síncrono, pintado de verde
+const MATP_IND=Object.assign({},MATP,{aluminio:std({color:0x7a3b32,roughness:0.42,metalness:0.45})});   // la carga industrial, de rojo óxido
+function cable(pts,mat,r=0.03){
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,32,r,8,false),mat);
+  m.castShadow=true; return m;
 }
-couplingG.position.x=1.05;
-motG.add(maq,couplingG);
-motG.add(labelSprite('M~','#8ab4f8'));
-motG.position.set(-1.1,1.15,-0.05);
-motG.userData={act:'mot3d',title:'Motor síncrono trifásico'};
-maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
+function makeCanvasScreen(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=160;
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8;
+  return {cv,cx:cv.getContext('2d'),tx};
+}
+function tagAct(root,ud){ Object.assign(root.userData,ud); }
+function labelAt(g,txt,col,x,y,z){ const s=labelSprite(txt,col); s.position.set(x,y,z); g.add(s); return s; }
+function bancoInstrumento(w,h,d,ud,color){
+  const g=P3.instrumentoConPantalla(MATP,{ancho:w,alto:h,fondo:d,mandos:2,cw:256,visor:0.70,visorAlto:0.70*w/(1.6*h),color:color||0x56626b});
+  const o={g,cv:g.userData.cv,cx:g.userData.cx,tx:g.userData.tex,apoyo:g.userData.apoyo};
+  tagAct(g,ud); return o;
+}
+
+/* El pizarrón, COLGADO de un soporte y no flotando sobre la mesa. */
+const boardG=new THREE.Group();
+const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.z=0.07; board.castShadow=false;
+board.userData={title:'Tablero — curvas V del motor síncrono'};
+boardFrame.userData=board.userData;
+boardG.add(boardFrame,board);
+boardG.position.set(0,2.65,-1.55);
+S.scene.add(boardG);
+const standG=P3.soportePizarron(MATP,{ancho:3.2,alto:2.35,y:2.65});
+standG.position.set(0,0,-1.55); S.scene.add(standG);
+
+const benchG=new THREE.Group();
+const banco=P3.bancoPruebasMaquinas(MATP,{ancho:5.4,fondo:2.2,alto:0.95,respaldo:0.42});
+benchG.add(banco);
+const TOP=0.95, BUS=banco.userData.bus;
+const placa=P3.placaBaseRanurada(MATP,{largo:3.5,ancho:1.5,ranuras:3});
+placa.position.set(-0.55,TOP,0.05); benchG.add(placa);
+const AXY=TOP+0.07+0.533, AXZ=-0.25;
+const mCab=std({color:0x15181c,metalness:0.2,roughness:0.75});
+
+// motor síncrono: la máquina real, sobre la placa base
+const motG=new THREE.Group();
+const maq=P3.maquinaElectrica(MATP_SYN,{d:0.84,largo:0.95,eje:0.62,aletas:16});
+motG.add(maq);
+labelAt(motG,'M~','#8ab4f8',0,0.95,0);
+const XM=-1.5;
+motG.position.set(XM,AXY,AXZ);
+tagAct(motG,{act:'mot3d',title:'Motor síncrono trifásico'});
 benchG.add(motG);
 
-// reóstato de campo (control If)
+// el acople y el freno de Foucault que le pone la carga mecánica P
+const XC=XM+1.118;
+const couplingG=P3.acopleElastico(MATP,{d:0.26,largo:0.36,dEje:0.10});
+couplingG.position.set(XC,AXY,AXZ); benchG.add(couplingG);
+const freno=P3.dinamometroFreno(MATP,{d:0.66,largo:0.56,eje:0.26,base:0.203});
+const frenoG=new THREE.Group(); frenoG.add(freno);
+frenoG.position.set(XC+0.71,AXY,AXZ);
+labelAt(frenoG,'P','#e0c38a',0,0.85,0);
+tagAct(frenoG,{title:'Freno de carga mecánica (P)'});
+benchG.add(frenoG);
+
+// reóstato de campo (control de If): tubo cerámico con su corredera
 const dialG=new THREE.Group();
-const dialBody=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.14,24),MAT.dialBody);
-dialBody.rotation.x=Math.PI/2; dialBody.castShadow=true;
-const dialArm=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.045,0.045),MAT.dialArm);
-dialArm.position.set(0.11,0,0.09);
-dialG.add(dialBody,dialArm);
-dialG.add(labelSprite('If','#4fd1c5'));
-dialG.position.set(0.35,1.32,-0.05);
-dialG.userData={act:'rheostat3d',title:'Reóstato de campo (control de If)'};
-dialBody.userData=dialG.userData;
+const reo=P3.reostatoTubular(MATP,{largo:0.80,d:0.16});
+reo.position.y=0.17; dialG.add(reo);
+dialG.position.set(-1.35,TOP,0.78);
+labelAt(dialG,'If','#4fd1c5',0,0.62,0);
+tagAct(dialG,{act:'rheostat3d',title:'Reóstato de campo (control de If)'});
 benchG.add(dialG);
 
-// carga industrial (bloque, visibilidad conmutada)
+// carga industrial: un motor asíncrono más, que cuelga del mismo bus
 const loadG=new THREE.Group();
-const loadBox=roundedBox(0.7,0.5,0.5,MAT.loadBlock,0.06);
-loadG.add(loadBox);
-loadG.add(labelSprite('IND','#e08a8a'));
-loadG.position.set(1.9,1.2,-0.05);
-loadG.userData={act:'load3d',title:'Carga industrial (comparte el bus)'};
-loadBox.userData=loadG.userData;
+const placaL=P3.placaBaseRanurada(MATP,{largo:1.5,ancho:0.9,ranuras:2}); loadG.add(placaL);
+const maqL=P3.maquinaElectrica(MATP_IND,{d:0.50,largo:0.58,eje:0.30,aletas:12});
+maqL.position.set(0,0.07+0.3175,0); loadG.add(maqL);
+labelAt(loadG,'IND','#e08a8a',0,0.85,0);
+loadG.position.set(2.0,TOP,-0.50);
+tagAct(loadG,{act:'load3d',title:'Carga industrial (comparte el bus)'});
 benchG.add(loadG);
 
-const panelD=makeDisplayBox(1.0,0.6,0.08,256,160);
-panelD.g.position.set(-2.35,1.6,0.7);
-panelD.g.userData={act:'paneld3d',title:'Analizador de red — Ia, Q'};
-benchG.add(panelD.g);
+// instrumentos de banco: analizador de red y medidor de factor de potencia
+const panelD=bancoInstrumento(0.9,0.6,0.38,{act:'paneld3d',title:'Analizador de red — Ia, Q'});
+panelD.g.position.set(0.35,TOP+panelD.apoyo,0.82); benchG.add(panelD.g);
+const meter=bancoInstrumento(0.9,0.6,0.38,{act:'meter3d',title:'Medidor de factor de potencia'});
+meter.g.position.set(1.45,TOP+meter.apoyo,0.82); benchG.add(meter.g);
 
-const meter=makeDisplayBox(1.0,0.6,0.08,256,160);
-meter.g.position.set(2.35,1.6,0.7);
-meter.g.userData={act:'meter3d',title:'Medidor de factor de potencia'};
-benchG.add(meter.g);
-
-benchG.add(
-  cable([new THREE.Vector3(-2.0,1.85,-0.8),new THREE.Vector3(-1.1,1.7,-0.4),new THREE.Vector3(-1.1,1.4,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(0.35,1.85,-0.8),new THREE.Vector3(0.35,1.6,-0.4),new THREE.Vector3(0.2,1.4,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(1.9,1.85,-0.8),new THREE.Vector3(1.9,1.55,-0.4),new THREE.Vector3(1.9,1.45,-0.05)],MAT.cable),
-);
+// los tres cables del bus: motor síncrono, reóstato de campo y carga industrial
+{ const zb=BUS.z, yb=BUS.y[0];
+  benchG.add(cable([new THREE.Vector3(XM,AXY+0.58,AXZ),new THREE.Vector3(XM,AXY+0.75,AXZ-0.35),new THREE.Vector3(XM,yb-0.12,zb+0.20),new THREE.Vector3(XM,yb,zb+0.03)],mCab,0.032));
+  benchG.add(cable([new THREE.Vector3(-1.35+0.42,TOP+0.28,0.78),new THREE.Vector3(-1.1,TOP+0.40,0.2),new THREE.Vector3(-0.9,yb-0.10,zb+0.3),new THREE.Vector3(-0.85,yb,zb+0.03)],mCab,0.026));
+  /* el cable de la carga cuelga de SU grupo: si la carga se quita del bus, se va con ella */
+  loadG.add(cable([new THREE.Vector3(0.05,0.7875,0),new THREE.Vector3(0.05,0.95,-0.2),new THREE.Vector3(0,yb-0.12-TOP,zb+0.2+0.5),new THREE.Vector3(-0.05,yb-TOP,zb+0.03+0.5)],mCab,0.032));
+}
 
 benchG.traverse(o=>{ if(o.isMesh&&o!==board){ o.castShadow=true; o.receiveShadow=true; } });
 S.scene.add(benchG);
@@ -491,7 +485,7 @@ function drawMeter3D(){
 function refreshBenchDyn(){
   drawPanelD(); drawMeter3D();
   const t=(ifPct-IF_MIN)/(IF_MAX-IF_MIN);
-  dialArm.rotation.y=-Math.PI*0.66+t*Math.PI*1.32;
+  reo.userData.pone(t);
   loadG.visible=(loadKey!=='ninguna');
 }
 
@@ -585,9 +579,9 @@ function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add
 
 /* ---------- §8 Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[7.5,5.2,8.4],[0,1.1,0]],mision:'EXPLORA · mueve el reóstato de If y cambia la carga mecánica P. Observa cómo Ia baja hasta un mínimo y vuelve a subir.'},
-  comparar:{nombre:'Comparar',cam:[[0,4.4,9.6],[0,1.6,-0.6]],mision:'COMPARA · las tres curvas V se dibujan juntas. Nota que el mínimo de cada curva ocurre en un If distinto, pero siempre en FP unitario.'},
-  reto:{nombre:'Reto',cam:[[3.4,3.4,7.2],[0,1.4,-0.4]],mision:'RETO · resuelve el caso misterioso: calcula a mano o ajusta el reóstato y lee el medidor, según el tipo de reto.'},
+  explora:{nombre:'Explora',cam:[[4.6,3.5,6.0],[0,1.7,-0.3]],mision:'EXPLORA · mueve el reóstato de If y cambia la carga mecánica P. Observa cómo Ia baja hasta un mínimo y vuelve a subir.'},
+  comparar:{nombre:'Comparar',cam:[[0,3.4,8.2],[0,2.1,-0.8]],mision:'COMPARA · las tres curvas V se dibujan juntas. Nota que el mínimo de cada curva ocurre en un If distinto, pero siempre en FP unitario.'},
+  reto:{nombre:'Reto',cam:[[3.0,3.0,5.6],[0,1.7,-0.4]],mision:'RETO · resuelve el caso misterioso: calcula a mano o ajusta el reóstato y lee el medidor, según el tipo de reto.'},
 };
 
 function tolText(){
@@ -877,6 +871,7 @@ async function runAuto(){
 S.setAnimate(()=>{
   const r=motorPQ(efFromIf(ifPct),psync);
   couplingG.rotation.x += 0.004 + 0.01*(r?r.IaMag/IA_RATED:0.1);
+  maq.userData.gira(couplingG.rotation.x); freno.userData.gira(couplingG.rotation.x);
 });
 
 ['m_explora','m_comparar','m_reto'].forEach(id=>{

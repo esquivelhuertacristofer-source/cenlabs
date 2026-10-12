@@ -479,8 +479,14 @@ const ABS={ slipOptMin:0.10, slipOptMax:0.20 };
 function slipRatio(vVehicle,vWheel){ return vVehicle<=0?0:Math.max(0,(vVehicle-vWheel)/vVehicle); }
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.2,3.4,6.0],target:[0,1.2,0],bgTop:'#12161c',bgBot:'#04060a',bloom:0.42});
+const CAM_FRENADO={pos:[4.1,2.4,2.9],tgt:[-0.45,0.9,-0.2]};
+const S=createStage(mount,{cam:[3.9,3.3,3.4],target:[0.15,0.95,-0.35],minD:3,maxD:16,bgTop:'#12161c',bgBot:'#04060a',bloom:0.16});
 const {scene}=S;
+// El marco compartido trae un foco naranja de contraluz que, sobre un suelo
+// pulido, dejaba un charco naranja sin causa física bajo el montaje: aquí es un
+// contraluz frío, y el bloom sólo toma lo que de verdad brilla.
+scene.traverse(o=>{ if(o.isSpotLight){ o.color.setHex(0xbfd2ea); o.intensity=16; } });
+S.bloom.threshold=0.96;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
   tire:std({color:0x111417,roughness:0.9,metalness:0}),
@@ -499,59 +505,126 @@ const MAT={
   llanta:std({color:0x9fa8b2,roughness:0.34,metalness:0.92}),
   negro:std({color:0x1e2227,roughness:0.62,metalness:0.15}),
   cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  // El banco y la esquina de coche que se monta sobre él.
+  bastidor:std({color:0x3b4651,roughness:0.52,metalness:0.6}),
+  banco:std({color:0x1f262d,roughness:0.55,metalness:0.5}),
+  fundicion:std({color:0x555b63,roughness:0.74,metalness:0.55}),
+  amort:std({color:0x1b1f25,roughness:0.5,metalness:0.55}),
+  muelle:std({color:0x2f7fd0,roughness:0.42,metalness:0.35}),
+  tubo:std({color:0xb9c0c7,roughness:0.34,metalness:0.9}),
 };
 // La biblioteca de piezas trabaja con nombres de material, no con los de este
 // laboratorio: aquí se traducen una vez.
 const MATP={aluminio:MAT.llanta, acero:MAT.hub, hierro:MAT.disc, cromo:MAT.hub,
   negro:MAT.negro, goma:MAT.tire, friccion:MAT.friccion, cobre:MAT.cobre,
   ceramica:MAT.sensor, blanco:MAT.hub};
+const MATK={...MATP, hierro:MAT.fundicion, bastidor:MAT.bastidor, amort:MAT.amort, muelle:MAT.muelle};
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
-const group=new THREE.Group(); group.position.set(0,1.1,0); scene.add(group);
+const group=new THREE.Group(); scene.add(group);
+/* Cotas de la esquina (el eje de la rueda es X; hacia −X queda el exterior del
+   coche y hacia −Z el frente). La rueda queda levantada del banco, como en un
+   bastidor de pruebas, y todo lo demás se cuelga de ella.                       */
+const YC=1.06, XW=-1.40, XD=-1.31, XK=-1.12, FX=-0.12;
+
+/* ---- EL BANCO ----------------------------------------------------------
+   Antes todo flotaba sobre el suelo del escenario. Ahora hay una bandeja con
+   su marco, dos postes con la viga de arriba (la «torre» del amortiguador) y
+   el larguero de abajo donde giran los casquillos del brazo: la esquina del
+   coche está colgada de un bastidor, no del aire.                              */
+const plinth=P3.plataformaBanco({...MATP,bastidor:MAT.banco},{ancho:3.9,fondo:2.2,alto:0.14});
+plinth.position.set(-0.05,0.14,-0.45); group.add(plinth);
+const caja=(w,h,d,m,x,y,z)=>{ const b=roundedBox(w,h,d,m,0.10); b.position.set(x,y,z); group.add(b); return b; };
+// Un poste trasero entero, con la viga que sale de él hasta la torre; delante, sólo
+// un apoyo bajo para el extremo del pasador, para no tapar la rueda.
+caja(0.13,2.09-0.15,0.13,MAT.bastidor,FX,(0.15+2.09)/2,-0.72);
+caja(0.12,0.12,0.92,MAT.bastidor,FX,2.03,-0.26);                       // viga superior
+caja(0.10,0.56-0.15,0.10,MAT.bastidor,FX,(0.15+0.56)/2,0.52);     // apoyo del pasador
+for(const [x,z] of [[FX,-0.72],[FX,0.52]]){
+  caja(0.36,0.03,0.36,MAT.bastidor,x,0.165,z);
+  for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+    const t=P3.tornilloHex(MATP,{d:0.035,largo:0.02}); t.position.set(x+dx*0.13,0.18,z+dz*0.13); group.add(t); }
+}
+const pasador=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.034,1.42,16),MAT.hub);
+pasador.rotation.x=Math.PI/2; pasador.position.set(FX,0.50,-0.05); pasador.castShadow=true; group.add(pasador);
+// La placa de la torre: de ella cuelga la copela del amortiguador.
+const torre=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-1.22,-0.12],[0.0,-0.12],[0.0,0.12],[-1.22,0.12]],0.05,4),
+  {huecos:[P3.circulo(-1.005,0,0.03,12)],espesor:0.04,bisel:0.006}),MAT.bastidor);
+torre.rotation.x=-Math.PI/2; torre.position.y=2.02; torre.castShadow=true; group.add(torre);
+for(let i=0;i<3;i++){ const a=i/3*Math.PI*2+0.5, t=P3.tornilloHex(MATP,{d:0.032,largo:0.05,arandela:false});
+  t.position.set(-1.005+Math.cos(a)*0.055,2.04,Math.sin(a)*0.055); group.add(t); }
+
+/* ---- LA MANGUETA, EL BRAZO Y EL AMORTIGUADOR ---------------------------- */
+const knuckle=P3.mangueta(MATK,{}); knuckle.position.set(XK,YC,0); group.add(knuckle);
+const brazo=P3.brazoSuspension({...MATK,bastidor:MAT.bastidor},{largo:FX-XK,ancho:0.90}); brazo.position.set(XK,0.50,0); group.add(brazo);
+const strut=P3.amortiguadorMuelle(MATK,{largo:0.75}); strut.position.set(-1.005,1.30,0); group.add(strut);
+// El brazo de dirección: la barra de acoplamiento va a la cremallera, con su fuelle.
+const barra=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,1.0,12),MAT.hub);
+barra.rotation.z=Math.PI/2; barra.position.set((XK+FX)/2,YC-0.11,-0.36); barra.castShadow=true; group.add(barra);
+const fuelle=new THREE.Mesh(P3.revolucion([[0,0],[0.040,0],[0.058,0.03],[0.040,0.06],[0.058,0.09],[0.040,0.12],[0.058,0.15],
+  [0.040,0.18],[0.058,0.21],[0.040,0.24],[0,0.24]],{seg:20}),MAT.negro);
+fuelle.rotation.z=-Math.PI/2; fuelle.position.set(FX,YC-0.11,-0.36); group.add(fuelle);
+const crem=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.34,18),MAT.modulator);
+crem.rotation.z=Math.PI/2; crem.position.set(FX+0.24+0.17,YC-0.11,-0.36); group.add(crem);
+caja(0.05,YC-0.11-0.14,0.18,MAT.bastidor,FX+0.50,(YC-0.11+0.14)/2,-0.36);   // el apoyo de la cremallera
 
 /* ---- LA RUEDA ----------------------------------------------------------
    Antes era un toro liso y un cilindro. Una rueda es lo que se BLOQUEA en este
    laboratorio, así que tiene que verse que rueda: dibujo con tacos, llanta con
    radios, buje con sus cinco espárragos. Y el dibujo no es decoración —la
    huella del neumático es de donde sale el rozamiento del que va todo—.        */
-const wheelGrp=new THREE.Group(); wheelGrp.position.set(-1.4,0,0); group.add(wheelGrp);
-const rueda=P3.neumatico(MATP,{dExt:1.48,dLlanta:0.86,ancho:0.42,tacos:30,radios:5});
+const wheelGrp=new THREE.Group(); wheelGrp.position.set(XW,YC,0); group.add(wheelGrp);
+const rueda=P3.neumatico(MATP,{dExt:1.36,dLlanta:0.86,ancho:0.36,tacos:30,radios:5});
 wheelGrp.add(rueda);
 const tire=rueda;
+
+/* ---- EL BUJE Y LA RUEDA FÓNICA ------------------------------------------
+   El buje (brida, espárragos y eje) gira con la rueda pero NO se va con ella
+   cuando se despieza: se queda en la mangueta. La rueda fónica va en el extremo
+   de dentro, justo donde la lee el captador. Los dientes SON la señal: cada uno
+   da un pulso, y la cuenta de pulsos por vuelta es lo que fija la resolución
+   del sistema. Un aro liso no da ninguna señal.                                */
+const hubSpin=new THREE.Group(); hubSpin.position.set(0,YC,0); group.add(hubSpin);
 const hub=new THREE.Mesh(P3.revolucion(
-  [[0,-0.11],[0.28,-0.11],[0.30,-0.06],[0.30,0.08],[0.24,0.13],[0,0.13]],{seg:26}),MAT.hub);
-hub.rotation.z=Math.PI/2; hub.castShadow=true; wheelGrp.add(hub);
+  [[0,0],[0.15,0],[0.15,0.03],[0.075,0.04],[0.062,0.04],[0.062,0.43],[0.072,0.45],[0.072,0.48],[0,0.48]],{seg:30}),MAT.hub);
+hub.rotation.z=-Math.PI/2; hub.position.x=-1.43; hub.castShadow=true; hubSpin.add(hub);
+hubSpin.add(P3.corona(MATP,{r:0.10,n:5,d:0.03,largo:0.07,y:-1.43,eje:'x'}));
+const toneG=P3.ruedaFonica(MATP,{d:0.38,dientes:48,alto:0.036,ancho:0.05});
+toneG.position.x=-1.03; hubSpin.add(toneG);
+const tone=toneG;
 
 /* ---- EL DISCO ----------------------------------------------------------
    VENTILADO: dos pistas separadas por aletas radiales, con su campana. Que sea
    ventilado no es estética —es la razón de que un disco aguante una bajada de
-   puerto— y un cilindro liso enseña justo lo contrario.                        */
-const discGrp=new THREE.Group(); discGrp.position.set(-1.4,0,0); group.add(discGrp);
-const discoP=P3.discoFreno(MATP,{dExt:1.06,dInt:0.58,espesor:0.13,nAletas:34,
-  campana:true,perforado:10});
-discoP.rotation.z=Math.PI/2; discGrp.add(discoP);
+   puerto— y un cilindro liso enseña justo lo contrario. La campana mira hacia
+   FUERA (a la rueda), que es por donde se monta.                              */
+const discGrp=new THREE.Group(); discGrp.position.set(XD,YC,0); group.add(discGrp);
+const spinD=new THREE.Group(); discGrp.add(spinD);
+const discoP=P3.discoFreno(MATP,{dExt:0.60,dInt:0.32,espesor:0.09,nAletas:30,
+  campana:true,perforado:8});
+discoP.rotation.z=-Math.PI/2; spinD.add(discoP);
 const disc=discoP;
 
 /* ---- LA MORDAZA --------------------------------------------------------
    Flotante, en forma de C: abraza el disco por fuera y sus pistones empujan
    sólo por dentro. La de fuera aprieta porque la mordaza se DESLIZA, que es
-   precisamente lo que se agarrota en una mordaza vieja.                        */
-const caliper=P3.mordaza(MATP,{dDisco:1.06,espesorDisco:0.13,ancho:0.34,nPistones:2});
+   precisamente lo que se agarrota en una mordaza vieja. Va atornillada a la
+   mangueta por detrás del eje (+Z) y con la ranura mirando al centro del disco. */
+const calPivot=new THREE.Group(); calPivot.position.set(XD,YC,0); calPivot.rotation.x=0.78; group.add(calPivot);
+const caliper=P3.mordaza(MATP,{dDisco:0.66,espesorDisco:0.09,ancho:0.22,nPistones:2});
 caliper.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.caliper;});
-caliper.position.set(0,0.50,0); caliper.rotation.y=Math.PI/2;
-discGrp.add(caliper);
+caliper.position.set(0,0.272,0); caliper.rotation.set(Math.PI,-Math.PI/2,0);
+calPivot.add(caliper);
+// El portapinzas: el taco que une la mordaza con las orejas de la mangueta.
+caja(0.035,0.22,0.24,MAT.fundicion,-1.177,YC+0.12,0.21);
 
-/* ---- LA MEDIDA ---------------------------------------------------------
-   La rueda fónica y su captador. Los dientes SON la señal: cada uno da un
-   pulso, y la cuenta de pulsos por vuelta es lo que fija la resolución del
-   sistema. Un aro liso no da ninguna señal y deja el laboratorio sin explicar
-   de dónde sale la medida que compara con la velocidad del coche.              */
-const toneG=P3.ruedaFonica(MATP,{d:0.72,dientes:48,alto:0.05,ancho:0.05});
-wheelGrp.add(toneG);
-const tone=toneG;
+/* ---- LA MEDIDA --------------------------------------------------------- */
 const wssG=P3.captador(MATP,{d:0.11,largo:0.34});
-wssG.position.set(-1.40,0.44,0); wssG.rotation.z=Math.PI;
+{ const phi=-0.80, u=V3(0,Math.cos(phi),Math.sin(phi)), d0=0.19+0.02+0.17;
+  wssG.rotation.x=phi; wssG.position.set(-1.03,YC+u.y*d0,u.z*d0); }
 group.add(wssG);
 const wss=wssG;
+caja(0.12,0.035,0.10,MAT.fundicion,-1.075,YC+0.245,-0.215);               // la escuadra del captador
 
 /* ---- EL GRUPO HIDRÁULICO ----------------------------------------------
    No es una caja: es un bloque de aluminio con OCHO electroválvulas —una de
@@ -560,19 +633,50 @@ const wss=wssG;
    entiende qué modula; sin ver la bomba, adónde vuelve el líquido que libera.  */
 const modulator=P3.grupoABS(MATP,{ancho:0.66,alto:0.40,fondo:0.46,valvulas:8,canales:4});
 modulator.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.modulator;});
-modulator.position.set(1.2,0.7,0); group.add(modulator);
+modulator.position.set(0.35,0.64,-1.05); group.add(modulator);
+// Las otras tres tuberías de freno, con su tapón: salen hacia las demás ruedas.
+for(let i=1;i<4;i++){
+  const xr=(i-1.5)*0.132;
+  const ramal=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(xr,-0.28,0.046),V3(xr,-0.35,0.06),
+    V3(xr,-0.37,0.20),V3(xr,-0.37,0.26)]),20,0.012,8,false),MAT.tubo);
+  modulator.add(ramal);
+  const tap=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,6),MAT.tubo);
+  tap.rotation.x=Math.PI/2; tap.position.set(xr,-0.37,0.275); modulator.add(tap); }
+// El soporte elástico del bloque: dos escuadras atornilladas a la bandeja.
+for(const sx of [-1,1]) caja(0.05,0.30,0.30,MAT.bastidor,0.35+sx*0.32,0.29,-1.05);
 
 /* ---- LA ECU ------------------------------------------------------------ */
 const ecu=P3.cajaMando(MATP,{ancho:0.58,alto:0.32,fondo:0.52,aletas:11,pines:10});
 ecu.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.ecu;});
-ecu.position.set(2.1,0.55,0); group.add(ecu);
-// mangueras/cables
-const line1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.26,0.66,0.12),new THREE.Vector3(0.1,0.66,0.05),new THREE.Vector3(0.94,0.50,0.06)),20,0.025,8),MAT.modulator.clone());
-group.add(line1);
-const wire1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.40,0.64,0),new THREE.Vector3(0.3,1.02,0),new THREE.Vector3(1.88,0.50,0.30)),20,0.018,8),MAT.wire);
-group.add(wire1);
-const wire2=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(1.2,0.9,0),new THREE.Vector3(1.7,0.9,0),new THREE.Vector3(2.1,0.75,0)),20,0.018,8),MAT.wire);
-group.add(wire2);
+ecu.position.set(1.40,0.52,-1.05); group.add(ecu);
+for(const sx of [-1,1]) caja(0.05,0.24,0.40,MAT.bastidor,1.40+sx*0.27,0.27,-1.05);
+
+/* ---- LAS TUBERÍAS Y EL MAZO --------------------------------------------
+   Del racor del bloque sale la tubería rígida de acero, sube por el poste hasta
+   el soporte y de ahí el latiguillo de goma —que es el único tramo que se puede
+   mover— llega a la mordaza. Los tramos que dependen de una pieza que se
+   despieza se recalculan; el latiguillo, anclado a bastidor y mordaza, no.      */
+const tuboFreno=new THREE.Mesh(new THREE.BufferGeometry(),MAT.tubo); tuboFreno.castShadow=true; group.add(tuboFreno);
+const mazoABS=new THREE.Mesh(new THREE.BufferGeometry(),MAT.wire); group.add(mazoABS);
+const cableCap=new THREE.Mesh(new THREE.BufferGeometry(),MAT.wire); group.add(cableCap);
+const phiW=-0.80, sw0=wssG.position.clone().add(V3(0,Math.cos(phiW),Math.sin(phiW)).multiplyScalar(0.19));
+function tubea(m,pts,r,seg){ m.geometry.dispose(); m.geometry=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),seg||48,r,10,false); }
+function actualizaLineas(){
+  const m=modulator.position, e=ecu.position, r0=V3(m.x-0.198,m.y-0.28,m.z+0.046);
+  tubea(tuboFreno,[r0,V3(r0.x,0.31,r0.z+0.08),V3(r0.x-0.04,0.27,-0.62),V3(FX+0.14,0.27,-0.15),V3(FX+0.14,0.27,0.34),
+    V3(FX+0.085,0.33,0.52),V3(FX+0.085,0.50,0.52),V3(FX+0.085,0.62,0.52)],0.013,72);
+  tubea(mazoABS,[V3(m.x+0.34,m.y-0.02,m.z+0.05),V3((m.x+e.x)/2,Math.min(m.y,e.y)-0.16,m.z+0.16),V3(e.x-0.30,e.y,e.z+0.05)],0.028,24);
+  tubea(cableCap,[sw0,sw0.clone().add(V3(0,0.07,-0.06)),V3(-0.70,1.55,-0.40),V3(-0.25,1.34,-0.50),V3(0.45,1.00,-0.70),
+    V3(e.x-0.12,e.y+0.05,-0.62),V3(e.x,e.y-0.10,e.z+0.50),V3(e.x,e.y-0.032,e.z+0.405)],0.016,70);
+}
+actualizaLineas();
+// El latiguillo flexible y el soporte donde acaba la tubería rígida.
+const latiguillo=P3.manguera({...MATP,goma:MAT.negro,acero:MAT.tubo},{r:0.026,seg:60,
+  puntos:[V3(FX+0.085,0.64,0.52),V3(FX-0.25,0.86,0.52),V3(-0.70,1.02,0.50),V3(-1.08,1.24,0.44),V3(-1.17,1.32,0.28)]});
+group.add(latiguillo);
+caja(0.08,0.04,0.12,MAT.bastidor,FX+0.04,0.58,0.52);
+const uni=P3.tornilloHex({acero:MAT.tubo},{d:0.034,largo:0.01,arandela:false}); uni.position.set(FX+0.085,0.62,0.52); group.add(uni);
+const homesPos={m:modulator.position.x,e:ecu.position.x};
 
 /* ---- inspección por clic ---- */
 const parts=[
@@ -613,9 +717,10 @@ window.__labDebug={
 const synth=makeSynth({type:'sawtooth',type2:'square',filterFreq:600,Q:6});
 
 S.setAnimate((dt,t)=>{
+  const mx0=modulator.position.x, ex0=ecu.position.x;
   const ex=exploded?1:0;
   wheelGrp.position.x=THREE.MathUtils.lerp(wheelGrp.position.x,homes.wheel.x-ex*1.15,0.1);
-  discGrp.position.x=THREE.MathUtils.lerp(discGrp.position.x,homes.disc.x+ex*0.55,0.1);
+  discGrp.position.x=THREE.MathUtils.lerp(discGrp.position.x,homes.disc.x-ex*0.55,0.1);      // el disco sale hacia FUERA, por donde se quita
   modulator.position.x=THREE.MathUtils.lerp(modulator.position.x,homes.modulator.x+ex*0.4,0.1);
   ecu.position.x=THREE.MathUtils.lerp(ecu.position.x,homes.ecu.x+ex*0.4,0.1);
 
@@ -635,7 +740,10 @@ S.setAnimate((dt,t)=>{
     set('t_vveh',vVehicle.toFixed(1)+' m/s'); set('t_vwheel',vWheel.toFixed(1)+' m/s'); set('t_slip',(slip*100).toFixed(0)+'%');
     synth.update(80+vVehicle*8, modActive?260:0, modActive?0.045:0.018, 500+vVehicle*20);
     if(vVehicle<0.3){running=false;synth.update(0,0,0);S.setCinematicIdle(false);const b=document.getElementById('btnRun');if(b){b.classList.remove('on');b.textContent='▶ Simular frenado';}}
-  } else if(!braking){ ang+=dt*1.5; wheelGrp.rotation.x=ang; tone.rotation.x=ang; synth.update(0,0,0); }
+  } else if(!braking){ ang+=dt*1.5; wheelGrp.rotation.x=ang; synth.update(0,0,0); }
+  // El buje, la rueda fónica y el disco giran con la rueda; las tuberías siguen a los bloques que se despiezan.
+  spinD.rotation.x=hubSpin.rotation.x=wheelGrp.rotation.x;
+  if(Math.abs(modulator.position.x-mx0)>1e-5||Math.abs(ecu.position.x-ex0)>1e-5) actualizaLineas();
 });
 S.start();
 
@@ -669,7 +777,7 @@ document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.
 document.getElementById('btnRun').onclick=(e)=>{
   synth.init(); synth.resume();
   running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular frenado';
-  if(running){ S.moveTo([4.2,2.4,4.8],[0.2,0.5,0],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
+  if(running){ S.moveTo(CAM_FRENADO.pos,CAM_FRENADO.tgt,1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
 };
 document.getElementById('btnReset').onclick=()=>{running=false;braking=false;vVehicle=20;vWheel=20;pulseT=0;synth.update(0,0,0);S.setCinematicIdle(false);document.getElementById('btnRun').classList.remove('on');document.getElementById('btnRun').textContent='▶ Simular frenado';};
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */

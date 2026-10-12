@@ -5513,3 +5513,1923 @@ export function enchufeJ1962(mat, opts = {}) {
   g.userData = { ancho, alto, largo, salida: _V(0, 0, largo + 0.16) };
   return g;
 }
+
+/* ==========================================================================
+   §17-C · BANCO DE PRUEBAS DE MÁQUINAS ELÉCTRICAS
+   La bancada, la placa base ranurada, el variador mural, el servomotor, el
+   dinamómetro de freno, el acople elástico, el volante, el banco de resistencias
+   de frenado, el contactor modular, el reóstato tubular y la tarjeta de sensores
+   Hall. Es lo que comparten los laboratorios de D5 (variador V/f, curvas V,
+   conmutación BLDC, frenado, ensayos del circuito equivalente): hasta ahora cada
+   uno ponía una losa flotante con cuatro cajas de colores encima.
+
+   Convenio: las máquinas giratorias tienen su eje en +X y el origen en el eje;
+   las cajas de mando miran a +Z y tienen su origen en el centro de su base.
+   ========================================================================== */
+
+const _bmMat = (color, rough = 0.5, metal = 0.2, extra = {}) =>
+  new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
+const _bmCaja = (w, h, d, m, x = 0, y = 0, z = 0) => {
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; return b;
+};
+const _bmCil = (r, h, m, seg = 20, r2 = null) => {
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 == null ? r : r2, h, seg), m);
+  c.castShadow = true; return c;
+};
+const _bmRect = (w, h, r = 0.02) =>
+  contornoRedondeado([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], r, 3);
+/** Una plancha con contorno redondeado, en el plano XY y con su espesor en Z. */
+const _bmPlancha = (w, h, esp, m, r = 0.02, bisel = 0.006, huecos = []) => {
+  const p = new THREE.Mesh(extruido(_bmRect(w, h, r), { espesor: esp, bisel, huecos }), m);
+  p.castShadow = p.receiveShadow = true; return p;
+};
+/** Un rótulo de texto en un plano: placas de características, serigrafía. */
+function _bmRotulo(texto, w, h, fondo = '#e9edf0', tinta = '#14181e', px = 256) {
+  const cv = document.createElement('canvas');
+  cv.width = px; cv.height = Math.max(16, Math.round(px * h / w));
+  const c = cv.getContext('2d');
+  c.fillStyle = fondo; c.fillRect(0, 0, cv.width, cv.height);
+  c.fillStyle = tinta; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const lineas = String(texto).split('\n');
+  const fs = Math.min(cv.height / (lineas.length + 0.6), cv.width / Math.max(3, Math.max(...lineas.map(l => l.length)) * 0.62));
+  c.font = `bold ${fs}px system-ui, sans-serif`;
+  lineas.forEach((l, i) => c.fillText(l, cv.width / 2, cv.height * (i + 1) / (lineas.length + 1)));
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, color: 0xb4bbc0, roughness: 0.85, metalness: 0 }));
+  return m;
+}
+
+/**
+ * BANCADA de laboratorio de máquinas: tablero con canto, delantal, cuatro patas
+ * de tubo con sus niveladores, estante inferior y —opcional— el RESPALDO con su
+ * barra de distribución sobre aisladores, que es donde en un taller se cuelgan
+ * las tomas de fuerza. Origen en el suelo, centrada. `userData.topY` es la cara
+ * superior del tablero; `userData.bus` da la altura de las barras y su z.
+ */
+export function bancoPruebasMaquinas(mat, opts = {}) {
+  const { ancho = 5.4, fondo = 2.2, alto = 0.95, grosor = 0.07, respaldo = 0.5, color = 0x2e3d49 } = opts;
+  const g = new THREE.Group();
+  const mTop = mat.mesa || _bmMat(color, 0.70, 0.08);
+  const mFe = _bmMat(0x3b4650, 0.58, 0.40);
+  const mAc = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85);
+  const mGo = mat.goma || _bmMat(0x14181e, 0.8, 0.02);
+  const top = new THREE.Mesh(extruido(_bmRect(ancho, fondo, 0.06), { espesor: grosor, bisel: 0.012 }), mTop);
+  top.rotation.x = -Math.PI / 2; top.position.y = alto - grosor / 2; top.castShadow = top.receiveShadow = true; g.add(top);
+  // el canto de acero que protege el tablero: un perfil en C por todo el perímetro
+  const hC = grosor * 0.55, yC = alto - grosor + hC / 2 - 0.004;
+  for (const s of [-1, 1]) {
+    g.add(_bmCaja(ancho + 0.012, hC, 0.012, mAc, 0, yC, s * (fondo / 2 + 0.003)));
+    g.add(_bmCaja(0.012, hC, fondo + 0.012, mAc, s * (ancho / 2 + 0.003), yC, 0));
+  }
+  // el delantal que rigidiza el tablero por debajo
+  const hD = 0.10, yD = alto - grosor - hD / 2;
+  for (const s of [-1, 1]) {
+    g.add(_bmCaja(ancho - 0.22, hD, 0.035, mFe, 0, yD, s * (fondo / 2 - 0.09)));
+    g.add(_bmCaja(0.035, hD, fondo - 0.22, mFe, s * (ancho / 2 - 0.09), yD, 0));
+  }
+  const hP = alto - grosor - 0.035;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const x = sx * (ancho / 2 - 0.12), z = sz * (fondo / 2 - 0.12);
+    g.add(_bmCaja(0.075, hP, 0.075, mFe, x, 0.035 + hP / 2, z));
+    const pie = _bmCil(0.05, 0.035, mGo, 16); pie.position.set(x, 0.0175, z); g.add(pie);
+    const tor = _bmCil(0.014, 0.05, mAc, 8); tor.position.set(x, 0.055, z); g.add(tor);
+  }
+  // el estante inferior y sus travesaños
+  const yE = 0.28;
+  const est = new THREE.Mesh(extruido(_bmRect(ancho - 0.30, fondo - 0.30, 0.04), { espesor: 0.03, bisel: 0.006 }), mFe);
+  est.rotation.x = -Math.PI / 2; est.position.y = yE; est.castShadow = est.receiveShadow = true; g.add(est);
+  for (const sz of [-1, 1]) g.add(_bmCaja(ancho - 0.22, 0.04, 0.03, mFe, 0, yE - 0.035, sz * (fondo / 2 - 0.12)));
+  for (const sx of [-1, 1]) g.add(_bmCaja(0.03, 0.04, fondo - 0.22, mFe, sx * (ancho / 2 - 0.12), yE - 0.035, 0));
+  g.userData.topY = alto;
+
+  if (respaldo > 0) {
+    // El respaldo: chapa vertical al fondo con una canaleta por arriba y dos
+    // barras de cobre sobre aisladores de porcelana, que es el «bus» del banco.
+    const zR = -fondo / 2 + 0.07, hR = respaldo;
+    const pl = _bmPlancha(ancho - 0.20, hR, 0.025, mFe, 0.03, 0.004); pl.position.set(0, alto + hR / 2, zR); g.add(pl);
+    const ca = _bmCaja(ancho - 0.20, 0.07, 0.07, _bmMat(0x2a323a, 0.5, 0.5), 0, alto + hR + 0.035, zR + 0.01); g.add(ca);
+    const mCu = mat.cobre || _bmMat(0xb87333, 0.35, 0.8);
+    const mPor = mat.ceramica || _bmMat(0xd9d6cb, 0.45, 0.1);
+    const ys = [alto + hR * 0.34, alto + hR * 0.64];
+    ys.forEach((y) => {
+      g.add(_bmCaja(ancho - 0.5, 0.045, 0.012, mCu, 0, y, zR + 0.075));
+      for (let i = 0; i < 5; i++) {
+        const ai = _bmCil(0.022, 0.05, mPor, 12); ai.rotation.x = Math.PI / 2;
+        ai.position.set(-(ancho - 0.9) / 2 + i * (ancho - 0.9) / 4, y, zR + 0.045); g.add(ai);
+      }
+    });
+    g.userData.bus = { y: ys, z: zR + 0.075, x0: -(ancho - 0.5) / 2, x1: (ancho - 0.5) / 2 };
+  }
+  return g;
+}
+
+/**
+ * PLACA BASE RANURADA: la chapa de fundición con ranuras en T sobre la que se
+ * atornillan la máquina, el acople y el freno para que queden ALINEADOS. Sin
+ * ella, tres máquinas sobre una mesa son tres máquinas sobre una mesa; con ella,
+ * son un tren de ensayo. Origen en el centro de su cara inferior.
+ */
+export function placaBaseRanurada(mat, opts = {}) {
+  const { largo = 4.2, ancho = 1.2, alto = 0.07, ranuras = 3 } = opts;
+  const g = new THREE.Group();
+  const mP = mat.fundicion || _bmMat(0x3d4650, 0.6, 0.40);
+  const huecos = [];
+  for (let i = 0; i < ranuras; i++) {
+    const z = (i - (ranuras - 1) / 2) * (ancho * 0.28);
+    huecos.push([[-largo * 0.45, z - 0.017], [largo * 0.45, z - 0.017], [largo * 0.45, z + 0.017], [-largo * 0.45, z + 0.017]]);
+  }
+  const p = new THREE.Mesh(extruido(_bmRect(largo, ancho, 0.03), { espesor: alto, bisel: 0.006, huecos }), mP);
+  p.rotation.x = -Math.PI / 2; p.position.y = alto / 2; p.castShadow = p.receiveShadow = true; g.add(p);
+  // el fondo oscuro de las ranuras, para que se lean como ranuras y no como agujeros
+  const mF = _bmMat(0x0a0e12, 0.9, 0.1);
+  for (let i = 0; i < ranuras; i++) {
+    const z = (i - (ranuras - 1) / 2) * (ancho * 0.28);
+    const f = _bmCaja(largo * 0.9, 0.004, 0.034, mF, 0, 0.012, z); f.castShadow = false; g.add(f);
+  }
+  // los pies de nivelación en las esquinas
+  const mG = mat.goma || _bmMat(0x14181e, 0.8, 0.02);
+  g.userData.sup = alto; g.userData.ranuras = ranuras;
+  return g;
+}
+
+/**
+ * VARIADOR / DRIVE de pared sobre su PLACA DE MONTAJE, de pie sobre la bancada.
+ * El aparato se reconoce por tres cosas: la ventana del teclado con sus teclas y
+ * sus tres pilotos, la rejilla de ventilación de arriba y la tapa de bornes de
+ * abajo con sus prensaestopas, de donde salen los cables. `userData.visor` da
+ * la ventana (en coordenadas locales) para pegarle la pantalla del laboratorio.
+ */
+export function variadorMural(mat, opts = {}) {
+  const { ancho = 0.74, alto = 1.0, fondo = 0.30, color = 0x2f4d63, tapa = 0x243a4a,
+          placa = true, glandulas = 3, rotulo = 'VFD' } = opts;
+  const g = new THREE.Group();
+  const mC = _bmMat(color, 0.42, 0.30), mT = _bmMat(tapa, 0.45, 0.30);
+  const mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06);
+  const mAc = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85);
+  const y0 = placa ? 0.10 : 0, zP = placa ? 0.03 : 0;
+  if (placa) {
+    const pl = _bmPlancha(ancho * 1.30, alto * 1.12, 0.03, mat.chapa || _bmMat(0xaab4bb, 0.5, 0.5), 0.03, 0.004,
+      [circulo(-ancho * 0.58, alto * 0.53, 0.014, 10), circulo(ancho * 0.58, alto * 0.53, 0.014, 10),
+       circulo(-ancho * 0.58, -alto * 0.53, 0.014, 10), circulo(ancho * 0.58, -alto * 0.53, 0.014, 10)]);
+    pl.position.set(0, y0 + alto * 0.56, 0.015); g.add(pl);
+    for (const s of [-1, 1]) g.add(_bmCaja(0.05, y0 + 0.02, 0.22, _bmMat(0x39434c, 0.45, 0.6), s * ancho * 0.50, y0 / 2, 0.11));
+  }
+  const cuerpo = new THREE.Mesh(extruido(_bmRect(ancho, alto * 0.76, 0.05), { espesor: fondo, bisel: 0.014 }), mC);
+  cuerpo.position.set(0, y0 + alto * 0.62, zP + fondo / 2); cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
+  const zF = zP + fondo;                       // la cara frontal del cuerpo
+  // la tapa de bornes, algo más saliente que el cuerpo
+  const tb = new THREE.Mesh(extruido(_bmRect(ancho * 0.92, alto * 0.25, 0.04), { espesor: fondo * 1.12, bisel: 0.012 }), mT);
+  tb.position.set(0, y0 + alto * 0.125, zP + fondo * 0.56); tb.castShadow = tb.receiveShadow = true; g.add(tb);
+  const zT = zP + fondo * 1.12;
+  // las rejillas de ventilación de arriba: ranuras a lo ancho
+  for (let i = 0; i < 9; i++) g.add(_bmCaja(ancho * 0.62, alto * 0.012, 0.012, mN, 0, y0 + alto * (0.96 - i * 0.022), zF + 0.002));
+  // el bisel del teclado: una ventana con marco oscuro
+  const yV = y0 + alto * 0.68;
+  const vw = ancho * 0.52, vh = vw / 1.6;
+  const mar = new THREE.Mesh(extruido(_bmRect(vw + 0.07, vh + 0.07, 0.015), { espesor: 0.024, bisel: 0.005,
+    huecos: [[[-vw / 2, -vh / 2], [vw / 2, -vh / 2], [vw / 2, vh / 2], [-vw / 2, vh / 2]]] }), mN);
+  mar.position.set(0, yV, zF + 0.002); g.add(mar);
+  const fondoV = new THREE.Mesh(new THREE.PlaneGeometry(vw, vh), _bmMat(0x05080a, 0.4, 0.05));
+  fondoV.position.set(0, yV, zF + 0.006); g.add(fondoV);
+  const pantalla = new THREE.Group(); pantalla.position.set(0, yV, zF + 0.010); g.add(pantalla);
+  // las teclas del panel y los tres pilotos
+  const mK = _bmMat(0xc9d1d6, 0.5, 0.25);
+  for (let i = 0; i < 5; i++) {
+    const k = _bmPlancha(ancho * 0.085, ancho * 0.05, 0.016, i === 4 ? _bmMat(0x2f9e6f, 0.5, 0.2) : mK, 0.008, 0.003);
+    k.position.set(-ancho * 0.25 + i * ancho * 0.125, yV - vh / 2 - 0.09, zF + 0.008); g.add(k);
+  }
+  const leds = [0x35d07f, 0xf0b429, 0xe05252].map((c, i) => {
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8),
+      new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, roughness: 0.4 }));
+    l.position.set(-ancho * 0.38, yV + vh * 0.38 - i * 0.045, zF + 0.012); g.add(l); return l;
+  });
+  // la placa de características y el rótulo
+  const rt = _bmRotulo(rotulo, ancho * 0.30, ancho * 0.075, '#dfe6ea', '#14181e');
+  rt.position.set(ancho * 0.30, y0 + alto * 0.435, zF + 0.002); g.add(rt);
+  // los prensaestopas de la tapa de bornes y los cables que salen de ellos
+  const bocas = [];
+  for (let i = 0; i < glandulas; i++) {
+    const x = (i - (glandulas - 1) / 2) * ancho * 0.26;
+    const gl = _bmCil(0.036, 0.05, mN, 16); gl.rotation.x = Math.PI / 2; gl.position.set(x, y0 + alto * 0.075, zT + 0.025); g.add(gl);
+    const tu = _bmCil(0.046, 0.022, mAc, 6); tu.rotation.x = Math.PI / 2; tu.position.set(x, y0 + alto * 0.075, zT + 0.002); g.add(tu);
+    bocas.push(new THREE.Vector3(x, y0 + alto * 0.075, zT + 0.05));
+  }
+  g.userData = { ancho, alto, fondo, visor: { ancho: vw, alto: vh }, pantalla, leds, bocas, frente: zT };
+  return g;
+}
+
+/**
+ * SERVOMOTOR / motor BLDC-PMSM de brida: cuerpo liso, tapa trasera con su
+ * encoder, brida delantera con centrador y cuatro taladros, eje con chaveta y
+ * el conector de potencia radial. Se distingue a diez metros de un asíncrono
+ * por lo que NO tiene: ni aletas, ni ventilador, ni patas. Eje en +X.
+ */
+export function servoMotor(mat, opts = {}) {
+  const { d = 0.62, largo = 0.78, eje = 0.34, color = 0x2f3a44, cuna = 0 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, De = d * 0.16;
+  const mC = _bmMat(color, 0.38, 0.55), mAl = mat.aluminio || _bmMat(0xaab4bb, 0.35, 0.8);
+  const mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06), mAc = mat.acero || _bmMat(0xb9c4c9, 0.25, 0.9);
+  // el estator: cuerpo con un par de cintas de refrigeración y el cuello trasero
+  const per = [[0, -largo / 2], [R * 0.86, -largo / 2], [R * 0.86, -largo / 2], [R * 0.86, -largo * 0.40],
+    [R, -largo * 0.40], [R, -largo * 0.40], [R, largo * 0.40], [R, largo * 0.40],
+    [R * 0.90, largo * 0.40], [R * 0.90, largo * 0.40], [R * 0.90, largo / 2], [0, largo / 2]];
+  const cu = new THREE.Mesh(revolucion(per, { seg: 48 }), mC);
+  cu.rotation.z = -Math.PI / 2; cu.castShadow = cu.receiveShadow = true; g.add(cu);
+  // las cintas de refrigeración a lo largo del cuerpo (pequeñas nervaduras)
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI / 4 + i * Math.PI / 2;
+    const cinta = _bmCaja(largo * 0.80, 0.016, 0.03, mC, 0, Math.cos(a) * R, Math.sin(a) * R);
+    cinta.rotation.x = -a; g.add(cinta);
+  }
+  // la tapa trasera con el encoder / resolver
+  const tr = new THREE.Mesh(revolucion([[0, 0], [R * 0.70, 0], [R * 0.70, 0], [R * 0.70, d * 0.17],
+    [R * 0.56, d * 0.20], [R * 0.56, d * 0.20], [0, d * 0.20]], { seg: 36 }), mN);
+  tr.rotation.z = Math.PI / 2; tr.position.x = -largo / 2 + 0.002; tr.castShadow = true; g.add(tr);
+  // la brida delantera (cuadrada, con taladros) y su centrador
+  const ancho = d * 1.12;
+  const hue = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) hue.push(circulo(sx * ancho * 0.39, sy * ancho * 0.39, d * 0.036, 10));
+  const br = new THREE.Mesh(extruido(_bmRect(ancho, ancho, d * 0.10), { espesor: d * 0.10, bisel: d * 0.008, huecos: hue }), mAl);
+  br.rotation.y = Math.PI / 2; br.position.x = largo / 2 + d * 0.04; br.castShadow = true; g.add(br);
+  const ce = new THREE.Mesh(revolucion([[0, 0], [d * 0.30, 0], [d * 0.30, 0], [d * 0.30, d * 0.05], [d * 0.30, d * 0.05], [0, d * 0.05]], { seg: 32 }), mAl);
+  ce.rotation.z = -Math.PI / 2; ce.position.x = largo / 2 + d * 0.09; g.add(ce);
+  // el eje y su chaveta: lo único que gira
+  const gir = new THREE.Group(); g.add(gir);
+  const ej = _bmCil(De / 2, eje + d * 0.09, mAc, 24); ej.rotation.z = Math.PI / 2; ej.position.x = largo / 2 + d * 0.09 + eje / 2 - d * 0.045; gir.add(ej);
+  const ch = _bmCaja(eje * 0.62, De * 0.2, De * 0.30, mAc, largo / 2 + d * 0.10 + eje * 0.55, De * 0.50, 0); gir.add(ch);
+  // conectores radiales de potencia y de señal sobre el cuerpo
+  const co = _bmCil(d * 0.085, d * 0.16, mN, 20); co.position.set(-largo * 0.18, R + d * 0.07, 0); g.add(co);
+  const cs = _bmCil(d * 0.055, d * 0.12, mN, 16); cs.position.set(largo * 0.05, R + d * 0.05, 0); g.add(cs);
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + Math.PI / 4;
+    const pi = _bmCil(0.008, 0.02, mAc, 6); pi.position.set(-largo * 0.18 + Math.cos(a) * d * 0.035, R + d * 0.155, Math.sin(a) * d * 0.035); g.add(pi);
+  }
+  // las CUNAS: un servo no tiene patas, así que en el banco descansa sobre dos
+  // cunas en V con su abrazadera, a la altura `cuna` bajo el cuerpo
+  if (cuna > 0) {
+    const mFe = _bmMat(0x39434c, 0.58, 0.40);
+    for (const s of [-1, 1]) {
+      const x = s * largo * 0.24;
+      const cu2 = new THREE.Mesh(extruido(contornoRedondeado([[-R * 0.85, -R - cuna], [R * 0.85, -R - cuna],
+        [R * 0.50, -R * 0.80], [-R * 0.50, -R * 0.80]], 0.015, 3), { espesor: 0.06, bisel: 0.008 }), mFe);
+      cu2.rotation.y = Math.PI / 2; cu2.position.x = x; cu2.castShadow = true; g.add(cu2);
+      const pl = _bmPlancha(0.20, R * 1.9, 0.02, mFe, 0.02, 0.004); pl.rotation.x = -Math.PI / 2; pl.position.set(x, -R - cuna + 0.01, 0); g.add(pl);
+      const ab = new THREE.Mesh(new THREE.TorusGeometry(R * 1.02, 0.014, 6, 28, Math.PI), mFe);
+      ab.rotation.y = Math.PI / 2; ab.position.x = x; ab.castShadow = true; g.add(ab);
+      for (const z of [-1, 1]) { const tn = _bmCil(0.016, 0.05, mAc, 6); tn.position.set(x, 0.0, z * R * 1.05); tn.rotation.z = Math.PI / 2; g.add(tn); }
+    }
+  }
+  // la placa de características, pegada al cuerpo por el lado de la cámara
+  const rt = _bmRotulo('PMSM\n3~ 400 V', largo * 0.30, d * 0.14, '#dfe6ea', '#14181e');
+  rt.position.set(largo * 0.12, 0, R * 1.003); g.add(rt);
+  g.userData = { d, largo, rotor: gir, gira: (a) => { gir.rotation.x = a; },
+    frente: largo / 2 + d * 0.09 + eje - d * 0.045, ejeY: 0, pie: -R * 0.999 };
+  return g;
+}
+
+/**
+ * ACOPLE ELÁSTICO de garras con araña de elastómero: dos cubos con sus garras
+ * entrelazadas y la araña roja entre ellas. Es lo que une el eje del motor con el
+ * del freno y absorbe el desalineamiento; en el banco es la pieza que gira a la
+ * vista. Eje en +X, centrado. Todo el grupo gira junto.
+ */
+export function acopleElastico(mat, opts = {}) {
+  const { d = 0.26, largo = 0.34, dEje = 0.10 } = opts;
+  const g = new THREE.Group();
+  const mAl = mat.aluminio || _bmMat(0xaab4bb, 0.35, 0.8), mAc = mat.acero || _bmMat(0xb9c4c9, 0.25, 0.9);
+  const mR = _bmMat(0xd2552b, 0.65, 0.02);
+  const R = d / 2, L = largo / 2;
+  for (const s of [-1, 1]) {
+    const per = [[dEje / 2, 0], [R * 0.92, 0], [R * 0.92, 0], [R * 0.92, L * 0.55], [R * 0.72, L * 0.55], [dEje / 2, L * 0.55]];
+    const cubo = new THREE.Mesh(revolucion(per, { seg: 32 }), mAl);
+    cubo.rotation.z = -s * Math.PI / 2; cubo.position.x = s * (L * 0.40); cubo.castShadow = true; g.add(cubo);
+    // las garras: tres, que se meten entre las de enfrente
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + (s > 0 ? Math.PI / 3 : 0);
+      const ga = _bmCaja(L * 0.62, R * 0.46, R * 0.34, mAl, s * L * 0.09, Math.cos(a) * R * 0.66, Math.sin(a) * R * 0.66);
+      ga.rotation.x = -a; g.add(ga);
+    }
+    // el prisionero de cada cubo
+    const pr = _bmCil(R * 0.07, R * 0.30, mAc, 6); pr.position.set(s * L * 0.70, R * 0.98, 0); g.add(pr);
+  }
+  // la araña: estrella de seis brazos entre las garras
+  const arco = [];
+  const n = 6, rI = R * 0.40, rE = R * 0.78;
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i / (n * 2)) * Math.PI * 2, r = i % 2 === 0 ? rE : rI;
+    arco.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  const ar = new THREE.Mesh(extruido(contornoRedondeado(arco, R * 0.10, 3), { espesor: L * 0.50, bisel: 0.006,
+    huecos: [circulo(0, 0, dEje * 0.55, 16)] }), mR);
+  ar.rotation.y = Math.PI / 2; ar.castShadow = true; g.add(ar);
+  return g;
+}
+
+/**
+ * VOLANTE DE INERCIA: la masa que almacena la energía cinética del frenado.
+ * Disco de fundición con un cubo, una llanta gruesa y seis ventanas de
+ * aligeramiento entre los radios; sin ellas es un tambor, no un volante. Eje +X.
+ */
+export function volanteInercia(mat, opts = {}) {
+  const { d = 0.70, ancho = 0.12, dEje = 0.08 } = opts;
+  const g = new THREE.Group();
+  const mF = mat.volante || _bmMat(0x59626b, 0.5, 0.7);
+  const R = d / 2;
+  const hue = [];
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + Math.PI / 6; hue.push(circulo(Math.cos(a) * R * 0.56, Math.sin(a) * R * 0.56, R * 0.20, 20)); }
+  const disco = new THREE.Mesh(extruido(circulo(0, 0, R * 0.98, 56), { espesor: ancho * 0.55, bisel: 0.01, huecos: hue }), mF);
+  disco.rotation.y = Math.PI / 2; disco.castShadow = true; g.add(disco);
+  const llanta = new THREE.Mesh(revolucion([[R * 0.80, -ancho / 2], [R * 0.80, -ancho / 2], [R, -ancho / 2], [R, -ancho / 2],
+    [R, ancho / 2], [R, ancho / 2], [R * 0.80, ancho / 2], [R * 0.80, ancho / 2]], { seg: 56 }), mF);
+  llanta.rotation.z = Math.PI / 2; llanta.castShadow = true; g.add(llanta);
+  const cubo = new THREE.Mesh(revolucion([[dEje / 2, -ancho * 0.9], [R * 0.20, -ancho * 0.9], [R * 0.20, -ancho * 0.9],
+    [R * 0.20, ancho * 0.9], [R * 0.20, ancho * 0.9], [dEje / 2, ancho * 0.9]], { seg: 28 }), mat.acero || mF);
+  cubo.rotation.z = Math.PI / 2; g.add(cubo);
+  // los taladros de equilibrado sobre la llanta
+  const mN = mat.negro || _bmMat(0x14181e, 0.6, 0.1);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const t = _bmCil(R * 0.025, ancho * 0.05, mN, 8); t.rotation.z = Math.PI / 2;
+    t.position.set(ancho / 2, Math.cos(a) * R * 0.90, Math.sin(a) * R * 0.90); g.add(t);
+  }
+  return g;
+}
+
+/**
+ * DINAMÓMETRO / FRENO de carga de corrientes de Foucault, montado en
+ * muñones: la carcasa con aros de refrigeración, el eje con su brida de
+ * acoplamiento, los dos soportes con su cojinete, y el BRAZO DE PAR que se apoya
+ * en una célula de carga. El par que mide el banco es la fuerza en esa célula por
+ * la longitud del brazo, y por eso la carcasa «flota»: lo que se lee es lo que
+ * intenta girar el freno, no lo que gira. Eje +X, origen en el eje.
+ */
+export function dinamometroFreno(mat, opts = {}) {
+  const { d = 0.66, largo = 0.56, eje = 0.26, base = 0.13, color = 0x315d83 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const mC = _bmMat(color, 0.42, 0.45), mAc = mat.acero || _bmMat(0xb9c4c9, 0.25, 0.9);
+  const mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06), mFe = _bmMat(0x39434c, 0.58, 0.40);
+  const mAl = mat.aluminio || _bmMat(0xaab4bb, 0.35, 0.8);
+  // la carcasa con sus aros de refrigeración
+  const n = 7, y0 = -largo / 2 + 0.07, y1 = largo / 2 - 0.07, paso = (y1 - y0) / n;
+  const per = [[0, -largo / 2], [R * 0.80, -largo / 2], [R * 0.80, -largo / 2], [R * 0.80, y0]];
+  for (let i = 0; i < n; i++) {
+    const ya = y0 + i * paso + paso * 0.18, yb = y0 + (i + 1) * paso - paso * 0.18;
+    per.push([R * 0.88, ya], [R, ya], [R, ya], [R, yb], [R, yb], [R * 0.88, yb]);
+  }
+  per.push([R * 0.80, y1], [R * 0.80, largo / 2], [R * 0.80, largo / 2], [0, largo / 2]);
+  const cu = new THREE.Mesh(revolucion(per, { seg: 48 }), mC);
+  cu.rotation.z = -Math.PI / 2; cu.castShadow = cu.receiveShadow = true; g.add(cu);
+  // los muñones (cojinetes) y sus soportes en A hasta la placa
+  const yB = -(R + base);
+  const sopC = [[-R * 0.78, yB], [R * 0.78, yB], [R * 0.34, -R * 0.10], [-R * 0.34, -R * 0.10]];
+  for (const s of [-1, 1]) {
+    const x = s * (largo / 2 + 0.065);
+    const so = new THREE.Mesh(extruido(contornoRedondeado(sopC, 0.02, 3), { espesor: 0.05, bisel: 0.008 }), mFe);
+    so.rotation.y = Math.PI / 2; so.position.x = x; so.castShadow = true; g.add(so);
+    const cj = new THREE.Mesh(revolucion([[R * 0.12, -0.035], [R * 0.30, -0.035], [R * 0.30, -0.035], [R * 0.30, 0.035], [R * 0.30, 0.035], [R * 0.12, 0.035]], { seg: 28 }), mAl);
+    cj.rotation.z = Math.PI / 2; cj.position.x = x; g.add(cj);
+    const pl = _bmPlancha(0.20, R * 1.7, 0.02, mFe, 0.02, 0.004); pl.rotation.x = -Math.PI / 2; pl.position.set(x, yB + 0.01, 0); g.add(pl);
+  }
+  // el eje: pasa de lado a lado y lleva en la entrada la brida de acoplamiento
+  const gir = new THREE.Group(); g.add(gir);
+  const ej = _bmCil(R * 0.085, largo + 0.13 * 2 + eje * 2, mAc, 24); ej.rotation.z = Math.PI / 2; gir.add(ej);
+  const x0 = -(largo / 2 + 0.13 + eje);
+  const br = new THREE.Mesh(extruido(circulo(0, 0, R * 0.30, 28), { espesor: 0.035, bisel: 0.005,
+    huecos: [0, 1, 2, 3].map(i => circulo(Math.cos(i * Math.PI / 2 + 0.78) * R * 0.21, Math.sin(i * Math.PI / 2 + 0.78) * R * 0.21, R * 0.035, 8)) }), mAc);
+  br.rotation.y = Math.PI / 2; br.position.x = x0 + 0.02; gir.add(br);
+  const ch = _bmCaja(eje * 0.5, R * 0.025, R * 0.045, mAc, largo / 2 + 0.13 + eje * 0.55, R * 0.085, 0); gir.add(ch);
+  // el brazo de par: sale tangente hacia +Z hasta la célula de carga
+  const bz = R * 0.92;
+  g.add(_bmCaja(0.075, 0.07, 0.09, mFe, 0, 0, R * 0.98));
+  const brazo = _bmCaja(0.04, 0.034, 0.52, mFe, 0, 0, bz + 0.30); g.add(brazo);
+  const zc = bz + 0.56;
+  const cel = _bmCaja(0.05, 0.14, 0.05, mAl, 0, -0.09, zc); g.add(cel);
+  const gal = _bmCaja(0.052, 0.035, 0.052, _bmMat(0xe2c03a, 0.5, 0.3), 0, -0.09, zc); g.add(gal);   // las galgas, bajo su cubierta
+  const hPo = -0.16 - yB;
+  g.add(_bmCaja(0.07, hPo, 0.07, mFe, 0, yB + hPo / 2, zc));
+  const pz = _bmPlancha(0.24, 0.20, 0.02, mFe, 0.02, 0.004); pz.rotation.x = -Math.PI / 2; pz.position.set(0, yB + 0.01, zc); g.add(pz);
+  // el cable de la célula de carga, que sube hasta el acondicionador
+  const cab = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    _V(0.03, -0.09, zc + 0.03), _V(0.10, -0.2, zc + 0.12), _V(0.14, yB + 0.03, zc + 0.30)]), 12, 0.009, 6), mN);
+  g.add(cab);
+  // la caja de bornes de la bobina de excitación, arriba
+  g.add(_bmCaja(0.17, 0.07, 0.13, mFe, 0, R + 0.03, 0));
+  const gl = _bmCil(0.022, 0.05, mN, 12); gl.position.set(0.05, R + 0.09, 0); g.add(gl);
+  const rt = _bmRotulo('FRENO\nFOUCAULT', largo * 0.62, 0.13, '#dfe6ea', '#14181e');
+  rt.position.set(0, R * 0.5, R * 0.866 + 0.004); rt.rotation.x = -Math.PI / 6; g.add(rt);
+  g.userData = { d, largo, rotor: gir, gira: (a) => { gir.rotation.x = a; }, pie: yB, entrada: x0 };
+  return g;
+}
+
+/**
+ * BANCO DE RESISTENCIAS DE FRENADO: una jaula de chapa con persianas al frente
+ * y, detrás, los tubos cerámicos con su arrollamiento de hilo resistivo. Los
+ * tubos se ven entre las lamas; el hilo es de aleación Ni-Cr, y por eso
+ * `userData.alambre` es un material propio: el laboratorio puede encenderlo
+ * (emisivo) cuando de verdad está disipando la energía del frenado.
+ */
+export function bancoResistenciasFrenado(mat, opts = {}) {
+  const { ancho = 0.80, alto = 0.62, fondo = 0.46, tubos = 5, color = 0x6b3a2a } = opts;
+  const g = new THREE.Group();
+  const mC = _bmMat(color, 0.5, 0.45), mFe = _bmMat(0x39434c, 0.58, 0.40);
+  const mCer = mat.ceramica || _bmMat(0xd9d6cb, 0.55, 0.05);
+  const mAl = _bmMat(0x4a3f3a, 0.45, 0.8);
+  const alambre = _bmMat(0x6a5448, 0.4, 0.85, { emissive: 0xff5a1a, emissiveIntensity: 0 });
+  // el bastidor: base, techo con ventilación y dos laterales
+  g.add(_bmCaja(ancho, 0.03, fondo, mFe, 0, 0.015, 0));
+  g.add(_bmCaja(ancho, 0.03, fondo, mC, 0, alto - 0.015, 0));
+  for (const s of [-1, 1]) g.add(_bmCaja(0.03, alto, fondo, mC, s * (ancho / 2 - 0.015), alto / 2, 0));
+  g.add(_bmCaja(ancho - 0.06, alto - 0.06, 0.02, mC, 0, alto / 2, -fondo / 2 + 0.01));
+  for (let i = 0; i < 8; i++) g.add(_bmCaja(ancho * 0.7, 0.006, 0.018, _bmMat(0x14181e, 0.8, 0.1), 0, alto - 0.001, -fondo * 0.38 + i * fondo * 0.108));
+  // los tubos cerámicos, con el hilo en hélice
+  const hRes = alto - 0.15;
+  for (let i = 0; i < tubos; i++) {
+    const x = (i - (tubos - 1) / 2) * (ancho - 0.2) / Math.max(1, tubos - 1);
+    const tu = _bmCil(0.045, hRes, mCer, 16); tu.position.set(x, 0.03 + hRes / 2 + 0.03, -0.03); g.add(tu);
+    const pts = [], vueltas = 18;
+    for (let k = 0; k <= vueltas * 10; k++) {
+      const t = k / (vueltas * 10), a = t * vueltas * Math.PI * 2;
+      pts.push(_V(x + Math.cos(a) * 0.050, 0.03 + 0.03 + 0.04 + t * (hRes - 0.08), -0.03 + Math.sin(a) * 0.050));
+    }
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), vueltas * 10, 0.006, 5), alambre));
+    for (const yy of [0.065, hRes + 0.03]) { const an = _bmCil(0.052, 0.025, mAl, 14); an.position.set(x, yy, -0.03); g.add(an); }
+  }
+  // las persianas del frente: lamas inclinadas que dejan ver los tubos
+  const nL = 7;
+  for (let i = 0; i < nL; i++) {
+    const l = _bmCaja(ancho - 0.06, 0.016, 0.040, mC, 0, 0.09 + i * (alto - 0.20) / (nL - 1), fondo / 2 - 0.012);
+    l.rotation.x = 0.40; g.add(l);
+  }
+  // los bornes de potencia: dos pletinas con su tornillo, arriba y de lado
+  const mCu = mat.cobre || _bmMat(0xb87333, 0.35, 0.8);
+  for (let i = 0; i < 2; i++) {
+    g.add(_bmCaja(0.10, 0.02, 0.05, mCu, -0.12 + i * 0.24, alto + 0.012, 0.06));
+    const ts = _bmCil(0.017, 0.03, mFe, 6); ts.position.set(-0.12 + i * 0.24, alto + 0.035, 0.06); g.add(ts);
+  }
+  const rt = _bmRotulo('R EXT\n2 Ω · 5 kW', ancho * 0.5, 0.09, '#e9d28a', '#2a1a10');
+  rt.position.set(0, alto - 0.075, fondo / 2 + 0.002); g.add(rt);
+  g.userData = { ancho, alto, fondo, alambre, brillo: (k) => { alambre.emissiveIntensity = k; } };
+  return g;
+}
+
+/** RIEL OMEGA (DIN de 35 mm) con sus agujeros alargados. Origen en el centro de su cara. */
+export function rielOmega(mat, opts = {}) {
+  const { largo = 1.0 } = opts;
+  const g = new THREE.Group();
+  const m = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85);
+  g.add(_bmCaja(largo, 0.035, 0.004, m, 0, 0, 0));
+  g.add(_bmCaja(largo, 0.004, 0.012, m, 0, 0.0155, 0.007)); g.add(_bmCaja(largo, 0.004, 0.012, m, 0, -0.0155, 0.007));
+  g.add(_bmCaja(largo, 0.025, 0.003, m, 0, 0, 0.0145));
+  return g;
+}
+
+/**
+ * CONTACTOR modular tripolar: cuerpo gris oscuro, los tres bornes de potencia
+ * arriba y los tres de salida abajo con sus tornillos de cabeza cruzada, la
+ * bobina A1/A2 a un lado, la placa azul y el botón de maniobra manual. Es lo que un
+ * electricista identifica antes de leer ninguna etiqueta. Frente a +Z, origen
+ * en el centro de su base (la que va al riel).
+ */
+export function contactorModular(mat, opts = {}) {
+  const { ancho = 0.34, alto = 0.46, fondo = 0.28, rotulo = 'K1', color = 0x2b3139 } = opts;
+  const g = new THREE.Group();
+  const mC = _bmMat(color, 0.55, 0.15), mT = _bmMat(0x181c21, 0.6, 0.15);
+  const mAc = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85), mAz = _bmMat(0x2b6cb0, 0.5, 0.2);
+  const cu = new THREE.Mesh(extruido(_bmRect(ancho, alto, 0.02), { espesor: fondo, bisel: 0.008 }), mC);
+  cu.position.set(0, 0, fondo / 2); cu.castShadow = cu.receiveShadow = true; g.add(cu);
+  // las dos bandas de bornes, algo más salientes y más oscuras que el cuerpo
+  g.add(_bmCaja(ancho * 0.96, alto * 0.25, 0.014, mT, 0, alto * 0.375, fondo + 0.007));
+  g.add(_bmCaja(ancho * 0.96, alto * 0.25, 0.014, mT, 0, -alto * 0.375, fondo + 0.007));
+  // los bornes: tres arriba (1,3,5) y tres abajo (2,4,6): mordaza de acero con su
+  // tornillo de cabeza ranurada y, por el borde, la boca por donde entra el cable
+  const bocas = { arriba: [], abajo: [] };
+  for (let i = 0; i < 3; i++) {
+    const x = (i - 1) * ancho * 0.30;
+    for (const [y, lado, sg] of [[alto * 0.40, 'arriba', 1], [-alto * 0.40, 'abajo', -1]]) {
+      g.add(_bmCaja(ancho * 0.21, alto * 0.115, 0.034, mAc, x, y, fondo + 0.022));
+      const tn = _bmCil(ancho * 0.052, 0.012, mT, 14); tn.position.set(x, y, fondo + 0.044); tn.rotation.x = Math.PI / 2; g.add(tn);
+      g.add(_bmCaja(ancho * 0.078, 0.008, 0.004, mAc, x, y, fondo + 0.052));
+      g.add(_bmCaja(ancho * 0.12, alto * 0.03, 0.03, _bmMat(0x07090b, 0.8, 0.05), x, y + sg * alto * 0.088, fondo + 0.020));
+      bocas[lado].push(new THREE.Vector3(x, y + sg * alto * 0.11, fondo + 0.02));
+    }
+  }
+  // la placa del frente: franja blanca con el nombre y la referencia, y la azul de la bobina
+  const pl = _bmRotulo(rotulo, ancho * 0.50, alto * 0.13, '#eef1f3', '#14181e');
+  pl.position.set(-ancho * 0.18, alto * 0.14, fondo + 0.002); g.add(pl);
+  const bob = _bmRotulo('A1\nA2', ancho * 0.22, alto * 0.13, '#2b6cb0', '#ffffff');
+  bob.position.set(ancho * 0.30, alto * 0.14, fondo + 0.002); g.add(bob);
+  // el botón de maniobra manual, que se pulsa con un destornillador
+  const bt = _bmCaja(ancho * 0.26, alto * 0.05, 0.02, mAz, 0, -alto * 0.10, fondo + 0.006); g.add(bt);
+  // el piloto de bobina: se enciende (emisivo) cuando el contactor está accionado
+  const mPi = new THREE.MeshStandardMaterial({ color: 0xf0b429, emissive: 0xf0b429, emissiveIntensity: 0.0, roughness: 0.4 });
+  const pu = _bmCil(ancho * 0.03, 0.02, mPi, 10); pu.rotation.x = Math.PI / 2; pu.position.set(ancho * 0.34, -alto * 0.10, fondo + 0.006); g.add(pu);
+  // los dos garfios del riel, en la base
+  for (const s of [-1, 1]) g.add(_bmCaja(ancho * 0.18, alto * 0.06, 0.02, mAc, s * ancho * 0.26, -alto * 0.20, -0.008));
+  g.userData = { ancho, alto, fondo, bocas, frente: fondo, piloto: mPi };
+  return g;
+}
+
+/**
+ * REÓSTATO TUBULAR: el tubo cerámico con su arrollamiento de hilo, la
+ * corredera con su cursor y la manivela. Mover el cursor cambia cuántas espiras
+ * quedan en el circuito, que es exactamente lo que hace un control de campo.
+ * Eje +X, origen en el centro; `userData.cursor` se desplaza en x para dar el
+ * valor (de -largo/2 a +largo/2).
+ */
+export function reostatoTubular(mat, opts = {}) {
+  const { largo = 0.80, d = 0.16 } = opts;
+  const g = new THREE.Group();
+  const mCer = mat.ceramica || _bmMat(0xd9d6cb, 0.55, 0.05), mFe = _bmMat(0x39434c, 0.58, 0.40);
+  const mAc = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85), mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06);
+  const mH = _bmMat(0x7a6252, 0.4, 0.85);
+  const tu = _bmCil(d / 2, largo, mCer, 24); tu.rotation.z = Math.PI / 2; g.add(tu);
+  const pts = [], vueltas = 34;
+  for (let k = 0; k <= vueltas * 8; k++) {
+    const t = k / (vueltas * 8), a = t * vueltas * Math.PI * 2;
+    pts.push(_V(-largo * 0.46 + t * largo * 0.92, Math.cos(a) * (d / 2 + 0.004), Math.sin(a) * (d / 2 + 0.004)));
+  }
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), vueltas * 8, 0.0045, 5), mH));
+  for (const s of [-1, 1]) {
+    const tapa = _bmCil(d * 0.62, 0.04, mFe, 20); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * (largo / 2 + 0.02); g.add(tapa);
+    const pie = _bmCaja(0.05, d * 0.9, d * 1.5, mFe, s * (largo / 2 + 0.02), -d * 0.55, 0); g.add(pie);
+    const bn = _bmCil(0.014, 0.05, mAc, 10); bn.position.set(s * (largo / 2 + 0.02), d * 0.62 + 0.02, 0); g.add(bn);
+    const tu2 = _bmCil(0.024, 0.014, mN, 12); tu2.position.set(s * (largo / 2 + 0.02), d * 0.62 + 0.05, 0); g.add(tu2);
+  }
+  // la barra guía por encima y el cursor que corre por ella
+  const guia = _bmCil(0.007, largo + 0.04, mAc, 8); guia.rotation.z = Math.PI / 2; guia.position.set(0, d * 0.82, 0); g.add(guia);
+  for (const s of [-1, 1]) g.add(_bmCaja(0.016, d * 0.40, 0.016, mAc, s * (largo / 2 + 0.02), d * 0.62, 0));
+  const cursor = new THREE.Group(); cursor.position.set(0, d * 0.82, 0); g.add(cursor);
+  cursor.add(_bmCaja(0.06, 0.04, 0.05, mN, 0, 0, 0));
+  const esc = _bmCaja(0.012, d * 0.30, 0.012, mAc, 0, -d * 0.18, 0); cursor.add(esc);   // la escobilla que toca el hilo
+  const man = _bmCil(0.028, 0.05, _bmMat(0xc43d3d, 0.5, 0.2), 14); man.position.set(0, 0.045, 0); cursor.add(man);
+  g.userData = { largo, d, cursor, pone: (t) => { cursor.position.x = -largo * 0.46 + t * largo * 0.92; } };
+  return g;
+}
+
+/**
+ * TARJETA DE SENSORES HALL: el anillo de circuito impreso con los tres sensores
+ * (TO-92) a 120° eléctricos, su conector de cinco vías y, delante, el imán del
+ * rotor: un anillo con sus polos pintados N y S. Es lo que decide qué fases
+ * conducen en la conmutación de seis pasos. De pie sobre su peana, mirando a +Z.
+ */
+export function tarjetaHall(mat, opts = {}) {
+  const { d = 0.50, polos = 4 } = opts;
+  const g = new THREE.Group();
+  const mP = _bmMat(0x1f6b3a, 0.55, 0.1), mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06);
+  const mAc = mat.acero || _bmMat(0xb9c4c9, 0.3, 0.85), mFe = _bmMat(0x39434c, 0.58, 0.40);
+  const R = d / 2, yC = R + 0.07;
+  const peana = _bmPlancha(d * 0.62, 0.14, 0.024, mFe, 0.02, 0.004);
+  peana.rotation.x = -Math.PI / 2; peana.position.y = 0.012; g.add(peana);
+  g.add(_bmCaja(0.05, yC - 0.02, 0.05, mFe, 0, (yC + 0.02) / 2 - 0.0, 0));
+  const pcb = new THREE.Mesh(extruido(circulo(0, 0, R, 48), { espesor: 0.016, bisel: 0.003,
+    huecos: [circulo(0, 0, R * 0.46, 36), ...[0, 1, 2].map(i => circulo(Math.cos(i * 2.094 + 0.5) * R * 0.78, Math.sin(i * 2.094 + 0.5) * R * 0.78, 0.014, 8))] }), mP);
+  pcb.position.set(0, yC, 0); pcb.castShadow = true; g.add(pcb);
+  // los tres sensores, cada uno con su rótulo H1/H2/H3
+  for (let i = 0; i < 3; i++) {
+    const a = i * (Math.PI * 2 / 3) + Math.PI / 2;
+    const s = new THREE.Mesh(revolucion([[0, 0], [0.034, 0], [0.034, 0.020], [0.034, 0.030], [0.0, 0.034]], { seg: 14 }), mN);
+    s.rotation.x = Math.PI / 2; s.position.set(Math.cos(a) * R * 0.74, yC + Math.sin(a) * R * 0.74, 0.008); s.castShadow = true; g.add(s);
+    for (const dx of [-0.014, 0, 0.014]) g.add(_bmCaja(0.004, 0.02, 0.003, mAc, Math.cos(a) * R * 0.74 + dx, yC + Math.sin(a) * R * 0.74 - 0.025, 0.004));
+  }
+  // el conector de cinco vías en la cara baja del anillo
+  g.add(_bmCaja(0.17, 0.045, 0.034, _bmMat(0xe8e6dc, 0.5, 0.05), 0, yC - R * 0.93, 0.018));
+  for (let i = 0; i < 5; i++) g.add(_bmCaja(0.008, 0.02, 0.008, mAc, -0.064 + i * 0.032, yC - R * 0.93 - 0.032, 0.018));
+  // el imán del rotor, enfrente: anillo con polos N-S alternos
+  const gi = new THREE.Group(); gi.position.set(0, yC, 0.11);
+  const rI = R * 0.40;
+  for (let i = 0; i < polos; i++) {
+    const a0 = (i / polos) * Math.PI * 2, a1 = ((i + 1) / polos) * Math.PI * 2 - 0.05;
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(rI, rI, 0.06, 20, 1, false, a0, a1 - a0),
+      _bmMat(i % 2 ? 0x2f6fb4 : 0xc0392b, 0.5, 0.45));
+    seg.rotation.x = Math.PI / 2; seg.castShadow = true; gi.add(seg);
+  }
+  const nuc = _bmCil(rI * 0.55, 0.07, mFe, 20); nuc.rotation.x = Math.PI / 2; gi.add(nuc);
+  g.add(gi);
+  g.userData = { iman: gi, giraIman: (a) => { gi.rotation.z = a; }, d };
+  return g;
+}
+
+/**
+ * SOPORTE DE PIZARRÓN: dos montantes de tubo con su pie en T y un travesaño por
+ * detrás, para que la pantalla grande deje de flotar sobre la mesa. Origen en
+ * el suelo, en el plano de la parte trasera de la pantalla; la pantalla se
+ * cuelga a la altura que se quiera por encima de `userData.alturaBase`.
+ */
+export function soportePizarron(mat, opts = {}) {
+  const { ancho = 3.2, alto = 2.35, y = 2.35 } = opts;
+  const g = new THREE.Group();
+  const mFe = _bmMat(0x39434c, 0.58, 0.40), mGo = mat.goma || _bmMat(0x14181e, 0.8, 0.02);
+  const hP = y + alto * 0.30;
+  for (const s of [-1, 1]) {
+    const x = s * (ancho / 2 - 0.20);
+    g.add(_bmCaja(0.09, hP, 0.09, mFe, x, hP / 2, -0.06));
+    g.add(_bmCaja(0.09, 0.05, 0.9, mFe, x, 0.025, 0.20));
+    for (const z of [-0.20, 0.62]) { const p = _bmCil(0.05, 0.03, mGo, 14); p.position.set(x, 0.015 - 0.015, z); p.position.y = 0.015; g.add(p); }
+  }
+  g.add(_bmCaja(ancho - 0.2, 0.08, 0.06, mFe, 0, y - alto * 0.34, -0.055));
+  g.add(_bmCaja(ancho - 0.2, 0.08, 0.06, mFe, 0, y + alto * 0.28, -0.055));
+  return g;
+}
+
+/**
+ * PERILLA GRADUADA en su caja de mando: la caja con el frontal serigrafiado
+ * (escala de 270° con sus marcas y cifras) y el mando de aluminio con su
+ * índice. `pone(t)` con t en [0, 1] lleva el índice de la marca mínima a la
+ * máxima, que es lo que el laboratorio necesita para que la perilla del 3D
+ * diga lo mismo que el deslizador. Frente a +Z, origen en el centro de la base.
+ */
+export function perillaGraduada(mat, opts = {}) {
+  const { ancho = 0.52, alto = 0.46, fondo = 0.30, etiqueta = 'f', min = 0, max = 100, marcas = 11 } = opts;
+  const g = new THREE.Group();
+  const mC = _bmMat(0x2b3139, 0.5, 0.3), mAl = mat.aluminio || _bmMat(0xaab4bb, 0.35, 0.8);
+  const mN = mat.negro || _bmMat(0x14181e, 0.62, 0.06);
+  const cu = new THREE.Mesh(extruido(_bmRect(ancho, alto, 0.04), { espesor: fondo, bisel: 0.01 }), mC);
+  cu.position.set(0, alto / 2, fondo / 2); cu.castShadow = cu.receiveShadow = true; g.add(cu);
+  // el frontal serigrafiado: escala de 270°, marcas y cifras
+  const px = 256, cv = document.createElement('canvas'); cv.width = cv.height = px;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#d9dee2'; c.fillRect(0, 0, px, px);
+  c.strokeStyle = '#14181e'; c.fillStyle = '#14181e'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = 0; i < marcas; i++) {
+    const t = i / (marcas - 1), a = (0.5 - t) * 1.5 * Math.PI;       // misma ley que el índice
+    const dx = -Math.sin(a), dy = -Math.cos(a);                      // 0 → abajo-izquierda
+    c.lineWidth = i % 5 === 0 ? 5 : 3;
+    c.beginPath(); c.moveTo(px / 2 + dx * 80, px / 2 + dy * 80); c.lineTo(px / 2 + dx * 100, px / 2 + dy * 100); c.stroke();
+    if (i % 5 === 0 || marcas <= 6) { c.font = 'bold 22px system-ui'; c.fillText(String(Math.round(min + (max - min) * t)), px / 2 + dx * 120, px / 2 + dy * 120); }
+  }
+  c.font = 'bold 30px system-ui'; c.fillText(etiqueta, px / 2, px * 0.90);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const lado = Math.min(ancho, alto) * 0.92;
+  const fr = new THREE.Mesh(new THREE.PlaneGeometry(lado, lado), new THREE.MeshStandardMaterial({ map: tex, color: 0x9aa2a8, roughness: 0.85, metalness: 0 }));
+  fr.position.set(0, alto / 2, fondo + 0.001); g.add(fr);
+  // el mando: cuerpo moleteado, tapa y el índice
+  const mando = new THREE.Group(); mando.position.set(0, alto / 2, fondo + 0.004); g.add(mando);
+  const rk = lado * 0.20;
+  const cuerpo = new THREE.Mesh(revolucion([[0, 0], [rk, 0], [rk, 0], [rk, lado * 0.10], [rk * 0.86, lado * 0.13], [0, lado * 0.13]], { seg: 28 }), mN);
+  cuerpo.rotation.x = Math.PI / 2; cuerpo.castShadow = true; mando.add(cuerpo);
+  const ind = _bmCaja(rk * 0.16, rk * 0.95, lado * 0.02, _bmMat(0xf2f5f7, 0.4, 0.2), 0, rk * 0.50, lado * 0.134); mando.add(ind);
+  const rueda = _bmCil(rk * 0.45, lado * 0.02, mAl, 20); rueda.rotation.x = Math.PI / 2; rueda.position.z = lado * 0.134; mando.add(rueda);
+  const pone = (t) => { mando.rotation.z = (0.5 - Math.max(0, Math.min(1, t))) * 1.5 * Math.PI; };
+  pone(0.5);
+  g.userData = { ancho, alto, fondo, mando, pone };
+  return g;
+}
+
+/* ==========================================================================
+   §17-A · ESQUINA DE VEHÍCULO (suspensión y frenos) E INYECCIÓN MPFI
+   Piezas para montar una esquina de coche sobre un banco —mangueta, brazo de
+   suspensión, amortiguador con muelle— y un riel de combustible sobre su
+   colector de admisión y su culata. Todas siguen el convenio de la biblioteca:
+   reciben el diccionario de materiales del laboratorio y devuelven un grupo.
+   Materiales que leen (todos con sustituto): `hierro`/`acero` (fundición y
+   chapa), `bastidor` (pintura del banco), `amort` y `muelle` (pintura del
+   amortiguador y del muelle), `colector` (plástico del colector), `oring`.
+   ========================================================================== */
+
+/**
+ * MANGUETA (el «nudillo» de dirección): la fundición que sostiene el buje, une
+ * la rueda con la suspensión y lleva atornillada la mordaza. Se reconoce por su
+ * silueta: la caja del rodamiento en el centro, el cuello que sube a la pinza
+ * del amortiguador, la rótula de abajo, el brazo de dirección que sale hacia
+ * delante y las dos orejas traseras donde se atornilla la mordaza.
+ *
+ * Eje de la rueda en +X (la placa es normal a X); el frente del coche, en −Z.
+ * El origen es el eje del buje. `userData` da, en coordenadas locales, la
+ * rótula inferior, el extremo del brazo de dirección, el cuello del amortiguador
+ * y las orejas de la mordaza, para que el laboratorio cuelgue de ahí el resto.
+ */
+export function mangueta(mat, opts = {}) {
+  const { escala = 1, grueso = 0.09 } = opts;
+  const e = escala, g = new THREE.Group();
+  const M = mat.hierro || mat.acero;
+  const P = [[-0.10, -0.36], [0.10, -0.36], [0.10, -0.20], [0.42, -0.20], [0.42, -0.10],
+    [0.17, -0.06], [0.17, 0.12], [0.11, 0.16], [0.11, 0.52], [-0.11, 0.52], [-0.11, 0.16],
+    [-0.18, 0.12], [-0.34, 0.12], [-0.34, 0.00], [-0.18, -0.06], [-0.18, -0.20], [-0.10, -0.20]]
+    .map(([u, v]) => [u * e, v * e]);
+  const placa = new THREE.Mesh(extruido(contornoRedondeado(P, 0.035 * e, 3), {
+    huecos: [circulo(0, 0, 0.11 * e, 24), circulo(0, 0.43 * e, 0.024 * e, 10),
+             circulo(0, 0.31 * e, 0.024 * e, 10), circulo(-0.26 * e, 0.06 * e, 0.022 * e, 10)],
+    espesor: grueso * e, bisel: 0.012 * e }), M);
+  placa.rotation.y = Math.PI / 2;               // el contorno se lee con +u hacia delante (−Z)
+  placa.castShadow = true; g.add(placa);
+  // La caja del rodamiento: el cubo que atraviesa la placa.
+  const caja = new THREE.Mesh(revolucion([
+    [0.062 * e, -0.115 * e], [0.150 * e, -0.115 * e], [0.150 * e, -0.115 * e], [0.150 * e, 0.115 * e],
+    [0.150 * e, 0.115 * e], [0.062 * e, 0.115 * e]], { seg: 32 }), M);
+  caja.rotation.z = Math.PI / 2; caja.castShadow = true; g.add(caja);
+  // La rótula de abajo: espárrago cónico con su guardapolvo de goma.
+  const rotula = new THREE.Mesh(revolucion([
+    [0, 0], [0.050 * e, 0], [0.050 * e, 0.012 * e], [0.036 * e, 0.060 * e], [0.024 * e, 0.075 * e],
+    [0, 0.075 * e]], { seg: 20 }), mat.negro || M);
+  rotula.position.y = -0.36 * e - 0.07 * e; g.add(rotula);
+  // Los dos pernos del cuello (los que sujetan la pinza del amortiguador).
+  for (const y of [0.43, 0.31]) {
+    const t = tornilloHex(mat, { d: 0.05 * e, largo: 0.20 * e });
+    t.rotation.z = Math.PI / 2; t.position.set(-grueso * e * 0.5, y * e, 0); g.add(t);
+  }
+  // Los dos pernos de la mordaza, en las orejas traseras (+Z).
+  for (const y of [0.12, 0.00]) {
+    const t = tornilloHex(mat, { d: 0.045 * e, largo: 0.16 * e });
+    t.rotation.z = Math.PI / 2; t.position.set(-grueso * e * 0.5, y * e, 0.26 * e); g.add(t);
+  }
+  // La rótula del brazo de dirección, en la punta del brazo.
+  const bd = new THREE.Mesh(revolucion([
+    [0, 0], [0.040 * e, 0], [0.032 * e, 0.07 * e], [0.02 * e, 0.09 * e], [0, 0.09 * e]], { seg: 16 }),
+    mat.negro || M);
+  bd.position.set(0, -0.20 * e, -0.36 * e); g.add(bd);
+  g.userData = { rotulaInf: _V(0, -0.36 * e, 0), brazoDir: _V(0, -0.15 * e, -0.36 * e),
+    cuello: _V(0, 0.52 * e, 0), orejas: _V(0, 0.06 * e, 0.26 * e), grueso: grueso * e };
+  return g;
+}
+
+/**
+ * BRAZO DE SUSPENSIÓN inferior (trapecio o «A»): la chapa estampada con su
+ * aligeramiento, los dos casquillos de goma que giran sobre el larguero y la
+ * rótula que sube a la mangueta. En un coche de verdad es la pieza que mueve
+ * la rueda arriba y abajo sin dejarla escapar hacia los lados.
+ *
+ * El origen es el centro de la chapa en la punta; el brazo se extiende hacia +X
+ * (hacia el interior del coche) `largo`, y los dos casquillos quedan sobre el
+ * eje común paralelo a Z en x = largo, separados `ancho`. La rótula sube 0,14.
+ */
+export function brazoSuspension(mat, opts = {}) {
+  const { largo = 1.0, ancho = 0.8, grueso = 0.045, d = 0.10 } = opts;
+  const g = new THREE.Group();
+  const M = mat.bastidor || mat.acero, A = ancho / 2, L = largo;
+  const T = [[0, -0.075], [L, -A - 0.075], [L, A + 0.075], [0, 0.075]];
+  const H = [[L * 0.20, -0.02], [L * 0.84, -A * 0.66], [L * 0.84, A * 0.66], [L * 0.20, 0.02]];
+  const placa = new THREE.Mesh(extruido(contornoRedondeado(T, 0.04, 3), {
+    huecos: [contornoRedondeado(H, 0.05, 3)], espesor: grueso, bisel: grueso * 0.22 }), M);
+  placa.rotation.x = -Math.PI / 2; placa.castShadow = true; g.add(placa);
+  // El nervio: un reborde en el borde exterior, que es lo que rigidiza la chapa.
+  for (const s of [1, -1]) {
+    const ln = Math.hypot(L, A);
+    const n = new THREE.Mesh(new THREE.BoxGeometry(ln, grueso * 1.9, 0.016), M);
+    n.position.set(L / 2, grueso * 0.30, s * (A / 2 + 0.075)); n.rotation.y = -s * Math.atan2(A, L);
+    g.add(n);
+  }
+  // Los dos casquillos: camisa de acero y goma, ejes paralelos a Z.
+  for (const s of [1, -1]) {
+    const cam = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.62, d * 0.62, d * 1.25, 20), M);
+    cam.rotation.x = Math.PI / 2; cam.position.set(L, 0, s * A); cam.castShadow = true; g.add(cam);
+    const goma = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.44, d * 0.44, d * 1.34, 18),
+      mat.goma || mat.negro);
+    goma.rotation.x = Math.PI / 2; goma.position.copy(cam.position); g.add(goma);
+    const ej = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.17, d * 0.17, d * 1.6, 10), mat.acero || M);
+    ej.rotation.x = Math.PI / 2; ej.position.copy(cam.position); g.add(ej);
+  }
+  // La rótula de la punta, con su guardapolvo.
+  const r = new THREE.Mesh(revolucion([[0, 0.02], [d * 0.58, 0.02], [d * 0.50, 0.075],
+    [d * 0.34, 0.12], [d * 0.22, 0.14], [0, 0.14]], { seg: 22 }), mat.negro || M);
+  g.add(r);
+  g.userData = { largo, ancho, rotula: _V(0, 0.14, 0), casquillos: [_V(L, 0, -A), _V(L, 0, A)] };
+  return g;
+}
+
+/**
+ * AMORTIGUADOR con muelle (la «pata» MacPherson): tubo de amortiguador con su
+ * placa de sujeción a la mangueta, el asiento inferior y el muelle helicoidal
+ * —que es lo que se ve—, el guardapolvo de fuelle sobre el vástago y la copela
+ * superior con sus tres tuercas. Origen en el extremo de abajo del tubo; sube
+ * +Y `largo`. La placa de la mangueta cae a −X (hacia fuera de la rueda).
+ */
+export function amortiguadorMuelle(mat, opts = {}) {
+  const { largo = 0.75, d = 0.09, rMuelle = 0.092, vueltas = 7, hilo = 0.0165 } = opts;
+  const g = new THREE.Group(), R = d / 2, L = largo;
+  const Pt = mat.amort || mat.acero, Mu = mat.muelle || mat.acero;
+  const tubo = new THREE.Mesh(revolucion([[0, 0], [R, 0], [R, 0], [R, L * 0.50], [R * 0.86, L * 0.52],
+    [R * 0.86, L * 0.56], [0, L * 0.56]], { seg: 26 }), Pt);
+  tubo.castShadow = true; g.add(tubo);
+  // La placa que se atornilla a la mangueta.
+  const placa = new THREE.Mesh(new THREE.BoxGeometry(0.03, L * 0.36, d * 1.55), mat.acero);
+  placa.position.set(-R - 0.012, L * 0.18, 0); placa.castShadow = true; g.add(placa);
+  // El asiento del muelle (abajo) y el de arriba.
+  const asiento = (y) => new THREE.Mesh(revolucion([[R * 0.9, y], [rMuelle + 0.026, y], [rMuelle + 0.026, y],
+    [rMuelle + 0.026, y + 0.016], [R * 0.9, y + 0.016]], { seg: 28 }), mat.acero);
+  g.add(asiento(L * 0.16)); g.add(asiento(L * 0.80));
+  const m = muelle({ acero: Mu }, { r: rMuelle, largo: L * 0.64 - 0.016, vueltas, hilo, seg: 16 });
+  m.position.y = L * 0.16 + 0.016 + (L * 0.64 - 0.016) / 2; g.add(m);
+  // El vástago cromado y el guardapolvo de fuelle (con sus pliegues).
+  const va = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, L * 0.34, 12), mat.cromo || mat.acero);
+  va.position.y = L * 0.56 + L * 0.15; g.add(va);
+  const per = [[0, L * 0.58]];
+  for (let i = 0; i < 6; i++) { const y = L * 0.58 + i * L * 0.032;
+    per.push([0.040, y], [0.056, y + L * 0.012], [0.040, y + L * 0.020]); }
+  per.push([0.040, L * 0.80], [0, L * 0.80]);
+  g.add(new THREE.Mesh(revolucion(per, { seg: 20 }), mat.negro || Pt));
+  // La copela superior (goma y chapa) con sus tres tuercas.
+  const cop = new THREE.Mesh(revolucion([[0, L * 0.80], [0.082, L * 0.80], [0.082, L * 0.80],
+    [0.082, L * 0.86], [0.070, L * 0.895], [0.030, L * 0.905], [0.030, L * 0.935], [0, L * 0.935]], { seg: 28 }),
+    mat.negro || Pt);
+  cop.castShadow = true; g.add(cop);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const t = tornilloHex(mat, { d: 0.032, largo: 0.05, arandela: false });
+    t.position.set(Math.cos(a) * 0.055, L * 0.89, Math.sin(a) * 0.055); g.add(t);
+  }
+  g.userData = { largo, arriba: _V(0, L * 0.935, 0), placaX: -R - 0.012 };
+  return g;
+}
+
+/**
+ * PLATAFORMA DE BANCO: la base sobre la que se monta un conjunto de taller. No
+ * es un suelo: es una bandeja de chapa con su reborde, atornillada a un marco de
+ * perfil rectangular con travesaños y patas de goma. Que el montaje se apoye en
+ * algo que se reconoce como un banco es lo que deja de hacerlo flotar.
+ *
+ * El origen es el centro de la CARA SUPERIOR; la pieza baja `alto` hasta el
+ * suelo (y = −alto). Ocupa `ancho` en X y `fondo` en Z.
+ */
+export function plataformaBanco(mat, opts = {}) {
+  const { ancho = 4.0, fondo = 2.0, alto = 0.14 } = opts;
+  const g = new THREE.Group(), M = mat.bastidor || mat.acero;
+  const placa = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -fondo / 2], [ancho / 2, -fondo / 2], [ancho / 2, fondo / 2], [-ancho / 2, fondo / 2]], 0.07, 4),
+    { espesor: 0.035, bisel: 0.008 }), M);
+  placa.rotation.x = -Math.PI / 2; placa.position.y = -0.0175; placa.receiveShadow = true;
+  placa.castShadow = true; g.add(placa);
+  // El reborde de ángulo, alrededor.
+  for (const [w, d, x, z] of [[ancho, 0.045, 0, fondo / 2 - 0.0225], [ancho, 0.045, 0, -fondo / 2 + 0.0225],
+                              [0.045, fondo - 0.09, ancho / 2 - 0.0225, 0], [0.045, fondo - 0.09, -ancho / 2 + 0.0225, 0]]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), M);
+    b.position.set(x, 0.005, z); b.castShadow = true; g.add(b);
+  }
+  // Los tornillos de la bandeja, en dos filas a lo largo.
+  const nx = Math.max(4, Math.round(ancho / 0.38));
+  for (let i = 0; i < nx; i++) for (const s of [1, -1]) {
+    const t = tornilloHex(mat, { d: 0.04, largo: 0.03, arandela: true });
+    t.position.set(-ancho / 2 + 0.22 + i * (ancho - 0.44) / (nx - 1), 0.0, s * (fondo / 2 - 0.15));
+    t.scale.setScalar(0.8); g.add(t);
+  }
+  // El marco de debajo: dos largueros, tres travesaños y cuatro patas de goma.
+  const hb = alto - 0.04;
+  for (const s of [1, -1]) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(ancho - 0.3, hb, 0.10), M);
+    l.position.set(0, -0.035 - hb / 2, s * (fondo / 2 - 0.20)); l.castShadow = true; g.add(l);
+  }
+  for (let i = 0; i < 3; i++) {
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.10, hb * 0.8, fondo - 0.50), M);
+    c.position.set(-ancho / 2 + 0.35 + i * (ancho - 0.70) / 2, -0.035 - hb * 0.4, 0); g.add(c);
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.04, 16), mat.goma || mat.negro);
+    p.position.set(sx * (ancho / 2 - 0.30), -alto + 0.02, sz * (fondo / 2 - 0.20)); g.add(p);
+  }
+  g.userData = { ancho, fondo, alto };
+  return g;
+}
+
+/**
+ * INYECTOR de alimentación superior con conector LATERAL, como el de cualquier
+ * MPFI: filtro-cesta arriba, junta tórica superior que sella en la copa del
+ * riel, cuerpo de acero con la torreta del conector moldeada en plástico, junta
+ * tórica inferior que sella en el colector y la tobera con su placa de orificios.
+ * Eje +Y, tobera en −Y; el conector sale hacia +Z.
+ * `userData.puntaY` (la punta) y `userData.conector` (donde enchufa) para
+ * colgar el chorro y el mazo.
+ */
+export function inyectorTopFeed(mat, opts = {}) {
+  const { d = 0.15, largo = 0.46 } = opts;
+  const R = d / 2, g = new THREE.Group(), L = largo, Zf = R * 2.65;
+  const Ac = mat.acero || mat.aluminio, Pl = mat.negro || Ac, Go = mat.oring || mat.goma || Pl;
+  g.add(new THREE.Mesh(revolucion([[0, L * 0.50], [R * 0.62, L * 0.50], [R * 0.62, L * 0.50],
+    [R * 0.62, L * 0.42], [R * 0.80, L * 0.40], [0, L * 0.40]], { seg: 20 }), Pl));        // cesta del filtro
+  const oringSup = new THREE.Mesh(new THREE.TorusGeometry(R * 0.74, R * 0.15, 8, 24), Go);
+  oringSup.rotation.x = Math.PI / 2; oringSup.position.y = L * 0.36; g.add(oringSup);
+  const cuerpo = new THREE.Mesh(revolucion([[0, L * 0.30], [R * 0.80, L * 0.30], [R * 0.80, L * 0.30],
+    [R * 0.80, L * 0.24], [R * 0.92, L * 0.22], [R * 0.92, -L * 0.02], [R * 0.74, -L * 0.04],
+    [R * 0.74, -L * 0.28], [0, -L * 0.28]], { seg: 26 }), Ac);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  // La torreta del conector: plástico moldeado que envuelve el cuerpo y sale de lado.
+  const col = new THREE.Mesh(revolucion([[0, L * 0.26], [R * 1.22, L * 0.26], [R * 1.22, L * 0.26],
+    [R * 1.22, L * 0.06], [R * 1.05, L * 0.04], [0, L * 0.04]], { seg: 22 }), Pl);
+  col.castShadow = true; g.add(col);
+  const torre = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-R * 0.95, -L * 0.095], [R * 0.95, -L * 0.095], [R * 0.95, L * 0.095], [-R * 0.95, L * 0.095]], R * 0.20, 3),
+    { espesor: Zf - R * 1.0, bisel: R * 0.06 }), Pl);
+  torre.position.set(0, L * 0.16, (Zf + R * 1.0) / 2); torre.castShadow = true; g.add(torre);
+  // El hueco del conector con sus dos pines.
+  const hueco = new THREE.Mesh(new THREE.BoxGeometry(R * 1.30, L * 0.10, 0.012),
+    new THREE.MeshStandardMaterial({ color: 0x07090b, roughness: 0.9 }));
+  hueco.position.set(0, L * 0.16, Zf + 0.002); g.add(hueco);
+  for (const sx of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(R * 0.14, L * 0.055, R * 0.40), mat.cobre || Ac);
+    p.position.set(sx * R * 0.34, L * 0.16, Zf + R * 0.10); g.add(p);
+  }
+  const clip = new THREE.Mesh(new THREE.BoxGeometry(R * 0.7, L * 0.03, R * 0.9), Pl);
+  clip.position.set(0, L * 0.16 + L * 0.105, R * 2.0); g.add(clip);
+  const oringInf = new THREE.Mesh(new THREE.TorusGeometry(R * 0.70, R * 0.15, 8, 24), Go);
+  oringInf.rotation.x = Math.PI / 2; oringInf.position.y = -L * 0.20; g.add(oringInf);
+  g.add(new THREE.Mesh(revolucion([[0, -L * 0.28], [R * 0.64, -L * 0.28], [R * 0.64, -L * 0.34],
+    [R * 0.50, -L * 0.40], [R * 0.44, -L * 0.48], [R * 0.44, -L * 0.50], [0, -L * 0.50]], { seg: 20 }), Ac)); // tobera
+  g.userData = { puntaY: -L * 0.50, conector: _V(0, L * 0.16, Zf + R * 0.4) };
+  return g;
+}
+
+/**
+ * RIEL DE COMBUSTIBLE: tubo de acero inoxidable con una COPA por inyector (donde
+ * encaja su junta tórica superior), el racor rápido de entrada en un extremo, el
+ * alojamiento del regulador de presión en el otro, la válvula Schrader con su
+ * tapón —por donde se conecta el manómetro— y las patas de sujeción.
+ * Eje X, centrado; las copas miran a −Y y se inclinan `inclina` rad hacia −Z
+ * (la inclinación a la que va el inyector). `userData.copas[i]` da el centro de
+ * cada copa (el punto donde remata la cabeza del inyector), `userData.entrada` y
+ * `userData.regulador` los extremos. Con `pata > 0` salen dos patas de esa
+ * longitud hacia abajo (a `patasX` del extremo), para atornillar el riel a la culata.
+ */
+export function rielCombustible(mat, opts = {}) {
+  const { largo = 2.6, n = 4, paso = 0.6, d = 0.15, inclina = 0, pata = 0, patasX = 0.30 } = opts;
+  const g = new THREE.Group(), R = d / 2, Ac = mat.acero || mat.aluminio, Pl = mat.negro || Ac;
+  const tubo = new THREE.Mesh(revolucion([[0, -largo / 2], [R, -largo / 2], [R, -largo / 2],
+    [R, largo / 2], [R, largo / 2], [0, largo / 2]], { seg: 28 }), mat.cromo || Ac);
+  tubo.rotation.z = -Math.PI / 2; tubo.castShadow = true; g.add(tubo);
+  const copas = [];
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * paso;
+    const gr = new THREE.Group(); gr.position.set(x, 0, 0); gr.rotation.x = inclina;
+    const c = new THREE.Mesh(revolucion([[R * 0.60, 0], [R * 1.05, 0], [R * 1.05, -R * 0.85],
+      [R * 0.90, -R * 1.00], [R * 0.60, -R * 1.00]], { seg: 22 }), mat.cromo || Ac);
+    c.castShadow = true; gr.add(c); g.add(gr);
+    copas.push(_V(x, -Math.cos(inclina) * R * 1.0, -Math.sin(inclina) * R * 1.0));
+  }
+  // El racor rápido de entrada, con su collar y la púa donde entra la manguera.
+  const ent = new THREE.Mesh(revolucion([[0, 0], [R * 0.70, 0], [R * 0.70, R * 0.60], [R * 0.95, R * 0.70],
+    [R * 0.95, R * 1.20], [R * 0.60, R * 1.30], [R * 0.60, R * 1.60], [R * 0.78, R * 1.70],
+    [R * 0.78, R * 2.00], [R * 0.52, R * 2.10], [R * 0.52, R * 2.50], [0, R * 2.50]], { seg: 20 }), Ac);
+  ent.rotation.z = Math.PI / 2; ent.position.x = -largo / 2 - R * 0.10; g.add(ent);
+  // El alojamiento del regulador, al otro extremo: un casquillo ancho con su collar.
+  const reg = new THREE.Mesh(revolucion([[0, 0], [R * 1.35, 0], [R * 1.35, R * 0.30],
+    [R * 1.05, R * 0.38], [R * 1.05, R * 0.85], [0, R * 0.85]], { seg: 24 }), Ac);
+  reg.rotation.z = -Math.PI / 2; reg.position.x = largo / 2 + R * 0.10; reg.castShadow = true; g.add(reg);
+  // La válvula Schrader: cuerpo y tapón de plástico.
+  const sch = new THREE.Group(); sch.position.set(-largo / 2 + 0.42, R * 0.94, 0);
+  sch.add(new THREE.Mesh(revolucion([[0, 0], [R * 0.58, 0], [R * 0.58, R * 0.40], [R * 0.36, R * 0.48],
+    [R * 0.36, R * 1.05], [0, R * 1.05]], { seg: 18 }), Ac));
+  const tapon = new THREE.Mesh(revolucion([[0, R * 1.05], [R * 0.46, R * 1.05], [R * 0.46, R * 1.35],
+    [R * 0.36, R * 1.42], [0, R * 1.42]], { seg: 6 }), Pl);
+  tapon.position.y = -R * 0.10; sch.add(tapon); g.add(sch);
+  // Las patas de sujeción: un brazo, un cuello y una pestaña atornillada.
+  if (pata > 0) for (const s of [-1, 1]) {
+    const x = s * (largo / 2 - patasX);
+    const brazo = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.035, 0.12), Ac);
+    brazo.position.set(x, -R * 0.6, -0.04); g.add(brazo);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.030, pata, 12), Ac);
+    col.position.set(x, -R * 0.6 - pata / 2, -0.10); col.castShadow = true; g.add(col);
+    const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 18), Ac);
+    pie.position.set(x, -R * 0.6 - pata, -0.10); g.add(pie);
+  }
+  g.userData = { copas, entrada: _V(-largo / 2 - R * 2.6, 0, 0), regulador: _V(largo / 2 + R * 0.95, 0, 0),
+    schrader: sch };
+  return g;
+}
+
+/**
+ * REGULADOR DE PRESIÓN DE COMBUSTIBLE (membrana): una lata de chapa en dos
+ * mitades crimpadas, con la toma de vacío —la púa de arriba— conectada al
+ * colector, y el retorno al depósito saliendo de lado. Es la pieza que fija los
+ * ~3,5 bar de diferencia entre el riel y el colector: el vacío de arriba le
+ * resta al muelle, de ahí que la presión baje con la carga.
+ * Eje +Y; el retorno sale hacia +X. `userData.vacio` es la punta de la púa.
+ */
+export function reguladorCombustible(mat, opts = {}) {
+  const { d = 0.22, alto = 0.26 } = opts;
+  const R = d / 2, g = new THREE.Group(), Ac = mat.acero || mat.aluminio, Pl = mat.negro || Ac;
+  const inf = new THREE.Mesh(revolucion([[0, 0], [R * 0.72, 0], [R * 0.72, alto * 0.10], [R * 0.96, alto * 0.14],
+    [R * 0.96, alto * 0.50], [R * 1.02, alto * 0.52], [R * 1.02, alto * 0.58], [0, alto * 0.58]], { seg: 32 }), Ac);
+  inf.castShadow = true; g.add(inf);
+  const sup = new THREE.Mesh(revolucion([[0, alto * 0.56], [R * 1.04, alto * 0.56], [R * 1.04, alto * 0.64],
+    [R * 0.98, alto * 0.70], [R * 0.80, alto * 0.90], [R * 0.50, alto * 1.00], [0, alto * 1.00]], { seg: 32 }), Ac);
+  sup.castShadow = true; g.add(sup);
+  const nip = new THREE.Mesh(revolucion([[0, alto * 0.98], [R * 0.20, alto * 0.98], [R * 0.20, alto * 1.18],
+    [R * 0.30, alto * 1.20], [R * 0.30, alto * 1.26], [R * 0.22, alto * 1.30], [R * 0.22, alto * 1.40],
+    [0, alto * 1.40]], { seg: 14 }), Pl);
+  g.add(nip);
+  const ret = new THREE.Mesh(revolucion([[0, 0], [R * 0.30, 0], [R * 0.30, R * 0.70], [R * 0.44, R * 0.78],
+    [R * 0.44, R * 1.00], [R * 0.32, R * 1.06], [R * 0.32, R * 1.60], [0, R * 1.60]], { seg: 14 }), Ac);
+  ret.rotation.z = -Math.PI / 2; ret.position.set(R * 0.90, alto * 0.22, 0); g.add(ret);
+  g.userData = { vacio: _V(0, alto * 1.40, 0), retorno: _V(R * 0.90 + R * 1.60, alto * 0.22, 0) };
+  return g;
+}
+
+/**
+ * CULATA (el tramo de admisión): el bloque de aluminio sobre el que se atornilla
+ * el colector, con la boca de cada conducto —aro y fondo oscuro— y las dos
+ * costillas de refrigeración de la cara delantera. El origen es el centro; la
+ * cara de arriba está en y = +alto/2, y `userData.puertos` da la x de cada boca.
+ * Es lo que da al colector un sitio donde asentarse.
+ */
+export function culataAdmision(mat, opts = {}) {
+  const { largo = 2.6, fondo = 0.72, alto = 0.36, n = 4, paso = 0.6 } = opts;
+  const g = new THREE.Group(), Al = mat.aluminio || mat.acero;
+  const bloque = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-largo / 2, -alto / 2], [largo / 2, -alto / 2], [largo / 2, alto / 2], [-largo / 2, alto / 2]], 0.04, 4),
+    { espesor: fondo, bisel: 0.015 }), 2), Al);
+  bloque.castShadow = bloque.receiveShadow = true; g.add(bloque);
+  const negro = mat.negro || Al, puertos = [];
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * paso; puertos.push(x);
+    const aro = new THREE.Mesh(revolucion([[0.085, 0], [0.135, 0], [0.135, 0.012], [0.085, 0.012]], { seg: 24 }), mat.acero || Al);
+    aro.position.set(x, alto / 2, 0); g.add(aro);
+    const boca = new THREE.Mesh(new THREE.CircleGeometry(0.085, 20), new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.95 }));
+    boca.rotation.x = -Math.PI / 2; boca.position.set(x, alto / 2 + 0.004, 0); g.add(boca);
+    // Dos espárragos con su tuerca, a los lados de cada boca.
+    for (const sz of [-1, 1]) {
+      const t = tornilloHex(mat, { d: 0.034, largo: 0.012 });
+      t.position.set(x, alto / 2 + 0.0, sz * 0.25); g.add(t);
+    }
+  }
+  // Las costillas de la cara delantera (+Z).
+  for (const y of [-alto * 0.22, alto * 0.14]) {
+    const c = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.94, 0.03, 0.03), Al);
+    c.position.set(0, y, fondo / 2 + 0.01); g.add(c);
+  }
+  // Las bridas de los conductos de escape, atrás: cuatro tetones redondos.
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * paso;
+    const b = new THREE.Mesh(revolucion([[0.06, 0], [0.12, 0], [0.12, 0.05], [0.06, 0.05]], { seg: 20 }), negro);
+    b.rotation.x = -Math.PI / 2; b.position.set(x, -alto * 0.08, -fondo / 2); g.add(b);
+  }
+  g.userData = { puertos, topY: alto / 2, fondo, largo };
+  return g;
+}
+
+/**
+ * COLECTOR DE ADMISIÓN de plástico con su plenum, sus `n` conductos curvos, la
+ * brida de asiento sobre la culata y el cuerpo de mariposa en la boca del
+ * plenum. Los conductos largos y curvados no son adorno: su longitud sintoniza
+ * el llenado. Origen en el CENTRO DE LA BRIDA, cara de abajo (y = 0) sobre la
+ * culata; el plenum queda atrás (−Z) y arriba, la mariposa a −X.
+ * `userData`: `puertos` (x de cada boca), `mariposa` (el plato, para girarlo),
+ * `tps` (donde monta el sensor de posición), `map` (la toma de presión),
+ * `boca` (la entrada de aire).
+ */
+export function colectorAdmision(mat, opts = {}) {
+  const { largo = 2.6, n = 4, paso = 0.6, rConducto = 0.098, hPlenum = 0.66, zPlenum = -0.50, rPlenum = 0.27 } = opts;
+  const g = new THREE.Group(), Co = mat.colector || mat.negro, Al = mat.aluminio || mat.acero;
+  const puertos = [];
+  const brida = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-largo / 2, -0.20], [largo / 2, -0.20], [largo / 2, 0.20], [-largo / 2, 0.20]], 0.07, 4), {
+    huecos: Array.from({ length: n }, (_, i) => circulo((i - (n - 1) / 2) * paso, 0, rConducto * 0.8, 20)),
+    espesor: 0.045, bisel: 0.008 }), Co);
+  brida.rotation.x = -Math.PI / 2; brida.position.y = 0.0225; brida.castShadow = true; g.add(brida);
+  for (let i = 0; i <= n; i++) for (const sz of [-1, 1]) {            // la tornillería entre bocas
+    const t = tornilloHex(mat, { d: 0.036, largo: 0.012 });
+    t.position.set((i - n / 2) * paso, 0.045, sz * 0.15); g.add(t);
+  }
+  const zB = zPlenum + rPlenum * 0.7;
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * paso; puertos.push(x);
+    const pts = [[x, 0.04, 0], [x, 0.18, 0], [x, hPlenum * 0.52, zB * 0.16], [x, hPlenum * 0.76, zB * 0.55],
+      [x, hPlenum * 0.94, zB * 0.95], [x, hPlenum, zB]].map(p => _V(p[0], p[1], p[2]));
+    const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, rConducto, 18, false), Co);
+    t.castShadow = true; g.add(t);
+    const af = new THREE.Mesh(revolucion([[rConducto * 0.8, 0], [rConducto * 1.45, 0], [rConducto * 1.08, 0.07],
+      [rConducto, 0.09], [rConducto * 0.8, 0.09]], { seg: 22 }), Co);
+    af.position.y = 0.045; g.add(af);                                // el abocinado del pie
+  }
+  // El plenum: un cilindro con las tapas abombadas, nervios y la toma de presión.
+  const Lp = largo * 0.86;
+  const plenum = new THREE.Mesh(revolucion([[0, -Lp / 2], [rPlenum * 0.55, -Lp / 2], [rPlenum * 0.92, -Lp / 2 + 0.07],
+    [rPlenum, -Lp / 2 + 0.16], [rPlenum, Lp / 2 - 0.16], [rPlenum * 0.92, Lp / 2 - 0.07], [rPlenum * 0.55, Lp / 2],
+    [0, Lp / 2]], { seg: 34 }), Co);
+  plenum.rotation.z = Math.PI / 2; plenum.position.set(0, hPlenum, zPlenum); plenum.castShadow = true; g.add(plenum);
+  for (let i = 0; i < 7; i++) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(rPlenum * 1.005, 0.012, 6, 36), Co);
+    r.rotation.y = Math.PI / 2; r.position.set(-Lp / 2 + 0.30 + i * (Lp - 0.60) / 6, hPlenum, zPlenum); g.add(r);
+  }
+  const mapp = new THREE.Mesh(revolucion([[0, 0], [0.050, 0], [0.050, 0.05], [0.036, 0.07], [0.036, 0.12], [0, 0.12]],
+    { seg: 14 }), Co);
+  mapp.position.set(-largo * 0.18, hPlenum + rPlenum * 0.96, zPlenum); g.add(mapp);
+  // El cuerpo de mariposa y el manguito de goma de la entrada de aire.
+  const xm = -Lp / 2 - 0.16;
+  const cuerpo = new THREE.Mesh(revolucion([[0.145, -0.14], [0.205, -0.14], [0.205, -0.10], [0.16, -0.075],
+    [0.16, 0.075], [0.205, 0.10], [0.205, 0.14], [0.145, 0.14]], { seg: 30 }), Al);
+  cuerpo.rotation.z = Math.PI / 2; cuerpo.position.set(xm, hPlenum, zPlenum); cuerpo.castShadow = true; g.add(cuerpo);
+  const plato = new THREE.Mesh(new THREE.CylinderGeometry(0.152, 0.152, 0.012, 28), mat.cromo || Al);
+  plato.rotation.z = Math.PI / 2; plato.rotation.x = 0.5; plato.position.copy(cuerpo.position); g.add(plato);
+  const eje = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.44, 10), mat.acero || Al);
+  eje.rotation.x = Math.PI / 2; eje.position.copy(cuerpo.position); g.add(eje);
+  const manguito = new THREE.Mesh(revolucion([[0.17, 0], [0.18, 0], [0.205, 0.06], [0.185, 0.12], [0.205, 0.18],
+    [0.185, 0.24], [0.205, 0.30], [0.17, 0.30]], { seg: 28 }), mat.goma || Co);
+  manguito.rotation.z = Math.PI / 2; manguito.position.set(xm - 0.14, hPlenum, zPlenum);   // abre hacia −X
+  g.add(manguito);
+  g.userData = { puertos, mariposa: plato, tps: _V(xm, hPlenum, zPlenum + 0.24),
+    map: _V(-largo * 0.18, hPlenum + rPlenum + 0.12, zPlenum),
+    boca: _V(xm - 0.44, hPlenum, zPlenum), plenumY: hPlenum, plenumZ: zPlenum };
+  return g;
+}
+
+
+/* ============================================================================
+   §17-B · INSTRUMENTACIÓN Y CAMPO DE LA PUESTA A TIERRA (telurómetro, picas,
+   carrete, registro, gabinete)
+   ----------------------------------------------------------------------------
+   El método de Wenner se hace a la intemperie con cuatro picas en línea, un
+   telurómetro de campo y los carretes de cable por donde van las mediciones.
+   El sistema que se mide es una varilla con su abrazadera dentro de un
+   registro de concreto, unida por el conductor a la barra de tierra de un
+   gabinete. Todo se dibuja como se ve en una obra: la caja amarilla del
+   instrumento con sus cuatro bornas de colores, la pica de acero con su anilla
+   de hincado, el carrete con su manivela, el brocal con su tapa a un lado.
+
+   Convenio: todas estas piezas apoyan en y = 0 (el piso o la línea del
+   terreno), salvo que se diga otra cosa; el frente mira a +Z.
+   ========================================================================== */
+
+/**
+ * TELURÓMETRO DE CAMPO (4 terminales): la caja amarilla con esquineros de
+ * goma, la pantalla de cristal líquido, el selector rotativo, el botón de
+ * ensayo y, abajo, las cuatro bornas C1·P1·P2·C2 con su color. Es la pieza
+ * que más se reconoce de una medición de tierras: un alumno la identifica
+ * por las cuatro bornas en fila y la asa de transporte.
+ *
+ * Frente a +Z, origen en el centro de la base. `userData.bornas[i]` es el
+ * punto (coordenadas locales) donde enchufa el cable i; `pinta(texto)` escribe
+ * en la pantalla; `selector` es el grupo de la perilla (gira en su eje).
+ */
+export function telurometro(mat, opts = {}) {
+  const { ancho = 0.62, alto = 0.34, fondo = 0.44, color = 0xc48a12,
+          colores = [0xd64545, 0xc9a02c, 0x3aa86b, 0x3a7fd6],
+          rotulos = ['C1', 'P1', 'P2', 'C2'] } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, D = fondo, F = D / 2;
+  const mC = new THREE.MeshStandardMaterial({ color, roughness: 0.52, metalness: 0.06 });
+  const mN = new THREE.MeshStandardMaterial({ color: 0x14171b, roughness: 0.88, metalness: 0.04 });
+  const mP = new THREE.MeshStandardMaterial({ color: 0x23282f, roughness: 0.62, metalness: 0.18 });
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-W / 2, 0], [W / 2, 0], [W / 2, H], [-W / 2, H]], 0.05, 4), { espesor: D, bisel: 0.012 }), mC);
+  cue.castShadow = cue.receiveShadow = true; g.add(cue);
+  // esquineros de goma: lo que aguanta el golpe en el campo
+  for (const sx of [-1, 1]) for (const sy of [0, 1]) {
+    const q = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-0.06, -0.06], [0.06, -0.06], [0.06, 0.06], [-0.06, 0.06]], 0.025, 3),
+      { espesor: D + 0.03, bisel: 0.01 }), mN);
+    q.position.set(sx * (W / 2 - 0.04), sy ? H - 0.04 : 0.04, 0); q.castShadow = true; g.add(q);
+  }
+  // el frente: un panel oscuro, un punto hundido respecto a la caja
+  const pan = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-W * 0.44, -H * 0.41], [W * 0.44, -H * 0.41], [W * 0.44, H * 0.41], [-W * 0.44, H * 0.41]], 0.03, 3),
+    { espesor: 0.018, bisel: 0.004 }), mP);
+  pan.position.set(0, H / 2, F + 0.002); g.add(pan);
+  const ZF = F + 0.012;
+  // pantalla LCD: marco, cristal y los dígitos
+  const lw = W * 0.46, lh = H * 0.34, lx = -W * 0.22, ly = H * 0.64;
+  const mar = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-lw / 2 - 0.012, -lh / 2 - 0.012], [lw / 2 + 0.012, -lh / 2 - 0.012], [lw / 2 + 0.012, lh / 2 + 0.012], [-lw / 2 - 0.012, lh / 2 + 0.012]], 0.012, 3),
+    { espesor: 0.014, bisel: 0.003 }), mN);
+  mar.position.set(lx, ly, ZF + 0.002); g.add(mar);
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = Math.round(256 * lh / lw);
+  const cx = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const pinta = (txt, unidad = 'Ω') => {
+    cx.fillStyle = '#a7b89a'; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.fillStyle = 'rgba(40,60,40,.10)'; cx.fillRect(0, 0, cv.width, 6);
+    cx.fillStyle = '#1c2a1c'; cx.textBaseline = 'middle'; cx.textAlign = 'right';
+    cx.font = 'bold ' + Math.round(cv.height * 0.58) + 'px monospace';
+    cx.fillText(String(txt), cv.width * 0.78, cv.height * 0.54);
+    cx.textAlign = 'left'; cx.font = 'bold ' + Math.round(cv.height * 0.30) + 'px sans-serif';
+    cx.fillText(unidad, cv.width * 0.80, cv.height * 0.62);
+    cx.font = 'bold ' + Math.round(cv.height * 0.16) + 'px sans-serif';
+    cx.fillText('4P', cv.width * 0.05, cv.height * 0.16);
+    tex.needsUpdate = true;
+  };
+  pinta('0.00');
+  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), new THREE.MeshStandardMaterial({
+    map: tex, roughness: 0.35, metalness: 0.0, emissive: 0x0d140d, emissiveMap: tex, emissiveIntensity: 0.25 }));
+  lcd.position.set(lx, ly, ZF + 0.0105); g.add(lcd);
+  // selector rotativo, con su corona de rótulos
+  const sx = W * 0.27, sy = H * 0.62, rs = H * 0.26;
+  const corona = _etiqueta(256, 256, (c, w, h) => {
+    c.clearRect(0, 0, w, h); c.strokeStyle = '#e8edf2'; c.fillStyle = '#e8edf2'; c.lineWidth = 6;
+    c.font = 'bold 30px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const R0 = 100;
+    ['OFF', 'R', 'ρ', 'ESC'].forEach((t, i) => {
+      const a = (-130 + i * 85) * Math.PI / 180;
+      c.beginPath(); c.moveTo(w / 2 + Math.sin(a) * (R0 - 14), h / 2 - Math.cos(a) * (R0 - 14));
+      c.lineTo(w / 2 + Math.sin(a) * (R0 - 2), h / 2 - Math.cos(a) * (R0 - 2)); c.stroke();
+      c.fillText(t, w / 2 + Math.sin(a) * (R0 + 18), h / 2 - Math.cos(a) * (R0 + 18));
+    });
+  });
+  const cor = _tinta(corona, rs * 3.1, rs * 3.1); cor.position.set(sx, sy, ZF + 0.004); g.add(cor);
+  const sel = new THREE.Group(); sel.position.set(sx, sy, ZF + 0.008); sel.rotation.x = Math.PI / 2; g.add(sel);
+  const falda = new THREE.Mesh(revolucion([[0, 0], [rs * 1.12, 0], [rs * 1.12, 0.012], [rs * 0.96, 0.022], [0, 0.022]], { seg: 28 }), mN);
+  sel.add(falda);
+  const grip = new THREE.Mesh(revolucion([[0, 0], [rs, 0], [rs, rs * 0.5], [rs * 0.84, rs * 0.68], [0, rs * 0.68]], { seg: 28 }), mN);
+  grip.position.y = 0.022; grip.castShadow = true; sel.add(grip);
+  for (let i = 0; i < 12; i++) {                                   // el moleteado del canto
+    const a = i / 12 * Math.PI * 2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(rs * 0.10, rs * 0.4, rs * 0.12), mP);
+    m.position.set(Math.cos(a) * rs * 0.98, 0.022 + rs * 0.26, Math.sin(a) * rs * 0.98); m.rotation.y = -a; grip.add(m);
+  }
+  const idx = new THREE.Mesh(new THREE.BoxGeometry(rs * 0.12, rs * 0.04, rs * 0.55),
+    new THREE.MeshStandardMaterial({ color: 0xf1f4f7, roughness: 0.5 }));
+  idx.position.set(0, 0.022 + rs * 0.69, -rs * 0.35); sel.add(idx);
+  sel.rotation.y = 0;
+  // botón de ensayo y piloto
+  const bt = new THREE.Mesh(revolucion([[0, 0], [H * 0.075, 0], [H * 0.075, 0.012], [H * 0.06, 0.024], [0, 0.024]], { seg: 20 }),
+    new THREE.MeshStandardMaterial({ color: 0x2f9e6a, roughness: 0.45, metalness: 0.05 }));
+  bt.rotation.x = Math.PI / 2; bt.position.set(W * 0.27, H * 0.33, ZF + 0.006); g.add(bt);
+  // las cuatro bornas, en fila, cada una con su color y su rótulo
+  const bornas = [];
+  colores.forEach((col, i) => {
+    const x = (-0.30 + i * 0.20) * W, y = H * 0.19;
+    const b = new THREE.Group(); b.position.set(x, y, ZF); b.rotation.x = Math.PI / 2; g.add(b);
+    b.add(new THREE.Mesh(revolucion([[0, 0], [0.034, 0], [0.034, 0.008], [0.026, 0.012], [0, 0.012]], { seg: 16 }), met));
+    const cap = new THREE.Mesh(revolucion([[0, 0.012], [0.026, 0.012], [0.026, 0.040], [0.021, 0.050], [0.012, 0.050], [0, 0.044]], { seg: 16 }),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.45, metalness: 0.08 }));
+    cap.castShadow = true; b.add(cap);
+    const hueco = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.01, 10),
+      new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.8 }));
+    hueco.position.y = 0.048; b.add(hueco);
+    const rt = _etiqueta(128, 48, (c, w, h) => { c.clearRect(0, 0, w, h); c.fillStyle = '#e8edf2'; c.textAlign = 'center';
+      c.textBaseline = 'middle'; c.font = 'bold 34px sans-serif'; c.fillText(rotulos[i] || '', w / 2, h / 2); });
+    const t = _tinta(rt, 0.095, 0.095 * 48 / 128); t.position.set(x, y - 0.066, ZF + 0.003); g.add(t);
+    bornas.push(_V(x, y, ZF + 0.052));
+  });
+  // asa de transporte
+  const asa = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    _V(-W * 0.30, H, 0), _V(-W * 0.28, H + 0.09, 0), _V(0, H + 0.12, 0), _V(W * 0.28, H + 0.09, 0), _V(W * 0.30, H, 0)], false),
+    24, 0.017, 8, false), mN);
+  asa.castShadow = true; g.add(asa);
+  // patas de goma
+  for (const sx2 of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.012, 10), mN);
+    p.position.set(sx2 * W * 0.40, 0.004, sz * D * 0.36); g.add(p);
+  }
+  g.userData = { ancho: W, alto: H, fondo: D, bornas, pinta, selector: sel, cv, tex, frente: ZF };
+  return g;
+}
+
+/**
+ * PICA DE TIERRA: la varilla de acero o de copperweld que se hinca, con su
+ * PUNTA CÓNICA, su cabeza de golpeo (hongo achaflanado) o su ANILLA de
+ * hincado, y —si se pide— una borna de color donde se engancha la pinza del
+ * cable. Una varilla lisa con una bola encima no se reconoce; la punta y la
+ * cabeza sí.
+ *
+ * Eje Y; el ORIGEN ESTÁ EN LA LÍNEA DEL TERRENO. `largo` es lo que mide el
+ * vástago (sin punta), `sobre` lo que sobresale del suelo; la punta cónica
+ * se suma por debajo. `userData.borna` es el punto de enganche del cable.
+ */
+export function picaTierra(mat, opts = {}) {
+  const { largo = 1.4, sobre = 0.16, r = 0.04, color = 0xb87333, cabeza = 'hongo',
+          borna = null, punta = 0.22 } = opts;
+  const g = new THREE.Group();
+  const y0 = -(largo - sobre), y1 = sobre;
+  const mR = new THREE.MeshStandardMaterial({ color, roughness: 0.34, metalness: 0.88 });
+  const va = new THREE.Mesh(new THREE.CylinderGeometry(r, r, largo, 18), mR);
+  va.position.y = (y0 + y1) / 2; va.castShadow = true; g.add(va);
+  const pu = new THREE.Mesh(new THREE.ConeGeometry(r, punta, 18), mR);
+  pu.rotation.x = Math.PI; pu.position.y = y0 - punta / 2; pu.castShadow = true; g.add(pu);
+  let tope = y1;
+  if (cabeza === 'anilla') {
+    const an = new THREE.Mesh(new THREE.TorusGeometry(r * 2.4, r * 0.55, 8, 20), mR);
+    an.position.y = y1 + r * 2.4; g.add(an); tope = y1 + r * 4.8;
+  } else {
+    const ho = new THREE.Mesh(revolucion([[0, 0], [r, 0], [r * 1.35, r * 0.30], [r * 1.35, r * 0.85], [r * 1.05, r * 1.15], [0, r * 1.15]], { seg: 18 }),
+      new THREE.MeshStandardMaterial({ color: 0x6b727a, roughness: 0.5, metalness: 0.85 }));
+    ho.position.y = y1; ho.castShadow = true; g.add(ho); tope = y1 + r * 1.15;
+  }
+  let b = _V(0, y1 - r * 0.5, 0);
+  if (borna !== null) {
+    const y = y1 - r * 1.1;
+    const co = new THREE.Mesh(revolucion([[r, 0], [r * 1.9, 0], [r * 1.9, r * 1.6], [r, r * 1.6]], { seg: 14 }),
+      new THREE.MeshStandardMaterial({ color: borna, roughness: 0.5, metalness: 0.15 }));
+    co.position.y = y; g.add(co);
+    const to = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r * 0.35, r * 2.6, 8), mat.acero || mat.cromo);
+    to.rotation.z = Math.PI / 2; to.position.set(r * 1.1, y + r * 0.8, 0); g.add(to);
+    b = _V(r * 1.7, y + r * 0.8, 0);
+  }
+  g.userData = { largo, sobre, r, tope, borna: b };
+  return g;
+}
+
+/**
+ * ABRAZADERA DE TIERRA (tipo GR): el anillo de bronce que muerde la varilla,
+ * su cuña lateral con el tornillo de cabeza hexagonal y el conductor de cobre
+ * que sale por un lado. Eje Y (el de la varilla). `userData.salida` es donde
+ * nace el conductor.
+ */
+export function abrazaderaTierra(mat, opts = {}) {
+  const { r = 0.04, color = 0xb88a3c } = opts;
+  const g = new THREE.Group();
+  const mB = new THREE.MeshStandardMaterial({ color, roughness: 0.36, metalness: 0.85 });
+  const R = r * 1.9, h = r * 2.4;
+  const anillo = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-R, -R * 0.82], [R, -R * 0.82], [R, R * 0.82], [-R, R * 0.82]], R * 0.35, 4),
+    { huecos: [circulo(0, 0, r * 1.02, 24)], espesor: h, bisel: 0.004 }), mB);
+  anillo.rotation.x = -Math.PI / 2; anillo.castShadow = true; g.add(anillo);
+  const lug = new THREE.Mesh(extruido(contornoRedondeado(
+    [[R * 0.7, -R * 0.55], [R * 1.75, -R * 0.55], [R * 1.75, R * 0.55], [R * 0.7, R * 0.55]], R * 0.25, 3),
+    { espesor: h * 0.8, bisel: 0.004 }), mB);
+  lug.rotation.x = -Math.PI / 2; lug.castShadow = true; g.add(lug);
+  const tor = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.62, r * 0.62, r * 0.55, 6), mB);
+  tor.position.set(R * 1.25, h * 0.5 + r * 0.25, 0); tor.castShadow = true; g.add(tor);
+  const ro = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.88, r * 0.88, r * 0.14, 14), mat.acero || mB);
+  ro.position.set(R * 1.25, h * 0.4 + r * 0.04, 0); g.add(ro);
+  const cu = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.46, r * 0.46, r * 1.6, 12),
+    new THREE.MeshStandardMaterial({ color: 0xc0703a, roughness: 0.3, metalness: 0.9 }));
+  cu.rotation.z = Math.PI / 2; cu.position.set(R * 1.75 + r * 0.7, 0, 0); g.add(cu);
+  g.userData = { R, h, salida: _V(R * 1.75 + r * 1.5, 0, 0) };
+  return g;
+}
+
+/**
+ * CARRETE DE CABLE de campo: dos platos con su borde, el cable enrollado a la
+ * vista (con sus vueltas), el eje, la MANIVELA y el soporte con asa. Se usa
+ * para tender los cables de medida hasta cada pica. Eje en Z; origen en el
+ * centro de la base. `userData.punta` es la salida del cable.
+ */
+export function carreteCable(mat, opts = {}) {
+  const { d = 0.46, ancho = 0.20, color = 0xd64545 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, hub = R * 0.26, yc = R + 0.045;
+  const mP = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.6, metalness: 0.35 });
+  const mN = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.85, metalness: 0.05 });
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const rueda = new THREE.Group(); rueda.position.y = yc; g.add(rueda);
+  for (const s of [-1, 1]) {
+    const pl = new THREE.Mesh(revolucion([[hub, 0], [R * 0.96, 0], [R, 0.010], [R, 0.026], [R * 0.94, 0.026],
+      [R * 0.90, 0.012], [hub, 0.012]], { seg: 40 }), mP);
+    pl.rotation.x = Math.PI / 2; pl.position.z = s * ancho / 2 - (s > 0 ? 0.0 : 0.026); pl.castShadow = true; rueda.add(pl);
+  }
+  const tx = _etiqueta(256, 256, (c, w, h) => { c.fillStyle = '#' + new THREE.Color(color).getHexString(); c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(0,0,0,.28)'; for (let i = 0; i < 16; i++) c.fillRect(0, i * 16 + 13, w, 3); });
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(1, 1);
+  const cab = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.80, R * 0.80, ancho - 0.02, 36),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: tx, roughness: 0.7, metalness: 0.02 }));
+  cab.rotation.x = Math.PI / 2; cab.castShadow = true; rueda.add(cab);
+  const nu = new THREE.Mesh(new THREE.CylinderGeometry(hub, hub, ancho + 0.07, 18), met);
+  nu.rotation.x = Math.PI / 2; rueda.add(nu);
+  // manivela: brazo y empuñadura, del lado +Z
+  const br = new THREE.Mesh(new THREE.BoxGeometry(0.022, R * 0.78, 0.014), met);
+  br.position.set(0, R * 0.39, ancho / 2 + 0.050); rueda.add(br);
+  const em = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.07, 10), mN);
+  em.rotation.x = Math.PI / 2; em.position.set(0, R * 0.78, ancho / 2 + 0.085); rueda.add(em);
+  // soporte: dos montantes, una barra de base y el asa
+  for (const s of [-1, 1]) {
+    const mo = new THREE.Mesh(new THREE.BoxGeometry(0.022, yc + 0.015, 0.028), mP);
+    mo.position.set(0, (yc + 0.015) / 2, s * (ancho / 2 + 0.075)); mo.castShadow = true; g.add(mo);
+    const pie = new THREE.Mesh(new THREE.BoxGeometry(d * 0.80, 0.022, 0.032), mP);
+    pie.position.set(0, 0.011, s * (ancho / 2 + 0.075)); pie.castShadow = true; g.add(pie);
+  }
+  const asa = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    _V(0, yc + R * 0.55, -(ancho / 2 + 0.075)), _V(0, yc + R * 1.08, -ancho * 0.25),
+    _V(0, yc + R * 1.08, ancho * 0.25), _V(0, yc + R * 0.55, ancho / 2 + 0.075)], false), 20, 0.011, 6, false), mN);
+  g.add(asa);
+  g.userData = { rueda, punta: _V(R * 0.80, yc, -ancho * 0.1), R, yc };
+  return g;
+}
+
+/**
+ * REGISTRO DE TIERRA: el brocal de concreto por donde se llega a la cabeza de
+ * la varilla para medir o revisar la conexión, con su MARCO de acero y su TAPA
+ * apoyada de canto contra un lado (con el símbolo de tierra). Con `corte` el
+ * frente queda abierto —un corte de taller— y se ve por dentro.
+ * Apoya en y = 0; el frente abierto mira a +Z. `userData.interior` da el
+ * centro y el ancho libre.
+ */
+export function registroTierra(mat, opts = {}) {
+  const { ancho = 0.60, fondo = 0.50, alto = 0.26, pared = 0.07, corte = true, tapa = true } = opts;
+  const g = new THREE.Group();
+  const tx = _etiqueta(128, 128, (c, w, h) => { c.fillStyle = '#9a9ca0'; c.fillRect(0, 0, w, h);
+    const r = (() => { let s = 7; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; })();
+    for (let i = 0; i < 160; i++) { c.fillStyle = r() < 0.5 ? 'rgba(70,72,78,.14)' : 'rgba(210,212,216,.14)';
+      c.beginPath(); c.arc(r() * w, r() * h, 2 + r() * 7, 0, 7); c.fill(); } });
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  const mH = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tx, roughness: 0.94, metalness: 0.0 });
+  const W = ancho, D = fondo, p = pared;
+  const U = corte
+    ? [[-W / 2, D / 2], [-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [W / 2 - p, D / 2], [W / 2 - p, -D / 2 + p], [-W / 2 + p, -D / 2 + p], [-W / 2 + p, D / 2]]
+    : null;
+  const geo = corte
+    ? extruido(U.map(([x, z]) => [x, -z]), { espesor: alto, bisel: 0.006, curvaSeg: 2 })
+    : extruido([[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]],
+        { huecos: [[[-W / 2 + p, -D / 2 + p], [W / 2 - p, -D / 2 + p], [W / 2 - p, D / 2 - p], [-W / 2 + p, D / 2 - p]]], espesor: alto, bisel: 0.006, curvaSeg: 2 });
+  normalizaUV(geo, 1);
+  const bro = new THREE.Mesh(geo, mH);
+  bro.rotation.x = -Math.PI / 2; bro.position.y = alto / 2; bro.castShadow = bro.receiveShadow = true; g.add(bro);
+  // marco de acero en la boca
+  const mA = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.5, metalness: 0.8 });
+  const mar = new THREE.Mesh(extruido(corte
+    ? [[-W / 2 - 0.012, D / 2], [-W / 2 - 0.012, -D / 2 - 0.012], [W / 2 + 0.012, -D / 2 - 0.012], [W / 2 + 0.012, D / 2], [W / 2 - p * 0.45, D / 2], [W / 2 - p * 0.45, -D / 2 + p * 0.45], [-W / 2 + p * 0.45, -D / 2 + p * 0.45], [-W / 2 + p * 0.45, D / 2]].map(([x, z]) => [x, -z])
+    : [[-W / 2 - 0.012, -D / 2 - 0.012], [W / 2 + 0.012, -D / 2 - 0.012], [W / 2 + 0.012, D / 2 + 0.012], [-W / 2 - 0.012, D / 2 + 0.012]],
+    { huecos: corte ? [] : [[[-W / 2 + p * 0.45, -D / 2 + p * 0.45], [W / 2 - p * 0.45, -D / 2 + p * 0.45], [W / 2 - p * 0.45, D / 2 - p * 0.45], [-W / 2 + p * 0.45, D / 2 - p * 0.45]]],
+      espesor: 0.022, bisel: 0.004, curvaSeg: 2 }), mA);
+  mar.rotation.x = -Math.PI / 2; mar.position.y = alto + 0.002; g.add(mar);
+  let lid = null;
+  if (tapa) {
+    lid = new THREE.Group();
+    const pl = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-W / 2, -W / 2], [W / 2, -W / 2], [W / 2, W / 2], [-W / 2, W / 2]], 0.03, 3), { espesor: 0.045, bisel: 0.006 }), mA);
+    pl.rotation.x = -Math.PI / 2; pl.castShadow = true; lid.add(pl);
+    const ts = _etiqueta(128, 128, (c, w, h) => { c.clearRect(0, 0, w, h); c.strokeStyle = '#e6c15a'; c.fillStyle = '#e6c15a';
+      c.lineWidth = 9; c.beginPath(); c.moveTo(64, 20); c.lineTo(64, 66); c.stroke();
+      for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(64 - (46 - i * 14), 70 + i * 16); c.lineTo(64 + (46 - i * 14), 70 + i * 16); c.stroke(); } });
+    const t = _tinta(ts, W * 0.5, W * 0.5); t.rotation.x = -Math.PI / 2; t.position.y = 0.0245; lid.add(t);
+    for (const s of [-1, 1]) {
+      const tor = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 8), mat.acero || mA);
+      tor.position.set(s * W * 0.36, 0.027, W * 0.36); lid.add(tor);
+    }
+    const a = Math.asin(Math.min(0.95, alto / W));
+    lid.rotation.x = -a; lid.position.set(0, alto * 0.5 + 0.03, -D / 2 - W / 2 * Math.cos(a) - 0.01);
+    g.add(lid);
+  }
+  g.userData = { ancho: W, fondo: D, alto, interior: { ancho: W - 2 * p, fondo: D - p }, tapa: lid };
+  return g;
+}
+
+/**
+ * GABINETE ELÉCTRICO de chapa: la caja con su borde doblado, la PLACA DE
+ * MONTAJE naranja galvanizada al fondo —donde se atornillan rieles, bornes y
+ * aparatos— y la PUERTA con su manija, abierta el ángulo que se pida. El
+ * prensaestopa del fondo es por donde entra el cable.
+ * Apoya en y = 0, frente a +Z, centrado en X y en Z.
+ * `userData.placa` = z de la cara de la placa; `puerta` = el grupo que gira.
+ */
+export function gabinete(mat, opts = {}) {
+  const { ancho = 0.9, alto = 1.35, fondo = 0.38, apertura = 1.7, color = 0x8c949b,
+          colorPlaca = 0xc4701a, pared = 0.022, puerta = true } = opts;
+  const g = new THREE.Group();
+  const mG = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.3 });
+  const mI = new THREE.MeshStandardMaterial({ color: 0xaab0b6, roughness: 0.55, metalness: 0.3 });
+  const mO = new THREE.MeshStandardMaterial({ color: colorPlaca, roughness: 0.42, metalness: 0.55 });
+  const mN = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.8, metalness: 0.1 });
+  const W = ancho, H = alto, D = fondo, p = pared;
+  const caja = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; g.add(b); return b; };
+  caja(W, H, p, 0, H / 2, -D / 2 + p / 2, mI);                              // fondo
+  caja(p, H, D, -W / 2 + p / 2, H / 2, 0, mG); caja(p, H, D, W / 2 - p / 2, H / 2, 0, mG);
+  caja(W, p, D, 0, H - p / 2, 0, mG); caja(W, p, D, 0, p / 2, 0, mG);       // techo y piso
+  const labio = (w, h, x, y) => caja(w, h, 0.012, x, y, D / 2 - 0.006, mG);  // el borde doblado del frente
+  labio(W, 0.03, 0, H - 0.015); labio(W, 0.03, 0, 0.015); labio(0.03, H, -W / 2 + 0.015, H / 2); labio(0.03, H, W / 2 - 0.015, H / 2);
+  const zP = -D / 2 + p + 0.012;
+  caja(W - 2 * p - 0.05, H - 2 * p - 0.06, 0.012, 0, H / 2, zP - 0.006, mO);  // placa de montaje
+  for (const [x, y] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {               // sus tornillos de sujeción
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.01, 8), mat.acero || mI);
+    t.rotation.x = Math.PI / 2; t.position.set(x * (W / 2 - p - 0.045), H / 2 + y * (H / 2 - p - 0.05), zP + 0.003); g.add(t);
+  }
+  for (const x of [-0.16, 0.16]) {                                           // prensaestopas del piso
+    const pe = new THREE.Mesh(revolucion([[0, 0], [0.034, 0], [0.034, 0.012], [0.026, 0.026], [0.026, 0.045], [0, 0.045]], { seg: 14 }), mN);
+    pe.position.set(x, -0.045, 0); g.add(pe);
+  }
+  let door = null;
+  if (puerta) {
+    door = new THREE.Group(); door.position.set(W / 2 - 0.004, 0, D / 2 + 0.01); g.add(door);
+    const pa = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-W + 0.01, 0.02], [0, 0.02], [0, H - 0.02], [-W + 0.01, H - 0.02]], 0.01, 3), { espesor: 0.02, bisel: 0.004 }), mG);
+    pa.castShadow = true; door.add(pa);
+    const ma = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.025), mN);
+    ma.position.set(-W + 0.07, H * 0.5, 0.022); door.add(ma);
+    const bi = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.09, 8), mat.acero || mI);
+    bi.position.set(0.004, H * 0.2, 0); door.add(bi);
+    const bi2 = bi.clone(); bi2.position.y = H * 0.8; door.add(bi2);
+    door.rotation.y = apertura;
+  }
+  g.userData = { ancho: W, alto: H, fondo: D, placa: zP, puerta: door };
+  return g;
+}
+
+
+
+/* ============================================================================
+   §17-B (cont.) · TABLERO DE MANDO Y FUERZA: contactor, relé térmico, enclavamiento,
+   botonera, regleta de bornes, riel DIN y canaleta
+   ----------------------------------------------------------------------------
+   Lo que se ve al abrir un tablero de arranque de motores: los aparatos van
+   enganchados a un riel DIN, los bornes de potencia arriba (1/L1·3/L2·5/L3) y
+   abajo (2/T1·4/T2·6/T3), los cables corren por canaletas ranuradas y el motor
+   se arranca desde una botonera. Convenio de estas piezas: frente a +Z, origen
+   en el centro del cuerpo y arriba +Y; el riel y la canaleta tienen su eje en X
+   y su «altura» sale hacia +Z (es decir, vienen listos para pegarse a un panel
+   vertical).
+   ========================================================================== */
+
+/** Cuerpo de aparato modular con escalones: un nivel central ancho y los dos
+ *  niveles de bornes, más retirados. El perfil se extruye a lo ancho. */
+function _cuerpoEscalonado(mat, W, H, F, mC, ret = 0.76) {
+  const perfil = [[-F, -H / 2], [F * ret, -H / 2], [F * ret, -0.26 * H], [F, -0.26 * H], [F, 0.14 * H],
+                  [F * ret, 0.14 * H], [F * ret, H / 2], [-F, H / 2]];
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(perfil.map(([z, y]) => [-z, y]), 0.012, 2),
+    { espesor: W, bisel: 0.006, curvaSeg: 2 }), mC);
+  cue.rotation.y = Math.PI / 2; cue.castShadow = cue.receiveShadow = true;
+  return cue;
+}
+/** Borne de tornillo de potencia: la jaula, la cabeza ranurada y el hueco por donde entra el cable. */
+function _bornePotencia(mat, ancho = 0.07) {
+  const g = new THREE.Group();
+  const mJ = new THREE.MeshStandardMaterial({ color: 0x8a9199, roughness: 0.42, metalness: 0.75 });
+  const mO = new THREE.MeshStandardMaterial({ color: 0x07090b, roughness: 0.8, metalness: 0.1 });
+  const ja = new THREE.Mesh(new THREE.BoxGeometry(ancho, ancho * 1.05, ancho * 0.62), mJ);
+  ja.castShadow = true; g.add(ja);
+  const hu = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.64, ancho * 0.36, ancho * 0.05), mO);
+  hu.position.set(0, -ancho * 0.28, ancho * 0.31); g.add(hu);
+  const tor = new THREE.Mesh(revolucion([[0, 0], [ancho * 0.26, 0], [ancho * 0.26, ancho * 0.07], [ancho * 0.20, ancho * 0.12], [0, ancho * 0.12]], { seg: 14 }),
+    new THREE.MeshStandardMaterial({ color: 0xcdd3d9, roughness: 0.32, metalness: 0.85 }));
+  tor.rotation.x = Math.PI / 2; tor.position.set(0, ancho * 0.18, ancho * 0.31); g.add(tor);
+  const ra = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.40, ancho * 0.05, ancho * 0.03), mO);
+  ra.position.set(0, ancho * 0.18, ancho * 0.45); ra.rotation.z = 0.45; g.add(ra);
+  return g;
+}
+const _rotuloIEC = (g, txt, x, y, z, w = 0.075, tam = 34, col = '#e8edf2') => {
+  const tx = _etiqueta(128, 48, (c, ww, hh) => { c.clearRect(0, 0, ww, hh); c.fillStyle = col; c.textAlign = 'center';
+    c.textBaseline = 'middle'; c.font = 'bold ' + tam + 'px sans-serif'; c.fillText(txt, ww / 2, hh / 2); });
+  const t = _tinta(tx, w, w * 48 / 128); t.position.set(x, y, z); g.add(t); return t;
+};
+
+/**
+ * CONTACTOR TRIPOLAR IEC: el cuerpo escalonado de baquelita negra con sus tres
+ * bornes de potencia arriba (1/L1 3/L2 5/L3) y abajo (2/T1 4/T2 6/T3), la
+ * ventana por donde se ve la BOBINA con su núcleo, la placa con el nombre del
+ * aparato, el piloto de bobina energizada y, si se pide, el bloque de
+ * CONTACTOS AUXILIARES (NA/NC) a un lado. El tacón de abajo es el que engancha
+ * al riel DIN. Frente a +Z.
+ *
+ * `aux`: 0 sin bloque, 1 a la derecha, −1 a la izquierda. `userData.led` es el
+ * piloto (material propio: el laboratorio lo enciende cuando hay corriente en la
+ * bobina); `sup[i]`/`inf[i]` son los puntos de enganche de los cables de
+ * potencia y `bornasAux[k]` los del bloque auxiliar.
+ */
+export function contactorTripolar(mat, opts = {}) {
+  const { ancho = 0.34, alto = 0.46, fondo = 0.26, rotulo = 'KM1', ledColor = 0x43D9AD, aux = 1, color = 0x262b32 } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, F = fondo / 2;
+  const mC = new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.08 });
+  const mP = new THREE.MeshStandardMaterial({ color: 0x3a4149, roughness: 0.6, metalness: 0.1 });
+  g.add(_cuerpoEscalonado(mat, W, H, F, mC));
+  const ZF = F + 0.001;
+  // ventana de la bobina: fondo oscuro con la bobina de cobre y la armadura vistas por dentro
+  const ww = W * 0.54, wh = H * 0.20, wx = -W * 0.14, wy = -0.06 * H;
+  const marco = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ww / 2 - 0.01, -wh / 2 - 0.01], [ww / 2 + 0.01, -wh / 2 - 0.01], [ww / 2 + 0.01, wh / 2 + 0.01], [-ww / 2 - 0.01, wh / 2 + 0.01]], 0.01, 2),
+    { espesor: 0.012, bisel: 0.003, curvaSeg: 2 }), mP);
+  marco.position.set(wx, wy, ZF + 0.004); g.add(marco);
+  const dentro = _etiqueta(256, Math.round(256 * wh / ww), (c, w, h) => {
+    c.fillStyle = '#0b0e12'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#6a737c'; c.fillRect(w * 0.06, h * 0.12, w * 0.20, h * 0.76);          // núcleo (E)
+    c.fillStyle = '#6a737c'; c.fillRect(w * 0.74, h * 0.12, w * 0.20, h * 0.76);           // armadura
+    for (let i = 0; i < 9; i++) { c.fillStyle = i % 2 ? '#b8692f' : '#d58a45'; c.fillRect(w * 0.28, h * (0.18 + i * 0.075), w * 0.44, h * 0.062); } // bobina
+    c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(0, 0, w, h * 0.18);
+  });
+  const vent = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.MeshStandardMaterial({ map: dentro, roughness: 0.4, metalness: 0.1 }));
+  vent.position.set(wx, wy, ZF + 0.0105); g.add(vent);
+  const cris = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.MeshStandardMaterial({
+    color: 0xa8d4f0, transparent: true, opacity: 0.10, roughness: 0.08, metalness: 0.0, depthWrite: false }));
+  cris.position.set(wx, wy, ZF + 0.0125); cris.renderOrder = 3; g.add(cris);
+  // placa con el nombre
+  const pl = _etiqueta(256, 64, (c, w, h) => { c.fillStyle = '#d9dde2'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#14181e'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.font = 'bold 40px sans-serif'; c.fillText(rotulo, 14, h / 2);
+    c.textAlign = 'right'; c.font = 'bold 20px sans-serif'; c.fillText('3P · 25 A · 24 V~', w - 12, h * 0.34); c.fillText('AC-3 · IEC 60947-4-1', w - 12, h * 0.72); });
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.84, W * 0.84 * 64 / 256), new THREE.MeshStandardMaterial({ map: pl, roughness: 0.5, metalness: 0.0 }));
+  placa.position.set(0, -0.20 * H, ZF + 0.0015); g.add(placa);
+  // piloto de bobina (material propio, apagado por defecto)
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.022, 14, 10), new THREE.MeshStandardMaterial({
+    color: ledColor, emissive: ledColor, emissiveIntensity: 0.05, roughness: 0.35, metalness: 0.1 }));
+  led.position.set(W * 0.31, wy, ZF + 0.008); led.scale.z = 0.5; g.add(led);
+  // bornes de potencia: arriba y abajo, tres cada lado
+  const sup = [], inf = [];
+  for (let i = 0; i < 3; i++) {
+    const x = (i - 1) * W * 0.30;
+    const bs = _bornePotencia(mat, 0.075); bs.position.set(x, 0.32 * H, F * 0.76 + 0.023); g.add(bs);
+    const bi = _bornePotencia(mat, 0.075); bi.position.set(x, -0.355 * H, F * 0.76 + 0.023); g.add(bi);
+    _rotuloIEC(g, `${2 * i + 1}/L${i + 1}`, x, 0.47 * H, F * 0.76 + 0.001, 0.085, 28);
+    _rotuloIEC(g, `${2 * i + 2}/T${i + 1}`, x, -0.468 * H, F * 0.76 + 0.001, 0.085, 28);
+    sup.push(_V(x, 0.38 * H, F * 0.76 + 0.055)); inf.push(_V(x, -0.41 * H, F * 0.76 + 0.055));
+  }
+  // tacón del riel DIN
+  const tac = new THREE.Mesh(new THREE.BoxGeometry(W * 0.62, 0.032, 0.03), new THREE.MeshStandardMaterial({ color: 0x8a929a, roughness: 0.5, metalness: 0.3 }));
+  tac.position.set(0, -H / 2 + 0.018, -F - 0.012); g.add(tac);
+  // bloque de contactos auxiliares, enganchado al costado
+  const bornasAux = [];
+  if (aux) {
+    const s = aux > 0 ? 1 : -1;
+    const ab = new THREE.Mesh(extruido(contornoRedondeado([[-F * 0.55, -0.26 * H], [F, -0.26 * H], [F, 0.14 * H], [-F * 0.55, 0.14 * H]].map(([z, y]) => [-z, y]), 0.008, 2),
+      { espesor: 0.09, bisel: 0.004, curvaSeg: 2 }), new THREE.MeshStandardMaterial({ color: 0x3b4c5e, roughness: 0.6, metalness: 0.08 }));
+    ab.rotation.y = Math.PI / 2; ab.position.x = s * (W / 2 + 0.045); ab.castShadow = true; g.add(ab);
+    [[-0.03, 0.045], [0.03, 0.045], [-0.03, -0.03], [0.03, -0.03]].forEach(([dx, dy], k) => {
+      const tt = new THREE.Mesh(revolucion([[0, 0], [0.016, 0], [0.016, 0.006], [0.012, 0.009], [0, 0.009]], { seg: 10 }),
+        new THREE.MeshStandardMaterial({ color: 0xcdd3d9, roughness: 0.32, metalness: 0.85 }));
+      tt.rotation.x = Math.PI / 2; tt.position.set(s * (W / 2 + 0.045) + dx, dy * H * 1.2 - 0.02 * H, F + 0.001); g.add(tt);
+      bornasAux.push(_V(s * (W / 2 + 0.045) + dx, dy * H * 1.2 - 0.02 * H, F + 0.012));
+    });
+    _rotuloIEC(g, 'NC · NA', s * (W / 2 + 0.045), 0.10 * H, F + 0.0015, 0.10, 28);
+  }
+  g.userData = { ancho: W, alto: H, fondo: fondo, led, sup, inf, bornasAux, frente: F };
+  return g;
+}
+
+/**
+ * BLOQUE DE ENCLAVAMIENTO MECÁNICO: la pieza que se engancha ENTRE los dos
+ * contactores de un arrancador reversible. Lleva un BALANCÍN pivotado en el
+ * centro: cuando un contactor cierra empuja un extremo y el otro queda
+ * bloqueado, de modo que ni con la bobina energizada puedan cerrar los dos a la
+ * vez. Por eso se pone aunque ya exista el enclavamiento eléctrico. Frente a +Z.
+ * `userData.balancin` es el grupo que gira (eje Z).
+ */
+export function enclavamientoMecanico(mat, opts = {}) {
+  const { ancho = 0.52, alto = 0.18, fondo = 0.14 } = opts;
+  const g = new THREE.Group();
+  const mC = new THREE.MeshStandardMaterial({ color: 0x353c45, roughness: 0.6, metalness: 0.1 });
+  const mY = new THREE.MeshStandardMaterial({ color: 0xc9a02c, roughness: 0.5, metalness: 0.2 });
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]], 0.02, 3),
+    { espesor: fondo, bisel: 0.008 }), mC);
+  cue.castShadow = true; g.add(cue);
+  for (const s of [-1, 1]) {                                     // las orejas que se clavan en cada contactor
+    const o = new THREE.Mesh(new THREE.BoxGeometry(0.06, alto * 0.55, fondo * 0.7), mY);
+    o.position.set(s * (ancho / 2 + 0.002), 0, 0); g.add(o);
+  }
+  const ventana = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.60, alto * 0.50, 0.006), new THREE.MeshStandardMaterial({ color: 0x07090b, roughness: 0.8 }));
+  ventana.position.set(0, 0, fondo / 2 + 0.001); g.add(ventana);
+  const bal = new THREE.Group(); bal.position.set(0, 0, fondo / 2 + 0.012); g.add(bal);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.54, alto * 0.14, 0.014), met);
+  bar.castShadow = true; bal.add(bar);
+  for (const s of [-1, 1]) {
+    const d = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.10, alto * 0.10, 0.016, 12), mY);
+    d.rotation.x = Math.PI / 2; d.position.set(s * ancho * 0.25, 0, 0.002); bal.add(d);
+  }
+  const pi = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.07, alto * 0.07, 0.022, 10), met);
+  pi.rotation.x = Math.PI / 2; pi.position.z = 0.004; bal.add(pi);
+  bal.rotation.z = 0.10;
+  g.userData = { ancho, alto, fondo, balancin: bal };
+  return g;
+}
+
+/**
+ * RELÉ TÉRMICO DE SOBRECARGA: los tres bornes de entrada arriba (1/L1·3/L2·5/L3
+ * que se atornillan al contactor) y los tres de salida abajo (al motor), el DIAL
+ * de regulación con su escala y su aguja, el botón azul de rearme/prueba y el rojo
+ * de paro. El dial es lo que lo distingue de cualquier otra caja del riel.
+ * La escala va de `escala[0]` a `escala[1]` y la aguja gira alrededor de su
+ * centro desde +X (rotation.z de −0,9 a +0,9 rad cubre la escala completa).
+ * `userData.needle` es la aguja.
+ */
+export function releTermico(mat, opts = {}) {
+  const { ancho = 0.40, alto = 0.34, fondo = 0.20, rotulo = 'F1', escala = [4, 8] } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, F = fondo / 2;
+  const mC = new THREE.MeshStandardMaterial({ color: 0x3f4852, roughness: 0.6, metalness: 0.1 });
+  g.add(_cuerpoEscalonado(mat, W, H, F, mC, 0.74));
+  const ZF = F + 0.001;
+  const dr = H * 0.19, dx = -W * 0.12, dy = -0.05 * H;
+  const disco = new THREE.Mesh(revolucion([[0, 0], [dr * 1.12, 0], [dr * 1.12, 0.010], [dr, 0.014], [0, 0.014]], { seg: 32 }),
+    new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.7, metalness: 0.1 }));
+  disco.rotation.x = Math.PI / 2; disco.position.set(dx, dy, ZF); g.add(disco);
+  const esc = _etiqueta(256, 256, (c, w, h) => {
+    c.clearRect(0, 0, w, h); c.strokeStyle = '#e8edf2'; c.fillStyle = '#e8edf2'; c.lineWidth = 5;
+    c.font = 'bold 26px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (let i = 0; i <= 4; i++) {
+      const a = (-0.9 + i * 0.45);
+      const R0 = 104;
+      c.beginPath(); c.moveTo(w / 2 + Math.cos(a) * (R0 - 16), h / 2 - Math.sin(a) * (R0 - 16));
+      c.lineTo(w / 2 + Math.cos(a) * (R0 - 2), h / 2 - Math.sin(a) * (R0 - 2)); c.stroke();
+      c.fillText(String(escala[0] + i * (escala[1] - escala[0]) / 4), w / 2 + Math.cos(a) * (R0 - 36), h / 2 - Math.sin(a) * (R0 - 36));
+    }
+    c.font = 'bold 22px sans-serif'; c.fillText('×In', w * 0.30, h * 0.58);
+  });
+  const tinta = _tinta(esc, dr * 2.0, dr * 2.0); tinta.position.set(dx, dy, ZF + 0.0145); g.add(tinta);
+  const ndGeo = new THREE.BoxGeometry(dr * 0.86, 0.008, 0.006); ndGeo.translate(dr * 0.43, 0, 0);
+  const needle = new THREE.Mesh(ndGeo, new THREE.MeshStandardMaterial({ color: 0xd64545, roughness: 0.45, metalness: 0.3, emissive: 0x4a0e0e, emissiveIntensity: 0.12 }));
+  needle.position.set(dx, dy, ZF + 0.018); g.add(needle);
+  const eje = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.012, 10), mat.acero || mat.cromo);
+  eje.rotation.x = Math.PI / 2; eje.position.set(dx, dy, ZF + 0.017); g.add(eje);
+  // pulsadores: azul (rearme / prueba) y rojo (paro)
+  [[W * 0.26, dy + H * 0.09, 0x2457b0, 0.05], [W * 0.26, dy - H * 0.09, 0xb83a3a, 0.04]].forEach(([x, y, col, r]) => {
+    const b = new THREE.Mesh(revolucion([[0, 0], [r, 0], [r, 0.012], [r * 0.82, 0.020], [0, 0.020]], { seg: 18 }),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.45, metalness: 0.05 }));
+    b.rotation.x = Math.PI / 2; b.position.set(x, y, ZF); g.add(b);
+  });
+  _rotuloIEC(g, rotulo, W * 0.26, dy + H * 0.20, ZF + 0.001, 0.07, 30);
+  const sup = [], inf = [];
+  for (let i = 0; i < 3; i++) {
+    const x = (i - 1) * W * 0.30;
+    const bs = _bornePotencia(mat, 0.075); bs.position.set(x, 0.32 * H, F * 0.74 + 0.023); g.add(bs);
+    const bi = _bornePotencia(mat, 0.075); bi.position.set(x, -0.355 * H, F * 0.74 + 0.023); g.add(bi);
+    _rotuloIEC(g, `${2 * i + 1}/L${i + 1}`, x, 0.47 * H, F * 0.74 + 0.001, 0.085, 28);
+    _rotuloIEC(g, `${2 * i + 2}/T${i + 1}`, x, -0.468 * H, F * 0.74 + 0.001, 0.085, 28);
+    sup.push(_V(x, 0.38 * H, F * 0.74 + 0.055)); inf.push(_V(x, -0.41 * H, F * 0.74 + 0.055));
+  }
+  const tac = new THREE.Mesh(new THREE.BoxGeometry(W * 0.62, 0.032, 0.03), new THREE.MeshStandardMaterial({ color: 0x8a929a, roughness: 0.5, metalness: 0.3 }));
+  tac.position.set(0, -H / 2 + 0.018, -F - 0.012); g.add(tac);
+  g.userData = { ancho: W, alto: H, fondo, needle, sup, inf };
+  return g;
+}
+
+/**
+ * BOTONERA DE MANDO: la caja de plástico con sus pulsadores de 22 mm en
+ * columna, cada uno con su anillo, su capuchón del color de la función y su
+ * leyenda, y el prensaestopas por donde sale el cable. Los colores son los de la
+ * norma: verde marcha, rojo paro, amarillo/negro las demás funciones.
+ *   botones: [{ color, rotulo, hongo }]   (de arriba abajo)
+ * `userData.cable` es el punto donde nace el cable (arriba).
+ */
+export function botoneraControl(mat, opts = {}) {
+  const { ancho = 0.30, fondo = 0.14, botones = [{ color: 0x2f9e6a, rotulo: 'ADELANTE' }, { color: 0xd64545, rotulo: 'PARO', hongo: true }, { color: 0xc9a02c, rotulo: 'REVERSA' }] } = opts;
+  const g = new THREE.Group();
+  const n = botones.length, paso = ancho * 0.62, H = n * paso + 0.06;
+  const mC = new THREE.MeshStandardMaterial({ color: 0x4b5560, roughness: 0.55, metalness: 0.12 });
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -H / 2], [ancho / 2, -H / 2], [ancho / 2, H / 2], [-ancho / 2, H / 2]], 0.035, 4), { espesor: fondo, bisel: 0.010 }), mC);
+  cue.castShadow = true; g.add(cue);
+  botones.forEach((b, i) => {
+    const y = H / 2 - 0.03 - paso * (i + 0.5) + 0.03;
+    const anillo = new THREE.Mesh(revolucion([[0.040, 0], [0.056, 0], [0.056, 0.014], [0.046, 0.020], [0.040, 0.020]], { seg: 24 }), met);
+    anillo.rotation.x = Math.PI / 2; anillo.position.set(0, y, fondo / 2); g.add(anillo);
+    const r = b.hongo ? 0.050 : 0.039;
+    const cap = new THREE.Mesh(revolucion(b.hongo
+      ? [[0, 0], [r, 0], [r, 0.018], [r * 0.86, 0.034], [0, 0.040]]
+      : [[0, 0], [r, 0], [r, 0.012], [r * 0.80, 0.024], [0, 0.026]], { seg: 22 }),
+      new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.4, metalness: 0.05 }));
+    cap.rotation.x = Math.PI / 2; cap.position.set(0, y, fondo / 2 + 0.014); cap.castShadow = true; g.add(cap);
+    _rotuloIEC(g, b.rotulo, 0, y - 0.083, fondo / 2 + 0.001, 0.15, 21, '#f1f4f7');
+  });
+  const pe = new THREE.Mesh(revolucion([[0, 0], [0.032, 0], [0.032, 0.014], [0.024, 0.030], [0.024, 0.06], [0, 0.06]], { seg: 14 }),
+    new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.8 }));
+  pe.position.set(0, H / 2, 0); g.add(pe);
+  g.userData = { ancho, alto: H, fondo, cable: _V(0, H / 2 + 0.06, 0) };
+  return g;
+}
+
+/**
+ * REGLETA DE BORNES sobre riel DIN: una fila de bornes de paso, cada uno con su
+ * tornillo, el hueco del cable, su color de cuerpo y su rótulo (L1·L2·L3,
+ * U·V·W…), cerrada con dos topes. Es lo que separa «lo que llega» de «lo que
+ * va al aparato» en cualquier tablero. `userData.bornas[i]` es el punto de
+ * enganche del cable i (arriba, junto al tornillo).
+ */
+export function regletaBornes(mat, opts = {}) {
+  const { vias = 3, paso = 0.16, alto = 0.20, fondo = 0.14, rotulos = ['L1', 'L2', 'L3'],
+          colores = [0x8a5a2e, 0x24282e, 0x7d848c] } = opts;
+  const g = new THREE.Group();
+  const mC = new THREE.MeshStandardMaterial({ color: 0x777e86, roughness: 0.62, metalness: 0.05 });
+  const mO = new THREE.MeshStandardMaterial({ color: 0x07090b, roughness: 0.8, metalness: 0.1 });
+  const mT = new THREE.MeshStandardMaterial({ color: 0x4a525a, roughness: 0.6, metalness: 0.15 });
+  const bornas = [];
+  const F = fondo / 2, H = alto;
+  const perfil = [[-F, -H / 2], [F, -H / 2], [F, H * 0.12], [F * 0.55, H / 2], [-F * 0.15, H / 2], [-F, H * 0.22]];
+  for (let i = 0; i < vias; i++) {
+    const x = (i - (vias - 1) / 2) * paso;
+    const b = new THREE.Mesh(extruido(contornoRedondeado(perfil.map(([z, y]) => [-z, y]), 0.01, 2),
+      { espesor: paso * 0.94, bisel: 0.005, curvaSeg: 2 }), mC);
+    b.rotation.y = Math.PI / 2; b.position.x = x; b.castShadow = true; g.add(b);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.94, H * 0.16, 0.006), new THREE.MeshStandardMaterial({ color: colores[i % colores.length], roughness: 0.55 }));
+    bar.position.set(x, H * 0.02, F + 0.001); g.add(bar);
+    const hu = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.46, H * 0.22, 0.01), mO);
+    hu.position.set(x, -H * 0.25, F + 0.001); g.add(hu);
+    const tor = new THREE.Mesh(revolucion([[0, 0], [paso * 0.20, 0], [paso * 0.20, 0.006], [paso * 0.15, 0.010], [0, 0.010]], { seg: 14 }),
+      new THREE.MeshStandardMaterial({ color: 0xcdd3d9, roughness: 0.32, metalness: 0.85 }));
+    tor.position.set(x, H / 2 - 0.0, F * 0.20); tor.rotation.x = -0.35; g.add(tor);
+    const ra = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.28, 0.004, 0.008), mO);
+    ra.position.set(x, H / 2 + 0.006, F * 0.20); ra.rotation.z = 0.5; g.add(ra);
+    _rotuloIEC(g, rotulos[i] || '', x, H * 0.31, F + 0.0015, paso * 0.72, 40, '#14181e');
+    bornas.push(_V(x, H / 2 + 0.01, F * 0.2 + 0.015));
+  }
+  for (const s of [-1, 1]) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.02, H * 1.04, fondo * 0.95), mT);
+    t.position.set(s * (vias * paso / 2 + 0.014), 0, 0); t.castShadow = true; g.add(t);
+  }
+  g.userData = { ancho: vias * paso, alto: H, fondo, bornas };
+  return g;
+}
+
+/**
+ * RIEL DIN (TS 35, perfil sombrero) con sus ranuras: es lo que sujeta, de un
+ * clic, el contactor, el relé y la regleta. Eje X; la cara que sale del panel
+ * es +Z; origen en el centro de la cara posterior. El ancho (35 mm) se
+ * escala con `ancho`.
+ */
+export function rielDIN(mat, opts = {}) {
+  const { largo = 1.4, ancho = 0.075 } = opts;
+  const g = new THREE.Group();
+  const e = ancho * 0.04, h = ancho * 0.21;
+  const m = new THREE.MeshStandardMaterial({ color: 0x8c949b, roughness: 0.5, metalness: 0.7, envMapIntensity: 0.5 });
+  const caja = (w, d, hh, y, z, mm) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, d, hh), mm || m); b.position.set(0, y, z); b.castShadow = b.receiveShadow = true; g.add(b); return b; };
+  for (const s of [-1, 1]) caja(largo, ancho * 0.17, e, s * ancho * 0.415, e / 2);
+  for (const s of [-1, 1]) caja(largo, e, h, s * ancho * 0.33, h / 2);
+  const tx = _etiqueta(256, 32, (c, w, hh) => { c.fillStyle = '#c8d0d6'; c.fillRect(0, 0, w, hh); c.fillStyle = '#10151a';
+    for (let i = 0; i < 6; i++) { const x = 12 + i * 40; c.beginPath(); c.roundRect ? c.roundRect(x, 8, 26, 16, 8) : c.rect(x, 8, 26, 16); c.fill(); } });
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(largo / 0.15, 1);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(largo, ancho * 0.66), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.45, metalness: 0.5 }));
+  top.position.set(0, 0, h + 0.0005); g.add(top);
+  g.userData = { largo, ancho, h };
+  return g;
+}
+
+/**
+ * CANALETA RANURADA para cables: el fondo, las dos paredes con sus dientes y,
+ * dentro, los cables de colores que corren por ella. Eje X; abre hacia +Z;
+ * origen en el centro de la cara posterior. `cables` es la lista de colores.
+ */
+export function canaleta(mat, opts = {}) {
+  const { largo = 1.4, ancho = 0.10, alto = 0.07, cables = [0x8a5a2e, 0x24282e, 0x7d848c], color = 0x9ba2a9 } = opts;
+  const g = new THREE.Group();
+  const mC = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05 });
+  const tx = _etiqueta(64, 16, (c, w, h) => { c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h); c.fillStyle = '#5b636b'; c.fillRect(w * 0.6, 0, w * 0.4, h); });
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(largo / 0.05, 1);
+  const mD = new THREE.MeshStandardMaterial({ color, map: tx, roughness: 0.6, metalness: 0.05 });
+  const fondo = new THREE.Mesh(new THREE.BoxGeometry(largo, ancho, 0.006), new THREE.MeshStandardMaterial({ color: 0x8e969d, roughness: 0.6 }));
+  fondo.position.z = 0.003; fondo.receiveShadow = true; g.add(fondo);
+  for (const s of [-1, 1]) {
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(largo, 0.012, alto), [mC, mC, mC, mC, mD, mC]);
+    pa.geometry.attributes.uv.needsUpdate = true;
+    pa.position.set(0, s * (ancho / 2 - 0.006), alto / 2); pa.castShadow = true; g.add(pa);
+  }
+  cables.forEach((col, i) => {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, largo * 0.98, 8), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 }));
+    w.rotation.z = Math.PI / 2; w.position.set(0, (i - (cables.length - 1) / 2) * 0.020, 0.016); g.add(w);
+  });
+  g.userData = { largo, ancho, alto };
+  return g;
+}
+
+
+
+/* ============================================================================
+   §17-B (cont.) · CABLEADO COAXIAL
+   ----------------------------------------------------------------------------
+   Un cable de señal no es un tubo de color: es un coaxial NEGRO con un
+   conector BNC macho en cada punta —la tuerca de bayoneta, el cuerpo y el
+   guardacable de goma que impide que se doble en el cuello—, tendido sobre el
+   banco con holgura. La señal que viaja por dentro no se ve, y no debe
+   dibujarse como un tubo luminoso: la única luz de un banco de instrumentos
+   es la de las pantallas y los pilotos.
+   ========================================================================== */
+
+/**
+ * CONECTOR BNC MACHO de cable: tuerca de bayoneta con sus dos ranuras, cuerpo
+ * cromado, casquillo de engaste y guardacable cónico de goma. Eje +Z; el
+ * origen está en la cara que asienta contra el conector hembra y la pieza
+ * crece hacia +Z. `userData.salida` es donde nace el cable.
+ */
+export function plugBNC(mat, opts = {}) {
+  const { d = 0.11, largo = 0.12, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const mB = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.85, metalness: 0.03 });
+  const mO = new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.8, metalness: 0.1 });
+  const tue = new THREE.Mesh(revolucion([[R * 0.82, 0], [R * 1.30, 0], [R * 1.30, largo * 0.50], [R * 1.16, largo * 0.56], [R * 0.82, largo * 0.56]], { seg }), met);
+  tue.rotation.x = Math.PI / 2; tue.castShadow = true; g.add(tue);
+  for (let i = 0; i < 12; i++) {                                   // el moleteado de la tuerca
+    const a = i / 12 * Math.PI * 2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(R * 0.07, R * 0.16, largo * 0.30), mO);
+    m.position.set(Math.cos(a) * R * 1.30, Math.sin(a) * R * 1.30, largo * 0.34); m.rotation.z = a; g.add(m);
+  }
+  for (const s of [-1, 1]) {                                       // las ranuras de la bayoneta
+    const r = new THREE.Mesh(new THREE.BoxGeometry(R * 0.16, R * 0.34, largo * 0.20), mO);
+    r.position.set(s * R * 1.28, 0, largo * 0.16); g.add(r);
+  }
+  const cu = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.92, R * 0.92, largo * 0.42, seg), met);
+  cu.rotation.x = Math.PI / 2; cu.position.z = largo * 0.56 + largo * 0.21; g.add(cu);
+  const en = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.66, R * 0.66, largo * 0.20, seg), met);
+  en.rotation.x = Math.PI / 2; en.position.z = largo * 0.98 + largo * 0.10 - largo * 0.10; g.add(en);
+  const gu = new THREE.Mesh(revolucion([[0, 0], [R * 0.66, 0], [R * 0.58, 0.04], [R * 0.40, 0.09], [R * 0.34, 0.12], [0, 0.12]], { seg: 14 }), mB);
+  gu.rotation.x = Math.PI / 2; gu.position.z = largo; gu.castShadow = true; g.add(gu);
+  g.userData = { d, largo, salida: _V(0, 0, largo + 0.12) };
+  return g;
+}
+
+/**
+ * CABLE COAXIAL entre dos conectores BNC hembra: un conector macho en cada
+ * extremo, y el cable que sale de cada guardacable, baja a la mesa y se tiende
+ * por ella con holgura —abombado hacia fuera, nunca tenso—.
+ *
+ *   A, B       puntos (en coordenadas de mundo) donde asienta cada macho: la
+ *              boca de los conectores hembra
+ *   dirA, dirB hacia dónde mira cada hembra (vector unitario, p. ej. +Z)
+ *   suelo      altura de la mesa por donde corre el cable (opcional)
+ *
+ * Se devuelve en coordenadas de MUNDO: se añade directamente a la escena.
+ */
+export function cableCoaxial(mat, A, dirA, B, dirB, opts = {}) {
+  const { r = 0.024, color = 0x15181c, suelo = null, d = 0.11, largoPlug = 0.12, holgura = 0.14 } = opts;
+  const g = new THREE.Group();
+  const Z = _V(0, 0, 1);
+  [[A, dirA], [B, dirB]].forEach(([P, dir]) => {
+    const pl = plugBNC(mat, { d, largo: largoPlug });
+    pl.quaternion.setFromUnitVectors(Z, dir.clone().normalize()); pl.position.copy(P); g.add(pl);
+  });
+  const sale = largoPlug + 0.12 - 0.01;
+  const A1 = A.clone().addScaledVector(dirA, sale), B1 = B.clone().addScaledVector(dirB, sale);
+  const y0 = suelo !== null ? suelo + r : Math.min(A.y, B.y) - 0.15;
+  const tramo = (P1, dir) => {
+    const alto = Math.max(0, P1.y - y0);
+    const P2 = P1.clone().addScaledVector(dir, 0.16); P2.y -= alto * 0.35;
+    const P3 = P1.clone().addScaledVector(dir, 0.42); P3.y = y0;
+    return [P2, P3];
+  };
+  const [A2, A3] = tramo(A1, dirA), [B2, B3] = tramo(B1, dirB);
+  const M = A3.clone().add(B3).multiplyScalar(0.5); M.y = y0;
+  M.addScaledVector(dirA, holgura);
+  const cur = new THREE.CatmullRomCurve3([A1, A2, A3, M, B3, B2, B1], false, 'catmullrom', 0.4);
+  const tubo = new THREE.Mesh(new THREE.TubeGeometry(cur, 90, r, 10, false),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.78, metalness: 0.03 }));
+  tubo.castShadow = true; g.add(tubo);
+  g.userData = { curva: cur };
+  return g;
+}

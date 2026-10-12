@@ -484,11 +484,17 @@ function pulseWidthMs(loadPct,rpm){
 }
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.5,3.6,6.2],target:[0,1.4,0],bgTop:'#141a10',bgBot:'#04060a',bloom:0.4});
+const CAM_INY={pos:[3.1,2.7,4.4],tgt:[0.2,0.85,0.4]};
+const S=createStage(mount,{cam:[2.5,2.8,5.1],target:[0.2,0.85,0.35],bgTop:'#141a10',bgBot:'#04060a',bloom:0.16});
 const {scene}=S;
+// El foco de contraluz del marco es naranja y, sobre el suelo pulido, dejaba un
+// charco naranja sin causa física bajo el montaje. Aquí es un contraluz frío, y
+// el bloom sólo toma lo que de verdad brilla (el destello del chorro).
+scene.traverse(o=>{ if(o.isSpotLight){ o.color.setHex(0xbfd2ea); o.intensity=16; } });
+S.bloom.threshold=0.96;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  rail:std({color:0x9aa3ad,roughness:0.35,metalness:0.95}),
+  rail:std({color:0xb4bcc4,roughness:0.30,metalness:0.92}),
   inj:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
   ecu:std({color:0x14181c,roughness:0.5,metalness:0.4}),
   // Un colector de admisión de coche moderno NO es de metal pulido: es de
@@ -500,109 +506,155 @@ const MAT={
   goma:std({color:0x17191c,roughness:0.92,metalness:0.05}),
   cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
   aluminio:std({color:0x9aa4b0,roughness:0.45,metalness:0.80}),
+  // La junta tórica de un inyector no es negra: es verde o marrón (el compuesto
+  // del fluoroelastómero), y por eso se ve entre el cuerpo y el plástico.
+  oring:std({color:0x2f6b3a,roughness:0.7,metalness:0.0}),
+  banco:std({color:0x1f262d,roughness:0.55,metalness:0.5}),
+  bastidor:std({color:0x3b4651,roughness:0.52,metalness:0.6}),
+  tubo:std({color:0xb9c0c7,roughness:0.34,metalness:0.9}),
+  fumbre:std({color:0x15171a,roughness:0.85,metalness:0.05}),
+  culata:std({color:0x6a727b,roughness:0.66,metalness:0.55}),
+  perno:std({color:0x808991,roughness:0.5,metalness:0.6}),
 };
 // Los nombres que la biblioteca de piezas espera.
 const MATP={aluminio:MAT.aluminio, acero:MAT.rail, hierro:MAT.aluminio, cromo:MAT.rail,
   negro:MAT.negro, goma:MAT.goma, cobre:MAT.cobre, ceramica:MAT.sensor,
-  blanco:MAT.rail, friccion:MAT.negro};
+  blanco:MAT.rail, friccion:MAT.negro, colector:MAT.manifold, oring:MAT.oring, bastidor:MAT.banco};
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
-const group=new THREE.Group(); group.position.set(0,1.0,0); scene.add(group);
+const group=new THREE.Group(); scene.add(group);
 const XCIL=i=>-0.9+i*0.6;                 // el eje de cada cilindro
+const YTOP=0.50, ZH=0.50, ALFA=0.55;      // cara de la culata, su centro en Z, inclinación del inyector
 
-/* ---- EL RIEL -----------------------------------------------------------
-   Un tubo de verdad, con sus cuatro copas —una por inyector, que es donde se
-   encaja y donde va la junta tórica—, el racor de entrada y el regulador de
-   presión al extremo. El regulador es la pieza que decide los 3,5 bar sobre los
-   que descansa todo el cálculo del caudal, y era invisible.                     */
-const railGrp=new THREE.Group(); railGrp.position.set(0,1.30,0.5); group.add(railGrp);
-const railTubo=new THREE.Mesh(P3.revolucion(
-  [[0,-1.30],[0.075,-1.30],[0.075,1.30],[0,1.30]],{seg:26}),MAT.rail);
-railTubo.rotation.z=Math.PI/2; railTubo.castShadow=true; railGrp.add(railTubo);
-for(let i=0;i<4;i++){
-  const copa=new THREE.Mesh(P3.revolucion(
-    [[0.048,0],[0.105,0],[0.105,-0.11],[0.088,-0.13],[0.048,-0.13]],{seg:20}),MAT.rail);
-  copa.position.set(XCIL(i),-0.02,0); railGrp.add(copa);
-}
-const regulador=new THREE.Mesh(P3.revolucion(
-  [[0,0],[0.13,0],[0.15,0.05],[0.15,0.17],[0.10,0.21],[0.06,0.21],[0.06,0.28],[0,0.28]],{seg:24}),
-  MAT.rail);
-regulador.position.set(1.34,0,0); regulador.rotation.z=-Math.PI/2; railGrp.add(regulador);
-const rail=railTubo;
-
-/* ---- LOS CUATRO INYECTORES ---------------------------------------------
-   Conector arriba, cuerpo, DOS juntas tóricas y tobera. La junta importa: es lo
-   que se seca y lo que hace que un inyector gotee con el motor parado, y en un
-   laboratorio de inyección eso tiene que poder verse.                           */
-const injectors=[]; const injFlash=[];
-for(let i=0;i<4;i++){
-  const g=P3.inyector(MATP,{d:0.15,largo:0.46});
-  g.position.set(XCIL(i),1.06,0.50);
-  group.add(g); injectors.push(g);
-  // El chorro: un cono fino que se enciende en la punta. Antes salía de un cono
-  // pegado en el aire; ahora sale de la tobera de la pieza.
-  const tip=new THREE.Mesh(new THREE.ConeGeometry(0.055,0.20,14,1,true),
-    std({color:0xffaa33,emissive:0x000000,transparent:true,opacity:0.85,
-         side:THREE.DoubleSide}));
-  tip.position.set(XCIL(i),1.06+g.userData.puntaY-0.09,0.50); tip.rotation.x=Math.PI;
-  group.add(tip); injFlash.push(tip);
-}
+/* ---- EL BANCO Y LA CULATA ------------------------------------------------
+   Antes el riel, los inyectores y el colector flotaban sobre el suelo del
+   escenario. Ahora hay una bandeja de banco y, sobre ella, el tramo de culata
+   donde se asienta el colector —con la boca de cada conducto—: es lo que da al
+   montaje un sitio donde estar, y el colector, un sitio donde atornillarse.     */
+const plinth=P3.plataformaBanco({...MATP,acero:MAT.perno},{ancho:4.9,fondo:2.3,alto:0.14});
+plinth.position.set(0.15,0.14,0.28); group.add(plinth);
+const culata=P3.culataAdmision({...MATP,aluminio:MAT.culata,acero:MAT.perno},{largo:2.6,fondo:0.72,alto:0.36,n:4,paso:0.6});
+culata.position.set(0,YTOP-0.18,ZH); group.add(culata);
+// El tubo de escape de la culata, con la sonda lambda enroscada: es lo que cierra
+// el lazo del que depende todo el cálculo del ancho de pulso.
+const escape=new THREE.Mesh(P3.revolucion([[0,-1.18],[0.075,-1.18],[0.075,1.50],[0,1.50]],{seg:22}),MAT.tubo);
+escape.rotation.z=Math.PI/2; escape.position.set(0.15,0.31,ZH-0.46); escape.castShadow=true; group.add(escape);
+for(const x of [-0.9,-0.3,0.3,0.9]){
+  const br=new THREE.Mesh(P3.revolucion([[0.06,0],[0.12,0],[0.12,0.04],[0.06,0.04]],{seg:20}),MAT.tubo);
+  br.rotation.x=-Math.PI/2; br.position.set(x,0.31,ZH-0.36); group.add(br); }
 
 /* ---- EL COLECTOR DE ADMISIÓN -------------------------------------------
-   Plenum y CUATRO TUBOS CURVOS, uno por cilindro. Los tubos no son adorno: su
-   largo sintoniza el llenado, y por eso un colector de verdad los tiene largos y
-   curvados en vez de cuatro agujeros en una caja.                               */
-const manifold=new THREE.Mesh(P3.normalizaUV(P3.extruido(
-  P3.contornoRedondeado([[-1.20,-0.34],[1.20,-0.34],[1.20,0.34],[-1.20,0.34]],0.22,6),
-  {espesor:0.66,bisel:0.04}),2),MAT.manifold);
-manifold.rotation.x=Math.PI/2; manifold.position.set(0,0.72,0.16);
-manifold.castShadow=true; group.add(manifold);
+   Plenum, cuatro conductos curvos —uno por cilindro— y la brida atornillada a la
+   culata. Los tubos no son adorno: su largo sintoniza el llenado, y por eso un
+   colector de verdad los tiene largos y curvados en vez de cuatro agujeros en
+   una caja. El cuerpo de mariposa está en la boca del plenum: es por donde
+   entra TODO el aire.                                                          */
+const manifold=P3.colectorAdmision(MATP,{largo:2.6,n:4,paso:0.6});
+manifold.position.set(0,YTOP,ZH); group.add(manifold);
+const mariposaGrp=manifold;
+
+/* ---- LOS CUATRO INYECTORES ---------------------------------------------
+   Conector lateral, cesta de filtro, DOS juntas tóricas y tobera. Van inclinados
+   como en el motor real: la cabeza en la copa del riel, la punta apuntando a la
+   válvula a través del conducto. La junta importa: es lo que se seca y lo que
+   hace que un inyector gotee con el motor parado, y en un laboratorio de
+   inyección eso tiene que poder verse.                                          */
+const injectors=[]; const injFlash=[];
+const U=V3(0,Math.cos(ALFA),Math.sin(ALFA));
+const LINJ=0.46;
 for(let i=0;i<4;i++){
-  const tubo=new THREE.Mesh(new THREE.TubeGeometry(
-    new THREE.CatmullRomCurve3([
-      new THREE.Vector3(XCIL(i),0.72,0.30),
-      new THREE.Vector3(XCIL(i),0.79,0.46),
-      new THREE.Vector3(XCIL(i),0.76,0.58),
-      new THREE.Vector3(XCIL(i),0.44,0.60),
-      new THREE.Vector3(XCIL(i),0.16,0.50)]),30,0.115,16,false),MAT.manifold);
-  tubo.castShadow=true; group.add(tubo);
-  const brida=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.05,0.26),MAT.manifold);
-  brida.position.set(XCIL(i),0.12,0.50); group.add(brida);
+  const g=P3.inyectorTopFeed(MATP,{d:0.15,largo:LINJ});
+  const tip=V3(XCIL(i),YTOP+0.14,ZH+0.098);
+  g.position.copy(tip).addScaledVector(U,LINJ/2); g.rotation.x=ALFA;
+  group.add(g); injectors.push(g);
+  // El chorro: un cono fino que sólo se ve cuando el inyector abre. Cuelga de la
+  // tobera, así que se va con ella cuando se despieza.
+  const cono=new THREE.Mesh(new THREE.ConeGeometry(0.075,0.22,16,1,true),
+    std({color:0xffe2b0,emissive:0x000000,transparent:true,opacity:0.8,side:THREE.DoubleSide,depthTest:false}));
+  cono.position.set(0,g.userData.puntaY-0.10,0); cono.rotation.x=Math.PI; cono.renderOrder=20; cono.visible=false;
+  g.add(cono); injFlash.push(cono);
 }
-// El cuerpo de mariposa, en la boca del plenum: es por donde entra TODO el aire,
-// y sin él el colector no se sabe de dónde respira.
-const mariposaGrp=new THREE.Group(); mariposaGrp.position.set(-1.52,0.72,0.16);
-group.add(mariposaGrp);
-const cuerpoMar=new THREE.Mesh(P3.revolucion(
-  [[0.14,-0.16],[0.20,-0.16],[0.20,-0.11],[0.155,-0.08],[0.155,0.08],[0.20,0.11],
-   [0.20,0.16],[0.14,0.16]],{seg:28}),MAT.aluminio);
-cuerpoMar.rotation.z=Math.PI/2; mariposaGrp.add(cuerpoMar);
-const plato=new THREE.Mesh(new THREE.CylinderGeometry(0.150,0.150,0.012,26),MAT.rail);
-plato.rotation.z=Math.PI/2; plato.rotation.x=0.5; mariposaGrp.add(plato);
+
+/* ---- EL RIEL ------------------------------------------------------------
+   Un tubo de verdad, con sus cuatro copas —una por inyector, que es donde se
+   encaja y donde va la junta tórica—, el racor de entrada, la válvula Schrader
+   para el manómetro y el regulador de presión al extremo. El regulador es la
+   pieza que decide los 3,5 bar sobre los que descansa todo el cálculo del
+   caudal, y era invisible.                                                      */
+const rail=P3.rielCombustible(MATP,{largo:2.4,n:4,paso:0.6,d:0.15,inclina:ALFA,pata:0.525,patasX:0.08});
+rail.position.set(0,YTOP+0.14+(LINJ+0.04)*U.y,ZH+0.098+(LINJ+0.04)*U.y*Math.tan(ALFA)); group.add(rail);
+const railTubo=rail;
+const regulador=P3.reguladorCombustible(MATP,{d:0.22,alto:0.26});
+regulador.rotation.z=-Math.PI/2; regulador.position.set(1.27,0,0); rail.add(regulador);
+const regSig=regulador;
 
 /* ---- LA ECU ------------------------------------------------------------ */
 const ecu=P3.cajaMando(MATP,{ancho:0.72,alto:0.34,fondo:0.86,aletas:13,pines:12});
 ecu.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.ecu;});
-ecu.position.set(2.1,0.9,-0.6); group.add(ecu);
+ecu.position.set(1.85,0.34,-0.30); group.add(ecu);
+for(const sz of [-1,1]){ const c=roundedBox(0.60,0.06,0.07,MAT.bastidor,0.2); c.position.set(1.85,0.17,-0.30+sz*0.34); group.add(c); }
 
 /* ---- LOS SENSORES ------------------------------------------------------
    Cada uno con su cuerpo, su brida o su rosca y su conector. Un cilindro
    amarillo suelto no dice ni dónde va atornillado ni por dónde se desenchufa,
-   que son las dos cosas que se le piden a un alumno delante de un sensor.       */
+   que son las dos cosas que se le piden a un alumno delante de un sensor.
+   MAP y TPS van en el colector (se despiezan con él); la sonda, en el escape.   */
 const sensors=[
-  {name:'MAP',pos:[-2.0,0.9,-0.3]},
-  {name:'TPS',pos:[-1.6,1.0,0.8]},
-  {name:'O2',pos:[0.8,0.35,-1.0]},
+  {name:'MAP',pos:[manifold.userData.map.x,manifold.userData.map.y+0.12,manifold.userData.map.z],padre:manifold,rot:0,d:0.13,largo:0.26},
+  {name:'TPS',pos:[manifold.userData.tps.x,manifold.userData.tps.y,manifold.userData.tps.z+0.15],padre:manifold,rot:Math.PI/2},
 ];
 sensors.forEach(sd=>{
-  const s=P3.captador(MATP,{d:0.15,largo:0.34});
+  const s=P3.captador(MATP,{d:sd.d||0.15,largo:sd.largo||0.34});
   s.traverse(o=>{if(o.isMesh&&o.material===MATP.negro)o.material=MAT.sensor;});
-  s.position.set(...sd.pos); group.add(s); sd.mesh=s;
-
-  const curve=new THREE.QuadraticBezierCurve3(new THREE.Vector3(...sd.pos),new THREE.Vector3(1.0,1.1,-0.4),new THREE.Vector3(2.1,1.15,-0.6));
-  group.add(new THREE.Mesh(new THREE.TubeGeometry(curve,20,0.02,8),MAT.wire));
+  s.position.set(...sd.pos); s.rotation.x=sd.rot; sd.padre.add(s); sd.mesh=s;
 });
-const railWire=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0,1.56,0.5),new THREE.Vector3(1.2,1.5,-0.1),new THREE.Vector3(2.1,1.00,-0.28)),20,0.02,8),MAT.wire);
-group.add(railWire);
+{ // la sonda lambda: enroscada desde arriba en el tubo de escape
+  const o2=P3.sondaLambda(MATP,{d:0.10,largo:0.42});
+  o2.traverse(o=>{if(o.isMesh&&o.material===MATP.negro)o.material=MAT.sensor;});
+  o2.position.set(0.95,0.31+0.46*0.42-0.02,ZH-0.46); group.add(o2);
+  sensors.push({name:'O2',mesh:o2,pos:[0.95,0.5,ZH-0.46]});
+}
+
+/* ---- EL MAZO, LAS MANGUERAS Y LOS CONDUCTOS DE COMBUSTIBLE -------------- */
+const cables=[];
+for(let i=0;i<8;i++){ const m=new THREE.Mesh(new THREE.BufferGeometry(),MAT.fumbre); m.castShadow=true; group.add(m); cables.push(m); }
+const vacio=new THREE.Mesh(new THREE.BufferGeometry(),MAT.goma); group.add(vacio);
+function tubea(m,pts,r,seg){ m.geometry.dispose(); m.geometry=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),seg||40,r,8,false); }
+function mundoDe(obj,v){ return obj.localToWorld(v.clone()); }
+function actualizaCables(){
+  group.updateMatrixWorld(true);
+  const e=ecu.position, conE=V3(e.x,e.y-0.03,e.z+0.43+0.12);
+  // cada inyector: del conector a la línea común del mazo, que corre por delante
+  injectors.forEach((g,i)=>{
+    const c=mundoDe(g,g.userData.conector), x=c.x;
+    tubea(cables[i],[c,c.clone().add(V3(0,-0.03,0.09)),V3(x,0.66,1.15)],0.011,16);
+  });
+  // la línea común del mazo, hasta la ECU
+  tubea(cables[4],[V3(-1.25,0.66,1.15),V3(-0.45,0.66,1.15),V3(0.45,0.66,1.15),V3(1.2,0.60,1.08),V3(1.7,0.45,0.75),V3(e.x,e.y-0.10,e.z+0.62),conE],0.017,60);
+  // los tres sensores a la ECU
+  const sMAP=mundoDe(sensors[0].mesh,V3(0,0.15,0)), sTPS=mundoDe(sensors[1].mesh,V3(0,0.17,0)), sO2=mundoDe(sensors[2].mesh,V3(0,0.22,0));
+  tubea(cables[5],[sMAP,sMAP.clone().add(V3(0.05,0.14,-0.05)),V3(0.40,2.00,-0.30),V3(1.5,1.30,-0.70),V3(e.x-0.2,0.60,e.z-0.10),V3(e.x-0.1,e.y-0.1,e.z+0.55),conE],0.014,60);
+  tubea(cables[6],[sTPS,sTPS.clone().add(V3(0,0.10,0.1)),V3(-1.30,0.85,0.95),V3(-1.25,0.66,1.15)],0.014,30);
+  tubea(cables[7],[sO2,sO2.clone().add(V3(0.1,0.12,0.05)),V3(1.4,0.60,0.20),V3(e.x-0.25,0.55,e.z+0.1),V3(e.x-0.1,e.y-0.1,e.z+0.55),conE],0.014,40);
+  // la manguera de vacío: del regulador a la boca del plenum
+  const nv=mundoDe(regulador,regulador.userData.vacio), pb=mundoDe(manifold,V3(1.12+0.02,manifold.userData.plenumY,manifold.userData.plenumZ));
+  tubea(vacio,[nv,nv.clone().add(V3(0.12,0.04,-0.15)),V3(1.65,pb.y+0.05,0.15),pb],0.018,30);
+}
+actualizaCables();
+// El plenum lleva en su tapa el niple del vacío donde acaba esa manguera.
+{ const n=new THREE.Mesh(P3.revolucion([[0,0],[0.045,0],[0.045,0.06],[0.032,0.09],[0.032,0.16],[0,0.16]],{seg:14}),MAT.manifold);
+  n.rotation.z=-Math.PI/2; n.position.set(1.12+0.02-0.0,manifold.userData.plenumY-0.0,manifold.userData.plenumZ); manifold.add(n); }
+// La alimentación: del filtro al riel; el retorno, del regulador al banco.
+const filtro=new THREE.Mesh(P3.revolucion([[0,-0.18],[0.07,-0.18],[0.075,-0.16],[0.075,0.15],[0.06,0.17],[0.025,0.18],[0.025,0.24],[0,0.24]],{seg:26}),MAT.tubo);
+filtro.position.set(-2.00,0.14+0.20,0.55); filtro.castShadow=true; group.add(filtro);
+const abrazadera=new THREE.Mesh(new THREE.CylinderGeometry(0.083,0.083,0.05,22),MAT.bastidor); abrazadera.position.set(-2.00,0.14+0.28,0.55); group.add(abrazadera);
+const alim=P3.manguera({...MATP,goma:MAT.negro,acero:MAT.tubo},{r:0.03,seg:60,
+  puntos:[V3(-1.40,rail.position.y,rail.position.z),V3(-1.72,rail.position.y,rail.position.z),V3(-1.98,0.95,0.75),V3(-2.00,0.72,0.58),V3(-2.00,0.60,0.55)]});
+group.add(alim);
+const retorno=P3.manguera({...MATP,goma:MAT.negro,acero:MAT.tubo},{r:0.026,seg:60,
+  puntos:[V3(1.33,rail.position.y-0.27,rail.position.z),V3(1.42,0.62,0.95),V3(1.80,0.34,1.05),V3(2.30,0.22,1.05),V3(2.52,0.20,1.05)]});
+group.add(retorno);
+{ const t=P3.tornilloHex({acero:MAT.tubo},{d:0.06,largo:0.02,arandela:false}); t.rotation.z=-Math.PI/2; t.position.set(2.50,0.20,1.05); group.add(t); }
 
 /* ---- inspección por clic ---- */
 const parts=[
@@ -621,7 +673,7 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 });
 
 /* explode */
-const homes={rail:rail.position.clone(),manifold:manifold.position.clone(),ecu:ecu.position.clone()};
+const homes={rail:rail.position.clone(),manifold:manifold.position.clone(),ecu:ecu.position.clone(),inj:injectors.map(g=>g.position.y)};
 let exploded=false,running=false,loadPct=40,rpm=2000,t=0;
 const synth=makeSynth({type:'sawtooth',type2:'square',filterFreq:400,Q:4});
 
@@ -629,9 +681,9 @@ S.setAnimate((dt,time)=>{
   t=time;
   const ex=exploded?1:0;
   rail.position.y=THREE.MathUtils.lerp(rail.position.y,homes.rail.y+ex*0.9,0.1);
-  manifold.position.y=THREE.MathUtils.lerp(manifold.position.y,homes.manifold.y-ex*0.5,0.1);
+  manifold.position.y=THREE.MathUtils.lerp(manifold.position.y,homes.manifold.y+ex*0.22,0.1);   // el colector sale hacia ARRIBA, no hacia la culata
   ecu.position.x=THREE.MathUtils.lerp(ecu.position.x,homes.ecu.x+ex*0.8,0.1);
-  injectors.forEach((inj,i)=>{inj.position.y=THREE.MathUtils.lerp(inj.position.y,1.05+ex*0.45,0.1);});
+  injectors.forEach((inj,i)=>{inj.position.y=THREE.MathUtils.lerp(inj.position.y,homes.inj[i]+ex*0.45,0.1);});
 
   if(running){
     const pw=pulseWidthMs(loadPct,rpm);
@@ -641,12 +693,16 @@ S.setAnimate((dt,time)=>{
       const phase=((time*cycleHz*4 - order)%4+4)%4;
       const firing = phase>=0 && phase<(pw/1000)*cycleHz*4;
       injFlash[idx].material.emissive.setHex(firing?0xff8822:0x000000);
+      injFlash[idx].visible=firing;
     });
     const pwEl=document.getElementById('t_pw'); if(pwEl)pwEl.textContent=pw.toFixed(1)+' ms';
     const fuelEl=document.getElementById('t_fuel'); if(fuelEl)fuelEl.textContent=((loadPct/100)*4.2).toFixed(2)+' g/s';
     const rpmEl=document.getElementById('t_rpm'); if(rpmEl)rpmEl.textContent=Math.round(rpm)+' rpm';
     synth.update(70+rpm/60, 90+rpm/40, 0.02+loadPct/100*0.03, 300+rpm*0.05);
-  } else { synth.update(0,0,0); }
+  } else { synth.update(0,0,0); injFlash.forEach(c=>{c.visible=false;}); }
+  // El mazo sigue a las piezas que se despiezan.
+  const llave=rail.position.y+manifold.position.y+ecu.position.x+injectors[0].position.y;
+  if(Math.abs(llave-(actualizaCables._k||0))>1e-5){ actualizaCables._k=llave; actualizaCables(); }
 });
 S.start();
 
@@ -681,7 +737,7 @@ document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.
 document.getElementById('btnRun').onclick=(e)=>{
   synth.init(); synth.resume();
   running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular inyección';
-  if(running){ S.moveTo([4.4,2.6,5.2],[0.3,0.9,0],1.3); S.setCinematicIdle(true); }
+  if(running){ S.moveTo(CAM_INY.pos,CAM_INY.tgt,1.3); S.setCinematicIdle(true); }
   else { S.setCinematicIdle(false); }
 };
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */

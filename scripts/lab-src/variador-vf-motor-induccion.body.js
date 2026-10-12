@@ -36,7 +36,7 @@
    corriente, frenado dinámico); ni pérdidas.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[7.6,5.0,8.6],target:[0,1.1,0],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
+const S=createStage(mount,{cam:[4.6,3.5,6.0],target:[0,1.7,-0.3],bgTop:'#0b1520',bgBot:'#03070a',bloom:0.35,minD:4,maxD:16});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.7});
 
 /* ---------- §1 Modelo físico ---------- */
@@ -94,14 +94,12 @@ const MAT={
   frame:std({color:0x1c2a33,metalness:0.6,roughness:0.4}),
   board:std({color:0x0c141a,metalness:0.1,roughness:0.9}),
   bench:std({color:0x14202a,metalness:0.3,roughness:0.7}),
-  bus:std({color:0xffb703,metalness:0.8,roughness:0.3,emissive:0x3a2600,emissiveIntensity:0.3}),
   vfdBody:std({color:0x233542,metalness:0.6,roughness:0.35}),
   vfdDoor:std({color:0x2f4552,metalness:0.55,roughness:0.3}),
   motorBody:std({color:0x2c3e46,metalness:0.7,roughness:0.35}),
   motorEnd:std({color:0x40555f,metalness:0.7,roughness:0.3}),
   shaft:std({color:0xb9c4c9,metalness:0.9,roughness:0.2}),
   dialBody:std({color:0x223038,metalness:0.6,roughness:0.4}),
-  dialArm:std({color:0x4fd1c5,metalness:0.5,roughness:0.3,emissive:0x0d3a35,emissiveIntensity:0.4}),
   loadBlock:std({color:0x5a3b3b,metalness:0.5,roughness:0.5}),
   panelBody:std({color:0x101a20,metalness:0.4,roughness:0.6}),
   cable:std({color:0x1a1a1a,metalness:0.2,roughness:0.8}),
@@ -286,70 +284,7 @@ function boardClick(u,v){
   synth.beep(420,0.08,0.05);
 }
 
-/* ---------- §5 Banco 3D modesto ---------- */
-function cable(pts,mat){
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve,24,0.035,8,false);
-  return new THREE.Mesh(geo,mat);
-}
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=roundedBox(w,h,dp,MAT.panelBody,0.05); g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tx=new THREE.CanvasTexture(cv);
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshBasicMaterial({map:tx}));
-  screen.position.set(0,0,dp/2+0.005);
-  g.add(screen);
-  return {g,cv,cx,tx};
-}
-
-const boardG=new THREE.Group();
-const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
-board.position.z=0.07; board.castShadow=false;
-board.userData={title:'Tablero — curvas par-velocidad del variador'};
-boardFrame.userData=board.userData;
-boardG.add(boardFrame,board);
-boardG.position.set(0,2.35,-1.55);
-S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=roundedBox(6.2,0.28,3.0,MAT.bench,0.08);
-mesa.position.set(0,0.85,0); mesa.receiveShadow=true;
-benchG.add(mesa);
-
-const busBar=new THREE.Mesh(new THREE.BoxGeometry(4.6,0.06,0.06),MAT.bus);
-busBar.position.set(0,1.85,-0.8);
-benchG.add(busBar);
-
-// variador de frecuencia (VFD)
-const vfdG=new THREE.Group();
-const vfdBody=roundedBox(0.66,0.9,0.5,MAT.vfdBody,0.06);
-const vfdDoor=roundedBox(0.5,0.7,0.06,MAT.vfdDoor,0.05);
-vfdDoor.position.set(0,0,0.28);
-vfdG.add(vfdBody,vfdDoor);
-vfdG.add(labelSprite('VFD','#4fd1c5'));
-vfdG.position.set(-2.0,1.25,-0.05);
-vfdG.userData={act:'vfd3d',title:'Variador de frecuencia (VFD)'};
-vfdBody.userData=vfdG.userData; vfdDoor.userData=vfdG.userData;
-benchG.add(vfdG);
-
-// perilla de frecuencia (control de f)
-const dialG=new THREE.Group();
-const dialBody=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.12,24),MAT.dialBody);
-dialBody.rotation.x=Math.PI/2; dialBody.castShadow=true;
-const dialArm=new THREE.Mesh(new THREE.BoxGeometry(0.19,0.04,0.04),MAT.dialArm);
-dialArm.position.set(0.095,0,0.078);
-dialG.add(dialBody,dialArm);
-dialG.add(labelSprite('f','#4fd1c5'));
-dialG.position.set(-1.55,1.32,-0.05);
-dialG.userData={act:'dial3d',title:'Perilla de frecuencia (control de f)'};
-dialBody.userData=dialG.userData;
-benchG.add(dialG);
-
-// motor de inducción (housing + tapas + eje + acople)
-const motG=new THREE.Group();
+/* ---------- §5 Banco 3D ---------- */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -360,51 +295,109 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
-   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
-   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
-   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
-   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
-   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
-const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:0.95,eje:0.62,aletas:16});
-/* EL ACOPLE de garras, que es por donde sale el par hacia la carga. */
-const couplingG=new THREE.Group();
-for(let i=0;i<6;i++){
-  const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.05),MAT.shaft);
-  spoke.rotation.x=(i/6)*Math.PI*2; couplingG.add(spoke);
+function cable(pts,mat,r=0.032){
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,32,r,8,false),mat);
+  m.castShadow=true; return m;
 }
-couplingG.position.x=1.05;
-motG.add(maq,couplingG);
-motG.add(labelSprite('M 3~','#8ab4f8'));
-motG.position.set(-0.3,1.15,-0.05);
-motG.userData={act:'mot3d',title:'Motor de inducción trifásico'};
-maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
+/* Un lienzo de 256x160 para el visor del variador: lo pinta drawPanelD(). */
+function makeCanvasScreen(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=160;
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8;
+  return {cv,cx:cv.getContext('2d'),tx};
+}
+function screenPlane(w,h,tx){
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+}
+function tagAct(root,ud){ Object.assign(root.userData,ud); }
+function labelAt(g,txt,col,x,y,z){ const s=labelSprite(txt,col); s.position.set(x,y,z); g.add(s); return s; }
+
+/* El pizarrón, ahora COLGADO de un soporte y no flotando sobre la mesa. */
+const boardG=new THREE.Group();
+const boardFrame=roundedBox(3.2,2.35,0.12,MAT.frame,0.06);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.15),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.z=0.07; board.castShadow=false;
+board.userData={title:'Tablero — curvas par-velocidad del variador'};
+boardFrame.userData=board.userData;
+boardG.add(boardFrame,board);
+boardG.position.set(0,2.65,-1.55);
+S.scene.add(boardG);
+const standG=P3.soportePizarron(MATP,{ancho:3.2,alto:2.35,y:2.65});
+standG.position.set(0,0,-1.55); S.scene.add(standG);
+
+const benchG=new THREE.Group();
+const banco=P3.bancoPruebasMaquinas(MATP,{ancho:5.4,fondo:2.2,alto:0.95,respaldo:0.42});
+benchG.add(banco);
+const TOP=0.95;
+/* La placa base ranurada: el tren de ensayo —motor, acople, freno— se atornilla
+   a ella, y es lo que los deja alineados. */
+const placa=P3.placaBaseRanurada(MATP,{largo:3.9,ancho:1.5,ranuras:3});
+placa.position.set(0.55,TOP,0.05); benchG.add(placa);
+const AXY=TOP+0.07+0.533, AXZ=-0.25;             // altura y z del eje del tren
+
+// variador de frecuencia (VFD) sobre su placa de montaje
+const vfdG=new THREE.Group();
+const vfd=P3.variadorMural(MATP,{ancho:0.74,alto:1.0,fondo:0.30,rotulo:'VFD'});
+vfdG.add(vfd);
+const panelD=makeCanvasScreen();
+vfd.userData.pantalla.add(screenPlane(vfd.userData.visor.ancho*0.99,vfd.userData.visor.alto*0.99,panelD.tx));
+vfdG.position.set(-2.05,TOP,-0.55);
+labelAt(vfdG,'VFD','#4fd1c5',0,1.38,0.2);
+tagAct(vfdG,{act:'vfd3d',title:'Variador de frecuencia (VFD)'});
+benchG.add(vfdG);
+
+// perilla de frecuencia (control de f), en su caja de mando delante del variador
+const dialG=new THREE.Group();
+const perilla=P3.perillaGraduada(MATP,{etiqueta:'f  [Hz]',min:FMIN,max:FMAX,marcas:11});
+dialG.add(perilla);
+dialG.position.set(-1.62,TOP,0.62);
+labelAt(dialG,'f','#4fd1c5',0,0.78,0.2);
+tagAct(dialG,{act:'dial3d',title:'Perilla de frecuencia (control de f)'});
+benchG.add(dialG);
+
+// motor de inducción: la máquina real, sobre la placa base
+const motG=new THREE.Group();
+/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
+   taller: ALETAS, TAPA DEL VENTILADOR con su rejilla, PATAS, CAJA DE BORNES y
+   placa de datos. */
+const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:0.95,eje:0.62,aletas:16});
+motG.add(maq);
+labelAt(motG,'M 3~','#8ab4f8',0,0.95,0);
+motG.position.set(-0.80,AXY,AXZ);
+tagAct(motG,{act:'mot3d',title:'Motor de inducción trifásico'});
 benchG.add(motG);
 
-// carga mecánica (freno / dinamómetro)
+/* EL ACOPLE elástico de garras con su araña, que es por donde sale el par hacia
+   el freno. Es lo que gira a la vista. */
+const couplingG=P3.acopleElastico(MATP,{d:0.26,largo:0.36,dEje:0.10});
+couplingG.position.set(0.46,AXY,AXZ);
+benchG.add(couplingG);
+
+// carga mecánica: freno de Foucault con su brazo de par y su célula de carga
 const loadG=new THREE.Group();
-const loadBox=roundedBox(0.7,0.5,0.5,MAT.loadBlock,0.06);
-loadG.add(loadBox);
-loadG.add(labelSprite('TL','#e08a8a'));
-loadG.position.set(1.7,1.2,-0.05);
-loadG.userData={act:'load3d',title:'Carga mecánica (freno / dinamómetro)'};
-loadBox.userData=loadG.userData;
+const freno=P3.dinamometroFreno(MATP,{d:0.66,largo:0.56,eje:0.26,base:0.203});
+loadG.add(freno);
+labelAt(loadG,'TL','#e08a8a',0,0.85,0);
+loadG.position.set(1.29,AXY,AXZ);
+tagAct(loadG,{act:'load3d',title:'Carga mecánica (freno / dinamómetro)'});
 benchG.add(loadG);
 
-const panelD=makeDisplayBox(1.0,0.6,0.08,256,160);
-panelD.g.position.set(-2.35,1.85,0.7);
-panelD.g.userData={act:'paneld3d',title:'Display del variador — f, ns'};
-benchG.add(panelD.g);
+// medidor de eje: instrumento de banco con su pantalla
+const meterG=P3.instrumentoConPantalla(MATP,{ancho:0.96,alto:0.64,fondo:0.40,mandos:2,cw:256,visor:0.70,visorAlto:0.656,color:0x56626b});
+meterG.position.set(2.25,TOP+meterG.userData.apoyo,0.45);
+tagAct(meterG,{act:'meter3d',title:'Medidor de eje — velocidad y deslizamiento'});
+const meter={g:meterG,cv:meterG.userData.cv,cx:meterG.userData.cx,tx:meterG.userData.tex};
+benchG.add(meterG);
 
-const meter=makeDisplayBox(1.0,0.6,0.08,256,160);
-meter.g.position.set(2.35,1.85,0.7);
-meter.g.userData={act:'meter3d',title:'Medidor de eje — velocidad y deslizamiento'};
-benchG.add(meter.g);
-
-benchG.add(
-  cable([new THREE.Vector3(-2.0,1.85,-0.8),new THREE.Vector3(-2.0,1.6,-0.4),new THREE.Vector3(-2.0,1.4,-0.05)],MAT.cable),
-  cable([new THREE.Vector3(-2.0,1.1,-0.05),new THREE.Vector3(-1.3,1.0,-0.1),new THREE.Vector3(-0.75,1.05,-0.05)],MAT.cable),
-);
+// la potencia: del variador al motor, por el suelo del banco hasta la caja de bornes
+const mCab=std({color:0x15181c,metalness:0.2,roughness:0.75});
+{ const b=vfd.userData.bocas;
+  b.forEach((p,i)=>{
+    const q=new THREE.Vector3(p.x,p.y,p.z).add(new THREE.Vector3(-2.05,TOP,-0.55));
+    benchG.add(cable([q, new THREE.Vector3(q.x+0.05,q.y-0.02,q.z+0.18), new THREE.Vector3(q.x+0.45+i*0.1,TOP+0.03,q.z+0.30+i*0.06),
+      new THREE.Vector3(-0.95+i*0.12,TOP+0.12,-0.18+i*0.05), new THREE.Vector3(-0.80+(i-1)*0.08,AXY+0.58,AXZ+0.02)],mCab,0.026));
+  });
+}
 
 benchG.traverse(o=>{ if(o.isMesh&&o!==board){ o.castShadow=true; o.receiveShadow=true; } });
 S.scene.add(benchG);
@@ -449,7 +442,7 @@ function drawMeter3D(){
 function refreshBenchDyn(){
   drawPanelD(); drawMeter3D();
   const t=(fCmd-FMIN)/(FMAX-FMIN);
-  dialArm.rotation.y=-Math.PI*0.66+t*Math.PI*1.32;
+  perilla.userData.pone(t);
 }
 
 /* ---------- §6 HUD + panel ---------- */
@@ -545,9 +538,9 @@ function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add
 
 /* ---------- §8 Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[7.6,5.0,8.6],[0,1.1,0]],mision:'EXPLORA · mueve la frecuencia f y el par de carga TL. Observa cómo cambia la velocidad y el deslizamiento — y prueba los botones de arranque DOL vs. rampa.'},
-  comparar:{nombre:'Comparar',cam:[[0,4.4,9.6],[0,1.6,-0.6]],mision:'COMPARA · las cuatro curvas de referencia (20/40/60/80 Hz) se dibujan juntas. Nota que arriba de 60 Hz el par de ruptura empieza a caer.'},
-  reto:{nombre:'Reto',cam:[[3.4,3.4,7.2],[0,1.4,-0.4]],mision:'RETO · encuentra la frecuencia máxima antes del calado, a mano o ajustando el variador, según el tipo de reto.'},
+  explora:{nombre:'Explora',cam:[[4.6,3.5,6.0],[0,1.7,-0.3]],mision:'EXPLORA · mueve la frecuencia f y el par de carga TL. Observa cómo cambia la velocidad y el deslizamiento — y prueba los botones de arranque DOL vs. rampa.'},
+  comparar:{nombre:'Comparar',cam:[[0,3.4,8.2],[0,2.1,-0.8]],mision:'COMPARA · las cuatro curvas de referencia (20/40/60/80 Hz) se dibujan juntas. Nota que arriba de 60 Hz el par de ruptura empieza a caer.'},
+  reto:{nombre:'Reto',cam:[[3.0,3.0,5.6],[0,1.7,-0.4]],mision:'RETO · encuentra la frecuencia máxima antes del calado, a mano o ajustando el variador, según el tipo de reto.'},
 };
 
 function tolText(){ return MYST ? `± ${MYST.tol.toFixed(1)} Hz` : ''; }
@@ -856,6 +849,8 @@ S.setAnimate(()=>{
   const s=stableSlip(tl,fCmd);
   const speedFrac = s==null ? 0.02 : (ns(fCmd)*(1-s))/ns(FMAX);
   couplingG.rotation.x += 0.004 + 0.02*speedFrac;
+  /* El ventilador del motor y el eje del freno van calados al mismo eje. */
+  maq.userData.gira(couplingG.rotation.x); freno.userData.gira(couplingG.rotation.x);
 });
 
 ['m_explora','m_comparar','m_reto'].forEach(id=>{
