@@ -1,382 +1,131 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import {
-  OrbitControls,
-  PerspectiveCamera,
-  Stars,
-  Html,
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import {
+  LabCanvas, EncuadrarCaja, Termometro, ParrillaAgitadora, MatrazBalon, Cable, Etiqueta, cilindro, defBalon, PARRILLA_ALTURA,
+  useMateriales, COLORES_LIQUIDO,
+} from '../_kit';
+import {
+  Y_BARRA, R_CAMISA, X_DIAL, R_DIAL, X_ENTRADA, X_PUERTO_TERMOMETRO,
+  BaseDilatometro, CamisaVapor, BarraEnsayo, ComparadorCaratula,
+} from './piezas';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   DilatacionTermica3DScene — Dilatación lineal de un metal, en 3D volumétrico.
-   Física real: ΔL = α · L₀ · ΔT  (valores idénticos al store del Piloto).
-   • Una barra metálica se ESCALA en longitud según ΔL real (amplificado para verse).
-   • La red cristalina (malla de átomos) VIBRA con amplitud creciente = más calor,
-     y la separación media entre átomos crece con la temperatura (la red se abre).
-   • Sin incandescencia: a ≤ 100 °C un metal NO brilla (el rojo visible empieza
-     hacia ~500 °C, ley de Draper). El calor se indica con el vapor y la vibración.
-   • Regla graduada + marcador de elongación ΔL (amplificado; la etiqueta lo dice).
-   Pendiente de la pasada 3D: dilatómetro real (tubo de vapor, comparador de carátula,
-   termómetro, generador de vapor) en lugar de la red cristalina esquemática.
-   Props: { alpha, longitud, tempIni, tempFin, color, encendido }.
+   DilatacionTermica3DScene — dilatómetro lineal con camisa de vapor (1 u = 1 dm).
+
+   Montaje: barra de 500 mm del material elegido dentro de una camisa de acrílico con tapones
+   de hule; apoya a la izquierda en un tornillo de tope y a la derecha empuja el palpador de un
+   comparador de carátula (0–2 mm, 0,02 mm por división). Un generador de vapor (matraz de fondo
+   redondo con agua sobre la parrilla) conecta por una manguera a la tubuladura de entrada; el
+   vapor sale por la otra. Un termómetro de vidrio entra por el puerto central de la camisa.
+
+   La temperatura y la aguja del comparador son las del Piloto: ΔL = α·L₀·ΔT, de modo que la
+   escena no rotula α (la barra problema va sin marcar): sólo muestra lo que lee cada instrumento.
 ──────────────────────────────────────────────────────────────────────────── */
 
-// Tono de los átomos "calientes" (sólo la red esquemática, no la barra).
-const WARM = new THREE.Color('#fdba74');
-const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
-
-// ΔT normalizado 0..1 (rango de trabajo: ambiente 20 °C → vapor 100 °C ⇒ ΔT máx 80)
-function heatFactor(tempFin: number, tempIni: number) {
-  return THREE.MathUtils.clamp((tempFin - tempIni) / 80, 0, 1);
+export interface DilatacionSceneProps {
+  /** coeficiente α real de la barra montada (1/°C) — sólo mueve la aguja, no se rotula */
+  alpha: number;
+  /** L₀ en mm */
+  longitud: number;
+  tempIni: number;
+  tempFin: number;
+  /** aluminio | cobre | acero | misterioso */
+  material: string;
+  /** vapor circulando */
+  encendido: boolean;
 }
 
-// Longitud base de la barra en unidades de escena
-const BASE_BAR_LEN = 8;
-// Amplificación visual del ΔL real (ΔL suele ser fracciones de mm sobre L₀ en mm)
-const DL_GAIN = 900;
-/** Cuántas veces se exagera ΔL respecto a la barra dibujada (L₀ ↔ BASE_BAR_LEN). */
-const AMPLIFICACION = Math.round(DL_GAIN / BASE_BAR_LEN);
+const NOMBRE_BARRA: Record<string, string> = { aluminio: 'Aluminio', cobre: 'Cobre', acero: 'Acero', misterioso: 'Metal ?' };
+const POS_PARRILLA: [number, number, number] = [-3.0, 0, -2.0];
 
-/* ── Red cristalina: malla de átomos que vibran; amplitud ∝ temperatura ─────── */
-function CrystalLattice({ hf, spanX, baseColor }: { hf: number; spanX: number; baseColor: THREE.Color }) {
-  const NX = 14, NY = 3, NZ = 3;
-  const COUNT = NX * NY * NZ;
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-
-  // Posiciones de reposo de la red + fase aleatoria por átomo
-  const nodes = useMemo(() => {
-    const arr: { base: THREE.Vector3; phase: number; freq: number }[] = [];
-    for (let ix = 0; ix < NX; ix++) {
-      for (let iy = 0; iy < NY; iy++) {
-        for (let iz = 0; iz < NZ; iz++) {
-          const x = (ix / (NX - 1) - 0.5); // -0.5..0.5
-          const y = (iy - (NY - 1) / 2) * 0.55;
-          const z = (iz - (NZ - 1) / 2) * 0.55;
-          arr.push({
-            base: new THREE.Vector3(x, y, z),
-            phase: Math.random() * Math.PI * 2,
-            freq: 8 + Math.random() * 6,
-          });
-        }
-      }
-    }
-    return arr;
-  }, []);
-
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const tmpColor = useMemo(() => new THREE.Color(), []);
-
-  useFrame((state) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    const t = state.clock.getElapsedTime();
-    // La red se "abre": separación crece ~1% + hf y amplitud de vibración ∝ hf
-    const spread = 1 + hf * 0.18;
-    const amp = 0.02 + hf * 0.16;
-    for (let i = 0; i < COUNT; i++) {
-      const n = nodes[i];
-      const jx = Math.sin(t * n.freq + n.phase) * amp;
-      const jy = Math.cos(t * n.freq * 1.1 + n.phase) * amp;
-      const jz = Math.sin(t * n.freq * 0.9 + n.phase * 1.3) * amp;
-      dummy.position.set(
-        n.base.x * spanX * spread + jx,
-        n.base.y * spread + jy,
-        n.base.z * spread + jz,
-      );
-      const s = 0.11 + hf * 0.03;
-      dummy.scale.setScalar(s);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      // átomos más calientes hacia el centro-brillo
-      tmpColor.copy(baseColor).lerp(WARM, hf * 0.35);
-      mesh.setColorAt(i, tmpColor);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  });
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
-      <sphereGeometry args={[1, 12, 12]} />
-      <meshStandardMaterial
-        emissive={'#000000'}
-        emissiveIntensity={0}
-        roughness={0.3}
-        metalness={0.7}
-        toneMapped={false}
-      />
-    </instancedMesh>
-  );
-}
-
-/* ── Enlaces (resortes) entre átomos adyacentes en X: sugieren la red vibrante ── */
-function LatticeBonds({ hf, spanX }: { hf: number; spanX: number }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const N = 13;
-  const bonds = useMemo(() => Array.from({ length: N }), []);
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.getElapsedTime();
-    const amp = 0.03 + hf * 0.12;
-    groupRef.current.children.forEach((c, i) => {
-      c.position.y = Math.sin(t * (9 + i) + i) * amp;
+/** Penacho de vapor sobre la salida: cinco volutas que suben, crecen y se desvanecen. */
+function Penacho({ activo, position }: { activo: boolean; position: [number, number, number] }) {
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  const mats = useMemo(() => Array.from({ length: 5 }, () => new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })), []);
+  const geo = useMemo(() => new THREE.SphereGeometry(1, 12, 10), []);
+  React.useEffect(() => () => { mats.forEach((x) => x.dispose()); geo.dispose(); }, [mats, geo]);
+  useFrame(({ clock }) => {
+    const t0 = clock.elapsedTime * 0.45;
+    refs.current.forEach((mesh, i) => {
+      if (!mesh) return;
+      const t = (t0 + i / 5) % 1;
+      mesh.visible = activo;
+      mesh.position.set(Math.sin(t * 6 + i) * 0.05 + t * 0.12, t * 0.95, Math.cos(t * 5 + i * 2) * 0.04);
+      const s = 0.05 + t * 0.2;
+      mesh.scale.set(s, s, s);
+      mats[i].opacity = (1 - t) * 0.4;
     });
   });
-
-  const spread = 1 + hf * 0.18;
   return (
-    <group ref={groupRef}>
-      {bonds.map((_, i) => {
-        const x = ((i + 0.5) / (N) - 0.5) * spanX * spread;
-        const len = (spanX * spread) / N;
-        return (
-          <mesh key={i} position={[x, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.02, 0.02, len * 0.7, 6]} />
-            <meshStandardMaterial
-              color={'#94a3b8'}
-              transparent
-              opacity={0.35}
-            />
-          </mesh>
-        );
-      })}
+    <group position={position}>
+      {mats.map((mt, i) => <mesh key={i} ref={(el) => { refs.current[i] = el; }} geometry={geo} material={mt} visible={false} renderOrder={5} />)}
     </group>
   );
 }
 
-/* ── La barra metálica: se expande en longitud según ΔL real ────────────────── */
-function MetalBar({ hf, deltaLScene, baseColor }: { hf: number; deltaLScene: number; baseColor: THREE.Color }) {
-  const spanX = BASE_BAR_LEN + deltaLScene;
+function Escena({ alpha, longitud, tempIni, tempFin, material, encendido }: DilatacionSceneProps) {
+  const m = useMateriales();
+  const dL = alpha * longitud * (tempFin - tempIni);            // mm
+  const nivelVapor = encendido ? Math.min(1, Math.max(0, (tempFin - tempIni) / 15)) : 0;
 
-  return (
-    <group>
-      {/* Cuerpo sólido semitransparente que envuelve la red (color del metal: no brilla a 100 °C) */}
-      <mesh>
-        <boxGeometry args={[spanX, 1.5, 1.5]} />
-        <meshStandardMaterial
-          color={baseColor}
-          metalness={0.85}
-          roughness={0.25}
-          transparent
-          opacity={0.32}
-          toneMapped={false}
-        />
-      </mesh>
+  const def = useMemo(() => defBalon(500), []);
+  const yMatraz = PARRILLA_ALTURA + 0.0;
+  const yBoca = yMatraz + def.altura + 0.03;
+  const rCuello = def.radioInteriorEn(def.altura - 0.05);
+  const xMatraz = POS_PARRILLA[0], zMatraz = POS_PARRILLA[2] - 0.12;
+  const topeTubo: [number, number, number] = [xMatraz, yBoca + 0.45, zMatraz];
+  const entrada: [number, number, number] = [X_ENTRADA, Y_BARRA + R_CAMISA * 0.9 + 0.36, 0];
+  const salidaX = -X_ENTRADA;
+  const matGoma = useMemo(() => m.plastico('#2a2220', 0.9), [m]);
 
-      {/* Red cristalina + enlaces dentro de la barra */}
-      <CrystalLattice hf={hf} spanX={spanX} baseColor={baseColor} />
-      <LatticeBonds hf={hf} spanX={spanX} />
-
-    </group>
-  );
-}
-
-/* ── Soportes / bancada del banco de pruebas ───────────────────────────────── */
-function TestBench({ span }: { span: number }) {
-  const half = span / 2;
-  return (
-    <group position={[0, -1.4, 0]}>
-      {/* riel base */}
-      <mesh position={[0, -0.25, 0]}>
-        <boxGeometry args={[BASE_BAR_LEN + 4, 0.3, 2.4]} />
-        <meshStandardMaterial color={'#0f172a'} metalness={0.6} roughness={0.4} />
-      </mesh>
-      {/* soporte fijo (izquierda) */}
-      <mesh position={[-half - 0.2, 0.55, 0]}>
-        <boxGeometry args={[0.5, 1.6, 2]} />
-        <meshStandardMaterial color={'#1e293b'} metalness={0.5} roughness={0.5} />
-      </mesh>
-      {/* soporte deslizante (derecha) */}
-      <mesh position={[half + 0.2, 0.55, 0]}>
-        <boxGeometry args={[0.5, 1.6, 2]} />
-        <meshStandardMaterial color={'#1e293b'} metalness={0.5} roughness={0.5} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Vapor que escapa del tubo mientras circula (no es una llama) ──────────── */
-function Burner({ active, hf }: { active: boolean; hf: number }) {
-  const COUNT = 120;
-  const geomRef = useRef<THREE.BufferGeometry>(null);
-  const positions = useMemo(() => new Float32Array(COUNT * 3), []);
-  const speeds = useMemo(() => Array.from({ length: COUNT }, () => 0.6 + Math.random() * 1.4), []);
-
-  useMemo(() => {
-    for (let i = 0; i < COUNT; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * BASE_BAR_LEN * 0.9;
-      positions[i * 3 + 1] = -2 + Math.random() * 0.5;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 1.2;
-    }
-  }, [positions]);
-
-  useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05);
-    for (let i = 0; i < COUNT; i++) {
-      positions[i * 3 + 1] += speeds[i] * dt * (0.6 + hf);
-      if (positions[i * 3 + 1] > -0.4) {
-        positions[i * 3] = (Math.random() - 0.5) * BASE_BAR_LEN * 0.9;
-        positions[i * 3 + 1] = -2.2;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 1.2;
-      }
-    }
-    if (geomRef.current) geomRef.current.attributes.position.needsUpdate = true;
-  });
-
-  if (!active) return null;
-
-  return (
-    <points>
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-      </bufferGeometry>
-      <pointsMaterial
-        color={'#e2e8f0'}
-        size={0.22}
-        transparent
-        opacity={0.35}
-        depthWrite={false}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
-
-/* ── Regla graduada + marcador de elongación ΔL ────────────────────────────── */
-function ElongationRuler({ deltaLScene }: { deltaLScene: number }) {
-  const start = BASE_BAR_LEN / 2;      // borde derecho en frío
-  const end = start + deltaLScene;     // borde derecho en caliente
-  const ticks = 12;
-
-  return (
-    <group position={[0, -2.6, 0]}>
-      {/* riel de la regla */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[BASE_BAR_LEN + 2.5, 0.06, 0.2]} />
-        <meshBasicMaterial color={'#334155'} />
-      </mesh>
-      {/* graduaciones */}
-      {Array.from({ length: ticks }).map((_, i) => {
-        const x = -start - 0.5 + (i / (ticks - 1)) * (BASE_BAR_LEN + 1.5);
-        return (
-          <mesh key={i} position={[x, 0.12, 0]}>
-            <boxGeometry args={[0.015, 0.18, 0.02]} />
-            <meshBasicMaterial color={'#475569'} />
-          </mesh>
-        );
-      })}
-      {/* marcador FRÍO (referencia L₀) */}
-      <mesh position={[start, 0.2, 0]}>
-        <boxGeometry args={[0.04, 0.5, 0.04]} />
-        <meshStandardMaterial color={'#38bdf8'} emissive={'#38bdf8'} emissiveIntensity={2} toneMapped={false} />
-      </mesh>
-      {/* marcador CALIENTE (borde dilatado) */}
-      <mesh position={[end, 0.2, 0]}>
-        <boxGeometry args={[0.05, 0.6, 0.05]} />
-        <meshStandardMaterial color={'#f97316'} emissive={'#f97316'} emissiveIntensity={3} toneMapped={false} />
-      </mesh>
-      {/* barra de ΔL entre marcadores */}
-      {deltaLScene > 0.01 && (
-        <mesh position={[(start + end) / 2, 0.32, 0]}>
-          <boxGeometry args={[deltaLScene, 0.06, 0.06]} />
-          <meshStandardMaterial color={'#fde047'} emissive={'#fde047'} emissiveIntensity={2.5} toneMapped={false} />
-        </mesh>
-      )}
-      {/* etiqueta ΔL */}
-      <Html position={[end + 0.6, 0.35, 0]} center distanceFactor={12}>
-        <div className="text-[11px] font-black text-amber-300 whitespace-nowrap select-none pointer-events-none drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
-          ΔL dibujado ×{AMPLIFICACION}
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-/* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ alpha, longitud, tempIni, tempFin, color, encendido }: {
-  alpha: number; longitud: number; tempIni: number; tempFin: number; color: string; encendido: boolean;
-}) {
-  const hf = heatFactor(tempFin, tempIni);
-  const deltaLmm = alpha * longitud * (tempFin - tempIni); // ΔL real en mm
-  const deltaLScene = Math.min(deltaLmm * DL_GAIN / longitud, 5); // amplificado y acotado
-  const baseColor = useMemo(() => new THREE.Color(color || '#CBD5E1'), [color]);
-  const span = BASE_BAR_LEN + deltaLScene;
-
-  const groupRef = useRef<THREE.Group>(null);
+  const caja = useMemo<[[number, number, number], [number, number, number]]>(() => [[-3.6, 0, -3.0], [4.7, 3.9, 0.9]], []);
+  const tipoLabel = NOMBRE_BARRA[material] ?? 'Barra';
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 3.5, 15]} fov={45} />
-      <color attach="background" args={['#010409']} />
-      <fog attach="fog" args={['#010409', 20, 44]} />
+      <EncuadrarCaja caja={caja} margen={1.12} direccion={[0.0, 0.45, 1]} />
+      <BaseDilatometro />
+      <BarraEnsayo material={material} />
+      <CamisaVapor vapor={nivelVapor} />
+      <Penacho activo={encendido} position={[salidaX, Y_BARRA + R_CAMISA * 0.9 + 0.36, 0]} />
 
-      <ambientLight intensity={0.4} />
-      <hemisphereLight intensity={0.35} groundColor="#020617" />
-      <directionalLight position={[6, 10, 8]} intensity={0.8} />
+      {/* termómetro por el puerto central; el bulbo queda dentro de la camisa, junto a la barra */}
+      <Termometro position={[X_PUERTO_TERMOMETRO, Y_BARRA + 0.09, 0]} scale={1.4} temperatura={tempFin} longitud={1.9} />
 
-      <group ref={groupRef} position={[0, 0.6, 0]}>
-        <MetalBar hf={hf} deltaLScene={deltaLScene} baseColor={baseColor} />
-        <TestBench span={span} />
-        <Burner active={encendido} hf={hf} />
-        <ElongationRuler deltaLScene={deltaLScene} />
+      {/* comparador de carátula: su palpador toca el extremo derecho de la barra */}
+      <group position={[X_DIAL, Y_BARRA, 0]}><ComparadorCaratula dL={dL} /></group>
+
+      {/* generador de vapor */}
+      <ParrillaAgitadora position={POS_PARRILLA} calor={encendido ? 0.9 : 0} agitacion={0} encendida />
+      <MatrazBalon position={[xMatraz, yMatraz, zMatraz]} capacidad={500} aro liquido={{ volumenML: 320, color: COLORES_LIQUIDO.agua }} />
+      <group position={[xMatraz, yBoca, zMatraz]}>
+        <mesh geometry={cilindro(rCuello * 1.15, rCuello * 0.9, 0.2, 24)} material={matGoma} position={[0, -0.05, 0]} castShadow />
+        <mesh geometry={cilindro(0.04, 0.04, 0.5, 10, true)} material={m.vidrio} position={[0, 0.2, 0]} renderOrder={3} />
       </group>
+      <Cable desde={topeTubo} hasta={entrada} holgura={1.3} grosor={0.07} color="#6f8290" />
 
-      <Stars radius={80} depth={40} count={2400} factor={4} saturation={0} fade speed={0.5} />
-
-      <OrbitControls
-        enablePan={false}
-        enableZoom
-        minDistance={9}
-        maxDistance={28}
-        autoRotate={false}
-        autoRotateSpeed={0.5}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 1.8}
-      />
-
-      <EffectComposer multisampling={8}>
-        <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.5} radius={0.7} />
-        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.2} darkness={1.05} />
-      </EffectComposer>
+      <Etiqueta texto={`Barra: ${tipoLabel}`} position={[-2.4, 0.06, 1.0]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.88)" />
+      <Etiqueta texto="Camisa de vapor" position={[0.2, 0.06, 1.0]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Generador de vapor" position={[POS_PARRILLA[0], 0.04, POS_PARRILLA[2] + 1.55]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Comparador" position={[X_DIAL, 0.06, 1.0]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.85)" />
     </>
   );
 }
 
-export default function DilatacionTermica3DScene({
-  alpha,
-  longitud,
-  tempIni,
-  tempFin,
-  color,
-  encendido,
-}: {
-  alpha: number;
-  longitud: number;
-  tempIni: number;
-  tempFin: number;
-  color: string;
-  encendido: boolean;
-}) {
+export default function DilatacionTermica3DScene(props: DilatacionSceneProps) {
   return (
-    <div className="w-full h-full">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
-        <Suspense fallback={null}>
-          <Scene
-            alpha={alpha}
-            longitud={longitud}
-            tempIni={tempIni}
-            tempFin={tempFin}
-            color={color}
-            encendido={encendido}
-          />
-        </Suspense>
-      </Canvas>
+    <div className="h-full w-full">
+      <LabCanvas
+        fondo="laboratorio"
+        mesa={{ ancho: 14, fondo: 9 }}
+        camara={{ posicion: [0.5, 4.2, 9], objetivo: [0.5, 1.2, -0.5], fov: 35 }}
+        controles={{ minDistancia: 2.5, maxDistancia: 22, maxPolar: 1.5, cajaObjetivo: [[-4, 0, -3.5], [5, 3.6, 2]] }}
+      >
+        <Escena {...props} />
+      </LabCanvas>
     </div>
   );
 }

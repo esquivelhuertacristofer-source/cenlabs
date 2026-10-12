@@ -1,417 +1,99 @@
 "use client";
 
-import React, { useRef, useMemo, useEffect, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import {
-  OrbitControls,
-  PerspectiveCamera,
-  Stars,
-  Sparkles,
-  Html,
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, FuenteBanco, Cable, Etiqueta } from '../_kit';
+import {
+  Y_EJE, Z_PEDESTAL, Z_ACOPLE, BaseMotor, ImanLateral, SoporteImanes, RotulosPolos, RotorBobinado, PedestalCojinete,
+  Escobillas, bornasEscobillas, Acoplamiento, FrenoCarga, TacometroOptico,
+} from './piezas';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   MotorElectrico3DScene — Motor de corriente continua (DC) volumétrico.
-   Física real: una espira portadora de corriente I en un campo magnético B
-   experimenta un torque τ = N·B·I·A·sinθ (fuerza de Laplace F = I·L×B sobre
-   cada lado de la bobina). El conmutador invierte la corriente cada media vuelta
-   para mantener el sentido de giro. La velocidad angular deriva de las RPM
-   que calcula el dominio (signo = sentido, magnitud = |rpm|), ralentizadas ×0,06
-   para que el giro se pueda seguir con la vista (efecto estroboscópico).
-   Geometría: los imanes flanquean el rotor a ±X y el eje del rotor va a lo largo
-   de Z, así el campo es PERPENDICULAR al eje y produce par (antes el eje era X y
-   el campo le era paralelo: par nulo).
-   Props: { imanIzq, imanDer, espiras, rpm, corriente, encendido }.
+   MotorElectrico3DScene — motor de CD de imanes permanentes (1 u = 1 dm).
+
+   Montaje: base de aluminio con el estator (dos imanes en arco con yugo de acero que flanquean
+   al rotor; cara polar roja = N, azul = S), rotor de núcleo laminado en H con bobinado de N
+   espiras, conmutador de dos delgas con sus escobillas de carbón, dos pedestales con
+   cojinete, acoplamiento elástico con cinta reflectante, freno de partículas magnéticas
+   (la carga), tacómetro óptico apuntando a la cinta y fuente de banco con sus cables.
+
+   El eje va a lo largo de Z y el conmutador queda hacia +Z: el sentido «horario» del Piloto
+   es el que se ve desde ahí. La animación es la del dominio (`estadoMotor`): el rotor gira
+   a ω del Piloto (en cámara lenta, ×0,1: a 2400 rpm real no se vería giro alguno en pantalla);
+   con dos polos iguales enfrentados, o si no arranca, se queda quieto.
 ──────────────────────────────────────────────────────────────────────────── */
 
-const COPPER = new THREE.Color('#e8873a');       // cobre
-const COPPER_HOT = new THREE.Color('#ffd28a');   // cobre sobrecalentado (rotor bloqueado)
-const ABERRACION = new THREE.Vector2(0.0006, 0.0006);
-/** El rotor se dibuja con su eje en X y se gira 90° para que quede a lo largo de Z. */
-const ROT_EJE_Z: [number, number, number] = [0, Math.PI / 2, 0];
-const N_COLOR = '#ef4444';                        // polo Norte (rojo)
-const S_COLOR = '#3b82f6';                        // polo Sur (azul)
+export interface MotorSceneProps {
+  imanIzq: 'N' | 'S';
+  imanDer: 'N' | 'S';
+  espiras: number;
+  /** rpm con signo (+ horario visto desde el conmutador); 0 = detenido */
+  rpm: number;
+  corriente: number;
+  voltaje: number;
+  encendido: boolean;
+}
 
-const MAG_X = 3.2;   // separación de los polos del imán
-const COIL_R = 1.55; // radio aparente de la bobina
+const CAMARA_LENTA = 0.1;
+const POS_FUENTE: [number, number, number] = [-2.9, 0, -0.1];
+const BORNA_MAS: [number, number, number] = [POS_FUENTE[0] + 0.228, 0.221, POS_FUENTE[2] + 1.42];
+const BORNA_MENOS: [number, number, number] = [POS_FUENTE[0] + 0.722, 0.221, POS_FUENTE[2] + 1.42];
 
-/* ── Líneas de campo magnético entre los polos (curvas luminosas) ───────────── */
-function FieldLines({ B, encendido }: { B: number; encendido: boolean }) {
-  // B = +1 → N(izq) a S(der); B = -1 → S(izq) a N(der); B = 0 → polos iguales (sin flujo neto)
-  const lines = useMemo(() => {
-    const arr: THREE.Vector3[][] = [];
-    if (B === 0) return arr;
-    const rows = 5;
-    for (let r = 0; r < rows; r++) {
-      const y = THREE.MathUtils.mapLinear(r, 0, rows - 1, -1.1, 1.1);
-      const bow = 0.6 + Math.abs(y) * 0.4;
-      const pts: THREE.Vector3[] = [];
-      const seg = 40;
-      for (let s = 0; s <= seg; s++) {
-        const t = s / seg;
-        const x = THREE.MathUtils.lerp(-MAG_X + 0.55, MAG_X - 0.55, t);
-        const z = Math.sin(t * Math.PI) * bow * (r % 2 === 0 ? 1 : -1);
-        pts.push(new THREE.Vector3(x, y, z));
-      }
-      arr.push(pts);
-    }
-    return arr;
-  }, [B]);
-
-  const fieldColor = B > 0 ? '#93c5fd' : '#fca5a5';
-  // Objetos Line creados una sola vez por configuración (no en cada render) y liberados al cambiar.
-  const objetos = useMemo(
-    () => lines.map((pts) => new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: fieldColor, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
-    )),
-    [lines, fieldColor],
-  );
-  useEffect(() => () => objetos.forEach((o) => { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }), [objetos]);
-
-  const groupRef = useRef<THREE.Group>(null);
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.getElapsedTime();
-    groupRef.current.children.forEach((c, i) => {
-      const mat = (c as THREE.Line).material as THREE.LineBasicMaterial;
-      mat.opacity = (encendido ? 0.55 : 0.28) + Math.sin(t * 2 + i) * 0.12;
-    });
+function Escena({ imanIzq, imanDer, espiras, rpm, corriente, voltaje, encendido }: MotorSceneProps) {
+  const rotor = useRef<THREE.Group>(null);
+  useFrame((_, dt) => {
+    const g = rotor.current; if (!g || rpm === 0) return;
+    g.rotation.z -= ((rpm * 2 * Math.PI) / 60) * CAMARA_LENTA * Math.min(dt, 0.05);
   });
-
-  return (
-    <group ref={groupRef}>
-      {objetos.map((o, i) => <primitive key={i} object={o} />)}
-    </group>
-  );
-}
-
-/* ── Polo del imán (bloque N o S con etiqueta y halo) ───────────────────────── */
-function MagnetPole({ x, pole }: { x: number; pole: 'N' | 'S' }) {
-  const color = pole === 'N' ? N_COLOR : S_COLOR;
-  const faceDir = x < 0 ? 1 : -1; // cara enfrentada hacia el centro
-  return (
-    <group position={[x, 0, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={[1.1, 3.4, 2.4]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.5}
-          roughness={0.35}
-          metalness={0.65}
-        />
-      </mesh>
-      {/* cara polar luminosa mirando a la bobina */}
-      <mesh position={[faceDir * 0.58, 0, 0]} rotation={[0, faceDir > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
-        <planeGeometry args={[2.2, 3.2]} />
-        <meshBasicMaterial color={color} transparent opacity={0.35} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-      <pointLight color={color} intensity={7} distance={9} position={[faceDir * 0.8, 0, 0]} />
-      <Html center distanceFactor={11} position={[faceDir * 0.62, 0, 0]}>
-        <div className="text-4xl font-black select-none pointer-events-none text-white drop-shadow-[0_0_12px_rgba(0,0,0,0.9)]">
-          {pole}
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-/* ── Bobina de cobre giratoria (rotor) ──────────────────────────────────────── */
-function Coil({ angularVel, espiras, hot, current }: {
-  angularVel: number; espiras: number; hot: boolean; current: number;
-}) {
-  const ref = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    if (!ref.current) return;
-    const dt = Math.min(delta, 0.05);
-    ref.current.rotation.x += angularVel * dt; // gira sobre el eje X (eje del motor)
-  });
-
-  // nº de vueltas de alambre representadas (escala visual del bobinado)
-  const turns = Math.max(1, Math.min(6, Math.round(espiras / 18)));
-  const baseColor = hot ? COPPER_HOT : COPPER;
-  const emissive = hot ? '#ff3b1f' : '#ff7a1a';
-  const emissiveIntensity = hot ? 3.2 : 0.6 + Math.min(1.4, current * 0.9);
-
-  const wireMat = useMemo(
-    () => (
-      <meshStandardMaterial
-        color={baseColor}
-        emissive={emissive}
-        emissiveIntensity={emissiveIntensity}
-        roughness={0.2}
-        metalness={0.95}
-      />
-    ),
-    [baseColor, emissive, emissiveIntensity],
-  );
-
-  return (
-    <group ref={ref}>
-      {/* eje del rotor */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.11, 0.11, MAG_X * 2 + 1.2, 20]} />
-        <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={1} />
-      </mesh>
-
-      {/* espiras rectangulares apiladas (bobinado sobre el rotor) */}
-      {Array.from({ length: turns }).map((_, i) => {
-        const off = (i - (turns - 1) / 2) * 0.16;
-        return (
-          <group key={i} position={[off, 0, 0]}>
-            {/* lado superior (paralelo al eje) */}
-            <mesh position={[0, COIL_R, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.06, 0.06, 2.6, 12]} />
-              {wireMat}
-            </mesh>
-            {/* lado inferior */}
-            <mesh position={[0, -COIL_R, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.06, 0.06, 2.6, 12]} />
-              {wireMat}
-            </mesh>
-            {/* conexiones frontal / trasera (cierran la espira) */}
-            <mesh position={[1.3, 0, 0]}>
-              <cylinderGeometry args={[0.06, 0.06, COIL_R * 2, 12]} />
-              {wireMat}
-            </mesh>
-            <mesh position={[-1.3, 0, 0]}>
-              <cylinderGeometry args={[0.06, 0.06, COIL_R * 2, 12]} />
-              {wireMat}
-            </mesh>
-          </group>
-        );
-      })}
-
-      {/* núcleo del rotor */}
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.4, 0.4, 2.6, 24]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.5} metalness={0.8} emissive={hot ? '#7f1d1d' : '#000'} emissiveIntensity={hot ? 1.5 : 0} />
-      </mesh>
-
-      {/* partículas de corriente viajando por el alambre superior/inferior */}
-      <CurrentInWire current={current} />
-    </group>
-  );
-}
-
-/* ── Corriente fluyendo por el alambre de la bobina (partículas) ────────────── */
-function CurrentInWire({ current }: { current: number }) {
-  const COUNT = 40;
-  const geomRef = useRef<THREE.BufferGeometry>(null);
-  const positions = useMemo(() => new Float32Array(COUNT * 3), []);
-  const phase = useMemo(() => Array.from({ length: COUNT }).map(() => Math.random()), []);
-
-  useFrame((state) => {
-    if (!geomRef.current || current <= 0.001) {
-      if (geomRef.current) geomRef.current.attributes.position.needsUpdate = true;
-      return;
-    }
-    const t = state.clock.getElapsedTime();
-    const speed = 0.25 + current * 0.9;
-    for (let i = 0; i < COUNT; i++) {
-      // recorrido perimetral de la espira (4 tramos) como parámetro 0..1
-      const u = (phase[i] + t * speed) % 1;
-      let x: number, y: number;
-      if (u < 0.25) { x = -1.3 + (u / 0.25) * 2.6; y = COIL_R; }
-      else if (u < 0.5) { x = 1.3; y = COIL_R - ((u - 0.25) / 0.25) * COIL_R * 2; }
-      else if (u < 0.75) { x = 1.3 - ((u - 0.5) / 0.25) * 2.6; y = -COIL_R; }
-      else { x = -1.3; y = -COIL_R + ((u - 0.75) / 0.25) * COIL_R * 2; }
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = 0;
-    }
-    geomRef.current.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points>
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.16}
-        color="#fde047"
-        transparent
-        opacity={Math.min(1, 0.3 + current)}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
-
-/* ── Conmutador + escobillas con chispas ────────────────────────────────────── */
-function Commutator({ angularVel, spinning }: { angularVel: number; spinning: boolean }) {
-  const drumRef = useRef<THREE.Group>(null);
-  const sparkRef = useRef<THREE.Points>(null);
-  const SPARKS = 24;
-  const sparkPos = useMemo(() => new Float32Array(SPARKS * 3), []);
-
-  useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05);
-    if (drumRef.current) drumRef.current.rotation.x += angularVel * dt;
-    // chispas en el contacto escobilla-conmutador
-    if (sparkRef.current) {
-      const geom = sparkRef.current.geometry;
-      for (let i = 0; i < SPARKS; i++) {
-        if (spinning && Math.random() < 0.5) {
-          sparkPos[i * 3] = (Math.random() - 0.5) * 0.3;
-          sparkPos[i * 3 + 1] = 0.55 + Math.random() * 0.45;
-          sparkPos[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
-        } else {
-          sparkPos[i * 3 + 1] = -100; // fuera de vista
-        }
-      }
-      geom.attributes.position.needsUpdate = true;
-    }
-  });
-
-  return (
-    <group position={[-(MAG_X + 0.9), 0, 0]}>
-      {/* tambor del conmutador (dos segmentos) */}
-      <group ref={drumRef}>
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.42, 0.42, 0.7, 24, 1, false, 0, Math.PI]} />
-          <meshStandardMaterial color="#f59e0b" metalness={1} roughness={0.25} emissive="#b45309" emissiveIntensity={0.4} />
-        </mesh>
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.42, 0.42, 0.7, 24, 1, false, Math.PI, Math.PI]} />
-          <meshStandardMaterial color="#d97706" metalness={1} roughness={0.25} emissive="#78350f" emissiveIntensity={0.4} />
-        </mesh>
-      </group>
-
-      {/* escobillas de carbón (arriba y abajo) */}
-      <mesh position={[0, 0.62, 0]}>
-        <boxGeometry args={[0.5, 0.35, 0.35]} />
-        <meshStandardMaterial color="#111827" roughness={0.9} metalness={0.2} />
-      </mesh>
-      <mesh position={[0, -0.62, 0]}>
-        <boxGeometry args={[0.5, 0.35, 0.35]} />
-        <meshStandardMaterial color="#111827" roughness={0.9} metalness={0.2} />
-      </mesh>
-
-      {/* chispas */}
-      <points ref={sparkRef}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[sparkPos, 3]} count={SPARKS} />
-        </bufferGeometry>
-        <pointsMaterial size={0.13} color="#fff7cc" transparent opacity={0.95} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
-      </points>
-    </group>
-  );
-}
-
-/* ── Vector de torque (eje) + par de fuerzas de Laplace sobre la bobina ─────── */
-function TorqueVector({ rpm, B }: { rpm: number; B: number }) {
-  // el torque apunta a lo largo del eje del motor (+X o −X según el sentido de giro)
-  const cw = rpm > 0;
-  const dir = cw ? 1 : -1;
-  const len = THREE.MathUtils.clamp(0.8 + Math.log10(Math.abs(rpm) + 1) * 0.9, 0.8, 3.6);
-  const x0 = (MAG_X + 1.6) * dir;
-
-  return (
-    <group position={[x0, 0, 0]} rotation={[0, 0, dir > 0 ? -Math.PI / 2 : Math.PI / 2]}>
-      <mesh position={[0, len / 2, 0]}>
-        <cylinderGeometry args={[0.05, 0.05, len, 12]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={3} />
-      </mesh>
-      <mesh position={[0, len + 0.18, 0]}>
-        <coneGeometry args={[0.17, 0.44, 16]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={3} />
-      </mesh>
-      <Html center distanceFactor={12} position={[0, len + 0.7, 0]}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-cyan-300 select-none pointer-events-none drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
-          τ {B > 0 ? '(N→S)' : '(S→N)'}
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-/* ── Escena ─────────────────────────────────────────────────────────────────── */
-function Scene({ imanIzq, imanDer, espiras, rpm, corriente, encendido }: {
-  imanIzq: 'N' | 'S'; imanDer: 'N' | 'S'; espiras: number; rpm: number; corriente: number; encendido: boolean;
-}) {
-  const spinning = encendido && Math.abs(rpm) > 0;
-  // velocidad angular en rad/s (visualmente escalada desde las RPM reales).
-  // Signo: rpm > 0 = horario visto desde el conmutador (que queda hacia +Z, la cámara).
-  // El grupo ROT_EJE_Z lleva el X local a −Z del mundo: un giro + sobre X local se ve horario desde +Z.
-  const angularVel = spinning ? (rpm / 60) * Math.PI * 2 * 0.06 : 0;
-  // corriente real del dominio (A) → intensidad visual 0..1 (≈ 4 A a fondo de escala)
-  const current = encendido ? THREE.MathUtils.clamp(corriente / 4, 0, 1) : 0;
-  const isHot = encendido && !spinning && corriente > 6; // rotor bloqueado con mucha corriente → se calienta
-  const campoB = imanIzq === imanDer ? 0 : (imanIzq === 'N' ? 1 : -1);
-
+  const [bMas, bMenos] = bornasEscobillas();
+  const caja = useMemo<[[number, number, number], [number, number, number]]>(() => [[-3.9, 0, -2.5], [1.6, 2.2, 2.85]], []);
   return (
     <>
-      <PerspectiveCamera makeDefault position={[6, 4.5, 12]} fov={45} />
-      <color attach="background" args={['#03040a']} />
-      <fog attach="fog" args={['#03040a', 20, 44]} />
+      <EncuadrarCaja caja={caja} margen={1.1} direccion={[0.62, 0.42, 0.9]} />
+      <BaseMotor />
+      <SoporteImanes />
+      <ImanLateral lado={-1} polo={imanIzq} />
+      <ImanLateral lado={1} polo={imanDer} />
+      <RotulosPolos imanIzq={imanIzq} imanDer={imanDer} />
+      <PedestalCojinete z={Z_PEDESTAL} />
+      <PedestalCojinete z={-Z_PEDESTAL} />
 
-      <ambientLight intensity={0.4} />
-      <hemisphereLight intensity={0.35} groundColor="#020617" />
-      <directionalLight position={[6, 10, 8]} intensity={0.8} />
-
-      <MagnetPole x={-MAG_X} pole={imanIzq} />
-      <MagnetPole x={MAG_X} pole={imanDer} />
-
-      <FieldLines B={campoB} encendido={encendido} />
-
-      <group rotation={ROT_EJE_Z}>
-        <Coil angularVel={angularVel} espiras={espiras} hot={isHot} current={current} />
-        <Commutator angularVel={angularVel} spinning={spinning} />
-        {spinning && <TorqueVector rpm={rpm} B={campoB} />}
+      {/* rotor: eje, núcleo, bobinado, conmutador y acople (todo gira junto) */}
+      <group ref={rotor} position={[0, Y_EJE, 0]}>
+        <RotorBobinado espiras={espiras} />
+        <group position={[0, 0, Z_ACOPLE]}><Acoplamiento /></group>
       </group>
 
-      {/* base / bancada del motor */}
-      <mesh position={[0, -2.1, 0]} receiveShadow>
-        <boxGeometry args={[MAG_X * 2 + 4, 0.3, 4]} />
-        <meshStandardMaterial color="#0b1220" roughness={0.6} metalness={0.5} />
-      </mesh>
+      <Escobillas />
+      <group position={[0, Y_EJE, -1.95]}><FrenoCarga /></group>
+      <group position={[0.95, 0.12, Z_ACOPLE]}><TacometroOptico rpm={encendido ? rpm : 0} /></group>
 
-      <Sparkles count={70} scale={[16, 9, 16]} size={2} speed={spinning ? 0.6 : 0.25} color={isHot ? '#fca5a5' : '#fdba74'} opacity={0.4} />
-      <Stars radius={80} depth={40} count={2500} factor={4} saturation={0} fade speed={0.6} />
+      {/* fuente de banco y cables a las bornas de las escobillas */}
+      <FuenteBanco position={POS_FUENTE} voltaje={voltaje} corriente={encendido ? corriente : 0} encendida />
+      <Cable desde={BORNA_MAS} hasta={bMas} holgura={0.5} grosor={0.03} color="#c62828" ySuelo={0.12} />
+      <Cable desde={BORNA_MENOS} hasta={bMenos} holgura={0.5} grosor={0.03} color="#1d1f22" ySuelo={0.12} />
 
-      <OrbitControls
-        enablePan={false}
-        enableZoom
-        minDistance={7}
-        maxDistance={26}
-        autoRotate={false}
-        autoRotateSpeed={0.5}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 1.7}
-      />
-
-      <EffectComposer multisampling={8}>
-        <Bloom luminanceThreshold={0.15} mipmapBlur intensity={isHot ? 2.2 : 1.5} radius={0.7} />
-        <ChromaticAberration offset={ABERRACION} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.2} darkness={1.05} />
-      </EffectComposer>
+      <Etiqueta texto="Freno de carga" position={[0, Y_EJE + 0.85, -1.95]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Tacómetro óptico" position={[0.95, 0.08, -1.2 + 0.7]} tamano={0.1} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Fuente de CD" position={[POS_FUENTE[0], 0.08, POS_FUENTE[2] + 1.9]} tamano={0.12} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Escobillas y conmutador" position={[-0.2, 0.08, 2.35]} tamano={0.1} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Giro a 1/10 de la velocidad real" position={[-0.2, 0.08, 2.7]} tamano={0.085} color="#475569" fondo="rgba(255,255,255,0.75)" />
     </>
   );
 }
 
-export default function MotorElectrico3DScene(props: {
-  imanIzq: 'N' | 'S';
-  imanDer: 'N' | 'S';
-  espiras: number;
-  rpm: number;
-  corriente: number;
-  encendido: boolean;
-}) {
+export default function MotorElectrico3DScene(props: MotorSceneProps) {
   return (
-    <div className="w-full h-full">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
-        <Suspense fallback={null}>
-          <Scene {...props} />
-        </Suspense>
-      </Canvas>
+    <div className="h-full w-full">
+      <LabCanvas
+        fondo="laboratorio"
+        mesa={{ ancho: 14, fondo: 9 }}
+        camara={{ posicion: [4.5, 4, 8], objetivo: [-1, 1.1, -0.4], fov: 35 }}
+        controles={{ minDistancia: 2.5, maxDistancia: 20, maxPolar: 1.5, cajaObjetivo: [[-4, 0, -3], [2, 3, 3]] }}
+      >
+        <Escena {...props} />
+      </LabCanvas>
     </div>
   );
 }

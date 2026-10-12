@@ -1,161 +1,152 @@
 "use client";
 
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Float, PerspectiveCamera, Stars } from '@react-three/drei';
+import React, { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import {
+  LabCanvas, EncuadrarCaja, SoporteUniversal, Nuez, Dinamometro, Gancho, VasoPrecipitado, Etiqueta, cilindro,
+  defVaso, alturaSuperficie, dinamometroAlargamiento, useMateriales, NUEZ_DX,
+} from '../_kit';
+import { G_TIERRA, pesoAparente, lecturaDinamometro } from '@/domain/fisica';
+import {
+  VasoRebose, ElevadorLab, SolidoEnsayo, dimensionesSolido, bocaPico,
+  ALTURA_ELEVADOR, NIVEL_REBOSE,
+} from './piezas';
 
-interface Arquimedes3DSceneProps {
-  densidadObjeto: number;
-  densidadFluido: number;
-  volumenObjeto: number;
-  isSumergido: boolean;
-  colorFluido: string;
-  colorObjeto: string;
+/* ────────────────────────────────────────────────────────────────────────────
+   Arquimedes3DScene — principio de Arquímedes con dinamómetro (1 u = 1 dm).
+
+   Montaje: soporte universal con nuez y brazo horizontal que sujeta un dinamómetro
+   (del kit); del gancho cuelga, con un hilo, el cilindro de ensayo. Bajo él, un vaso
+   de rebose de acrílico sobre un elevador de laboratorio, lleno al ras del pico; el
+   agua que desaloja el sólido cae por el pico a un vaso colector SIN graduar (la
+   escena no da el volumen: lo obtiene el alumno del empuje).
+
+   La inmersión es REAL: la nuez desciende por la varilla hasta que la fracción `f`
+   de la altura del cilindro queda bajo la superficie (cilindro vertical: fracción de
+   altura = fracción de volumen). La lectura del dinamómetro sale del mismo dominio
+   que el Piloto (`pesoAparente`, resolución 0,01 N). Fluidos: agua, etanol, glicerina.
+──────────────────────────────────────────────────────────────────────────── */
+
+export interface ArquimedesSceneProps {
+  densidadCuerpo: number;     // kg/m³ (sólo fija el alcance del dinamómetro con el peso en el aire)
+  volumenCuerpo: number;      // m³
+  densidadLiquido: number;    // kg/m³
+  fluido: string;             // 'agua' | 'alcohol' | 'glicerina'
+  sumergido: number;          // fracción 0–1
 }
 
-function WaterTank({ color, density }: { color: string, density: number }) {
-  return (
-    <group position={[0, -2, 0]}>
-      {/* Contenedor de vidrio */}
-      <mesh>
-        <boxGeometry args={[10, 10, 10]} />
-        <meshPhysicalMaterial 
-          transparent 
-          opacity={0.15} 
-          roughness={0} 
-          metalness={0.1} 
-          transmission={0.9} 
-          thickness={1}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* El Fluido */}
-      <mesh position={[0, -0.5, 0]}>
-        <boxGeometry args={[9.8, 9, 9.8]} />
-        <meshPhysicalMaterial 
-          color={color} 
-          transparent 
-          opacity={0.4} 
-          roughness={0} 
-          transmission={0.5}
-        />
-      </mesh>
-      {/* Base */}
-      <mesh position={[0, -5.2, 0]}>
-        <boxGeometry args={[11, 0.5, 11]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-    </group>
-  );
+const COLOR_FLUIDO: Record<string, string> = { agua: '#cfe6ef', alcohol: '#dde9ee', glicerina: '#f1deaa' };
+const X_SOPORTE = -2.7;
+const LONGITUD_DIN = 1.7;
+const LARGO_HILO = 0.4;
+const X_COLECTOR = 1.55;
+const VASO_COLECTOR = 600;
+
+/** Alcance del dinamómetro (N): el menor de la serie comercial que cubre el peso en el aire. */
+function alcanceDin(W: number): number {
+  return [5, 10, 20, 50].find((a) => a >= W * 1.02) ?? 50;
 }
 
-function FloatingBlock({ 
-  densidadObjeto, 
-  densidadFluido, 
-  volumenObjeto, 
-  isSumergido, 
-  colorObjeto 
-}: Arquimedes3DSceneProps) {
-  const meshRef = useRef<THREE.Group>(null);
-  
-  // Fuerza de Peso (W = m*g)
-  const g = 9.81;
-  const masa = densidadObjeto * volumenObjeto;
-  const W = masa * g;
-  
-  // Fuerza de Empuje (E = rho_f * g * V_sum)
-  // En este simulador, si isSumergido es true, V_sum = volumenObjeto
-  // Si no, es 0 (está fuera).
-  const E = isSumergido ? densidadFluido * g * volumenObjeto : 0;
-  
-  // Posición Y objetivo
-  // Fuera del agua: y = 8
-  // Sumergido: y = -2 (centro del tanque)
-  const targetY = isSumergido ? -2 : 8;
+function Escena({ densidadCuerpo, volumenCuerpo, densidadLiquido, fluido, sumergido }: ArquimedesSceneProps) {
+  const m = useMateriales();
+  const fObj = Math.min(1, Math.max(0, sumergido));
+  const [f, setF] = useState(fObj);
+  const fRef = useRef(fObj);
+  const tCambio = useRef(-10);
+  const hilo = useRef<THREE.Mesh>(null);
 
-  useFrame((state) => {
-    if (!meshRef.current) return;
-    meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, targetY, 0.1);
-    
-    // Animación de flotación si está sumergido
-    if (isSumergido) {
-      meshRef.current.position.y += Math.sin(state.clock.elapsedTime * 2) * 0.05;
-    }
+  // La fracción mostrada persigue a la del estado (la nuez se desliza; no salta).
+  useFrame(({ clock }, dt) => {
+    const d = fObj - fRef.current;
+    if (Math.abs(d) > 0.0004) {
+      fRef.current += d * Math.min(1, dt * 9);
+      tCambio.current = clock.elapsedTime;
+      setF(fRef.current);
+    } else if (fRef.current !== fObj) { fRef.current = fObj; setF(fObj); }
+    if (hilo.current) hilo.current.visible = clock.elapsedTime - tCambio.current < 0.7 && fObj > 0 && f > 0.01;
   });
 
+  const { r, h } = useMemo(() => dimensionesSolido(volumenCuerpo), [volumenCuerpo]);
+  const Wair = densidadCuerpo * volumenCuerpo * G_TIERRA;
+  const alcance = alcanceDin(Wair);
+  const lectura = lecturaDinamometro(pesoAparente(densidadCuerpo, volumenCuerpo, densidadLiquido, f));
+  const dx = dinamometroAlargamiento(lectura, alcance, LONGITUD_DIN);
+
+  // Cotas verticales (u). El vaso de rebose descansa sobre el elevador.
+  const yBase = ALTURA_ELEVADOR;
+  const yAgua = yBase + NIVEL_REBOSE;
+  // gancho del dinamómetro: −0,32 (índice) − dx − 0,84·L + 0,02, y su punto más bajo ~0,11 más abajo
+  const gancho = -0.32 - dx - LONGITUD_DIN * 0.84 + 0.02 - 0.11;
+  const yFondo = f > 0 ? yAgua - f * h : yAgua + 0.1;
+  const yAnilla = yFondo + h + 0.09 + LARGO_HILO - gancho;
+  const yBrazo = yAnilla + 0.2;
+
+  // Colector: el agua desalojada = f·V (sin escala impresa).
+  const mL = f * volumenCuerpo * 1e6;
+  const def600 = useMemo(() => defVaso(VASO_COLECTOR), []);
+  const nivelColector = mL > 0.5 ? alturaSuperficie(def600, mL) : 0;
+  const [xBoca, yBocaRel] = bocaPico();
+  const yBoca = yBase + yBocaRel;
+  const largoChorro = Math.max(0.05, yBoca - 0.025 - nivelColector);
+  const colorFluido = COLOR_FLUIDO[fluido] ?? COLOR_FLUIDO.agua;
+  const matChorro = useMemo(() => m.liquido(colorFluido), [m, colorFluido]);
+
+  const caja = useMemo<[[number, number, number], [number, number, number]]>(() => [[-3.4, -0.35, -1.2], [2.6, 6.6, 1.7]], []);
+  const xAnilla = 0;
+  const largoBrazo = xAnilla - X_SOPORTE + 0.1;
+
   return (
-    <group ref={meshRef} position={[0, 8, 0]}>
-      {/* El Bloque */}
-      <mesh>
-        <boxGeometry args={[4, 4, 4]} />
-        <meshStandardMaterial color={colorObjeto} roughness={0.3} metalness={0.2} />
-      </mesh>
+    <>
+      <EncuadrarCaja caja={caja} margen={1.03} direccion={[0.12, 0.14, 1]} />
 
-      {/* Dinamómetro (Representación simple) */}
-      <mesh position={[0, 10, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 20]} />
-        <meshStandardMaterial color="#64748b" />
-      </mesh>
+      {/* soporte universal; la nuez baja y sube con la inmersión */}
+      <SoporteUniversal position={[X_SOPORTE, 0, NUEZ_DX]} alturaVarilla={7.6}>
+        <Nuez altura={yBrazo} giro={Math.PI / 2}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} geometry={cilindro(0.045, 0.045, largoBrazo, 14)} material={m.acero} position={[0, 0, largoBrazo / 2]} castShadow />
+        </Nuez>
+      </SoporteUniversal>
 
-      {/* Vectores de Fuerza */}
-      <group position={[2.5, 0, 0]}>
-        {/* Vector Peso (Rojo) */}
-        <group scale={[1, -1, 1]}>
-           <Arrow length={Math.min(5, W * 0.2)} color="#ef4444" label="W" />
-        </group>
-        
-        {/* Vector Empuje (Azul) */}
-        {isSumergido && (
-          <group scale={[1, 1, 1]}>
-             <Arrow length={Math.min(5, E * 0.2)} color="#3b82f6" label="E" />
-          </group>
-        )}
+      {/* gancho del brazo y dinamómetro */}
+      <group position={[xAnilla - 0.05, yBrazo - 0.02, 0]}>
+        <Gancho radio={0.06} />
       </group>
-    </group>
+      <Dinamometro position={[xAnilla, yAnilla, 0]} fuerza={lectura} max={alcance} longitud={LONGITUD_DIN} />
+
+      {/* sólido colgado: su base está a yFondo */}
+      <group position={[0, yFondo, 0]}>
+        <SolidoEnsayo r={r} h={h} largoHilo={LARGO_HILO} />
+      </group>
+
+      {/* vaso de rebose sobre el elevador */}
+      <ElevadorLab />
+      <group position={[0, yBase, 0]}>
+        <VasoRebose colorAgua={colorFluido} />
+      </group>
+
+      {/* chorro del pico al colector (sólo mientras el nivel cambia) */}
+      <mesh ref={hilo} geometry={cilindro(0.022, 0.022, 1, 8)} material={matChorro} position={[xBoca, yBoca - 0.025 - largoChorro / 2, 0]} scale={[1, largoChorro, 1]} visible={false} />
+
+      {/* vaso colector, sin graduar */}
+      <VasoPrecipitado position={[X_COLECTOR, 0, 0]} capacidad={VASO_COLECTOR} graduado={false}
+        liquido={mL > 0.5 ? { volumenML: mL, color: colorFluido } : undefined} />
+
+      <Etiqueta texto="Vaso de rebose" position={[0, 0.16, 1.45]} tamano={0.16} color="#142330" fondo="rgba(255,255,255,0.85)" />
+      <Etiqueta texto="Colector" position={[X_COLECTOR, 0.16, 0.9]} tamano={0.16} color="#142330" fondo="rgba(255,255,255,0.85)" />
+    </>
   );
 }
 
-function Arrow({ length, color, label }: { length: number, color: string, label: string }) {
+export default function Arquimedes3DScene(props: ArquimedesSceneProps) {
   return (
-    <group>
-      <mesh position={[0, length / 2, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, length]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      <mesh position={[0, length, 0]}>
-        <coneGeometry args={[0.3, 0.6, 16]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-    </group>
-  );
-}
-
-export default function Arquimedes3DScene(props: Arquimedes3DSceneProps) {
-  return (
-    <div className="w-full h-full bg-[#020617]">
-      <Canvas shadows>
-        <PerspectiveCamera makeDefault position={[20, 10, 25]} fov={40} />
-        <OrbitControls enableDamping dampingFactor={0.05} />
-        
-        {/* Iluminación Estándar Robusta */}
-        <ambientLight intensity={0.5} />
-        <pointLight position={[20, 30, 10]} intensity={1.5} />
-        <spotLight position={[-20, 30, 20]} angle={0.3} penumbra={1} intensity={2} castShadow />
-        
-        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-
-        <WaterTank color={props.colorFluido} density={props.densidadFluido} />
-        <FloatingBlock {...props} />
-
-        {/* Suelo infinito */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -10, 0]} receiveShadow>
-          <planeGeometry args={[1000, 1000]} />
-          <meshStandardMaterial color="#020617" roughness={1} />
-        </mesh>
-        
-        <gridHelper args={[100, 20, 0x1e293b, 0x0f172a]} position={[0, -9.9, 0]} />
-      </Canvas>
+    <div className="h-full w-full">
+      <LabCanvas
+        fondo="laboratorio"
+        camara={{ posicion: [1.5, 4.0, 13], objetivo: [-0.4, 3.2, 0], fov: 35 }}
+        controles={{ minDistancia: 3, maxDistancia: 30, maxPolar: 1.5, cajaObjetivo: [[-4, 0, -2], [4, 7, 2]] }}
+      >
+        <Escena {...props} />
+      </LabCanvas>
     </div>
   );
 }

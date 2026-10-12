@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Battery, Gauge, Play, Pause, ShieldAlert, Wrench, Layers } from 'lucide-react';
+import { Play, Pause, ShieldAlert, Wrench } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { LED, RANGO_V8, RANGO_R8, R_INTERNA_FUENTE, corrienteLed, evaluarF8 } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab, Segmentado } from './simulador/LabLayout';
+import { bandasConNombre } from './simuladores/fis08/codigoColores';
 
 const Ohm3DScene = dynamic(() => import('./simuladores/fis08/Ohm3DScene'), {
   ssr: false,
@@ -20,7 +21,6 @@ export default function PilotoLeyOhm({ onValidate }: { onValidate?: () => void }
   })));
   const { nivel, voltaje, resistencia, switchOn, ledRoto, bateriaConectada, resistenciaConectada, ledConectado, rCalculada, ensayo } = ohm8;
 
-  const [isSchematic, setIsSchematic] = useState(false);
   const [rInput, setRInput] = useState(rCalculada !== null ? String(rCalculada) : '');
   const [alerta, setAlerta] = useState<string | null>(null);
 
@@ -79,119 +79,101 @@ export default function PilotoLeyOhm({ onValidate }: { onValidate?: () => void }
 
   // Feedback del último ensayo, con la misma regla que el validador.
   const veredicto = useMemo(() => (ensayo ? evaluarF8({ ensayo }) : null), [ensayo]);
+  const bandas = useMemo(() => bandasConNombre(resistencia), [resistencia]);
+
+  const conexiones: ['bateria' | 'resistencia' | 'led', string, boolean][] = [
+    ['bateria', 'Fuente', bateriaConectada],
+    ...(conR ? [['resistencia', 'Resistencia', resistenciaConectada] as ['resistencia', string, boolean]] : []),
+    ['led', 'LED', ledConectado],
+  ];
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      <div className="absolute inset-0 z-0">
+    <LabLayout
+      escena={
         <Ohm3DScene
-          isDarkMode isSchematic={isSchematic} nivel={nivel} voltaje={voltaje} resistencia={resistencia}
+          nivel={nivel} voltaje={voltaje} resistencia={resistencia}
           switchOn={switchOn} ledRoto={ledRoto} corrienteMA={mA}
           bateriaConectada={bateriaConectada} resistenciaConectada={resistenciaConectada} ledConectado={ledConectado}
           onToggleConexion={toggleConexion}
         />
-      </div>
-
-      <AnimatePresence>
-        {alerta && (
-          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
-            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MÓDULOS + MULTÍMETRO */}
-      <div className="absolute top-6 left-6 z-30 w-[320px] max-w-[92vw] flex flex-col gap-4">
-        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-white/10 p-3 rounded-2xl flex gap-2">
-          {[1, 2].map((n) => (
-            <button key={n} onClick={() => cambiarNivel(n)}
-              className={`flex-1 px-3 py-2 rounded-xl text-[9px] font-black uppercase ${nivel === n ? 'bg-blue-600' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-              Módulo 0{n}: {n === 1 ? 'sin resistencia' : 'con resistencia'}
-            </button>
-          ))}
-          <button onClick={() => setIsSchematic((v) => !v)} aria-label="Cambiar vista esquemática" className={`px-3 rounded-xl ${isSchematic ? 'bg-blue-600' : 'bg-white/5'}`}><Layers size={14} /></button>
-        </div>
-
-        {/* Conexiones (también se hacen con clic en cada pieza de la escena) */}
-        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-white/10 p-3 rounded-2xl flex gap-2">
-          {([['bateria', 'Fuente', bateriaConectada], ...(conR ? [['resistencia', 'Resistencia', resistenciaConectada]] : []), ['led', 'LED', ledConectado]] as [ 'bateria' | 'resistencia' | 'led', string, boolean][]).map(([c, nombre, ok]) => (
-            <button key={c} onClick={() => toggleConexion(c)} aria-pressed={ok}
-              className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase ${ok ? 'bg-emerald-700' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-              {ok ? '✓ ' : ''}{nombre}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-yellow-500/30 p-5 rounded-[2rem]">
-          <span className="text-[10px] font-black text-yellow-300 uppercase tracking-[0.2em] flex items-center gap-2"><Gauge size={14} /> Multímetro</span>
-          <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <Lectura label="I" valor={`${mA.toFixed(1)} mA`} alerta={mA > LED.iMax * 1000} />
-            <Lectura label="V resistencia" valor={`${vR.toFixed(2)} V`} />
-            <Lectura label="V LED" valor={`${vLed.toFixed(2)} V`} />
-          </div>
-          <p className="text-[9px] text-slate-500 mt-3">LED rojo: V<sub>f</sub> ≈ {LED.vf} V · I nominal {LED.iNominal * 1000} mA · máx. {LED.iMax * 1000} mA. Resistencia interna de la fuente: {R_INTERNA_FUENTE} Ω.</p>
-          {ledRoto && (
-            <button onClick={() => { setOhm8({ ledRoto: false }); audio?.playPop(); }}
-              className="w-full mt-3 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-[10px] font-black uppercase flex items-center justify-center gap-1"><Wrench size={12} /> Cambiar el LED</button>
+      }
+      barraSuperior={
+        <>
+          {conR && <Lectura etiqueta="R montada" valor={resistencia.toFixed(0)} unidad="Ω" />}
+          <Lectura etiqueta="I" valor={mA.toFixed(1)} unidad="mA" acento={mA > LED.iMax * 1000} />
+          {conR && <Lectura etiqueta="V resistencia" valor={vR.toFixed(2)} unidad="V" />}
+          <Lectura etiqueta="V LED" valor={vLed.toFixed(2)} unidad="V" />
+          <Lectura etiqueta="Circuito" valor={switchOn ? 'cerrado' : 'abierto'} acento={switchOn} />
+        </>
+      }
+      tituloPanel="Datos"
+      panelLateral={
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] text-slate-400">LED rojo: V<sub>f</sub> ≈ {LED.vf} V · I nominal {LED.iNominal * 1000} mA · máx. {LED.iMax * 1000} mA. Resistencia interna de la fuente: {R_INTERNA_FUENTE} Ω.</p>
+          {conR && (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Código de colores de la R montada</span>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                {bandas.map((b, i) => <span key={i} title={b.nombre} className="h-4 w-4 rounded-full border border-white/30" style={{ background: b.color }} />)}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-300">{bandas.map((b) => b.nombre).join(' · ')}</p>
+            </div>
+          )}
+          {ensayo && (
+            <div className={`rounded-lg border p-3 text-[12px] ${veredicto?.ok ? 'border-emerald-500/40 bg-emerald-900/30 text-emerald-200' : 'border-white/10 bg-white/[0.04] text-slate-200'}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">Último ensayo con resistencia</span>
+              <p className="mt-1">{ensayo.voltaje} V · {ensayo.resistencia} Ω → {(ensayo.corriente * 1000).toFixed(1)} mA{ensayo.ledRoto ? ' (LED quemado)' : ''}</p>
+              <p className="mt-1 font-bold">{veredicto?.ok ? 'Diseño correcto: el LED trabaja a su corriente nominal.' : veredicto?.mensaje}</p>
+            </div>
           )}
         </div>
-
-        {ensayo && (
-          <div className={`p-4 rounded-[1.5rem] border backdrop-blur-xl text-[11px] ${veredicto?.ok ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-200' : 'bg-[#0A1121]/85 border-white/10 text-slate-200'}`}>
-            <span className="text-[9px] font-black uppercase tracking-widest text-white/60">Último ensayo con resistencia</span>
-            <p className="mt-1">{ensayo.voltaje} V · {ensayo.resistencia} Ω → {(ensayo.corriente * 1000).toFixed(1)} mA{ensayo.ledRoto ? ' (LED quemado)' : ''}</p>
-            <p className="mt-1 font-bold">{veredicto?.ok ? 'Diseño correcto: el LED trabaja a su corriente nominal.' : veredicto?.mensaje}</p>
-          </div>
-        )}
-      </div>
-
-      {/* CONTROLES */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0A1121]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-4 flex flex-wrap items-end justify-center gap-6 max-w-[95vw]">
-        <Slider label="Fuente" icon={<Battery size={12} />} value={voltaje} r={RANGO_V8} unit="V" decimales={1} onChange={(v) => ajustar({ voltaje: v })} />
-        {conR && (
-          <>
-            <Slider label="Caja de resistencias" icon={<Zap size={12} />} value={resistencia} r={RANGO_R8} unit="Ω" decimales={0} onChange={(v) => ajustar({ resistencia: v })} />
-            <label className="flex flex-col">
-              <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest">R calculada (Ω)</span>
-              <input type="number" step="1" value={rInput} onChange={(e) => guardarR(e.target.value)} placeholder="para 20 mA"
-                className="w-36 mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono" />
-            </label>
-          </>
-        )}
-        <button onClick={toggleSwitch}
-          className={`h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 ${switchOn ? 'bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}`}>
-          {switchOn ? <Pause size={16} /> : <Play size={16} />}{switchOn ? 'Abrir circuito' : 'Cerrar circuito'}
-        </button>
-      </div>
-
-      <div className="absolute bottom-28 right-6 z-50">
-        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="Tu resistencia limita el LED a 20 mA. Valida tu práctica." />
-      </div>
-    </div>
-  );
-}
-
-function Lectura({ label, valor, alerta }: { label: string; valor: string; alerta?: boolean }) {
-  return (
-    <div className="bg-[#a3b18a] text-black rounded-lg p-2 font-mono">
-      <div className="text-[8px] uppercase font-black opacity-60">{label}</div>
-      <div className={`text-sm font-black ${alerta ? 'text-red-700' : ''}`}>{valor}</div>
-    </div>
-  );
-}
-
-function Slider({ label, icon, value, r, unit, decimales, onChange }: {
-  label: string; icon: React.ReactNode; value: number; r: { min: number; max: number; paso: number }; unit: string; decimales: number; onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1 min-w-[180px]">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1">{icon}{label}</span>
-        <span className="text-sm font-black text-blue-300">{value.toFixed(decimales)} {unit}</span>
-      </div>
-      <input type="range" min={r.min} max={r.max} step={r.paso} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 accent-blue-500" />
-    </div>
+      }
+      controles={
+        <div className="flex flex-col gap-2">
+          <GrupoControles>
+            <Segmentado etiqueta="Módulo" valor={String(nivel)} onChange={(v) => cambiarNivel(Number(v))}
+              opciones={[{ valor: '1', texto: '01 sin resistencia' }, { valor: '2', texto: '02 con resistencia' }]} />
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">Conexiones (o clic en la pieza)</span>
+              <div className="flex gap-1">
+                {conexiones.map(([c, nombre, ok]) => (
+                  <button key={c} type="button" onClick={() => toggleConexion(c)} aria-pressed={ok}
+                    className={`h-8 rounded-lg border px-3 text-[11px] font-semibold ${ok ? 'border-emerald-500/50 bg-emerald-700/70 text-white' : 'border-white/15 bg-white/[0.04] text-slate-300 hover:text-white'}`}>
+                    {ok ? '✓ ' : ''}{nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <BotonLab onClick={toggleSwitch} variante={switchOn ? 'acento' : 'primario'}>
+              {switchOn ? <><Pause size={14} /> Abrir circuito</> : <><Play size={14} /> Cerrar circuito</>}
+            </BotonLab>
+            {ledRoto && <BotonLab variante="secundario" onClick={() => { setOhm8({ ledRoto: false }); audio?.playPop(); }}><Wrench size={14} /> Cambiar el LED</BotonLab>}
+          </GrupoControles>
+          <GrupoControles>
+            <Deslizador etiqueta="Fuente" valor={voltaje} min={RANGO_V8.min} max={RANGO_V8.max} paso={RANGO_V8.paso} unidad="V" decimales={1} onChange={(v) => ajustar({ voltaje: v })} />
+            {conR && (
+              <>
+                <Deslizador etiqueta="Caja de resistencias" valor={resistencia} min={RANGO_R8.min} max={RANGO_R8.max} paso={RANGO_R8.paso} unidad="Ω" decimales={0} onChange={(v) => ajustar({ resistencia: v })} />
+                <label className="flex w-36 flex-col gap-1">
+                  <span className="text-[11px] font-semibold text-amber-300">R calculada (Ω)</span>
+                  <input type="number" step="1" value={rInput} onChange={(e) => guardarR(e.target.value)} placeholder="para 20 mA"
+                    className="h-8 rounded-lg border border-amber-500/40 bg-slate-950 px-2.5 font-mono text-[13px] outline-none focus:border-amber-400" />
+                </label>
+              </>
+            )}
+          </GrupoControles>
+          {(alerta || veredicto?.ok) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {alerta && (
+                <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
+                  <ShieldAlert size={14} /> {alerta}
+                </div>
+              )}
+              <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="Tu resistencia limita el LED a 20 mA. Valida tu práctica." />
+            </div>
+          )}
+        </div>
+      }
+    />
   );
 }

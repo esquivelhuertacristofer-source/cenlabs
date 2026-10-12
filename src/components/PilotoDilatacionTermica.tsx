@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Thermometer, Ruler, Play, Pause, Plus, ShieldAlert, Flame } from 'lucide-react';
+import { Play, Pause, Plus, ShieldAlert } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
@@ -11,13 +10,13 @@ import {
   alphaDe, dilatacion, lecturaComparador, evaluarF7,
 } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
+import LabLayout, { Lectura, GrupoControles, BotonLab, Segmentado } from './simulador/LabLayout';
 
 const DilatacionTermica3DScene = dynamic(() => import('./simuladores/fis07/DilatacionTermica3DScene'), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-[#020617] flex items-center justify-center text-orange-400 font-black text-xs uppercase tracking-[0.3em]">Preparando dilatómetro...</div>
 });
 
-const COLORES: Record<string, string> = { aluminio: '#CBD5E1', cobre: '#B45309', acero: '#64748b', misterioso: '#6366f1' };
 const MATERIALES_UI = [
   ...Object.entries(MATERIALES_DILATACION).map(([k, m]) => ({ key: k, nombre: m.nombre })),
   { key: 'misterioso', nombre: 'Metal ?' },
@@ -109,42 +108,23 @@ export default function PilotoDilatacionTermica({ onValidate }: { onValidate?: (
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      <div className="absolute inset-0 z-0">
-        <DilatacionTermica3DScene alpha={alpha} longitud={longitud} tempIni={tempIni} tempFin={temp}
-          color={COLORES[material] ?? '#CBD5E1'} encendido={vapor} />
-      </div>
-
-      <AnimatePresence>
-        {alerta && (
-          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
-            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* INSTRUMENTOS */}
-      <div className="absolute top-6 left-6 z-30 w-[330px] max-w-[92vw] flex flex-col gap-4">
-        <div className="bg-[#0A1121]/90 backdrop-blur-xl border border-orange-500/30 p-5 rounded-[2rem]">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Thermometer size={12} /> Termómetro</span>
-              <div className="text-2xl font-black font-mono mt-1">{termometro.toFixed(1)} °C</div>
-            </div>
-            <div>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Ruler size={12} /> Comparador</span>
-              <div className="text-2xl font-black font-mono mt-1">{comparador.toFixed(3)} mm</div>
-            </div>
-          </div>
-          <div className="mt-3 text-[10px] text-slate-400 font-mono">L₀ = {longitud} mm · T₀ = {tempIni} °C · vapor a 1 atm: {T_VAPOR} °C</div>
-          <button onClick={registrar} className="w-full mt-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black uppercase flex items-center justify-center gap-1"><Plus size={12} /> Registrar medición</button>
-        </div>
-
-        <div className="bg-[#0A1121]/85 backdrop-blur-xl border border-white/10 p-5 rounded-[2rem]">
-          <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Mediciones</span>
-          {mediciones.length === 0 ? <p className="text-[10px] text-slate-500 italic mt-2">Sin mediciones todavía.</p> : (
-            <table className="w-full text-[10px] font-mono mt-2">
+    <LabLayout
+      escena={<DilatacionTermica3DScene alpha={alpha} longitud={longitud} tempIni={tempIni} tempFin={temp} material={material} encendido={vapor} />}
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Termómetro" valor={termometro.toFixed(1)} unidad="°C" acento={vapor} />
+          <Lectura etiqueta="Comparador" valor={comparador.toFixed(3)} unidad="mm" acento />
+          <Lectura etiqueta="L₀" valor={longitud} unidad="mm" />
+          <Lectura etiqueta="T₀" valor={tempIni} unidad="°C" />
+          <Lectura etiqueta="ΔT" valor={dT.toFixed(1)} unidad="°C" />
+        </>
+      }
+      tituloPanel="Mediciones"
+      panelLateral={
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] text-slate-400">Vapor a 1 atm: {T_VAPOR} °C. Comparador con resolución de 1 μm.</p>
+          {mediciones.length === 0 ? <p className="text-[11px] italic text-slate-500">Sin mediciones todavía.</p> : (
+            <table className="w-full text-[10px] font-mono">
               <thead><tr className="text-slate-500"><th className="text-left">Barra</th><th className="text-left">ΔT</th><th className="text-left">ΔL</th></tr></thead>
               <tbody>
                 {mediciones.map((m, i) => (
@@ -156,37 +136,37 @@ export default function PilotoDilatacionTermica({ onValidate }: { onValidate?: (
               </tbody>
             </table>
           )}
-          <label className="block mt-4">
-            <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest">α del metal ? (×10⁻⁶ /°C)</span>
-            <input type="number" step="0.1" value={alphaInput} onChange={(e) => guardarAlpha(e.target.value)} placeholder="α = ΔL / (L₀·ΔT)"
-              className="w-full mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg" />
-          </label>
-          <button onClick={comprobar} className="w-full mt-3 py-3 bg-amber-600 hover:bg-amber-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Comprobar análisis</button>
         </div>
-      </div>
-
-      {/* CONTROLES */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0A1121]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-4 flex flex-wrap items-center justify-center gap-6 max-w-[95vw]">
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Barra montada</span>
-          <div className="flex gap-1">
-            {MATERIALES_UI.map((m) => (
-              <button key={m.key} onClick={() => montar(m.key)}
-                className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase ${material === m.key ? 'bg-orange-600' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-                {m.nombre}{m.key !== 'misterioso' && <span className="block text-[8px] font-mono normal-case text-white/60">α {(MATERIALES_DILATACION[m.key].alpha * 1e6).toFixed(1)}×10⁻⁶</span>}
-              </button>
-            ))}
-          </div>
+      }
+      controles={
+        <div className="flex flex-col gap-2">
+          <GrupoControles>
+            <Segmentado etiqueta="Barra montada" valor={material} onChange={montar}
+              opciones={MATERIALES_UI.map((m) => ({
+                valor: m.key,
+                texto: m.key !== 'misterioso' ? `${m.nombre} · α ${(MATERIALES_DILATACION[m.key].alpha * 1e6).toFixed(1)}×10⁻⁶` : m.nombre,
+              }))} />
+            <BotonLab onClick={() => { setVapor((v) => !v); audio?.playPop(); }} variante={vapor ? 'acento' : 'primario'}>
+              {vapor ? <><Pause size={14} /> Cortar vapor</> : <><Play size={14} /> Pasar vapor</>}
+            </BotonLab>
+            <BotonLab onClick={registrar} variante="secundario"><Plus size={14} /> Registrar medición</BotonLab>
+          </GrupoControles>
+          <GrupoControles>
+            <label className="flex w-52 flex-col gap-1">
+              <span className="text-[11px] font-semibold text-amber-300">α del metal ? (×10⁻⁶ /°C)</span>
+              <input type="number" step="0.1" value={alphaInput} onChange={(e) => guardarAlpha(e.target.value)} placeholder="α = ΔL / (L₀·ΔT)"
+                className="h-8 rounded-lg border border-amber-500/40 bg-slate-950 px-2.5 font-mono text-[13px] outline-none focus:border-amber-400" />
+            </label>
+            <BotonLab variante="acento" onClick={comprobar}>Comprobar análisis</BotonLab>
+            {alerta && (
+              <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
+                <ShieldAlert size={14} /> {alerta}
+              </div>
+            )}
+            <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="Tu α coincide con tu medición del metal problema. Valida tu práctica." />
+          </GrupoControles>
         </div>
-        <button onClick={() => { setVapor((v) => !v); audio?.playPop(); }}
-          className={`h-14 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 ${vapor ? 'bg-orange-600' : 'bg-white/10 hover:bg-white/20'}`}>
-          {vapor ? <Pause size={16} /> : <Play size={16} />}{vapor ? 'Cortar vapor' : 'Pasar vapor'}<Flame size={14} />
-        </button>
-      </div>
-
-      <div className="absolute bottom-28 right-6 z-50">
-        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="Tu α coincide con tu medición del metal problema. Valida tu práctica." />
-      </div>
-    </div>
+      }
+    />
   );
 }
