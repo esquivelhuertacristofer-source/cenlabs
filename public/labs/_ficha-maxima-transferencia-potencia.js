@@ -46,7 +46,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Red resistiva de dos terminales con una fuente ideal de CD; barrido completo de P(RL) resuelto por MNA en la red real y verificado contra el modelo reducido de Thévenin; relación potencia-eficiencia explícita; predicción de RLopt y Pmáx desde mediciones externas de caja negra.',
+    modela: 'Red resistiva de dos terminales con una fuente ideal de CD; barrido completo de P(RL) resuelto por MNA en la red real y contrastado con el modelo reducido de Thévenin; relación potencia-eficiencia explícita; predicción de RLopt y Pmáx desde mediciones externas de caja negra.',
     noModela: 'Cargas reactivas o el teorema de máxima transferencia con conjugado complejo de impedancia, límites térmicos de componentes reales, ni el criterio de diseño de sistemas de potencia (que evita deliberadamente RL = Rth por su eficiencia del 50 %). Las tolerancias del modo Reto (±5 % relativas) son un margen pedagógico de este ejercicio, no una especificación de instrumento real.',
   },
   s6: [

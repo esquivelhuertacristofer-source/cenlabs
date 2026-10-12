@@ -5,10 +5,10 @@ fichaTecnica({
     presentes: [
       'Relaciones exactas de un sistema trifásico balanceado en régimen permanente senoidal: en la fuente VL=√3·VF; en carga Y cada impedancia ve VF=VL/√3 con corriente de línea igual a la de fase (IL=IF); en carga Δ cada impedancia ve VF=VL con IL=√3·IF',
       'Potencia trifásica total P=√3·VL·IL·cosφ=3·VF·IF·cosφ; potencia reactiva Q=√3·VL·IL·senφ, aparente S=√3·VL·IL y factor de potencia FP=cosφ, con la relación S²=P²+Q²',
-      'Resultado clave verificado numéricamente (node -e, ratio exacto=3): a igual |Z| y VL, la conexión Δ entrega exactamente 3 veces la potencia de la Y, porque la potencia por rama va como VF²/|Z| y (VF_Δ/VF_Y)²=(√3)²=3',
+      'Resultado clave: a igual |Z| y VL, la conexión Δ entrega exactamente 3 veces la potencia de la Y, porque la potencia por rama va como VF²/|Z| y (VF_Δ/VF_Y)²=(√3)²=3',
       'Corriente de neutro nula: en la carga balanceada las tres corrientes de fase, iguales en magnitud y a 120°, suman fasorialmente cero (IA+IB+IC=0), por lo que el neutro no transporta corriente',
       'Secuencia de fases ABC (positiva) vs ACB (negativa): invertir la secuencia —o equivalentemente permutar dos de las tres líneas— invierte el sentido de giro del campo rotatorio y del motor, sin alterar ninguna magnitud del sistema balanceado',
-      'Reto verificado: cada escenario (VL,|Z|,φ) tiene exactamente 1 par (conexión,|Z|) que alcanza la potencia objetivo dentro de ±8% (min=max=1 solución sobre el catálogo completo), más un objetivo de giro independiente resuelto por la secuencia',
+      'Reto: cada escenario sortea VL, φ y una potencia objetivo alcanzable con alguna pareja (conexión, |Z|) dentro de ±8 %, más un objetivo de giro independiente resuelto por la secuencia',
     ],
     omitidos: [
       'Desbalance de cargas o de fuente: las tres ramas se modelan siempre idénticas, por lo que la corriente de neutro es cero por construcción; el estudio de cargas desbalanceadas y componentes simétricas queda fuera',
@@ -36,8 +36,8 @@ fichaTecnica({
     'Selector de |Z| (impedancia por rama) y de conexión Y/Δ',
     'Selector de secuencia de fases ABC/ACB',
     'Pizarrón con el diagrama fasorial: estrella de tensiones de fase, triángulo de tensiones de línea (VL=√3·VF) e indicador de secuencia',
-    'Telemetría en vivo: VF sobre Z, IF, IL, P, Q, S, FP, corriente de neutro y sentido de giro',
-    'Panel de reto con potencia objetivo y giro requerido ocultos hasta comprobar',
+    'Telemetría en vivo: VF sobre Z, IF, IL, P, Q, S, FP, corriente de neutro y sentido de giro (en el Reto, IF, IL, P, Q y S quedan ocultos hasta resolver)',
+    'Panel de reto: potencia objetivo y giro requerido a la vista; las magnitudes de la carga (IF, IL, P, Q, S) quedan ocultas hasta resolver, las calculas tú; 3 fallos cambian el escenario',
   ],
   s4: {
     intro: 'Procedimiento para explorar las conexiones, diseñar y resolver el reto:',
@@ -48,7 +48,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Sistema trifásico balanceado en régimen permanente senoidal: VL=√3·VF en la fuente; carga de tres impedancias iguales conectada en Y (VF=VL/√3, IL=IF) o en Δ (VF=VL, IL=√3·IF); potencia P=√3·VL·IL·cosφ con Δ entregando exactamente 3× la potencia de Y a igual |Z| y VL (verificado ratio=3 exacto); Q, S y FP=cosφ; corriente de neutro nula por balanceado; secuencia de fases ABC/ACB que invierte el sentido de giro del motor sin alterar magnitudes. El Reto está verificado numéricamente: cada escenario tiene exactamente una combinación (conexión,|Z|) que alcanza la potencia objetivo dentro de ±8%.',
+    modela: 'Sistema trifásico balanceado en régimen permanente senoidal: VL=√3·VF en la fuente; carga de tres impedancias iguales conectada en Y (VF=VL/√3, IL=IF) o en Δ (VF=VL, IL=√3·IF); potencia P=√3·VL·IL·cosφ con Δ entregando exactamente 3× la potencia de Y a igual |Z| y VL; Q, S y FP=cosφ; corriente de neutro nula por balanceado; secuencia de fases ABC/ACB que invierte el sentido de giro del motor sin alterar magnitudes. En el Reto, cada escenario sortea una potencia objetivo alcanzable con alguna combinación (conexión, |Z|) dentro de ±8 %.',
     noModela: 'Desbalance de cargas o fuente y componentes simétricas (las tres ramas son idénticas, In=0 siempre); impedancia de conductores de línea/neutro y caídas de tensión; armónicos y cargas no lineales; transitorios de arranque del motor (par, deslizamiento, corriente de arranque); efectos térmicos y saturación magnética. El sentido de giro concreto ABC↻/ACB↺ es una convención del simulador —el sentido físico real depende del devanado—; lo que sí es general es que invertir la secuencia invierte el giro.',
   },
   s6: [
@@ -57,6 +57,5 @@ fichaTecnica({
     'Enríquez Harper, G. — El ABC de las máquinas eléctricas y de las instalaciones eléctricas industriales (Limusa): conexiones trifásicas, secuencia de fases e inversión de giro de motores.',
     'NOM-001-SEDE-2022 (Instalaciones eléctricas — utilización): sistemas trifásicos de baja tensión y conductores de neutro.',
     'IEC 60038 — tensiones normalizadas: valores de tensión de línea de baja tensión.',
-    'Verificación numérica propia (sesión de construcción, node -e): ratio Δ/Y de potencia = 3 exacto; catálogo del Reto con exactamente 1 solución (conexión,|Z|) por escenario dentro de ±8%, 0 escenarios sin solución.',
   ],
 });

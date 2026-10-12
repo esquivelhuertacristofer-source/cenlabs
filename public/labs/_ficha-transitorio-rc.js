@@ -4,7 +4,7 @@ fichaTecnica({
   s1: {
     presentes: [
       'Respuesta exponencial exacta de un circuito RC serie de primer orden: carga v(t)=V(1−e^(−t/τ)) y descarga v(t)=V·e^(−t/τ)',
-      'Relación τ = R·C verificada numéricamente contra la traza mostrada, en 16 combinaciones de R y C (serie E12)',
+      'Relación τ = R·C coherente con la traza mostrada para las combinaciones de R y C del banco',
       'Base de tiempo (time/div) discreta con secuencia 1-2-5, como el dial físico de un osciloscopio real — una elección incorrecta corta o comprime la traza',
       'Cursor deslizante de medición manual sobre la traza, con referencia punteada en 63.2 % (carga) o 36.8 % (descarga) de V',
       'Reto de caja parcialmente sellada: R conocida, C desconocida, se despeja C=τ_medido/R a partir de una medición real hecha por el estudiante',

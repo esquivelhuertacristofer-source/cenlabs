@@ -151,6 +151,8 @@ let selR1=1000, selR2=2200, selRL=2200, cargaOn=false;
 let selR1c=1000, selR2c=3300, selI0=0.01;
 let retoIdx=0, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos del escenario de reto actual; a los 3 se cambia
+const retoCiego=()=>mode==='reto'&&!retoSolved;     // en el Reto no hay Vo, error ni corrientes en vivo hasta comprobar
 const R_CANDIDATES=[470,1000,2200,3300,4700,6800,10000];
 const RL_CANDIDATES=[1000,2200,4700,10000];
 const I0_CANDIDATES=[0.005,0.01,0.015,0.02];
@@ -345,14 +347,15 @@ function drawBoardDivisor(){
   earth(c,300,640);
   nodeDot(c,550,150,true);
   c.font='bold 26px Outfit, sans-serif';c.textAlign='center';c.fillStyle='#4FD1C5';
-  c.fillText('Vo · '+SOL.V[2].toFixed(3)+' V',550,112);
+  c.fillText(retoCiego()?'Vo · ? (calcúlalo)':'Vo · '+SOL.V[2].toFixed(3)+' V',550,112);
   c.font='18px Outfit, sans-serif';c.fillStyle='#8FB3AC';
   c.fillText('Vin · '+fmtV(EL('V1').value),150,112);
   c.fillText('ref · 0 V',300,706);
   const i1=iThru(EL('R1'))*1e3,i2=iThru(EL('R2'))*1e3;
-  curHgeneric(c,450,150,'I1',i1,1,false);
-  curVgeneric(c,550,555,'I2',i2,false);
-  if(rlOn){const il=iThru(EL('RL'))*1e3;curVgeneric(c,750,555,'IL',il,false);}
+  const cg=retoCiego();
+  curHgeneric(c,450,150,'I1',i1,1,cg);
+  curVgeneric(c,550,555,'I2',i2,cg);
+  if(rlOn){const il=iThru(EL('RL'))*1e3;curVgeneric(c,750,555,'IL',il,cg);}
   bTex.needsUpdate=true;
 }
 
@@ -550,7 +553,7 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> divisor de tensión y de corriente resistivos en CD, resueltos en vivo por análisis nodal modificado (MNA); efecto de carga exacto del modelo (Vo cargado vs. ideal) verificado contra la equivalencia de Thévenin; divisor de corriente verificado por conservación de carga (ΣI=I0); código de colores real de cada resistor (serie E12, IEC 60063).</div>
+    <div class="fl"><b>Sí modela:</b> divisor de tensión y de corriente resistivos en CD, resueltos en vivo por análisis nodal modificado (MNA); efecto de carga exacto del modelo (Vo cargado vs. ideal) contrastado con la equivalencia de Thévenin; divisor de corriente que cumple la conservación de carga (ΣI=I0); código de colores real de cada resistor (serie E12, IEC 60063).</div>
     <div class="fl no"><b>NO modela:</b> los presupuestos del reto (error de carga ≤5 %, corriente de reposo ≤25 mA) son una especificación PEDAGÓGICA de este ejercicio, no una cifra normativa ni de fabricante. La fuente de 12 V fija es una simplificación didáctica. Fuentes ideales, sin tolerancias de componentes ni deriva térmica — ver la práctica del multímetro para incertidumbre de medición real.</div>
   </div>
   <div class="src">Ref: Hayt/Kemmerly/Durbin · IEC 60617 · IEC 60063 · MNA (Ho/Ruehli/Brennan, 1975)</div>`;
@@ -612,10 +615,11 @@ function toastEl(id,isI){
   const off=e.on===false;
   const i=off?0:iThru(e),b=bandsFor(e.value);
   const bandas=`${BAND_NAMES[b.d1]}-${BAND_NAMES[b.d2]}-${BAND_NAMES[b.mult]}-oro`;
-  const info=off?`Bandas: ${bandas}. Desconectada (circuito abierto): I = 0 mA.`:`Bandas: ${bandas}. I = ${fmtI(Math.abs(i))}.`;
+  const info=off?`Bandas: ${bandas}. Desconectada (circuito abierto): I = 0 mA.`:`Bandas: ${bandas}. I = ${retoCiego()?'¿? (calcúlala)':fmtI(Math.abs(i))}.`;
   showToast(`<b style="color:var(--accent2)">${id} · ${fmtR(e.value)}${off?' · OFF':''}</b><br><span style="color:var(--dim);font-size:11px">${info}</span>`);
 }
 function toastVo(){
+  if(retoCiego()){showToast('<b style="color:var(--accent2)">Nodo Vo</b><br><span style="color:var(--dim);font-size:11px">En el Reto, Vo se calcula con tus R1 y R2 (divisor cargado) y se verifica al comprobar.</span>');return;}
   const on=EL('RL').on;
   const err=on?Math.abs(SOL_IDEAL.V[2]-SOL.V[2])/SOL_IDEAL.V[2]*100:0;
   const info=on
@@ -716,22 +720,22 @@ function updateTele(){
   }else{
     const r1=numOr('inR1'),r2=numOr('inR2'),sc=RETO_SCENARIOS[retoIdx];
     const ok=isFinite(r1)&&r1>0&&isFinite(r2)&&r2>0;
-    if(!ok){
-      t.innerHTML=
-        teleRow('Vo (con tus valores)','—')+
-        teleRow('Error de carga','—')+
-        teleRow('I reposo','—')+
-        teleRow('RL (fija)',fmtR(sc.RL))+
-        teleRow('Estado','Escribe R1 y R2','warn');
-    }else{
+    if(retoSolved&&ok){
       const r=retoSolve(sc.V,sc.RL,r1,r2);
-      const okV=Math.abs(r.vo-sc.VoObj)<=Math.max(0.05,sc.VoObj*0.02),okErr=r.err<=5,okI=r.iq<=25;
       t.innerHTML=
-        teleRow('Vo (con tus valores)',r.vo.toFixed(3)+' V',okV?'good':'warn')+
-        teleRow('Error de carga',r.err.toFixed(2)+' %',okErr?'good':'warn')+
-        teleRow('I reposo',r.iq.toFixed(2)+' mA',okI?'good':'warn')+
+        teleRow('Vo (tu diseño)',r.vo.toFixed(3)+' V','good')+
+        teleRow('Error de carga',r.err.toFixed(2)+' %','good')+
+        teleRow('I reposo',r.iq.toFixed(2)+' mA','good')+
         teleRow('RL (fija)',fmtR(sc.RL))+
-        teleRow('Estado',retoSolved?'✔ DISEÑO VALIDADO':(okV&&okErr&&okI?'Cumple — pulsa Comprobar':'No cumple aún'),retoSolved?'good':'warn');
+        teleRow('Estado','✔ DISEÑO VALIDADO','good');
+    }else{
+      t.innerHTML=
+        teleRow('Vo (tu diseño)','🔒 al comprobar')+
+        teleRow('Error de carga','🔒 al comprobar')+
+        teleRow('I reposo','🔒 al comprobar')+
+        teleRow('RL (fija)',fmtR(sc.RL))+
+        teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
+        teleRow('Estado',ok?'Calcula y pulsa Comprobar':'Escribe R1 y R2','warn');
     }
   }
 }
@@ -769,7 +773,7 @@ function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
 function afterEdit(){resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
 function onRetoInput(){
   if(mode!=='reto')return;
-  retoSolved=false;retoMsg='';
+  if(!retoSolved)retoMsg='';   // el éxito ya logrado de este escenario no se pierde al seguir editando
   resolve();refreshAll();
 }
 function toggleCarga(){cargaOn=!cargaOn;synth.beep(cargaOn?880:440,0.08,0.05);afterEdit();}
@@ -778,6 +782,7 @@ function toggleCarga(){cargaOn=!cargaOn;synth.beep(cargaOn?880:440,0.08,0.05);af
    10) RETO — diseño (no predicción)
    ============================================================ */
 function checkDesign(){
+  if(retoSolved)return;
   const r1=numOr('inR1'),r2=numOr('inR2');
   if(!isFinite(r1)||!isFinite(r2)||r1<=0||r2<=0){showToast('Escribe R1 y R2 en Ω (números positivos).');return;}
   const sc=RETO_SCENARIOS[retoIdx];
@@ -785,11 +790,21 @@ function checkDesign(){
   const tol=Math.max(0.05,sc.VoObj*0.02);
   const okV=Math.abs(r.vo-sc.VoObj)<=tol,okErr=r.err<=5,okI=r.iq<=25;
   if(okV&&okErr&&okI){
-    retoSolved=true;synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Diseño válido.</span> Vo = ${r.vo.toFixed(3)} V (objetivo ${sc.VoObj} V) · error de carga = ${r.err.toFixed(2)} % (≤5 %) · I reposo = ${r.iq.toFixed(2)} mA (≤25 mA).<br>Ejemplo de referencia (no la única solución): R1≈${sc.ref.R1} Ω, R2≈${sc.ref.R2} Ω.</span>`;
+    retoSolved=true;solved=true;synth.beep(1046,0.12,0.06);
+    retoMsg=`<span class="mono"><span class="ok">✔ Diseño válido</span> en ${intentos+1} ${intentos?'intentos':'intento'}. Vo = ${r.vo.toFixed(3)} V (objetivo ${sc.VoObj} V) · error de carga = ${r.err.toFixed(2)} % (≤5 %) · I reposo = ${r.iq.toFixed(2)} mA (≤25 mA).<br>Ejemplo de referencia (no la única solución): R1≈${sc.ref.R1} Ω, R2≈${sc.ref.R2} Ω.</span>`;
   }else{
-    synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> Vo=${r.vo.toFixed(3)} V (${okV?'✓ dentro de tolerancia':'✗ fuera de objetivo '+sc.VoObj+' V'}) · error=${r.err.toFixed(2)}% (${okErr?'✓':'✗ supera 5 %'}) · I reposo=${r.iq.toFixed(2)} mA (${okI?'✓':'✗ supera 25 mA'}).</span>`;
+    intentos++;synth.beep(220,0.15,0.06);
+    /* se informa qué especificaciones fallan en TU diseño, sin dar valores de referencia */
+    const base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). Vo=${r.vo.toFixed(3)} V (${okV?'✓ dentro de tolerancia':'✗ fuera del objetivo'}) · error de carga=${r.err.toFixed(2)} % (${okErr?'✓':'✗ supera 5 %'}) · I reposo=${r.iq.toFixed(2)} mA (${okI?'✓':'✗ supera 25 mA'}).`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      retoMsg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> este escenario se retira sin dar la solución. Te toca uno nuevo.</span>`;
+      const msg=retoMsg;
+      newScenario(true);
+      retoMsg=msg;resolve();refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base} A los ${FALLOS_MAX} fallos el escenario cambia.</span>`;
   }
   resolve();refreshAll();
 }
@@ -797,15 +812,16 @@ function updateRetoSpec(){
   const sc=RETO_SCENARIOS[retoIdx];
   el('retoSpec').innerHTML=`Con V=${fmtV(sc.V)} y RL=${fmtR(sc.RL)} (fijas), diseña R1 y R2 para lograr <b>Vo ≈ ${sc.VoObj} V</b>, con error de carga ≤5 % y corriente de reposo ≤25 mA.<br><span style="color:var(--dim)">Estos presupuestos (5 %, 25 mA) son la especificación de ESTE ejercicio, no una norma de fabricante.</span>`;
 }
-function newScenario(){
+function newScenario(auto){
   const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
   let idx=pick();
   if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
-  retoIdx=idx;retoSolved=false;retoMsg='';
+  retoIdx=idx;retoSolved=false;retoMsg='';intentos=0;
   el('inR1').value='';el('inR2').value='';
   if(mode!=='reto')setMode('reto');
   else{updateRetoSpec();resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
-  showToast('🔀 <b>Nuevo reto.</b> Nuevo objetivo de Vo y/o RL — vuelve a diseñar R1 y R2.');
+  if(auto!==true)showToast('🔀 <b>Nuevo reto.</b> Nuevo objetivo de Vo y/o RL — vuelve a diseñar R1 y R2.');
+  else showToast('🔀 Escenario nuevo: Vo objetivo '+RETO_SCENARIOS[retoIdx].VoObj+' V, RL '+fmtR(RETO_SCENARIOS[retoIdx].RL)+'.');
   synth.beep(520,0.08,0.05);
 }
 
@@ -825,26 +841,27 @@ function buildQuiz(){
   const symmetric=selR1c===selR2c;
   const i1c=iThruI(ELI('R1c'))*1e3,i2c=iThruI(ELI('R2c'))*1e3;
   const smaller=selR1c<selR2c?'R1c':(selR2c<selR1c?'R2c':null);
-  const sc=RETO_SCENARIOS[retoIdx],base=sc.ref;
+  /* diseño ILUSTRATIVO, ajeno a la solución del reto (no se usa sc.ref): así la pregunta no filtra una respuesta válida */
+  const sc=RETO_SCENARIOS[retoIdx],base={R1:2400,R2:2400};
   const stiff=retoSolve(sc.V,sc.RL,base.R1/3,base.R2/3);
   const loose=retoSolve(sc.V,sc.RL,base.R1*3,base.R2*3);
   QUIZ={
     explora:{
       pregunta:`Si más adelante conectas una RL = ${fmtR(exampleRL)} en paralelo con R2 (sin cambiar R1 ni R2), ¿qué le pasará a Vo?`,
       opciones:[
-        {t:'Vo subirá, porque RL aporta otra trayectoria de corriente hacia la fuente',ok:false,why:'RL no aporta corriente extra a la fuente: es una carga, retira corriente del nodo Vo. Vo no puede subir por encima del valor sin carga.'},
-        {t:'Vo se mantiene igual — el divisor no depende de lo que conectes a la salida',ok:false,why:'Es el error de diseño más común. La fórmula ideal Vo=V·R2/(R1+R2) solo vale con la salida en circuito abierto.'},
+        {t:'Vo subirá, porque RL aporta otra trayectoria de corriente que ayuda a la fuente',ok:false,why:'RL no aporta corriente extra a la fuente: es una carga, retira corriente del nodo Vo. Vo no puede subir por encima del valor sin carga.'},
+        {t:'Vo se mantiene igual: el divisor no depende de lo que se conecte a la salida',ok:false,why:'Es el error de diseño más común. La fórmula ideal Vo=V·R2/(R1+R2) solo vale con la salida en circuito abierto.'},
         {t:`Vo bajará a ${vEx.toFixed(3)} V, porque R2‖RL (${Math.round(1/(1/EL('R2').value+1/exampleRL))} Ω) es menor que R2 solo`,ok:true,why:`R2‖RL siempre es MENOR que R2 solo, así que el divisor entrega una fracción menor de V. Con RL=R2, Vo cae de ${SOL.V[2].toFixed(3)} V a ${vEx.toFixed(3)} V.`},
-        {t:'Vo se invertirá (voltaje negativo)',ok:false,why:'Con fuentes y resistores positivos en este circuito no hay forma de que Vo cambie de signo.'},
+        {t:'Vo se invertirá y quedará con voltaje negativo respecto a la referencia',ok:false,why:'Con fuentes y resistores positivos en este circuito no hay forma de que Vo cambie de signo.'},
       ],
     },
     carga:{
       pregunta:`Con R1=${fmtR(EL('R1').value)} y R2=${fmtR(EL('R2').value)}, al conectar RL el error de carga es ${errOn.toFixed(2)} %. ¿A qué se debe, exactamente?`,
       opciones:[
-        {t:'A que la fuente V1 pierde voltaje bajo carga (tiene resistencia interna)',ok:false,why:'En este modelo V1 es una fuente IDEAL (sin resistencia interna) — el contrato de fidelidad lo declara. El error viene del divisor, no de la fuente.'},
-        {t:`A que R2‖RL (${Math.round(1/(1/EL('R2').value+1/EL('RL').value))} Ω) es menor que R2 (${EL('R2').value} Ω), así que Vo=V·(R2‖RL)/(R1+(R2‖RL)) da un valor menor`,ok:true,why:`Exacto: al conectar RL en paralelo con R2, la resistencia combinada baja, y con ella la fracción de V que llega a Vo. Vth=${SOL_IDEAL.V[2].toFixed(3)} V, Rth=${Math.round(Rth)} Ω lo confirman: Vo=Vth·RL/(RL+Rth)=${vOn.toFixed(3)} V.`},
-        {t:'A que R1 cambia de valor cuando hay carga conectada',ok:false,why:'R1 es un resistor fijo: su valor no cambia por lo que se conecte en la salida.'},
-        {t:'Es un error de redondeo del simulador, no un efecto real',ok:false,why:'Es un efecto real y medible en cualquier divisor físico — por eso todo diseño de divisores debe considerar la impedancia de la siguiente etapa.'},
+        {t:'A que la fuente V1 pierde voltaje bajo carga, porque tiene una resistencia interna que no se está viendo',ok:false,why:'En este modelo V1 es una fuente IDEAL (sin resistencia interna) — el contrato de fidelidad lo declara. El error viene del divisor, no de la fuente.'},
+        {t:`A que R2‖RL (${Math.round(1/(1/EL('R2').value+1/EL('RL').value))} Ω) es menor que R2 (${EL('R2').value} Ω), y Vo=V·(R2‖RL)/(R1+(R2‖RL)) baja`,ok:true,why:`Exacto: al conectar RL en paralelo con R2, la resistencia combinada baja, y con ella la fracción de V que llega a Vo. Vth=${SOL_IDEAL.V[2].toFixed(3)} V, Rth=${Math.round(Rth)} Ω lo confirman: Vo=Vth·RL/(RL+Rth)=${vOn.toFixed(3)} V.`},
+        {t:'A que R1 cambia de valor cuando hay una carga conectada, porque el resistor se calienta y se desvía',ok:false,why:'R1 es un resistor fijo: su valor no cambia por lo que se conecte en la salida.'},
+        {t:'Es solo un error de redondeo del simulador y no un efecto real que ocurra en un divisor físico',ok:false,why:'Es un efecto real y medible en cualquier divisor físico — por eso todo diseño de divisores debe considerar la impedancia de la siguiente etapa.'},
       ],
     },
     corriente:symmetric?{
@@ -865,7 +882,7 @@ function buildQuiz(){
       ],
     },
     reto:{
-      pregunta:`Si divides entre 3 los valores de referencia de este reto (R1≈${Math.round(base.R1/3)} Ω, R2≈${Math.round(base.R2/3)} Ω), ¿qué pasa con el error de carga y la corriente de reposo?`,
+      pregunta:`Con la misma fuente y RL de este reto, un divisor de ejemplo R1 = R2 = ${base.R1} Ω pasa a R1 = R2 = ${Math.round(base.R1/3)} Ω (se divide entre 3). ¿Qué pasa con el error de carga y la corriente de reposo?`,
       opciones:[
         {t:`El error de carga baja a ${stiff.err.toFixed(2)} % pero I reposo SUBE a ${stiff.iq.toFixed(2)} mA — más "rígido" cuesta más corriente`,ok:true,why:`Resistencias más pequeñas hacen al divisor menos sensible a RL (más rígido), pero también dejan pasar más corriente de reposo: es la disyuntiva central del diseño de divisores.`},
         {t:`Ambos bajan: error a ${stiff.err.toFixed(2)} % y corriente a ${stiff.iq.toFixed(2)} mA`,ok:false,why:`Solo el error de carga baja. La corriente de reposo I=V/(R1+R2) SUBE cuando R1+R2 baja — no pueden mejorar los dos a la vez con este cambio.`},
@@ -874,6 +891,11 @@ function buildQuiz(){
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -940,6 +962,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,selR1,selR2,selRL,cargaOn,selR1c,selR2c,selI0,r1:el('inR1').value,r2:el('inR2').value};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -952,17 +976,12 @@ async function runAuto(){
     setMode('corriente');
     const i1c=iThruI(ELI('R1c'))*1e3,i2c=iThruI(ELI('R2c'))*1e3;
     showToast(`Paso 3 · Divisor de corriente: I1=${i1c.toFixed(3)} mA por R1c, I2=${i2c.toFixed(3)} mA por R2c — inverso a la resistencia.`);await sleep(3000);
-    setMode('reto');
-    showToast('Paso 4 · El reto: diseñar R1 y R2, no despejarlos de una fórmula única.');await sleep(2400);
-    const sc=RETO_SCENARIOS[retoIdx];
-    el('inR1').value=sc.ref.R1;el('inR2').value=sc.ref.R2;
-    checkDesign();await sleep(2400);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 4 · El Reto es tuyo: diseñar R1 y R2 para un Vo objetivo con RL fija, sin Vo ni corrientes en vivo. Este recorrido no lo resuelve ni lo marca como hecho.');await sleep(3400);
   }finally{
+    selR1=previo.selR1;selR2=previo.selR2;selRL=previo.selRL;cargaOn=previo.cargaOn;
+    selR1c=previo.selR1c;selR2c=previo.selR2c;selI0=previo.selI0;
+    el('inR1').value=previo.r1;el('inR2').value=previo.r2;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -977,7 +996,7 @@ S.setAnimate((dt,time)=>{
 
 ['explora','carga','corriente','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;
-el('btnNew').onclick=newScenario;
+el('btnNew').onclick=()=>newScenario();
 el('btnCheck').onclick=checkDesign;
 ['inR1','inR2'].forEach(id=>{
   el(id).addEventListener('input',onRetoInput);
@@ -1000,4 +1019,15 @@ window.__labDebug={
   boardClick,
   mode:()=>mode,
   retoSolved:()=>retoSolved,
+  solved:()=>solved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  retoIdx:()=>retoIdx,
+  retoScenario:()=>({...RETO_SCENARIOS[retoIdx],ref:{...RETO_SCENARIOS[retoIdx].ref}}),
+  setMode:k=>setMode(k),
+  runAuto:()=>runAuto(),
+  checkDesign:()=>checkDesign(),
+  newScenario:()=>newScenario(),
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
 };

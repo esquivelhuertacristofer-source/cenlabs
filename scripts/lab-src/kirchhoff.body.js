@@ -154,6 +154,11 @@ let retoMsg='';
 let solved=false;         // pregunta de ingeniería del modo actual
 let autoRunning=false;
 let QUIZ={};
+let intentos=0;           // comprobaciones fallidas del caso de reto actual
+let resiembras=0;         // veces que el reto se resembró tras 3 fallos
+let EXPLORA_VALS=null;    // red de Explora/Nodos/Mallas (distinta de la del reto)
+let RETO_VALS=null;       // red del reto (oculta mientras no se acierte)
+const FALLOS_MAX=3;
 
 /* ============================================================
    3) MATERIALES (regla: los roughnessMap procedurales MULTIPLICAN
@@ -545,7 +550,35 @@ const MODE_META={
   mallas:{nombre:'Mallas · LVK',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],mision:'LVK: alrededor de cualquier lazo cerrado, subidas y caídas de tensión suman cero.'},
   reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],mision:'Predice V_A y V_B ANTES de que el simulador te los muestre.'},
 };
+/* Valores de la red (5 R + 2 fuentes) <-> red viva. Explora y Reto usan REDES DISTINTAS:
+   así, cambiar de pestaña nunca muestra V_A y V_B del mismo caso que se está retando. */
+const VALS_IDS=['R1','R2','R3','R4','R5','V1','V2'];
+const leeVals=()=>VALS_IDS.map(id=>EL(id).value);
+function aplicaVals(v){
+  VALS_IDS.forEach((id,i)=>{EL(id).value=v[i];});
+  resolve();buildQuiz();refreshNet3D();
+}
+function valsAzar(){
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const base=EXPLORA_VALS||leeVals();
+  for(let k=0;k<50;k++){
+    const v=[0,0,0,0,0].map(()=>Math.round(pick(E12)*1000));
+    v.push(pick([9,12,15,18,24]),pick([3.3,5,9]));
+    if(v.some((x,i)=>x!==base[i]))return v;
+  }
+  return leeVals();
+}
 function setMode(k){
+  const eraReto=mode==='reto',serReto=k==='reto';
+  if(!EXPLORA_VALS)EXPLORA_VALS=leeVals();
+  if(serReto&&!eraReto){
+    EXPLORA_VALS=leeVals();
+    if(!RETO_VALS){RETO_VALS=valsAzar();el('inVA').value='';el('inVB').value='';}
+    aplicaVals(RETO_VALS);
+  }else if(!serReto&&eraReto){
+    RETO_VALS=leeVals();
+    aplicaVals(EXPLORA_VALS);
+  }
   mode=k;
   ['explora','nodos','mallas','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
@@ -587,7 +620,7 @@ function updateTele(){
   set('t_ia',hide?'?':fmtSum(kclSum(2))+' mA',hide?'warn':'good');
   set('t_ib',hide?'?':fmtSum(kclSum(3))+' mA',hide?'warn':'good');
   set('t_vm',hide?'?':fmtSum(kvlSum(selMesh))+' V · M'+(selMesh+1),hide?'warn':'good');
-  set('t_est',mode!=='reto'?'RESUELTA · MNA':(retoSolved?'✔ PREDICCIÓN OK':'RETO · predice'),mode!=='reto'?'good':(retoSolved?'good':'warn'));
+  set('t_est',mode!=='reto'?'RESUELTA · MNA':(retoSolved?'✔ PREDICCIÓN OK':'RETO · intentos '+intentos+'/'+FALLOS_MAX),mode!=='reto'?'good':(retoSolved?'good':'warn'));
 }
 function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
@@ -619,6 +652,7 @@ function refreshAll(){drawBoard();updateTele();updateReport();}
    10) RETO — predicción numérica + red aleatoria
    ============================================================ */
 function checkReto(){
+  if(retoSolved)return;
   const pa=parseFloat((el('inVA').value||'').replace(',','.'));
   const pb=parseFloat((el('inVB').value||'').replace(',','.'));
   if(!isFinite(pa)||!isFinite(pb)){showToast('Escribe ambas predicciones (en volts).');return;}
@@ -627,23 +661,30 @@ function checkReto(){
   const okA=Math.abs(pa-ta)<=tol(ta),okB=Math.abs(pb-tb)<=tol(tb);
   if(okA&&okB){
     retoSolved=true;synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Predicción verificada.</span> V_A = ${ta.toFixed(3)} V (tuyo: ${pa.toFixed(3)}) · V_B = ${tb.toFixed(3)} V (tuyo: ${pb.toFixed(3)}). El esquema revela voltajes y corrientes.</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Predicción verificada</span> en ${intentos+1} ${intentos?'intentos':'intento'}. V_A = ${ta.toFixed(3)} V (tuyo: ${pa.toFixed(3)}) · V_B = ${tb.toFixed(3)} V (tuyo: ${pb.toFixed(3)}). El esquema revela voltajes y corrientes.</span>`;
   }else{
-    synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> ${okA?'V_A ✓':'V_A fuera de tolerancia'} · ${okB?'V_B ✓':'V_B fuera de tolerancia'}. Plantea LCK en A y en B (2 ecuaciones, 2 incógnitas) y reintenta.</span>`;
+    intentos++;synth.beep(220,0.15,0.06);
+    /* retroalimentación CUALITATIVA: nunca el valor ni el sentido del error */
+    const lejos=(p,t)=>Math.abs(p-t)>0.5*Math.max(Math.abs(t),1);
+    const nota=(ok,n,p,t)=>ok?n+' ✓':n+' no cuadra'+(lejos(p,t)?' (muy lejos: revisa signo y orden de magnitud)':' (cerca, pero fuera de tolerancia)');
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      retoMsg=`<span class="mono"><span class="dtc">✗ ${FALLOS_MAX} intentos fallidos.</span> Esta red se retira sin revelarla: te toca una NUEVA (otros R y fuentes). Repasa el planteo: LCK en A y en B, dos ecuaciones y dos incógnitas.</span>`;
+      RETO_VALS=valsAzar();aplicaVals(RETO_VALS);intentos=0;
+      el('inVA').value='';el('inVB').value='';
+    }else{
+      retoMsg=`<span class="mono"><span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). ${nota(okA,'V_A',pa,ta)} · ${nota(okB,'V_B',pb,tb)}. Plantea LCK en A y en B (2 ecuaciones, 2 incógnitas) y reintenta; a los ${FALLOS_MAX} fallos la red se cambia.</span>`;
+    }
   }
   refreshAll();
 }
+/* Red nueva del reto (solo la del reto: la de Explora no se toca) */
 function newNetwork(){
-  const pick=a=>a[Math.floor(Math.random()*a.length)];
-  ['R1','R2','R3','R4','R5'].forEach(id=>{EL(id).value=Math.round(pick(E12)*1000);});
-  EL('V1').value=pick([9,12,15,18,24]);
-  EL('V2').value=pick([3.3,5,9]);
-  resolve();buildQuiz();refreshNet3D();
+  RETO_VALS=valsAzar();intentos=0;
   retoSolved=false;retoMsg='';
   el('inVA').value='';el('inVB').value='';
   if(mode!=='reto')setMode('reto');
-  else{solved=false;clearDx();refreshQuestion();refreshAll();}
+  else{aplicaVals(RETO_VALS);solved=false;clearDx();refreshQuestion();refreshAll();}
   showToast('🔀 <b>Red nueva.</b> Los valores están en el esquema (y en las bandas de colores); V_A y V_B te esperan.');
   synth.beep(520,0.08,0.05);
 }
@@ -669,10 +710,10 @@ function buildQuiz(){
     explora:{
       pregunta:'Para resolver esta red por <b>análisis nodal</b>, ¿cuántas incógnitas de voltaje necesitas?',
       opciones:[
-        {t:'5 — una por cada nodo (P, A, B, Q y ref)',ok:false,why:'ref es el cero por definición, y P y Q los fijan las fuentes ideales (V_P = V1, V_Q = V2). No son incógnitas.'},
+        {t:'5 — una por cada nodo de la red (P, A, B, Q y la referencia)',ok:false,why:'ref es el cero por definición, y P y Q los fijan las fuentes ideales (V_P = V1, V_Q = V2). No son incógnitas.'},
         {t:'2 — solo V_A y V_B (P y Q los fijan las fuentes)',ok:true,why:'Con ref = 0, V_P = V1 y V_Q = V2, quedan V_A y V_B: dos ecuaciones LCK, sistema 2×2. Eso resuelve TODA la red.'},
-        {t:'3 — una por cada malla',ok:false,why:'Las mallas dan CORRIENTES en el método de mallas; en análisis nodal las incógnitas son voltajes de nodo.'},
-        {t:'1 — solo V_A, porque V_B depende de él',ok:false,why:'V_B es un nodo independiente: sin su propia ecuación LCK el sistema queda indeterminado.'},
+        {t:'3 — una por cada malla de la red (M1, M2 y M3)',ok:false,why:'Las mallas dan CORRIENTES en el método de mallas; en análisis nodal las incógnitas son voltajes de nodo.'},
+        {t:'1 — solo V_A, porque V_B se obtiene directamente de él',ok:false,why:'V_B es un nodo independiente: sin su propia ecuación LCK el sistema queda indeterminado.'},
       ],
     },
     nodos:{
@@ -687,22 +728,27 @@ function buildQuiz(){
     mallas:{
       pregunta:'La malla 2 (R2–R3–R4) <b>no contiene ninguna fuente</b>. ¿Por qué su ΣV sigue siendo 0?',
       opciones:[
-        {t:'Porque el potencial es función de punto: al cerrar el lazo regresas al mismo potencial',ok:true,why:'LVK es conservación de energía por unidad de carga: con o sin fuentes, el lazo cerrado vuelve al nodo (y potencial) de partida.'},
-        {t:'Porque no circula corriente por esa malla',ok:false,why:'Sí circula: I2, I3 e I4 son distintas de cero. La LVK se cumple CON corrientes presentes.'},
-        {t:'Porque las caídas de R2 y R4 se cancelan entre sí',ok:false,why:`No se cancelan por pareja: valen ${cR2.toFixed(3)} V y ${cR4.toFixed(3)} V. Es la suma algebraica del LAZO completo la que da cero.`},
-        {t:'Solo las mallas que contienen una fuente cumplen la LVK',ok:false,why:'La LVK vale para TODO lazo cerrado de cualquier red de parámetros concentrados, tenga o no fuentes.'},
+        {t:'Porque al recorrer el lazo cerrado regresas al mismo potencial de partida',ok:true,why:'LVK es conservación de energía por unidad de carga: con o sin fuentes, el lazo cerrado vuelve al nodo (y potencial) de partida.'},
+        {t:'Porque no circula corriente alguna por esa malla y por tanto no hay caídas',ok:false,why:'Sí circula: I2, I3 e I4 son distintas de cero. La LVK se cumple CON corrientes presentes.'},
+        {t:'Porque las caídas de R2 y R4 se cancelan una a otra dentro del lazo',ok:false,why:`No se cancelan por pareja: valen ${cR2.toFixed(3)} V y ${cR4.toFixed(3)} V. Es la suma algebraica del LAZO completo la que da cero.`},
+        {t:'Solo las mallas que contienen alguna fuente cumplen la LVK siempre',ok:false,why:'La LVK vale para TODO lazo cerrado de cualquier red de parámetros concentrados, tenga o no fuentes.'},
       ],
     },
     reto:{
-      pregunta:`Reto de diseño: si duplicas R4 (${fmtR(EL('R4').value)} → ${fmtR(EL('R4').value*2)}), ¿qué pasa con V_B?`,
+      pregunta:'Reto de diseño: si duplicas R4 (la rama de B hacia la referencia), ¿qué pasa con V_B?',
       opciones:[
-        {t:'V_B no cambia: lo fija la fuente V2',ok:false,why:'V2 fija el nodo Q, no B: entre ellos está R5. V_B resulta del balance de TODA la red.'},
-        {t:`V_B sube a ${vb2.toFixed(3)} V`,ok:true,why:`Con más resistencia hacia ref, el nodo B "se descarga" menos: el MNA con R4 duplicado da V_B = ${vb2.toFixed(3)} V (antes ${vb.toFixed(3)} V).`},
-        {t:`V_B se duplica (${(vb*2).toFixed(3)} V)`,ok:false,why:'La red no es proporcional a un solo elemento: V_B depende de todas las conductancias (sistema 2×2), no linealmente de R4.'},
-        {t:'V_B baja: más resistencia significa menos voltaje',ok:false,why:'Al revés: R4 conecta B con ref (0 V). Debilitar ese lazo (más Ω) deja a B más cerca de los potenciales positivos.'},
+        {t:'V_B no cambia: lo fija la fuente V2 a través de R5',ok:false,why:'V2 fija el nodo Q, no B: entre ellos está R5. V_B resulta del balance de TODA la red.'},
+        {t:'V_B sube, pero sin llegar a duplicarse: no es proporcional',ok:true,why:'Con más resistencia hacia ref, el nodo B "se descarga" menos: sube. Pero V_B depende de todas las conductancias (sistema 2×2), no de R4 sola.',extra:`Con R4 duplicado el MNA da V_B = ${vb2.toFixed(3)} V (antes ${vb.toFixed(3)} V).`},
+        {t:'V_B se duplica: voltaje y resistencia van en proporción directa',ok:false,why:'La red no es proporcional a un solo elemento: V_B depende de todas las conductancias, no linealmente de R4.'},
+        {t:'V_B baja: más resistencia significa menos voltaje en el nodo',ok:false,why:'Al revés: R4 conecta B con ref (0 V). Debilitar ese lazo (más Ω) deja a B más cerca de los potenciales positivos.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija ni es sistemáticamente la más larga */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -716,7 +762,8 @@ function answer(i){
   const btn=el('dxbtns').children[i];
   if(o.ok){
     btn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);
-    showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    const ocultoNow=mode==='reto'&&!retoSolved;
+    showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}${o.extra&&!ocultoNow?' '+o.extra:''}</span>`);
   }else{
     btn.classList.add('wrong');synth.beep(220,0.15,0.06);
     showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
@@ -770,6 +817,9 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no resuelve nada del alumno. Se guarda su estado y se restituye al terminar;
+     el caso del reto que se mostró se retira (red nueva, sin resolver). */
+  const previo={solved,retoSolved,retoMsg,intentos,modo:mode,va:el('inVA').value,vb:el('inVB').value};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -785,16 +835,14 @@ async function runAuto(){
     showToast('Paso 4 · LVK malla 1: la subida de V1 se gasta exactamente en R1 y R2. ΣV = 0.');await sleep(3000);
     selectMesh(1);
     showToast('Paso 5 · Malla 2, SIN fuentes: el lazo regresa al mismo potencial — ΣV = 0 de todos modos.');await sleep(3000);
-    setMode('reto');
-    showToast('Paso 6 · El reto: predecir V_A y V_B. Planteamos LCK en A y B y resolvemos el sistema 2×2…');await sleep(2800);
-    el('inVA').value=SOL.V[2].toFixed(3);el('inVB').value=SOL.V[3].toFixed(3);
-    checkReto();await sleep(2200);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 6 · El reto es tuyo: plantea LCK en A y B, resuelve el sistema 2×2 y predice V_A y V_B. El recorrido NO lo resuelve ni lo marca como hecho.');await sleep(3200);
   }finally{
+    /* restituye el estado del alumno; la red del reto no se revela nunca en este recorrido */
+    setMode(previo.modo);
+    retoSolved=previo.retoSolved;retoMsg=previo.retoMsg;intentos=previo.intentos;
+    el('inVA').value=previo.va;el('inVB').value=previo.vb;
+    solved=previo.solved;
+    refreshAll();
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -830,4 +878,14 @@ window.__labDebug={
   sol:()=>({V:SOL.V.slice()}),
   boardClick,
   mode:()=>mode,
+  solved:()=>solved,
+  retoSolved:()=>retoSolved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
+  newNetwork:()=>newNetwork(),
+  setMode:k=>setMode(k),
+  checkReto:()=>checkReto(),
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
 };

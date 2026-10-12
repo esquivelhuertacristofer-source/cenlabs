@@ -43,7 +43,7 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'el divisor de tensión resistivo en CD con fuente ideal, resuelto por análisis nodal modificado (MNA) extendido para abrir/cerrar una rama sin cambiar su declaración; el efecto de carga (Vo ideal vs. Vo cargado, error %) contrastado contra la equivalencia de Thévenin del propio divisor; el divisor de corriente con fuente ideal y dos ramas en paralelo; y un reto de diseño con presupuestos explícitos de error de carga y corriente de reposo, sobre 6 escenarios verificados numéricamente.',
+    modela: 'el divisor de tensión resistivo en CD con fuente ideal, resuelto por análisis nodal modificado (MNA) extendido para abrir/cerrar una rama sin cambiar su declaración; el efecto de carga (Vo ideal vs. Vo cargado, error %) contrastado contra la equivalencia de Thévenin del propio divisor; el divisor de corriente con fuente ideal y dos ramas en paralelo; y un reto de diseño con presupuestos explícitos de error de carga y corriente de reposo, sobre 6 escenarios de diseño.',
     noModela: 'las tolerancias reales (±5 %) ni la deriva térmica de los componentes, la resistencia interna de la fuente V1 (fija en 12 V ideal), la resistencia de conductores y contactos, ni la impedancia de entrada variable de un circuito real conectado a la salida — es el circuito ideal de parámetros concentrados; la medición física con su incertidumbre es materia de la práctica del multímetro.'
   },
   s6: [

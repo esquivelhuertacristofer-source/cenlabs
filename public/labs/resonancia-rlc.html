@@ -595,6 +595,8 @@ let peakDiv = 5.0, loDiv = 1.0, hiDiv = 9.0;
 let measured = false, f0Measured = null, QMeasured = null, f1Measured = null, f2Measured = null, zPeakMeasured = null;
 let retoChecked = false, retoOk = false, retoMsg = '';
 let solved = false, autoRunning = false, QUIZ = {};
+let retoDone = false;                                   // reto resuelto: se conserva al cambiar de pestaña o editar
+let intentos = 0, resiembras = 0; const FALLOS_MAX = 3;  // fallos del caso de reto actual; a los 3 se resiembra
 
 function currentTopology() { return mode === 'explora' ? expTopology : (mode === 'medicion' ? medTopology : retoTopology); }
 function currentR() { return mode === 'explora' ? expR : (mode === 'medicion' ? medR : retoR); }
@@ -1083,8 +1085,8 @@ document.getElementById('hud').innerHTML = `
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> resonancia RLC exacta en serie y paralelo (f₀ idéntica en ambas; Q<sub>serie</sub>=ω₀L/R, Q<sub>paralelo</sub>=R/(ω₀L); Δf=f₀/Q; f₁,f₂ definidas por |Z(f₁,f₂)|=|Z(f₀)|·√2 en serie o /√2 en paralelo), con el mismo modelo de impedancia exacto de la práctica anterior; curva |Z(f)| analítica (sin ruido de muestreo) sobre una ventana centrada en f₀, con snap de los cursores de media potencia al cruce de nivel objetivo calculado en vivo desde la lectura actual del cursor de pico/valle; filtro de elegibilidad Q∈[1.2,18] y filtro de generación de rondas del Reto basado en el peor error de recuperación bajo perturbación de ±1 muestra en los tres cursores, verificados numéricamente antes de implementar (ver cita abajo).</div>
-    <div class="fl no"><b>NO modela:</b> componentes reales con pérdidas parásitas (R, L, C son elementos ideales puros); ruido de instrumentación ni ancho de banda finito del analizador — la única fuente de error de medición es el paso discreto del cursor; resonancias múltiples, circuitos de más de tres elementos ni redes mixtas serie-paralelo; fenómenos de resonancia trifásica o mecánica; fase θz en el dominio del tiempo (a diferencia de la práctica anterior, aquí se mide sobre |Z(f)|, no sobre cruces por cero de un osciloscopio). Las tolerancias (±5% en f₀, ±22% en Q, ±25% en el componente recuperado) son un margen PEDAGÓGICO calibrado numéricamente, no una especificación de instrumento real.</div>
+    <div class="fl"><b>Sí modela:</b> resonancia RLC exacta en serie y paralelo (f₀ idéntica en ambas; Q<sub>serie</sub>=ω₀L/R, Q<sub>paralelo</sub>=R/(ω₀L); Δf=f₀/Q; f₁,f₂ definidas por |Z(f₁,f₂)|=|Z(f₀)|·√2 en serie o /√2 en paralelo), con el mismo modelo de impedancia exacto de la práctica anterior; curva |Z(f)| analítica (sin ruido de muestreo) sobre una ventana centrada en f₀, con snap de los cursores de media potencia al cruce de nivel objetivo calculado en vivo desde la lectura actual del cursor de pico/valle; filtro de elegibilidad Q∈[1.2,18] y filtro de generación de rondas del Reto basado en el peor error de recuperación bajo perturbación de ±1 muestra en los tres cursores.</div>
+    <div class="fl no"><b>NO modela:</b> componentes reales con pérdidas parásitas (R, L, C son elementos ideales puros); ruido de instrumentación ni ancho de banda finito del analizador — la única fuente de error de medición es el paso discreto del cursor; resonancias múltiples, circuitos de más de tres elementos ni redes mixtas serie-paralelo; fenómenos de resonancia trifásica o mecánica; fase θz en el dominio del tiempo (a diferencia de la práctica anterior, aquí se mide sobre |Z(f)|, no sobre cruces por cero de un osciloscopio). Las tolerancias (±5% en f₀, ±22% en Q, ±25% en el componente recuperado) son un margen PEDAGÓGICO de este ejercicio, no una especificación de instrumento real.</div>
   </div>
   <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · IEC 60027-1 · IEEE Std 280 · verificación numérica propia (128 combinaciones, 104 elegibles, error máx. f₀ 0.63%, Q 20.14%)</div>`;
 
@@ -1181,7 +1183,7 @@ function setMode(k) {
   peakDiv = 5.0; loDiv = 1.0; hiDiv = 9.0;
   el('cursorPk').value = '5'; el('cursorLo').value = '1'; el('cursorHi').value = '9';
   measured = false; f0Measured = null; QMeasured = null; f1Measured = null; f2Measured = null; zPeakMeasured = null;
-  retoChecked = false; retoOk = false; retoMsg = '';
+  if (!retoDone) { retoChecked = false; retoOk = false; retoMsg = ''; }
   ['explora', 'medicion', 'reto'].forEach(m => el('m_' + m).classList.toggle('on', m === k));
   el('p_mode').textContent = MODE_META[k].nombre;
   const reto = k === 'reto';
@@ -1189,7 +1191,7 @@ function setMode(k) {
   el('retoBox').style.display = reto ? '' : 'none';
   if (reto) { updateRetoSpec(); updateSealedInputLabel(); }
   buildSelBar();
-  solved = false; clearDx(); buildQuiz(); refreshQuestion();
+  solved = (k === 'reto') ? retoDone : false; clearDx(); buildQuiz(); refreshQuestion();
   S.moveTo(MODE_META[k].cam[0], MODE_META[k].cam[1], 1.3);
   refreshAll();
 }
@@ -1234,10 +1236,11 @@ function updateTele() {
     t.innerHTML =
       teleRow('Topología', TOPO_LABELS[retoTopology]) +
       teleRow('Conocidos', knownText) +
-      teleRow(retoSealedKey + ' (sellado)', (retoChecked && retoOk) ? fmtSealed(retoSealedKey, ({ R: retoR, L: retoL, C: retoC })[retoSealedKey]) + ' ✔' : '🔒 desconocido') +
+      teleRow(retoSealedKey + ' (sellado)', retoDone ? fmtSealed(retoSealedKey, ({ R: retoR, L: retoL, C: retoC })[retoSealedKey]) + ' ✔' : '🔒 desconocido') +
       teleRow('f₀ medido (cursores)', measured ? fmtHzP(f0Measured) : 'sin medir', measured ? 'good' : 'warn') +
       teleRow('Q medido (cursores)', measured ? fmtQ(QMeasured) : 'sin medir', measured ? 'good' : 'warn') +
-      teleRow('Estado', retoChecked ? (retoOk ? '✔ CORRECTO' : 'revisa tu cálculo') : 'Mide f₀ y Q, despeja el componente, luego comprueba', retoChecked ? (retoOk ? 'good' : 'bad') : '');
+      teleRow('Intentos fallidos', intentos + ' / ' + FALLOS_MAX, intentos ? 'warn' : '') +
+      teleRow('Estado', retoDone ? '✔ CORRECTO' : (retoChecked ? 'revisa tu cálculo' : 'Mide f₀ y Q, despeja el componente, luego comprueba'), retoDone ? 'good' : (retoChecked ? 'bad' : ''));
   }
 }
 function updateReport() {
@@ -1284,6 +1287,7 @@ function medirResonancia() {
   refreshAll();
 }
 function checkReto() {
+  if (retoDone) return;
   if (!measured) { showToast('⚠️ Primero mide f₀ y Q con los cursores del analizador ("Medir resonancia").'); return; }
   const guess = numOr('inSealed');
   if (!isFinite(guess)) { showToast('⚠️ Ingresa tu valor calculado para el componente sellado.'); return; }
@@ -1293,10 +1297,33 @@ function checkReto() {
   solved = retoOk;
   synth.beep(retoOk ? 1046 : 220, retoOk ? 0.14 : 0.15, 0.06);
   const guessFmt = fmtSealed(retoSealedKey, guess);
-  retoMsg = retoOk
-    ? `<span class="mono"><span class="ok">✔ ${retoSealedKey} correcto</span> (tu respuesta ${guessFmt}, dentro de ±${Math.round(TOL_COMPONENT_FRAC * 100)}% del valor real)</span>`
-    : `<span class="mono"><span class="dtc">✗ ${retoSealedKey} fuera de tolerancia</span> (tu respuesta ${guessFmt}). Revisa la ecuación de inversión para la topología ${TOPO_LABELS[retoTopology]} y el componente ${retoSealedKey}, usando f₀ y Q medidos.</span>`;
+  if (retoOk) {
+    retoDone = true;
+    retoMsg = `<span class="mono"><span class="ok">✔ ${retoSealedKey} correcto</span> en ${intentos + 1} ${intentos ? 'intentos' : 'intento'} (tu respuesta ${guessFmt}, dentro de ±${Math.round(TOL_COMPONENT_FRAC * 100)}% del valor real)</span>`;
+  } else {
+    intentos++;
+    /* retroalimentación cualitativa: nunca el valor real ni el sentido del error */
+    const base = `<span class="dtc">✗ ${retoSealedKey} fuera de tolerancia</span> (tu respuesta ${guessFmt}). Revisa la ecuación de inversión para la topología ${TOPO_LABELS[retoTopology]} y el componente ${retoSealedKey}, usando f₀ y Q medidos.`;
+    if (intentos >= FALLOS_MAX) {
+      resiembras++;
+      const msg = `<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> este circuito se retira sin revelar el componente. Te toca uno nuevo.</span>`;
+      newRetoReseed();
+      retoMsg = msg; refreshAll();
+      return;
+    }
+    retoMsg = `<span class="mono">${base} (intento ${intentos} de ${FALLOS_MAX}; a los ${FALLOS_MAX} fallos el circuito cambia)</span>`;
+  }
   refreshAll();
+}
+/* Circuito nuevo del reto (tras 3 fallos o con «Nueva señal») */
+function newRetoReseed() {
+  newRetoRound();
+  measured = false; f0Measured = null; QMeasured = null; f1Measured = null; f2Measured = null; zPeakMeasured = null;
+  retoChecked = false; retoOk = false; retoMsg = ''; retoDone = false; intentos = 0;
+  if (el('inSealed')) el('inSealed').value = '';
+  resetCursorsToDefault();
+  updateRetoSpec(); updateSealedInputLabel();
+  solved = false; clearDx(); buildQuiz(); refreshQuestion(); refreshAll();
 }
 function updateSealedInputLabel() {
   const unit = retoSealedKey === 'R' ? 'Ω' : (retoSealedKey === 'L' ? 'mH' : 'µF');
@@ -1306,7 +1333,7 @@ function updateSealedInputLabel() {
 function updateRetoSpec() {
   const known = SEALED_KEYS.filter(k => k !== retoSealedKey);
   const knownText = known.map(k => k + '=' + (k === 'R' ? fmtOhm(retoR) : (k === 'L' ? fmtMH(retoL) : fmtUF(retoC)))).join(', ');
-  el('retoSpec').innerHTML = `Topología ${TOPO_LABELS[retoTopology]}. Componentes conocidos: ${knownText}. El componente <b>${retoSealedKey}</b> está sellado. Mide f₀ y Q con los cursores del analizador ("Medir resonancia") y despeja ${retoSealedKey} con las ecuaciones de inversión de la topología activa.<br><span style="color:var(--dim)">Tolerancias (±${Math.round(TOL_F0_FRAC * 100)}% en f₀ y ±${Math.round(TOL_Q_FRAC * 100)}% en Q para Medición, ±${Math.round(TOL_COMPONENT_FRAC * 100)}% en el componente para Reto) son un margen pedagógico calibrado numéricamente.</span>`;
+  el('retoSpec').innerHTML = `Topología ${TOPO_LABELS[retoTopology]}. Componentes conocidos: ${knownText}. El componente <b>${retoSealedKey}</b> está sellado. Mide f₀ y Q con los cursores del analizador ("Medir resonancia") y despeja ${retoSealedKey} con las ecuaciones de inversión de la topología activa.<br><span style="color:var(--dim)">Tolerancias (±${Math.round(TOL_F0_FRAC * 100)}% en f₀ y ±${Math.round(TOL_Q_FRAC * 100)}% en Q para Medición, ±${Math.round(TOL_COMPONENT_FRAC * 100)}% en el componente para Reto) son un margen pedagógico de este ejercicio.</span>`;
 }
 function pickFrom(arr, exclude) {
   const pick = () => arr[Math.floor(Math.random() * arr.length)];
@@ -1325,6 +1352,13 @@ function pickEligibleCombo(prevTopology) {
   }
   return { topology: 'serie', R: 14, L: 47, C: 4.7 };
 }
+/* ¿la respuesta ingenua (despejar R con la fórmula de la topología equivocada) pasaría la tolerancia? Esas rondas no se sortean */
+function respuestaIngenuaPasa(topology, sealedKey, R, L, C) {
+  if (sealedKey !== 'R') return false;   // L y C se despejan igual en ambas topologías
+  const otra = topology === 'serie' ? 'paralelo' : 'serie';
+  const v = recoverSealed(otra, sealedKey, R, L, C, f0Of(L, C), QOf(topology, R, L, C));
+  return isFinite(v) && v > 0 && Math.abs(v - R) <= R * TOL_COMPONENT_FRAC;
+}
 function pickRetoRound(prevTopology, prevSealedKey) {
   for (let tries = 0; tries < 500; tries++) {
     const topology = pickFrom(TOPOLOGIES, prevTopology);
@@ -1334,7 +1368,7 @@ function pickRetoRound(prevTopology, prevSealedKey) {
     const C = pickFrom(C_CANDIDATES);
     const Q = QOf(topology, R, L, C);
     if (Q < QMIN || Q > QMAX) continue;
-    if (worstCaseRecoveryError(topology, sealedKey, R, L, C) <= DEGEN_THRESHOLD) {
+    if (worstCaseRecoveryError(topology, sealedKey, R, L, C) <= DEGEN_THRESHOLD && !respuestaIngenuaPasa(topology, sealedKey, R, L, C)) {
       return { topology, sealedKey, R, L, C };
     }
   }
@@ -1360,13 +1394,7 @@ function newSignal() {
     solved = false; clearDx(); buildQuiz(); refreshQuestion(); buildSelBar(); refreshAll();
     showToast('🔀 Nuevo circuito sellado. Vuelve a medir f₀ y Q.'); synth.beep(520, 0.08, 0.05);
   } else if (mode === 'reto') {
-    newRetoRound();
-    measured = false; f0Measured = null; QMeasured = null; f1Measured = null; f2Measured = null; zPeakMeasured = null;
-    retoChecked = false; retoOk = false; retoMsg = '';
-    if (el('inSealed')) el('inSealed').value = '';
-    resetCursorsToDefault();
-    updateRetoSpec(); updateSealedInputLabel();
-    solved = false; clearDx(); buildQuiz(); refreshQuestion(); refreshAll();
+    newRetoReseed();
     showToast('🔀 Nuevo circuito sellado. Componente y topología pueden haber cambiado.'); synth.beep(520, 0.08, 0.05);
   } else {
     const r = pickEligibleCombo(expTopology);
@@ -1375,7 +1403,7 @@ function newSignal() {
     showToast('🔀 Nueva combinación aleatoria en Explora.');
   }
 }
-function onRetoInput() { if (mode !== 'reto') return; retoChecked = false; retoOk = false; retoMsg = ''; refreshAll(); }
+function onRetoInput() { if (mode !== 'reto' || retoDone) return; retoChecked = false; retoOk = false; retoMsg = ''; refreshAll(); }
 
 /* ---------- 12. QUIZ ---------- */
 function buildQuiz() {
@@ -1383,31 +1411,36 @@ function buildQuiz() {
     explora: {
       pregunta: 'La fórmula f₀=1/(2π√(LC)) es idéntica en serie y en paralelo, pero en serie |Z| tiene un MÍNIMO en f₀ y en paralelo un MÁXIMO. ¿Por qué ocurre esto si f₀ es la misma frecuencia en ambos casos?',
       opciones: [
-        { t: 'En f₀ se cancela la parte reactiva en ambos casos (X=0 en serie, B=0 en la admitancia en paralelo); en serie eso deja el MÍNIMO de impedancia (Z=R), y en paralelo deja el MÍNIMO de admitancia (Y=1/R) que, al invertirse (Z=1/Y), se convierte en el MÁXIMO de impedancia.', ok: true, why: 'Correcto: es la misma cancelación de reactancia vista desde impedancia (serie) o admitancia (paralelo), y esa inversión Z=1/Y es lo que voltea mínimo en máximo.' },
-        { t: 'Porque en paralelo la resistencia R es mucho mayor que en serie, así que Z siempre es más grande sin importar la frecuencia.', ok: false, why: 'Los rangos de R difieren por diseño de este banco (para mantener Q en un rango razonable), pero el min/max se invierte para CUALQUIER valor de R en cada topología — no es un efecto de magnitud de R.' },
-        { t: 'Porque el simulador invierte el eje Y del gráfico según la topología, no es un efecto físico real.', ok: false, why: 'Es un efecto físico real de la álgebra Z=1/Y, no un truco de renderizado.' },
-        { t: 'Porque en paralelo la frecuencia de resonancia es distinta a la de serie, así que no se puede comparar directamente.', ok: false, why: 'La fórmula f₀=1/(2π√(LC)) es idéntica en ambas topologías, como el enunciado de la pregunta indica explícitamente.' },
+        { t: 'En f₀ se cancela la reactancia: en serie queda Z=R (mínimo de |Z|) y en paralelo queda la mínima admitancia Y=1/R, que al invertirla es el máximo de |Z|.', ok: true, why: 'Correcto: es la misma cancelación de reactancia vista desde impedancia (serie) o admitancia (paralelo), y esa inversión Z=1/Y es lo que voltea mínimo en máximo.' },
+        { t: 'Porque en paralelo la resistencia R es mucho mayor que en serie, así que Z siempre resulta más grande sin importar la frecuencia aplicada.', ok: false, why: 'Los rangos de R difieren por diseño de este banco (para mantener Q en un rango razonable), pero el min/max se invierte para CUALQUIER valor de R en cada topología — no es un efecto de magnitud de R.' },
+        { t: 'Porque el simulador invierte el eje vertical de la gráfica según la topología, pero no es un efecto físico real de la resonancia.', ok: false, why: 'Es un efecto físico real de la álgebra Z=1/Y, no un truco de renderizado.' },
+        { t: 'Porque en paralelo la frecuencia de resonancia es distinta de la de serie, así que no se pueden comparar directamente entre sí.', ok: false, why: 'La fórmula f₀=1/(2π√(LC)) es idéntica en ambas topologías, como el enunciado de la pregunta indica explícitamente.' },
       ],
     },
     medicion: {
-      pregunta: 'El nivel objetivo para los cursores de media potencia se calcula EN VIVO a partir de la lectura ACTUAL del cursor de pico/valle, no del valor real de Z(f₀). Si el cursor de pico/valle no está exactamente en el extremo verdadero, ¿qué consecuencia numérica tiene esto?',
+      pregunta: 'El nivel objetivo de los cursores de media potencia se calcula a partir de la lectura ACTUAL de tu cursor de pico/valle. Si ese cursor no está exactamente en el extremo verdadero, ¿qué consecuencia tiene?',
       opciones: [
-        { t: 'El error se propaga a f₀ y a Δf medido, y por tanto a Q=f₀/Δf; verificado numéricamente que Q es mucho más sensible que f₀ a la imprecisión del cursor (hasta 20.14% de error en Q, contra solo 0.63% en f₀), por eso la tolerancia de Q (±22%) es mucho más amplia que la de f₀ (±5%).', ok: true, why: 'Correcto: el nivel objetivo hereda el error del pico, y ese error se amplifica más al calcular Q que al leer f₀ directamente — de ahí las tolerancias distintas.' },
-        { t: 'No tiene ninguna consecuencia, porque los cursores de media potencia siempre encuentran el cruce exacto sin importar dónde esté el cursor de pico/valle.', ok: false, why: 'El nivel objetivo mismo depende de la lectura del pico, así que un pico impreciso desplaza el nivel objetivo y, con él, los cruces encontrados.' },
-        { t: 'Solo afecta la medición de f₀, nunca la de Q.', ok: false, why: 'Es al revés: verificado numéricamente que Q es la cantidad MÁS sensible a este error, no la menos.' },
-        { t: 'El simulador corrige automáticamente el error del cursor de pico/valle antes de calcular Q.', ok: false, why: 'No existe corrección automática — por eso la ubicación cuidadosa del cursor de pico/valle por inspección visual es la parte que realmente exige habilidad en este laboratorio.' },
+        { t: 'El nivel objetivo se desplaza y con él los cruces de media potencia: el error llega a Δf y a Q=f₀/Δf, que es más sensible que f₀.', ok: true, why: 'Correcto: el nivel objetivo hereda el error del pico, y ese error se amplifica más al calcular Q=f₀/Δf (una diferencia de frecuencias pequeña) que al leer f₀ directamente — de ahí las tolerancias distintas para f₀ y Q.' },
+        { t: 'No tiene ninguna consecuencia, porque los cursores de media potencia siempre encuentran el cruce exacto sin importar dónde esté el de pico.', ok: false, why: 'El nivel objetivo mismo depende de la lectura del pico, así que un pico impreciso desplaza el nivel objetivo y, con él, los cruces encontrados.' },
+        { t: 'Solo afecta la lectura de f₀ y nunca la de Q, porque Q se calcula directamente a partir de los valores de R, L y C.', ok: false, why: 'En esta medición Q sale de Q=f₀/Δf con los cursores, así que un nivel mal ubicado SÍ llega a Q — y la afecta más que a f₀.' },
+        { t: 'El simulador corrige automáticamente la posición del cursor de pico antes de calcular Q, por lo que no hay consecuencia alguna.', ok: false, why: 'No existe corrección automática — por eso la ubicación cuidadosa del cursor de pico/valle por inspección visual es la parte que realmente exige habilidad en este laboratorio.' },
       ],
     },
     reto: {
-      pregunta: 'Antes de sellar un componente en el Reto, el simulador descarta —por fuerza bruta, antes de mostrar la ronda— cualquier combinación donde una perturbación de ±1 muestra de índice en los tres cursores produzca más de 20% de error en el componente recuperado. ¿Por qué es necesario este filtro si las ecuaciones de inversión son exactas?',
+      pregunta: 'Si el componente sellado en el Reto fuera R, ¿por qué medir solo f₀ no basta y necesitas también el factor de calidad Q?',
       opciones: [
-        { t: 'Exactas no significa insensibles: cerca de ciertas combinaciones, el paso discreto de muestreo del cursor —inevitable incluso con una medición cuidadosa— se amplifica al invertir la fórmula. Verificado numéricamente sobre el espacio filtrado por Q∈[1.2,18]: el filtro asegura que el peor error de recuperación se mantenga acotado (100% de aceptación tras aplicarlo).', ok: true, why: 'Correcto: las fórmulas son algebraicamente exactas, pero su SENSIBILIDAD al error de entrada (el paso discreto del cursor) varía según la combinación — el filtro descarta las combinaciones numéricamente mal condicionadas.' },
-        { t: 'Porque el simulador no puede calcular f₀ y Q para todas las combinaciones de R, L y C.', ok: false, why: 'buildSweep, peakIdxFor y las demás funciones calculan f₀ y Q exactamente para cualquier combinación válida — el problema no es de cálculo sino de sensibilidad al error de medición.' },
-        { t: 'Porque algunas combinaciones de R, L y C no son físicamente realizables con componentes comerciales.', ok: false, why: 'Todos los candidatos del banco son valores comerciales estándar; el filtro es sobre sensibilidad numérica, no sobre realizabilidad física.' },
-        { t: 'Porque el filtro evita que dos rondas seguidas tengan el mismo componente sellado.', ok: false, why: 'Esa función la cumple pickFrom() al excluir la ronda anterior; el filtro de degeneración es un criterio numérico distinto sobre el peor error de recuperación.' },
+        { t: 'Porque f₀=1/(2π√(LC)) no depende de R: solo Q, que sí depende de R, permite despejarlo con L y C conocidas.', ok: true, why: 'Correcto: f₀ queda fijada por L y C, así que no aporta información sobre R; la selectividad Q=f₀/Δf sí depende de R (en serie Q=(1/R)·√(L/C), en paralelo Q=R·√(C/L)) y permite despejarlo.' },
+        { t: 'Porque f₀ depende de R tanto como de L y de C, pero su medición con los cursores es demasiado imprecisa para despejar R.', ok: false, why: 'f₀=1/(2π√(LC)) no contiene R; el problema no es la precisión del cursor sino que f₀ no lleva información sobre R.' },
+        { t: 'Porque Q solo se define en la topología serie, y en paralelo hay que medir la fase de la corriente en su lugar.', ok: false, why: 'Q se define y se mide en ambas topologías: Q=f₀/Δf con el ancho de banda de media potencia.' },
+        { t: 'Porque R se obtiene del valor de |Z| a cualquier frecuencia fuera de resonancia, sin necesidad de f₀ ni de Q.', ok: false, why: 'Fuera de resonancia |Z| mezcla R con las reactancias de L y C; sin f₀ y Q no hay forma directa de separar R.' },
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k => {
+    const o = QUIZ[k].opciones;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+  });
 }
 function clearDx() { el('dxbtns').querySelectorAll('button').forEach(b => { b.classList.remove('right', 'wrong'); }); }
 function refreshQuestion() {
@@ -1474,6 +1507,8 @@ async function runAuto() {
   autoRunning = true;
   const btn = el('btnAuto'), label = btn.textContent;
   btn.disabled = true; btn.classList.add('on'); btn.textContent = '⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo = { modo: mode, solved, expTopology, expR, expL, expC, medTopology, medR, medL, medC };
   try {
     synth.init(); synth.resume();
     clearDx();
@@ -1515,26 +1550,12 @@ async function runAuto() {
     medirResonancia(); await sleep(2800);
     answer(QUIZ.medicion.opciones.findIndex((o) => o.ok)); await sleep(1800);
 
-    setMode('reto');
-    showToast('Paso 3 · Un componente está sellado. Mide f₀ y Q, y despeja su valor con las ecuaciones de la topología activa.');
-    await sleep(2200);
-    {
-      const { zs } = currentSweep();
-      const trueIdx = peakIdxFor(currentTopology(), zs);
-      peakDiv = divFromIdx(trueIdx); el('cursorPk').value = String(peakDiv);
-      loDiv = 0.3; hiDiv = 9.7; el('cursorLo').value = '0.3'; el('cursorHi').value = '9.7';
-    }
-    refreshAll();
-    medirResonancia(); await sleep(1800);
-    const trueVal = ({ R: retoR, L: retoL, C: retoC })[retoSealedKey];
-    el('inSealed').value = String(trueVal);
-    checkReto(); await sleep(2600);
-    const q = QUIZ.reto, i = q.opciones.findIndex((o) => o.ok);
-    clearDx();
-    const dxBtn = el('dxbtns').children[i];
-    if (dxBtn) { dxBtn.classList.add('right'); solved = true; synth.beep(1046, 0.12, 0.06); }
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: un componente sellado. Mide f₀ y Q y despéjalo con las ecuaciones de la topología activa. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   } finally {
+    expTopology = previo.expTopology; expR = previo.expR; expL = previo.expL; expC = previo.expC;
+    medTopology = previo.medTopology; medR = previo.medR; medL = previo.medL; medC = previo.medC;
+    setMode(previo.modo); solved = previo.solved;
     btn.disabled = false; btn.classList.remove('on'); btn.textContent = label; autoRunning = false;
   }
 }
@@ -1586,6 +1607,10 @@ window.__labDebug = {
   setInSealed: (v) => { el('inSealed').value = String(v); },
   retoChecked: () => retoChecked,
   retoOk: () => retoOk,
+  retoSolved: () => retoDone,
+  intentos: () => intentos,
+  resiembras: () => resiembras,
+  runAuto: () => runAuto(),
   retoMsg: () => retoMsg,
   retoTopology: () => retoTopology,
   retoR: () => retoR, retoL: () => retoL, retoC: () => retoC,

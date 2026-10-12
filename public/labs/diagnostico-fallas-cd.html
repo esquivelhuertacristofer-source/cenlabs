@@ -484,6 +484,7 @@ const FAULT_TYPES=['abierto','corto','deriva'];
 let retoType=FAULT_TYPES[Math.floor(Math.random()*3)], retoIdx=1+Math.floor(Math.random()*8);
 let retoDriftFactor=randomDriftFactor();
 let retoLog=[], retoMeasCount=0, retoSolved=false, retoMsg='';
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos del diagnóstico de reto actual; a los 3 se resiembra
 let retoGuessType='abierto', retoGuessIdx=1;
 let solved=false, autoRunning=false;
 let QUIZ={};
@@ -847,7 +848,7 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> firma de escalón limpio de un circuito abierto en una cadena serie, verificada algebraicamente por KVL; bisección formal sobre circuito abierto (óptimo ⌈log₂8⌉=3 mediciones, con seguimiento del conteo real); comparación libre de las 3 firmas de falla en Explora, con gráfica de perfil de voltaje nodo a nodo; diagnóstico de tipo Y posición desconocidos en Reto, verificado de forma independiente.</div>
+    <div class="fl"><b>Sí modela:</b> firma de escalón limpio de un circuito abierto en una cadena serie, verificada algebraicamente por KVL; bisección formal sobre circuito abierto (óptimo ⌈log₂8⌉=3 mediciones, con seguimiento del conteo real); comparación libre de las 3 firmas de falla en Explora, con gráfica de perfil de voltaje nodo a nodo; diagnóstico de tipo Y posición desconocidos en Reto.</div>
     <div class="fl no"><b>NO modela:</b> la garantía formal de bisección NO se extiende a corto ni deriva de valor — ambas desplazan el perfil completo de voltaje en vez de producir un escalón limpio en un solo nodo, así que se exploran libremente pero sin la ayuda de un algoritmo de localización. Tampoco modela el efecto de carga del multímetro (impedancia infinita, ideal), fallas simultáneas, tolerancias de fabricación de los resistores, ni efectos térmicos o de arco progresivos en un corto real.</div>
   </div>
   <div class="src">Ref: EC&amp;M "The Beauty of Half-Splitting" · AllAboutCircuits · Hayt/Kemmerly/Durbin · IEC 60617 · IEC 60063</div>`;
@@ -974,7 +975,8 @@ function updateTele(){
     h+=teleRow('Estado',dxDone?('Localizada en R'+dxInterval.hi):'En curso');
   }else{
     h+=teleRow('Mediciones tomadas',String(retoLog.length));
-    h+=teleRow('Diagnóstico reportado',retoSolved?'Correcto':(retoMsg?'Incorrecto':'—'),retoSolved?'good':'');
+    h+=teleRow('Diagnóstico reportado',retoSolved?'Correcto':(intentos?'Incorrecto':'—'),retoSolved?'good':'');
+    h+=teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1034,30 +1036,53 @@ function probeReto(node){
   showToast('P'+node+': <b>'+v.toFixed(2)+' V</b>');
   refreshAll();
 }
+/* Retroalimentación de RAZONAMIENTO: contrasta la hipótesis del alumno con SUS propias lecturas */
+function pistaHipotesis(){
+  if(retoGuessType==='deriva')return 'Una deriva no da escalón limpio ni anula la corriente: compara el perfil que mediste con el de la cadena sana (cae de 24 V a 0 V de forma pareja).';
+  const g=solveChain(retoGuessType,retoGuessIdx,1).nodeV;
+  const malo=retoLog.find(l=>Math.abs(l.v-g[l.node])>0.05);
+  if(malo)return 'Con '+retoGuessType+' en R'+retoGuessIdx+', P'+malo.node+' marcaría '+g[malo.node].toFixed(2)+' V, pero mediste '+malo.v.toFixed(2)+' V: esa hipótesis no cuadra con tu lectura.';
+  return 'Tu hipótesis es compatible con las lecturas que tomaste, pero con ellas no se descartan otras: mide en más nodos antes de reportar.';
+}
 function checkReto(){
+  if(retoSolved)return;
   if(retoLog.length===0){showToast('⚠️ Mide al menos un nodo antes de reportar tu diagnóstico.');return;}
   const typeOk=retoGuessType===retoType;
   const idxOk=retoGuessIdx===retoIdx;
   retoSolved=typeOk&&idxOk;
-  const tOk='<span class="'+(typeOk?'ok':'dtc')+'">'+(typeOk?'✔':'✗')+' tipo</span>';
-  const iOk='<span class="'+(idxOk?'ok':'dtc')+'">'+(idxOk?'✔':'✗')+' resistor</span>';
-  retoMsg='<span class="mono">'+tOk+' · '+iOk+(retoSolved?' — <b>Diagnóstico correcto.</b>':' — revisa tu razonamiento (no se revela la respuesta).')+'</span>';
-  if(retoSolved){synth.beep(1046,0.14,0.07);solved=true;}
-  else synth.beep(220,0.16,0.07);
-  showToast(retoSolved?'<span style="color:var(--good)">✔ Diagnóstico correcto</span>':'Diagnóstico incompleto o incorrecto — sigue midiendo.');
+  if(retoSolved){
+    retoMsg='<span class="mono"><span class="ok">✔ Diagnóstico correcto</span> en '+(intentos+1)+(intentos?' intentos':' intento')+', con '+retoLog.length+' lectura(s).</span>';
+    synth.beep(1046,0.14,0.07);solved=true;
+    showToast('<span style="color:var(--good)">✔ Diagnóstico correcto</span>');
+  }else{
+    intentos++;synth.beep(220,0.16,0.07);
+    /* no se dice cuál de los dos campos falla (daría la respuesta por partes) ni se revela la falla */
+    const base='<span class="dtc">✗ Diagnóstico incorrecto</span> — '+pistaHipotesis();
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      retoMsg='<span class="mono">'+base+'<br><span class="dtc">'+FALLOS_MAX+' intentos fallidos:</span> esta falla se retira sin revelarse. Te toca una nueva.</span>';
+      const msg=retoMsg;
+      newReto(true);
+      retoMsg=msg;refreshAll();
+      showToast('🔀 '+FALLOS_MAX+' fallos: falla nueva, tipo y posición desconocidos.');
+      return;
+    }
+    retoMsg='<span class="mono">'+base+' (intento '+intentos+' de '+FALLOS_MAX+'; a los '+FALLOS_MAX+' fallos la falla cambia).</span>';
+    showToast('Diagnóstico incorrecto — revisa tus lecturas.');
+  }
   refreshAll();
 }
-function newReto(){
+function newReto(auto){
   let nt,ni;
   do{
     nt=FAULT_TYPES[Math.floor(Math.random()*3)];
     ni=1+Math.floor(Math.random()*8);
   }while(nt===retoType&&ni===retoIdx);
   retoType=nt;retoIdx=ni;retoDriftFactor=randomDriftFactor();
-  retoLog=[];retoMeasCount=0;retoSolved=false;retoMsg='';
+  retoLog=[];retoMeasCount=0;retoSolved=false;retoMsg='';intentos=0;
   retoGuessType='abierto';retoGuessIdx=1;
   el('guessType').value='abierto';el('guessIdx').value='1';
-  showToast('🔀 Nueva falla sellada (tipo y posición desconocidos).');
+  if(auto!==true){showToast('🔀 Nueva falla sellada (tipo y posición desconocidos).');}
   synth.beep(440,0.1,0.05);
   afterEdit();
 }
@@ -1068,31 +1093,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Cuando un resistor de la cadena se abre, ¿qué ocurre con el voltaje de los nodos posteriores a la falla?',
       opciones:[
-        {t:'Caen a 0 V, porque la corriente de toda la cadena se vuelve prácticamente cero',ok:true,why:'El resistor abierto absorbe todo el voltaje de la fuente; sin corriente, no hay caída de voltaje en los resistores restantes.'},
-        {t:'Suben a 24 V, porque el resistor abierto actúa como cortocircuito',ok:false,why:'Un abierto es lo opuesto de un corto: bloquea la corriente, no la desvía.'},
-        {t:'No cambian, porque cada resistor es independiente',ok:false,why:'En un circuito serie todos los resistores comparten la misma corriente — una falla afecta a toda la cadena.'},
-        {t:'Oscilan aleatoriamente hasta estabilizarse',ok:false,why:'El modelo es estático (Ley de Ohm + KVL), no hay dinámica oscilatoria.'},
+        {t:'Caen a 0 V, porque la corriente de toda la cadena se vuelve prácticamente nula',ok:true,why:'El resistor abierto absorbe todo el voltaje de la fuente; sin corriente, no hay caída de voltaje en los resistores restantes.'},
+        {t:'Suben a 24 V, porque el resistor abierto actúa como un cortocircuito hacia la fuente',ok:false,why:'Un abierto es lo opuesto de un corto: bloquea la corriente, no la desvía.'},
+        {t:'No cambian, porque cada resistor de la cadena es independiente de los demás',ok:false,why:'En un circuito serie todos los resistores comparten la misma corriente — una falla afecta a toda la cadena.'},
+        {t:'Oscilan aleatoriamente un rato hasta estabilizarse en un valor intermedio',ok:false,why:'El modelo es estático (Ley de Ohm + KVL), no hay dinámica oscilatoria.'},
       ],
     },
     diagnostico:{
       pregunta:'¿Por qué conviene medir el nodo de en medio del tramo sospechoso primero, en vez de un extremo?',
       opciones:[
-        {t:'Porque cada medición bien colocada descarta la mitad del tramo restante (bisección)',ok:true,why:'Es la esencia del half-splitting: minimizar el número esperado de mediciones necesarias.'},
-        {t:'Porque el nodo de en medio siempre es la falla',ok:false,why:'No necesariamente — solo reduce el tramo a la mitad, no localiza directamente salvo que ya quede un solo resistor.'},
-        {t:'Porque los nodos extremos del circuito no se pueden medir',ok:false,why:'P0 y P8 sí se pueden medir, pero son triviales por definición y no aportan información nueva.'},
-        {t:'Porque el multímetro solo funciona en el centro del circuito',ok:false,why:'El multímetro simulado es ideal y mide cualquier nodo accesible por igual.'},
+        {t:'Porque cada medición bien colocada descarta la mitad del tramo restante',ok:true,why:'Es la esencia del half-splitting: minimizar el número esperado de mediciones necesarias.'},
+        {t:'Porque el nodo de en medio es siempre el punto donde está la falla',ok:false,why:'No necesariamente — solo reduce el tramo a la mitad, no localiza directamente salvo que ya quede un solo resistor.'},
+        {t:'Porque los nodos extremos del circuito no se pueden medir con el multímetro',ok:false,why:'P0 y P8 sí se pueden medir, pero son triviales por definición y no aportan información nueva.'},
+        {t:'Porque el multímetro solo funciona bien en el centro del circuito',ok:false,why:'El multímetro simulado es ideal y mide cualquier nodo accesible por igual.'},
       ],
     },
     reto:{
       pregunta:'¿Por qué en este banco la bisección formal solo se garantiza para el circuito abierto, y no para el corto o la deriva?',
       opciones:[
-        {t:'Porque el abierto produce un escalón limpio en un solo nodo; corto y deriva desplazan todo el perfil, sin localización binaria directa',ok:true,why:'Es la firma de falla lo que permite o no la bisección — no una limitación arbitraria del instrumento.'},
-        {t:'Porque el corto y la deriva son fallas menos importantes en la práctica',ok:false,why:'Al contrario: ambas son comunes en campo, solo requieren una técnica de diagnóstico distinta (comparar contra los valores nominales esperados).'},
-        {t:'Porque el simulador no puede calcular el voltaje bajo corto o deriva',ok:false,why:'El simulador sí calcula esos voltajes (los ves libremente en Explora y Reto); lo que no ofrece es la garantía formal de convergencia por bisección.'},
-        {t:'Porque el corto y la deriva nunca ocurren en una cadena serie real',ok:false,why:'Sí ocurren — por ejemplo, daño térmico o envejecimiento producen derivas de valor con frecuencia.'},
+        {t:'Porque el abierto da un escalón limpio en un solo nodo; el corto y la deriva desplazan todo el perfil y no admiten localización binaria',ok:true,why:'Es la firma de falla lo que permite o no la bisección — no una limitación arbitraria del instrumento.'},
+        {t:'Porque el corto y la deriva son fallas menos importantes y mucho menos frecuentes en la práctica real de mantenimiento',ok:false,why:'Al contrario: ambas son comunes en campo, solo requieren una técnica de diagnóstico distinta (comparar contra los valores nominales esperados).'},
+        {t:'Porque el simulador no puede calcular el voltaje de los nodos cuando hay un corto o una deriva en la cadena',ok:false,why:'El simulador sí calcula esos voltajes (los ves libremente en Explora y Reto); lo que no ofrece es la garantía formal de convergencia por bisección.'},
+        {t:'Porque el corto y la deriva nunca ocurren en una cadena serie real, solo aparecen en circuitos conectados en paralelo',ok:false,why:'Sí ocurren — por ejemplo, daño térmico o envejecimiento producen derivas de valor con frecuencia.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -1154,6 +1184,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto ni deja nada resuelto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,exType,exIdx,exDriftFactor,dxIdx,dxInterval:{...dxInterval},dxLog:dxLog.slice(),dxDone,dxPrevIdx};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -1181,19 +1213,11 @@ async function runAuto(){
     await sleep(1000);
     answer(QUIZ.diagnostico.opciones.findIndex(o=>o.ok));await sleep(1800);
 
-    setMode('reto');
-    newReto();
-    showToast('Paso 3 · Falla sellada de tipo Y posición desconocidos. Mide libremente.');await sleep(2000);
-    for(const n of [1,4,7]){probeReto(n);await sleep(1400);}
-    retoGuessType=retoType;retoGuessIdx=retoIdx;
-    el('guessType').value=retoGuessType;el('guessIdx').value=String(retoGuessIdx);
-    checkReto();await sleep(2400);
-    const q=QUIZ.reto,qi=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[qi];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[qi].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[qi].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: falla sellada de tipo Y posición desconocidos. Mide los nodos que necesites y reporta. Este recorrido no lo resuelve ni lo marca como hecho.');await sleep(3400);
   }finally{
+    exType=previo.exType;exIdx=previo.exIdx;exDriftFactor=previo.exDriftFactor;
+    dxIdx=previo.dxIdx;dxInterval=previo.dxInterval;dxLog=previo.dxLog;dxDone=previo.dxDone;dxPrevIdx=previo.dxPrevIdx;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1226,6 +1250,7 @@ window.__labDebug={
   probeDiagnostico:node=>probeDiagnostico(node), newDiagnostico:()=>newDiagnostico(),
   retoType:()=>retoType, retoIdx:()=>retoIdx, retoDriftFactor:()=>retoDriftFactor,
   retoLog:()=>retoLog.slice(), retoMeasCount:()=>retoMeasCount, retoSolved:()=>retoSolved, retoMsg:()=>retoMsg,
+  intentos:()=>intentos, resiembras:()=>resiembras, runAuto:()=>runAuto(),
   probeReto:node=>probeReto(node),
   setGuess:(t,i)=>{retoGuessType=t;retoGuessIdx=i;el('guessType').value=t;el('guessIdx').value=String(i);},
   checkReto:()=>checkReto(), newReto:()=>newReto(),

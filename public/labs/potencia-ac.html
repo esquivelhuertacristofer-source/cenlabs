@@ -439,8 +439,10 @@ function makeSynth(opts={}){
 // DIRECTA (verificado numéricamente: discrepancia máxima 3.553e-15 sobre 1280 combinaciones, dos
 // métodos independientes), pero S_total=√(P_total²+Q_total²) NO es S1+S2 (desigualdad del triángulo).
 // El filtro de degeneración del Reto (perturbación ±5° fase / ±8% amplitud, umbral 20% de error)
-// tiene aceptación global 79.8%: P 83.1%, Q 40.9% (la más sensible, por baja pendiente de sinθ cerca
-// de θ_total≈0°), S 100.0%, FP 95.2%. Tolerancias de calificación (±5° en θ_total; ±25% relativo en
+// acepta distinto según la cantidad pedida; Q es la más restrictiva (baja pendiente de sinθ cerca de
+// θ_total≈0°). Las tasas exactas las calcula tasasFiltro() con el propio motor (no se copian a mano).
+// Además, la cantidad pedida se elige entre las que NO se pueden «acertar» con la respuesta ingenua
+// (S en lugar de P, P en lugar de S, suma de magnitudes…): ver ingenuaPasa(). Tolerancias de calificación (±5° en θ_total; ±25% relativo en
 // P/Q/S; ±0.10 absoluto en FP) son un margen pedagógico de este ejercicio, no una especificación de
 // instrumento real. Símbolos: IEC 60050-131.
 
@@ -606,6 +608,8 @@ let cursor1Div=2.5,cursor2Div=2.5;
 let measured=false,phiMeasured=null,cross1Type=null,cross2Type=null;
 let retoChecked=false,retoOk=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+let retoDone=false;                                   // reto resuelto: se conserva al cambiar de pestaña o editar
+let intentos=0,resiembras=0;const FALLOS_MAX=3;       // fallos del caso de reto actual; a los 3 se resiembra
 
 function currentType1(){return mode==='explora'?expType1:(mode==='medicion'?medType1:retoType1);}
 function currentR1(){return mode==='explora'?expR1:(mode==='medicion'?medR1:retoR1);}
@@ -1040,8 +1044,7 @@ document.getElementById('hud').innerHTML=`
   <p>Una carga con impedancia Z=R+jX consume potencia activa P=S·cos θ (watts, trabajo útil),
   potencia reactiva Q=S·sin θ (VAR, oscila entre la fuente y los campos de la carga) y potencia
   aparente S=V·I (VA, la que dimensiona cables y transformadores). Con dos cargas reales en
-  paralelo sobre el mismo bus, P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma DIRECTA (verificado
-  numéricamente: discrepancia máxima de 3.553×10⁻¹⁵ sobre 1280 combinaciones), pero S_total NO es
+  paralelo sobre el mismo bus, P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma DIRECTA , pero S_total NO es
   S1+S2 — debe recalcularse como S_total=√(P_total²+Q_total²), porque las corrientes de ambas
   cargas no están en fase entre sí. Vas a medir el ángulo total con un osciloscopio de dos canales,
   igual que en la práctica de impedancias.</p>
@@ -1054,10 +1057,10 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> suma directa y exacta de P y Q entre cargas en paralelo (P_total=P1+P2, Q_total=Q1+Q2); recálculo correcto de S_total=√(P_total²+Q_total²) como NO-suma de las S individuales; sensado de corriente total idealizado con resistor shunt; la misma técnica de medición de desfase por cruces por cero ya verificada en la práctica de impedancias; y un filtro de degeneración que descarta —antes de sellar la corriente total en el Reto— cualquier combinación donde un error típico de instrumento (±5° en fase, ±8% en amplitud) produzca más de 20% de error en la cantidad pedida (aceptación global 79.8%: P 83.1%, Q 40.9% —la más sensible, por la baja pendiente de sin θ cerca de θ_total≈0°—, S 100.0%, FP 95.2%).</div>
+    <div class="fl"><b>Sí modela:</b> suma directa y exacta de P y Q entre cargas en paralelo (P_total=P1+P2, Q_total=Q1+Q2); recálculo correcto de S_total=√(P_total²+Q_total²) como NO-suma de las S individuales; sensado de corriente total idealizado con resistor shunt; la misma técnica de medición de desfase por cruces por cero vista en la práctica de impedancias; y un filtro de degeneración que descarta —antes de sellar la corriente total en el Reto— cualquier combinación donde un error típico de instrumento (±5° en fase, ±8% en amplitud) produzca más de 20% de error en la cantidad pedida (Q es la cantidad más sensible, por la baja pendiente de sin θ cerca de θ_total≈0°).</div>
     <div class="fl no"><b>NO modela:</b> la carga que el shunt o el osciloscopio introducen sobre el circuito real, pérdidas parásitas, ruido de instrumento, ni corrección activa de factor de potencia (bancos de capacitores). Las tolerancias de calificación (±5° en θ_total; ±25% relativo para P/Q/S, ±0.10 absoluto para FP) son un margen PEDAGÓGICO de este ejercicio, no una especificación de instrumento real.</div>
   </div>
-  <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · IEC 60050-131 · Verificación numérica propia</div>`;
+  <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · IEC 60050-131</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Potencia en CA · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
@@ -1149,7 +1152,7 @@ function setMode(k){
   mode=k;
   cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
   measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
-  retoChecked=false;retoOk=false;retoMsg='';
+  if(!retoDone){retoChecked=false;retoOk=false;retoMsg='';}
   ['explora','medicion','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('medirBox').style.display=k==='explora'?'none':'flex';
@@ -1158,7 +1161,7 @@ function setMode(k){
   el('retoBox').style.display=k==='reto'?'block':'none';
   if(k==='reto'){updateRetoSpec();updateSealedInputLabel();if(el('inSealed'))el('inSealed').value='';}
   buildSelBar();
-  solved=false;
+  solved=(k==='reto')?retoDone:false;
   clearDx();buildQuiz();refreshQuestion();
   const cam=MODE_META[k].cam;
   S.moveTo(cam[0],cam[1]);
@@ -1211,13 +1214,12 @@ function updateTele(){
     const Itotal=currentITotal();
     t.innerHTML=
       loadRow(1,retoType1,retoR1,retoX1)+
-      teleRow('P1 / Q1 / S1',fmtW(total.p1.P)+' / '+fmtVAR(total.p1.Q)+' / '+fmtVA(total.p1.S))+
       loadRow(2,retoType2,retoR2,retoX2)+
-      teleRow('P2 / Q2 / S2',fmtW(total.p2.P)+' / '+fmtVAR(total.p2.Q)+' / '+fmtVA(total.p2.S))+
-      teleRow('Pedido',(retoChecked&&retoOk)?kindLongLabel(retoAskKind)+' ✔':'🔒 '+kindLongLabel(retoAskKind))+
-      teleRow('I_total (magnitud y fase)',(retoChecked&&retoOk)?fmtA(Itotal.mag)+' ∠ '+fmtDeg(Itotal.phiI):'🔒 / 🔒')+
+      teleRow('Pedido',kindLongLabel(retoAskKind))+
+      teleRow('I_total (magnitud y fase)',retoDone?fmtA(Itotal.mag)+' ∠ '+fmtDeg(Itotal.phiI):'🔒 / 🔒')+
       teleRow('θ_total medido (cursores)',measured?fmtDeg(-phiMeasured):'sin medir',measured?'good':'warn')+
-      teleRow('Estado',retoChecked?(retoOk?'✔ CORRECTO':'revisa tu cálculo'):'Mide θ_total y calcula la cantidad pedida, luego comprueba',(retoChecked&&retoOk)?'good':'warn');
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
+      teleRow('Estado',retoDone?'✔ CORRECTO':(retoChecked?'revisa tu cálculo':'Mide θ_total y calcula la cantidad pedida, luego comprueba'),retoDone?'good':'warn');
   }
 }
 function updateReport(){
@@ -1264,6 +1266,7 @@ function medirPhi(){
   refreshAll();
 }
 function checkReto(){
+  if(retoDone)return;
   if(!measured){showToast('⚠️ Primero mide θ_total con los cursores ("Medir θ_total").');return;}
   const guess=numOr('inSealed');
   if(!isFinite(guess)){showToast('⚠️ Ingresa tu valor calculado para la cantidad pedida.');return;}
@@ -1275,10 +1278,32 @@ function checkReto(){
   retoChecked=true; solved=retoOk;
   synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
   const guessFmt=fmtKind(retoAskKind,guess);
-  retoMsg=retoOk
-    ?`<span class="mono"><span class="ok">✔ ${retoAskKind} correcto</span> (tu respuesta ${guessFmt}, dentro de tolerancia del valor real)</span>`
-    :`<span class="mono"><span class="dtc">✗ ${retoAskKind} fuera de tolerancia</span> (tu respuesta ${guessFmt}). Revisa tu lectura de la traza/cursores y el cálculo de ${kindLongLabel(retoAskKind)} a partir de I_total y θ_total.</span>`;
+  if(retoOk){
+    retoDone=true;
+    retoMsg=`<span class="mono"><span class="ok">✔ ${retoAskKind} correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'} (tu respuesta ${guessFmt}, dentro de tolerancia del valor real)</span>`;
+  }else{
+    intentos++;
+    /* retroalimentación cualitativa: nunca el valor real ni el sentido del error */
+    const base=`<span class="dtc">✗ ${retoAskKind} fuera de tolerancia</span> (tu respuesta ${guessFmt}). Revisa tu lectura de la traza/cursores y el cálculo de ${kindLongLabel(retoAskKind)} a partir de I_total y θ_total${cross1Type!==cross2Type?' (tus cursores están en tipos de cruce distintos)':''}.`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> estas cargas se retiran sin revelar el resultado. Te tocan otras.</span>`;
+      newRetoReseed();
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base} (intento ${intentos} de ${FALLOS_MAX}; a los ${FALLOS_MAX} fallos las cargas cambian)</span>`;
+  }
   refreshAll();
+}
+/* Cargas nuevas del reto (tras 3 fallos o con «Nueva señal») */
+function newRetoReseed(){
+  newRetoRound();
+  measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+  retoChecked=false;retoOk=false;retoMsg='';retoDone=false;intentos=0;
+  if(el('inSealed'))el('inSealed').value='';
+  cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
+  updateRetoSpec();updateSealedInputLabel();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();
 }
 function updateSealedInputLabel(){
   el('inSealedLabel').textContent=retoAskKind+' =';
@@ -1308,20 +1333,46 @@ function pickMedicionRound(pt1,pr1,px1,pt2,pr2,px2){
   }
   return{type1:'inductiva',R1:22,X1:47,type2:'capacitiva',R2:47,X2:22};
 }
+/* ¿la respuesta ingenua pasaría la tolerancia? (P↔S, suma de magnitudes de S o de Q, FP=1 o sinθ) */
+function ingenuaPasa(kind,total){
+  const tv=({P:total.P,Q:total.Q,S:total.S,FP:total.FP})[kind];
+  const cand=[];
+  if(kind==='P')cand.push(total.S,total.p1.S+total.p2.S);
+  if(kind==='Q')cand.push(Math.abs(total.p1.Q)+Math.abs(total.p2.Q),total.P);
+  if(kind==='S')cand.push(total.p1.S+total.p2.S,total.P);
+  if(kind==='FP')cand.push(1,Math.abs(Math.sin(total.thetaDeg*Math.PI/180)));
+  return cand.some(c=>kind==='FP'?Math.abs(c-tv)<=TOL_FP_ABS:Math.abs(c-tv)<=Math.abs(tv)*TOL_FRAC);
+}
+/* tasa de aceptación REAL del filtro de degeneración por cantidad (se calcula con el motor; alimenta el texto del quiz) */
+let _tasas=null;
+function tasasFiltro(){
+  if(_tasas)return _tasas;
+  const acc={P:0,Q:0,S:0,FP:0};let n=0;
+  for(const t1 of TYPES)for(const R1 of R_CANDIDATES)for(const X1 of X_CANDIDATES)
+  for(const t2 of TYPES)for(const R2 of R_CANDIDATES)for(const X2 of X_CANDIDATES){
+    if(t1==='resistiva'&&t2==='resistiva')continue;
+    const tot=combineTotal(loadRX(t1,R1,X1),loadRX(t2,R2,X2));
+    n++;
+    ASK_KINDS.forEach(k=>{if(worstCaseError(tot.S/V,tot.thetaDeg,k)<=FILTER_THRESHOLD)acc[k]++;});
+  }
+  _tasas={};ASK_KINDS.forEach(k=>{_tasas[k]=(100*acc[k]/n).toFixed(1);});
+  return _tasas;
+}
 function pickRetoRound(pt1,pr1,px1,pt2,pr2,px2,prevKind){
   for(let tries=0;tries<500;tries++){
     const l1=randLoad(pt1,pr1,px1);
     const l2=randLoad(pt2,pr2,px2);
     if(l1.type==='resistiva'&&l2.type==='resistiva')continue;
-    const kind=pickFrom(ASK_KINDS,prevKind);
     const eff1=loadRX(l1.type,l1.R,l1.Xmag),eff2=loadRX(l2.type,l2.R,l2.Xmag);
     const total=combineTotal(eff1,eff2);
     const Itot=total.S/V;
-    if(worstCaseError(Itot,total.thetaDeg,kind)<=FILTER_THRESHOLD){
+    const validos=ASK_KINDS.filter(k=>worstCaseError(Itot,total.thetaDeg,k)<=FILTER_THRESHOLD&&!ingenuaPasa(k,total));
+    if(validos.length){
+      const kind=pickFrom(validos,prevKind);
       return{type1:l1.type,R1:l1.R,X1:l1.Xmag,type2:l2.type,R2:l2.R,X2:l2.Xmag,kind};
     }
   }
-  return{type1:'inductiva',R1:22,X1:47,type2:'capacitiva',R2:47,X2:22,kind:'S'};
+  return{type1:'inductiva',R1:22,X1:47,type2:'capacitiva',R2:47,X2:22,kind:'Q'};
 }
 function newMedicionRound(){
   const r=pickMedicionRound(medType1,medR1,medX1,medType2,medR2,medX2);
@@ -1339,12 +1390,7 @@ function newSignal(){
     solved=false;clearDx();buildQuiz();refreshQuestion();buildSelBar();refreshAll();
     showToast('🔀 Nuevas cargas selladas. Vuelve a medir θ_total.');synth.beep(520,0.08,0.05);
   }else if(mode==='reto'){
-    newRetoRound();
-    measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
-    retoChecked=false;retoOk=false;retoMsg='';
-    if(el('inSealed'))el('inSealed').value='';
-    cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
-    updateRetoSpec();updateSealedInputLabel();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();
+    newRetoReseed();
     showToast('🔀 Nuevas cargas selladas. La cantidad pedida puede haber cambiado.');synth.beep(520,0.08,0.05);
   }else{
     expType1=pickFrom(TYPES,expType1);expR1=pickFrom(R_CANDIDATES,expR1);expX1=pickFrom(X_CANDIDATES,expX1);
@@ -1354,7 +1400,7 @@ function newSignal(){
   }
 }
 function onRetoInput(){
-  if(mode!=='reto')return;
+  if(mode!=='reto'||retoDone)return;
   retoChecked=false;retoOk=false;retoMsg='';
   refreshAll();
 }
@@ -1365,31 +1411,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Con dos cargas en paralelo sobre el mismo bus, P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma directa. ¿Por qué S_total NO es simplemente S1+S2?',
       opciones:[
-        {t:'Porque S1 y S2 son las hipotenusas de dos triángulos rectángulos distintos (cada uno con su propio ángulo θ); sumar hipotenusas de triángulos con ángulos distintos no da la hipotenusa del triángulo suma — hay que sumar primero los catetos (P1+P2 y Q1+Q2) y recién entonces recalcular la hipotenusa con S_total=√(P_total²+Q_total²)',ok:true,why:'Correcto: P y Q son los catetos (componentes en fase y en cuadratura) y SÍ se suman directamente entre cargas, porque son proyecciones sobre los mismos dos ejes. S es la magnitud (hipotenusa) de cada vector individual — sumar magnitudes de vectores con direcciones distintas sobredimensiona el resultado, por la desigualdad del triángulo: S1+S2≥S_total, con igualdad solo si ambos vectores tienen el mismo ángulo θ.'},
-        {t:'Porque el simulador redondea los valores de S1 y S2 antes de sumarlos, introduciendo un pequeño error de redondeo',ok:false,why:'No es un error de redondeo: la diferencia entre S1+S2 y S_total puede ser de varios VA y es una consecuencia EXACTA de la aritmética vectorial, no de precisión numérica.'},
-        {t:'Porque la potencia aparente de dos cargas en paralelo siempre es menor que la de cada carga individual',ok:false,why:'Falso en general: S_total puede ser mayor, menor o igual que cada S individual por separado, dependiendo de los ángulos — lo único garantizado es S_total≤S1+S2 (desigualdad del triángulo).'},
-        {t:'Porque P y Q no se pueden sumar directamente entre cargas; solo S se puede sumar directamente',ok:false,why:'Es exactamente al revés: P_total=P1+P2 y Q_total=Q1+Q2 SÍ son sumas directas (verificado numéricamente con discrepancia máxima de 3.553×10⁻¹⁵ sobre 1280 combinaciones); es S la que NO se suma directamente.'},
+        {t:'Porque S1 y S2 son hipotenusas de triángulos con ángulos distintos: se suman primero los catetos (P1+P2, Q1+Q2) y luego S_total=√(P_total²+Q_total²)',ok:true,why:'Correcto: P y Q son los catetos (componentes en fase y en cuadratura) y SÍ se suman directamente entre cargas, porque son proyecciones sobre los mismos dos ejes. S es la magnitud (hipotenusa) de cada vector individual — sumar magnitudes de vectores con direcciones distintas sobredimensiona el resultado, por la desigualdad del triángulo: S1+S2≥S_total, con igualdad solo si ambos vectores tienen el mismo ángulo θ.'},
+        {t:'Porque el simulador redondea los valores de S1 y S2 antes de sumarlos y eso introduce un pequeño error numérico en el total mostrado',ok:false,why:'No es un error de redondeo: la diferencia entre S1+S2 y S_total es una consecuencia EXACTA de la aritmética vectorial, no de precisión numérica.'},
+        {t:'Porque la potencia aparente de dos cargas en paralelo siempre es menor que la de cada carga individual por separado en el mismo bus',ok:false,why:'Falso en general: S_total puede ser mayor, menor o igual que cada S individual por separado, dependiendo de los ángulos — lo único garantizado es S_total≤S1+S2 (desigualdad del triángulo).'},
+        {t:'Porque P y Q no se pueden sumar directamente entre cargas, y solo S admite una suma directa entre las dos cargas conectadas al bus',ok:false,why:'Es exactamente al revés: P_total=P1+P2 y Q_total=Q1+Q2 SÍ son sumas directas, porque son proyecciones sobre los mismos ejes; es S la que NO se suma directamente.'},
       ],
     },
     medicion:{
       pregunta:'Alineas el cursor del canal 1 (voltaje) en un cruce ascendente (▲) y el del canal 2 (corriente total) en un cruce descendente (▼). ¿Qué error introduce esto en tu medición de θ_total?',
       opciones:[
-        {t:'Un error sistemático de exactamente 180° (mod 360°) respecto al θ_total real — el resultado es matemáticamente consistente pero no representa el desfase físico real entre el voltaje del bus y la corriente total',ok:true,why:'Correcto: mezclar tipos de cruce equivale a medir la diferencia de tiempo hasta un punto de la corriente total desplazado media vuelta (T/2) del que corresponde — eso se traduce en exactamente 180° de error, siempre, sin importar el θ_total real.'},
-        {t:'Ningún error, porque un cruce por cero es un cruce por cero sin importar el sentido',ok:false,why:'El sentido del cruce SÍ importa: un cruce ascendente y uno descendente de la misma señal están separados por medio periodo (T/2) en el tiempo — mezclarlos introduce ese medio periodo como error.'},
-        {t:'Un error aleatorio impredecible, distinto cada vez que se repite la medición',ok:false,why:'El error no es aleatorio: es sistemático y exacto (siempre ±180°, mod 360°) porque proviene de una relación geométrica fija entre cruces ascendentes y descendentes.'},
-        {t:'Un error del 50% en la magnitud de I_total medida',ok:false,why:'Mezclar tipos de cruce afecta la medición de FASE (θ_total), no la de magnitud — la magnitud de I_total no se ve alterada por este error.'},
+        {t:'Un error sistemático de exactamente 180° (mod 360°) en θ_total: consistente matemáticamente, pero no es el desfase real entre bus y corriente',ok:true,why:'Correcto: mezclar tipos de cruce equivale a medir la diferencia de tiempo hasta un punto de la corriente total desplazado media vuelta (T/2) del que corresponde — eso se traduce en exactamente 180° de error, siempre, sin importar el θ_total real.'},
+        {t:'Ningún error, porque un cruce por cero es un cruce por cero y da igual que sea ascendente o descendente en la señal medida',ok:false,why:'El sentido del cruce SÍ importa: un cruce ascendente y uno descendente de la misma señal están separados por medio periodo (T/2) en el tiempo — mezclarlos introduce ese medio periodo como error.'},
+        {t:'Un error aleatorio impredecible, distinto cada vez que se repite la medición con los mismos cursores colocados en pantalla',ok:false,why:'El error no es aleatorio: es sistemático y exacto (siempre ±180°, mod 360°) porque proviene de una relación geométrica fija entre cruces ascendentes y descendentes.'},
+        {t:'Un error del 50 % en la magnitud de I_total medida, porque el desfase mal leído altera también la amplitud de la señal medida',ok:false,why:'Mezclar tipos de cruce afecta la medición de FASE (θ_total), no la de magnitud — la magnitud de I_total no se ve alterada por este error.'},
       ],
     },
     reto:{
-      pregunta:'El simulador descarta automáticamente ciertas combinaciones de cargas antes de sellar I_total en el modo Reto — y entre las 4 cantidades posibles (P, Q, S, FP), Q es la que tiene la tasa de aceptación MÁS BAJA (≈40.9%). ¿Por qué Q es la más restrictiva?',
+      pregunta:'En el Reto conoces el voltaje del bus y mides θ_total y la corriente total. ¿Cómo obtienes las potencias de la carga combinada?',
       opciones:[
-        {t:'Porque Q=S·sin θ, y cerca de θ_total≈0° (cargas casi puramente resistivas en conjunto) la función seno cambia muy poco por unidad de ángulo, así que un pequeño error de medición en θ_total (±5°) se traduce en un error GRANDE, proporcionalmente, sobre el valor de Q recuperado — mientras que P=S·cos θ es mucho menos sensible cerca de θ_total≈0°',ok:true,why:'Correcto: verificado numéricamente — la derivada de sin θ es cos θ, que vale 1 cerca de θ=0°, pero el valor absoluto de Q=S·sin θ es pequeño ahí, así que el error RELATIVO se dispara. cos θ, en cambio, cambia poco cerca de θ=0° y P es grande ahí, así que P es mucho más estable (83.1% de aceptación vs 40.9% de Q).'},
-        {t:'Porque el simulador no puede calcular Q para todas las combinaciones de cargas',ok:false,why:'Falso: combineTotal() calcula Q_total=Q1+Q2 exactamente para cualquier combinación de cargas — el filtro no es una limitación de cálculo, es una garantía de que el problema sea resoluble dentro de tolerancia.'},
-        {t:'Porque Q solo existe en cargas inductivas, nunca en capacitivas',ok:false,why:'Falso: Q existe (con signo opuesto) tanto en cargas inductivas (Q>0) como capacitivas (Q<0) — ambas contribuyen a la potencia reactiva total, solo que con signos distintos.'},
-        {t:'Porque S es más difícil de medir que Q con un osciloscopio',ok:false,why:'Es al revés: S tiene la tasa de aceptación MÁS ALTA (100.0%) de las cuatro cantidades — es la menos sensible al error de instrumento, precisamente porque S=√(P²+Q²) combina ambas componentes y no depende de un solo ángulo cerca de un punto sensible.'},
+        {t:'P=V·I·cos θ (componente en fase con V), Q=V·I·sen θ (componente en cuadratura) y S=V·I; el factor de potencia es cos θ',ok:true,why:'Correcto: la potencia aparente S=V·I se proyecta sobre el eje del voltaje (P, potencia activa) y sobre el eje en cuadratura (Q, potencia reactiva); el ángulo entre ellos es θ_total.'},
+        {t:'P=V·I·sen θ y Q=V·I·cos θ, porque la potencia activa es la componente en cuadratura con el voltaje del bus',ok:false,why:'Está invertido: la potencia ACTIVA es la componente EN FASE con el voltaje (cos θ); la reactiva es la que está en cuadratura (sen θ).'},
+        {t:'S=P+Q sumando las potencias directamente, y el factor de potencia se obtiene dividiendo Q entre P en la carga total',ok:false,why:'S es la hipotenusa, S=√(P²+Q²), no una suma aritmética; y el factor de potencia es P/S=cos θ, no Q/P (eso es tan θ).'},
+        {t:'P=V·I siempre, sin importar θ, porque la potencia activa solo depende de las magnitudes del voltaje y de la corriente',ok:false,why:'P=V·I solo si θ=0° (carga resistiva pura). Con desfase, P=V·I·cos θ: el ángulo importa y reduce la potencia activa.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){
   const box=el('dxbtns');
@@ -1453,6 +1504,8 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expType1,expR1,expX1,expType2,expR2,expX2,medType1,medR1,medX1,medType2,medR2,medX2};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -1493,32 +1546,12 @@ async function runAuto(){
     medirPhi();await sleep(2600);
     answer(QUIZ.medicion.opciones.findIndex(o=>o.ok));await sleep(1800);
 
-    setMode('reto');
-    showToast('Paso 3 · I_total (magnitud y fase) está sellada. Mide θ_total y calcula la cantidad pedida.');
-    await sleep(2200);
-    {
-      const windowS=windowSFor(FREQ);
-      const Itotal=currentITotal();
-      const cr1=crossingsFor(PHI1,FREQ,windowS).find(c=>c.type==='asc');
-      const cr2=crossingsFor(Itotal.phiI,FREQ,windowS).find(c=>c.type==='asc');
-      if(cr1){cursor1Div=divForTime(cr1.t,windowS);el('cursor1').value=String(cursor1Div);}
-      if(cr2){cursor2Div=divForTime(cr2.t,windowS);el('cursor2').value=String(cursor2Div);}
-    }
-    refreshAll();
-    medirPhi();await sleep(1800);
-    {
-      const total=currentTotal();
-      const trueVal=({P:total.P,Q:total.Q,S:total.S,FP:total.FP})[retoAskKind];
-      el('inSealed').value=String(trueVal);
-    }
-    checkReto();await sleep(2600);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    refreshQuestion();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: I_total (magnitud y fase) sellada. Mide θ_total y calcula la cantidad pedida. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    expType1=previo.expType1;expR1=previo.expR1;expX1=previo.expX1;expType2=previo.expType2;expR2=previo.expR2;expX2=previo.expX2;
+    medType1=previo.medType1;medR1=previo.medR1;medX1=previo.medX1;medType2=previo.medType2;medR2=previo.medR2;medX2=previo.medX2;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1573,6 +1606,11 @@ window.__labDebug={
   setInSealed:v=>{el('inSealed').value=String(v);},
   retoChecked:()=>retoChecked,
   retoOk:()=>retoOk,
+  retoSolved:()=>retoDone,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  tasasFiltro:()=>({...tasasFiltro()}),
+  runAuto:()=>runAuto(),
   retoMsg:()=>retoMsg,
   retoAskKind:()=>retoAskKind,
   retoLoad1:()=>({type:retoType1,R:retoR1,X:loadRX(retoType1,retoR1,retoX1).X}),

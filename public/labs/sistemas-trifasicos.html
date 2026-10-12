@@ -494,6 +494,9 @@ let disVL=220,disPhi=30,disPtarget=0,disReqSeq='ABC',disConn='Y',disZ=Z_CANDS[0]
 let retoVL=220,retoPhi=30,retoPtarget=0,retoReqSeq='ABC',retoConn='Y',retoZ=Z_CANDS[0],retoSeq='ABC';
 let retoSolConn='Y',retoSolZ=10;
 let retoChecked=false,retoOk=false,retoMsg='';
+let retoDone=false;                                   // reto resuelto: se conserva al cambiar de pestaña o editar
+let intentos=0,resiembras=0;const FALLOS_MAX=3;       // fallos del caso de reto actual; a los 3 se resiembra
+const retoCiego=()=>mode==='reto'&&!retoDone;          // en el reto las magnitudes de P, IF, IL, Q, S no se muestran: las calculas tú
 let solved=false,autoRunning=false;
 let QUIZ={};
 
@@ -510,7 +513,7 @@ function seedReto(){
   retoPtarget=tp(retoVL,retoSolZ,retoPhi,retoSolConn).P;
   retoReqSeq=pickFrom(SEQS);
   retoConn='Y';retoZ=Z_CANDS[0];retoSeq='ABC';
-  retoChecked=false;retoOk=false;retoMsg='';
+  retoChecked=false;retoOk=false;retoMsg='';retoDone=false;intentos=0;
 }
 seedDisena();seedReto();
 
@@ -629,6 +632,7 @@ function drawFasores(c,st){
     ['Reactiva Q / Aparente S',fmtkVAR(st.Q)+' / '+fmtkVA(st.Sap),'FP='+st.FP.toFixed(3)],
     ['Corriente de neutro (In)',st.conn==='Y'?'0.00 A (balanceado)':'— (sin neutro)','ΣI=0'],
   ];
+  if(retoCiego()){[1,2,3,4].forEach(k=>{rows[k][1]='🔒 lo calculas tú';});}
   c.font='13px Outfit, sans-serif';
   rows.forEach((r,i)=>{
     const yy=py+62+i*40;
@@ -743,7 +747,7 @@ function rebuildWiring(){
 }
 function refreshLoadGlow(){
   const st=curState();
-  const glow=Math.min(1,st.IL/40);
+  const glow=Math.min(1,(retoCiego()?20:st.IL)/40);
   zMods.forEach((m,i)=>{m.material.emissive.setHex(PH_COL[i]);m.material.emissiveIntensity=0.15+0.7*glow;});
 }
 
@@ -767,10 +771,10 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> las relaciones exactas de un sistema trifásico balanceado en régimen permanente senoidal: VL=√3·VF en la fuente; en Y la impedancia ve VL/√3 con IL=IF, en Δ ve VL con IL=√3·IF; P=√3·VL·IL·cosφ=3·VF·IF·cosφ (Δ = 3× la potencia de Y a igual Z y VL, verificado numéricamente ratio=3 exacto); Q=√3·VL·IL·senφ, S=√3·VL·IL, FP=cosφ; corriente de neutro nula por ser balanceado; secuencia de fases ABC/ACB que invierte el sentido de giro sin alterar magnitudes. El Reto está verificado: cada escenario (VL,|Z|,φ) tiene exactamente 1 par (conexión,|Z|) que alcanza la potencia objetivo dentro de ±8%.</div>
+    <div class="fl"><b>Sí modela:</b> las relaciones exactas de un sistema trifásico balanceado en régimen permanente senoidal: VL=√3·VF en la fuente; en Y la impedancia ve VL/√3 con IL=IF, en Δ ve VL con IL=√3·IF; P=√3·VL·IL·cosφ=3·VF·IF·cosφ (Δ = 3× la potencia de Y a igual Z y VL); Q=√3·VL·IL·senφ, S=√3·VL·IL, FP=cosφ; corriente de neutro nula por ser balanceado; secuencia de fases ABC/ACB que invierte el sentido de giro sin alterar magnitudes. En el Reto, cada escenario sortea una potencia objetivo alcanzable con alguna combinación (conexión, |Z|) dentro de ±8 %.</div>
     <div class="fl no"><b>NO modela:</b> desbalance de cargas o de fuente (aquí las 3 ramas son idénticas, In=0 siempre); impedancia de línea/neutro y caídas de tensión en los conductores; armónicos y cargas no lineales; transitorios de arranque del motor (par/deslizamiento reales); el sentido de giro ABC↻ / ACB↺ es una convención del simulador —el sentido físico real depende del devanado y del criterio de conexión, lo que NO cambia es que invertir la secuencia invierte el giro; efectos térmicos y saturación magnética.</div>
   </div>
-  <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · Enríquez Harper · NOM-001-SEDE-2022 · IEC 60038 · Verificación numérica propia</div>`;
+  <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · Enríquez Harper · NOM-001-SEDE-2022 · IEC 60038</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Sistemas trifásicos · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
@@ -829,9 +833,10 @@ function buildControls(){
   bar.querySelectorAll('[data-conn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;setConn(b.dataset.conn);});
   bar.querySelectorAll('[data-seq]').forEach(b=>b.onclick=()=>{if(autoRunning)return;setSeq(b.dataset.seq);});
 }
-function setZ(v){if(mode==='explora')expZ=v;else if(mode==='disena')disZ=v;else{retoZ=v;retoChecked=false;retoOk=false;retoMsg='';}synth.beep(660,0.06,0.04);afterEdit();}
-function setConn(v){if(mode==='explora')expConn=v;else if(mode==='disena')disConn=v;else{retoConn=v;retoChecked=false;retoOk=false;retoMsg='';}synth.beep(v==='D'?520:760,0.07,0.05);rebuildWiring();afterEdit();}
-function setSeq(v){if(mode==='explora')expSeq=v;else if(mode==='disena')disSeq=v;else{retoSeq=v;retoChecked=false;retoOk=false;retoMsg='';}synth.beep(880,0.06,0.04);afterEdit();}
+function retoEdit(){if(retoDone)return;retoChecked=false;retoOk=false;retoMsg='';}
+function setZ(v){if(mode==='explora')expZ=v;else if(mode==='disena')disZ=v;else{retoZ=v;retoEdit();}synth.beep(660,0.06,0.04);afterEdit();}
+function setConn(v){if(mode==='explora')expConn=v;else if(mode==='disena')disConn=v;else{retoConn=v;retoEdit();}synth.beep(v==='D'?520:760,0.07,0.05);rebuildWiring();afterEdit();}
+function setSeq(v){if(mode==='explora')expSeq=v;else if(mode==='disena')disSeq=v;else{retoSeq=v;retoEdit();}synth.beep(880,0.06,0.04);afterEdit();}
 
 function updateScenarioInfo(){
   const box=el('scenarioInfo');
@@ -849,7 +854,7 @@ function setMode(k){
   el('retoBox').style.display=k==='reto'?'block':'none';
   if(k==='reto')updateRetoSpec();
   buildControls();updateScenarioInfo();
-  solved=false;
+  solved=(k==='reto')?retoDone:false;
   clearDx();buildQuiz();refreshQuestion();
   rebuildWiring();
   const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
@@ -877,9 +882,9 @@ function updateTele(){
   const common=
     teleRow('Conexión / Secuencia',(st.conn==='Y'?'Estrella (Y)':'Delta (Δ)')+' · '+curSeq())+
     teleRow('VL (línea) / VF sobre Z',st.VL+' V / '+fmtV(st.VFload))+
-    teleRow('IF (fase) / IL (línea)',fmtA(st.IF)+' / '+fmtA(st.IL))+
-    teleRow('P = √3·VL·IL·cosφ',fmtkW(st.P))+
-    teleRow('Q / S',fmtkVAR(st.Q)+' / '+fmtkVA(st.Sap))+
+    teleRow('IF (fase) / IL (línea)',retoCiego()?'🔒 lo calculas tú':fmtA(st.IF)+' / '+fmtA(st.IL))+
+    teleRow('P = √3·VL·IL·cosφ',retoCiego()?'🔒 lo calculas tú':fmtkW(st.P))+
+    teleRow('Q / S',retoCiego()?'🔒 lo calculas tú':fmtkVAR(st.Q)+' / '+fmtkVA(st.Sap))+
     teleRow('FP = cosφ',st.FP.toFixed(3))+
     teleRow('Giro del motor',rotLabel(curSeq()));
   if(mode==='explora'){t.innerHTML=common;return;}
@@ -895,7 +900,8 @@ function updateTele(){
     t.innerHTML=common+
       teleRow('Objetivo P',fmtkW(tgt))+
       teleRow('Objetivo de giro',rotLabel(req))+
-      teleRow('Estado',retoChecked?(retoOk?'✔ CORRECTO':'revisa tu conexión'):'Elige y comprueba',(retoChecked&&retoOk)?'good':'warn');
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
+      teleRow('Estado',retoDone?'✔ CORRECTO':(retoChecked?'revisa tu conexión':'Calcula, elige y comprueba'),retoDone?'good':'warn');
   }
 }
 function updateReport(){
@@ -918,19 +924,28 @@ function updateRetoSpec(){
   el('retoSpec').innerHTML=`Alimentación <b>VL=${retoVL} V</b>, carga con <b>φ=${retoPhi}°</b> (FP=${Math.cos(retoPhi*Math.PI/180).toFixed(3)}). Debes entregar una potencia de línea de <b>${fmtkW(retoPtarget)}</b> (±8%) eligiendo la <b>conexión (Y/Δ)</b> y la <b>|Z|</b> correctas, y ajustar la <b>secuencia</b> para que el motor gire en sentido <b>${rotLabel(retoReqSeq)}</b> (${retoReqSeq}). Luego pulsa "Comprobar conexión".`;
 }
 function checkReto(){
+  if(retoDone)return;
   const st=tp(retoVL,retoZ,retoPhi,retoConn);
   const powerOk=Math.abs(st.P-retoPtarget)<=P_TOL_FRAC*retoPtarget;
   const seqOk=retoSeq===retoReqSeq;
-  retoOk=powerOk&&seqOk;retoChecked=true;solved=retoOk;
+  retoOk=powerOk&&seqOk;retoChecked=true;
   synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
   if(retoOk){
-    retoMsg=`<span class="mono"><span class="ok">✔ Conexión correcta</span> — ${st.conn==='Y'?'Estrella (Y)':'Delta (Δ)'} con |Z|=${retoZ} Ω da P=${fmtkW(st.P)} (objetivo ${fmtkW(retoPtarget)}), y la secuencia ${retoSeq} produce el giro ${rotLabel(retoReqSeq)} requerido.</span>`;
-  }else if(!powerOk&&!seqOk){
-    retoMsg=`<span class="mono"><span class="dtc">✗ Ambos objetivos fallan</span> — P=${fmtkW(st.P)} (objetivo ${fmtkW(retoPtarget)}) y el giro es ${rotLabel(retoSeq)}, se pide ${rotLabel(retoReqSeq)}. Revisa conexión, |Z| y secuencia.</span>`;
-  }else if(!powerOk){
-    retoMsg=`<span class="mono"><span class="dtc">✗ Potencia fuera de rango</span> — P=${fmtkW(st.P)} vs objetivo ${fmtkW(retoPtarget)}. Recuerda: a igual |Z| y VL, Δ entrega 3× la potencia de Y. Ajusta conexión y/o |Z|.</span>`;
+    retoDone=true;solved=true;
+    retoMsg=`<span class="mono"><span class="ok">✔ Conexión correcta</span> en ${intentos+1} ${intentos?'intentos':'intento'} — ${st.conn==='Y'?'Estrella (Y)':'Delta (Δ)'} con |Z|=${retoZ} Ω da P=${fmtkW(st.P)} (objetivo ${fmtkW(retoPtarget)}), y la secuencia ${retoSeq} produce el giro ${rotLabel(retoReqSeq)} requerido.</span>`;
   }else{
-    retoMsg=`<span class="mono"><span class="dtc">✗ Giro incorrecto</span> — la potencia ya cumple, pero la secuencia ${retoSeq} gira ${rotLabel(retoSeq)} y se pide ${rotLabel(retoReqSeq)}. Cambia la secuencia (permutar dos líneas invierte el giro).</span>`;
+    intentos++;
+    /* retroalimentación cualitativa: qué objetivo falla, nunca el valor de P ni la conexión correcta */
+    let base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). Potencia ${powerOk?'✓ dentro de ±8 %':'✗ fuera de ±8 %'} · Giro ${seqOk?'✓ correcto':'✗ incorrecto'}.`;
+    if(!powerOk&&intentos===2)base+=' Pista: calcula IF=VF/|Z|, luego IL (IL=IF en Y, √3·IF en Δ) y P=√3·VL·IL·cosφ antes de comprobar.';
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> este escenario se retira sin revelar la conexión. Te toca uno nuevo.</span>`;
+      seedReto();updateRetoSpec();afterEdit();solved=false;
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base}</span>`;
   }
   refreshAll();
 }
@@ -941,31 +956,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Con la misma impedancia |Z| por rama y la misma tensión de línea VL, ¿por qué una carga en Δ consume exactamente el triple de potencia que en Y?',
       opciones:[
-        {t:'Porque en Δ cada impedancia queda sometida a VL (no a VL/√3 como en Y): la tensión sobre Z es √3 veces mayor, la corriente de fase √3 veces mayor, y P∝V² sobre cada rama ⇒ (√3)²=3.',ok:true,why:'Correcto: VF_Δ/VF_Y=√3, y la potencia por rama va como VF²/|Z|, así que Δ da (√3)²=3 veces la potencia de Y con la misma Z y VL.'},
-        {t:'Porque en Δ hay tres impedancias y en Y solo hay una.',ok:false,why:'Ambas conexiones usan tres impedancias iguales; la diferencia es la tensión que cada una recibe, no cuántas hay.'},
-        {t:'Porque la corriente de línea en Δ es √3 veces la de Y y la potencia es proporcional solo a la corriente de línea.',ok:false,why:'IL sí es mayor, pero P=√3·VL·IL·cosφ y VL es la misma; el factor 3 viene de que en Δ la impedancia ve VL en vez de VL/√3, no de un único factor √3.'},
-        {t:'Porque el factor de potencia cambia al pasar de Y a Δ.',ok:false,why:'El FP=cosφ lo fija la impedancia (φ), y es el mismo en Y y en Δ; el triple de potencia no viene del FP.'},
+        {t:'Porque en Δ cada impedancia recibe VL en vez de VL/√3: la tensión por rama es √3 veces mayor y, como P∝V², la potencia es (√3)²=3 veces mayor.',ok:true,why:'Correcto: VF_Δ/VF_Y=√3, y la potencia por rama va como VF²/|Z|, así que Δ da (√3)²=3 veces la potencia de Y con la misma Z y VL.'},
+        {t:'Porque en Δ hay tres impedancias y en Y solo hay una, así que el consumo se triplica por el número de ramas conectadas.',ok:false,why:'Ambas conexiones usan tres impedancias iguales; la diferencia es la tensión que cada una recibe, no cuántas hay.'},
+        {t:'Porque la corriente de línea en Δ es √3 veces la de Y y la potencia es proporcional solo a esa corriente de línea.',ok:false,why:'IL sí es mayor, pero P=√3·VL·IL·cosφ y VL es la misma; el factor 3 viene de que en Δ la impedancia ve VL en vez de VL/√3, no de un único factor √3.'},
+        {t:'Porque el factor de potencia mejora al pasar de Y a Δ y la misma corriente entrega así el triple de potencia activa.',ok:false,why:'El FP=cosφ lo fija la impedancia (φ), y es el mismo en Y y en Δ; el triple de potencia no viene del FP.'},
       ],
     },
     disena:{
       pregunta:'En una carga trifásica balanceada, ¿cuánto vale la corriente por el conductor neutro y por qué?',
       opciones:[
-        {t:'Cero: las tres corrientes de fase tienen igual magnitud y están a 120°, así que su suma fasorial (la corriente de retorno por el neutro) es nula.',ok:true,why:'Correcto: en balanceado IA+IB+IC=0 fasorialmente, por eso el neutro no lleva corriente y en la práctica puede dimensionarse menor o incluso omitirse (Δ no tiene neutro).'},
-        {t:'Igual a la suma aritmética de las tres corrientes de fase.',ok:false,why:'Sería la suma FASORIAL, no aritmética; y con tres fasores iguales a 120° esa suma es cero, no la suma de magnitudes.'},
-        {t:'Igual a la corriente de línea, porque el neutro es un conductor más.',ok:false,why:'En balanceado el neutro lleva cero; solo transporta corriente cuando el sistema está desbalanceado.'},
-        {t:'√3 veces la corriente de fase.',ok:false,why:'Ese factor relaciona IL con IF en Δ; no describe la corriente de neutro, que es cero en balanceado.'},
+        {t:'Cero: las tres corrientes de fase tienen igual magnitud a 120° y su suma fasorial, que es la que retorna por el neutro, es nula.',ok:true,why:'Correcto: en balanceado IA+IB+IC=0 fasorialmente, por eso el neutro no lleva corriente y en la práctica puede dimensionarse menor o incluso omitirse (Δ no tiene neutro).'},
+        {t:'Igual a la suma aritmética de las tres corrientes de fase, porque el neutro recoge toda la corriente de cada fase.',ok:false,why:'Sería la suma FASORIAL, no aritmética; y con tres fasores iguales a 120° esa suma es cero, no la suma de magnitudes.'},
+        {t:'Igual a la corriente de línea, porque el neutro es un conductor más y lleva la misma intensidad que cada fase.',ok:false,why:'En balanceado el neutro lleva cero; solo transporta corriente cuando el sistema está desbalanceado.'},
+        {t:'√3 veces la corriente de fase, que es el factor que relaciona IL con IF en las cargas balanceadas en delta.',ok:false,why:'Ese factor relaciona IL con IF en Δ; no describe la corriente de neutro, que es cero en balanceado.'},
       ],
     },
     reto:{
       pregunta:'El motor gira en sentido contrario al que necesitas. ¿Cuál es la corrección estándar y qué le pasa a las magnitudes (P, Q, corrientes)?',
       opciones:[
-        {t:'Permutar dos de las tres líneas (equivale a invertir la secuencia ABC↔ACB): invierte el sentido de giro y NO altera P, Q ni las corrientes, porque el sistema sigue balanceado.',ok:true,why:'Correcto: intercambiar dos fases invierte la secuencia y por tanto el giro; como las tres impedancias siguen siendo iguales, todas las magnitudes se conservan.'},
-        {t:'Reducir la impedancia |Z| a la mitad para forzar el giro contrario.',ok:false,why:'|Z| cambia la potencia y las corrientes, pero no el sentido de giro; el giro depende de la secuencia de fases, no de la magnitud de Z.'},
-        {t:'Cambiar de Y a Δ invierte el sentido de giro.',ok:false,why:'Y↔Δ cambia las tensiones sobre Z y la potencia (×3), pero no invierte la secuencia ni el sentido de giro.'},
-        {t:'Aumentar la tensión de línea VL invierte el giro.',ok:false,why:'Subir VL escala las corrientes y la potencia, sin tocar la secuencia; el sentido de giro no depende de VL.'},
+        {t:'Permutar dos de las tres líneas (ABC↔ACB): invierte el giro y no altera P, Q ni las corrientes, porque el sistema sigue balanceado.',ok:true,why:'Correcto: intercambiar dos fases invierte la secuencia y por tanto el giro; como las tres impedancias siguen siendo iguales, todas las magnitudes se conservan.'},
+        {t:'Reducir la impedancia |Z| a la mitad: la mayor corriente invierte el sentido del campo y con él el giro del motor.',ok:false,why:'|Z| cambia la potencia y las corrientes, pero no el sentido de giro; el giro depende de la secuencia de fases, no de la magnitud de Z.'},
+        {t:'Cambiar de Y a Δ: la nueva conexión de las bobinas invierte la secuencia de fases y con ella el sentido de giro.',ok:false,why:'Y↔Δ cambia las tensiones sobre Z y la potencia (×3), pero no invierte la secuencia ni el sentido de giro.'},
+        {t:'Aumentar la tensión de línea VL hasta que el campo magnético del motor se invierta y el rotor cambie de sentido.',ok:false,why:'Subir VL escala las corrientes y la potencia, sin tocar la secuencia; el sentido de giro no depende de VL.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
 function refreshQuestion(){
@@ -1022,6 +1042,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expVL,expZ,expPhi,expConn,expSeq,disVL,disPhi,disPtarget,disReqSeq,disConn,disZ,disSeq};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1047,14 +1069,12 @@ async function runAuto(){
     await sleep(3000);
     answer(0);await sleep(2400);
 
-    setMode('reto');
-    // resolver el reto sorteado con su solución conocida
-    retoConn=retoSolConn;retoZ=retoSolZ;retoSeq=retoReqSeq;afterEdit();
-    showToast('🎯 Reto: aplicando la conexión '+(retoSolConn==='Y'?'Y':'Δ')+' con |Z|='+retoSolZ+' Ω y secuencia '+retoReqSeq+'…');
-    await sleep(2800);
-    checkReto();await sleep(2600);
-    answer(0);
+    showToast('🎯 Paso final · El Reto es tuyo: sortea VL, φ y una potencia objetivo. Calcula tú la conexión y la |Z|; este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    expVL=previo.expVL;expZ=previo.expZ;expPhi=previo.expPhi;expConn=previo.expConn;expSeq=previo.expSeq;
+    disVL=previo.disVL;disPhi=previo.disPhi;disPtarget=previo.disPtarget;disReqSeq=previo.disReqSeq;disConn=previo.disConn;disZ=previo.disZ;disSeq=previo.disSeq;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1063,9 +1083,9 @@ async function runAuto(){
 S.setAnimate((dt,time)=>{
   const pulse=0.5+0.5*Math.sin(time*2.2);
   const st=curState();
-  const spd=(rotOf(curSeq())==='CW'?-1:1)*(0.6+3.0*Math.min(1,st.IL/40));
+  const spd=(rotOf(curSeq())==='CW'?-1:1)*(0.6+3.0*Math.min(1,(retoCiego()?20:st.IL)/40));
   shaft.rotation.x+=spd*dt;
-  zMods.forEach(m=>{if(m.material.emissiveIntensity>0)m.material.emissiveIntensity=0.15+0.55*Math.min(1,st.IL/40)+0.1*pulse;});
+  zMods.forEach(m=>{if(m.material.emissiveIntensity>0)m.material.emissiveIntensity=0.15+0.55*Math.min(1,(retoCiego()?20:st.IL)/40)+0.1*pulse;});
 });
 ['explora','disena','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
@@ -1120,6 +1140,10 @@ window.__labDebug={
   quizAnswer:i=>answer(i),
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   solved:()=>solved,
+  retoSolved:()=>retoDone,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
 };
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

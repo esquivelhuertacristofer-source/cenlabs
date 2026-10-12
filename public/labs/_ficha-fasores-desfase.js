@@ -6,8 +6,8 @@ fichaTecnica({
       'Modelo exacto de señal senoidal de doble canal v(t)=Vm·sen(2π·f·t+φ), sin ruido ni aproximación, con canal 1 fijo como referencia (Vm1=10 V, φ1=0°) y canal 2 con amplitud, frecuencia y fase configurables o sellables según el modo activo',
       'Diagrama fasorial polar sincronizado en tiempo real con el osciloscopio de dos trazos, con escala de magnitud común (Vm/Vm_max) y convención de fase seno explícita: v(t)=Vm·sen(ωt+φ) ↔ fasor V=Vm∠φ',
       'Mecanismo de medición de desfase por cursores de cruce por cero, uno por canal, con ajuste automático (snap) al cruce más cercano de esa señal —ascendente o descendente, tipo que queda registrado internamente— y cálculo exacto φ_medido=−Δt·360°/T, con Δt normalizado al periodo',
-      'Verificación algebraica del método: se demostró numéricamente (21,600 combinaciones de ángulo de desfase, frecuencia y posición de cursor) que el desfase recuperado es EXACTO cuando ambos cursores usan el mismo tipo de cruce, sin importar en qué par específico de cruces caiga cada uno',
-      'Detección y retroalimentación explícita del error de referencia inconsistente: si un cursor se ancla en un cruce ascendente y el otro en uno descendente, el desfase calculado difiere del valor real en exactamente 180° (mod 360°), de forma sistemática y predecible — verificado numéricamente, no una falla aleatoria',
+      'Exactitud del método: el desfase recuperado es EXACTO cuando ambos cursores usan el mismo tipo de cruce, sin importar en qué par específico de cruces caiga cada uno',
+      'Detección y retroalimentación explícita del error de referencia inconsistente: si un cursor se ancla en un cruce ascendente y el otro en uno descendente, el desfase calculado difiere del valor real en exactamente 180° (mod 360°), de forma sistemática y predecible — no es una falla aleatoria',
       'Calificación independiente de amplitud (lectura visual en la rejilla volts/división, tolerancia ±8%) y desfase (medición por cursores, tolerancia ±5°) en el modo Reto',
     ],
     omitidos: [
@@ -43,7 +43,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Modelo exacto de señal senoidal de doble canal v(t)=Vm·sen(2π·f·t+φ) con canal 1 fijo como referencia; diagrama fasorial polar sincronizado en tiempo real con convención de fase seno explícita; mecanismo de medición de desfase por cursores de cruce por cero con snap automático al cruce más cercano por canal y cálculo exacto Δt→φ; detección y retroalimentación del error sistemático de 180° por referencia de cruce inconsistente, verificado numéricamente en 21,600 combinaciones; calificación independiente de amplitud (lectura de rejilla) y desfase (medición por cursores) en el modo Reto.',
+    modela: 'Modelo exacto de señal senoidal de doble canal v(t)=Vm·sen(2π·f·t+φ) con canal 1 fijo como referencia; diagrama fasorial polar sincronizado en tiempo real con convención de fase seno explícita; mecanismo de medición de desfase por cursores de cruce por cero con snap automático al cruce más cercano por canal y cálculo exacto Δt→φ; detección y retroalimentación del error sistemático de 180° por referencia de cruce inconsistente; calificación independiente de amplitud (lectura de rejilla) y desfase (medición por cursores) en el modo Reto.',
     noModela: 'Relación de fase derivada de un circuito real con reactancia (RC, RL, RLC) — el desfase es un parámetro configurado o sellado directamente por el simulador, no el resultado de una impedancia Z=R+j(ωL−1/ωC); ruido de instrumentación ni ancho de banda finito del osciloscopio; impedancia de entrada ni efecto de carga del instrumento; componentes de CD superpuestos, transitorios ni contenido armónico; sistemas trifásicos ni secuencia de fases — es un modelo de dos señales senoidales puras en estado estacionario.',
   },
   s6: [

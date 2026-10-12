@@ -517,6 +517,7 @@ function bandsFor(v){const exp=Math.floor(Math.log10(v))-1;const dd=Math.round(v
 let mode='explora'; // explora | carga | norton | reto
 let selR1=1000,selR2=2200,selR3=470,selRL=2200,cargaOn=false;
 let measuredVoc=false,measuredIsc=false;
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos de la caja negra actual; a los 3 se cambia
 let retoIdx=0,retoSolved=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
 const R_CANDIDATES=[470,1000,2200,3300,4700,6800,10000];
@@ -1114,6 +1115,7 @@ function updateTele(){
       teleRow('Isc',measuredIsc?(iscReal()*1000).toFixed(3)+' mA':'🔒 sin medir',measuredIsc?'good':'warn')+
       teleRow('Tu Vth',(el('inVth')&&el('inVth').value)?el('inVth').value+' V':'—')+
       teleRow('Tu Rth',(el('inRth')&&el('inRth').value)?el('inRth').value+' Ω':'—')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoSolved?'✔ CARACTERIZACIÓN VALIDADA':(gated?'Escribe Vth y Rth':'Mide Voc e Isc'),retoSolved?'good':'warn');
   }
 }
@@ -1154,6 +1156,7 @@ function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
 function medirVoc(){measuredVoc=true;synth.beep(660,0.08,0.05);refreshAll();showToast(`Medida: Voc = ${vocReal().toFixed(3)} V (terminales en circuito abierto).`);}
 function medirIsc(){measuredIsc=true;synth.beep(760,0.08,0.05);refreshAll();showToast(`Medida: Isc = ${(iscReal()*1000).toFixed(3)} mA (terminales en cortocircuito, vía amperímetro ideal).`);}
 function checkReto(){
+  if(retoSolved)return;
   if(!(measuredVoc&&measuredIsc)){showToast('Primero mide Voc e Isc.');return;}
   const vthGuess=numOr('inVth'),rthGuess=numOr('inRth');
   if(!isFinite(vthGuess)||!isFinite(rthGuess)){showToast('Escribe Vth (V) y Rth (Ω).');return;}
@@ -1161,29 +1164,37 @@ function checkReto(){
   const tolV=Math.max(0.15,vocR*0.03),tolR=Math.max(15,rthR*0.05);
   const okV=Math.abs(vthGuess-vocR)<=tolV, okR=Math.abs(rthGuess-rthR)<=tolR;
   if(okV&&okR){
-    retoSolved=true;synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Caracterización correcta.</span> Vth=${vthGuess} V y Rth=${rthGuess} Ω están dentro de tolerancia (±${tolV.toFixed(2)} V, ±${tolR.toFixed(1)} Ω).</span>`;
+    retoSolved=true;solved=true;synth.beep(1046,0.12,0.06);
+    retoMsg=`<span class="mono"><span class="ok">✔ Caracterización correcta</span> en ${intentos+1} ${intentos?'intentos':'intento'}. Vth=${vthGuess} V y Rth=${rthGuess} Ω están dentro de tolerancia (±${tolV.toFixed(2)} V, ±${tolR.toFixed(1)} Ω).</span>`;
   }else{
-    synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> Vth ${okV?'✓ dentro de tolerancia':'✗ fuera de tolerancia'} · Rth ${okR?'✓ dentro de tolerancia':'✗ fuera de tolerancia'}. Vuelve a medir Voc/Isc con cuidado y recalcula.</span>`;
+    intentos++;synth.beep(220,0.15,0.06);
+    const base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). Vth ${okV?'✓ dentro de tolerancia':'✗ fuera de tolerancia'} · Rth ${okR?'✓ dentro de tolerancia':'✗ fuera de tolerancia'}. Recuerda: Vth sale del circuito abierto y Rth de dividir Voc entre Isc; revisa tu aritmética y las unidades (mA → A).`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta caja negra se retira sin dar sus valores. Te toca una nueva; vuelve a medir.</span>`;
+      newScenario(true);
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base}</span>`;
   }
   resolve();refreshAll();
 }
 function updateRetoSpec(){
   el('retoSpec').innerHTML=`Caja negra sellada con dos terminales (A, B). Usa <b>"Medir Voc"</b> y <b>"Medir Isc"</b>, calcula Vth=Voc y Rth=Voc/Isc, y repórtalos.<br><span style="color:var(--dim)">Las tolerancias (±3–5 % relativas) son un margen pedagógico de este ejercicio, no una especificación de fabricante.</span>`;
 }
-function newScenario(){
+function newScenario(auto){
   const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
   let idx=pick();
   if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
-  retoIdx=idx;retoSolved=false;retoMsg='';measuredVoc=false;measuredIsc=false;
+  retoIdx=idx;retoSolved=false;retoMsg='';measuredVoc=false;measuredIsc=false;intentos=0;
   el('inVth').value='';el('inRth').value='';
   if(mode!=='reto'){setMode('reto');}
   else{updateRetoSpec();resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
-  showToast('🔀 <b>Nueva caja negra.</b> Vuelve a medir Voc e Isc desde cero.');
+  showToast(auto===true?'🔀 Caja negra nueva: vuelve a medir Voc e Isc desde cero.':'🔀 <b>Nueva caja negra.</b> Vuelve a medir Voc e Isc desde cero.');
   synth.beep(520,0.08,0.05);
 }
-function onRetoInput(){if(mode!=='reto')return;retoSolved=false;retoMsg='';refreshAll();}
+function onRetoInput(){if(mode!=='reto')return;if(!retoSolved)retoMsg='';refreshAll();}   // el éxito ya logrado no se pierde al seguir editando
 
 // ============================== 12) QUIZ ==============================
 function buildQuiz(){
@@ -1197,40 +1208,45 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué hacen falta DOS mediciones (Voc e Isc) para caracterizar por completo una red de dos terminales, y no basta con una sola?',
       opciones:[
-        {t:'Porque el equivalente de Thévenin tiene DOS parámetros independientes (Vth y Rth): Voc da directamente Vth, pero Rth solo se obtiene combinando Voc con Isc',ok:true,why:'Exacto: una sola medición (por ejemplo solo Voc) determina Vth, pero NO dice nada sobre la resistencia interna. Se necesita una segunda medición independiente (Isc) para despejar Rth = Voc/Isc.'},
-        {t:'Porque Voc mide el voltaje y Isc mide la corriente, y son unidades distintas que no se pueden comparar',ok:false,why:'Sí se combinan: Rth=Voc/Isc tiene unidades de Ω, perfectamente válidas. El motivo real es que hacen falta DOS ecuaciones independientes para DOS incógnitas (Vth, Rth).'},
-        {t:'No hacen falta las dos: con solo medir Isc ya se puede calcular Vth y Rth',ok:false,why:'Isc por sí sola solo da un punto de la relación V-I de la red; sin Voc (u otra medición independiente) no hay forma de despejar Rth.'},
-        {t:'Se pide por seguridad, para verificar dos veces el mismo valor de Vth',ok:false,why:'Voc e Isc miden cosas distintas (circuito abierto vs. cortocircuito) — no son una repetición de la misma medición, son las dos ecuaciones necesarias para resolver el sistema.'},
+        {t:'Porque Thévenin tiene DOS parámetros independientes (Vth y Rth): Voc da Vth, pero Rth solo sale de combinar Voc con Isc',ok:true,why:'Exacto: una sola medición (por ejemplo solo Voc) determina Vth, pero NO dice nada sobre la resistencia interna. Se necesita una segunda medición independiente (Isc) para despejar Rth = Voc/Isc.'},
+        {t:'Porque Voc mide un voltaje y Isc una corriente, y al ser unidades distintas no pueden combinarse nunca en un solo valor útil, ni siquiera con la ley de Ohm',ok:false,why:'Sí se combinan: Rth=Voc/Isc tiene unidades de Ω, perfectamente válidas. El motivo real es que hacen falta DOS ecuaciones independientes para DOS incógnitas (Vth, Rth).'},
+        {t:'No hacen falta las dos: con medir solo Isc ya se pueden calcular tanto Vth como Rth de la red completa',ok:false,why:'Isc por sí sola solo da un punto de la relación V-I de la red; sin Voc (u otra medición independiente) no hay forma de despejar Rth.'},
+        {t:'Se pide por seguridad, para verificar por duplicado el mismo valor de Vth mediante dos métodos distintos',ok:false,why:'Voc e Isc miden cosas distintas (circuito abierto vs. cortocircuito) — no son una repetición de la misma medición, son las dos ecuaciones necesarias para resolver el sistema.'},
       ],
     },
     carga:{
       pregunta:`Con RL=${fmtR(rlv)}, el equivalente de Thévenin predice V(RL)=${vRLth.toFixed(3)} V y la red completa (MNA) da V(RL)=${vRLfull.toFixed(3)} V. ¿Por qué coinciden exactamente?`,
       opciones:[
-        {t:'Porque el teorema de Thévenin garantiza que, visto desde las terminales, el equivalente de dos parámetros predice EXACTO el comportamiento de la red original ante cualquier carga',ok:true,why:'Esa es la promesa central del teorema: no es una aproximación — el equivalente de Thévenin reproduce EXACTAMENTE el voltaje y la corriente en las terminales, para cualquier RL, mientras la red interna sea lineal.'},
-        {t:'Coinciden solo por casualidad, con esta RL en particular',ok:false,why:'No es casualidad: prueba con cualquier otro valor de RL en el selector y la coincidencia se mantiene siempre — es una propiedad del teorema, no de este valor específico.'},
-        {t:'Porque RL es igual a Rth en este caso',ok:false,why:`No es necesario que RL=Rth para que la predicción coincida (aquí RL=${fmtR(rlv)} y Rth=${fmtR(Math.round(rth))} no son iguales). El teorema vale para CUALQUIER RL.`},
-        {t:'No coinciden realmente: la pequeña diferencia se debe a redondeo',ok:false,why:'La diferencia entre ambos valores es, dentro de la precisión de punto flotante, cero — no es un error de redondeo, es una igualdad matemática exacta.'},
+        {t:'Porque el teorema garantiza que, desde las terminales, el equivalente predice EXACTO el comportamiento de la red ante cualquier carga',ok:true,why:'Esa es la promesa central del teorema: no es una aproximación — el equivalente de Thévenin reproduce EXACTAMENTE el voltaje y la corriente en las terminales, para cualquier RL, mientras la red interna sea lineal.'},
+        {t:'Coinciden solo por casualidad, con esta RL en particular y con estos valores de resistores en la red completa',ok:false,why:'No es casualidad: prueba con cualquier otro valor de RL en el selector y la coincidencia se mantiene siempre — es una propiedad del teorema, no de este valor específico.'},
+        {t:'Porque RL es igual a Rth en este caso concreto, que es justo donde la transferencia de potencia resulta máxima',ok:false,why:`No es necesario que RL=Rth para que la predicción coincida (aquí RL=${fmtR(rlv)} y Rth=${fmtR(Math.round(rth))} no son iguales). El teorema vale para CUALQUIER RL.`},
+        {t:'No coinciden realmente: la pequeña diferencia que se ve entre ambos valores se debe solo al redondeo de las cifras que muestra el simulador en pantalla',ok:false,why:'La diferencia entre ambos valores es, dentro de la precisión de punto flotante, cero — no es un error de redondeo, es una igualdad matemática exacta.'},
       ],
     },
     norton:{
       pregunta:`El equivalente Norton (In=${fmtI(isc)}, Rn=${fmtR(Math.round(rth))}) predice V(RL)=${vRLnorton.toFixed(3)} V, idéntico al de Thévenin (${vRLth.toFixed(3)} V). ¿Qué relación hay SIEMPRE entre Rn y Rth?`,
       opciones:[
-        {t:'Rn = Rth siempre — son la misma resistencia interna, solo cambia si se combina con una fuente de voltaje en serie (Thévenin) o de corriente en paralelo (Norton)',ok:true,why:'Correcto: Thévenin y Norton son dos representaciones del MISMO equivalente. La resistencia interna es una sola (Rth=Rn); lo que cambia es si la fuente ideal se coloca en serie (Vth) o en paralelo (In=Isc).'},
-        {t:'Rn siempre es menor que Rth, porque está en paralelo con la fuente de corriente',ok:false,why:'No hay tal reducción: Rn y Rth son numéricamente el mismo valor. Estar "en paralelo" en el circuito Norton no cambia el valor de la resistencia, solo su rol topológico.'},
-        {t:'Rn y Rth no tienen relación fija: dependen de qué carga RL se conecte',ok:false,why:'Rn=Rth es una propiedad de la red vista desde las terminales — no depende en absoluto de qué RL se conecte después.'},
-        {t:'Rn = Rth solo cuando la red tiene una única fuente',ok:false,why:'La equivalencia Rn=Rth vale para cualquier red lineal de dos terminales, sin importar cuántas fuentes tenga por dentro.'},
+        {t:'Rn = Rth siempre: es la misma resistencia, en serie con la fuente de voltaje (Thévenin) o en paralelo con la de corriente',ok:true,why:'Correcto: Thévenin y Norton son dos representaciones del MISMO equivalente. La resistencia interna es una sola (Rth=Rn); lo que cambia es si la fuente ideal se coloca en serie (Vth) o en paralelo (In=Isc).'},
+        {t:'Rn siempre es menor que Rth, porque en el circuito de Norton queda en paralelo con la fuente de corriente',ok:false,why:'No hay tal reducción: Rn y Rth son numéricamente el mismo valor. Estar "en paralelo" en el circuito Norton no cambia el valor de la resistencia, solo su rol topológico.'},
+        {t:'Rn y Rth no tienen una relación fija: dependen de cuál sea la carga RL que se conecte a las terminales',ok:false,why:'Rn=Rth es una propiedad de la red vista desde las terminales — no depende en absoluto de qué RL se conecte después.'},
+        {t:'Rn = Rth solo cuando la red tiene una única fuente independiente en su interior; con varias fuentes, ambas resistencias resultan distintas entre sí',ok:false,why:'La equivalencia Rn=Rth vale para cualquier red lineal de dos terminales, sin importar cuántas fuentes tenga por dentro.'},
       ],
     },
     reto:{
       pregunta:'¿Por qué basta con reportar el par (Vth, Rth) para predecir el comportamiento de la caja negra ante cualquier carga, sin conocer los componentes internos?',
       opciones:[
-        {t:'Porque el teorema de Thévenin garantiza que toda red lineal de dos terminales es indistinguible, desde afuera, de una fuente ideal en serie con una resistencia — dos números bastan para reproducir su comportamiento completo',ok:true,why:'Ese es exactamente el punto del teorema: sin importar cuántos componentes haya adentro (una fuente y tres resistores, o cien), desde las dos terminales la red se comporta idéntico a (Vth, Rth). Dos parámetros capturan TODA la información relevante para cualquier carga externa.'},
-        {t:'Porque todas las cajas negras tienen internamente la misma cantidad de componentes',ok:false,why:'No hace ninguna suposición sobre el número o tipo de componentes internos — el teorema vale igual si adentro hay 1 resistor o 50, siempre que la red sea lineal.'},
-        {t:'No basta en realidad: hacen falta también los valores exactos de R1, R2 y R3 para predecir el comportamiento',ok:false,why:'Es precisamente lo que el teorema evita: (Vth, Rth) predicen el comportamiento en las terminales sin necesidad de conocer la topología ni los valores internos.'},
-        {t:'Porque Vth y Rth son un promedio de todos los componentes internos',ok:false,why:'No son un promedio: son el resultado exacto de resolver la red completa vista desde las terminales (Vth=Voc, Rth=Voc/Isc), no una aproximación estadística.'},
+        {t:'Porque toda red lineal de dos terminales es indistinguible, desde afuera, de una fuente ideal con una resistencia en serie',ok:true,why:'Ese es exactamente el punto del teorema: sin importar cuántos componentes haya adentro (una fuente y tres resistores, o cien), desde las dos terminales la red se comporta idéntico a (Vth, Rth). Dos parámetros capturan TODA la información relevante para cualquier carga externa.'},
+        {t:'Porque todas las cajas negras tienen internamente la misma cantidad de componentes y la misma cantidad de fuentes',ok:false,why:'No hace ninguna suposición sobre el número o tipo de componentes internos — el teorema vale igual si adentro hay 1 resistor o 50, siempre que la red sea lineal.'},
+        {t:'No basta en realidad: hacen falta también los valores exactos de R1, R2 y R3 para poder predecir su comportamiento ante cada carga que se conecte',ok:false,why:'Es precisamente lo que el teorema evita: (Vth, Rth) predicen el comportamiento en las terminales sin necesidad de conocer la topología ni los valores internos.'},
+        {t:'Porque Vth y Rth son un promedio ponderado de todos los componentes que hay dentro de la caja negra',ok:false,why:'No son un promedio: son el resultado exacto de resolver la red completa vista desde las terminales (Vth=Voc, Rth=Voc/Isc), no una aproximación estadística.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -1293,6 +1309,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,selR1,selR2,selR3,selRL,cargaOn};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -1306,19 +1324,10 @@ async function runAuto(){
     showToast(`Paso 2 · Con RL conectada, V(RL) predicho por Thévenin coincide EXACTO con la red completa: ${SOL.V[3].toFixed(3)} V.`);await sleep(3000);
     setMode('norton');
     showToast(`Paso 3 · Equivalente Norton: In=${fmtI(iscReal())}, Rn=${fmtR(Math.round(rthReal()))} — misma predicción que Thévenin.`);await sleep(3000);
-    setMode('reto');
-    showToast('Paso 4 · Caja negra real: mide Voc e Isc y reporta Vth y Rth.');await sleep(2200);
-    medirVoc();await sleep(1400);
-    medirIsc();await sleep(1400);
-    el('inVth').value=vocReal().toFixed(3);
-    el('inRth').value=Math.round(rthReal());
-    checkReto();await sleep(2400);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 4 · El Reto es tuyo: caja negra sellada. Mide Voc e Isc, calcula Vth y Rth y repórtalos. Este recorrido no lo resuelve ni lo marca como hecho.');await sleep(3400);
   }finally{
+    selR1=previo.selR1;selR2=previo.selR2;selR3=previo.selR3;selRL=previo.selRL;cargaOn=previo.cargaOn;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1331,7 +1340,7 @@ S.setAnimate((dt,time)=>{
 
 ['explora','carga','norton','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;
-el('btnNew').onclick=newScenario;
+el('btnNew').onclick=()=>newScenario();
 el('btnCheck').onclick=checkReto;
 el('btnVoc').onclick=medirVoc;
 el('btnIsc').onclick=medirIsc;
@@ -1357,6 +1366,17 @@ window.__labDebug={
   boardClick,
   mode:()=>mode,
   retoSolved:()=>retoSolved,
+  solved:()=>solved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  retoIdx:()=>retoIdx,
+  setMode:k=>setMode(k),
+  runAuto:()=>runAuto(),
+  medirVoc:()=>medirVoc(), medirIsc:()=>medirIsc(),
+  checkReto:()=>checkReto(),
+  newScenario:()=>newScenario(),
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   measured:()=>({voc:measuredVoc,isc:measuredIsc}),
 };
 </script>

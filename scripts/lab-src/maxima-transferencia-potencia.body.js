@@ -104,16 +104,17 @@ let mode='explora'; // explora | eficiencia | reto
 let selR1=1000,selR2=2200,selR3=470,selRL=2200;
 let measuredVoc=false,measuredIsc=false;
 let retoIdx=0,retoSolved=false,retoMsg='';
+let intentos=0,resiembras=0;const FALLOS_MAX=3;   // fallos de la caja negra actual; a los 3 se cambia
 let solved=false,autoRunning=false,QUIZ={};
 const R_CANDIDATES=[470,1000,2200,3300,4700,6800,10000];
 const RL_CANDIDATES=[220,470,1000,2200,3300,4700,6800,10000,15000,22000];
 const RETO_SCENARIOS=[
   {V:12,R1:2200,R2:4700,R3:330},
   {V:12,R1:1000,R2:1800,R3:220},
-  {V:12,R1:4700,R2:1000,R3:1000},
+  {V:12,R1:4700,R2:1000,R3:1200},
   {V:12,R1:1500,R2:6800,R3:470},
   {V:12,R1:6800,R2:2200,R3:680},
-  {V:12,R1:3300,R2:3300,R3:1000},
+  {V:12,R1:3300,R2:3300,R3:1200},
 ];
 
 function numOr(id){const v=parseFloat((el(id).value||'').replace(',','.'));return isFinite(v)?v:NaN;}
@@ -592,7 +593,7 @@ function setMode(k){
   el('retoBox').style.display=reto?'':'none';
   el('medirBox').style.display=reto?'':'none';
   if(reto)updateRetoSpec();
-  solved=false;clearDx();
+  solved=(k==='reto')?retoSolved:false;clearDx();
   resolve();buildQuiz();refreshQuestion();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
   refreshAll();
@@ -638,6 +639,7 @@ function updateTele(){
       teleRow('Isc',measuredIsc?(iscReal()*1000).toFixed(3)+' mA':'🔒 sin medir',measuredIsc?'good':'warn')+
       teleRow('Tu RLopt',(el('inRLopt')&&el('inRLopt').value)?el('inRLopt').value+' Ω':'—')+
       teleRow('Tu Pmáx',(el('inPmax')&&el('inPmax').value)?el('inPmax').value+' mW':'—')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoSolved?'✔ PREDICCIÓN VALIDADA':(gated?'Escribe RLopt y Pmáx':'Mide Voc e Isc'),retoSolved?'good':'warn');
   }
 }
@@ -665,6 +667,7 @@ function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
 function medirVoc(){measuredVoc=true;synth.beep(660,0.08,0.05);refreshAll();showToast(`Medida: Voc = ${vocReal().toFixed(3)} V (terminales en circuito abierto).`);}
 function medirIsc(){measuredIsc=true;synth.beep(760,0.08,0.05);refreshAll();showToast(`Medida: Isc = ${(iscReal()*1000).toFixed(3)} mA (terminales en cortocircuito, vía amperímetro ideal).`);}
 function checkReto(){
+  if(retoSolved)return;
   if(!(measuredVoc&&measuredIsc)){showToast('Primero mide Voc e Isc.');return;}
   const rlGuess=numOr('inRLopt'),pGuess=numOr('inPmax');
   if(!isFinite(rlGuess)||!isFinite(pGuess)){showToast('Escribe RLopt (Ω) y Pmáx (mW).');return;}
@@ -673,29 +676,37 @@ function checkReto(){
   const tolRL=Math.max(15,rthR*0.05),tolP=Math.max(0.05,pmaxR_mW*0.05);
   const okRL=Math.abs(rlGuess-rthR)<=tolRL, okP=Math.abs(pGuess-pmaxR_mW)<=tolP;
   if(okRL&&okP){
-    retoSolved=true;synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Predicción correcta.</span> RLopt=${rlGuess} Ω y Pmáx=${pGuess} mW están dentro de tolerancia (±${tolRL.toFixed(1)} Ω, ±${tolP.toFixed(3)} mW).</span>`;
+    retoSolved=true;solved=true;synth.beep(1046,0.12,0.06);
+    retoMsg=`<span class="mono"><span class="ok">✔ Predicción correcta</span> en ${intentos+1} ${intentos?'intentos':'intento'}. RLopt=${rlGuess} Ω y Pmáx=${pGuess} mW están dentro de tolerancia (±${tolRL.toFixed(1)} Ω, ±${tolP.toFixed(3)} mW).</span>`;
   }else{
-    synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> RLopt ${okRL?'✓ dentro de tolerancia':'✗ fuera de tolerancia'} · Pmáx ${okP?'✓ dentro de tolerancia':'✗ fuera de tolerancia'}. Vuelve a medir Voc/Isc con cuidado y recalcula RLopt=Rth=Voc/Isc, Pmáx=Vth²/(4·Rth).</span>`;
+    intentos++;synth.beep(220,0.15,0.06);
+    const base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). RLopt ${okRL?'✓ dentro de tolerancia':'✗ fuera de tolerancia'} · Pmáx ${okP?'✓ dentro de tolerancia':'✗ fuera de tolerancia'}. Recuerda la condición de máxima transferencia y revisa unidades (mA → A, W → mW).`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta caja negra se retira sin dar sus valores. Te toca una nueva; vuelve a medir.</span>`;
+      newScenario(true);
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base}</span>`;
   }
   resolve();refreshAll();
 }
 function updateRetoSpec(){
   el('retoSpec').innerHTML=`Caja negra sellada con dos terminales (A, B). Usa <b>"Medir Voc"</b> y <b>"Medir Isc"</b>, calcula Rth=Voc/Isc (= RLopt) y Pmáx=Vth²/(4·Rth), y repórtalos.<br><span style="color:var(--dim)">Las tolerancias (±5 % relativas) son un margen pedagógico de este ejercicio, no una especificación de fabricante.</span>`;
 }
-function newScenario(){
+function newScenario(auto){
   const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
   let idx=pick();
   if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
-  retoIdx=idx;retoSolved=false;retoMsg='';measuredVoc=false;measuredIsc=false;
+  retoIdx=idx;retoSolved=false;retoMsg='';measuredVoc=false;measuredIsc=false;intentos=0;
   el('inRLopt').value='';el('inPmax').value='';
   if(mode!=='reto'){setMode('reto');}
   else{updateRetoSpec();resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
-  showToast('🔀 <b>Nueva caja negra.</b> Vuelve a medir Voc e Isc desde cero.');
+  showToast(auto===true?'🔀 Caja negra nueva: vuelve a medir Voc e Isc desde cero.':'🔀 <b>Nueva caja negra.</b> Vuelve a medir Voc e Isc desde cero.');
   synth.beep(520,0.08,0.05);
 }
-function onRetoInput(){if(mode!=='reto')return;retoSolved=false;retoMsg='';refreshAll();}
+function onRetoInput(){if(mode!=='reto')return;if(!retoSolved)retoMsg='';refreshAll();}   // el éxito ya logrado no se pierde al seguir editando
 
 // ============================== 12) QUIZ ==============================
 function buildQuiz(){
@@ -703,31 +714,36 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué la curva P(RL) tiene un ÚNICO máximo en vez de crecer sin límite o ser máxima con RL muy pequeña?',
       opciones:[
-        {t:'Porque P=I²RL→0 cuando RL→0 (I es grande pero V(RL) es cero) y P=V(RL)²/RL→0 cuando RL→∞ (V(RL) es grande pero I es casi cero); en un punto intermedio, RL=Rth, ambos efectos se equilibran y P es máxima',ok:true,why:'Exacto: los dos límites extremos hacen que la potencia caiga a cero por razones distintas (voltaje nulo vs. corriente nula). Entre ambos hay un único máximo, y se demuestra por cálculo (dP/dRL=0) que ocurre en RL=Rth.'},
-        {t:'Porque RL muy grande sobrecalienta la fuente y el simulador la apaga',ok:false,why:'El modelo no incluye protección térmica ni fuentes que se apaguen — la curva cae a cero por pura relación V-I-R, no por un límite de seguridad.'},
-        {t:'La potencia SÍ crece sin límite con RL — lo que se observa en la curva es solo un artefacto de la escala logarítmica del eje',ok:false,why:'No es un artefacto de escala: P(RL) realmente vuelve a caer hacia cero conforme RL crece, incluso medida en escala lineal — es una propiedad física de la red, no visual.'},
-        {t:'Porque Rth es siempre igual a RL por definición del circuito',ok:false,why:'Rth es una propiedad fija de la red (no depende de qué RL elijas); lo interesante es precisamente que el MÁXIMO ocurre solo cuando tú, al elegir RL, la haces coincidir con Rth.'},
+        {t:'Porque con RL→0 casi no hay tensión en la carga (P→0) y con RL→∞ casi no circula corriente (P→0); en RL=Rth ambos efectos se compensan y P es máxima',ok:true,why:'Exacto: los dos límites extremos hacen que la potencia caiga a cero por razones distintas (voltaje nulo vs. corriente nula). Entre ambos hay un único máximo, y se demuestra por cálculo (dP/dRL=0) que ocurre en RL=Rth.'},
+        {t:'Porque con RL muy grande la fuente se sobrecalienta y el simulador la apaga para protegerla de la sobrecarga',ok:false,why:'El modelo no incluye protección térmica ni fuentes que se apaguen — la curva cae a cero por pura relación V-I-R, no por un límite de seguridad.'},
+        {t:'La potencia sí crece sin límite con RL; lo que se ve en la curva es un artefacto de la escala logarítmica del eje horizontal',ok:false,why:'No es un artefacto de escala: P(RL) realmente vuelve a caer hacia cero conforme RL crece, incluso medida en escala lineal — es una propiedad física de la red, no visual.'},
+        {t:'Porque Rth es siempre igual a RL por definición del circuito, así que la curva solo tiene un punto posible de operación',ok:false,why:'Rth es una propiedad fija de la red (no depende de qué RL elijas); lo interesante es precisamente que el MÁXIMO ocurre solo cuando tú, al elegir RL, la haces coincidir con Rth.'},
       ],
     },
     eficiencia:{
       pregunta:'En RL=Rth (máxima potencia), la eficiencia η es exactamente 50 %. ¿Qué tendrías que hacer para lograr una eficiencia MAYOR al 50 %, y qué le pasaría a la potencia entregada?',
       opciones:[
-        {t:'Usar una RL mayor que Rth: la eficiencia sube (η=RL/(RL+Rth)→1 cuando RL→∞) pero la potencia entregada a la carga BAJA respecto al máximo — maximizar potencia y maximizar eficiencia son objetivos distintos',ok:true,why:'Correcto: con RL>Rth, la corriente cae más rápido de lo que sube el voltaje sobre la carga, así que P(RL) baja respecto al pico — pero como se disipa proporcionalmente menos en Rth, η sube. Es un intercambio (trade-off) real de diseño.'},
-        {t:'Usar una RL menor que Rth: tanto la potencia como la eficiencia suben juntas',ok:false,why:'Con RL<Rth ocurre lo contrario: la eficiencia BAJA (más corriente se disipa en Rth relativo a RL) y la potencia entregada también cae respecto al pico en RL=Rth.'},
-        {t:'Es imposible superar el 50 % de eficiencia en cualquier circuito resistivo',ok:false,why:'Sí es posible: η=RL/(RL+Rth) puede acercarse a 100 % con RL suficientemente grande — el costo es que la potencia ENTREGADA (no la eficiencia) se aleja de su máximo.'},
-        {t:'Aumentando el voltaje de la fuente V1 se sube la eficiencia sin afectar la potencia',ok:false,why:'η=RL/(RL+Rth) no depende del voltaje de la fuente en absoluto — depende solo de la razón entre RL y Rth. Cambiar V1 escala P(RL) pero no cambia η.'},
+        {t:'Usar una RL mayor que Rth: η=RL/(RL+Rth) sube hacia 100 %, pero la potencia entregada baja respecto al máximo; son objetivos distintos',ok:true,why:'Correcto: con RL>Rth, la corriente cae más rápido de lo que sube el voltaje sobre la carga, así que P(RL) baja respecto al pico — pero como se disipa proporcionalmente menos en Rth, η sube. Es un intercambio (trade-off) real de diseño.'},
+        {t:'Usar una RL menor que Rth: tanto la potencia entregada como la eficiencia suben a la vez respecto a RL=Rth',ok:false,why:'Con RL<Rth ocurre lo contrario: la eficiencia BAJA (más corriente se disipa en Rth relativo a RL) y la potencia entregada también cae respecto al pico en RL=Rth.'},
+        {t:'Es imposible superar el 50 % de eficiencia en cualquier circuito resistivo, porque la fuente siempre disipa la mitad',ok:false,why:'Sí es posible: η=RL/(RL+Rth) puede acercarse a 100 % con RL suficientemente grande — el costo es que la potencia ENTREGADA (no la eficiencia) se aleja de su máximo.'},
+        {t:'Aumentar el voltaje de la fuente V1: eleva la eficiencia sin afectar la potencia entregada a la carga',ok:false,why:'η=RL/(RL+Rth) no depende del voltaje de la fuente en absoluto — depende solo de la razón entre RL y Rth. Cambiar V1 escala P(RL) pero no cambia η.'},
       ],
     },
     reto:{
       pregunta:'Sin ver los componentes internos de la caja negra, ¿por qué basta con medir Voc e Isc para predecir el RL que maximiza la potencia entregada?',
       opciones:[
-        {t:'Porque Voc=Vth y Rth=Voc/Isc son los ÚNICOS dos parámetros que definen por completo el comportamiento de la red vista desde las terminales — y la condición de máxima transferencia (RL=Rth) depende solo de Rth, no de la topología interna',ok:true,why:'Exacto: el teorema de Thévenin garantiza que (Vth,Rth) capturan toda la información relevante de la red externa. Como RLopt=Rth y Pmáx=Vth²/(4·Rth) son fórmulas que solo usan esos dos números, no hace falta conocer cuántos resistores hay adentro ni cómo están conectados.'},
-        {t:'No basta en realidad: hace falta conocer también los valores de R1, R2 y R3 para predecir RLopt',ok:false,why:'Es precisamente lo que el método experimental evita: RLopt=Rth se obtiene de Voc/Isc sin necesidad de conocer ni un solo componente interno.'},
-        {t:'Porque Isc por sí sola ya determina RLopt, sin necesidad de medir Voc',ok:false,why:'Isc solo da un punto de la relación V-I; Rth=Voc/Isc necesita las DOS mediciones — con solo Isc no hay forma de despejar Rth.'},
-        {t:'Porque todas las cajas negras de este laboratorio tienen la misma Rth por diseño',ok:false,why:'Cada escenario del reto usa valores distintos de R1/R2/R3 — Rth cambia de una caja negra a otra; por eso hay que remedirla cada vez, no se puede memorizar un solo valor.'},
+        {t:'Porque Voc=Vth y Rth=Voc/Isc definen por completo la red vista desde los terminales, y RLopt=Rth no depende de la topología interna',ok:true,why:'Exacto: el teorema de Thévenin garantiza que (Vth,Rth) capturan toda la información relevante de la red externa. Como RLopt=Rth y Pmáx=Vth²/(4·Rth) son fórmulas que solo usan esos dos números, no hace falta conocer cuántos resistores hay adentro ni cómo están conectados.'},
+        {t:'No basta en realidad: hace falta conocer también los valores de R1, R2 y R3 para predecir RLopt con precisión',ok:false,why:'Es precisamente lo que el método experimental evita: RLopt=Rth se obtiene de Voc/Isc sin necesidad de conocer ni un solo componente interno.'},
+        {t:'Porque Isc por sí sola ya determina RLopt, sin necesidad de medir Voc ni de calcular ningún cociente',ok:false,why:'Isc solo da un punto de la relación V-I; Rth=Voc/Isc necesita las DOS mediciones — con solo Isc no hay forma de despejar Rth.'},
+        {t:'Porque todas las cajas negras de este laboratorio tienen la misma Rth por diseño, así que no hay nada que medir',ok:false,why:'Cada escenario del reto usa valores distintos de R1/R2/R3 — Rth cambia de una caja negra a otra; por eso hay que remedirla cada vez, no se puede memorizar un solo valor.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -790,6 +806,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,selR1,selR2,selR3,selRL};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -801,20 +819,10 @@ async function runAuto(){
     showToast(`RL=${fmtR(closest)} (el valor más cercano a Rth=${fmtR(Math.round(rthNow))} en el selector) <span style="color:var(--good)">✔ cerca del pico</span>`);await sleep(2600);
     setMode('eficiencia');
     showToast('Paso 2 · En el pico de potencia, la eficiencia es exactamente 50 %: la mitad de la energía se pierde en Rth.');await sleep(3000);
-    setMode('reto');
-    showToast('Paso 3 · Caja negra real: mide Voc e Isc y predice RLopt y Pmáx.');await sleep(2200);
-    medirVoc();await sleep(1400);
-    medirIsc();await sleep(1400);
-    const vocR=vocReal(),iscR=iscReal(),rthR=vocR/iscR;
-    el('inRLopt').value=Math.round(rthR);
-    el('inPmax').value=((vocR*vocR)/(4*rthR)*1000).toFixed(2);
-    checkReto();await sleep(2400);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: caja negra sellada. Mide Voc e Isc y predice RLopt y Pmáx. Este recorrido no lo resuelve ni lo marca como hecho.');await sleep(3400);
   }finally{
+    selR1=previo.selR1;selR2=previo.selR2;selR3=previo.selR3;selRL=previo.selRL;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -827,7 +835,7 @@ S.setAnimate((dt,time)=>{
 
 ['explora','eficiencia','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;
-el('btnNew').onclick=newScenario;
+el('btnNew').onclick=()=>newScenario();
 el('btnCheck').onclick=checkReto;
 el('btnVoc').onclick=medirVoc;
 el('btnIsc').onclick=medirIsc;
@@ -856,5 +864,16 @@ window.__labDebug={
   boardClick,
   mode:()=>mode,
   retoSolved:()=>retoSolved,
+  solved:()=>solved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  retoIdx:()=>retoIdx,
+  setMode:k=>setMode(k),
+  runAuto:()=>runAuto(),
+  medirVoc:()=>medirVoc(), medirIsc:()=>medirIsc(),
+  checkReto:()=>checkReto(),
+  newScenario:()=>newScenario(),
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   measured:()=>({voc:measuredVoc,isc:measuredIsc}),
 };

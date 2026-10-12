@@ -513,14 +513,18 @@ let expI=20, expL=50, expIdx=1;   // idx en CAT (12 AWG por defecto)
 let retoI=20, retoL=50, retoAns=0, retoPick=1, retoChecked=false, retoOk=false, retoMsg='';
 let solved=false, autoRunning=false;
 let QUIZ={};
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos del caso de reto actual; a los 3 se resiembra
+const retoCiego=()=>mode==='reto'&&!retoOk;          // en el Reto no hay veredicto en vivo (ni medidor, ni barras, ni brillo)
 
 function seedReto(){
   let I,L,sel;
   do{ I=pickFrom(RETO_I); L=pickFrom(RETO_L); sel=selectMin(I,L); }
-  while(sel.byBoth<0);                         // garantiza solución en catálogo (siempre la hay)
+  while(sel.byBoth<0||(I===expI&&L===expL));    // con solución en catálogo y distinto del caso de Explora/Selección
   retoI=I; retoL=L; retoAns=sel.byBoth;
-  retoPick=sel.byAmp>=0?sel.byAmp:0;          // el alumno arranca en el calibre "ampacidad-sola" (la trampa)
-  retoChecked=false; retoOk=false; retoMsg='';
+  /* arranca en un calibre que NO es la respuesta (así «Comprobar» sin pensar no aprueba) */
+  const otros=CAT.map((c,k)=>k).filter(k=>k!==sel.byBoth);
+  retoPick=otros[Math.floor(Math.random()*otros.length)];
+  retoChecked=false; retoOk=false; retoMsg=''; intentos=0;
 }
 seedReto();
 
@@ -700,10 +704,15 @@ function drawReto(c,ev){
   c.fillText('Circuito de I='+I+' A, longitud L='+L+' m, V='+V+' V. Elige el conductor MÁS DELGADO que cumpla ampacidad Y caída ≤3%.',30,70);
 
   // criterios del calibre ACTUALMENTE elegido (sin decir si es el mínimo hasta comprobar)
-  critBar(c,30,150,520,42, I/cd.amp, cd.amp>=I,
-    '① AMPACIDAD (I ≤ ampacidad)', I+' A de '+cd.amp+' A', cd.amp+' A');
-  critBar(c,30,258,520,42, ev.pe/VD_LIM, ev.vdOk,
-    '② CAÍDA (%e ≤ 3%)', fmtPct(ev.pe), '3.00%');
+  /* sin barras de cumple/no cumple: el veredicto llega solo al comprobar */
+  c.fillStyle='#C9C4BB';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('① AMPACIDAD (I ≤ ampacidad)',30,140);
+  c.fillStyle='#F4EFEA';c.font='bold 20px Outfit, sans-serif';c.fillText('Tabla de tu calibre: '+cd.amp+' A  (carga: '+I+' A)',30,172);
+  c.fillStyle='#C9C4BB';c.font='bold 15px Outfit, sans-serif';
+  c.fillText('② CAÍDA (%e ≤ 3%)',30,248);
+  c.fillStyle='#8f9793';c.font='14px Outfit, sans-serif';
+  c.fillText('Calcúlala tú: e = 2·ρ·L·I / S, con ρ = 0.0175 Ω·mm²/m y S de tu calibre ('+cd.S.toFixed(2)+' mm²).',30,276);
+  c.fillText('Compárala con el 3 % de V = '+V+' V (3.81 V).',30,300);
 
   const bx=620,by=120,bw=374,bh=300;
   c.fillStyle='rgba(79,176,174,0.06)';c.fillRect(bx,by,bw,bh);
@@ -722,9 +731,9 @@ function drawReto(c,ev){
     c.fillStyle='rgba(0,0,0,0.25)';c.fillRect(30,470,964,250);
     c.strokeStyle=retoOk?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(30,470,964,250);
     c.fillStyle=retoOk?OK_HEX:BAD_HEX;c.font='bold 18px Outfit, sans-serif';c.textAlign='left';
-    c.fillText(retoOk?'✔ CORRECTO':'✗ INCORRECTO',48,504);
+    c.fillText(retoOk?'✔ CORRECTO':'✗ INCORRECTO  (fallo '+intentos+' de '+FALLOS_MAX+')',48,504);
     c.fillStyle='#C9C4BB';c.font='15px Outfit, sans-serif';
-    wrapText(c,'El calibre mínimo correcto es AWG '+ansC.awg+' (S='+ansC.S+' mm², caída '+fmtPct(vdPct(ansC.S,L,I))+', ampacidad '+ansC.amp+' A ≥ '+I+' A).',48,536,920,22);
+    if(retoOk)wrapText(c,'El calibre mínimo correcto es AWG '+ansC.awg+' (S='+ansC.S+' mm², caída '+fmtPct(vdPct(ansC.S,L,I))+', ampacidad '+ansC.amp+' A ≥ '+I+' A).',48,536,920,22);
     c.fillStyle='#8f9793';c.font='14px Outfit, sans-serif';
     wrapText(c,retoMsgLong(),48,600,920,22);
   }else{
@@ -734,15 +743,16 @@ function drawReto(c,ev){
     c.fillText('Pista: si la corrida es larga, la ampacidad NO basta — revisa la caída antes de decidir.',30,566);
   }
 }
+/* Retroalimentación sobre el calibre ELEGIDO (nunca se nombra el correcto) */
 function retoMsgLong(){
-  const I=retoI,L=retoL,pick=CAT[retoPick],ans=CAT[retoAns],sel=selectMin(I,L);
-  if(retoOk) return 'Con L='+L+' m la caída fue el criterio que decidió; elegiste el calibre justo, sin sobrecoste de cobre.';
+  const I=retoI,L=retoL,pick=CAT[retoPick];
+  if(retoOk) return 'Con L='+L+' m el criterio que decidió fue el correcto; elegiste el calibre justo, sin sobrecoste de cobre.';
+  const pe=vdPct(pick.S,L,I);
   if(retoPick<retoAns){
-    const pe=vdPct(pick.S,L,I);
-    if(pick.amp<I) return 'Tu AWG '+pick.awg+' ni siquiera aguanta la corriente (ampacidad '+pick.amp+' A < '+I+' A). Además la caída sería '+fmtPct(pe)+'.';
-    return 'Tu AWG '+pick.awg+' aguanta la corriente (ampacidad OK), pero la caída es '+fmtPct(pe)+' > 3%: la carga quedaría a '+fmtV(V-vdVolts(pick.S,L,I))+'. Esa es la trampa de dimensionar solo por ampacidad.';
+    if(pick.amp<I) return 'Tu AWG '+pick.awg+' ni siquiera aguanta la corriente (ampacidad '+pick.amp+' A < '+I+' A). Necesitas un calibre más grueso.';
+    return 'Tu AWG '+pick.awg+' aguanta la corriente (ampacidad OK), pero su caída es '+fmtPct(pe)+' > 3%: la carga quedaría a '+fmtV(V-vdVolts(pick.S,L,I))+'. Esa es la trampa de dimensionar solo por ampacidad.';
   }
-  return 'Tu AWG '+pick.awg+' cumple, pero está sobredimensionado: AWG '+ans.awg+' ya bastaba y cuesta menos cobre. El objetivo es el MÍNIMO que cumple ambos.';
+  return 'Tu AWG '+pick.awg+' cumple (caída '+fmtPct(pe)+'), pero está sobredimensionado: existe un calibre más delgado que también cumple ambos criterios. El objetivo es el MÍNIMO.';
 }
 
 function wrapText(c,text,x,y,maxW,lh){
@@ -799,10 +809,11 @@ vmScreen.userData={title:'Voltímetro en la carga',info:'Mide la tensión que re
 function drawVM(){
   const c=vmCv.getContext('2d'),ev=curEval();
   c.fillStyle='#0a0d0c';c.fillRect(0,0,256,140);
-  c.strokeStyle=ev.vdOk?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(3,3,250,134);
+  const ciego=retoCiego();
+  c.strokeStyle=ciego?'#7a8380':(ev.vdOk?OK_HEX:BAD_HEX);c.lineWidth=3;c.strokeRect(3,3,250,134);
   c.fillStyle='#7a8380';c.font='bold 16px Outfit, sans-serif';c.textAlign='center';c.fillText('V EN LA CARGA',128,28);
-  c.fillStyle=ev.vdOk?OK_HEX:BAD_HEX;c.font='bold 46px Outfit, monospace';c.fillText(fmtV(ev.vload),128,80);
-  c.fillStyle='#5a625e';c.font='13px Outfit, sans-serif';c.fillText('caída '+fmtPct(ev.pe)+' (máx 3%)',128,110);
+  c.fillStyle=ciego?'#7a8380':(ev.vdOk?OK_HEX:BAD_HEX);c.font='bold 46px Outfit, monospace';c.fillText(ciego?'-- V':fmtV(ev.vload),128,80);
+  c.fillStyle='#5a625e';c.font='13px Outfit, sans-serif';c.fillText(ciego?'caída: cálculala tú':'caída '+fmtPct(ev.pe)+' (máx 3%)',128,110);
   vmTex.needsUpdate=true;
 }
 
@@ -840,10 +851,10 @@ function rebuildWires(){
 function refreshWireGlow(){
   const ev=curEval();
   const over=ev.c.amp>0?curI()/ev.c.amp:0;                 // >1 = sobrecarga
-  const heat=Math.max(0,Math.min(1,(over-0.7)/0.6));       // empieza a calentar cerca del límite
+  const heat=retoCiego()?0:Math.max(0,Math.min(1,(over-0.7)/0.6));       // empieza a calentar cerca del límite
   copMat.emissive.setHex(0xff3b1a);copMat.emissiveIntensity=heat*1.1;
   // brillo de la carga ∝ tensión que le llega
-  const litf=Math.max(0,Math.min(1,(ev.vload-V*0.85)/(V*0.15)));
+  const litf=retoCiego()?0.5:Math.max(0,Math.min(1,(ev.vload-V*0.85)/(V*0.15)));
   load.material.emissive.setHex(0xE9C46A);load.material.emissiveIntensity=0.06+0.5*litf;
 }
 
@@ -870,10 +881,10 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> la selección de calibre de un circuito derivado monofásico de 2 hilos por los dos criterios simultáneos —ampacidad (I ≤ ampacidad de tabla 310-15(b)(16) a 75 °C, con el tope de protección del Art. 240.4(D) para 14/12/10 AWG = 15/20/30 A) y caída de tensión e=2ρLI/S con límite del 3 %— sobre un catálogo real de conductores de cobre THW (14 AWG a 4/0). Muestra por qué en corridas largas la caída, no la ampacidad, decide el calibre (verificado: 30/36 escenarios del Reto). Calcula la tensión que llega a la carga (V−e).</div>
+    <div class="fl"><b>Sí modela:</b> la selección de calibre de un circuito derivado monofásico de 2 hilos por los dos criterios simultáneos —ampacidad (I ≤ ampacidad de tabla 310-15(b)(16) a 75 °C, con el tope de protección del Art. 240.4(D) para 14/12/10 AWG = 15/20/30 A) y caída de tensión e=2ρLI/S con límite del 3 %— sobre un catálogo real de conductores de cobre THW (14 AWG a 4/0). Muestra por qué en corridas largas la caída, no la ampacidad, decide el calibre. Calcula la tensión que llega a la carga (V−e).</div>
     <div class="fl no"><b>NO modela:</b> el factor de 125 % para cargas continuas (Art. 210.19/210.20); factores de corrección por temperatura ambiente y por agrupamiento de conductores en un mismo tubo (Art. 310.15(B)); sistemas trifásicos (usarían e=√3·ρLI/S) ni la reactancia del cable (solo resistencia, válido en calibres pequeños/medios y FP≈1); la variación de la resistividad del cobre con la temperatura real de operación (se usa ρ fijo = 0.0175 Ω·mm²/m); calibres en kcmil mayores a 4/0; conductores de aluminio.</div>
   </div>
-  <div class="src">Ref: NOM-001-SEDE-2022 Art. 310 (ampacidad), Art. 240.4(D) (protección), Tabla 310-15(b)(16) · Enríquez Harper · NEC 310.16 · Verificación numérica propia</div>`;
+  <div class="src">Ref: NOM-001-SEDE-2022 Art. 310 (ampacidad), Art. 240.4(D) (protección), Tabla 310-15(b)(16) · Enríquez Harper · NEC 310.16</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Dimensionamiento · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
@@ -976,7 +987,12 @@ function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span>
 function updateTele(){
   const t=el('tele'),ev=curEval(),sel=curSel();
   let html=
-    teleRow('Conductor',('AWG '+ev.c.awg)+' · '+ev.c.S.toFixed(2)+' mm²')+
+    teleRow('Conductor',('AWG '+ev.c.awg)+' · '+ev.c.S.toFixed(2)+' mm²');
+  if(retoCiego()){
+    html+=teleRow('① Ampacidad (tabla)',ev.c.amp+' A vs I='+curI()+' A')+
+      teleRow('② Caída %e','🔒 se calcula al comprobar')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'');
+  }else html+=
     teleRow('① Ampacidad',ev.c.amp+' A vs I='+curI()+' A',ev.ampOk?'good':'warn')+
     teleRow('② Caída %e',fmtPct(ev.pe)+' (máx 3%)',ev.vdOk?'good':'warn')+
     teleRow('Tensión en carga',fmtV(ev.vload),ev.vdOk?'good':'warn');
@@ -1009,13 +1025,24 @@ function updateRetoSpec(){
   el('retoSpec').innerHTML=`Circuito fijo: <b>I=${retoI} A</b>, <b>L=${retoL} m</b>, <b>V=${V} V</b>. Elige el conductor de cobre más delgado que cumpla ampacidad (I≤amp) <b>y</b> caída de tensión ≤3%, y pulsa "Comprobar selección".`;
 }
 function checkReto(){
+  if(retoOk)return;
   retoOk=(retoPick===retoAns);retoChecked=true;solved=retoOk;
   synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
   const ansC=CAT[retoAns];
   if(retoOk){
-    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> — AWG ${ansC.awg} es el calibre mínimo (caída ${fmtPct(vdPct(ansC.S,retoL,retoI))}, ampacidad ${ansC.amp} A ≥ ${retoI} A). ${retoMsgLong()}</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'} — AWG ${ansC.awg} es el calibre mínimo (caída ${fmtPct(vdPct(ansC.S,retoL,retoI))}, ampacidad ${ansC.amp} A ≥ ${retoI} A). ${retoMsgLong()}</span>`;
   }else{
-    retoMsg=`<span class="mono"><span class="dtc">✗ Incorrecto</span> — el mínimo correcto es AWG ${ansC.awg}. ${retoMsgLong()}</span>`;
+    intentos++;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const aviso=`<span class="mono"><span class="dtc">✗ Incorrecto</span> — ${retoMsgLong()}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> este circuito se retira sin revelar el calibre. Te toca uno nuevo.</span>`;
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg=aviso;
+      showToast('🔀 '+FALLOS_MAX+' fallos: circuito nuevo, I='+retoI+' A, L='+retoL+' m.');
+      afterEdit();
+      return;
+    }
+    retoMsg=`<span class="mono"><span class="dtc">✗ Incorrecto</span> (intento ${intentos} de ${FALLOS_MAX}) — ${retoMsgLong()}</span>`;
   }
   refreshAll();
 }
@@ -1024,30 +1051,30 @@ function checkReto(){
 function buildQuiz(){
   QUIZ={
     explora:{
-      pregunta:'Un conductor tiene ampacidad de 30 A y alimenta una carga de 16 A por una corrida de 60 m, con caída resultante del 8%. ¿Es un calibre adecuado?',
+      pregunta:'Un conductor (AWG 10) tiene ampacidad de 30 A y alimenta una carga de 16 A por una corrida de 95 m, con caída resultante de ≈8 %. ¿Es un calibre adecuado?',
       opciones:[
-        {t:'No: aunque su ampacidad sobra (30 A ≥ 16 A), la caída del 8% supera el límite del 3%. La carga recibiría muy baja tensión; hay que subir a un calibre más grueso aunque la corriente no lo exija.',ok:true,why:'Correcto: se deben cumplir AMBOS criterios. En corridas largas la caída de tensión, no la ampacidad, es la que obliga a engrosar el conductor.'},
-        {t:'Sí: la ampacidad (30 A) es mayor que la corriente (16 A), así que el cable es suficiente.',ok:false,why:'La ampacidad es solo el primer criterio. Con 8% de caída la carga queda muy por debajo de su tensión nominal: el conductor NO es adecuado.'},
-        {t:'Sí, pero solo si se instala un breaker más grande.',ok:false,why:'Un breaker mayor no arregla la caída de tensión (ni debe superar el límite del conductor). El problema es la sección insuficiente para esa longitud.'},
-        {t:'No, porque la ampacidad de 30 A es demasiado alta para 16 A (sobredimensionado peligroso).',ok:false,why:'Sobredimensionar la ampacidad no es peligroso, solo un poco más caro. El problema real aquí es la caída del 8% > 3%.'},
+        {t:'No: la ampacidad sobra (30 A ≥ 16 A), pero la caída de ≈8 % supera el límite del 3 % y obliga a subir de calibre.',ok:true,why:'Correcto: se deben cumplir AMBOS criterios. En corridas largas la caída de tensión, no la ampacidad, es la que obliga a engrosar el conductor.'},
+        {t:'Sí: la ampacidad (30 A) es mayor que la corriente (16 A), así que el cable es suficiente para esa corrida de 95 m.',ok:false,why:'La ampacidad es solo el primer criterio. Con 8% de caída la carga queda muy por debajo de su tensión nominal: el conductor NO es adecuado.'},
+        {t:'Sí, pero solo si se instala un breaker más grande que proteja mejor el conductor de esa corrida tan larga.',ok:false,why:'Un breaker mayor no arregla la caída de tensión (ni debe superar el límite del conductor). El problema es la sección insuficiente para esa longitud.'},
+        {t:'No, porque la ampacidad de 30 A es demasiado alta para 16 A y un cable sobredimensionado resulta peligroso.',ok:false,why:'Sobredimensionar la ampacidad no es peligroso, solo un poco más caro. El problema real aquí es la caída del 8% > 3%.'},
       ],
     },
     seleccion:{
       pregunta:'¿Por qué la fórmula de caída de tensión de un circuito monofásico lleva un factor 2 (e = 2·ρ·L·I / S)?',
       opciones:[
-        {t:'Porque la corriente recorre dos conductores: va por el de fase y regresa por el neutro, así que la longitud efectiva del cobre es 2·L.',ok:true,why:'Correcto: la caída se produce en el trayecto de ida Y de vuelta. Por eso se usa 2·L (o, en trifásico balanceado, un factor √3 en su lugar).'},
-        {t:'Porque hay que dejar un margen de seguridad del doble.',ok:false,why:'No es un margen: el 2 es físico, corresponde a los dos conductores (ida y retorno) que la corriente recorre.'},
-        {t:'Porque la tensión es de 127 V, el doble de un sistema de 63 V.',ok:false,why:'El 2 no tiene que ver con el nivel de tensión; representa los dos conductores del circuito (ida y vuelta).'},
-        {t:'Porque la resistividad del cobre se duplica en corriente alterna.',ok:false,why:'La resistividad no se duplica; el efecto piel es despreciable en estos calibres. El 2 es por los dos conductores.'},
+        {t:'Porque la corriente recorre dos conductores, ida por la fase y regreso por el neutro: la longitud efectiva del cobre es 2·L.',ok:true,why:'Correcto: la caída se produce en el trayecto de ida Y de vuelta. Por eso se usa 2·L (o, en trifásico balanceado, un factor √3 en su lugar).'},
+        {t:'Porque hay que dejar un margen de seguridad del doble sobre la caída que se calcula, por si la carga crece.',ok:false,why:'No es un margen: el 2 es físico, corresponde a los dos conductores (ida y retorno) que la corriente recorre.'},
+        {t:'Porque la tensión de 127 V es el doble de la de un sistema de referencia de 63 V que se usa en la fórmula.',ok:false,why:'El 2 no tiene que ver con el nivel de tensión; representa los dos conductores del circuito (ida y vuelta).'},
+        {t:'Porque la resistividad del cobre se duplica cuando por el conductor circula corriente alterna en lugar de directa.',ok:false,why:'La resistividad no se duplica; el efecto piel es despreciable en estos calibres. El 2 es por los dos conductores.'},
       ],
     },
     reto:{
       pregunta:'En un circuito derivado de 20 A, ¿por qué la norma exige calibre 12 AWG y no 14 AWG, si la ampacidad de tabla del 14 AWG (20 A a 75 °C) igualaría la carga?',
       opciones:[
-        {t:'Porque el Art. 240.4(D) limita la protección del 14 AWG a 15 A: no se puede proteger con un breaker de 20 A. El 12 AWG es el mínimo que admite protección de 20 A.',ok:true,why:'Correcto: por su historial de fallas, 14/12/10 AWG tienen topes de protección de 15/20/30 A independientemente de su ampacidad de tabla. Por eso un circuito de 20 A usa calibre 12.'},
-        {t:'Porque el 14 AWG no existe comercialmente para instalaciones.',ok:false,why:'El 14 AWG sí existe y se usa mucho (circuitos de 15 A). El motivo es el tope de protección del Art. 240.4(D), no la disponibilidad.'},
-        {t:'Porque el 14 AWG siempre tiene una caída de tensión mayor al 3%.',ok:false,why:'La caída depende de la longitud y la corriente, no siempre supera el 3%. La razón aquí es el límite de protección (240.4(D)).'},
-        {t:'Porque el cobre del 12 AWG conduce mejor la corriente alterna.',ok:false,why:'Ambos son cobre; la diferencia es la sección. El motivo normativo es el tope de protección de 15 A del 14 AWG.'},
+        {t:'Porque el Art. 240.4(D) limita la protección del 14 AWG a 15 A, así que no admite un breaker de 20 A; el 12 AWG sí.',ok:true,why:'Correcto: por su historial de fallas, 14/12/10 AWG tienen topes de protección de 15/20/30 A independientemente de su ampacidad de tabla. Por eso un circuito de 20 A usa calibre 12.'},
+        {t:'Porque el 14 AWG no existe comercialmente para instalaciones y no hay forma de conseguirlo en el mercado.',ok:false,why:'El 14 AWG sí existe y se usa mucho (circuitos de 15 A). El motivo es el tope de protección del Art. 240.4(D), no la disponibilidad.'},
+        {t:'Porque el 14 AWG siempre tiene una caída de tensión mayor al 3 % sin importar la longitud de la corrida.',ok:false,why:'La caída depende de la longitud y la corriente, no siempre supera el 3%. La razón aquí es el límite de protección (240.4(D)).'},
+        {t:'Porque el cobre del 12 AWG conduce mejor la corriente alterna que el cobre del 14 AWG de la misma marca.',ok:false,why:'Ambos son cobre; la diferencia es la sección. El motivo normativo es el tope de protección de 15 A del 14 AWG.'},
       ],
     },
   };
@@ -1111,6 +1138,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expI,expL,expIdx};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1130,16 +1159,11 @@ async function runAuto(){
     await sleep(3800);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
-    setMode('reto');
-    retoPick=selectMin(retoI,retoL).byAmp;afterEdit();
-    showToast('🎯 Reto: I='+retoI+' A, L='+retoL+' m. Empezamos en el calibre "ampacidad-sola" (la trampa)…');
-    await sleep(3200);
-    retoPick=retoAns;afterEdit();
-    showToast('✔ …y lo corregimos al mínimo que cumple AMBOS: AWG '+CAT[retoAns].awg+'. Comprobamos.');
-    await sleep(2600);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('🎯 El Reto es tuyo: otro circuito, sin barras ni voltímetro en vivo. Calcula la caída de cada candidato. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    expI=previo.expI;expL=previo.expL;expIdx=previo.expIdx;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1149,7 +1173,7 @@ S.setAnimate((dt,time)=>{
   const pulse=0.5+0.5*Math.sin(time*3.0);
   const ev=curEval();
   const over=ev.c.amp>0?curI()/ev.c.amp:0;
-  const heat=Math.max(0,Math.min(1,(over-0.7)/0.6));
+  const heat=retoCiego()?0:Math.max(0,Math.min(1,(over-0.7)/0.6));
   copMat.emissiveIntensity=heat*(0.8+0.5*pulse);
 });
 ['explora','seleccion','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
@@ -1187,6 +1211,7 @@ window.__labDebug={
   retoAns:()=>retoAns, retoAnsAwg:()=>CAT[retoAns].awg,
   retoPick:()=>retoPick,
   retoChecked:()=>retoChecked, retoOk:()=>retoOk, retoMsg:()=>retoMsg,
+  retoSolved:()=>retoOk, intentos:()=>intentos, resiembras:()=>resiembras, runAuto:()=>runAuto(),
   checkReto:()=>checkReto(),
   newSignal:()=>newSignal(),
   setMode:k=>setMode(k),

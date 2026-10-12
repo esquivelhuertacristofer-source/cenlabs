@@ -547,6 +547,7 @@ let retoMsg='';
 let solved=false;        // pregunta de ingeniería del modo actual
 let autoRunning=false;
 let QUIZ={};
+let intentos=0, resiembras=0;   // veredictos erróneos del reto (el caso se retira al fallar: la decisión es binaria)
 
 function currentNominal(){return mode==='reto'?mystery.nominal:EXPLORA_R[selR].nominal;}
 function currentTol(){return mode==='reto'?mystery.tol:EXPLORA_R[selR].tol;}
@@ -658,7 +659,8 @@ function drawBoard(){
     const x=xOf(p.I*1000),y=yOf(p.V);
     const instR=p.I>0?p.V/p.I:null;
     const okp=instR!=null&&verdict(instR,R0,tol);
-    c.beginPath();c.arc(x,y,7,0,7);c.fillStyle=okp?'#34d399':'#f4475e';c.fill();
+    const ciego=mode==='reto'&&!retoSolved;   // en el Reto los puntos no se pintan de pasa/falla
+    c.beginPath();c.arc(x,y,7,0,7);c.fillStyle=ciego?'#8FB3AC':(okp?'#34d399':'#f4475e');c.fill();
     c.strokeStyle='#0c1512';c.lineWidth=1.5;c.stroke();
   });
   c.restore();
@@ -667,8 +669,9 @@ function drawBoard(){
   if(rHat!=null){
     const okEnough=points.length>=3;
     const pass=verdict(rHat,R0,tol);
-    c.font='bold 20px Outfit, sans-serif';c.fillStyle=okEnough?(pass?'#34d399':'#f4475e'):'#FFB703';
-    c.fillText('R̂ = '+fmtOhm(rHat)+(okEnough?(pass?' · dentro de tolerancia':' · fuera de tolerancia'):' · (mínimo 3 puntos para veredicto)'),px0+14,py0-ph+30);
+    const ciegoR=mode==='reto'&&!retoSolved;   // veredicto en vivo solo en Explora
+    c.font='bold 20px Outfit, sans-serif';c.fillStyle=ciegoR?'#8FB3AC':(okEnough?(pass?'#34d399':'#f4475e'):'#FFB703');
+    c.fillText('R̂ = '+fmtOhm(rHat)+(ciegoR?(okEnough?' · compara con la banda de tolerancia y decide':' · (mínimo 3 puntos para decidir)'):(okEnough?(pass?' · dentro de tolerancia':' · fuera de tolerancia'):' · (mínimo 3 puntos para veredicto)')),px0+14,py0-ph+30);
   }else{
     c.font='14px Outfit, sans-serif';c.fillStyle='#5c7169';
     c.fillText('Mide al menos 1 punto para iniciar el ajuste por mínimos cuadrados.',px0+14,py0-ph+30);
@@ -919,7 +922,8 @@ function updateTele(){
   set('t_rhat',rHat!=null?fmtOhm(rHat):'—');
   if(rHat!=null&&points.length>=3){
     const pass=verdict(rHat,currentNominal(),currentTol());
-    set('t_verdict',pass?'PASA':'FALLA',pass?'good':'bad');
+    if(mode==='reto'&&!retoSolved)set('t_verdict','decide tú','warn');
+    else set('t_verdict',pass?'PASA':'FALLA',pass?'good':'bad');
   }else{
     set('t_verdict',points.length===0?'—':'faltan puntos','warn');
   }
@@ -951,25 +955,30 @@ function refreshAll(){drawBoard();updateTele();updateReport();updatePanelButtons
    10) RETO — caso misterioso + veredicto autocalificado
    ============================================================ */
 function checkReto(decision){
+  if(retoSolved)return;
   if(points.length<3){showToast('Mide al menos 3 puntos antes de decidir.');return;}
   const rHat=fitR(points);
   const pass=verdict(rHat,mystery.nominal,mystery.tol);
   const correct=decision===pass;
   if(correct){
-    retoSolved=true;synth.beep(1046,0.12,0.06);
+    retoSolved=true;solved=true;synth.beep(1046,0.12,0.06);
     const errPct=(mystery.true-mystery.nominal)/mystery.nominal*100;
-    retoMsg=`<span class="mono"><span class="ok">✔ Correcto.</span> Con tus ${points.length} puntos, R̂ = ${fmtOhm(rHat)} → ${pass?'PASA':'FALLA'} (nominal ${fmtOhm(mystery.nominal)} ±${mystery.tol}%).</span><br>`+
+    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> (fallos previos: ${intentos}). Con tus ${points.length} puntos, R̂ = ${fmtOhm(rHat)} → ${pass?'PASA':'FALLA'} (nominal ${fmtOhm(mystery.nominal)} ±${mystery.tol}%).</span><br>`+
       `<span class="mono">Valor real de fábrica: ${fmtOhm(mystery.true)} (${errPct>=0?'+':''}${errPct.toFixed(1)}% del nominal) — tu ajuste quedó dentro del error esperado del instrumento.</span>`;
+    refreshAll();
   }else{
-    synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Revisa tu propio ajuste.</span> Con tus ${points.length} puntos, R̂ = ${fmtOhm(rHat)}. El nominal es ${fmtOhm(mystery.nominal)} ±${mystery.tol}% → rango [${fmtOhm(mystery.nominal*(1-mystery.tol/100))}, ${fmtOhm(mystery.nominal*(1+mystery.tol/100))}]. ¿R̂ cae dentro o fuera de ese rango?</span>`;
+    /* el veredicto es binario: reintentar el mismo caso se aprobaría por eliminación, así que el caso se retira */
+    intentos++;resiembras++;synth.beep(220,0.15,0.06);
+    const aviso=`<span class="mono"><span class="dtc">✗ Veredicto incorrecto</span> (fallos acumulados: ${intentos}). Compara tu R̂ con la banda de tolerancia y con las líneas punteadas de la pantalla. Como la decisión es de dos opciones, este resistor se retira sin revelarse: te toca otro.</span>`;
+    newMystery(true);
+    retoMsg=aviso;refreshAll();
   }
-  refreshAll();
 }
-function newMystery(){
+function newMystery(conservaMsg){
   mystery=makeMystery();
-  points=[];retoSolved=false;retoMsg='';solved=false;clearDx();refreshQuestion();
+  points=[];retoSolved=false;if(conservaMsg!==true)retoMsg='';solved=false;clearDx();refreshQuestion();
   refresh3D();refreshAll();
+  if(conservaMsg!==true){intentos=0;}
   showToast('🔀 <b>Nuevo caso.</b> Lee las bandas del resistor y mide para verificar si está dentro de tolerancia.');
   synth.beep(520,0.08,0.05);
 }
@@ -982,22 +991,27 @@ function buildQuiz(){
     explora:{
       pregunta:'El ajuste usa una recta que pasa por el origen (V = R̂·I) en vez de una recta general V = m·I + b. ¿Por qué?',
       opciones:[
-        {t:'Porque el modelo físico (ley de Ohm ideal) no tiene término independiente: a I = 0, V = 0 exactamente',ok:true,why:'Un resistor ideal no almacena carga ni tiene offset: sin corriente no hay caída de tensión. Forzar la recta por el origen usa esa restricción física y mejora el ajuste con pocos puntos.'},
-        {t:'Porque el multímetro siempre empieza midiendo en 0 V',ok:false,why:'El barrido empieza en 1.8 V (15% de 12 V), no en 0. El origen es una restricción del MODELO físico, no del procedimiento de medición.'},
-        {t:'Porque una recta general siempre da un ajuste peor',ok:false,why:'No siempre: si hubiera un offset real (por ejemplo, resistencia de contacto), forzar el origen introduciría un sesgo. Aquí se justifica porque el modelo (V=IR) no tiene ese término.'},
-        {t:'Es una convención arbitraria sin justificación física',ok:false,why:'Todo lo contrario: viene directamente de la ley de Ohm, V=IR, que no tiene término constante.'},
+        {t:'Porque la ley de Ohm ideal no tiene término independiente: con I = 0, V = 0 exactamente',ok:true,why:'Un resistor ideal no almacena carga ni tiene offset: sin corriente no hay caída de tensión. Forzar la recta por el origen usa esa restricción física y mejora el ajuste con pocos puntos.'},
+        {t:'Porque el multímetro siempre empieza a medir desde 0 V y el barrido parte del origen',ok:false,why:'El barrido empieza en 1.8 V (15% de 12 V), no en 0. El origen es una restricción del MODELO físico, no del procedimiento de medición.'},
+        {t:'Porque una recta general siempre da un ajuste peor que cualquiera por el origen',ok:false,why:'No siempre: si hubiera un offset real (por ejemplo, resistencia de contacto), forzar el origen introduciría un sesgo. Aquí se justifica porque el modelo (V=IR) no tiene ese término.'},
+        {t:'Es solo una convención arbitraria que simplifica la cuenta, sin justificación física',ok:false,why:'Todo lo contrario: viene directamente de la ley de Ohm, V=IR, que no tiene término constante.'},
       ],
     },
     reto:{
       pregunta:'Tomaste 3 puntos y tu R̂ cae muy cerca del borde de la tolerancia. ¿Qué deberías hacer antes de dar tu veredicto final?',
       opciones:[
-        {t:'Tomar más puntos (hasta 8): más datos reducen el error del ajuste por mínimos cuadrados',ok:true,why:'El ruido del instrumento es aleatorio; con más puntos independientes, el ajuste por mínimos cuadrados promedia ese ruido y R̂ converge mejor al valor real.'},
-        {t:'Confiar en el color de las bandas: si "se ve" del valor correcto, ya basta',ok:false,why:'Las bandas indican el valor NOMINAL impreso, no el valor real del componente — ese es justo el punto del reto: verificarlo con datos.'},
-        {t:'Repetir el mismo punto de tensión varias veces en vez de barrer otros puntos',ok:false,why:'Repetir el mismo punto solo promedia el ruido de ESE punto; barrer distintos puntos de tensión aprovecha mejor el rango dinámico y la física del ajuste lineal.'},
-        {t:'Detenerte: 3 puntos siempre son suficientes, sin importar la tolerancia',ok:false,why:'Con tolerancias ajustadas (±1%), el ruido del instrumento puede confundir el veredicto con pocos puntos; conviene medir más antes de decidir en casos límite.'},
+        {t:'Tomar más puntos del barrido (hasta 8): el ajuste promedia el ruido del instrumento',ok:true,why:'El ruido del instrumento es aleatorio; con más puntos independientes, el ajuste por mínimos cuadrados promedia ese ruido y R̂ converge mejor al valor real.'},
+        {t:'Confiar en el color de las bandas: si "se ve" del valor correcto, ya basta con eso',ok:false,why:'Las bandas indican el valor NOMINAL impreso, no el valor real del componente — ese es justo el punto del reto: verificarlo con datos.'},
+        {t:'Repetir el mismo punto de tensión varias veces en lugar de barrer otros puntos',ok:false,why:'Repetir el mismo punto solo promedia el ruido de ESE punto; barrer distintos puntos de tensión aprovecha mejor el rango dinámico y la física del ajuste lineal.'},
+        {t:'Detenerte ahí: 3 puntos siempre bastan, sin importar lo ajustada que sea la tolerancia',ok:false,why:'Con tolerancias ajustadas (±1%), el ruido del instrumento puede confundir el veredicto con pocos puntos; conviene medir más antes de decidir en casos límite.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -1060,6 +1074,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,selR,solved,points:points.map(q=>({...q}))};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -1074,22 +1090,16 @@ async function runAuto(){
     const qE=QUIZ.explora,ie=qE.opciones.findIndex(o=>o.ok);
     clearDx();
     const dxE=el('dxbtns').children[ie];
-    if(dxE){dxE.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
+    if(dxE){dxE.classList.add('right');synth.beep(1046,0.12,0.06);}
     showToast(`<span style="color:var(--good)">✔ ${qE.opciones[ie].t}</span><br><span style="color:var(--dim);font-size:11px">${qE.opciones[ie].why}</span>`);await sleep(2600);
 
-    setMode('reto');
-    showToast('Paso 4 · Reto: la resistencia real está oculta. Mide y decide PASA/FALLA con tu propio ajuste.');await sleep(2600);
-    for(let i=0;i<SETPOINTS.length;i++){measure();await sleep(400);}
-    await sleep(600);
-    const rHat=fitR(points),pass=verdict(rHat,mystery.nominal,mystery.tol);
-    checkReto(pass);await sleep(2600);
-    const qR=QUIZ.reto,ir=qR.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxR=el('dxbtns').children[ir];
-    if(dxR){dxR.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${qR.opciones[ir].t}</span><br><span style="color:var(--dim);font-size:11px">${qR.opciones[ir].why}</span>`);await sleep(2400);
-    newMystery();
+    showToast('Paso 4 · El Reto es tuyo: el resistor real está oculto. Mide, ajusta y decide PASA/FALLA con TU propio ajuste. Este recorrido no lo resuelve ni lo marca como hecho.');await sleep(3400);
   }finally{
+    /* restituye lo del alumno */
+    setMode(previo.modo);
+    if(previo.modo==='explora'){selR=previo.selR;buildSelBar();}
+    points=previo.points;solved=previo.solved;
+    refresh3D();refreshAll();
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1123,6 +1133,13 @@ window.__labDebug={
   selectR,
   newMystery,
   checkReto,
+  runAuto:()=>runAuto(),
+  retoSolved:()=>retoSolved,
+  solved:()=>solved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
 };
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

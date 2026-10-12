@@ -97,6 +97,8 @@ let cursor1Div=2.5,cursor2Div=2.5;
 let measured=false,phiMeasured=null,cross1Type=null,cross2Type=null;
 let retoChecked=false,retoOkVm=false,retoOkPhi=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+let retoDone=false;                                   // reto resuelto: se conserva al cambiar de pestaña o editar
+let intentos=0,resiembras=0;const FALLOS_MAX=3;       // fallos del caso de reto actual; a los 3 se resiembra
 
 function currentFreqVal(){return mode==='explora'?expFreq:(mode==='medicion'?medFreq:retoFreq);}
 function currentVm2True(){return mode==='explora'?expVm2:(mode==='medicion'?medVm2:retoVm2Seal);}
@@ -533,7 +535,7 @@ function setMode(k){
   mode=k;
   cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
   measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
-  retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';
+  if(!retoDone){retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';}
   ['explora','medicion','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   const reto=k==='reto';
@@ -541,7 +543,7 @@ function setMode(k){
   el('retoBox').style.display=reto?'':'none';
   if(reto)updateRetoSpec();
   buildSelBar();
-  solved=false;clearDx();buildQuiz();refreshQuestion();
+  solved=(k==='reto')?retoDone:false;clearDx();buildQuiz();refreshQuestion();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
   refreshAll();
 }
@@ -580,7 +582,8 @@ function updateTele(){
       teleRow('Vm2',(retoChecked&&retoOkVm)?fmtV(retoVm2Seal)+' ✔':'🔒 desconocida (lee la rejilla)')+
       teleRow('φ2',(retoChecked&&retoOkPhi)?fmtDeg(retoPhi2Seal)+' ✔':'🔒 desconocido (mide con cursores)')+
       teleRow('φ medido (cursores)',measured?fmtDeg(phiMeasured):'sin medir',measured?'good':'warn')+
-      teleRow('Estado',retoChecked?((retoOkVm&&retoOkPhi)?'✔ AMBOS CORRECTOS':'revisa el/los campo(s) marcado(s)'):'Mide φ y estima Vm2, luego comprueba',(retoChecked&&retoOkVm&&retoOkPhi)?'good':'warn');
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
+      teleRow('Estado',retoDone?'✔ AMBOS CORRECTOS':(retoChecked?'revisa el/los campo(s) marcado(s)':'Mide φ y estima Vm2, luego comprueba'),retoDone?'good':'warn');
   }
 }
 function updateReport(){
@@ -626,6 +629,7 @@ function medirPhi(){
   refreshAll();
 }
 function checkReto(){
+  if(retoDone)return;
   if(!measured){showToast('⚠️ Primero mide el desfase con los cursores ("Medir desfase").');return;}
   const vmGuess=numOr('inVm2');
   if(!isFinite(vmGuess)){showToast('⚠️ Ingresa tu lectura de amplitud (Vm2) en volts.');return;}
@@ -639,8 +643,33 @@ function checkReto(){
   const parts=[];
   parts.push(retoOkVm?`<span class="ok">✔ Vm2 correcta</span> (tu lectura ${fmtV(vmGuess)})`:`<span class="dtc">✗ Vm2 fuera de tolerancia</span> (leíste ${fmtV(vmGuess)})`);
   parts.push(retoOkPhi?`<span class="ok">✔ φ correcto</span> (medido ${fmtDeg(phiMeasured)})`:`<span class="dtc">✗ φ fuera de tolerancia</span> (medido ${fmtDeg(phiMeasured)}${cross1Type!==cross2Type?' — cruces de tipo distinto, revisa el error de 180°':''})`);
+  if(allOk){
+    retoDone=true;
+    parts.push(`En ${intentos+1} ${intentos?'intentos':'intento'}.`);
+  }else{
+    intentos++;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      parts.push(`<span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta caja negra se retira sin revelar sus valores. Te toca una nueva.`);
+      retoMsg=`<span class="mono">${parts.join('<br>')}</span>`;
+      const msg=retoMsg;
+      newRetoReseed();
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    parts.push(`Intento ${intentos} de ${FALLOS_MAX}; a los ${FALLOS_MAX} fallos la caja negra cambia.`);
+  }
   retoMsg=`<span class="mono">${parts.join('<br>')}</span>`;
   refreshAll();
+}
+/* Caja negra nueva del reto (tras 3 fallos o con «Nueva señal») */
+function newRetoReseed(){
+  newRetoRound();
+  measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+  retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';retoDone=false;intentos=0;
+  if(el('inVm2'))el('inVm2').value='';
+  cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
+  updateRetoSpec();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();
 }
 function updateRetoSpec(){
   el('retoSpec').innerHTML=`Frecuencia conocida: ${fmtHz(retoFreq)}. Amplitud y desfase del canal 2 sellados. Lee Vm2 directamente de la rejilla (volts/div) del osciloscopio y mide φ con los cursores ("Medir desfase"); ambos se califican de forma independiente.<br><span style="color:var(--dim)">Tolerancias (±8 % en Vm2, ±5° en φ) son un margen pedagógico de este ejercicio.</span>`;
@@ -669,12 +698,7 @@ function newSignal(){
     solved=false;clearDx();buildQuiz();refreshQuestion();buildSelBar();refreshAll();
     showToast('🔀 Nueva señal sellada. Vuelve a medir el desfase.');synth.beep(520,0.08,0.05);
   }else if(mode==='reto'){
-    newRetoRound();
-    measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
-    retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';
-    if(el('inVm2'))el('inVm2').value='';
-    cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
-    updateRetoSpec();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();
+    newRetoReseed();
     showToast('🔀 Nueva caja negra. Amplitud y desfase sellados de nuevo.');synth.beep(520,0.08,0.05);
   }else{
     expVm2=pickFrom(VM2_CANDIDATES,expVm2);
@@ -684,7 +708,7 @@ function newSignal(){
     showToast('🔀 Nueva combinación aleatoria en Explora.');
   }
 }
-function onRetoInput(){if(mode!=='reto')return;retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';refreshAll();}
+function onRetoInput(){if(mode!=='reto'||retoDone)return;retoChecked=false;retoOkVm=false;retoOkPhi=false;retoMsg='';refreshAll();}
 
 // ============================== 12) QUIZ ==============================
 function buildQuiz(){
@@ -692,31 +716,36 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué el diagrama fasorial solo permite comparar dos señales que tienen la MISMA frecuencia?',
       opciones:[
-        {t:'Porque un fasor representa una señal "congelada" en una referencia relativa — si las frecuencias fueran distintas, el ángulo entre las dos señales cambiaría constantemente en el tiempo y el "desfase" dejaría de ser un número fijo',ok:true,why:'Correcto: el fasor solo tiene sentido como representación de ω constante compartida. Con frecuencias distintas, la diferencia de fase crece o decrece sin parar — no hay un desfase único que medir.'},
-        {t:'Porque el osciloscopio solo puede medir una frecuencia a la vez',ok:false,why:'Un osciloscopio de dos canales sí puede mostrar simultáneamente dos señales de frecuencias distintas — el problema no es del instrumento, es que el concepto de "desfase" pierde sentido entre frecuencias distintas.'},
-        {t:'Porque Vm tiene que ser igual en ambas señales para poder compararlas',ok:false,why:'La amplitud (Vm) puede ser distinta entre las dos señales sin ningún problema — lo que debe coincidir es la frecuencia, no la amplitud.'},
-        {t:'Porque la frecuencia determina el color de la traza en el osciloscopio',ok:false,why:'El color de la traza es una convención de visualización de este simulador (canal 1 teal, canal 2 ámbar) — no tiene relación con la frecuencia de la señal.'},
+        {t:'Porque un fasor "congela" la señal en una referencia relativa: con frecuencias distintas el ángulo cambiaría sin cesar y el desfase no sería un número fijo',ok:true,why:'Correcto: el fasor solo tiene sentido como representación de ω constante compartida. Con frecuencias distintas, la diferencia de fase crece o decrece sin parar — no hay un desfase único que medir.'},
+        {t:'Porque el osciloscopio solo puede medir una frecuencia a la vez y no puede mostrar dos señales de frecuencias distintas al mismo tiempo',ok:false,why:'Un osciloscopio de dos canales sí puede mostrar simultáneamente dos señales de frecuencias distintas — el problema no es del instrumento, es que el concepto de "desfase" pierde sentido entre frecuencias distintas.'},
+        {t:'Porque Vm tiene que ser igual en ambas señales para poder compararlas, y eso obliga a que las dos frecuencias también coincidan',ok:false,why:'La amplitud (Vm) puede ser distinta entre las dos señales sin ningún problema — lo que debe coincidir es la frecuencia, no la amplitud.'},
+        {t:'Porque la frecuencia determina el color de la traza en el osciloscopio, y los dos colores tendrían que coincidir para compararlos',ok:false,why:'El color de la traza es una convención de visualización de este simulador (canal 1 teal, canal 2 ámbar) — no tiene relación con la frecuencia de la señal.'},
       ],
     },
     medicion:{
       pregunta:'Alineas el cursor del canal 1 en un cruce ascendente (▲) y el del canal 2 en un cruce descendente (▼). ¿Qué error introduce esto en tu medición de φ?',
       opciones:[
-        {t:'Un error sistemático de exactamente 180° (mod 360°) respecto al desfase real — el resultado es matemáticamente consistente pero no representa el desfase físico real entre las señales',ok:true,why:'Correcto: mezclar tipos de cruce equivale a medir la diferencia de tiempo hasta un punto de la señal 2 desplazado media vuelta (T/2) del que corresponde — eso se traduce en exactamente 180° de error, siempre, sin importar el φ real.'},
-        {t:'Ningún error, porque un cruce por cero es un cruce por cero sin importar el sentido',ok:false,why:'El sentido del cruce SÍ importa: un cruce ascendente y uno descendente de la MISMA señal están separados por medio periodo (T/2) en el tiempo — mezclarlos introduce ese medio periodo como error.'},
-        {t:'Un error aleatorio impredecible, distinto cada vez que se repite la medición',ok:false,why:'El error no es aleatorio: es sistemático y exacto (siempre ±180°, mod 360°) porque proviene de una relación geométrica fija entre cruces ascendentes y descendentes, verificada numéricamente.'},
-        {t:'Un error del 50% en la amplitud medida',ok:false,why:'Mezclar tipos de cruce afecta la medición de FASE (ángulo), no la de amplitud — la amplitud no se ve alterada por este error.'},
+        {t:'Un error sistemático de exactamente 180° (mod 360°): consistente matemáticamente, pero no es el desfase físico real entre las señales',ok:true,why:'Correcto: mezclar tipos de cruce equivale a medir la diferencia de tiempo hasta un punto de la señal 2 desplazado media vuelta (T/2) del que corresponde — eso se traduce en exactamente 180° de error, siempre, sin importar el φ real.'},
+        {t:'Ningún error, porque un cruce por cero es un cruce por cero sin importar el sentido en que la señal lo atraviesa',ok:false,why:'El sentido del cruce SÍ importa: un cruce ascendente y uno descendente de la MISMA señal están separados por medio periodo (T/2) en el tiempo — mezclarlos introduce ese medio periodo como error.'},
+        {t:'Un error aleatorio impredecible, distinto cada vez que se repite la medición con los mismos cursores en pantalla',ok:false,why:'El error no es aleatorio: es sistemático y exacto (siempre ±180°, mod 360°) porque proviene de una relación geométrica fija entre cruces ascendentes y descendentes.'},
+        {t:'Un error del 50 % en la amplitud medida, porque al mezclar los cruces se mezclan los dos semiciclos de la señal',ok:false,why:'Mezclar tipos de cruce afecta la medición de FASE (ángulo), no la de amplitud — la amplitud no se ve alterada por este error.'},
       ],
     },
     reto:{
       pregunta:'En el Reto, Vm2 se lee de la rejilla y φ2 se mide con los cursores, y cada campo se califica de forma INDEPENDIENTE. ¿Por qué tiene sentido calificarlos por separado?',
       opciones:[
-        {t:'Porque son dos mediciones con técnicas y fuentes de error distintas —leer una rejilla (visual) y localizar un cruce por cero (cursor)— así el estudiante sabe exactamente cuál de las dos técnicas necesita repasar, no solo que "algo" salió mal',ok:true,why:'Correcto: retroalimentación específica por campo es más útil pedagógicamente que un solo "correcto/incorrecto" global, porque señala con precisión qué habilidad de medición falló.'},
-        {t:'Porque Vm2 y φ2 son en realidad el mismo número expresado en unidades distintas',ok:false,why:'Vm2 (amplitud, en volts) y φ2 (ángulo, en grados) son magnitudes físicas completamente independientes — conocer una no permite calcular la otra.'},
-        {t:'Porque calificar ambos juntos sería técnicamente imposible en un programa de computadora',ok:false,why:'No hay ninguna limitación técnica para calificar dos campos juntos — la razón de separarlos es puramente pedagógica, para dar retroalimentación específica.'},
-        {t:'Porque el osciloscopio no puede mostrar amplitud y fase al mismo tiempo',ok:false,why:'El osciloscopio de este banco muestra la traza completa (que contiene tanto amplitud como fase) en todo momento — ambas son visibles simultáneamente en la misma pantalla.'},
+        {t:'Porque son dos técnicas con fuentes de error distintas (leer una rejilla y localizar un cruce): así el alumno sabe cuál repasar',ok:true,why:'Correcto: retroalimentación específica por campo es más útil pedagógicamente que un solo "correcto/incorrecto" global, porque señala con precisión qué habilidad de medición falló.'},
+        {t:'Porque Vm2 y φ2 son en realidad el mismo número expresado en unidades distintas, y por eso se pueden separar sin problema',ok:false,why:'Vm2 (amplitud, en volts) y φ2 (ángulo, en grados) son magnitudes físicas completamente independientes — conocer una no permite calcular la otra.'},
+        {t:'Porque calificar ambos campos juntos sería técnicamente imposible en un programa de computadora de este tipo de banco',ok:false,why:'No hay ninguna limitación técnica para calificar dos campos juntos — la razón de separarlos es puramente pedagógica, para dar retroalimentación específica.'},
+        {t:'Porque el osciloscopio no puede mostrar la amplitud y la fase al mismo tiempo en la misma pantalla del banco de pruebas',ok:false,why:'El osciloscopio de este banco muestra la traza completa (que contiene tanto amplitud como fase) en todo momento — ambas son visibles simultáneamente en la misma pantalla.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -778,6 +807,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expVm2,expPhi2,expFreq,medFreq,medVm2,medPhi2Seal};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -812,26 +843,12 @@ async function runAuto(){
     medirPhi();await sleep(2600);
     answer(QUIZ.medicion.opciones.findIndex(o=>o.ok));await sleep(1800);
 
-    setMode('reto');
-    showToast('Paso 3 · Amplitud y desfase sellados. Lee Vm2 en la rejilla y mide φ con los cursores.');
-    await sleep(2200);
-    {
-      const freq=currentFreqVal(),windowS=windowSFor(freq);
-      const cr1=crossingsFor(PHI1,freq,windowS).find(c=>c.type==='asc');
-      const cr2=crossingsFor(retoPhi2Seal,freq,windowS).find(c=>c.type==='asc');
-      cursor1Div=divForTime(cr1.t,windowS);el('cursor1').value=String(cursor1Div);
-      cursor2Div=divForTime(cr2.t,windowS);el('cursor2').value=String(cursor2Div);
-    }
-    refreshAll();
-    medirPhi();await sleep(1800);
-    el('inVm2').value=String(retoVm2Seal);
-    checkReto();await sleep(2600);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: amplitud y desfase sellados. Lee Vm2 en la rejilla y mide φ con los cursores. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    expVm2=previo.expVm2;expPhi2=previo.expPhi2;expFreq=previo.expFreq;
+    medFreq=previo.medFreq;medVm2=previo.medVm2;medPhi2Seal=previo.medPhi2Seal;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -878,6 +895,10 @@ window.__labDebug={
   checkReto:()=>checkReto(),
   setInVm2:v=>{el('inVm2').value=String(v);},
   retoChecked:()=>retoChecked,
+  retoSolved:()=>retoDone,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
   retoOkVm:()=>retoOkVm,
   retoOkPhi:()=>retoOkPhi,
   retoMsg:()=>retoMsg,

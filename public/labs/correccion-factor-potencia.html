@@ -487,6 +487,7 @@ let retoSteps=[false,false,false,false,false,false,false,false];
 let retoMinSum=0,retoBestMask=0,retoChecked=false,retoOk=false,retoMsg='';
 let solved=false,autoRunning=false;
 let QUIZ={};
+let intentos=0,resiembras=0;const FALLOS_MAX=3;   // fallos del caso de reto actual; a los 3 se resiembra
 
 function seedReto(){const best=bestBankFor(retoP,retoFP1);retoMinSum=best.minSum;retoBestMask=best.mask;}
 seedReto();
@@ -574,10 +575,12 @@ function drawVector(c,cx,cy,R,mag,angDeg,scaleMax,color,label){
 }
 
 function drawTriangle(c,state){
+  /* En el Reto no hay veredicto en vivo: ni Qc ideal, ni vector resultante, ni FP hasta pulsar «Comprobar» */
+  const ciego=mode==='reto'&&!retoChecked;
   c.fillStyle='#8FB3AC';c.font='bold 22px Outfit, sans-serif';c.textAlign='left';
   c.fillText('TRIÁNGULO DE POTENCIAS · CORRECCIÓN DE FP',30,46);
   c.fillStyle='#5a6b66';c.font='13px Outfit, sans-serif';
-  c.fillText('P='+state.P+' kW · FP₁='+state.FP1.toFixed(2)+' · Q₁='+fmtKVAR(state.Q1)+' · Qc ideal='+fmtKVAR(state.QcIdealVal)+' (meta FP₂=0.95)',30,72);
+  c.fillText('P='+state.P+' kW · FP₁='+state.FP1.toFixed(2)+(ciego?' · meta FP₂=0.95 · Qc y Q₁ por calcular':' · Q₁='+fmtKVAR(state.Q1)+' · Qc ideal='+fmtKVAR(state.QcIdealVal)+' (meta FP₂=0.95)'),30,72);
 
   const cx=512,cy=440,R=280;
   const phi2Deg=Math.acos(FP2_TARGET)*180/Math.PI;
@@ -614,6 +617,13 @@ function drawTriangle(c,state){
   const scaleMax=Math.max(state.Q1,state.QcBanco,Math.abs(state.Qneto),state.P*0.55,10)*1.2;
   const angle1=Math.atan2(state.Q1,state.P)*180/Math.PI;
   const mag1=Math.hypot(state.P,state.Q1);
+  if(ciego){
+    c.textAlign='left';c.font='bold 17px Outfit, sans-serif';c.fillStyle='#8FB3AC';
+    c.fillText('Banco propuesto: '+fmtKVAR(state.QcBanco)+' — calcula Q₁ y Qc con el triángulo de potencias y comprueba.',30,714);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#5a6b66';
+    c.fillText('Sin veredicto hasta pulsar «Comprobar banco».',30,740);
+    return;
+  }
   drawVector(c,cx,cy,R,mag1,angle1,scaleMax,'#FF8A5B','Carga original (S₁)');
 
   if(state.QcBanco>0.05){
@@ -718,7 +728,7 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> el mismo triángulo de potencias S=P+jQ ya validado en la práctica de potencia en CA, restando un reactivo capacitivo Qc al Q₁ original; el criterio de cumplimiento |Q₁−Qc_banco|≤P·tanφ₂ es exactamente equivalente al ángulo del vector resultante respecto al eje P (banda ±φ₂≈±18.2°), verificado numéricamente; catálogo real de 8 pasos comerciales conmutables individualmente (5–50 kVAR, sin múltiplos), con 6–26 sumas válidas de las 255 combinaciones posibles en cada uno de los 30 escenarios P×FP₁ verificados, ninguno sin solución; el modo Reto califica por cercanía al banco real de menor kVAR (tolerancia minSum+5 kVAR).</div>
+    <div class="fl"><b>Sí modela:</b> el mismo triángulo de potencias S=P+jQ ya validado en la práctica de potencia en CA, restando un reactivo capacitivo Qc al Q₁ original; el criterio de cumplimiento |Q₁−Qc_banco|≤P·tanφ₂ es exactamente equivalente al ángulo del vector resultante respecto al eje P (banda ±φ₂≈±18.2°); catálogo real de 8 pasos comerciales conmutables individualmente (5–50 kVAR, sin múltiplos); el modo Reto califica por cercanía al banco real de menor kVAR (tolerancia minSum+5 kVAR).</div>
     <div class="fl no"><b>NO modela:</b> pérdidas dieléctricas, ESR o envejecimiento del capacitor real (reactancia ideal); resonancia armónica con cargas no lineales; bancos automáticos conmutados en tiempo real (APFC); perfil de carga variable en el tiempo; sistemas trifásicos (P es una potencia activa equivalente monofásica); costo económico real en moneda (el criterio de optimalidad del Reto es kVAR total, no precio de catálogo).</div>
   </div>
   <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · Enríquez Harper · CFE Código de Red RES/550/2021 · Verificación numérica propia</div>`;
@@ -806,6 +816,10 @@ function updateQcSliderBounds(){
 }
 
 function setMode(k){
+  /* al entrar al Reto, su planta nunca coincide con la de Explora ni con la de Banco */
+  if(k==='reto'&&!retoOk&&((retoP===expP&&retoFP1===expFP1)||(retoP===bancoP&&retoFP1===bancoFP1))){
+    retoMsg='';newPlantaReto(false);
+  }
   mode=k;
   ['explora','banco','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
@@ -862,15 +876,10 @@ function newSignal(){
     showToast('🔀 Nueva planta en Banco. P y FP₁ cambiaron — vuelve a armar el banco.');
     synth.beep(520,0.08,0.05);
   }else if(mode==='reto'){
-    const P=pickFrom(P_CANDS,retoP),FP1=pickFrom(FP1_CANDS,retoFP1);
-    retoP=P;retoFP1=FP1;
-    retoSteps=[false,false,false,false,false,false,false,false];
-    seedReto();
-    retoChecked=false;retoOk=false;retoMsg='';
-    solved=false;
+    newPlantaReto(false);
     updateRetoSpec();
     afterEdit();
-    showToast('🔀 Nueva planta en Reto. El banco óptimo puede haber cambiado.');
+    showToast('🔀 Nueva planta en Reto.');
     synth.beep(520,0.08,0.05);
   }else{
     const P=pickFrom(P_CANDS,expP),FP1=pickFrom(FP1_CANDS,expFP1);
@@ -910,9 +919,9 @@ function updateTele(){
     t.innerHTML=
       teleRow('P / FP₁ (dados)',state.P+' kW / '+state.FP1.toFixed(2))+
       teleRow('Banco propuesto',fmtKVAR(state.QcBanco))+
-      teleRow('Q_neto',fmtKVAR(state.Qneto))+
-      teleRow('FP_result',fmtFP(state.FPresult),state.compliant?'good':'warn')+
-      teleRow('Óptimo real (oculto hasta comprobar)',retoChecked?fmtKVAR(retoMinSum):'🔒')+
+      (retoChecked?teleRow('Q_neto',fmtKVAR(state.Qneto))+teleRow('FP_result',fmtFP(state.FPresult),state.compliant?'good':'warn'):teleRow('Q_neto / FP_result','🔒 al comprobar'))+
+      (retoOk?teleRow('Óptimo real',fmtKVAR(retoMinSum)):teleRow('Óptimo real','🔒 oculto'))+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoChecked?(retoOk?'✔ CORRECTO':'revisa tu banco'):'Arma el banco y comprueba',(retoChecked&&retoOk)?'good':'warn');
   }
 }
@@ -938,6 +947,7 @@ function updateRetoSpec(){
 }
 
 function checkReto(){
+  if(retoOk)return;
   const steps=retoSteps;
   const P=retoP,FP1=retoFP1;
   const Q1=Q1of(P,FP1);
@@ -951,13 +961,37 @@ function checkReto(){
   synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
   const fpNow=fmtFP(P/Math.hypot(P,Q1-sum));
   if(retoOk){
-    retoMsg=`<span class="mono"><span class="ok">✔ Banco correcto</span> — ${fmtKVAR(sum)}, cumple FP≥0.95 (FP_result=${fpNow}) y está a ${(sum-retoMinSum).toFixed(0)} kVAR del óptimo real (${fmtKVAR(retoMinSum)}).</span>`;
-  }else if(!compliant){
-    retoMsg=`<span class="mono"><span class="dtc">✗ No cumple la meta</span> — con ${fmtKVAR(sum)} instalados, FP_result=${fpNow} &lt; 0.95. Ajusta los pasos conectados.</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Banco correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'} — ${fmtKVAR(sum)}, cumple FP≥0.95 (FP_result=${fpNow}) y está a ${(sum-retoMinSum).toFixed(0)} kVAR del óptimo real (${fmtKVAR(retoMinSum)}).</span>`;
   }else{
-    retoMsg=`<span class="mono"><span class="dtc">✗ Cumple pero no es casi-óptimo</span> — ${fmtKVAR(sum)} instalados es más de 5 kVAR por encima del banco mínimo real (${fmtKVAR(retoMinSum)}). Busca una combinación con menos kVAR total que siga cumpliendo.</span>`;
+    intentos++;
+    /* retroalimentación cualitativa: no se revela el óptimo ni el sentido exacto del error */
+    const causa=!compliant
+      ?`<span class="dtc">✗ No cumple la meta</span> — con ${fmtKVAR(sum)} instalados, FP_result=${fpNow} &lt; 0.95. Revisa Q₁ y cuánto reactivo hay que quitar.`
+      :`<span class="dtc">✗ Cumple, pero no es casi-óptimo</span> — con ${fmtKVAR(sum)} instalados el FP llega a la meta, pero existe un banco claramente más pequeño que también cumple. Busca una combinación con menos kVAR.`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      retoMsg=`<span class="mono">${causa}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta planta se retira sin revelar la solución. Te toca una nueva.</span>`;
+      newPlantaReto(true);updateRetoSpec();afterEdit();
+    }else{
+      retoMsg=`<span class="mono">${causa} (intento ${intentos} de ${FALLOS_MAX}; a los ${FALLOS_MAX} fallos la planta cambia).</span>`;
+    }
   }
   refreshAll();
+}
+
+/* Planta nueva del reto (P y FP₁ distintos de los de Explora y Banco, para que esos modos no den la respuesta) */
+function newPlantaReto(conservaMsg){
+  const msg=retoMsg;
+  for(let k=0;k<60;k++){
+    const P=pickFrom(P_CANDS,retoP),FP1=pickFrom(FP1_CANDS,retoFP1);
+    const igual=(a,b)=>a.P===b.P&&a.F===b.F;
+    if(igual({P,F:FP1},{P:expP,F:expFP1})||igual({P,F:FP1},{P:bancoP,F:bancoFP1}))continue;
+    retoP=P;retoFP1=FP1;break;
+  }
+  retoSteps=[false,false,false,false,false,false,false,false];
+  seedReto();
+  retoChecked=false;retoOk=false;retoMsg=conservaMsg?msg:'';
+  intentos=0;solved=false;
 }
 
 // ===================== 12. QUIZ =====================
@@ -966,31 +1000,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Si sigues subiendo Qc en el deslizador más allá de lo necesario para cumplir la meta, ¿por qué el factor de potencia puede terminar alejándose de 1 en vez de quedarse cerca de 1?',
       opciones:[
-        {t:'Porque Q_neto=Q₁−Qc cambia de signo (pasa a capacitivo) y FP_result=P/√(P²+Q_neto²) depende del valor absoluto de Q_neto: tanto sub-compensar como sobre-compensar alejan el FP de 1.',ok:true,why:'Correcto: FP_result solo depende de |Q_neto|, así que hay un único valor de Qc que anula Q_neto (FP=1, cuando Qc=Q₁) y te alejas de FP=1 tanto por defecto (inductivo) como por exceso (capacitivo) de ese punto.'},
-        {t:'Porque el simulador limita el deslizador a un máximo arbitrario que no corresponde a física real.',ok:false,why:'El límite del deslizador es solo de interfaz; el fenómeno de divergencia es real y ocurre incluso con un deslizador sin límite.'},
-        {t:'Porque P cambia cuando se instala más capacitor.',ok:false,why:'P es la potencia activa de la carga y no cambia al agregar reactivo capacitivo; el capacitor ideal solo aporta Q.'},
-        {t:'Porque el capacitor introduce pérdidas resistivas que bajan el FP.',ok:false,why:'Este modelo trata el capacitor como reactancia ideal, sin pérdidas; el fenómeno de divergencia ocurre igual con un capacitor perfecto.'},
+        {t:'Porque Q_neto=Q₁−Qc pasa a ser capacitivo y FP=P/√(P²+Q_neto²) depende de |Q_neto|: sub- y sobrecompensar alejan el FP de 1.',ok:true,why:'Correcto: FP_result solo depende de |Q_neto|, así que hay un único valor de Qc que anula Q_neto (FP=1, cuando Qc=Q₁) y te alejas de FP=1 tanto por defecto (inductivo) como por exceso (capacitivo) de ese punto.'},
+        {t:'Porque el simulador limita el deslizador a un máximo arbitrario que no corresponde a la física real de la instalación.',ok:false,why:'El límite del deslizador es solo de interfaz; el fenómeno de divergencia es real y ocurre incluso con un deslizador sin límite.'},
+        {t:'Porque P cambia cuando se instala más capacitor, y con ello cambia el triángulo de potencias completo de la carga.',ok:false,why:'P es la potencia activa de la carga y no cambia al agregar reactivo capacitivo; el capacitor ideal solo aporta Q.'},
+        {t:'Porque el capacitor introduce pérdidas resistivas que se suman a la carga y terminan bajando el factor de potencia.',ok:false,why:'Este modelo trata el capacitor como reactancia ideal, sin pérdidas; el fenómeno de divergencia ocurre igual con un capacitor perfecto.'},
       ],
     },
     banco:{
       pregunta:'¿Por qué el catálogo de capacitores viene en pasos discretos (5, 10, 15… 50 kVAR) en vez de un valor continuo, y qué implica esto para armar el banco?',
       opciones:[
-        {t:'Los capacitores se fabrican en tamaños estándar; armar el banco es un problema combinatorio: hay que elegir qué subconjunto de pasos sumar para caer dentro de la banda de cumplimiento.',ok:true,why:'Correcto: por eso el modo Reto no busca "el" valor exacto, sino la mejor combinación de catálogo posible.'},
-        {t:'Porque los capacitores continuos están prohibidos por la norma CFE.',ok:false,why:'La norma fija el FP mínimo, no la forma constructiva del capacitor; el catálogo discreto es una realidad de fabricación, no un mandato regulatorio.'},
-        {t:'Porque Qc ideal siempre coincide exactamente con la suma de todos los pasos combinados.',ok:false,why:'Casi nunca coincide exactamente — por eso existe una banda de cumplimiento en vez de exigir Qc_banco=Qc ideal.'},
-        {t:'Porque cada paso debe conectarse en un orden específico o el banco se daña.',ok:false,why:'Los pasos son independientes entre sí; se pueden conectar en cualquier orden o combinación.'},
+        {t:'Se fabrican en tamaños estándar: armar el banco es un problema combinatorio de elegir qué pasos sumar para caer en la banda de cumplimiento.',ok:true,why:'Correcto: por eso el modo Reto no busca "el" valor exacto, sino la mejor combinación de catálogo posible.'},
+        {t:'Porque los capacitores de valor continuo están prohibidos por la norma CFE, que obliga a usar solo pasos fijos de catálogo.',ok:false,why:'La norma fija el FP mínimo, no la forma constructiva del capacitor; el catálogo discreto es una realidad de fabricación, no un mandato regulatorio.'},
+        {t:'Porque Qc ideal siempre coincide exactamente con la suma de todos los pasos combinados del catálogo disponible.',ok:false,why:'Casi nunca coincide exactamente — por eso existe una banda de cumplimiento en vez de exigir Qc_banco=Qc ideal.'},
+        {t:'Porque cada paso debe conectarse en un orden específico, o el banco de capacitores completo se daña por la sobretensión.',ok:false,why:'Los pasos son independientes entre sí; se pueden conectar en cualquier orden o combinación.'},
       ],
     },
     reto:{
-      pregunta:'El Reto califica correcto cualquier banco que cumpla la meta y esté a lo más 5 kVAR por encima del banco real de menor kVAR (minSum). ¿Por qué no exigir exactamente ese único mínimo?',
+      pregunta:'El Reto califica correcto cualquier banco que cumpla la meta y esté a lo más 5 kVAR por encima del banco real de menor kVAR. ¿Por qué no exigir exactamente ese único mínimo?',
       opciones:[
-        {t:'Porque con pasos de catálogo suele haber varias combinaciones con una suma total muy cercana al mínimo que cumplen igual de bien la meta; verificado numéricamente, cada escenario tiene entre 3 y 23 combinaciones dentro de esa tolerancia de 5 kVAR.',ok:true,why:'Correcto: exigir el único mínimo exacto penalizaría combinaciones prácticamente equivalentes en la práctica de ingeniería real.'},
-        {t:'Porque el simulador no puede calcular el banco mínimo real con exactitud.',ok:false,why:'El mínimo real (minSum) se calcula por búsqueda exhaustiva de las 255 combinaciones posibles antes de calificar — es exacto, no aproximado.'},
-        {t:'Porque instalar de más nunca afecta el cumplimiento de la meta.',ok:false,why:'Instalar de más sí puede sacar a Q_neto de la banda de cumplimiento (sobre-corrección) — por eso el reto pide el MÍNIMO kVAR que cumpla, no cualquier exceso.'},
-        {t:'Porque el banco mínimo real cambia aleatoriamente cada vez que se comprueba.',ok:false,why:'El banco mínimo real (minSum) es fijo para cada escenario P×FP₁ sorteado; solo cambia al sortear una nueva planta.'},
+        {t:'Porque con pasos de catálogo hay varias combinaciones de suma casi mínima que cumplen la meta igual de bien en la práctica.',ok:true,why:'Correcto: exigir el único mínimo exacto penalizaría combinaciones prácticamente equivalentes en la práctica de ingeniería real.'},
+        {t:'Porque el simulador no puede calcular con exactitud el banco mínimo real y por eso deja un margen de error al calificar.',ok:false,why:'El mínimo real se calcula por búsqueda exhaustiva de las 255 combinaciones posibles antes de calificar — es exacto, no aproximado.'},
+        {t:'Porque instalar de más nunca afecta el cumplimiento de la meta, así que cualquier exceso de kVAR sería aceptable.',ok:false,why:'Instalar de más sí puede sacar a Q_neto de la banda de cumplimiento (sobre-corrección) — por eso el reto pide el MÍNIMO kVAR que cumpla, no cualquier exceso.'},
+        {t:'Porque el banco mínimo real cambia aleatoriamente cada vez que se comprueba, así que no existe un único valor fijo.',ok:false,why:'El banco mínimo real es fijo para cada escenario P×FP₁ sorteado; solo cambia al sortear una nueva planta.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 
 function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
@@ -1063,6 +1102,8 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  /* DEMOSTRACIÓN: no toca el reto ni deja nada resuelto; al final se restituye el estado del alumno */
+  const previo={modo:mode,solved,expP,expFP1,expQc,bancoP,bancoFP1,bancoSteps:bancoSteps.slice()};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -1080,8 +1121,6 @@ async function runAuto(){
     expQc=Math.min(qcSliderMax(),idealQc*1.7);el('qcSlider').value=String(expQc);refreshAll();
     showToast('⚠️ Sobre-corregido a Qc='+fmtKVAR(expQc)+': el vector cruza al lado capacitivo y FP_result vuelve a caer a '+fmtFP(currentState().FPresult)+'.');
     await sleep(2800);
-    answer(0);
-    await sleep(2200);
 
     setMode('banco');
     bancoP=100;bancoFP1=0.75;bancoSteps=[false,false,false,false,false,false,false,false];
@@ -1096,21 +1135,15 @@ async function runAuto(){
     }
     showToast(currentState().compliant?'✔ Banco cumple la meta: FP_result='+fmtFP(currentState().FPresult)+'.':'Sigue faltando banco — en el Reto se pide el MÍNIMO que cumpla.');
     await sleep(2400);
-    answer(0);
-    await sleep(2200);
 
-    setMode('reto');
-    newSignal();
-    showToast('🎯 Reto: nueva planta sorteada. Buscando el banco de menor kVAR que cumpla…');
-    await sleep(2400);
-    retoSteps=CAP_STEPS.map((v,i)=>Boolean(retoBestMask&(1<<i)));
-    buildStepsBar();refreshAll();
-    showToast('Banco óptimo aplicado: '+fmtKVAR(currentState().QcBanco)+' (mínimo real='+fmtKVAR(retoMinSum)+').');
-    await sleep(2400);
-    checkReto();
-    await sleep(2400);
-    answer(0);
+    showToast('🎯 El Reto es tuyo: otra planta, sin veredicto en vivo. Calcula Q₁ y Qc, arma el banco más pequeño que cumpla y comprueba. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3200);
   }finally{
+    /* restituye lo del alumno; el reto no se tocó */
+    expP=previo.expP;expFP1=previo.expFP1;expQc=previo.expQc;
+    bancoP=previo.bancoP;bancoFP1=previo.bancoFP1;bancoSteps=previo.bancoSteps;
+    setMode(previo.modo);
+    solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1170,6 +1203,10 @@ window.__labDebug={
   retoTolerance:()=>retoMinSum+5,
   retoChecked:()=>retoChecked,
   retoOk:()=>retoOk,
+  retoSolved:()=>retoOk,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
   retoMsg:()=>retoMsg,
   checkReto:()=>checkReto(),
   newSignal:()=>newSignal(),

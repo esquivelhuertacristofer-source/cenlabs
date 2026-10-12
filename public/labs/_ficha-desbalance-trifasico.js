@@ -3,13 +3,13 @@ fichaTecnica({
   intro: 'En un sistema trifásico de cuatro hilos (estrella con neutro), tres cargas independientes —una por fase— rara vez drenan la misma corriente. Cuando están desbalanceadas, sus corrientes de fase ya no se cancelan y el conductor de neutro transporta la diferencia de retorno. Esta práctica muestra que esa corriente de neutro es la suma FASORIAL de las tres corrientes de fase (IN=IA+IB+IC), no su suma aritmética: como los fasores están a 120°, se cancelan en parte, y el neutro real es mucho menor que la suma de magnitudes. Solo con carga perfectamente balanceada el neutro no conduce (IN=0). La práctica introduce además las componentes simétricas de Fortescue —secuencia positiva (I1), negativa (I2) y cero (I0)— con la relación central IN=3·I0.',
   s1: {
     presentes: [
-      'Corriente de neutro como suma fasorial exacta de tres corrientes de fase resistivas a 0°/−120°/+120°: IN=IA+IB+IC, con IA=Ia∠0°, IB=Ib∠−120°, IC=Ic∠+120° (verificado node -e)',
+      'Corriente de neutro como suma fasorial exacta de tres corrientes de fase resistivas a 0°/−120°/+120°: IN=IA+IB+IC, con IA=Ia∠0°, IB=Ib∠−120°, IC=Ic∠+120°',
       'Contraste con la trampa clásica de la suma aritmética (Ia+Ib+Ic): en el catálogo del Reto la suma aritmética queda SIEMPRE ≥15 A del valor real de |IN| y jamás dentro de la tolerancia de la predicción',
       'Caso balanceado (Ia=Ib=Ic ⇒ IN=0, el neutro no lleva corriente) y desbalanceado (IN≠0, el neutro conduce), incluido el extremo de fase abierta (una corriente en cero)',
       'Descomposición en componentes simétricas: I0=(IA+IB+IC)/3 (secuencia cero), I1=(IA+a·IB+a²·IC)/3 (positiva, igual al promedio de las tres para cargas resistivas), I2=(IA+a²·IB+a·IC)/3 (negativa), con a=1∠120°',
       'Relación central IN=3·I0 (la corriente de neutro es exactamente tres veces la componente de secuencia cero) y factor de desbalance de corriente |I2|/|I1|',
-      'Reconstrucción exacta IA=I0+I1+I2 (verificada numéricamente), que cierra el ciclo terna desbalanceada ↔ componentes simétricas',
-      'Reto verificado: corrientes ∈{5,10,15,20,25,30} A con desbalance visible (max−min≥10) → 180 escenarios, |IN|∈[8.66,25] A (nunca trivial), tolerancia tol=máx(1.5 A, 6%·|IN|)',
+      'Reconstrucción exacta IA=I0+I1+I2, que cierra el ciclo terna desbalanceada ↔ componentes simétricas',
+      'Reto: corrientes de fase sorteadas con desbalance visible (máx−mín ≥ 10 A), de modo que |IN| nunca es trivial; tolerancia máx(1.5 A, 6 %·|IN|)',
     ],
     omitidos: [
       'Desfase de las corrientes por cargas reactivas: aquí cada carga es resistiva (corriente en fase con su tensión de fase); con cargas RL/RC los ángulos individuales cambiarían la suma fasorial',
@@ -50,7 +50,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Corriente de neutro de un sistema trifásico de cuatro hilos con tres cargas resistivas desbalanceadas como suma fasorial exacta IN=IA+IB+IC (IA=Ia∠0°, IB=Ib∠−120°, IC=Ic∠+120°); caso balanceado (IN=0) y desbalanceado (IN≠0); descomposición en componentes simétricas de Fortescue I0/I1/I2 con la relación IN=3·I0, el factor de desbalance |I2|/|I1| y la reconstrucción exacta IA=I0+I1+I2. El contraste con la suma aritmética está verificado numéricamente: la trampa queda siempre ≥15 A del valor real en el catálogo del Reto, que tiene 180 escenarios con |IN|∈[8.66,25] A.',
+    modela: 'Corriente de neutro de un sistema trifásico de cuatro hilos con tres cargas resistivas desbalanceadas como suma fasorial exacta IN=IA+IB+IC (IA=Ia∠0°, IB=Ib∠−120°, IC=Ic∠+120°); caso balanceado (IN=0) y desbalanceado (IN≠0); descomposición en componentes simétricas de Fortescue I0/I1/I2 con la relación IN=3·I0, el factor de desbalance |I2|/|I1| y la reconstrucción exacta IA=I0+I1+I2. La suma aritmética de las tres corrientes (la trampa clásica) queda siempre fuera de la tolerancia del Reto.',
     noModela: 'Desfase de las corrientes por cargas reactivas (aquí resistivas puras); impedancia del neutro y corrimiento del punto de estrella; sobretensiones por neutro impedante o abierto; armónicos de orden triple que se suman en el neutro (otra causa real de sobrecarga); efectos térmicos y dimensionamiento del conductor de neutro. La fuente se supone rígida y perfectamente balanceada (VF=127 V constante).',
   },
   s6: [
@@ -59,6 +59,5 @@ fichaTecnica({
     'Enríquez Harper, G. — El ABC de las instalaciones eléctricas industriales (Limusa): sistemas de cuatro hilos, desbalance y conductor de neutro.',
     'Grainger, J. y Stevenson, W. — Análisis de sistemas de potencia (McGraw-Hill): componentes simétricas y su aplicación a fallas y desbalances.',
     'NOM-001-SEDE-2022 (Instalaciones eléctricas — utilización): Art. 220, cálculo del conductor de neutro y cargas desbalanceadas; consideración de armónicos triples en el neutro.',
-    'Verificación numérica propia (sesión de construcción, node -e): IN=3·I0 exacto; reconstrucción IA=I0+I1+I2 exacta; 180 escenarios de Reto con |IN|∈[8.66,25] A y la suma aritmética siempre ≥15 A del valor real, fuera de la tolerancia.',
   ],
 });

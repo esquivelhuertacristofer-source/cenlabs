@@ -4,12 +4,12 @@ fichaTecnica({
   s1: {
     presentes: [
       'Criterio de ampacidad: el conductor debe cumplir ampacidad ≥ corriente de la carga, con ampacidad tomada de la Tabla 310-15(b)(16) del cobre THW a 75 °C (14 AWG a 4/0)',
-      'Criterio de caída de tensión de circuito derivado: %e = e/V·100 ≤ 3 %, con e=2·ρ·L·I/S (ρ_Cu=0.0175 Ω·mm²/m, V=127 V), factor 2 por los conductores de ida y retorno (verificado node -e)',
+      'Criterio de caída de tensión de circuito derivado: %e = e/V·100 ≤ 3 %, con e=2·ρ·L·I/S (ρ_Cu=0.0175 Ω·mm²/m, V=127 V), factor 2 por los conductores de ida y retorno',
       'Selección por AMBOS criterios a la vez: el calibre correcto es el mínimo del catálogo que satisface ampacidad Y caída ≤3% (no el que solo pasa uno)',
       'Tope de protección del Art. 240.4(D): 14/12/10 AWG limitados a 15/20/30 A de protección independientemente de su ampacidad de tabla — por eso un circuito de 20 A usa calibre 12, no 14',
-      'Dominancia de la caída en corridas largas: cálculo verificado de que en 30/36 escenarios del Reto la caída obliga a un calibre mayor que el que pediría la ampacidad sola (la "trampa" de dimensionar solo por corriente)',
+      'Dominancia de la caída en corridas largas: en corridas largas la caída obliga a un calibre mayor que el que pediría la ampacidad sola (la "trampa" de dimensionar solo por corriente)',
       'Tensión que realmente llega a la carga V_carga = V − e, medida con un voltímetro en la carga; la carga se atenúa visualmente cuando la caída es excesiva',
-      'Reto verificado: I∈{12,16,20,24,30,40} A, L∈{15,25,35,50,70,90} m → 36 escenarios, TODOS con solución en catálogo, respuestas correctas AWG 14→2, con y sin trampa de caída',
+      'Reto: corriente I∈{12,16,20,24,30,40} A y longitud L∈{15,25,35,50,70,90} m sorteadas, con y sin trampa de caída; cada escenario tiene un calibre mínimo en el catálogo',
     ],
     omitidos: [
       'Factor de 125 % para cargas continuas (3 h o más) del Art. 210.19/210.20: aquí la corriente dada es la de diseño ya considerada',
@@ -50,7 +50,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Selección del calibre de un conductor de cobre THW para un circuito derivado monofásico de 2 hilos (127 V) por los dos criterios simultáneos: ampacidad (I ≤ ampacidad de Tabla 310-15(b)(16) a 75 °C, con el tope de protección del Art. 240.4(D) para 14/12/10 AWG = 15/20/30 A) y caída de tensión e=2ρLI/S con límite del 3 %. El calibre correcto es el mínimo que cumple ambos. Muestra, verificado numéricamente, que en corridas largas la caída (no la ampacidad) decide el calibre (30/36 escenarios del Reto). Calcula la tensión que llega a la carga V−e. Catálogo real de 14 AWG a 4/0.',
+    modela: 'Selección del calibre de un conductor de cobre THW para un circuito derivado monofásico de 2 hilos (127 V) por los dos criterios simultáneos: ampacidad (I ≤ ampacidad de Tabla 310-15(b)(16) a 75 °C, con el tope de protección del Art. 240.4(D) para 14/12/10 AWG = 15/20/30 A) y caída de tensión e=2ρLI/S con límite del 3 %. El calibre correcto es el mínimo que cumple ambos. Muestra que en corridas largas la caída (no la ampacidad) decide el calibre. Calcula la tensión que llega a la carga V−e. Catálogo real de 14 AWG a 4/0.',
     noModela: 'Factor de 125 % para cargas continuas; factores de corrección por temperatura ambiente y por agrupamiento (Art. 310.15(B)); sistemas trifásicos (e=√3ρLI/S) y reactancia del cable (solo resistencia, FP≈1); variación de la resistividad con la temperatura real (ρ fijo = 0.0175 Ω·mm²/m); calibres en kcmil >4/0 y conductores de aluminio; coordinación y curvas de disparo de la protección.',
   },
   s6: [
@@ -58,6 +58,5 @@ fichaTecnica({
     'Enríquez Harper, G. — El ABC de las instalaciones eléctricas residenciales / industriales (Limusa): cálculo de la caída de tensión e=2ρLI/S y selección de calibre por caída y por ampacidad.',
     'NEC (NFPA 70), 310.16 y 240.4(D): tablas de ampacidad y límites de protección de conductores pequeños, base de la que deriva la NOM mexicana.',
     'IEC 60228 — Conductors of insulated cables: secciones nominales de los conductores y su correspondencia con los calibres AWG.',
-    'Verificación numérica propia (sesión de construcción, node -e): fórmula e=2ρLI/S y selección por dos criterios; catálogo del Reto de 36 escenarios, todos con solución (AWG 14 a 4/0) y con la caída dominando en 30 de 36 (la trampa de dimensionar solo por ampacidad falla el 83 % de las veces).',
   ],
 });

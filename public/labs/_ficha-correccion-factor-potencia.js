@@ -5,9 +5,9 @@ fichaTecnica({
     presentes: [
       'Modelo exacto de corrección: φ₁=acos(FP₁), Q₁=P·tan φ₁, φ₂=acos(0.95), Qc=P·(tan φ₁−tan φ₂) — el mismo triángulo de potencias S=P+jQ validado en la práctica anterior, aquí restando un reactivo capacitivo Qc al Q₁ original: Q_neto=Q₁−Qc_banco, S_result=√(P²+Q_neto²), FP_result=P/S_result',
       'Catálogo de 8 pasos comerciales de capacitor conmutables individualmente (5, 10, 15, 20, 25, 30, 40 y 50 kVAR, sin múltiplos por paso) — el banco instalado es la suma de los pasos activos, con 255 combinaciones no vacías posibles por escenario',
-      'Banda de cumplimiento simétrica |Q₁−Qc_banco|≤P·tan φ₂ (no un único valor exacto de Qc): modela que tanto instalar de menos como instalar de más aleja el factor de potencia resultante de 1 — sobre-corregir lleva el FP a territorio capacitivo/adelantado, que también incumple la meta en magnitud. Verificado numéricamente sobre 30 escenarios (5 valores de P × 6 de FP₁): entre 6 y 26 combinaciones de las 255 posibles cumplen la banda en cada escenario, sin ningún escenario sin solución',
+      'Banda de cumplimiento simétrica |Q₁−Qc_banco|≤P·tan φ₂ (no un único valor exacto de Qc): modela que tanto instalar de menos como instalar de más aleja el factor de potencia resultante de 1 — sobre-corregir lleva el FP a territorio capacitivo/adelantado, que también incumple la meta en magnitud',
       'Triángulo de potencias en el pizarrón: vector original (P,Q₁), vector de corrección capacitiva (Qc_banco) y vector resultante (P,Q_neto) superpuestos, con una banda sombreada marcando la zona de cumplimiento — reutiliza la máquina de renderizado polar validada en la práctica de potencia en CA',
-      'Modo Reto calificado por cercanía al banco real de menor kVAR (minSum), hallado por búsqueda exhaustiva de las 255 combinaciones de cada escenario, con tolerancia de casi-óptimo Qc_banco≤minSum+5 kVAR calibrada numéricamente para dejar siempre entre 3 y 23 combinaciones aceptables por escenario',
+      'Modo Reto calificado por cercanía al banco real de menor kVAR (minSum), hallado por búsqueda exhaustiva de las 255 combinaciones de cada escenario, con tolerancia de casi-óptimo Qc_banco≤minSum+5 kVAR',
     ],
     omitidos: [
       'Pérdidas dieléctricas, resistencia serie equivalente (ESR) o envejecimiento del capacitor real — cada paso del banco se modela como una reactancia capacitiva ideal y constante',
@@ -45,7 +45,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'Corrección de factor de potencia por inyección de reactivo capacitivo: Qc=P·(tan φ₁−tan φ₂), reutilizando el triángulo de potencias P+jQ ya validado. Catálogo discreto de 8 pasos comerciales conmutables (5–50 kVAR, sin múltiplos), modelando que un banco real se arma por combinación de unidades de catálogo, no por un valor continuo. Banda de cumplimiento simétrica |Q₁−Qc_banco|≤P·tan φ₂ que penaliza tanto la sub- como la sobre-corrección, verificada sobre 30 escenarios P×FP₁ (6–26 combinaciones válidas de 255 posibles, ningún escenario sin solución). Modo Reto calificado por cercanía al banco real de menor kVAR (minSum+5 kVAR de tolerancia, 3–23 combinaciones aceptables por escenario).',
+    modela: 'Corrección de factor de potencia por inyección de reactivo capacitivo: Qc=P·(tan φ₁−tan φ₂), reutilizando el triángulo de potencias P+jQ ya validado. Catálogo discreto de 8 pasos comerciales conmutables (5–50 kVAR, sin múltiplos), modelando que un banco real se arma por combinación de unidades de catálogo, no por un valor continuo. Banda de cumplimiento simétrica |Q₁−Qc_banco|≤P·tan φ₂ que penaliza tanto la sub- como la sobre-corrección. Modo Reto calificado por cercanía al banco real de menor kVAR (minSum+5 kVAR de tolerancia).',
     noModela: 'Pérdidas dieléctricas, ESR o envejecimiento del capacitor real (modelado como reactancia ideal); resonancia armónica con cargas no lineales; bancos automáticos conmutados en tiempo real (controlador APFC); perfil de carga variable en el tiempo; sistemas trifásicos (P es una potencia activa equivalente monofásica); costo económico real en moneda (el criterio de optimalidad es kVAR total, no precio de catálogo). Los pasos de catálogo (5–50 kVAR) son representativos de bancos comerciales típicos, no una lista de precios de fabricante específico.',
   },
   s6: [
@@ -53,6 +53,5 @@ fichaTecnica({
     'Boylestad, R. — Introductory Circuit Analysis (Pearson): corrección de factor de potencia mediante bancos de capacitores en paralelo.',
     'Enríquez Harper, G. — El ABC de las instalaciones eléctricas industriales (Limusa): dimensionamiento de bancos de capacitores comerciales por pasos estándar de catálogo.',
     'CFE — factor de potencia mínimo 0.90 en cargas menores a 1 MW, 0.95 a 0.97 en cargas de 1 MW o mayores; Código de Red RES/550/2021.',
-    'Verificación numérica propia (sesión de construcción, node -e sobre script standalone): 30 escenarios P×FP₁ con 6–26 combinaciones válidas de 255 posibles cada uno; tolerancia de casi-óptimo del Reto (minSum+5 kVAR) calibrada para dejar 3–23 combinaciones aceptables por escenario.',
   ],
 });

@@ -80,7 +80,20 @@ function dwight(rho,L){ return rho/(2*Math.PI*L)*(Math.log(8*L/D_ROD)-1); } // R
 function Rn(rho,L,N){ return dwight(rho,L)/N; }                              // N varillas paralelas (acople despreciable)
 function wennerR(rho,a){ return rho/(2*Math.PI*a); }                         // lo que marca el telurómetro
 function rhoFromWenner(a,R){ return 2*Math.PI*a*R; }                         // despeje del alumno
-function bestConfig(rho,target){ for(const N of N_STEPS){ for(const L of L_STEPS){ if(Rn(rho,L,N)<=target) return {N,L,R:Rn(rho,L,N)}; } } return null; }
+/* «Mínimo material» = menor LONGITUD TOTAL de varilla clavada (N×L). Si varias combinaciones
+   empatan en metros (p. ej. 4×6 y 8×3), TODAS son mínimas y valen en el reto. */
+function minimos(rho,target){
+  let mejor=Infinity, lista=[];
+  for(const N of N_STEPS){ for(const L of L_STEPS){ if(Rn(rho,L,N)<=target){
+    const tot=N*L;
+    if(tot<mejor-1e-9){ mejor=tot; lista=[{N,L,R:Rn(rho,L,N),tot}]; }
+    else if(Math.abs(tot-mejor)<1e-9) lista.push({N,L,R:Rn(rho,L,N),tot});
+  } } }
+  return lista;
+}
+function bestConfig(rho,target){ const m=minimos(rho,target); return m.length?m[0]:null; }
+/* R con los decimales justos para que «≤» y «>» se lean coherentes (nunca «5,0 Ω > 5 Ω») */
+function tfVs(R,t){ let d=1; while(d<4 && (Number(R.toFixed(d))<=t)!==(R<=t)) d++; return tf(R,d); }
 // pares (suelo,objetivo) del Reto que SÍ tienen solución en catálogo (11 de 15) — los 4 imposibles
 // (arena seca/roca a ≤10 y ≤5 Ω) se dejan solo para exploración libre en el modo Electrodo.
 const RETO_PAIRS=[];
@@ -400,17 +413,17 @@ function drawElectrodo(){
   let vy=oy+90;
   TARGETS.forEach(t=>{ const ok=critMet(R,t); labelAt(40,vy,`Objetivo ≤ ${t} Ω:`,'#dfe7ee',18);
     labelAt(260,vy,ok?'✔ se cumple':'✗ no se cumple',ok?'#43D9AD':'#d64545',18); vy+=34; });
-  const bc=bestConfig(rho,5)||bestConfig(rho,10)||bestConfig(rho,25);
-  if(!bestConfig(rho,25)) wrapText(560,oy+92,'Este suelo es tan resistivo que ni 8 varillas de 6 m bajan de 25 Ω: en la práctica se recurre a malla de tierra, anillo perimetral o tratamiento del suelo (bentonita/GEM).','#f4c95d',15,420);
+  if(!bestConfig(rho,10)) wrapText(560,oy+92,'Este suelo es tan resistivo que ni 8 varillas de 6 m ('+tf(Rn(rho,6,8),1)+' Ω) bajan de 10 Ω: en la práctica se recurre a malla de tierra, anillo perimetral o tratamiento del suelo (bentonita/GEM).','#f4c95d',15,420);
   labelAt(40,740,'⚠ Suelo homogéneo; varillas separadas ≥ 2L (acople mutuo despreciable). Dwight / IEEE 142.','#f4c95d',15);
   bTex.needsUpdate=true;
 }
 
 /* ---------- reto ---------- */
-let RETO={active:false, soil:'arcilla', target:25};
+let RETO={active:false, soil:'arcilla', target:25, rho:SOILS.arcilla.rho};
 let retoN=1, retoL=3.0, retoChecked=false, retoSolved=false, retoMsg='';
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos del caso actual; a los 3, caso nuevo
 function drawReto(){
-  const s=SOILS[RETO.soil], rho=s.rho, t=RETO.target;
+  const s=SOILS[RETO.soil], rho=RETO.rho, t=RETO.target;
   const R=Rn(rho,retoL,retoN), best=bestConfig(rho,t);
   bCx.clearRect(0,0,1024,768); bCx.fillStyle='#0b1116'; bCx.fillRect(0,0,1024,768);
   labelAt(40,50,'Reto — diseña el electrodo mínimo','#8fd1ff',26);
@@ -418,17 +431,17 @@ function drawReto(){
   labelAt(40,148,`Resistividad medida:  ρ = ${rho} Ω·m`,'#dfe7ee',20);
   labelAt(40,186,`Objetivo normativo:  R ≤ ${t} Ω`,'#f4c95d',22);
   labelAt(40,250,'Tu selección:','#8fd1ff',20);
-  labelAt(40,290,`${retoN} varilla(s) × ${retoL} m  →  R = ${tf(R,1)} Ω`,'#dfe7ee',22);
-  labelAt(40,340,'Elige el número de varillas y la longitud, luego Comprobar.','#8A94A0',17);
-  labelAt(40,376,'Mínimo = menos varillas y, para ese número, la más corta que cumpla.','#8A94A0',16);
+  labelAt(40,290,`${retoN} varilla(s) × ${retoL} m  =  ${tf(retoN*retoL,1)} m de varilla`,'#dfe7ee',22);
+  labelAt(40,340,'Calcula R con Dwight, elige N y L y pulsa Comprobar (la R de tu elección no se muestra antes).','#8A94A0',16);
+  labelAt(40,376,`Mínimo = menor longitud total de varilla (N×L); los empates valen.  Fallos: ${intentos} de ${FALLOS_MAX}.`,'#8A94A0',16);
   if(retoChecked){
     labelAt(40,450,retoSolved?'✔ Correcto':'✗ Aún no',retoSolved?'#43D9AD':'#d64545',26);
     wrapText(40,490,retoMsg,retoSolved?'#43D9AD':'#f4c95d',18,900);
-    if(retoSolved&&best) labelAt(40,600,`Config mínima: ${best.N} × ${best.L} m = ${tf(best.R,1)} Ω`,'#43D9AD',20);
+    if(retoSolved&&best) labelAt(40,600,`Mínimo del caso: ${best.tot} m de varilla (p. ej. ${best.N} × ${best.L} m = ${tf(best.R,1)} Ω)`,'#43D9AD',20);
   }
   bTex.needsUpdate=true;
   const rt=el('retoText');
-  if(rt) rt.textContent=`Suelo ${s.n}, ρ=${rho} Ω·m, objetivo ≤${t} Ω. Selección ${retoN}×${retoL} m → R=${tf(R,1)} Ω.`+(retoChecked?` ${retoSolved?'✔ Correcto':'✗ '+retoMsg}`:'');
+  if(rt) rt.textContent=`Suelo ${s.n}, ρ medida = ${rho} Ω·m, objetivo ≤${t} Ω. Selección ${retoN}×${retoL} m. Fallos de este caso: ${intentos}/${FALLOS_MAX}.`+(retoChecked?` ${retoSolved?'✔ Correcto':'✗ '+retoMsg}`:'');
 }
 
 function drawBoard(){ if(mode==='suelo') drawSuelo(); else if(mode==='electrodo') drawElectrodo(); else if(mode==='reto') drawReto(); }
@@ -478,24 +491,35 @@ function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensa
 
 /* ---------- reto de diseño ---------- */
 function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-function newChallenge(){
+function newChallenge(silencio){
   const p=pick(RETO_PAIRS);
-  RETO={active:true, soil:p.soil, target:p.target};
-  retoN=1; retoL=3.0; retoChecked=false; retoSolved=false; retoMsg='';
+  /* la ρ «medida» del caso se aparta del valor de catálogo (±), para que el modo Electrodo no sea una tabla de respuestas */
+  let rho=SOILS[p.soil].rho;
+  for(let k=0;k<20;k++){ const c=Math.round(SOILS[p.soil].rho*pick([0.7,0.8,0.9,1.1,1.2,1.35])); if(bestConfig(c,p.target)){ rho=c; break; } }
+  RETO={active:true, soil:p.soil, target:p.target, rho};
+  retoN=1; retoL=3.0; retoChecked=false; retoSolved=false; retoMsg=''; intentos=0;
   if(soilTop) soilTop.material.color.set(SOILS[RETO.soil].color);
   drawReto(); syncRetoBtns();
-  showToast('🎲 Nuevo reto de diseño generado.');
-  synth.beep(520,0.08,0.05);
+  if(!silencio){ showToast('🎲 Nuevo reto de diseño generado.'); synth.beep(520,0.08,0.05); }
 }
 function checkReto(){
-  const rho=SOILS[RETO.soil].rho, t=RETO.target;
-  const R=Rn(rho,retoL,retoN), best=bestConfig(rho,t);
+  if(retoSolved) return;
+  const rho=RETO.rho, t=RETO.target;
+  const R=Rn(rho,retoL,retoN), mins=minimos(rho,t);
+  const tot=retoN*retoL, totMin=mins[0].tot;
   retoChecked=true;
-  if(R>t){ retoSolved=false; retoMsg=`R=${tf(R,1)} Ω > ${t} Ω: el electrodo no baja de lo pedido. Usa una varilla más larga o más varillas.`; }
-  else if(best && retoN===best.N && retoL===best.L){ retoSolved=true; retoMsg=`R=${tf(R,1)} Ω ≤ ${t} Ω con el mínimo de material.`; }
-  else { retoSolved=false; retoMsg=`R=${tf(R,1)} Ω ≤ ${t} Ω: sí cumple, pero gastas de más. Hay una configuración con menos varillas o más corta que también cumple.`; }
-  if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: electrodo mínimo que cumple.</span>'); synth.beep(1046,0.12,0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ Revisa tu diseño.</span>'); synth.beep(180,0.14,0.06); }
+  if(R>t){ intentos++; retoSolved=false; retoMsg=`R=${tfVs(R,t)} Ω > ${t} Ω: con esa elección el electrodo NO baja de lo pedido. Necesitas más varilla enterrada.`; }
+  else if(Math.abs(tot-totMin)<1e-9){ retoSolved=true; retoMsg=`R=${tfVs(R,t)} Ω ≤ ${t} Ω con el mínimo de material (${tf(tot,1)} m de varilla), en ${intentos+1} ${intentos?'intentos':'intento'}.`; }
+  else { intentos++; retoSolved=false; retoMsg=`R=${tfVs(R,t)} Ω ≤ ${t} Ω: sí cumple, pero hay una elección que también cumple con MENOS metros totales de varilla (N×L).`; }
+  if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: electrodo de mínimo material que cumple.</span>'); synth.beep(1046,0.12,0.06); }
+  else if(intentos>=FALLOS_MAX){
+    resiembras++;
+    showToast('<span style="color:var(--bad)">✗ '+FALLOS_MAX+' intentos fallidos.</span> Ese caso se retira sin revelarse: aquí tienes uno nuevo.');
+    synth.beep(180,0.14,0.06);
+    newChallenge(true);
+    return;
+  }
+  else { showToast('<span style="color:var(--bad)">✗ Revisa tu diseño</span> (fallo '+intentos+' de '+FALLOS_MAX+').'); synth.beep(180,0.14,0.06); }
   drawReto();
 }
 
@@ -707,9 +731,10 @@ window.__labDebug={
   soil:()=>WEN.soil,
   wenner:()=>{ const rho=SOILS[WEN.soil].rho, R=wennerR(rho,WEN.a); return {soil:WEN.soil, a:WEN.a, R, rho:rhoFromWenner(WEN.a,R), rhoTrue:rho}; },
   elec:()=>{ const rho=SOILS[ELE.soil].rho; return {soil:ELE.soil, rho, L:ELE.L, N:ELE.N, R1:dwight(rho,ELE.L), R:Rn(rho,ELE.L,ELE.N)}; },
-  reto:()=>{ const rho=SOILS[RETO.soil].rho; return {...RETO, rho, best:bestConfig(rho,RETO.target), pick:{N:retoN,L:retoL}, R:Rn(rho,retoL,retoN), checked:retoChecked, solved:retoSolved, msg:retoMsg}; },
+  reto:()=>{ const rho=RETO.rho; return {...RETO, rho, best:bestConfig(rho,RETO.target), minimos:minimos(rho,RETO.target), intentos, resiembras, pick:{N:retoN,L:retoL}, R:Rn(rho,retoL,retoN), checked:retoChecked, solved:retoSolved, msg:retoMsg}; },
   pairs:()=>RETO_PAIRS.slice(),
   setSoil, setA, setL, setN, setMode, checkReto, newChallenge,
-  setReto:(soil,target)=>{ RETO={active:true,soil,target}; retoN=1; retoL=3.0; retoChecked=false; retoSolved=false; retoMsg=''; if(soilTop)soilTop.material.color.set(SOILS[soil].color); drawReto(); syncRetoBtns(); },
+  intentos:()=>intentos, resiembras:()=>resiembras, solved:()=>retoSolved,
+  setReto:(soil,target,rho)=>{ RETO={active:true,soil,target,rho:rho||SOILS[soil].rho}; intentos=0; retoN=1; retoL=3.0; retoChecked=false; retoSolved=false; retoMsg=''; if(soilTop)soilTop.material.color.set(SOILS[soil].color); drawReto(); syncRetoBtns(); },
   setRetoPick:(N,L)=>{ retoN=N; retoL=L; retoChecked=false; syncRetoBtns(); drawReto(); },
 };

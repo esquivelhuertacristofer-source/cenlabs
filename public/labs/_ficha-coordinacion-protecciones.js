@@ -4,7 +4,7 @@ fichaTecnica({
   s1: {
     presentes: [
       'Curva tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898, con región térmica inversa t=kT/((I/In)²−1.13²) y región magnética instantánea (~10 ms) al alcanzar el umbral Im·In',
-      'Anclaje verificado (node -e) a las compuertas de prueba de IEC 60898: 1.13× In NO dispara (<1 h); 1.45× In dispara en <1 h (modelo→133 s); 2.55× In dispara entre 1 y 60 s (modelo→21 s)',
+      'Anclaje a las compuertas de prueba de IEC 60898: 1.13× In NO dispara (<1 h); 1.45× In dispara en <1 h (modelo→133 s); 2.55× In dispara entre 1 y 60 s (modelo→21 s)',
       'Los tres tipos de curva por banda magnética: B (3–5× In, umbral garantizado 5×), C (5–10× In, 10×) y D (10–20× In, 20×), con sus usos típicos (resistivas/residencial, mixtas/uso general, alto arranque)',
       'Energía pasante I²t=I²·t_disparo como medida del estrés térmico del cable: en cortocircuito, disparar magnético (~10 ms) da I²t mínima; una curva innecesariamente alta que aún dispara térmico deja pasar mucha más energía',
       'Selección de la corriente nominal In por el criterio Ib ≤ In ≤ Iz (lleva la carga sin rebasar la ampacidad del cable), con catálogo normalizado 6/10/16/20/25/32/40 A',
@@ -49,7 +49,7 @@ fichaTecnica({
     ],
   },
   s5: {
-    modela: 'La característica tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898: región térmica inversa anclada numéricamente a las compuertas de prueba de la norma (1.13× no dispara; 1.45× dispara en <1 h; 2.55× entre 1 y 60 s) y región magnética instantánea (~10 ms) con los umbrales garantizados de las curvas B (5×), C (10×) y D (20× In). Calcula la energía pasante I²t, la selección de In por Ib≤In≤Iz, la selección de curva por el pico de arranque y la coordinación/selectividad entre dos MCB en serie, incluyendo su límite honesto en cortocircuito.',
+    modela: 'La característica tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898: región térmica inversa anclada a las compuertas de prueba de la norma (1.13× no dispara; 1.45× dispara en <1 h; 2.55× entre 1 y 60 s) y región magnética instantánea (~10 ms) con los umbrales garantizados de las curvas B (5×), C (10×) y D (20× In). Calcula la energía pasante I²t, la selección de In por Ib≤In≤Iz, la selección de curva por el pico de arranque y la coordinación/selectividad entre dos MCB en serie, incluyendo su límite honesto en cortocircuito.',
     noModela: 'La curva exacta de un fabricante (ajuste didáctico anclado a la norma, no banda min/máx real); la tolerancia/dispersión de la banda magnética (umbral garantizado 5/10/20×); la dependencia de la temperatura ambiente y de la precarga del bimetal; el poder de corte Icu/Ics y la limitación de corriente real; la selectividad con fusibles y con relés electrónicos ajustables (curvas L-S-I); el cálculo de la corriente de cortocircuito de la red (se inyecta como dato); ni efectos de corriente directa.',
   },
   s6: [
@@ -57,6 +57,5 @@ fichaTecnica({
     'NOM-001-SEDE-2022 (Instalaciones eléctricas — utilización): Art. 240 (protección contra sobrecorriente), coordinación entre la protección, el conductor y la carga.',
     'IEC 60947-2 — Interruptores automáticos de baja tensión (aparamenta industrial): protecciones ajustables y coordinación/selectividad en sistemas industriales.',
     'Enríquez Harper, G. — Protección de instalaciones eléctricas industriales y comerciales (Limusa): curvas de disparo, coordinación y selectividad de interruptores termomagnéticos.',
-    'Verificación numérica propia (sesión de construcción, node -e): ajuste del modelo térmico a las compuertas 1.13/1.45/2.55× In de IEC 60898, comparación de I²t por curva ante una misma falla, y prueba de selectividad de pares (16A-C/40A-D selectivo; 16A-C/25A-C no selectivo en cortocircuito).',
   ],
 });

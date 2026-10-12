@@ -29,9 +29,9 @@ const DIVX=10,DIVY=8;
 const VOLTS_PER_DIV=V/DIVY;
 const DIAL_STEPS_US=[10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000,200000];
 const RETO_SCENARIOS=[
-  {R:1000,C:470e-9},
+  {R:1000,C:680e-9},
   {R:2200,C:150e-9},
-  {R:4700,C:1e-6},
+  {R:4700,C:1.5e-6},
   {R:10000,C:330e-9},
   {R:2200,C:2.2e-6},
   {R:6800,C:2.2e-6},
@@ -83,6 +83,7 @@ let timeDivKey='rapido';
 let cursorDiv=5.0;
 let medido=false,tauMedido=null;
 let retoIdx=0,retoSolved=false,retoMsg='';
+let intentos=0,resiembras=0;const FALLOS_MAX=3;   // fallos del capacitor sellado actual; a los 3 se cambia
 let solved=false,autoRunning=false,QUIZ={};
 
 function currentR(){return mode==='reto'?RETO_SCENARIOS[retoIdx].R:selR;}
@@ -532,7 +533,7 @@ function setMode(k){
   el('retoBox').style.display=reto?'':'none';
   if(reto)updateRetoSpec();
   buildSelBar();
-  solved=false;clearDx();buildQuiz();refreshQuestion();
+  solved=(k==='reto')?retoSolved:false;clearDx();buildQuiz();refreshQuestion();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
   refreshAll();
 }
@@ -540,7 +541,7 @@ function afterEdit(){
   medido=false;tauMedido=null;
   if(mode==='medicion')timeDivKey='rapido';
   buildSelBar();
-  solved=false;clearDx();buildQuiz();refreshQuestion();
+  solved=(mode==='reto')?retoSolved:false;clearDx();buildQuiz();refreshQuestion();
   refreshAll();
 }
 
@@ -581,6 +582,7 @@ function updateTele(){
       teleRow('C',retoSolved?fmtC(sc.C):'🔒 desconocida')+
       teleRow('τ medido (cursor)',medido?fmtTimeS(tauMedido):'🔒 sin medir',medido?'good':'warn')+
       teleRow('Tu C calculada',(el('inC')&&el('inC').value)?el('inC').value+' nF':'—')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoSolved?'✔ PREDICCIÓN VALIDADA':(medido?'Calcula C=τ/R y comprueba':'Mide τ primero'),retoSolved?'good':'warn');
   }
 }
@@ -629,6 +631,7 @@ function medirTau(){
   refreshAll();
 }
 function checkReto(){
+  if(retoSolved)return;
   if(!medido){showToast('⚠️ Primero mide τ en el osciloscopio (botón "Medir τ").');return;}
   const sc=RETO_SCENARIOS[retoIdx];
   const cGuessNF=numOr('inC');
@@ -636,13 +639,23 @@ function checkReto(){
   const cGuess=cGuessNF*1e-9;
   const tolC=Math.max(sc.C*0.08,5e-9);
   const ok=Math.abs(cGuess-sc.C)<=tolC;
-  retoSolved=ok;
   if(ok){
+    retoSolved=true;solved=true;
     synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Correcto.</span> Tu C calculada está dentro del margen pedagógico (±8 %). C = τ_medido/R = ${fmtTimeS(tauMedido)}/${fmtR(sc.R)}.</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'}. Tu C calculada está dentro del margen pedagógico (±8 %). C = τ_medido/R = ${fmtTimeS(tauMedido)}/${fmtR(sc.R)}.</span>`;
   }else{
+    intentos++;
     synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> Fuera de tolerancia — revisa que el cursor esté justo sobre el cruce del 63.2 % y recalcula C=τ/R. No se muestra el valor real de C.</span>`;
+    /* retroalimentación cualitativa: nunca el valor real de C ni el sentido del error */
+    const base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). Fuera de tolerancia: revisa que el cursor esté justo sobre el cruce del 63.2 %, que la τ esté en las unidades correctas y recalcula C=τ/R en nF.`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> este capacitor se retira sin revelar su valor. Te toca uno nuevo; vuelve a medir.</span>`;
+      newScenario(true);
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base}</span>`;
   }
   refreshAll();
 }
@@ -650,19 +663,19 @@ function updateRetoSpec(){
   const sc=RETO_SCENARIOS[retoIdx];
   el('retoSpec').innerHTML=`Capacitor sellado en un circuito RC con R=${fmtR(sc.R)} conocida. Mide τ con el cursor del osciloscopio ("Medir τ"), calcula C=τ/R y repórtalo en nF.<br><span style="color:var(--dim)">La tolerancia (±8 %) es un margen pedagógico de este ejercicio, no una especificación de fabricante.</span>`;
 }
-function newScenario(){
+function newScenario(auto){
   const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
   let idx=pick();
   if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
-  retoIdx=idx;retoSolved=false;retoMsg='';medido=false;tauMedido=null;
+  retoIdx=idx;retoSolved=false;retoMsg='';medido=false;tauMedido=null;intentos=0;
   el('inC').value='';
   cursorDiv=5.0;el('cursor').value='5';
   if(mode!=='reto'){setMode('reto');}
   else{updateRetoSpec();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();}
-  showToast('🔀 <b>Nuevo capacitor sellado.</b> Vuelve a medir τ desde cero.');
+  showToast(auto===true?'🔀 Capacitor nuevo: vuelve a medir τ desde cero.':'🔀 <b>Nuevo capacitor sellado.</b> Vuelve a medir τ desde cero.');
   synth.beep(520,0.08,0.05);
 }
-function onRetoInput(){if(mode!=='reto')return;retoSolved=false;retoMsg='';refreshAll();}
+function onRetoInput(){if(mode!=='reto')return;if(!retoSolved)retoMsg='';refreshAll();}   // el éxito ya logrado no se pierde al seguir editando
 
 // ============================== 12) QUIZ ==============================
 function buildQuiz(){
@@ -670,31 +683,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Si duplicas R sin cambiar C, ¿qué le pasa a τ y a la forma de la curva?',
       opciones:[
-        {t:'τ se duplica (τ=R·C es lineal en R): la curva tarda el doble en llegar al 63.2 % de V, sin cambiar el valor final (V) ni la forma exponencial en sí',ok:true,why:'Correcto: τ=R·C es directamente proporcional a R. Duplicar R duplica τ — la curva se "estira" en el eje del tiempo, pero sigue siendo la misma exponencial y llega al mismo valor final.'},
-        {t:'τ se reduce a la mitad, porque más resistencia limita más la corriente',ok:false,why:'Más resistencia SÍ limita más la corriente, pero eso hace que el capacitor tarde MÁS en cargarse, no menos — τ crece con R, no decrece.'},
-        {t:'τ no cambia: solo depende de C',ok:false,why:'τ=R·C depende de AMBOS componentes. Cambiar cualquiera de los dos cambia τ proporcionalmente.'},
-        {t:'La curva deja de ser exponencial y se vuelve lineal',ok:false,why:'La forma funcional (exponencial) no cambia al variar R o C — solo cambia la escala temporal (τ). Sigue siendo v(t)=V(1−e^(−t/τ)).'},
+        {t:'τ se duplica (τ=R·C es lineal en R): la curva tarda el doble en llegar al 63.2 % de V, con el mismo valor final y la misma forma',ok:true,why:'Correcto: τ=R·C es directamente proporcional a R. Duplicar R duplica τ — la curva se "estira" en el eje del tiempo, pero sigue siendo la misma exponencial y llega al mismo valor final.'},
+        {t:'τ se reduce a la mitad, porque más resistencia limita más la corriente y el capacitor se llena antes',ok:false,why:'Más resistencia SÍ limita más la corriente, pero eso hace que el capacitor tarde MÁS en cargarse, no menos — τ crece con R, no decrece.'},
+        {t:'τ no cambia: solo depende de C, así que la curva conserva exactamente el mismo tiempo de carga',ok:false,why:'τ=R·C depende de AMBOS componentes. Cambiar cualquiera de los dos cambia τ proporcionalmente.'},
+        {t:'La curva deja de ser exponencial y se vuelve lineal, porque la corriente de carga queda más limitada',ok:false,why:'La forma funcional (exponencial) no cambia al variar R o C — solo cambia la escala temporal (τ). Sigue siendo v(t)=V(1−e^(−t/τ)).'},
       ],
     },
     medicion:{
       pregunta:'¿Por qué una base de tiempo demasiado rápida (pocos µs/div) impide medir τ correctamente?',
       opciones:[
-        {t:'Porque la ventana visible termina antes de que la traza alcance su valor asintótico — no se alcanza a ver ni el cruce del 63.2 %/36.8 % con margen, ni confirmar que el transitorio ya terminó',ok:true,why:'Exacto: si la ventana total (10 divisiones × time/div) es mucho menor que el transitorio completo, la traza queda cortada al inicio de la curva, sin mostrar suficiente forma para leer el cruce con confianza.'},
-        {t:'Porque el color de la traza cambia y se vuelve ilegible',ok:false,why:'El color de la traza no depende de la base de tiempo — es la escala temporal, no la apariencia visual, lo que se ve afectado.'},
-        {t:'Porque el osciloscopio se apaga automáticamente con bases de tiempo rápidas',ok:false,why:'El modelo no incluye ningún mecanismo de apagado — el problema es puramente de encuadre: la ventana visible es demasiado corta para el fenómeno.'},
-        {t:'Porque V baja cuando la base de tiempo es rápida',ok:false,why:'V (el voltaje de la fuente) es fijo y no depende de la base de tiempo elegida — solo cambia qué porción del tiempo se muestra en pantalla.'},
+        {t:'Porque la ventana termina antes de que la traza llegue a su valor final: no se ve el cruce del 63.2 % ni se confirma que el transitorio acabó',ok:true,why:'Exacto: si la ventana total (10 divisiones × time/div) es mucho menor que el transitorio completo, la traza queda cortada al inicio de la curva, sin mostrar suficiente forma para leer el cruce con confianza.'},
+        {t:'Porque el color de la traza cambia con la base de tiempo y se vuelve ilegible sobre el fondo oscuro de la pantalla del osciloscopio',ok:false,why:'El color de la traza no depende de la base de tiempo — es la escala temporal, no la apariencia visual, lo que se ve afectado.'},
+        {t:'Porque el osciloscopio se apaga automáticamente con bases de tiempo rápidas para proteger el circuito bajo prueba de daños',ok:false,why:'El modelo no incluye ningún mecanismo de apagado — el problema es puramente de encuadre: la ventana visible es demasiado corta para el fenómeno.'},
+        {t:'Porque la tensión V de la fuente baja cuando la base de tiempo es rápida y la traza queda mucho más pequeña',ok:false,why:'V (el voltaje de la fuente) es fijo y no depende de la base de tiempo elegida — solo cambia qué porción del tiempo se muestra en pantalla.'},
       ],
     },
     reto:{
       pregunta:'En la caja con capacitor sellado conoces R pero no C. ¿Por qué basta con medir τ en el osciloscopio para hallar C?',
       opciones:[
-        {t:'Porque τ=R·C, así que C=τ/R usando la R conocida y la τ medida — no hace falta ver ni tocar el capacitor directamente',ok:true,why:'Correcto: τ=R·C es una relación algebraica simple. Con R conocida y τ medida experimentalmente, C=τ/R queda completamente determinada sin inspeccionar el componente.'},
-        {t:'Porque el osciloscopio mide C directamente, como si fuera un capacímetro',ok:false,why:'El osciloscopio solo mide voltaje contra tiempo (v(t)) — no mide capacitancia directamente. C se obtiene indirectamente vía τ=R·C.'},
-        {t:'Porque todos los capacitores sellados de este laboratorio valen 1 µF por diseño',ok:false,why:'Cada escenario del reto usa un valor distinto de C — por eso hay que medir τ de nuevo en cada caja, no se puede memorizar un solo valor.'},
-        {t:'Porque V determina C',ok:false,why:'V (el voltaje de la fuente) no aparece en la relación τ=R·C — la constante de tiempo es independiente de la amplitud de la fuente.'},
+        {t:'Porque τ=R·C: con la R conocida y la τ medida, C=τ/R, sin necesidad de ver ni tocar el capacitor directamente',ok:true,why:'Correcto: τ=R·C es una relación algebraica simple. Con R conocida y τ medida experimentalmente, C=τ/R queda completamente determinada sin inspeccionar el componente.'},
+        {t:'Porque el osciloscopio mide C directamente, igual que lo haría un capacímetro conectado al capacitor',ok:false,why:'El osciloscopio solo mide voltaje contra tiempo (v(t)) — no mide capacitancia directamente. C se obtiene indirectamente vía τ=R·C.'},
+        {t:'Porque todos los capacitores sellados de este laboratorio valen 1 µF por diseño, así que solo hay que verificarlo',ok:false,why:'Cada escenario del reto usa un valor distinto de C — por eso hay que medir τ de nuevo en cada caja, no se puede memorizar un solo valor.'},
+        {t:'Porque la tensión V de la fuente determina C, y V es un dato conocido de la fuente',ok:false,why:'V (el voltaje de la fuente) no aparece en la relación τ=R·C — la constante de tiempo es independiente de la amplitud de la fuente.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -756,6 +774,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,selR,selC,fase,timeDivKey};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -782,26 +802,13 @@ async function runAuto(){
     medirTau();await sleep(2600);
     answer(QUIZ.medicion.opciones.findIndex(o=>o.ok));await sleep(1600);
 
-    setMode('reto');
-    showToast('Paso 3 · Capacitor sellado: mide τ y calcula C=τ/R.');await sleep(2000);
-    {
-      const sc=RETO_SCENARIOS[retoIdx],tau=tauOf(sc.R,sc.C),us=effectiveTimeDivUs();
-      cursorDiv=Math.min(10,divForTime(tau,us));el('cursor').value=String(cursorDiv);
-    }
-    refreshAll();
-    medirTau();await sleep(1800);
-    {
-      const sc=RETO_SCENARIOS[retoIdx];
-      const cGuess=(tauMedido/sc.R)*1e9;
-      el('inC').value=cGuess.toFixed(1);
-    }
-    checkReto();await sleep(2400);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: capacitor sellado. Mide τ con el cursor y calcula C=τ/R. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    selR=previo.selR;selC=previo.selC;fase=previo.fase;
+    setMode(previo.modo);
+    if(previo.modo==='medicion'){timeDivKey=previo.timeDivKey;buildSelBar();refreshAll();}
+    solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -814,7 +821,7 @@ S.setAnimate((dt,time)=>{
 
 ['explora','medicion','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;
-el('btnNew').onclick=newScenario;
+el('btnNew').onclick=()=>newScenario();
 el('btnCheck').onclick=checkReto;
 el('btnMedir').onclick=medirTau;
 el('cursor').oninput=()=>{cursorDiv=parseFloat(el('cursor').value);refreshAll();};
@@ -849,6 +856,9 @@ window.__labDebug={
   checkReto:()=>checkReto(),
   setInC:nf=>{el('inC').value=String(nf);},
   retoSolved:()=>retoSolved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
   retoMsg:()=>retoMsg,
   retoIdx:()=>retoIdx,
   retoR:()=>RETO_SCENARIOS[retoIdx].R,

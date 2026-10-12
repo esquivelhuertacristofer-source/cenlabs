@@ -112,12 +112,17 @@ const FAULT_STEPS=[50,100,200,400,800,1500];
 // Reto: carga sorteada; se califican DOS objetivos (In y curva) por separado
 let retoLoadIdx=0, retoIn=16, retoCurve='C', retoChecked=false, retoOkIn=false, retoOkCurve=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let intentos=0, resiembras=0; const FALLOS_MAX=3;   // fallos del caso de reto actual; a los 3 se resiembra
 
 function seedReto(idx){
   retoLoadIdx=(idx==null)?pickIdx(LOADS.length,retoLoadIdx):idx;
   const L=LOADS[retoLoadIdx];
-  retoIn=bestIn(L.Ib,L.Iz);          // arranca ya en un In válido para no confundir el objetivo de curva
-  retoCurve='C';
+  /* arranca en una selección que NO es la respuesta (ni In ni curva): el alumno decide los dos objetivos */
+  const bIn=bestIn(L.Ib,L.Iz), bCv=bestCurve(L.m);
+  const insOtros=IN_STEPS.filter(v=>v!==bIn), cvOtras=CURVE_ORDER.filter(k=>k!==bCv);
+  retoIn=insOtros[Math.floor(Math.random()*insOtros.length)];
+  retoCurve=cvOtras[Math.floor(Math.random()*cvOtras.length)];
+  intentos=0;
   retoChecked=false;retoOkIn=false;retoOkCurve=false;retoSolved=false;retoMsg='';
 }
 seedReto(0);
@@ -338,8 +343,8 @@ function drawReto(c){
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
     c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX2.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkIn?OK_HEX:BAD_HEX;c.fillText((retoOkIn?'✔':'✗')+' In = '+retoIn+' A  (correcto: '+goodIn+' A)',PX2.x+14,by+54);
-    c.fillStyle=retoOkCurve?OK_HEX:BAD_HEX;c.fillText((retoOkCurve?'✔':'✗')+' Curva '+retoCurve+'  (correcta: '+goodCv+')',PX2.x+14,by+78);
+    c.fillStyle=retoOkIn?OK_HEX:BAD_HEX;c.fillText((retoOkIn?'✔':'✗')+' In = '+retoIn+' A',PX2.x+14,by+54);
+    c.fillStyle=retoOkCurve?OK_HEX:BAD_HEX;c.fillText((retoOkCurve?'✔':'✗')+' Curva '+retoCurve,PX2.x+14,by+78);
     c.fillStyle='#C9C4BB';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX2.x+14,by+108,PX2.w-28,17);
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX2.x,by,PX2.w,314);
@@ -358,12 +363,12 @@ function retoExplain(){
   if(!retoOkIn){
     if(retoIn<L.Ib) s+='In='+retoIn+' A < Ib='+L.Ib+' A: dispararía en servicio normal. ';
     else if(retoIn>L.Iz) s+='In='+retoIn+' A > Iz='+L.Iz+' A: el cable se sobrecargaría sin que el interruptor proteja. ';
-    else s+='In='+retoIn+' A cumple, pero no es el mínimo: '+goodIn+' A basta. ';
+    else s+='In='+retoIn+' A cumple Ib≤In≤Iz, pero hay un calibre normalizado menor que también lleva la carga. ';
   }
   if(!retoOkCurve){
     const cr=CURVES[retoCurve];
     if(cr.lo<=L.m) s+='La curva '+retoCurve+' (umbral desde '+cr.lo+'×) dispararía con el arranque de '+L.m+'×: falsa alarma. ';
-    else s+='La curva '+retoCurve+' sobra: la '+goodCv+' ya tolera el arranque y protege más rápido (menor I²t). ';
+    else s+='La curva '+retoCurve+' tolera el arranque, pero hay una más sensible que también lo tolera y protege más rápido (menor I²t). ';
   }
   return s||'Revisa los dos objetivos.';
 }
@@ -458,10 +463,10 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> la característica tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898: región térmica inversa anclada a las compuertas de prueba de la norma (1.13× no dispara; 1.45× dispara en &lt;1 h; 2.55× entre 1 y 60 s — verificado numéricamente) y región magnética instantánea con los umbrales garantizados de las curvas B (5×), C (10×) y D (20×). Calcula la energía pasante I²t, la selección de In por el criterio Ib≤In≤Iz, la selección de curva por el pico de arranque y la coordinación/selectividad entre dos MCB en serie.</div>
+    <div class="fl"><b>Sí modela:</b> la característica tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898: región térmica inversa anclada a las compuertas de prueba de la norma (1.13× no dispara; 1.45× dispara en &lt;1 h; 2.55× entre 1 y 60 s) y región magnética instantánea con los umbrales garantizados de las curvas B (5×), C (10×) y D (20×). Calcula la energía pasante I²t, la selección de In por el criterio Ib≤In≤Iz, la selección de curva por el pico de arranque y la coordinación/selectividad entre dos MCB en serie.</div>
     <div class="fl no"><b>NO modela:</b> la curva exacta de un fabricante específico (se usa un ajuste didáctico anclado a las compuertas de la norma, no la banda min/max real); la tolerancia/dispersión de la banda magnética (se usa el umbral garantizado 5/10/20×); la dependencia de la temperatura ambiente y de la precarga del bimetal; el poder de corte (Icu/Ics) y la limitación de corriente real del dispositivo; la selectividad energética con fusibles o con relés electrónicos ajustables; el cálculo de la corriente de cortocircuito de la red (se inyecta como dato); ni efectos de corriente directa.</div>
   </div>
-  <div class="src">Ref: IEC 60898-1 (MCB, curvas B/C/D) · NOM-001-SEDE-2022 Art. 240 (protección contra sobrecorriente) · IEC 60947-2 · Verificación numérica propia</div>`;
+  <div class="src">Ref: IEC 60898-1 (MCB, curvas B/C/D) · NOM-001-SEDE-2022 Art. 240 (protección contra sobrecorriente) · IEC 60947-2</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Protecciones · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
@@ -629,12 +634,29 @@ function updateRetoSpec(){
   el('retoSpec').innerHTML=`Carga <b>${L.n}</b>: Ib=${L.Ib} A, Iz=${L.Iz} A, pico de arranque ${L.m}× In. Elige la In mínima con Ib≤In≤Iz <b>y</b> la curva más sensible que no dispare al arrancar. Pulsa "Comprobar".`;
 }
 function checkReto(){
+  if(retoSolved)return;
   const L=LOADS[retoLoadIdx];
   retoOkIn=(retoIn===bestIn(L.Ib,L.Iz));
   retoOkCurve=(retoCurve===bestCurve(L.m));
   retoSolved=retoOkIn&&retoOkCurve;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  if(retoSolved){
+    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'} — ${retoExplain()}</span>`;
+  }else{
+    intentos++;
+    if(intentos>=FALLOS_MAX){
+      /* sin revelar la solución: la carga se cambia por otra */
+      resiembras++;
+      const cual=retoOkIn?'La In estaba bien; revisa la curva.':(retoOkCurve?'La curva estaba bien; revisa la In.':'Fallaron los dos objetivos.');
+      seedReto();updateRetoSpec();
+      retoMsg=`<span class="mono"><span class="dtc">✗ ${FALLOS_MAX} intentos fallidos.</span> ${cual} Esa carga se retira sin revelar la solución: te toca una nueva (${LOADS[retoLoadIdx].n}).</span>`;
+      solved=false;
+      showToast('🔀 '+FALLOS_MAX+' fallos: carga nueva, '+LOADS[retoLoadIdx].n+'.');
+      afterEdit();
+      return;
+    }
+    retoMsg=`<span class="mono"><span class="dtc">✗ Revisa</span> (intento ${intentos} de ${FALLOS_MAX}) — ${retoExplain()}</span>`;
+  }
   refreshAll();
 }
 
@@ -644,28 +666,28 @@ function buildQuiz(){
     explora:{
       pregunta:'Un motor con arranque de 8× In se protege con un interruptor curva B (umbral magnético 3–5× In). ¿Qué ocurrirá al arrancar el motor?',
       opciones:[
-        {t:'El interruptor disparará por la vía magnética en cada arranque (disparo molesto), porque 8× supera su umbral de 3–5×. Hay que usar una curva D (10–20×), que sí tolera el pico.',ok:true,why:'Correcto: la curva B trata el pico de arranque de 8× como un cortocircuito y abre. Para picos altos se usa curva D, cuyo umbral magnético (10–20×) queda por encima del arranque.'},
-        {t:'No pasará nada: el arranque es tan breve que ninguna curva lo detecta.',ok:false,why:'El disparo magnético es prácticamente instantáneo (~10 ms): un pico de 8× que supera el umbral de la curva B dispara aunque dure poco.'},
-        {t:'Disparará por la vía térmica tras varios minutos.',ok:false,why:'8× está muy por encima del umbral magnético de la B (3–5×): dispara por vía magnética en ~10 ms, no por la térmica.'},
-        {t:'El motor se dañará porque el interruptor no lo protege.',ok:false,why:'Al contrario: dispara de más (falsa alarma). El problema es que no deja arrancar el motor, no que falle en protegerlo.'},
+        {t:'Disparará por la vía magnética en cada arranque (disparo molesto): 8× supera su umbral de 3–5×. Con curva D (10–20×) se tolera.',ok:true,why:'Correcto: la curva B trata el pico de arranque de 8× como un cortocircuito y abre. Para picos altos se usa curva D, cuyo umbral magnético (10–20×) queda por encima del arranque.'},
+        {t:'No pasará nada: el arranque es tan breve que ninguna curva alcanza a detectarlo, por alto que sea el pico de corriente.',ok:false,why:'El disparo magnético es prácticamente instantáneo (~10 ms): un pico de 8× que supera el umbral de la curva B dispara aunque dure poco.'},
+        {t:'Disparará por la vía térmica, pero solo tras varios minutos de aguantar la sobrecorriente del arranque del motor.',ok:false,why:'8× está muy por encima del umbral magnético de la B (3–5×): dispara por vía magnética en ~10 ms, no por la térmica.'},
+        {t:'El motor se dañará, porque el interruptor no lo protege contra el arranque y el pico queda sin ninguna protección.',ok:false,why:'Al contrario: dispara de más (falsa alarma). El problema es que no deja arrancar el motor, no que falle en protegerlo.'},
       ],
     },
     coord:{
       pregunta:'Dos interruptores en serie tienen el mismo In y la misma curva. Ante un cortocircuito grande, ¿por qué se pierde la selectividad?',
       opciones:[
-        {t:'Porque ambos superan su umbral magnético con esa corriente y disparan casi al mismo tiempo (~10 ms): no hay diferencia de tiempo, así que puede abrir el general y dejar sin servicio todo el tablero.',ok:true,why:'Correcto: en la zona magnética ambas curvas se juntan en ~10 ms. Para coordinar en cortocircuito la general necesita un umbral magnético bastante mayor (más In y/o curva más alta).'},
-        {t:'Porque el interruptor general es más lento por estar aguas arriba.',ok:false,why:'La posición no cambia la curva: si son iguales, disparan igual de rápido. El problema es el solapamiento de las curvas magnéticas.'},
-        {t:'Porque la corriente de falla se reparte entre los dos interruptores.',ok:false,why:'En serie la misma corriente pasa por ambos; no se reparte. Se pierde la selectividad porque las curvas coinciden en la zona instantánea.'},
-        {t:'No se pierde: al ser iguales, siempre coordinan perfectamente.',ok:false,why:'Es lo contrario: curvas iguales en la zona magnética disparan a la vez y NO coordinan. Coordinar exige separar sus umbrales.'},
+        {t:'Ambos superan su umbral magnético y disparan a la vez (~10 ms): sin diferencia de tiempo, puede abrir el general y dejar todo sin servicio.',ok:true,why:'Correcto: en la zona magnética ambas curvas se juntan en ~10 ms. Para coordinar en cortocircuito la general necesita un umbral magnético bastante mayor (más In y/o curva más alta).'},
+        {t:'Porque el interruptor general es más lento que el derivado por estar aguas arriba, y siempre llega tarde a disparar ante la falla.',ok:false,why:'La posición no cambia la curva: si son iguales, disparan igual de rápido. El problema es el solapamiento de las curvas magnéticas.'},
+        {t:'Porque la corriente de falla se reparte entre los dos interruptores y por eso ninguno alcanza por completo su umbral de disparo.',ok:false,why:'En serie la misma corriente pasa por ambos; no se reparte. Se pierde la selectividad porque las curvas coinciden en la zona instantánea.'},
+        {t:'No se pierde: al ser idénticos, siempre coordinan bien, y el derivado dispara antes que el general ante cualquier falla.',ok:false,why:'Es lo contrario: curvas iguales en la zona magnética disparan a la vez y NO coordinan. Coordinar exige separar sus umbrales.'},
       ],
     },
     reto:{
       pregunta:'Para un cable de ampacidad Iz que alimenta una carga Ib, ¿por qué el interruptor debe cumplir Ib ≤ In ≤ Iz?',
       opciones:[
-        {t:'Ib ≤ In para que no dispare llevando la carga normal; In ≤ Iz para que el interruptor abra antes de que el cable se sobrecaliente por encima de su ampacidad. Así protege al conductor.',ok:true,why:'Correcto: la In debe estar entre la corriente de la carga y la ampacidad del cable. Por debajo de Ib habría disparos molestos; por encima de Iz el cable se dañaría sin que el interruptor lo proteja.'},
-        {t:'Solo importa que In ≥ Ib; el límite superior Iz es opcional.',ok:false,why:'Si In > Iz, el cable puede sobrecargarse hasta fundirse sin que el interruptor dispare: el conductor queda desprotegido. El límite superior es esencial.'},
-        {t:'Solo importa que In ≤ Iz; el límite inferior Ib es opcional.',ok:false,why:'Si In < Ib, el interruptor dispararía con la carga normal (disparos molestos). El límite inferior también es necesario.'},
-        {t:'In debe ser exactamente igual a Iz para aprovechar el cable.',ok:false,why:'No: In se elige entre Ib e Iz, normalmente el valor normalizado apenas por encima de Ib. Igualar In a Iz suele dejar el cable sin margen.'},
+        {t:'Ib ≤ In para no disparar con la carga normal; In ≤ Iz para que abra antes de que el cable rebase su ampacidad.',ok:true,why:'Correcto: la In debe estar entre la corriente de la carga y la ampacidad del cable. Por debajo de Ib habría disparos molestos; por encima de Iz el cable se dañaría sin que el interruptor lo proteja.'},
+        {t:'Solo importa que In ≥ Ib para no disparar de más; el límite superior Iz es opcional porque el cable aguanta.',ok:false,why:'Si In > Iz, el cable puede sobrecargarse hasta fundirse sin que el interruptor dispare: el conductor queda desprotegido. El límite superior es esencial.'},
+        {t:'Solo importa que In ≤ Iz para cuidar el cable; el límite inferior Ib es opcional porque el disparo no molesta.',ok:false,why:'Si In < Ib, el interruptor dispararía con la carga normal (disparos molestos). El límite inferior también es necesario.'},
+        {t:'In debe ser exactamente igual a Iz, para aprovechar al máximo la capacidad del cable instalado en la línea.',ok:false,why:'No: In se elige entre Ib e Iz, normalmente el valor normalizado apenas por encima de Ib. Igualar In a Iz suele dejar el cable sin margen.'},
       ],
     },
   };
@@ -710,6 +732,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expIn,expCurve,expX,br:{...br},mn:{...mn},faultI};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -733,17 +757,11 @@ async function runAuto(){
     await sleep(4200);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
 
-    setMode('reto');
-    seedReto(LOADS.findIndex(l=>l.n.indexOf('Motor pequeño')>=0));updateRetoSpec();
-    retoIn=bestIn(LOADS[retoLoadIdx].Ib,LOADS[retoLoadIdx].Iz);retoCurve='B';afterEdit();
-    showToast('🎯 Motor con arranque 7×: con curva B dispararía al arrancar…');
-    await sleep(3600);
-    retoCurve=bestCurve(LOADS[retoLoadIdx].m);afterEdit();
-    showToast('✔ …corregimos a curva '+retoCurve+' (tolera 7× y protege lo más rápido posible) con la In mínima válida. Comprobamos.');
-    await sleep(2800);
-    checkReto();await sleep(2600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('🎯 El Reto es tuyo: otra carga, otra In y otra curva. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3200);
   }finally{
+    expIn=previo.expIn;expCurve=previo.expCurve;expX=previo.expX;br=previo.br;mn=previo.mn;faultI=previo.faultI;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -785,7 +803,7 @@ window.__labDebug={
   loads:()=>LOADS.map(l=>l.n), retoLoad:()=>({...LOADS[retoLoadIdx]}), retoLoadIdx:()=>retoLoadIdx,
   retoIn:()=>retoIn, retoCurve:()=>retoCurve,
   retoBestIn:()=>bestIn(LOADS[retoLoadIdx].Ib,LOADS[retoLoadIdx].Iz), retoBestCurve:()=>bestCurve(LOADS[retoLoadIdx].m),
-  retoChecked:()=>retoChecked, retoOkIn:()=>retoOkIn, retoOkCurve:()=>retoOkCurve, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkIn:()=>retoOkIn, retoOkCurve:()=>retoOkCurve, retoSolved:()=>retoSolved, intentos:()=>intentos, resiembras:()=>resiembras, runAuto:()=>runAuto(),
   seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
   setReto:(In,cv)=>{if(mode==='reto'){if(In!=null)retoIn=In;if(cv!=null)retoCurve=cv;retoChecked=false;retoSolved=false;afterEdit();}},
   checkReto:()=>checkReto(),

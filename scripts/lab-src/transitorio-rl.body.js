@@ -36,9 +36,9 @@ const DIVX=10,DIVY=8;
 const VOLTS_PER_DIV=V/DIVY;
 const DIAL_STEPS_US=[10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000,200000];
 const RETO_SCENARIOS=[
-  {R:10,L:220e-3},
+  {R:10,L:330e-3},
   {R:22,L:68e-3},
-  {R:47,L:470e-3},
+  {R:47,L:390e-3},
   {R:100,L:150e-3},
   {R:33,L:220e-3},
   {R:68,L:330e-3},
@@ -95,6 +95,7 @@ let timeDivKey='rapido';
 let cursorDiv=5.0;
 let medido=false,tauMedido=null;
 let retoIdx=0,retoSolved=false,retoMsg='';
+let intentos=0,resiembras=0;const FALLOS_MAX=3;   // fallos de la bobina sellada actual; a los 3 se cambia
 let solved=false,autoRunning=false,QUIZ={};
 
 function currentR(){return mode==='reto'?RETO_SCENARIOS[retoIdx].R:selR;}
@@ -642,7 +643,7 @@ function setMode(k){
   el('retoBox').style.display=reto?'':'none';
   if(reto)updateRetoSpec();
   buildSelBar();
-  solved=false;clearDx();buildQuiz();refreshQuestion();
+  solved=(k==='reto')?retoSolved:false;clearDx();buildQuiz();refreshQuestion();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
   refreshAll();
 }
@@ -650,7 +651,7 @@ function afterEdit(){
   medido=false;tauMedido=null;
   if(mode==='sobretension')timeDivKey='rapido';
   buildSelBar();
-  solved=false;clearDx();buildQuiz();refreshQuestion();
+  solved=(mode==='reto')?retoSolved:false;clearDx();buildQuiz();refreshQuestion();
   refreshAll();
 }
 
@@ -704,6 +705,7 @@ function updateTele(){
       teleRow('L',retoSolved?fmtL(sc.L):'🔒 desconocida')+
       teleRow('τ medido (cursor)',medido?fmtTimeS(tauMedido):'🔒 sin medir',medido?'good':'warn')+
       teleRow('Tu L calculada',(el('inL')&&el('inL').value)?el('inL').value+' mH':'—')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoSolved?'✔ PREDICCIÓN VALIDADA':(medido?'Calcula L=τ·R y comprueba':'Mide τ primero'),retoSolved?'good':'warn');
   }
 }
@@ -764,6 +766,7 @@ function medirTau(){
   refreshAll();
 }
 function checkReto(){
+  if(retoSolved)return;
   if(!medido){showToast('⚠️ Primero mide τ en el osciloscopio (botón "Medir τ").');return;}
   const sc=RETO_SCENARIOS[retoIdx];
   const lGuessMH=numOr('inL');
@@ -771,13 +774,23 @@ function checkReto(){
   const lGuess=lGuessMH*1e-3;
   const tolL=Math.max(sc.L*0.08,1e-3);
   const ok=Math.abs(lGuess-sc.L)<=tolL;
-  retoSolved=ok;
   if(ok){
+    retoSolved=true;solved=true;
     synth.beep(1046,0.12,0.06);
-    retoMsg=`<span class="mono"><span class="ok">✔ Correcto.</span> Tu L calculada está dentro del margen pedagógico (±8 %). L = τ_medido·R = ${fmtTimeS(tauMedido)}·${fmtR(sc.R)}.</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Correcto</span> en ${intentos+1} ${intentos?'intentos':'intento'}. Tu L calculada está dentro del margen pedagógico (±8 %). L = τ_medido·R = ${fmtTimeS(tauMedido)}·${fmtR(sc.R)}.</span>`;
   }else{
+    intentos++;
     synth.beep(220,0.15,0.06);
-    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> Fuera de tolerancia — revisa que el cursor esté justo sobre el cruce del 63.2 % y recalcula L=τ·R. No se muestra el valor real de L.</span>`;
+    /* retroalimentación cualitativa: nunca el valor real de L ni el sentido del error */
+    const base=`<span class="dtc">✗ Aún no</span> (intento ${intentos} de ${FALLOS_MAX}). Fuera de tolerancia: revisa que el cursor esté justo sobre el cruce del 63.2 %, que la τ esté en las unidades correctas y recalcula L=τ·R en mH.`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      const msg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta bobina se retira sin revelar su valor. Te toca una nueva; vuelve a medir.</span>`;
+      newScenario(true);
+      retoMsg=msg;refreshAll();
+      return;
+    }
+    retoMsg=`<span class="mono">${base}</span>`;
   }
   refreshAll();
 }
@@ -785,19 +798,19 @@ function updateRetoSpec(){
   const sc=RETO_SCENARIOS[retoIdx];
   el('retoSpec').innerHTML=`Bobina sellada en un circuito RL con R=${fmtR(sc.R)} conocida. La interrupción ya está protegida por el diodo de rueda libre. Mide τ con el cursor del osciloscopio ("Medir τ"), calcula L=τ·R y repórtalo en mH.<br><span style="color:var(--dim)">La tolerancia (±8 %) es un margen pedagógico de este ejercicio, no una especificación de fabricante.</span>`;
 }
-function newScenario(){
+function newScenario(auto){
   const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
   let idx=pick();
   if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
-  retoIdx=idx;retoSolved=false;retoMsg='';medido=false;tauMedido=null;
+  retoIdx=idx;retoSolved=false;retoMsg='';medido=false;tauMedido=null;intentos=0;
   el('inL').value='';
   cursorDiv=5.0;el('cursor').value='5';
   if(mode!=='reto'){setMode('reto');}
   else{updateRetoSpec();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();}
-  showToast('🔀 <b>Nueva bobina sellada.</b> Vuelve a medir τ desde cero.');
+  showToast(auto===true?'🔀 Bobina nueva: vuelve a medir τ desde cero.':'🔀 <b>Nueva bobina sellada.</b> Vuelve a medir τ desde cero.');
   synth.beep(520,0.08,0.05);
 }
-function onRetoInput(){if(mode!=='reto')return;retoSolved=false;retoMsg='';refreshAll();}
+function onRetoInput(){if(mode!=='reto')return;if(!retoSolved)retoMsg='';refreshAll();}   // el éxito ya logrado no se pierde al seguir editando
 
 // ============================== 12) QUIZ ==============================
 function buildQuiz(){
@@ -805,31 +818,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Si duplicas R sin cambiar L, ¿qué le pasa a τ = L/R?',
       opciones:[
-        {t:'τ se reduce a la mitad (τ=L/R es inversamente proporcional a R): la curva llega el doble de rápido al 63.2 %/36.8 % de V, sin cambiar el valor final ni la forma exponencial en sí',ok:true,why:'Correcto: τ=L/R es inversamente proporcional a R. Duplicar R reduce τ a la mitad — lo opuesto de τ=R·C, donde duplicar R duplica τ.'},
-        {t:'τ se duplica, igual que en un circuito RC',ok:false,why:'Ese es el comportamiento de τ=R·C (directamente proporcional a R). En un circuito RL, τ=L/R es inversamente proporcional a R.'},
-        {t:'τ no cambia: solo depende de L',ok:false,why:'τ=L/R depende de AMBOS componentes. Cambiar cualquiera de los dos cambia τ.'},
-        {t:'La curva deja de ser exponencial y se vuelve lineal',ok:false,why:'La forma funcional (exponencial) no cambia al variar R o L — solo cambia la escala temporal (τ).'},
+        {t:'τ se reduce a la mitad (τ=L/R es inversa en R): la curva llega el doble de rápido al 63.2 %/36.8 % de V, con el mismo valor final',ok:true,why:'Correcto: τ=L/R es inversamente proporcional a R. Duplicar R reduce τ a la mitad — lo opuesto de τ=R·C, donde duplicar R duplica τ.'},
+        {t:'τ se duplica, igual que en un circuito RC, porque la bobina se opone más a la corriente cuando hay más resistencia',ok:false,why:'Ese es el comportamiento de τ=R·C (directamente proporcional a R). En un circuito RL, τ=L/R es inversamente proporcional a R.'},
+        {t:'τ no cambia: solo depende de L, así que la curva conserva exactamente el mismo tiempo de respuesta',ok:false,why:'τ=L/R depende de AMBOS componentes. Cambiar cualquiera de los dos cambia τ.'},
+        {t:'La curva deja de ser exponencial y se vuelve lineal, porque la corriente queda más limitada por R',ok:false,why:'La forma funcional (exponencial) no cambia al variar R o L — solo cambia la escala temporal (τ).'},
       ],
     },
     sobretension:{
       pregunta:'¿Por qué la traza de "interrumpe sin diodo" no tiene una τ que se pueda medir con el cursor?',
       opciones:[
-        {t:'Porque sin una ruta alterna para la corriente, el colapso lo determina el arco/ruptura dieléctrica del propio interruptor —un fenómeno de conmutación real, no la exponencial ideal v_R(t)=V·e^(−t/τ) del circuito RL',ok:true,why:'Correcto: sin diodo de rueda libre no existe la ruta que sostiene una decaída exponencial gobernada por τ=L/R — lo que ocurre es un evento de conmutación forzado, ajeno al modelo RL ideal.'},
-        {t:'Porque el cursor deja de funcionar en ese modo',ok:false,why:'El cursor sigue funcionando; lo que se bloquea intencionalmente es la medición de τ, porque no hay una exponencial real que medir en ese escenario.'},
-        {t:'Porque τ=L/R solo aplica cuando el diodo está presente en el circuito',ok:false,why:'τ=L/R es una propiedad del circuito RL en sí (siempre que exista una ruta de decaída bien definida). Sin ninguna ruta, simplemente no hay una decaída exponencial que caracterizar con esa fórmula.'},
-        {t:'Porque V cambia cuando se retira el diodo',ok:false,why:'V (el voltaje de la fuente) es fijo y no depende de la presencia del diodo — solo cambia qué le pasa a la corriente de la bobina al interrumpir.'},
+        {t:'Porque sin ruta alterna para la corriente, el colapso lo fija el arco o ruptura dieléctrica del interruptor, no la exponencial ideal del circuito RL',ok:true,why:'Correcto: sin diodo de rueda libre no existe la ruta que sostiene una decaída exponencial gobernada por τ=L/R — lo que ocurre es un evento de conmutación forzado, ajeno al modelo RL ideal.'},
+        {t:'Porque el cursor deja de funcionar en ese modo y no puede colocarse sobre ninguna parte de la traza en pantalla',ok:false,why:'El cursor sigue funcionando; lo que se bloquea intencionalmente es la medición de τ, porque no hay una exponencial real que medir en ese escenario.'},
+        {t:'Porque τ=L/R solo aplica cuando el diodo está presente en el circuito, y sin él la fórmula deja de tener sentido',ok:false,why:'τ=L/R es una propiedad del circuito RL en sí (siempre que exista una ruta de decaída bien definida). Sin ninguna ruta, simplemente no hay una decaída exponencial que caracterizar con esa fórmula.'},
+        {t:'Porque la tensión V de la fuente cambia cuando se retira el diodo, y con ella cambia toda la escala de la traza',ok:false,why:'V (el voltaje de la fuente) es fijo y no depende de la presencia del diodo — solo cambia qué le pasa a la corriente de la bobina al interrumpir.'},
       ],
     },
     reto:{
       pregunta:'En la bobina sellada conoces R pero no L. ¿Por qué basta con medir τ en la interrupción protegida (con diodo) para hallar L?',
       opciones:[
-        {t:'Porque τ=L/R, así que L=τ·R usando la R conocida y la τ medida —no hace falta ver ni tocar la bobina directamente',ok:true,why:'Correcto: τ=L/R es una relación algebraica simple. Con R conocida y τ medida experimentalmente, L=τ·R queda completamente determinada sin inspeccionar el componente.'},
-        {t:'Porque el osciloscopio mide L directamente, como un medidor LCR',ok:false,why:'El osciloscopio solo mide voltaje contra tiempo (v_R(t)) —no mide inductancia directamente. L se obtiene indirectamente vía τ=L/R.'},
-        {t:'Porque todas las bobinas selladas de este laboratorio valen 100 mH por diseño',ok:false,why:'Cada escenario del reto usa un valor distinto de L —por eso hay que medir τ de nuevo en cada caja, no se puede memorizar un solo valor.'},
-        {t:'Porque V determina L',ok:false,why:'V (el voltaje de la fuente) no aparece en la relación τ=L/R —la constante de tiempo es independiente de la amplitud de la fuente.'},
+        {t:'Porque τ=L/R: con la R conocida y la τ medida, L=τ·R, sin necesidad de ver ni tocar la bobina directamente',ok:true,why:'Correcto: τ=L/R es una relación algebraica simple. Con R conocida y τ medida experimentalmente, L=τ·R queda completamente determinada sin inspeccionar el componente.'},
+        {t:'Porque el osciloscopio mide L directamente, igual que lo haría un medidor LCR conectado a la bobina',ok:false,why:'El osciloscopio solo mide voltaje contra tiempo (v_R(t)) —no mide inductancia directamente. L se obtiene indirectamente vía τ=L/R.'},
+        {t:'Porque todas las bobinas selladas de este laboratorio valen 100 mH por diseño, así que solo hay que verificarlo',ok:false,why:'Cada escenario del reto usa un valor distinto de L —por eso hay que medir τ de nuevo en cada caja, no se puede memorizar un solo valor.'},
+        {t:'Porque la tensión V de la fuente determina L, y V es un dato conocido de la fuente',ok:false,why:'V (el voltaje de la fuente) no aparece en la relación τ=L/R —la constante de tiempo es independiente de la amplitud de la fuente.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
@@ -891,6 +909,8 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,selR,selL,fase,diodo,timeDivKey};
   try{
     synth.init();synth.resume();
     clearDx();
@@ -923,26 +943,14 @@ async function runAuto(){
     medirTau();await sleep(2600);
     diodo='con';buildSelBar();refreshAll();
 
-    setMode('reto');
-    showToast('Paso 3 · Bobina sellada: mide τ en la interrupción protegida y calcula L=τ·R.');await sleep(2000);
-    {
-      const sc=RETO_SCENARIOS[retoIdx],tau=tauOf(sc.R,sc.L),us=effectiveTimeDivUs();
-      cursorDiv=Math.min(10,divForTime(tau,us));el('cursor').value=String(cursorDiv);
-    }
-    refreshAll();
-    medirTau();await sleep(1800);
-    {
-      const sc=RETO_SCENARIOS[retoIdx];
-      const lGuess=(tauMedido*sc.R)*1e3;
-      el('inL').value=lGuess.toFixed(1);
-    }
-    checkReto();await sleep(2400);
-    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
-    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+    showToast('Paso 3 · El Reto es tuyo: bobina sellada. Mide τ en la interrupción protegida y calcula L=τ·R. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    selR=previo.selR;selL=previo.selL;fase=previo.fase;diodo=previo.diodo;
+    setMode(previo.modo);
+    if(previo.modo==='sobretension'){timeDivKey=previo.timeDivKey;}
+    buildSelBar();refreshAll();
+    solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -955,7 +963,7 @@ S.setAnimate((dt,time)=>{
 
 ['explora','sobretension','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;
-el('btnNew').onclick=newScenario;
+el('btnNew').onclick=()=>newScenario();
 el('btnCheck').onclick=checkReto;
 el('btnMedir').onclick=medirTau;
 el('cursor').oninput=()=>{cursorDiv=parseFloat(el('cursor').value);refreshAll();};
@@ -993,6 +1001,9 @@ window.__labDebug={
   checkReto:()=>checkReto(),
   setInL:mh=>{el('inL').value=String(mh);},
   retoSolved:()=>retoSolved,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
   retoMsg:()=>retoMsg,
   retoIdx:()=>retoIdx,
   retoR:()=>RETO_SCENARIOS[retoIdx].R,

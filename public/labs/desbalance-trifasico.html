@@ -499,14 +499,15 @@ let retoIa=20,retoIb=15,retoIc=10,retoINtrue=0,predIN=10;
 let retoChecked=false,retoOk=false,retoMsg='';
 let solved=false,autoRunning=false;
 let QUIZ={};
+let intentos=0,resiembras=0;const FALLOS_MAX=3;   // fallos del caso de reto actual; a los 3 se resiembra
 
 function seedReto(){
   let a,b,c;
   do{a=pickFrom(RETO_STEPS);b=pickFrom(RETO_STEPS);c=pickFrom(RETO_STEPS);}
-  while((Math.max(a,b,c)-Math.min(a,b,c))<10);   // garantiza desbalance visible
+  while((Math.max(a,b,c)-Math.min(a,b,c))<10||(a===expIa&&b===expIb&&c===expIc));   // desbalance visible y distinto de la carga de Explora
   retoIa=a;retoIb=b;retoIc=c;
   retoINtrue=up(a,b,c).INmag;
-  predIN=10;retoChecked=false;retoOk=false;retoMsg='';
+  predIN=10;retoChecked=false;retoOk=false;retoMsg='';intentos=0;
 }
 seedReto();
 
@@ -703,13 +704,16 @@ function drawReto(c,sy){
   let px=cx,py=cy;
   V.forEach((v,i)=>{const [nx,ny]=v2px(px,py,v);if(cmag(v)>0.01)arrow(c,px,py,nx,ny,PH_HEX[i],3.4);px=nx;py=ny;});
   // círculo punteado del radio = predicción del estudiante
-  c.strokeStyle='rgba(233,196,106,0.6)';c.lineWidth=1.5;c.setLineDash([6,5]);
-  c.beginPath();c.arc(cx,cy,predIN*PXA,0,Math.PI*2);c.stroke();c.setLineDash([]);
-  c.fillStyle=NEU_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
-  c.fillText('tu predicción: '+fmtA1(predIN),cx,cy-predIN*PXA-8);
-  if(retoChecked){
-    arrow(c,cx,cy,px,py,retoOk?'#7CD992':'#ff6b6b',4.5);
-    c.fillStyle=retoOk?'#7CD992':'#ff6b6b';c.font='bold 15px Outfit, sans-serif';
+  if(retoChecked){   // el círculo de tu predicción solo aparece al comprobar: antes serviría para «tocar» la cadena y leer la respuesta
+    c.strokeStyle='rgba(233,196,106,0.6)';c.lineWidth=1.5;c.setLineDash([6,5]);
+    c.beginPath();c.arc(cx,cy,predIN*PXA,0,Math.PI*2);c.stroke();c.setLineDash([]);
+    c.fillStyle=NEU_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('tu predicción: '+fmtA1(predIN),cx,cy-predIN*PXA-8);
+  }
+  c.textAlign='center';
+  if(retoChecked&&retoOk){
+    arrow(c,cx,cy,px,py,'#7CD992',4.5);
+    c.fillStyle='#7CD992';c.font='bold 15px Outfit, sans-serif';
     c.fillText('IN real = '+fmtA1(sy.INmag),(cx+px)/2+22,(cy+py)/2-8);
   }else{
     c.fillStyle='#9a9482';c.font='bold 30px Outfit, sans-serif';
@@ -737,7 +741,7 @@ function drawReto(c,sy){
   if(retoChecked){
     c.fillStyle=retoOk?'#7CD992':'#ff6b6b';c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
     c.fillText(retoOk?('✔ CORRECTO — |IN|='+fmtA1(sy.INmag)+' (tu predicción '+fmtA1(predIN)+', tolerancia ±'+fmtA1(INtol(sy.INmag))+')')
-                     :('✗ error de '+fmtA1(Math.abs(predIN-sy.INmag))+' — |IN| real = '+fmtA1(sy.INmag)+', tolerancia ±'+fmtA1(INtol(sy.INmag))),30,712);
+                     :('✗ tu predicción '+fmtA1(predIN)+' queda fuera de tolerancia (fallo '+intentos+' de '+FALLOS_MAX+'). Revisa la suma fasorial.'),30,712);
   }else{
     c.fillStyle='#7a7360';c.font='13px Outfit, sans-serif';c.textAlign='left';
     c.fillText('Ajusta la predicción con −/+ y pulsa "Comprobar predicción".',30,712);
@@ -835,7 +839,7 @@ function drawClamp(){
   const sy=curSys();
   c.fillStyle='#7a7360';c.font='bold 18px Outfit, sans-serif';c.textAlign='center';c.fillText('NEUTRO |IN|',128,30);
   c.fillStyle=sy.INmag<0.5?'#7CD992':NEU_HEX;c.font='bold 48px Outfit, monospace';
-  c.fillText((mode==='reto'&&!retoChecked)?'-- A':fmtA1(sy.INmag),128,82);
+  c.fillText((mode==='reto'&&!retoOk)?'-- A':fmtA1(sy.INmag),128,82);
   c.fillStyle='#5a5648';c.font='12px Outfit, sans-serif';c.fillText('4º hilo · retorno',128,110);
   clampTex.needsUpdate=true;
 }
@@ -843,7 +847,7 @@ function drawClamp(){
 function refreshLoadGlow(){
   const sy=curSys();
   [sy.Ia,sy.Ib,sy.Ic].forEach((I,i)=>{loads[i].material.emissiveIntensity=0.12+0.7*Math.min(1,I/30);});
-  const ng=Math.min(1,sy.INmag/30);
+  const ng=(mode==='reto'&&!retoOk)?0.3:Math.min(1,sy.INmag/30);   // en el reto el brillo no delata |IN|
   neutralWireMat.emissiveIntensity=0.12+0.9*ng;
   neutralSeg1.scale.setScalar(1);neutralSeg2.scale.setScalar(1);
 }
@@ -869,10 +873,10 @@ document.getElementById('hud').innerHTML=`
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
-    <div class="fl"><b>Sí modela:</b> la corriente de neutro como suma fasorial exacta de tres corrientes de fase resistivas a 0°/−120°/+120° (IN=IA+IB+IC); el caso balanceado (Ia=Ib=Ic ⇒ IN=0) y el desbalanceado (IN≠0); la descomposición en componentes simétricas de Fortescue con I0=(IA+IB+IC)/3, I1 (positiva, = promedio de las tres para cargas resistivas), I2 (negativa) y la reconstrucción exacta IA=I0+I1+I2; la relación central IN=3·I0 y el factor de desbalance |I2|/|I1|. El contraste con la suma aritmética (la trampa clásica) está verificado numéricamente: la trampa queda siempre ≥15 A del valor real en el catálogo del Reto.</div>
+    <div class="fl"><b>Sí modela:</b> la corriente de neutro como suma fasorial exacta de tres corrientes de fase resistivas a 0°/−120°/+120° (IN=IA+IB+IC); el caso balanceado (Ia=Ib=Ic ⇒ IN=0) y el desbalanceado (IN≠0); la descomposición en componentes simétricas de Fortescue con I0=(IA+IB+IC)/3, I1 (positiva, = promedio de las tres para cargas resistivas), I2 (negativa) y la reconstrucción exacta IA=I0+I1+I2; la relación central IN=3·I0 y el factor de desbalance |I2|/|I1|. La suma aritmética (la trampa clásica) queda siempre fuera de la tolerancia del Reto.</div>
     <div class="fl no"><b>NO modela:</b> desfase de las corrientes por cargas reactivas (aquí cada carga es resistiva, corriente en fase con su tensión de fase); impedancia del conductor de neutro y el corrimiento del punto de estrella que aparecería sin neutro o con neutro impedante; la elevación de tensión en fases con carga ligera; armónicos triples (3ª, 9ª…) que se SUMAN en el neutro y son la otra gran causa de sobrecarga del neutro en la práctica real; efectos térmicos del conductor. La fuente se supone rígida y perfectamente balanceada (VF=127 V constante).</div>
   </div>
-  <div class="src">Ref: Fortescue (componentes simétricas) · Enríquez Harper · Hayt/Kemmerly/Durbin · NOM-001-SEDE-2022 (Art. 220, neutro) · Verificación numérica propia</div>`;
+  <div class="src">Ref: Fortescue (componentes simétricas) · Enríquez Harper · Hayt/Kemmerly/Durbin · NOM-001-SEDE-2022 (Art. 220, neutro)</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Desbalance trifásico · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
@@ -950,7 +954,7 @@ function updateScenarioInfo(){
   const box=el('scenarioInfo');
   if(mode!=='reto'){box.style.display='none';return;}
   box.style.display='block';
-  box.innerHTML=`Carga desbalanceada: <b>Ia=${retoIa} A</b>, <b>Ib=${retoIb} A</b>, <b>Ic=${retoIc} A</b> (resistivas, a 0°/−120°/+120°). Predice la magnitud de la corriente de neutro <b>|IN|</b> (tolerancia ±${fmtA1(INtol(retoINtrue))}).`;
+  box.innerHTML=`Carga desbalanceada: <b>Ia=${retoIa} A</b>, <b>Ib=${retoIb} A</b>, <b>Ic=${retoIc} A</b> (resistivas, a 0°/−120°/+120°). Predice la magnitud de la corriente de neutro <b>|IN|</b> (tolerancia ±6 %, con mínimo de ±1,5 A).`;
 }
 
 function setMode(k){
@@ -987,7 +991,8 @@ function updateTele(){
   const bal=sy.INmag<0.5;
   let html=
     teleRow('Ia / Ib / Ic',fmtA1(sy.Ia)+' / '+fmtA1(sy.Ib)+' / '+fmtA1(sy.Ic))+
-    teleRow('Suma aritmética (trampa)',fmtA1(sy.arith)+' ✗','warn')+
+    teleRow('Suma aritmética (trampa)',fmtA1(sy.arith)+' ✗','warn');
+  if(mode!=='reto'||retoOk)html+=
     teleRow('▸ Corriente de neutro |IN|',fmtA(sy.INmag),bal?'good':'warn')+
     teleRow('ángulo de IN',fmtDeg(sy.INang));
   if(mode==='componentes'){
@@ -999,7 +1004,8 @@ function updateTele(){
   }else if(mode==='reto'){
     html+=
       teleRow('Tu predicción |IN|',fmtA1(predIN))+
-      teleRow('Tolerancia',' ±'+fmtA1(INtol(retoINtrue)))+
+      teleRow('▸ |IN| real','🔒 oculto hasta acertar')+
+      teleRow('Intentos fallidos',intentos+' / '+FALLOS_MAX,intentos?'warn':'')+
       teleRow('Estado',retoChecked?(retoOk?'✔ CORRECTO':'✗ vuelve a estimar'):'Predice y comprueba',(retoChecked&&retoOk)?'good':'warn');
   }else{
     html+=
@@ -1028,15 +1034,27 @@ function updateRetoSpec(){
   el('retoSpec').innerHTML=`Carga desbalanceada fija: <b>Ia=${retoIa} A</b>, <b>Ib=${retoIb} A</b>, <b>Ic=${retoIc} A</b> (resistivas, a 0°/−120°/+120°). Estima la magnitud de la corriente que retorna por el neutro, <b>|IN|</b>, con los botones −/+ y pulsa "Comprobar predicción" (tolerancia ±${fmtA1(INtol(retoINtrue))}).`;
 }
 function checkReto(){
+  if(retoOk)return;
   const sy=up(retoIa,retoIb,retoIc);
   const err=Math.abs(predIN-sy.INmag),tol=INtol(sy.INmag);
   retoOk=err<=tol;retoChecked=true;solved=retoOk;
   synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
   if(retoOk){
-    retoMsg=`<span class="mono"><span class="ok">✔ Predicción correcta</span> — |IN|=${fmtA1(sy.INmag)} (predijiste ${fmtA1(predIN)}, error ${fmtA1(err)} ≤ ±${fmtA1(tol)}). El neutro conduce mucho menos que la suma aritmética (${fmtA1(sy.arith)}) porque los fasores a 120° se cancelan en parte. Recuerda: |IN|=3·|I0|=${fmtA1(3*sy.I0mag)}.</span>`;
+    retoMsg=`<span class="mono"><span class="ok">✔ Predicción correcta</span> en ${intentos+1} ${intentos?'intentos':'intento'} — |IN|=${fmtA1(sy.INmag)} (predijiste ${fmtA1(predIN)}, error ${fmtA1(err)} ≤ ±${fmtA1(tol)}). El neutro conduce mucho menos que la suma aritmética (${fmtA1(sy.arith)}) porque los fasores a 120° se cancelan en parte. Recuerda: |IN|=3·|I0|=${fmtA1(3*sy.I0mag)}.</span>`;
   }else{
-    const hi=predIN>sy.INmag;
-    retoMsg=`<span class="mono"><span class="dtc">✗ Fuera de tolerancia</span> — |IN| real = ${fmtA1(sy.INmag)}, tu predicción ${fmtA1(predIN)} (error ${fmtA1(err)} > ±${fmtA1(tol)}). ${hi?'Sobreestimaste: quizá sumaste de más hacia la aritmética ('+fmtA1(sy.arith)+').':'Subestimaste: el desbalance es mayor de lo que parece.'} Suma los fasores punta-cola en el pizarrón.</span>`;
+    intentos++;
+    /* retroalimentación cualitativa: no se revela |IN|, ni el error, ni el sentido */
+    const base=`<span class="dtc">✗ Fuera de tolerancia</span> con tu predicción de ${fmtA1(predIN)}. Revisa: la suma aritmética (${fmtA1(sy.arith)}) no es la respuesta; suma los tres fasores punta-cola (0°, −120°, +120°) y mide la distancia del origen al extremo.`;
+    if(intentos>=FALLOS_MAX){
+      resiembras++;
+      seedReto();updateRetoSpec();
+      retoMsg=`<span class="mono">${base}<br><span class="dtc">${FALLOS_MAX} intentos fallidos:</span> esta carga se retira sin revelar |IN|. Te toca una nueva.</span>`;
+      solved=false;
+      showToast('🔀 '+FALLOS_MAX+' fallos: carga nueva (Ia='+retoIa+', Ib='+retoIb+', Ic='+retoIc+' A).');
+      afterEdit();
+      return;
+    }
+    retoMsg=`<span class="mono">${base} (intento ${intentos} de ${FALLOS_MAX}; a los ${FALLOS_MAX} fallos la carga cambia).</span>`;
   }
   refreshAll();
 }
@@ -1047,31 +1065,36 @@ function buildQuiz(){
     explora:{
       pregunta:'Tres cargas resistivas drenan Ia=30 A, Ib=15 A, Ic=10 A. ¿Cuánto vale la corriente por el neutro y por qué NO es 55 A?',
       opciones:[
-        {t:'≈18 A: la corriente de neutro es la suma FASORIAL de las tres (a 0°/−120°/+120°), y como los fasores apuntan en direcciones distintas se cancelan en parte; nunca es la suma aritmética 55 A.',ok:true,why:'Correcto: IN=IA+IB+IC como fasores; con 30,15,10 A a 120° el resultado es ≈18 A, muy por debajo de la suma aritmética 55 A.'},
-        {t:'55 A: la corriente de neutro es la suma de las tres corrientes de fase.',ok:false,why:'Esa es la suma ARITMÉTICA, la trampa clásica. Las corrientes están a 120° entre sí, así que su suma es fasorial (vectorial) y da mucho menos.'},
-        {t:'0 A: en todo sistema trifásico el neutro no lleva corriente.',ok:false,why:'Solo en BALANCEADO (Ia=Ib=Ic) el neutro es cero. Aquí la carga está desbalanceada, así que el neutro sí conduce.'},
-        {t:'5 A: la corriente de neutro es la diferencia entre la fase mayor y la menor (30−25).',ok:false,why:'No es una simple resta de magnitudes; es la suma fasorial de los tres vectores, que da ≈18 A.'},
+        {t:'≈18 A: el neutro lleva la suma FASORIAL de las tres corrientes (a 0°, −120° y +120°), no la aritmética de 55 A.',ok:true,why:'Correcto: IN=IA+IB+IC como fasores; con 30,15,10 A a 120° el resultado es ≈18 A, muy por debajo de la suma aritmética 55 A.'},
+        {t:'55 A: la corriente de neutro es simplemente la suma de las magnitudes de las tres corrientes de fase del sistema.',ok:false,why:'Esa es la suma ARITMÉTICA, la trampa clásica. Las corrientes están a 120° entre sí, así que su suma es fasorial (vectorial) y da mucho menos.'},
+        {t:'0 A: en todo sistema trifásico de cuatro hilos el neutro nunca lleva corriente, esté o no balanceado el sistema.',ok:false,why:'Solo en BALANCEADO (Ia=Ib=Ic) el neutro es cero. Aquí la carga está desbalanceada, así que el neutro sí conduce.'},
+        {t:'20 A: la corriente de neutro es la diferencia entre la fase de mayor corriente y la de menor corriente (30−10).',ok:false,why:'No es una simple resta de magnitudes (30−10=20 A); es la suma fasorial de los tres vectores, que da ≈18 A.'},
       ],
     },
     componentes:{
       pregunta:'¿Qué relación conecta la corriente de neutro con las componentes simétricas de las corrientes de fase?',
       opciones:[
-        {t:'IN = 3·I0: la corriente de neutro es exactamente tres veces la componente de secuencia cero, porque I0=(IA+IB+IC)/3 e IN=IA+IB+IC.',ok:true,why:'Correcto: por definición I0 es el promedio de las tres corrientes; el neutro lleva su suma, que es 3·I0. Sin secuencia cero no hay corriente de neutro.'},
-        {t:'IN = 3·I1: el neutro es tres veces la secuencia positiva.',ok:false,why:'La secuencia positiva (I1) es la parte balanceada útil; su suma fasorial en las tres fases es cero, no aparece en el neutro. El neutro es 3·I0.'},
-        {t:'IN = I1 + I2: el neutro es la suma de las secuencias positiva y negativa.',ok:false,why:'Ni la positiva ni la negativa contribuyen al neutro (ambas suman cero en las tres fases). Solo la secuencia cero, y IN=3·I0.'},
-        {t:'IN = I0 + I1 + I2: el neutro es la suma de las tres componentes.',ok:false,why:'Esa suma reconstruye la corriente de UNA fase (IA=I0+I1+I2), no la del neutro. El neutro es 3·I0.'},
+        {t:'IN = 3·I0: el neutro lleva tres veces la secuencia cero, porque I0=(IA+IB+IC)/3 e IN=IA+IB+IC.',ok:true,why:'Correcto: por definición I0 es el promedio de las tres corrientes; el neutro lleva su suma, que es 3·I0. Sin secuencia cero no hay corriente de neutro.'},
+        {t:'IN = 3·I1: el neutro lleva tres veces la componente de secuencia positiva de las corrientes.',ok:false,why:'La secuencia positiva (I1) es la parte balanceada útil; su suma fasorial en las tres fases es cero, no aparece en el neutro. El neutro es 3·I0.'},
+        {t:'IN = I1 + I2: el neutro lleva la suma de las secuencias positiva y negativa de las corrientes.',ok:false,why:'Ni la positiva ni la negativa contribuyen al neutro (ambas suman cero en las tres fases). Solo la secuencia cero, y IN=3·I0.'},
+        {t:'IN = I0 + I1 + I2: el neutro lleva la suma de las tres componentes simétricas de la corriente.',ok:false,why:'Esa suma reconstruye la corriente de UNA fase (IA=I0+I1+I2), no la del neutro. El neutro es 3·I0.'},
       ],
     },
     reto:{
       pregunta:'Además del desbalance de cargas, ¿qué otra causa muy común hace que el neutro conduzca corriente incluso con fases "balanceadas" en magnitud?',
       opciones:[
-        {t:'Los armónicos de orden triple (3ª, 9ª, 15ª…) de cargas no lineales: en lugar de cancelarse, se SUMAN en el neutro y pueden sobrecargarlo aunque las corrientes fundamentales estén balanceadas.',ok:true,why:'Correcto: los armónicos triples están en fase en las tres líneas (secuencia cero) y se suman en el neutro; por eso en instalaciones con muchas fuentes conmutadas el neutro puede llevar más corriente que las fases.'},
-        {t:'Nada más: con magnitudes iguales el neutro siempre lleva cero.',ok:false,why:'Falso para cargas no lineales: aunque las magnitudes de la fundamental sean iguales, los armónicos triples se suman en el neutro. Es un caso real y peligroso.'},
-        {t:'La resistencia del propio conductor de neutro genera la corriente.',ok:false,why:'La resistencia produce caída de tensión, no crea corriente. La corriente de neutro proviene del desbalance o de los armónicos de secuencia cero.'},
-        {t:'La secuencia de fases ABC vs ACB cambia la corriente de neutro.',ok:false,why:'La secuencia afecta el sentido de giro de motores, no la corriente de neutro, que depende del desbalance y de los armónicos triples.'},
+        {t:'Los armónicos triples (3ª, 9ª, 15ª…) de cargas no lineales: no se cancelan, se suman en el neutro aunque la fundamental esté balanceada.',ok:true,why:'Correcto: los armónicos triples están en fase en las tres líneas (secuencia cero) y se suman en el neutro; por eso en instalaciones con muchas fuentes conmutadas el neutro puede llevar más corriente que las fases.'},
+        {t:'Nada más: con magnitudes iguales en las tres fases el neutro siempre lleva cero, sea cual sea el tipo de carga conectada.',ok:false,why:'Falso para cargas no lineales: aunque las magnitudes de la fundamental sean iguales, los armónicos triples se suman en el neutro. Es un caso real y peligroso.'},
+        {t:'La resistencia del propio conductor de neutro es la que genera la corriente que circula por él en cualquier instalación.',ok:false,why:'La resistencia produce caída de tensión, no crea corriente. La corriente de neutro proviene del desbalance o de los armónicos de secuencia cero.'},
+        {t:'La secuencia de fases ABC frente a ACB cambia la corriente que circula por el neutro, aunque las cargas sean iguales.',ok:false,why:'La secuencia afecta el sentido de giro de motores, no la corriente de neutro, que depende del desbalance y de los armónicos triples.'},
       ],
     },
   };
+  /* Fisher–Yates: la correcta no va en posición fija */
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
 }
 function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
 function refreshQuestion(){
@@ -1132,6 +1155,9 @@ async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  /* DEMOSTRACIÓN: no toca el reto; al terminar se restituye el estado del alumno */
+  const previo={modo:mode,solved,expIa,expIb,expIc};
+  const resp=()=>answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1141,20 +1167,18 @@ async function runAuto(){
     expIa=30;expIb=15;expIc=10;afterEdit();
     showToast('⚖️ Desbalanceamos (30/15/10 A): el neutro ahora conduce |IN|='+fmtA1(curSys().INmag)+' — pero NO 55 A (suma aritmética): los fasores se cancelan en parte.');
     await sleep(3600);
-    answer(0);await sleep(2600);
+    resp();await sleep(2600);
 
     setMode('componentes');
     showToast('🔬 Componentes: la misma carga = positiva (I1) + negativa (I2) + cero (I0). Comprueba IN=3·I0='+fmtA1(3*curSys().I0mag)+'.');
     await sleep(3400);
-    answer(0);await sleep(2600);
+    resp();await sleep(2600);
 
-    setMode('reto');
-    predIN=curSys().INmag;afterEdit();     // fijar predicción al valor real
-    showToast('🎯 Reto: sumando los fasores punta-cola, |IN|≈'+fmtA1(curSys().INmag)+'. Ajustamos la predicción y comprobamos…');
-    await sleep(3000);
-    checkReto();await sleep(2600);
-    answer(0);
+    showToast('🎯 El Reto es tuyo: otra carga, y |IN| oculto hasta acertar. Suma los fasores punta-cola y predice. Este recorrido no lo resuelve ni lo marca como hecho.');
+    await sleep(3400);
   }finally{
+    expIa=previo.expIa;expIb=previo.expIb;expIc=previo.expIc;
+    setMode(previo.modo);solved=previo.solved;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
   }
 }
@@ -1163,7 +1187,7 @@ async function runAuto(){
 S.setAnimate((dt,time)=>{
   const pulse=0.5+0.5*Math.sin(time*2.4);
   const sy=curSys();
-  const ng=Math.min(1,sy.INmag/30);
+  const ng=(mode==='reto'&&!retoOk)?0.3:Math.min(1,sy.INmag/30);
   neutralWireMat.emissiveIntensity=0.12+0.9*ng*(0.7+0.3*pulse);
   [sy.Ia,sy.Ib,sy.Ic].forEach((I,i)=>{loads[i].material.emissiveIntensity=0.12+0.6*Math.min(1,I/30)+0.08*pulse*Math.min(1,I/30);});
 });
@@ -1200,6 +1224,10 @@ window.__labDebug={
   tol:()=>INtol(retoINtrue),
   retoChecked:()=>retoChecked,
   retoOk:()=>retoOk,
+  retoSolved:()=>retoOk,
+  intentos:()=>intentos,
+  resiembras:()=>resiembras,
+  runAuto:()=>runAuto(),
   retoMsg:()=>retoMsg,
   checkReto:()=>checkReto(),
   newSignal:()=>newSignal(),

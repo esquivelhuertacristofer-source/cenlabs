@@ -4,7 +4,7 @@ fichaTecnica({
   s1: {
     presentes: [
       'Respuesta exponencial exacta de un circuito RL serie de primer orden: energización v_R(t)=V(1−e^(−t/τ)) e interrupción protegida v_R(t)=V·e^(−t/τ)',
-      'Relación τ = L/R verificada numéricamente contra la traza mostrada, en combinaciones de R y L (serie E12 para R)',
+      'Relación τ = L/R coherente con la traza mostrada para las combinaciones de R y L del banco',
       'Diodo de rueda libre (flyback) conmutable en antiparalelo sobre la bobina, con comparación explícita entre interrupción con y sin protección',
       'Base de tiempo (time/div) discreta con secuencia 1-2-5, igual que un osciloscopio real — una elección incorrecta corta o comprime la traza',
       'Cursor deslizante de medición manual sobre la traza, con referencia punteada en 63.2 % (energiza) o 36.8 % (interrumpe con diodo) de V',
