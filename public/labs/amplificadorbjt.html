@@ -271,14 +271,14 @@ function createStage(mount, opts={}){
   key.shadow.camera.near=0.5; key.shadow.camera.far=40;
   const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
   key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
-  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  const rim = new THREE.SpotLight(0xdde7f0, 10, 30, Math.PI/5, 0.4, 1.5);
   rim.position.set(-7,6,-5); scene.add(rim);
   const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
 
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0d1218, roughness:0.48, metalness:0.3, envMapIntensity:0.8 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
@@ -471,7 +471,7 @@ function makeSynth(opts={}){
   'use strict';
 
   const mount = document.getElementById('stage');
-  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1a17', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const S = createStage(mount, { cam: [0, 4.3, 6.9], target: [0, 1.15, 0.5], bgTop: '#0d1a17', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 18 });
   const synth = makeSynth();
 
   function el(id) { return document.getElementById(id); }
@@ -939,6 +939,9 @@ function makeSynth(opts={}){
   // ---------------------------------------------------------------------
   // Escena 3D
   // ---------------------------------------------------------------------
+  /* El pizarrón (esquemático + recta de carga) va arriba y al fondo; debajo, el
+     montaje REAL sobre un protoboard: la fuente, el medidor y el osciloscopio en
+     el estante, y el amplificador cableado a mano con sus encapsulados. */
   const boardG = new THREE.Group();
   const boardTex = new THREE.CanvasTexture(board);
   boardTex.colorSpace = THREE.SRGBColorSpace;
@@ -947,200 +950,200 @@ function makeSynth(opts={}){
   const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(2.68, 2.03, 0.05), new THREE.MeshStandardMaterial(std(0x0c1a16)));
   boardFrame.position.z = -0.03;
   boardG.add(boardFrame, boardPlane);
-  boardG.position.set(-1.05, 1.75, -0.85);
-  boardG.rotation.y = 0.16;
+  boardG.position.set(0, 2.3, -1.55);
   S.scene.add(boardG);
-
-  const benchG = new THREE.Group();
-  const mesa = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 2.8), new THREE.MeshStandardMaterial(std(0x2c2c2c)));
-  mesa.position.set(0.7, -0.06, 1.1);
-  benchG.add(mesa);
-  const pcb = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.03, 2.0), new THREE.MeshStandardMaterial(MAT.board));
-  pcb.position.set(0.7, 0.02, 1.1);
-  benchG.add(pcb);
-  S.scene.add(benchG);
-
-  function leads(g) {
-    const m = new THREE.MeshStandardMaterial(MAT.lead);
-    const geo = new THREE.CylinderGeometry(0.012, 0.012, 0.16, 10);
-    const l1 = new THREE.Mesh(geo, m); l1.position.set(-0.16, 0, 0); l1.rotation.z = Math.PI / 2;
-    const l2 = new THREE.Mesh(geo, m); l2.position.set(0.16, 0, 0); l2.rotation.z = Math.PI / 2;
-    g.add(l1, l2);
-  }
 
   /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
      ya importa), traducidos una vez a los materiales de este laboratorio. */
   const MATP = {
-    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
-    acero: std(MAT.lead), cromo: std(MAT.lead),
-    cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
-    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
-    negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
-    goma: std({ color: 0x14181e, roughness: 0.80, metalness: 0.02 }),
-    blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
-    ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+    aluminio: new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: new THREE.MeshStandardMaterial({ color: 0xb9c2bd, roughness: 0.30, metalness: 0.80 }),
+    cromo: new THREE.MeshStandardMaterial({ color: 0xb9c2bd, roughness: 0.30, metalness: 0.80 }),
+    cobre: new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+    chapa: new THREE.MeshStandardMaterial({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: new THREE.MeshStandardMaterial({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+    goma: new THREE.MeshStandardMaterial({ color: 0x14181e, roughness: 0.80, metalness: 0.02 }),
+    blanco: new THREE.MeshStandardMaterial({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+    ceramica: new THREE.MeshStandardMaterial({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+    mesa: new THREE.MeshStandardMaterial({ color: 0x0e1512, roughness: 0.9, metalness: 0.05 }),
+    estante: new THREE.MeshStandardMaterial({ color: 0x11201c, roughness: 0.6, metalness: 0.3 }),
   };
-  /* LOS COMPONENTES, con la forma que tienen en la mano: patas por donde se
-     sueldan y marcas que se leen —bandas, banda de catodo, cara plana del
-     TO-92, aleta del TO-220—. Cada marca evita una averia distinta. */
-  function makeResistor3D() {
-    const g = P3.resistencia(MATP, { largo: 0.24, d: 0.095, patas: 0.075, paso: 0.36,
-      bandas: [0x333333, 0x333333, 0x333333, 0x333333] });
-    g.userData.bands = g.userData.bandas;
-    g.userData.bandMeshes = g.userData.bandas;
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function paintBands(g, r) {
-    const cols = bandsFor(r);
-    g.userData.bands.forEach(function (band, i) { band.material.color.setHex(cols[i]); });
-  }
-  function makeBJT3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 24), new THREE.MeshStandardMaterial(std(0x2b2b2b)));
-    g.add(body);
-    const legM = new THREE.MeshStandardMaterial(MAT.lead);
-    [-0.03, 0, 0.03].forEach(function (dx) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.1, 8), legM);
-      leg.position.set(dx, -0.14, 0);
-      g.add(leg);
-    });
-    g.userData.body = body;
-    return g;
-  }
-  function makeCap3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.16, 20), new THREE.MeshStandardMaterial(MAT.capBody));
-    g.add(body);
-    const m = new THREE.MeshStandardMaterial(MAT.lead);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.09, 8), m);
-    leg.position.set(0, -0.125, 0);
-    g.add(leg);
-    return g;
-  }
 
-  const r1G = makeResistor3D(); r1G.position.set(-0.7, 0.035, 1.0); benchG.add(r1G);
-  const r2G = makeResistor3D(); r2G.position.set(-0.15, 0.035, 1.0); benchG.add(r2G);
-  const bjtG = makeBJT3D(); bjtG.position.set(0.5, 0.15, 1.0); benchG.add(bjtG);
-  const rcG = makeResistor3D(); rcG.position.set(1.2, 0.035, 1.0); benchG.add(rcG);
-  const rlG = makeResistor3D(); rlG.position.set(1.9, 0.035, 1.0); benchG.add(rlG);
-  const reG = makeResistor3D(); reG.position.set(0.0, 0.035, 1.75); benchG.add(reG);
-  const ceG = makeCap3D(); ceG.position.set(0.5, 0.115, 1.75); benchG.add(ceG);
+  /* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+     la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+  const BANCO = P3.bancoPrototipos(MATP, { cols: 18, K: 1.7, instrumentos: 3,
+    dims: [{ ancho: 0.80, alto: 0.46 }, { ancho: 0.80, alto: 0.46 }, { ancho: 0.98, alto: 0.62 }] });
+  const benchG = BANCO;
+  const circG = BANCO.userData.circ, H = BANCO.userData.H;
+  const railNear = BANCO.userData.rielCerca;
+  const fuenteBox = BANCO.userData.instrumento(0);
+  fuenteBox.g.userData.title = 'Fuente VCC';
+  const medidorBox = BANCO.userData.instrumento(1);
+  medidorBox.g.userData.title = 'Medidor IC / VCE / Av';
+  const scopeBox = BANCO.userData.instrumento(2);
+  scopeBox.g.userData.title = 'Osciloscopio vin / vout';
+  const CABLE = { rojo: 0xd64545, negro: 0x1b1f24, azul: 0x2a5fa8, amarillo: 0xe0a21c, verde: 0x2f9e5b, naranja: 0xe07b22 };
+
+  /* LA ZONA DE MONTAJE: lo que depende del transistor se rehace aquí (su patilla
+     de colector cae a un lado u otro); los valores de los resistores sólo repintan
+     sus bandas y los accesorios opcionales —CE y RL— sólo se muestran u ocultan. */
+  let r1G = null, r2G = null, rcG = null, reG = null, rlG = null, bjtG = null, ceG = null;
+  let ceExtras = [], rlExtras = [], circKey = '';
+  function armaCircuito() {
+    const key = state.devKey;
+    if (key === circKey) return;
+    circKey = key;
+    BANCO.userData.limpia(); BANCO.userData.reiniciaRieles();
+    const bc = state.devKey === 'bc547b';        // BC547: C·B·E; 2N3904 y 2N2222A: E·B·C
+    const QC = 11, cB = QC, cC = bc ? QC - 1 : QC + 1, cE = bc ? QC + 1 : QC - 1;
+    const dC = cC - cB, dE = -dC;                  // hacia dónde cae el colector y el emisor
+    function wire(a, b, col, o) { const w = P3.puente(MATP, a, b, Object.assign({ color: col }, o || {})); circG.add(w); return w; }
+    function res(ohm, c1, f1, c2, f2, nombre) {
+      const g = P3.resistorAxial(MATP, { ohm: ohm, paso: Math.abs(c2 - c1) * 0.1 });
+      g.position.copy(H(c1, f1)).lerp(H(c2, f2), 0.5); g.position.y = H(c1, f1).y;
+      g.userData.title = nombre; circG.add(g); return g;
+    }
+    // Q1
+    bjtG = state.devKey === 'n2222a'
+      ? P3.to18Metal(MATP, { rotulo: '2N2222A' })
+      : P3.to92Rotulado(MATP, { rotulo: curDev().name, pines: bc ? ['C', 'B', 'E'] : ['E', 'B', 'C'] });
+    bjtG.position.copy(H(QC, 'e')); bjtG.userData.title = curDev().name; circG.add(bjtG);
+    // Polarización y carga, en el bloque delantero
+    rcG = res(curRC(), cC, 'c', cC + dC * 4, 'c', 'RC');
+    wire(H(cC + dC * 4, 'e'), railNear('+', cC + dC * 4), CABLE.rojo);
+    r1G = res(curR1(), cB, 'b', cB + dC * 3, 'b', 'R1');
+    wire(H(cB + dC * 3, 'e'), railNear('+', cB + dC * 3), CABLE.naranja);
+    r2G = res(curR2(), cB, 'a', cB + dE * 3, 'a', 'R2');
+    wire(H(cB + dE * 3, 'e'), railNear('-', cB + dE * 3), CABLE.negro);
+    reG = res(curRE(), cE, 'c', cE + dE * 4, 'c', 'RE');
+    wire(H(cE + dE * 4, 'e'), railNear('-', cE + dE * 4), CABLE.negro);
+    // Condensadores y RL, en el bloque trasero (la mitad que estaba vacía). Se
+    // reparten a los lados para no esconder al transistor desde la cámara.
+    const alto = { minAlto: 0.36 };
+    function elec(nombre, cMenos) {
+      const e = P3.electrolitico(MATP, { valor: nombre, volt: '', d: 0.20, alto: 0.30 });
+      e.position.copy(H(cMenos + 0.5, 'h')); e.position.y = H(cMenos, 'h').y;
+      e.userData.title = nombre; circG.add(e); return e;
+    }
+    const cinM = bc ? 16 : 2, coutM = bc ? 7 : 14, ceM = bc ? 13 : 6;
+    elec('Cin', cinM);                                     // del generador (−) a la base (+)
+    wire(H(cinM + 1, 'g'), H(cB, 'd'), CABLE.azul, alto);
+    elec('Cout', coutM);                                   // del colector (+) a la salida (−)
+    wire(H(coutM + 1, 'g'), H(cC, 'd'), CABLE.azul, alto);
+    ceG = elec('CE', ceM);                                 // bypass de RE: + al emisor, − a tierra
+    ceG.userData.title = 'Cap. bypass CE';
+    ceExtras = [
+      wire(H(ceM + 1, 'g'), H(cE, 'd'), CABLE.verde, alto),
+      wire(H(ceM, 'g'), railNear('-', ceM), CABLE.negro),
+    ];
+    // RL: de la salida a tierra
+    const rlFar = coutM + (bc ? -4 : 4);
+    rlG = res(curRL() === Infinity ? 10000 : curRL(), coutM, 'i', rlFar, 'i', 'RL');
+    rlExtras = [wire(H(rlFar, 'g'), railNear('-', rlFar), CABLE.negro)];
+    // Alimentación y puntas de los instrumentos
+    BANCO.userData.cable(0, 0, railNear('+', 15), CABLE.rojo);
+    BANCO.userData.cable(0, 1, railNear('-', 16), CABLE.negro);
+    BANCO.userData.cable(1, 0, H(cC, 'd'), CABLE.amarillo);
+    BANCO.userData.cable(1, 1, H(cE, 'b'), CABLE.verde);
+    BANCO.userData.cable(2, 0, H(cinM, 'j'), CABLE.azul);
+    BANCO.userData.cable(2, 1, H(coutM, 'j'), CABLE.naranja);
+    circG.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  }
+  armaCircuito();
+  boardPlane.castShadow = false; boardFrame.receiveShadow = true;
+  S.scene.add(benchG);
 
   function refreshBenchSel() {
-    paintBands(r1G, curR1());
-    paintBands(r2G, curR2());
-    paintBands(rcG, curRC());
-    paintBands(reG, curRE());
-    if (curRL() !== Infinity) { rlG.visible = true; paintBands(rlG, curRL()); } else { rlG.visible = false; }
-    ceG.visible = state.bypass;
-    bjtG.userData.body.material.color.setHex(curDev().color);
+    armaCircuito();
+    r1G.userData.ponValor(curR1());
+    r2G.userData.ponValor(curR2());
+    rcG.userData.ponValor(curRC());
+    reG.userData.ponValor(curRE());
+    const conRL = curRL() !== Infinity;
+    rlG.visible = conRL; rlExtras.forEach(function (w) { w.visible = conRL; });
+    if (conRL) rlG.userData.ponValor(curRL());
+    ceG.visible = state.bypass; ceExtras.forEach(function (w) { w.visible = state.bypass; });
   }
-
-  function makeDisplayBox(w, h, dp, cw, ch) {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), new THREE.MeshStandardMaterial(std(0x1a1a1a)));
-    g.add(body);
-    const canvas = document.createElement('canvas');
-    canvas.width = cw; canvas.height = ch;
-    const ctx = canvas.getContext('2d');
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.86, h * 0.78), new THREE.MeshStandardMaterial({ map: tex, emissive: 0x0a1512, emissiveMap: tex, emissiveIntensity: 0.6, roughness: 0.4 }));
-    screen.position.set(0, h * 0.04, dp / 2 + 0.001);
-    g.add(screen);
-    g.userData = { canvas: canvas, ctx: ctx, tex: tex };
-    return g;
-  }
-
-  const fuenteBox = makeDisplayBox(0.6, 0.4, 0.13, 220, 140);
-  fuenteBox.position.set(-0.3, 0.38, 0.35);
-  benchG.add(fuenteBox);
-
-  const medidorBox = makeDisplayBox(0.65, 0.45, 0.13, 240, 160);
-  medidorBox.position.set(0.55, 0.4, 0.35);
-  benchG.add(medidorBox);
-
-  const scopeBox = makeDisplayBox(0.75, 0.5, 0.13, 280, 180);
-  scopeBox.position.set(1.5, 0.42, 0.35);
-  benchG.add(scopeBox);
 
   function drawFuenteScreen() {
-    const c = fuenteBox.userData.ctx, W = fuenteBox.userData.canvas.width, H = fuenteBox.userData.canvas.height;
-    c.fillStyle = '#06120a'; c.fillRect(0, 0, W, H);
-    c.fillStyle = '#3fe089'; c.font = 'bold 20px monospace';
-    c.fillText('VCC ' + curVCC().toFixed(0) + '.0 V', 14, 40);
-    c.font = '13px monospace'; c.fillStyle = '#8fe0b8';
-    c.fillText(curDev().name + '  β=' + state.beta, 14, 68);
-    c.fillText('bypass: ' + (state.bypass ? 'ON' : 'OFF'), 14, 92);
-    fuenteBox.userData.tex.needsUpdate = true;
+    const c = fuenteBox.cx, W = fuenteBox.cv.width, Hh = fuenteBox.cv.height;
+    c.fillStyle = '#06120a'; c.fillRect(0, 0, W, Hh);
+    c.fillStyle = '#3fe089'; c.textAlign = 'left';
+    c.font = 'bold ' + Math.round(Hh * 0.30) + 'px monospace';
+    c.fillText('VCC ' + curVCC().toFixed(0) + '.0 V', W * 0.05, Hh * 0.34);
+    c.font = Math.round(Hh * 0.17) + 'px monospace'; c.fillStyle = '#8fe0b8';
+    c.fillText(curDev().name + '  β=' + state.beta, W * 0.05, Hh * 0.62);
+    c.fillText('bypass: ' + (state.bypass ? 'ON' : 'OFF'), W * 0.05, Hh * 0.86);
+    fuenteBox.tex.needsUpdate = true;
   }
 
   function drawMedidorScreen() {
-    const c = medidorBox.userData.ctx, W = medidorBox.userData.canvas.width, H = medidorBox.userData.canvas.height;
-    c.fillStyle = '#0a0a12'; c.fillRect(0, 0, W, H);
+    const c = medidorBox.cx, W = medidorBox.cv.width, Hh = medidorBox.cv.height;
+    c.fillStyle = '#0a0a12'; c.fillRect(0, 0, W, Hh);
+    c.textAlign = 'left';
     if (state.hide) {
-      c.fillStyle = '#8a8a8a'; c.font = 'bold 15px monospace';
-      c.fillText('— predicción activa —', 14, 40);
-      c.font = '12px monospace';
-      c.fillText('valores ocultos hasta verificar', 14, 64);
-      medidorBox.userData.tex.needsUpdate = true;
+      c.fillStyle = '#8a8a8a'; c.font = 'bold ' + Math.round(Hh * 0.20) + 'px monospace';
+      c.fillText('— predicción activa —', W * 0.05, Hh * 0.38);
+      c.font = Math.round(Hh * 0.15) + 'px monospace';
+      c.fillText('valores ocultos hasta verificar', W * 0.05, Hh * 0.68);
+      medidorBox.tex.needsUpdate = true;
       return;
     }
     const dc = curSolveDC();
     const ac = curSolveAC();
-    c.fillStyle = '#ffd54a'; c.font = 'bold 15px monospace';
-    c.fillText('IC  ' + fmtI(dc.IC), 14, 26);
-    c.fillText('VCE ' + fmtV(dc.VCE), 14, 48);
-    c.fillStyle = '#4ad3ff'; c.font = '13px monospace';
-    c.fillText('IB  ' + fmtI(dc.IB), 14, 70);
-    c.fillText('VB  ' + fmtV(dc.VB), 14, 90);
+    const f1 = Math.round(Hh * 0.19), f2 = Math.round(Hh * 0.16);
+    c.fillStyle = '#ffd54a'; c.font = 'bold ' + f1 + 'px monospace';
+    c.fillText('IC  ' + fmtI(dc.IC), W * 0.04, Hh * 0.24);
+    c.fillText('VCE ' + fmtV(dc.VCE), W * 0.04, Hh * 0.48);
+    c.fillStyle = '#4ad3ff'; c.font = f2 + 'px monospace';
+    c.fillText('IB  ' + fmtI(dc.IB), W * 0.04, Hh * 0.70);
+    c.fillText('VB  ' + fmtV(dc.VB), W * 0.04, Hh * 0.92);
     if (ac.valid) {
-      c.fillStyle = '#c9a8ff'; c.font = 'bold 14px monospace';
-      c.fillText('Av  ' + (ac.Av < 0 ? '-' : '') + fmtAv(ac.Av), 14, 118);
-      c.font = '12px monospace';
-      c.fillText('gm  ' + fmtS(ac.gm), 14, 138);
-      c.fillText('rπ  ' + fmtR(ac.rpi), 14, 156);
+      c.fillStyle = '#c9a8ff'; c.font = 'bold ' + f1 + 'px monospace';
+      c.fillText('Av ' + (ac.Av < 0 ? '-' : '') + fmtAv(ac.Av), W * 0.54, Hh * 0.24);
+      c.font = f2 + 'px monospace';
+      c.fillText('gm ' + fmtS(ac.gm), W * 0.54, Hh * 0.52);
+      c.fillText('rπ ' + fmtR(ac.rpi), W * 0.54, Hh * 0.76);
     } else {
-      c.fillStyle = '#8a8a8a'; c.fillText('BJT en corte', 14, 118);
+      c.fillStyle = '#8a8a8a'; c.font = f2 + 'px monospace'; c.fillText('BJT en corte', W * 0.54, Hh * 0.30);
     }
-    medidorBox.userData.tex.needsUpdate = true;
+    medidorBox.tex.needsUpdate = true;
   }
 
   function drawScopeScreen() {
-    const c = scopeBox.userData.ctx, W = scopeBox.userData.canvas.width, H = scopeBox.userData.canvas.height;
-    c.fillStyle = '#050505'; c.fillRect(0, 0, W, H);
+    const c = scopeBox.cx, W = scopeBox.cv.width, Hh = scopeBox.cv.height;
+    c.fillStyle = '#050505'; c.fillRect(0, 0, W, Hh);
     c.strokeStyle = '#1a3a1a'; c.lineWidth = 1;
-    for (let gx = 0; gx <= W; gx += W / 10) { c.beginPath(); c.moveTo(gx, 0); c.lineTo(gx, H); c.stroke(); }
-    for (let gy = 0; gy <= H; gy += H / 8) { c.beginPath(); c.moveTo(0, gy); c.lineTo(W, gy); c.stroke(); }
-    const midY = H / 2;
-    c.strokeStyle = '#2b6fd6'; c.lineWidth = 1.5;
+    for (let gx = 0; gx <= W; gx += W / 10) { c.beginPath(); c.moveTo(gx, 0); c.lineTo(gx, Hh); c.stroke(); }
+    for (let gy = 0; gy <= Hh; gy += Hh / 6) { c.beginPath(); c.moveTo(0, gy); c.lineTo(W, gy); c.stroke(); }
+    const midY = Hh / 2;
+    c.strokeStyle = '#2b6fd6'; c.lineWidth = Math.max(1.5, Hh * 0.018);
     c.beginPath();
     for (let i = 0; i < 64; i++) {
       const x = (i / 63) * W;
-      const y = midY - (curVIN() * Math.sin((i / 63) * Math.PI * 2)) * (H / 2) / (VIN_VALS[VIN_VALS.length - 1] * 1.4);
+      const y = midY - (curVIN() * Math.sin((i / 63) * Math.PI * 2)) * (Hh / 2) / (VIN_VALS[VIN_VALS.length - 1] * 1.4);
       if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
     }
     c.stroke();
     if (state.hide) {
-      c.fillStyle = '#8a8a8a'; c.font = '12px monospace';
+      c.fillStyle = '#8a8a8a'; c.font = Math.round(Hh * 0.12) + 'px monospace'; c.textAlign = 'left';
       c.fillText('vout oculto — modo predicción', 8, midY + 4);
     } else {
       const ac = curSolveAC();
       const pts = waveformPoints(ac, curVIN(), 64);
       const maxAbs = Math.max(1e-6, ac.valid ? Math.max(ac.upSwing, ac.downSwing) : 1);
-      c.strokeStyle = ac.valid ? '#ffb347' : '#8a8a8a'; c.lineWidth = 2;
+      c.strokeStyle = ac.valid ? '#ffb347' : '#8a8a8a'; c.lineWidth = Math.max(2, Hh * 0.025);
       c.beginPath();
       pts.forEach(function (v, i) {
         const x = (i / (pts.length - 1)) * W;
-        const y = midY - (v / maxAbs) * (H / 2 - 6);
+        const y = midY - (v / maxAbs) * (Hh / 2 - 6);
         if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
       });
       c.stroke();
     }
-    c.fillStyle = '#cfcfcf'; c.font = '11px monospace';
-    c.fillText('vin/vout · osciloscopio', 8, H - 8);
-    scopeBox.userData.tex.needsUpdate = true;
+    c.fillStyle = '#cfcfcf'; c.font = Math.round(Hh * 0.09) + 'px monospace'; c.textAlign = 'left';
+    c.fillText('vin/vout · osciloscopio', 8, Hh - 8);
+    scopeBox.tex.needsUpdate = true;
   }
 
   function refreshBenchDyn() {

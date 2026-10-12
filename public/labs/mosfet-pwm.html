@@ -271,14 +271,14 @@ function createStage(mount, opts={}){
   key.shadow.camera.near=0.5; key.shadow.camera.far=40;
   const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
   key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
-  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  const rim = new THREE.SpotLight(0xdde7f0, 10, 30, Math.PI/5, 0.4, 1.5);
   rim.position.set(-7,6,-5); scene.add(rim);
   const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
 
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0d1218, roughness:0.48, metalness:0.3, envMapIntensity:0.8 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
@@ -460,7 +460,7 @@ function makeSynth(opts={}){
   inferior optimista).
 */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 const el=function(id){return document.getElementById(id);};
@@ -834,63 +834,19 @@ function boardClick(u,v){
   if(best.act==='mosfet')showToast(curDev().name+' — RDS(on)='+fmtRds(curDev().rdsOn)+'.');
 }
 
-// ===== Sección 6: Banco 3D =====
+/* ---------- 6) Banco 3D ---------- */
+/* El pizarrón (esquemático + recta de carga) va arriba y al fondo; debajo, el
+   montaje REAL sobre un protoboard: la fuente, el medidor y el generador de
+   PWM en el estante, y el circuito cableado a mano con sus encapsulados. */
 const boardG=new THREE.Group();
 const board=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshStandardMaterial({map:bTex,roughness:0.55,metalness:0.05}));
 board.userData.title='Esquemático + gráfica de pérdidas';
 const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
 boardFrame.position.z=-0.03;
 boardG.add(boardFrame,board);
-boardG.position.set(-1.05,1.75,-0.85);boardG.rotation.y=0.16;
+boardG.scale.setScalar(1.0);
+boardG.position.set(0,2.3,-1.55);
 S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,2.2),MAT.bench);
-mesa.position.set(0.6,-0.06,0.9);benchG.add(mesa);
-const pcb=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.03,1.5),MAT.pcb);
-pcb.position.set(0.6,0.02,0.9);benchG.add(pcb);
-
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.scope);
-  g.add(body);
-  const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshStandardMaterial({map:tex,emissive:0x0a1512,emissiveMap:tex,emissiveIntensity:0.6,roughness:0.4}));
-  screen.position.z=dp/2+0.001;g.add(screen);
-  return {g:g,cv:cv,cx:cx,tex:tex,screen:screen};
-}
-const fuenteBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-fuenteBox.g.position.set(-0.2,0.42,0.55);
-fuenteBox.g.userData.act='src3d';fuenteBox.g.userData.title='Bus V';
-benchG.add(fuenteBox.g);
-const medidorBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-medidorBox.g.position.set(0.45,0.42,0.55);
-medidorBox.g.userData.act='medidor3d';medidorBox.g.userData.title='Pcond / Psw / Ptot';
-benchG.add(medidorBox.g);
-const pwmBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-pwmBox.g.position.set(1.1,0.42,0.55);
-pwmBox.g.userData.act='pwm3d';pwmBox.g.userData.title='Señal PWM de compuerta';
-benchG.add(pwmBox.g);
-
-function leads(g){
-  const l1=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.16,10),MAT.lead);
-  l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
-  const l2=l1.clone();l2.position.x=0.16;g.add(l2);
-}
-function makeLoad3D(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.22,24),MAT.load);
-  body.rotation.z=Math.PI/2;g.add(body);
-  for(let i=0;i<5;i++){
-    const fin=new THREE.Mesh(new THREE.TorusGeometry(0.095,0.012,8,20),MAT.loadFin);
-    fin.rotation.y=Math.PI/2;fin.position.x=-0.08+i*0.04;
-    g.add(fin);
-  }
-  leads(g);
-  return g;
-}
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -903,73 +859,119 @@ const MATP={
   goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+  mesa:MAT.bench,estante:MAT.frame,
 };
-/* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un taco
-   en un componente son las PATAS —por donde entra la corriente y por donde se
-   suelda— y las MARCAS: las bandas de la resistencia, la banda del catodo, la
-   cara plana del TO-92, la aleta del TO-220. Cada marca evita una averia
-   distinta, y ninguna estaba dibujada. */
-function makeMOSFET3D(){
-  const g=P3.to220(MATP,{ancho:0.17,alto:0.24,fondo:0.055,patas:0.13,paso:0.045});
-  g.userData.bodyMesh=g.userData.cuerpo;
-  return g;
-}
-const loadG=makeLoad3D();
-loadG.position.set(-0.15,0.24,1.1);
-loadG.userData.act='load3d';loadG.userData.title='Carga (genérica)';
-benchG.add(loadG);
-// Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
-// con y = 0 en la placa y las patas por debajo. Antes flotaban dos decimas
-// por encima, que con patas horizontales no se notaba y con patas si.
-const Y_PCB=0.035;
-const mosfetG=makeMOSFET3D();
-mosfetG.position.set(0.45,Y_PCB,1.15);
-mosfetG.userData.act='mosfet3d';mosfetG.userData.title='MOSFET (Q1)';
-benchG.add(mosfetG);
-const pwmChipG=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.05,0.16),MAT.mosfetTab);
-pwmChipG.position.set(1.1,0.22,1.1);
-pwmChipG.userData.act='pwm3d';pwmChipG.userData.title='Controlador PWM';
-benchG.add(pwmChipG);
 
-benchG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+/* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+   la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:3});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H;
+const railNear=BANCO.userData.rielCerca;
+/* De izquierda a derecha: el generador PWM (junto al chip), el medidor y la fuente
+   del bus (junto a la carga): así los cables no cruzan el montaje de lado a lado. */
+const pwmBox=BANCO.userData.instrumento(0);
+pwmBox.g.userData.title='Señal PWM de compuerta';pwmBox.g.userData.act='pwm3d';
+const medidorBox=BANCO.userData.instrumento(1);
+medidorBox.g.userData.title='Pcond / Psw / Ptot';medidorBox.g.userData.act='medidor3d';
+const fuenteBox=BANCO.userData.instrumento(2);
+fuenteBox.g.userData.title='Bus V';fuenteBox.g.userData.act='src3d';
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+
+/* LA ZONA DE MONTAJE: lo que depende del dispositivo se rehace aquí. */
+let loadG=null,mosfetG=null,pwmChipG=null,regionRing=null,circKey='';
+function armaCircuito(){
+  const key=devKey;
+  if(key===circKey)return;
+  circKey=key;
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  const pot=devKey!=='n2n7000';
+  const rot=devKey==='irf540n'?'IRF540N':devKey==='irlz44n'?'IRLZ44N':'2N7000';
+  // TO-220 vistos de frente: G·D·S. 2N7000 (TO-92): S·G·D.
+  const QC=14,cg=pot?QC-1:QC,cd=pot?QC:QC+1,cs=pot?QC+1:QC-1;
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  mosfetG=pot?P3.to220Rotulado(MATP,{rotulo:rot,rotulo2:'G   D   S',tumbado:true,levanta:0.10}):P3.to92Rotulado(MATP,{rotulo:rot,pines:['S','G','D']});
+  mosfetG.position.copy(H(QC,'e'));mosfetG.userData.act='mosfet3d';mosfetG.userData.title='MOSFET (Q1)';circG.add(mosfetG);
+  /* El contorno serigrafiado bajo el transistor lleva el color de la región. */
+  const rmat=new THREE.MeshStandardMaterial({color:0x3fae3f,roughness:0.6,emissive:0x3fae3f,emissiveIntensity:0.18,side:THREE.DoubleSide});
+  if(pot){
+    const w=0.50,d=0.80,t=0.028;
+    const rr=function(a,b,r){return P3.contornoRedondeado([[-a,-b],[a,-b],[a,b],[-a,b]],r,4);};
+    regionRing=new THREE.Mesh(P3.extruido(rr(w/2,d/2,0.06),{huecos:[rr(w/2-t,d/2-t,0.04).reverse()],espesor:0.006}),rmat);
+    regionRing.rotation.x=-Math.PI/2;regionRing.position.copy(H(QC,'e')).add(new THREE.Vector3(0,0.004,-0.40));
+  }else{
+    regionRing=new THREE.Mesh(new THREE.RingGeometry(0.15,0.185,36),rmat);
+    regionRing.rotation.x=-Math.PI/2;regionRing.position.copy(H(QC,'e')).add(new THREE.Vector3(0,0.002,0.02));
+  }
+  regionRing.userData.title='Región de operación';circG.add(regionRing);
+  // La CARGA: una resistencia de cemento de potencia, genérica —el laboratorio no
+  // fija su naturaleza—, del drenador al bus.
+  loadG=P3.resistenciaCemento(MATP,{rotulo:'CARGA',paso:0.6});
+  loadG.userData.act='load3d';loadG.userData.title='Carga (genérica)';
+  loadG.position.copy(H(cd-2,'c')).lerp(H(cd-8,'c'),0.5);loadG.position.y=H(cd,'c').y;circG.add(loadG);
+  wire(H(cd-8,'e'),railNear('+',cd-8),cableMat.rojo);
+  wire(H(cd-2,'b'),H(cd,'b'),cableMat.naranja);                    // del extremo de la carga al drenador
+  wire(H(cs,'d'),railNear('-',cs),cableMat.negro);
+  // el controlador PWM: un DIP-8 a caballo del canal, con su salida a la compuerta
+  const DC=2;
+  pwmChipG=P3.dipRotulado(MATP,{pines:8,rotulo:'PWM',rotulo2:'CTRL'});
+  pwmChipG.position.copy(H(DC+1.5,'e')).lerp(H(DC+1.5,'f'),0.5);pwmChipG.position.y=H(DC,'e').y;
+  pwmChipG.userData.act='pwm3d';pwmChipG.userData.title='Controlador PWM';circG.add(pwmChipG);
+  const pinPos=function(k){return pwmChipG.userData.pata(k).clone().add(pwmChipG.position);};
+  wire(pinPos(7),H(cg,'a'),cableMat.verde);                       // OUT → compuerta
+  wire(pinPos(8),railNear('+',DC),cableMat.rojo);                  // alimentación del controlador
+  wire(pinPos(4),railNear('-',DC+3),cableMat.negro);               // tierra del controlador
+  // instrumentos: medidor en el drenador y la fuente; generador PWM en la entrada
+  BANCO.userData.cable(2,0,railNear('+',17),cableMat.rojo);
+  BANCO.userData.cable(2,1,railNear('-',18),cableMat.negro);
+  BANCO.userData.cable(1,0,H(cd,'d'),cableMat.amarillo);
+  BANCO.userData.cable(1,1,H(cs,'b'),cableMat.verde);
+  BANCO.userData.cable(0,0,H(DC+1,'d'),cableMat.azul);
+  BANCO.userData.cable(0,1,railNear('-',DC+4),cableMat.negro);
+  circG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+}
+armaCircuito();
 board.castShadow=false;boardFrame.receiveShadow=true;
 S.scene.add(benchG);
 
 function drawFuenteScreen(){
-  const cx=fuenteBox.cx,cv=fuenteBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 26px monospace';cx.textAlign='center';
-  cx.fillText('BUS V',cv.width/2,50);
-  cx.font='bold 40px monospace';
-  cx.fillText(fmtV(curV()),cv.width/2,116);
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText('BUS V',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.40)+'px monospace';
+  cx.fillText(fmtV(curV()),w/2,h*0.80);
   fuenteBox.tex.needsUpdate=true;
 }
 function drawMedidorScreen(){
-  const cx=medidorBox.cx,cv=medidorBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
+  const cx=medidorBox.cx,cv=medidorBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
   const hide=(mode==='predice'&&!predRevealed);
-  cx.fillStyle='#FFB703';cx.font='bold 15px monospace';cx.textAlign='center';
-  cx.fillText('Pcond / Psw / Ptot',cv.width/2,26);
-  cx.font='bold 19px monospace';
+  cx.fillStyle='#FFB703';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.15)+'px monospace';
+  cx.fillText('Pcond / Psw / Ptot',w/2,h*0.17);
+  cx.font='bold '+Math.round(h*0.20)+'px monospace';
   if(hide){
-    cx.fillText('¿?  /  ¿?  /  ¿?',cv.width/2,100);
+    cx.fillText('¿?  /  ¿?  /  ¿?',w/2,h*0.62);
   }else if(RES){
-    cx.fillStyle='#4FD1C5';cx.fillText(fmtP(RES.Pcond),cv.width/2,66);
-    cx.fillStyle='#E8871E';cx.fillText(RES.Psw==null?'n/d':fmtP(RES.Psw),cv.width/2,102);
-    cx.fillStyle='#FFB703';cx.fillText(RES.Ptot==null?'n/d':fmtP(RES.Ptot),cv.width/2,138);
+    cx.fillStyle='#4FD1C5';cx.fillText(fmtP(RES.Pcond),w/2,h*0.42);
+    cx.fillStyle='#E8871E';cx.fillText(RES.Psw==null?'n/d':fmtP(RES.Psw),w/2,h*0.66);
+    cx.fillStyle='#FFB703';cx.fillText(RES.Ptot==null?'n/d':fmtP(RES.Ptot),w/2,h*0.90);
   }
   medidorBox.tex.needsUpdate=true;
 }
 function drawPwmScreen(){
-  const cx=pwmBox.cx,cv=pwmBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 14px monospace';cx.textAlign='center';
-  cx.fillText('D='+Dpct.toFixed(0)+'%  ·  fsw='+fmtHz(curFsw()),cv.width/2,22);
-  const x0=16,x1=cv.width-16,yHi=48,yLo=118,per=(x1-x0)/2.4;
-  cx.strokeStyle='#EAF4F1';cx.lineWidth=2.5;
+  const cx=pwmBox.cx,cv=pwmBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.14)+'px monospace';
+  cx.fillText('D='+Dpct.toFixed(0)+'%  ·  fsw='+fmtHz(curFsw()),w/2,h*0.16);
+  const x0=w*0.06,x1=w*0.94,yHi=h*0.34,yLo=h*0.82,per=(x1-x0)/2.4;
+  cx.strokeStyle='#EAF4F1';cx.lineWidth=Math.max(2,h*0.022);
   cx.beginPath();
   let x=x0,high=true,n=0;
   cx.moveTo(x,yLo);
@@ -986,10 +988,11 @@ function drawPwmScreen(){
   pwmBox.tex.needsUpdate=true;
 }
 function refreshBenchDyn(){
+  armaCircuito();
   drawFuenteScreen();drawMedidorScreen();drawPwmScreen();
-  if(mosfetG.userData.bodyMesh){
+  if(regionRing){
     const hex=parseInt(curColor().slice(1),16);
-    mosfetG.userData.bodyMesh.material=std({color:hex,roughness:0.4,metalness:0.15});
+    regionRing.material.color.setHex(hex);regionRing.material.emissive.setHex(hex);
   }
 }
 

@@ -12,7 +12,7 @@
    ============================================================ */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 /* ---------- 1 · Modelo físico (Shockley + ley de temperatura SPICE) ---------- */
@@ -261,7 +261,11 @@ function boardClick(u,v){
 }
 
 /* ---------- 5 · Banco 3D ---------- */
-const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;
+/* El pizarrón (esquemático + gráfica I–V) va arriba y al fondo; debajo, el
+   montaje REAL sobre un protoboard: la fuente, el medidor y el trazador en el
+   estante, y el circuito serie —fuente, resistor, diodo— cableado a mano. */
+const boardG=new THREE.Group();
+boardG.scale.setScalar(0.77);boardG.position.set(0,2.3-1.85*0.77,-1.55);
 S.scene.add(boardG);
 // pizarrón físico
 const bFrame=roundedBox(3.62,2.77,0.12,MAT.frame,0.03);
@@ -270,51 +274,7 @@ const board=new THREE.Mesh(new THREE.PlaneGeometry(3.4,2.55),
   new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
 board.position.set(0,1.85,0.065);boardG.add(board);
 board.userData={title:'Esquemático + gráfica I–V (toca los elementos)'};
-// banco físico
-const benchG=new THREE.Group();benchG.position.set(0.6,0,0.9);S.scene.add(benchG);
-const mesa=roundedBox(2.6,0.5,1.9,MAT.bench,0.05);
-mesa.position.set(1.55,0.25,0.75);benchG.add(mesa);
-const pcb=roundedBox(1.9,0.06,1.1,MAT.pcb,0.02);
-pcb.position.set(1.7,0.53,1.0);benchG.add(pcb);
-function trace(x1,z1,x2,z2){const L=Math.hypot(x2-x1,z2-z1);
-  const m=new THREE.Mesh(new THREE.BoxGeometry(L,0.012,0.05),MAT.trace);
-  m.position.set((x1+x2)/2,0.565,(z1+z2)/2);m.rotation.y=-Math.atan2(z2-z1,x2-x1);benchG.add(m);return m;}
-trace(0.95,0.85,1.15,0.85);trace(1.55,0.85,1.85,0.85);trace(2.25,0.85,2.45,0.85);
-trace(2.45,0.85,2.45,1.35);trace(0.95,1.35,2.45,1.35);trace(0.95,0.85,0.95,1.0);trace(0.95,1.2,0.95,1.35);
-/* fuente (PSU) */
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const box=roundedBox(w,h,dp,MAT.psu,0.03);g.add(box);
-  const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
-  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;
-  tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(w*0.78,h*0.42),
-    new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,h*0.12,dp/2+0.002);g.add(pl);
-  return{g,cv,tx};
-}
-const psu=makeDisplayBox(0.52,0.44,0.40,256,96);
-psu.g.position.set(0.85,0.72,0.25);benchG.add(psu.g);
-psu.g.userData={act:'psu',title:'Fuente de voltaje Vs (usa el deslizador)'};
-const postR=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.09,16),MAT.jackRed);
-postR.position.set(-0.13,-0.13,0.21);psu.g.add(postR);
-const postB=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.09,16),MAT.jackBlk);
-postB.position.set(0.13,-0.13,0.21);psu.g.add(postB);
-/* medidor Vd/Id */
-const meter=makeDisplayBox(0.58,0.42,0.36,256,128);
-meter.g.position.set(1.62,0.71,0.22);benchG.add(meter.g);
-meter.g.userData={act:'meter',title:'Medidor: Vd, Id y temperatura'};
-/* trazador (osciloscopio con la curva) */
-const scopeG=new THREE.Group();scopeG.position.set(2.42,0.78,0.28);benchG.add(scopeG);
-const scopeBox=roundedBox(0.68,0.56,0.42,MAT.scope,0.03);scopeG.add(scopeBox);
-const tCv=document.createElement('canvas');tCv.width=256;tCv.height=192;
-const tTex=new THREE.CanvasTexture(tCv);tTex.colorSpace=THREE.SRGBColorSpace;
-tTex.minFilter=THREE.LinearFilter;tTex.generateMipmaps=false;
-const scopeScr=new THREE.Mesh(new THREE.PlaneGeometry(0.56,0.42),
-  new THREE.MeshBasicMaterial({map:tTex,toneMapped:false}));
-scopeScr.position.set(0,0.01,0.212);scopeG.add(scopeScr);
-scopeG.userData={act:'tracer',title:'Trazador de curvas (toca: LIN ⇄ SEMILOG)'};
-/* resistor con bandas vivas */
+
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={aluminio:MAT.lead, acero:MAT.lead, cromo:MAT.lead,
@@ -323,80 +283,91 @@ const MATP={aluminio:MAT.lead, acero:MAT.lead, cromo:MAT.lead,
   negro:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.62,metalness:0.06}),
   goma:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.8,metalness:0.02}),
   blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.4,metalness:0.2}),
-  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.6,metalness:0.05})};
-const Y_PCB=0.56;                       // la cara de la placa: 0,53 + 0,03 de canto
-/* LA RESISTENCIA, con sus CUATRO bandas —tres de valor y la de tolerancia,
-   separada— y las patas dobladas hacia la placa. Aqui el codigo de colores se
-   lee de verdad: el panel cambia las bandas con el valor. */
-const resG=new THREE.Group();resG.position.set(1.35,Y_PCB,0.85);benchG.add(resG);
-resG.userData={act:'res3d',title:'Resistor limitador (toca para cambiar R)'};
-const resP3=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.09,paso:0.34,
-  bandas:[0xffffff,0xffffff,0xffffff,0xc9a227],cuerpo:0xd8c49a});
-resP3.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-resG.add(resP3);
-const resBody=resP3.userData.cuerpo;
-const bandMeshes=resP3.userData.bandas;
-/* diodos: 3 encarnaciones + caja misteriosa (visibilidad conmutada) */
-const dioG=new THREE.Group();dioG.position.set(2.05,Y_PCB,0.85);benchG.add(dioG);
-dioG.userData={act:'dio3d',title:'Diodo bajo prueba (toca para cambiarlo)'};
-function leads(g){[-0.16,0.16].forEach(x=>{const l=new THREE.Mesh(
-  new THREE.CylinderGeometry(0.008,0.008,0.14,8),MAT.lead);
-  l.rotation.z=Math.PI/2;l.position.set(x,0,0);g.add(l);});}
-/* LOS TRES DIODOS, cada uno con SU BANDA DE CATODO alrededor del cuerpo. La
-   banda es la unica marca que dice hacia donde conduce, y en esta practica se
-   compara justo eso: el mismo montaje con tres uniones distintas. */
-const gSi=P3.diodoAxial(MATP,{largo:0.15,d:0.080,patas:0.09,paso:0.32,
-  cuerpo:0xd88a2e,banda:0x111111,catodo:1});
-gSi.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-const siBody=gSi.userData.cuerpo, siBand=gSi.userData.banda;
-siBody.material.transparent=true; siBody.material.opacity=0.88;
-dioG.add(gSi);
-const gSch=P3.diodoAxial(MATP,{largo:0.18,d:0.100,patas:0.09,paso:0.34,
-  cuerpo:0x141414,banda:0xc8c8c8,catodo:1});
-gSch.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-const schBody=gSch.userData.cuerpo, schBand=gSch.userData.banda;
-schBand.material.metalness=0.6;
-dioG.add(gSch);
-/* EL LED, con el CHAFLAN del catodo cortado en la pestana y la pata corta. Las
-   dos marcas dicen lo mismo —cual es el negativo— y estan ahi porque un LED al
-   reves no quema nada pero tampoco luce. */
-const gLed=P3.led(MATP,{d:0.10,color:0xb02020,patas:0.10});
-gLed.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-const ledMat=gLed.userData.material;
-ledMat.emissive.set(0xff2222); ledMat.emissiveIntensity=0;
-const halo=new THREE.Mesh(new THREE.SphereGeometry(0.10,16,12),
-  new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0,toneMapped:false}));
-halo.position.y=0.07;gLed.add(halo);
-dioG.add(gLed);
-const gMyst=new THREE.Group();
-const mystBox=roundedBox(0.16,0.10,0.12,
-  new THREE.MeshStandardMaterial({color:0x222222,roughness:0.8}),0.02);
-mystBox.position.y=0.02;gMyst.add(mystBox);leads(gMyst);
-const mystLbl=labelSprite('¿?','#FFB703');mystLbl.position.set(0,0.20,0);
-mystLbl.scale.multiplyScalar(0.7);gMyst.add(mystLbl);
-dioG.add(gMyst);
-/* cables PSU → PCB */
-function cable(pts,mat){const cur=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
-  const m=new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.014,8),mat);benchG.add(m);return m;}
-cable([[0.72,0.56,0.46],[0.78,0.72,0.66],[0.95,0.60,0.85]],MAT.cableRed);
-cable([[0.98,0.56,0.46],[1.02,0.74,0.9],[0.95,0.60,1.35]],MAT.cableBlk);
-[benchG,boardG].forEach(g=>g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}));
-halo.castShadow=false;board.castShadow=false;
+  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.6,metalness:0.05}),
+  mesa:MAT.bench, estante:MAT.frame};
 
-function drawPSU(){const c=psu.cv.getContext('2d');
+/* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+   la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:3,
+  dims:[{ancho:0.80,alto:0.46},{ancho:0.80,alto:0.52,visorAlto:0.50},{ancho:0.92,alto:0.80,visorAlto:0.62}]});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H,railNear=BANCO.userData.rielCerca;
+const psu=BANCO.userData.instrumento(0);
+Object.assign(psu.g.userData,{act:'psu',title:'Fuente de voltaje Vs (usa el deslizador)'});
+const meter=BANCO.userData.instrumento(1);
+Object.assign(meter.g.userData,{act:'meter',title:'Medidor: Vd, Id y temperatura'});
+const tracer=BANCO.userData.instrumento(2);
+Object.assign(tracer.g.userData,{act:'tracer',title:'Trazador de curvas (toca: LIN ⇄ SEMILOG)'});
+/* La pantalla del instrumento se pinta con las coordenadas de siempre y se
+   escala al canvas: así los dibujos no cambian de sitio. */
+function escala(inst,w0,h0){const c=inst.cx,s=inst.cv.width/w0;c.setTransform(s,0,0,s,0,0);return c;}
+const CAB={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b};
+function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+
+/* EL CIRCUITO SERIE: +Vs → R → diodo → tierra. La resistencia, en la fila c; el
+   diodo, en la fila b, con el ánodo en la columna donde acaba R. */
+const COL_R0=5,COL_N=9;                       // R entre las columnas 5 y 9; ánodo en la 9
+const resG=P3.resistorAxial(MATP,{ohm:470,paso:0.4});
+resG.position.copy(H(COL_R0,'c')).lerp(H(COL_N,'c'),0.5);resG.position.y=H(COL_R0,'c').y;
+resG.userData.act='res3d';resG.userData.title='Resistor limitador (toca para cambiar R)';
+circG.add(resG);
+wire(H(COL_R0,'e'),railNear('+',COL_R0),CAB.rojo);
+/* diodos: 3 encarnaciones + caja misteriosa (visibilidad conmutada). Cada uno
+   lleva SU PROPIO cable a tierra, porque el cátodo cae en una columna distinta. */
+const dioG=new THREE.Group();dioG.userData={act:'dio3d',title:'Diodo bajo prueba (toca para cambiarlo)'};
+circG.add(dioG);
+function axial(g,c1,c2){g.position.copy(H(c1,'b')).lerp(H(c2,'b'),0.5);g.position.y=H(c1,'b').y;return g;}
+/* LOS DIODOS, cada uno con SU BANDA DE CÁTODO. La banda es la única marca que
+   dice hacia dónde conduce, y en esta práctica se compara justo eso: el mismo
+   montaje con tres uniones distintas. */
+const gSi=new THREE.Group();                                  // 1N4148, de vidrio (DO-35)
+gSi.add(axial(P3.diodoVidrio(MATP,{rotulo:null}),COL_N,COL_N+4));
+gSi.add(wire(H(COL_N+4,'e'),railNear('-',COL_N+4),CAB.negro));
+const gSch=new THREE.Group();                                 // Schottky tipo 1N5819 (DO-41)
+gSch.add(axial(P3.diodoRectificador(MATP,{rotulo:'1N5819'}),COL_N,COL_N+4));
+gSch.add(wire(H(COL_N+4,'e'),railNear('-',COL_N+4),CAB.negro));
+/* EL LED, con el CHAFLÁN del cátodo en la brida y la pata corta: el cátodo en la
+   columna de la izquierda, el ánodo (la pata larga) en la de R. */
+const ledP=P3.led5mm(MATP,{color:0xc0262b});
+ledP.position.copy(H(COL_N-0.5,'b'));
+const gLed=new THREE.Group();gLed.add(ledP);
+gLed.add(wire(H(COL_N-1,'e'),railNear('-',COL_N-1),CAB.negro));
+const ledMat=ledP.userData.material;
+const ledLight=new THREE.PointLight(0xff3030,0,1.6,2);
+ledLight.position.set(0,0.35,0.0);ledP.add(ledLight);
+let ledGlow=0;
+/* la caja misteriosa: un diodo SIN rótulo —sólo se ve la banda— y el «¿?» */
+const gMyst=new THREE.Group();
+gMyst.add(axial(P3.diodoRectificador(MATP,{rotulo:null,cuerpo:0x16191d}),COL_N,COL_N+4));
+gMyst.add(wire(H(COL_N+4,'e'),railNear('-',COL_N+4),CAB.negro));
+const mystLbl=labelSprite('¿?','#FFB703');mystLbl.position.copy(H(COL_N+2,'b')).add(new THREE.Vector3(0,0.30,0));
+mystLbl.scale.multiplyScalar(0.7);gMyst.add(mystLbl);
+dioG.add(gSi,gSch,gLed,gMyst);
+// la fuente, el medidor y el trazador, a los nodos del circuito
+BANCO.userData.cable(0,0,railNear('+',2),CAB.rojo);
+BANCO.userData.cable(0,1,railNear('-',3),CAB.negro);
+BANCO.userData.cable(1,0,H(COL_N,'d'),CAB.amarillo);
+BANCO.userData.cable(1,1,railNear('-',13),CAB.negro);
+BANCO.userData.cable(2,0,H(COL_N,'a'),CAB.verde);
+BANCO.userData.cable(2,1,railNear('-',15),CAB.negro);
+[benchG,boardG].forEach(g=>g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}));
+board.castShadow=false;
+S.scene.add(benchG);
+
+function drawPSU(){const c=escala(psu,256,96);
   c.fillStyle='#04120e';c.fillRect(0,0,256,96);
   c.font='bold 44px monospace';c.fillStyle='#4FD1C5';c.textAlign='center';
   c.fillText(Vs.toFixed(2)+' V',128,60);
   c.font='14px monospace';c.fillStyle='#8FB3AC';c.fillText('FUENTE CD · Vs',128,86);
-  psu.tx.needsUpdate=true;}
-function drawMeter(){const c=meter.cv.getContext('2d'),hideQ=(mode==='reto'&&!retoSolved);
+  psu.tex.needsUpdate=true;}
+function drawMeter(){const c=escala(meter,256,128),hideQ=(mode==='reto'&&!retoSolved);
   c.fillStyle='#04120e';c.fillRect(0,0,256,128);
   c.font='bold 30px monospace';c.fillStyle='#FFB703';c.textAlign='center';
   c.fillText('Vd '+(hideQ?'¿?':fmtV(QPT.vd)),128,42);
   c.fillStyle='#4FD1C5';c.fillText('Id '+(hideQ?'¿?':fmtI(QPT.id)),128,80);
   c.font='16px monospace';c.fillStyle='#8FB3AC';c.fillText('T = '+TC+' °C',128,112);
-  meter.tx.needsUpdate=true;}
-function drawTracer(){const c=tCv.getContext('2d'),d=curDiode(),ym=yMaxLin(),
+  meter.tex.needsUpdate=true;}
+function drawTracer(){const c=escala(tracer,256,192),d=curDiode(),ym=yMaxLin(),
     hideQ=(mode==='reto'&&!retoSolved);
   c.fillStyle='#04120e';c.fillRect(0,0,256,192);
   c.strokeStyle='#1E3A34';c.lineWidth=1;
@@ -417,21 +388,19 @@ function drawTracer(){const c=tCv.getContext('2d'),d=curDiode(),ym=yMaxLin(),
     if(x>=10&&x<=246&&y>=8&&y<=184){c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.fillStyle='#fff';c.fill();}}
   c.font='bold 11px monospace';c.fillStyle='#8FB3AC';c.textAlign='left';
   c.fillText('TRAZADOR · '+(logY?'SEMILOG':'LINEAL'),14,24);
-  tTex.needsUpdate=true;}
+  tracer.tex.needsUpdate=true;}
 function refreshBenchSel(){
   gSi.visible=(mode!=='reto'&&dsel==='si');
   gSch.visible=(mode!=='reto'&&dsel==='sch');
   gLed.visible=(mode!=='reto'&&dsel==='led');
   gMyst.visible=(mode==='reto');
-  const b=bandsFor(R());
-  [b.d1,b.d2,b.mult].forEach((v,k)=>bandMeshes[k].material.color.set(BAND_COLORS[v]));
-  bandMeshes[3].material.color.set('#c9a227');
+  resG.userData.ponValor(R());
 }
 function refreshBenchDyn(){
   drawPSU();drawMeter();drawTracer();
-  const glow=(mode!=='reto'&&dsel==='led')?Math.min(2.2,QPT.id/0.01*1.4):0;
-  ledMat.emissiveIntensity=glow;
-  halo.material.opacity=Math.min(0.7,glow*0.3);
+  ledGlow=(mode!=='reto'&&dsel==='led')?Math.min(1,QPT.id/0.012):0;
+  ledP.userData.enciende(ledGlow);
+  ledLight.intensity=ledGlow*0.9;
 }
 
 /* ---------- 6 · HUD + panel ---------- */
@@ -529,13 +498,13 @@ function showToast(msg){const t=el('toast');t.textContent=msg;t.classList.add('o
 
 /* ---------- 8 · Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],
     mision:'Reconoce el circuito: fuente, resistor limitador y diodo — y el punto Q donde la recta de carga cruza la curva. Mueve Vs, R y T.'},
-  curva:{nombre:'Curva I–V',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],
+  curva:{nombre:'Curva I–V',cam:[[0,2.5,2.7],[0,2.2,-1.55]],
     mision:'El trazador impone corrientes fijas y mide Vd (como un analizador real): captura la curva y mírala en semilog.'},
-  ajuste:{nombre:'Ajuste',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],
+  ajuste:{nombre:'Ajuste',cam:[[0,2.5,2.7],[0,2.2,-1.55]],
     mision:'Extrae n de dos puntos de la captura (P1, P2): el modelo deja de ser una fórmula del libro y se vuelve TU modelo.'},
-  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],
+  reto:{nombre:'Reto',cam:[[0,4.1,6.6],[0,1.15,0.5]],
     mision:'Diodo desconocido: 2 puntos medidos y una condición (Vs, R) fija. Predice Vd e Id ANTES de ver la curva.'},
 };
 function setMode(k){
@@ -840,10 +809,10 @@ async function runAuto(){
     showToast('5/5 · Recorrido completo: explora T (el coef. −2 mV/K emerge solo) o pide otro misterioso (🔀).');
   }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
 }
-S.setAnimate(()=>{ // halo del LED con pulso sutil
-  if(gLed.visible&&ledMat.emissiveIntensity>0.1){
+S.setAnimate(()=>{ // la luz del LED, con un pulso sutil
+  if(gLed.visible&&ledGlow>0.1){
     const tSec=performance.now()/1000;
-    halo.material.opacity=Math.min(0.7,ledMat.emissiveIntensity*0.3)*(0.85+0.15*Math.sin(tSec*3));
+    ledLight.intensity=ledGlow*0.9*(0.92+0.08*Math.sin(tSec*3));
   }
 });
 /* wiring */

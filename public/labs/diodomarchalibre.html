@@ -271,14 +271,14 @@ function createStage(mount, opts={}){
   key.shadow.camera.near=0.5; key.shadow.camera.far=40;
   const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
   key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
-  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  const rim = new THREE.SpotLight(0xdde7f0, 10, 30, Math.PI/5, 0.4, 1.5);
   rim.position.set(-7,6,-5); scene.add(rim);
   const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
 
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0d1218, roughness:0.48, metalness:0.3, envMapIntensity:0.8 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
@@ -498,7 +498,7 @@ function makeSynth(opts={}){
    ============================================================ */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.4,7.0],target:[0.4,1.2,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 /* ---------- 1) Modelo físico ---------- */
@@ -642,42 +642,62 @@ function drawSchematic(c){
   c.beginPath(); c.moveTo(18,0); c.lineTo(60,0); c.stroke();
   c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='center'; c.fillText('SWITCH',0,26);
   c.restore();
-  line(c,swX+60,60,720,60,'#8fe0c9',3);
-  line(c,720,60,720,280,'#8fe0c9',3);
-  c.save(); c.translate(760,60);
+  /* El carril de arriba llega hasta la rama de proteccion (x=830); la bobina,
+     en x=700, cuelga de el y vuelve al carril de tierra: asi la bobina y su
+     proteccion quedan en PARALELO, como en el montaje. */
+  line(c,swX+60,60,830,60,'#8fe0c9',3);
+  c.save(); c.translate(700,60);
   c.strokeStyle='#8fe0c9'; c.lineWidth=3;
   for(let i=0;i<4;i++){ c.beginPath(); c.arc(0,20+i*40,18,Math.PI*0.15,Math.PI*1.85); c.stroke(); }
-  c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='left'; c.fillText('L (bobina)',34,110);
-  c.fillText('R='+fmtR(load.r),34,130);
+  line(c,0,2,0,-0.5,'#8fe0c9',3); line(c,0,158,0,220,'#8fe0c9',3);
+  c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='right'; c.fillText('L (bobina)',-34,90);
+  c.fillText('R='+fmtR(load.r),-34,112);
   c.restore();
-  line(c,60,280,720,280,'#8fe0c9',3);
+  line(c,60,280,830,280,'#8fe0c9',3);
   c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='left'; c.fillText('Vs='+fmtV(load.vsupply),20,300);
   if(topo!=='none'){
-    const d=curDiode();
-    c.save(); c.translate(820,170);
-    c.strokeStyle= reversed&&topo==='diode' ? '#e0523f':'#8fe0c9';
-    c.lineWidth=3;
-    c.beginPath(); c.moveTo(0,-100); c.lineTo(0,-30); c.stroke();
-    c.save();
-    if(reversed&&topo==='diode') c.rotate(Math.PI);
-    c.beginPath(); c.moveTo(-18,-30); c.lineTo(18,-30); c.lineTo(0,10); c.closePath(); c.stroke();
-    line(c,-18,10,18,10,c.strokeStyle,4);
-    c.restore();
-    c.beginPath(); c.moveTo(0,30); c.lineTo(0,100); c.stroke();
-    c.fillStyle= reversed&&topo==='diode' ? '#e0523f':'#cfe8df'; c.font='15px monospace'; c.textAlign='left';
-    c.fillText(d.name.split(' ')[0]+(reversed&&topo==='diode'?' (invertido)':''),20,-10);
+    /* LA RAMA DE PROTECCION, en paralelo con la bobina. El diodo de marcha libre
+       va con el CATODO hacia el extremo del switch (arriba) y el anodo a tierra:
+       con el switch cerrado queda bloqueado y al abrirlo deja circular la
+       corriente de la bobina. Dibujado al reves —anodo arriba— quedaria en
+       directa a traves de la fuente, que es justo lo que muestra la casilla
+       «Diodo instalado en reversa». En el clamp, el zener va en serie con el
+       diodo, anodo con anodo. Triangulo = anodo en la base, catodo en la barra. */
+    const d=curDiode(), rev=reversed&&topo==='diode';
+    const col=rev?'#e0523f':'#8fe0c9';
+    const dioA=function(cy,arriba){            // diodo con su centro en cy; arriba = catodo arriba
+      c.strokeStyle=col; c.lineWidth=3;
+      c.beginPath();
+      if(arriba){ c.moveTo(-18,cy+20); c.lineTo(18,cy+20); c.lineTo(0,cy-20); }
+      else      { c.moveTo(-18,cy-20); c.lineTo(18,cy-20); c.lineTo(0,cy+20); }
+      c.closePath(); c.stroke();
+      line(c,-18,arriba?cy-20:cy+20,18,arriba?cy-20:cy+20,col,4);
+    };
+    c.save(); c.translate(830,170);
+    c.strokeStyle=col; c.lineWidth=3;
     if(topo==='clamp'){
+      c.beginPath(); c.moveTo(0,-110); c.lineTo(0,-60); c.stroke();
+      dioA(-40,true);                           // diodo: catodo arriba (y=-60), anodo en y=-20
+      line(c,0,-20,0,0,col,3);
       const z=curZener();
       c.strokeStyle='#5aa7ff';
-      c.beginPath(); c.moveTo(60,-100); c.lineTo(60,-30); c.stroke();
-      c.beginPath(); c.moveTo(42,-30); c.lineTo(78,-30); c.lineTo(60,10); c.closePath(); c.stroke();
-      line(c,42,10,60,-4,'#5aa7ff',4); line(c,60,-4,78,10,'#5aa7ff',4); line(c,50,16,70,16,'#5aa7ff',3);
-      c.beginPath(); c.moveTo(60,16); c.lineTo(60,100); c.stroke();
-      c.fillStyle='#5aa7ff'; c.fillText(z.name.split(' ')[0],86,-10);
+      c.beginPath(); c.moveTo(-18,0); c.lineTo(18,0); c.lineTo(0,40); c.closePath(); c.stroke();   // zener: anodo (base) arriba
+      line(c,-18,40,0,34,'#5aa7ff',4); line(c,0,34,18,40,'#5aa7ff',4); line(c,-8,46,8,46,'#5aa7ff',3);
+      c.beginPath(); c.moveTo(0,46); c.lineTo(0,110); c.stroke();
+      c.fillStyle=col; c.font='15px monospace'; c.textAlign='right';
+      c.fillText(d.name.split(' ')[0],-26,-34);
+      c.fillStyle='#5aa7ff'; c.fillText(z.name.split(' ')[0],-26,26);
+    } else {
+      c.beginPath(); c.moveTo(0,-110); c.lineTo(0,-30); c.stroke();
+      dioA(-10,!rev);
+      c.beginPath(); c.moveTo(0,10); c.lineTo(0,110); c.stroke();
+      c.fillStyle= rev ? '#e0523f':'#cfe8df'; c.font='15px monospace'; c.textAlign='right';
+      c.fillText(d.name.split(' ')[0],-26,-14);
+      if(rev){ c.font='13px monospace'; c.fillText('(invertido)',-26,4); }
     }
     c.restore();
   } else {
-    c.fillStyle='#e0523f'; c.font='16px monospace'; c.fillText('SIN protección',780,170);
+    c.fillStyle='#e0523f'; c.font='16px monospace'; c.textAlign='right'; c.fillText('SIN protección',880,170);
   }
   c.restore();
 }
@@ -755,80 +775,65 @@ function drawBoard(){
 }
 
 /* ---------- 6) Banco 3D ---------- */
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.chasis);
-  g.add(body);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tex=new THREE.CanvasTexture(cv);
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.72),new THREE.MeshBasicMaterial({map:tex}));
-  screen.position.z=dp/2+0.006;
-  g.add(screen);
-  return {g:g,cv:cv,cx:cx,tex:tex,screen:screen};
-}
-function paintDisplay(d,lines,accent){
-  const cx=d.cx,cv=d.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#04100c'; cx.fillRect(0,0,cv.width,cv.height);
-  cx.strokeStyle='#183a30'; cx.lineWidth=6; cx.strokeRect(3,3,cv.width-6,cv.height-6);
-  cx.fillStyle=accent||'#7fdcc4'; cx.font='bold 40px monospace'; cx.textAlign='left';
-  let y=54;
-  for(let i=0;i<lines.length;i++){ cx.fillText(lines[i],20,y); y+=48; }
-  d.tex.needsUpdate=true;
-}
-
+/* El pizarrón (esquemático + osciloscopio) va arriba y al fondo; debajo, el
+   montaje REAL sobre un protoboard: la fuente y el medidor de corriente en el
+   estante, y en la placa el interruptor, la bobina de carga y su protección
+   —diodo de rueda libre o diodo + zener— cableados a mano. */
 const boardG=new THREE.Group();
-const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(4.4,3.35,0.08),MAT.chasis);
-boardG.add(boardFrame);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(4.2,3.15),new THREE.MeshBasicMaterial({map:bTex}));
-board.position.z=0.05;
-boardG.add(board);
-boardG.position.set(0.4,2.35,-1.2);
+const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.88,2.18,0.05),MAT.chasis);
+boardFrame.position.z=-0.03;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(2.8,2.1),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.userData.title='Esquemático + osciloscopio (toca para abrir/cerrar el switch)';
+boardG.add(boardFrame,board);
+boardG.position.set(0,2.3,-1.55);
 S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(6.2,0.18,3.2),MAT.pcb);
-mesa.position.set(0.4,0.0,0.2);
-benchG.add(mesa);
-
-const fuenteD=makeDisplayBox(1.0,0.7,0.5,340,220);
-fuenteD.g.position.set(-2.1,0.55,1.1);
-fuenteD.g.userData={act:'fuente',title:'Fuente — voltaje de suministro'};
-benchG.add(fuenteD.g);
-
-const medidorD=makeDisplayBox(1.15,0.75,0.5,380,240);
-medidorD.g.position.set(-0.7,0.55,1.35);
-medidorD.g.userData={act:'medidor',title:'Medidor — corriente en la bobina'};
-benchG.add(medidorD.g);
-
-const switchG=new THREE.Group();
-const swBase=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.14,0.4),MAT.switchBase);
-switchG.add(swBase);
-const swLever=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.06,0.1),MAT.switchLeverSafe);
-swLever.position.set(0,0.1,0);
-switchG.add(swLever);
-switchG.position.set(0.5,0.62,1.35);
-switchG.userData={act:'switch3d',title:'Switch — abre/cierra el circuito'};
-benchG.add(switchG);
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
-  aluminio:MAT.cobre, acero:MAT.cobre, cromo:MAT.cobre, chapa:MAT.cobre,
-  cobre:MAT.coilBody,
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:std({color:0xb9c2bd,roughness:0.30,metalness:0.80}),
+  cromo:std({color:0xb9c2bd,roughness:0.30,metalness:0.80}),
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
   negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
   goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+  mesa:std({color:0x0e1512,roughness:0.9,metalness:0.05}),
+  estante:std({color:0x11201c,roughness:0.6,metalness:0.3}),
 };
+
+/* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+   la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:2});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H,railNear=BANCO.userData.rielCerca;
+const fuenteD=BANCO.userData.instrumento(1);
+Object.assign(fuenteD.g.userData,{act:'fuente',title:'Fuente — voltaje de suministro'});
+const medidorD=BANCO.userData.instrumento(0);
+Object.assign(medidorD.g.userData,{act:'medidor',title:'Medidor — corriente en la bobina'});
+const CAB={rojo:0xd64545,negro:0x1b1f24,amarillo:0xe0a21c,verde:0x2f9e5b,azul:0x2a5fa8};
+function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+/* Un hilo suelto (los terminales de la bobina): un tubo por los puntos dados. */
+function hiloTubo(pts,r,mat){
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),24,r,8,false),mat);
+  m.castShadow=true;return m;
+}
+
 /* LA BOBINA: carrete con sus dos pestanas, nucleo de hierro y el HILO A LA
    VISTA, vuelta a vuelta. Que sean vueltas alrededor de un nucleo no es un
    detalle decorativo: es lo que hace que la corriente no pueda cortarse de
-   golpe, y de ahi sale toda la practica. Cinco donas ensartadas en una barra no
-   ensenaban ni una vuelta. */
+   golpe, y de ahi sale toda la practica. Descansa sobre sus pestanas en el
+   bloque trasero de la placa y sus dos terminales bajan a los agujeros. */
+const MAT_HILO=std({color:0xb5642a,metalness:0.7,roughness:0.38,emissive:0x000000,emissiveIntensity:0});
+const MAT_NUCLEO=std({color:0x9aa3ad,metalness:0.8,roughness:0.34});
+const MAT_CARRETE=std({color:0x22282c,metalness:0.2,roughness:0.55});
+const COL_A=8,COL_B=16,COL_X=12,FILA_B='h';
 const coilG=new THREE.Group();
 {
+  const s=0.55;
+  const inner=new THREE.Group();
   const LC=0.86, RC=0.26, N=15, SEG=28;
   const pts=[];
   for(let i=0;i<=N*SEG;i++){
@@ -836,58 +841,176 @@ const coilG=new THREE.Group();
     pts.push(new THREE.Vector3(-0.10+t*LC,Math.cos(a)*RC,Math.sin(a)*RC));
   }
   const hilo=new THREE.Mesh(new THREE.TubeGeometry(
-    new THREE.CatmullRomCurve3(pts,false),N*SEG,0.028,7,false),MAT.coilBody);
-  hilo.castShadow=true;coilG.add(hilo);
-  const nucleo=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,1.10,20),MAT.cobre);
-  nucleo.rotation.z=Math.PI/2;nucleo.position.x=0.32;coilG.add(nucleo);
+    new THREE.CatmullRomCurve3(pts,false),N*SEG,0.030,7,false),MAT_HILO);
+  hilo.castShadow=true;inner.add(hilo);
+  const nucleo=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,1.10,20),MAT_NUCLEO);
+  nucleo.rotation.z=Math.PI/2;nucleo.position.x=0.32;inner.add(nucleo);
   [-0.14,0.78].forEach(x=>{
-    const pes=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.035,24),MAT.cobre);
-    pes.rotation.z=Math.PI/2;pes.position.x=x;coilG.add(pes);
+    const pes=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.035,24),MAT_CARRETE);
+    pes.rotation.z=Math.PI/2;pes.position.x=x;inner.add(pes);
+  });
+  inner.position.x=-0.32;                 // el centro del carrete, en el origen del grupo
+  inner.scale.setScalar(s);inner.position.x*=s;
+  coilG.add(inner);
+  coilG.userData={act:'coil',title:'Bobina de carga — campo magnético',radio:0.30*s,mitad:0.55*s};
+}
+{
+  const c=H(COL_X,FILA_B);
+  const radio=coilG.userData.radio;
+  coilG.position.set(c.x,c.y+radio+0.012,c.z);
+  circG.add(coilG);
+  // terminales: salen del nucleo, doblan hacia abajo y entran en (8,h) y (16,h)
+  [[COL_A,-1],[COL_B,1]].forEach(([col,sg])=>{
+    const h=H(col,FILA_B), yA=coilG.position.y;
+    const xe=c.x+sg*coilG.userData.mitad, xb=h.x-sg*0.02;
+    const t=hiloTubo([new THREE.Vector3(xe,yA,c.z),new THREE.Vector3(xe+sg*0.07,yA,c.z),
+      new THREE.Vector3(xb,yA-0.02,c.z),new THREE.Vector3(h.x,h.y+0.02,h.z),
+      new THREE.Vector3(h.x,h.y-0.05,h.z)],0.013,MATP.cobre);
+    t.userData={act:'coil',title:'Bobina de carga — campo magnético'};
+    circG.add(t);
   });
 }
-coilG.position.set(1.9,0.72,1.35);
-coilG.userData={act:'coil',title:'Bobina de carga — campo magnético'};
-benchG.add(coilG);
 
-/* EL DIODO, con SU BANDA DE CATODO alrededor del cuerpo y las patas formadas.
-   La banda es la unica marca que dice hacia donde conduce, y esta practica
-   tiene un mando —«diodo instalado en reversa»— cuya consecuencia es justo
-   ponerla del otro lado. */
-function makeDiode3D(colorHex){
-  const g=P3.diodoAxial(MATP,{largo:0.42,d:0.18,patas:0.06,paso:0.90,
-    cuerpo:colorHex,banda:MAT.diodeBand.color.getHex(),catodo:1});
-  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-  return g;
+/* EL INTERRUPTOR: un miniinterruptor de palanca de dos terminales, en la fila c
+   entre las columnas 2 y 4. La palanca apunta a un lado cerrado y a otro
+   abierto; su capuchon se pone rojo cuando el circuito queda sin proteccion. */
+const switchG=new THREE.Group();
+let swLever,swPivot;
+{
+  const base=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.09,0.17),MATP.chapa);
+  base.position.y=0.075;base.castShadow=true;switchG.add(base);
+  const tapa=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.012,0.17),MATP.negro);
+  tapa.position.y=0.126;switchG.add(tapa);
+  const rosca=new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.046,0.034,6),MATP.cromo);   // la tuerca hexagonal
+  rosca.position.y=0.15;switchG.add(rosca);
+  swPivot=new THREE.Group();swPivot.position.y=0.17;switchG.add(swPivot);
+  const palo=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.018,0.17,12),MATP.cromo);
+  palo.position.y=0.085;swPivot.add(palo);
+  swLever=new THREE.Mesh(new THREE.SphereGeometry(0.036,14,10),MAT.switchLeverSafe);
+  swLever.position.y=0.18;swPivot.add(swLever);
+  [-1,1].forEach(sx=>{
+    const pata=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.07,0.012),MATP.acero);
+    pata.position.set(sx*0.10,0.03,0);switchG.add(pata);
+    const clavija=new THREE.Mesh(new THREE.CylinderGeometry(0.0115,0.0115,0.09,8),MATP.acero);
+    clavija.position.set(sx*0.10,-0.01,0);switchG.add(clavija);
+  });
+  switchG.position.copy(H(3,'c'));switchG.position.y=H(3,'c').y;
+  switchG.userData={act:'switch3d',title:'Switch — abre/cierra el circuito'};
+  circG.add(switchG);
 }
-const diodeG=makeDiode3D(0x2e2e2e);
-diodeG.position.set(2.9,0.85-diodeG.userData.alturaEje,0.75);
-diodeG.userData={act:'diode3d',title:'Diodo de protección'};
-benchG.add(diodeG);
 
-const zenerG=makeDiode3D(0x1c3c66);
-zenerG.position.set(2.9,0.85-zenerG.userData.alturaEje,1.75);
-zenerG.userData={act:'zener3d',title:'Zener de clamp activo'};
-benchG.add(zenerG);
+/* EL CAMINO, de la fuente a tierra: Vs+ → switch (cols 2–4) → medidor (4→8) →
+   bobina (8→16, en el bloque trasero) → tierra (16). Los puentes cortos
+   cruzan el canal de la placa en las columnas 8 y 16. */
+wire(H(2,'e'),railNear('+',2),CAB.rojo);
+wire(H(COL_A,'e'),H(COL_A,'f'),CAB.verde,{minAlto:0.10});
+wire(H(COL_B,'e'),H(COL_B,'f'),CAB.verde,{minAlto:0.10});
+wire(H(COL_B,'j'),railNear('-',COL_B),CAB.negro);
 
-benchG.position.set(0,0,0.2);
+/* LA PROTECCION, en paralelo con la bobina entre las columnas 8 y 16 (fila c):
+   cambia con la topologia, el diodo y el sentido en que se instala. Con el
+   diodo solo, un puente cierra el resto del tramo; con el clamp activo, el
+   zener —ánodo con ánodo— ocupa ese tramo. */
+const protG=new THREE.Group();circG.add(protG);
+let protKey='';
+function armaProt(){
+  const key=[topo,reversed,diodeKey,zenerKey].join('|');
+  if(key===protKey)return;
+  protKey=key;
+  protG.children.slice().forEach(function(o){
+    protG.remove(o);
+    o.traverse(function(m){if(m.geometry)m.geometry.dispose();if(m.material&&m.material.map)m.material.map.dispose();});
+  });
+  if(topo==='none')return;
+  const pos=function(g,c1,c2){g.position.copy(H(c1,'c')).lerp(H(c2,'c'),0.5);g.position.y=H(c1,'c').y;
+    g.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});return g;};
+  // el cátodo va hacia la columna 8 (el extremo +) en el montaje correcto
+  const dg=pos(P3.diodoRectificador(MATP,{rotulo:curDiode().name.split(' ')[0],catodo:(reversed&&topo==='diode')?1:-1}),COL_A,12);
+  dg.userData={act:'diode3d',title:'Diodo de protección'};
+  protG.add(dg);
+  if(topo==='clamp'){
+    const zg=pos(P3.diodoRectificador(MATP,{rotulo:curZener().name.split(' ')[0],catodo:1}),12,COL_B);
+    zg.userData={act:'zener3d',title:'Zener de clamp activo'};
+    protG.add(zg);
+  }else{
+    const lk=P3.puente(MATP,H(12,'b'),H(COL_B,'b'),{color:CAB.amarillo,minAlto:0.08});
+    protG.add(lk);
+  }
+}
+armaProt();
+// la fuente y el medidor, a los nodos del circuito
+BANCO.userData.cable(1,0,railNear('+',17),CAB.rojo);
+BANCO.userData.cable(1,1,railNear('-',18),CAB.negro);
+BANCO.userData.cable(0,0,H(4,'d'),CAB.amarillo);
+BANCO.userData.cable(0,1,H(COL_A,'d'),CAB.verde);
+benchG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+board.castShadow=false;boardFrame.receiveShadow=true;
 S.scene.add(benchG);
 
+/* Pinta una pantalla de instrumento: título pequeño arriba y la cifra grande. */
+function paintDisplay(d,titulo,valor,accent){
+  const cx=d.cx,cv=d.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.textAlign='center';
+  cx.fillStyle='#8FB3AC';cx.font='bold '+Math.round(h*0.20)+'px monospace';
+  cx.fillText(titulo,w/2,h*0.28);
+  cx.fillStyle=accent||'#4FD1C5';cx.font='bold '+Math.round(h*0.38)+'px monospace';
+  cx.fillText(valor,w/2,h*0.80);
+  d.tex.needsUpdate=true;
+}
 function refreshBenchSel(){
   const load=curLoad();
-  diodeG.visible = topo!=='none';
-  zenerG.visible = topo==='clamp';
+  armaProt();
   swLever.material = (topo==='none'||(topo==='diode'&&reversed)) ? MAT.switchLeverDanger : MAT.switchLeverSafe;
-  swLever.rotation.z = switchClosed? 0 : -0.62;
-  paintDisplay(fuenteD,['Vs='+fmtV(load.vsupply),load.name.slice(0,16)],'#7fdcc4');
+  swPivot.rotation.z = switchClosed? 0.5 : -0.5;
+  paintDisplay(fuenteD,'FUENTE Vs',fmtV(load.vsupply),'#4FD1C5');
 }
 function refreshBenchDyn(iNow){
   const load=curLoad();
   const frac = iNow!=null && solveDiode(load,curR(),Lval,0.001).I0>0 ? Math.min(iNow/(load.vsupply/curR()),1) : (switchClosed?1:0);
-  coilG.traverse(function(m){ if(m.isMesh&&m.material&&m.material.emissive){ m.material.emissiveIntensity=0.15+frac*1.1; m.material.emissive.setHex(frac>0.02?0x1c8a6a:0x000000); } });
-  paintDisplay(medidorD,[switchClosed&&iNow==null?fmtI(load.vsupply/curR()):fmtI(iNow!=null?iNow:0),'I bobina'],iNow!=null&&iNow>0.0005?'#f2b705':'#7fdcc4');
+  [MAT_HILO,MAT_NUCLEO].forEach(function(m){ m.emissiveIntensity=0.10+frac*0.5; m.emissive.setHex(frac>0.02?0x1c8a6a:0x000000); });
+  paintDisplay(medidorD,'I BOBINA',switchClosed&&iNow==null?fmtI(load.vsupply/curR()):fmtI(iNow!=null?iNow:0),iNow!=null&&iNow>0.0005?'#f2b705':'#4FD1C5');
 }
 
 /* ---------- 7) HUD + panel ---------- */
+/* El HUD y el panel de este laboratorio usan sus propias clases (ctrlBtn,
+   modeBtn, secTitle, row...) y el molde de arriba no las estiliza: salían como
+   botones y filas por defecto del navegador. Se estilizan aquí, acotadas a
+   #hud y #panel, con los mismos tokens del molde. La nota de la inductancia
+   se llama .nota porque .hint del molde es la pastilla fija de abajo. */
+(function(){
+  const st=document.createElement('style');
+  st.textContent=[
+    '#hud .hudTop{margin-bottom:10px}',
+    '#hud .hudTitle{font-size:19px;line-height:1.15;font-weight:bold;margin-bottom:6px}',
+    '#hud .hudSub{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2)}',
+    '#hud .modeBar{display:flex;gap:5px;margin:8px 0}',
+    '.modeBtn,.ctrlBtn{font-family:system-ui;font-size:12.5px;padding:9px 8px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}',
+    '.modeBtn{flex:1;font-size:11px;padding:8px 4px}',
+    '.modeBtn:hover,.ctrlBtn:hover{border-color:var(--accent);background:#202c38}',
+    '.modeBtn.active,.ctrlBtn.active{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}',
+    '.ctrlBtn:disabled{opacity:.45;cursor:default}',
+    '.ctrlBtn.wide{display:block;width:100%;margin-top:7px}',
+    '#hud .mision{font-size:13px;line-height:1.55;color:var(--dim);margin-top:6px}',
+    '#panel .secTitle{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:14px 0 8px;border-top:1px solid var(--line);padding-top:12px}',
+    '#panel .secTitle:first-child{margin-top:2px;border-top:0;padding-top:0}',
+    '#panel .secTitle label{cursor:pointer;display:flex;gap:8px;align-items:center}',
+    '#panel .secTitle .nota{display:block;margin-top:4px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#7a8894}',
+    '#panel .btnGrid{display:flex;flex-direction:column;gap:6px}',
+    '#panel input[type=range]{width:100%;accent-color:var(--accent)}',
+    '#panel #vL{font-family:var(--mono);font-size:12px;color:var(--accent2)}',
+    '#panel .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-family:var(--mono);font-size:11px;color:var(--dim);padding:2px 0}',
+    '#panel .row b{color:var(--accent2);text-align:right;font-variant-numeric:tabular-nums}',
+    '#panel .row.warn,#panel .row.warn b{color:var(--hv)}',
+    '#panel .readout,#panel .ask,#panel .report{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:9px 11px;margin:8px 0}',
+    '#panel .ok{color:var(--good)}#panel .bad{color:var(--bad)}',
+    '#panel .mono{font-family:var(--mono)}',
+    '#panel .reportLine{margin:3px 0;font-size:11px}'
+  ].join(' ');
+  document.head.appendChild(st);
+})();
+
 function loadBtns(){
   return Object.keys(LOADS).map(function(k){ return '<button class="ctrlBtn" id="l_'+k+'" data-k="'+k+'">'+LOADS[k].name+'</button>'; }).join('');
 }
@@ -923,7 +1046,7 @@ document.getElementById('panel').innerHTML =
   '</div>'+
   '<div class="secTitle" id="secZener">Zener del clamp</div><div class="btnGrid" id="gridZener">'+zenerBtns()+'</div>'+
   '<div class="secTitle" id="secRev"><label><input type="checkbox" id="chkReversed"/> Diodo instalado en reversa (Explora)</label></div>'+
-  '<div class="secTitle">Inductancia de bobina L <span class="hint">(típica/ajustable — ningún fabricante la publica)</span></div>'+
+  '<div class="secTitle">Inductancia de bobina L <span class="nota">(típica/ajustable — ningún fabricante la publica)</span></div>'+
   '<input type="range" id="sL" min="0" max="100" value="50"/> <span id="vL"></span>'+
   '<div class="secTitle" id="secSwitch"><button class="ctrlBtn wide" id="btnSwitch">Abrir switch</button></div>'+
   '<div class="secTitle" id="secCursor">Cursor de tiempo</div>'+
@@ -955,10 +1078,10 @@ function showToast(msg){
 /* ---------- 8) Modos ---------- */
 const MODES=['explora','predice','barrido','reto'];
 const MODE_META={
-  explora:{label:'Explora',cam:[[3.1,2.4,7.0],[0.4,1.2,0.1]]},
-  predice:{label:'Predice',cam:[[1.6,3.0,5.6],[0.4,2.1,-0.4]]},
-  barrido:{label:'Medición',cam:[[1.4,3.1,5.4],[0.4,2.2,-0.6]]},
-  reto:{label:'Reto de diseño',cam:[[2.2,2.6,6.2],[0.4,1.6,0.0]]},
+  explora:{label:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]]},
+  predice:{label:'Predice',cam:[[0,4.3,6.9],[0,1.15,0.5]]},
+  barrido:{label:'Medición',cam:[[0,2.5,2.7],[0,2.2,-1.55]]},
+  reto:{label:'Reto de diseño',cam:[[0,4.1,6.6],[0,1.15,0.5]]},
 };
 const MISIONES={
   explora:'Abre el switch y observa cómo colapsa la corriente en la bobina. Cambia la topología de protección y la carga para comparar.',

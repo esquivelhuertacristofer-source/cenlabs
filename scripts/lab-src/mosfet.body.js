@@ -26,7 +26,7 @@
 */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 const el=function(id){return document.getElementById(id);};
@@ -328,50 +328,18 @@ function boardClick(u,v){
 }
 
 /* ---------- 6) Banco 3D ---------- */
+/* El pizarrón (esquemático + recta de carga) va arriba y al fondo; debajo, el
+   montaje REAL sobre un protoboard: la fuente, el medidor y el driver de
+   compuerta en el estante, y el circuito cableado a mano con sus encapsulados. */
 const boardG=new THREE.Group();
 const board=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshStandardMaterial({map:bTex,roughness:0.55,metalness:0.05}));
 board.userData.title='Esquemático + recta de carga';
 const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
 boardFrame.position.z=-0.03;
 boardG.add(boardFrame,board);
-boardG.position.set(-1.05,1.75,-0.85);boardG.rotation.y=0.16;
+boardG.scale.setScalar(1.0);
+boardG.position.set(0,2.3,-1.55);
 S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,2.2),MAT.bench);
-mesa.position.set(0.6,-0.06,0.9);benchG.add(mesa);
-const pcb=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.03,1.5),MAT.pcb);
-pcb.position.set(0.6,0.02,0.9);benchG.add(pcb);
-
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.scope);
-  g.add(body);
-  const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshStandardMaterial({map:tex,emissive:0x0a1512,emissiveMap:tex,emissiveIntensity:0.6,roughness:0.4}));
-  screen.position.z=dp/2+0.001;g.add(screen);
-  return {g:g,cv:cv,cx:cx,tex:tex,screen:screen};
-}
-const fuenteBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-fuenteBox.g.position.set(-0.2,0.42,0.55);
-fuenteBox.g.userData.act='src3d';fuenteBox.g.userData.title='Fuente VDD';
-benchG.add(fuenteBox.g);
-const medidorBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-medidorBox.g.position.set(0.45,0.42,0.55);
-medidorBox.g.userData.title='Medidor ID / VDS';
-benchG.add(medidorBox.g);
-const driverBox=makeDisplayBox(0.6,0.42,0.14,256,180);
-driverBox.g.position.set(1.1,0.42,0.55);
-driverBox.g.userData.act='driver3d';driverBox.g.userData.title='Driver de compuerta';
-benchG.add(driverBox.g);
-
-function leads(g){
-  const l1=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.16,10),MAT.lead);
-  l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
-  const l2=l1.clone();l2.position.x=0.16;g.add(l2);
-}
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -384,104 +352,141 @@ const MATP={
   goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+  mesa:MAT.bench,estante:MAT.frame,
 };
-/* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un taco
-   en un componente son las PATAS —por donde entra la corriente y por donde se
-   suelda— y las MARCAS: las bandas de la resistencia, la banda del catodo, la
-   cara plana del TO-92, la aleta del TO-220. Cada marca evita una averia
-   distinta, y ninguna estaba dibujada. */
-function makeResistor3D(){
-  const g=P3.resistencia(MATP,{largo:0.24,d:0.095,patas:0.10,paso:0.36,
-    bandas:[0x333333,0x333333,0x333333],cuerpo:MAT.resistor.color.getHex()});
-  g.userData.bands=g.userData.bandas;
-  g.userData.body=g.userData.cuerpo;
-  return g;
-}
-function paintBands(g,r){
-  const b=bandsFor(r);
-  const cols=[BAND_COLORS[b.d1],BAND_COLORS[b.d2],BAND_COLORS[b.mult]];
-  g.userData.bands.forEach(function(band,i){band.material=std({color:parseInt(cols[i].slice(1),16)});});
-}
-function makeMOSFET3D(){
-  const g=P3.to220(MATP,{ancho:0.17,alto:0.24,fondo:0.055,patas:0.13,paso:0.045});
-  g.userData.bodyMesh=g.userData.cuerpo;
-  return g;
-}
-// Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
-// con y = 0 en la placa y las patas por debajo. Antes flotaban dos decimas
-// por encima, que con patas horizontales no se notaba y con patas si.
-const Y_PCB=0.035;
-const rdG=makeResistor3D();
-rdG.position.set(-0.15,Y_PCB,1.1);
-rdG.userData.act='rd3d';rdG.userData.title='RD';
-benchG.add(rdG);
-const mosfetG=makeMOSFET3D();
-mosfetG.position.set(0.45,Y_PCB,1.15);
-mosfetG.userData.act='mosfet3d';mosfetG.userData.title='MOSFET (Q1)';
-benchG.add(mosfetG);
-const driverChipG=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.05,0.16),MAT.mosfetTab);
-driverChipG.position.set(1.1,0.22,1.1);
-driverChipG.userData.act='driver3d';driverChipG.userData.title='Driver de compuerta';
-benchG.add(driverChipG);
 
-benchG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+/* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+   la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:3});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H;
+const railNear=BANCO.userData.rielCerca;
+/* De izquierda a derecha: el driver (junto al chip), el medidor y la fuente (junto
+   a RD): así los cables no cruzan el montaje de lado a lado. */
+const driverBox=BANCO.userData.instrumento(0);
+const medidorBox=BANCO.userData.instrumento(1);
+medidorBox.g.userData.title='Medidor ID / VDS';
+const fuenteBox=BANCO.userData.instrumento(2);
+fuenteBox.g.userData.title='Fuente VDD';fuenteBox.g.userData.act='src3d';
+driverBox.g.userData.title='Driver de compuerta';driverBox.g.userData.act='driver3d';
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+
+/* LA ZONA DE MONTAJE: lo que depende del dispositivo se rehace aquí; el valor de
+   RD sólo repinta sus bandas. */
+function fmtRd(r){return String(r).replace('.',',')+' Ω';}
+let rdG=null,mosfetG=null,driverChipG=null,regionRing=null,circKey='';
+function armaCircuito(){
+  const key=devKey;
+  if(key===circKey)return;
+  circKey=key;
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  const pot=devKey!=='n2n7000';
+  const rot=devKey==='irf540n'?'IRF540N':devKey==='irlz44n'?'IRLZ44N':'2N7000';
+  // TO-220 vistos de frente: G·D·S. 2N7000 (TO-92): S·G·D.
+  const QC=14,cg=pot?QC-1:QC,cd=pot?QC:QC+1,cs=pot?QC+1:QC-1;
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  mosfetG=pot?P3.to220Rotulado(MATP,{rotulo:rot,rotulo2:'G   D   S',tumbado:true,levanta:0.10}):P3.to92Rotulado(MATP,{rotulo:rot,pines:['S','G','D']});
+  mosfetG.position.copy(H(QC,'e'));mosfetG.userData.act='mosfet3d';mosfetG.userData.title='MOSFET (Q1)';circG.add(mosfetG);
+  /* El contorno serigrafiado bajo el transistor lleva el color de la región. */
+  const rmat=new THREE.MeshStandardMaterial({color:0x3fae3f,roughness:0.6,emissive:0x3fae3f,emissiveIntensity:0.18,side:THREE.DoubleSide});
+  if(pot){
+    const w=0.50,d=0.80,t=0.028;
+    const rr=function(a,b,r){return P3.contornoRedondeado([[-a,-b],[a,-b],[a,b],[-a,b]],r,4);};
+    regionRing=new THREE.Mesh(P3.extruido(rr(w/2,d/2,0.06),{huecos:[rr(w/2-t,d/2-t,0.04).reverse()],espesor:0.006}),rmat);
+    regionRing.rotation.x=-Math.PI/2;regionRing.position.copy(H(QC,'e')).add(new THREE.Vector3(0,0.004,-0.40));
+  }else{
+    regionRing=new THREE.Mesh(new THREE.RingGeometry(0.15,0.185,36),rmat);
+    regionRing.rotation.x=-Math.PI/2;regionRing.position.copy(H(QC,'e')).add(new THREE.Vector3(0,0.002,0.02));
+  }
+  regionRing.userData.title='Región de operación';circG.add(regionRing);
+  // RD: del drenador a VDD. Es una resistencia de CEMENTO, no de capa: con 12 V
+  // sobre unos pocos ohmios una de 1/4 W se quemaría, y el valor va impreso.
+  rdG=P3.resistenciaCemento(MATP,{rotulo:fmtRd(curRD()),paso:0.6});
+  rdG.userData.act='rd3d';rdG.userData.title='RD';
+  rdG.position.copy(H(cd-2,'c')).lerp(H(cd-8,'c'),0.5);rdG.position.y=H(cd,'c').y;circG.add(rdG);
+  wire(H(cd-8,'e'),railNear('+',cd-8),cableMat.rojo);
+  wire(H(cd-2,'b'),H(cd,'b'),cableMat.naranja);                    // del extremo de RD al drenador
+  wire(H(cs,'d'),railNear('-',cs),cableMat.negro);
+  // el driver: un DIP-8 a caballo del canal, con su salida a la compuerta
+  const DC=2;
+  driverChipG=P3.dipRotulado(MATP,{pines:8,rotulo:'DRIVER'});
+  driverChipG.position.copy(H(DC+1.5,'e')).lerp(H(DC+1.5,'f'),0.5);driverChipG.position.y=H(DC,'e').y;
+  driverChipG.userData.act='driver3d';driverChipG.userData.title='Driver de compuerta';circG.add(driverChipG);
+  const pinPos=function(k){return driverChipG.userData.pata(k).clone().add(driverChipG.position);};
+  wire(pinPos(7),H(cg,'a'),cableMat.verde);                       // OUT → compuerta
+  wire(pinPos(8),railNear('+',DC),cableMat.rojo);                  // VDD del driver
+  wire(pinPos(4),railNear('-',DC+3),cableMat.negro);               // GND del driver
+  // instrumentos: medidor en el drenador y la fuente; driver en la entrada
+  BANCO.userData.cable(2,0,railNear('+',17),cableMat.rojo);
+  BANCO.userData.cable(2,1,railNear('-',18),cableMat.negro);
+  BANCO.userData.cable(1,0,H(cd,'d'),cableMat.amarillo);
+  BANCO.userData.cable(1,1,H(cs,'b'),cableMat.verde);
+  BANCO.userData.cable(0,0,H(DC+1,'d'),cableMat.azul);
+  BANCO.userData.cable(0,1,railNear('-',DC+4),cableMat.negro);
+  circG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+}
+armaCircuito();
 board.castShadow=false;boardFrame.receiveShadow=true;
 S.scene.add(benchG);
 
 function refreshBenchSel(){
-  paintBands(rdG,curRD());
+  armaCircuito();
+  rdG.userData.ponTexto(fmtRd(curRD()));
 }
 function drawFuenteScreen(){
-  const cx=fuenteBox.cx,cv=fuenteBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 26px monospace';cx.textAlign='center';
-  cx.fillText('VDD',cv.width/2,50);
-  cx.font='bold 40px monospace';
-  cx.fillText(curVDD().toFixed(0)+' V',cv.width/2,116);
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText('VDD',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.44)+'px monospace';
+  cx.fillText(curVDD().toFixed(0)+' V',w/2,h*0.80);
   fuenteBox.tex.needsUpdate=true;
 }
 function drawMedidorScreen(){
-  const cx=medidorBox.cx,cv=medidorBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
+  const cx=medidorBox.cx,cv=medidorBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
   const hide=(mode==='predice'&&!predRevealed);
-  cx.fillStyle='#FFB703';cx.font='bold 16px monospace';cx.textAlign='center';
-  cx.fillText('ID / VDS',cv.width/2,30);
-  cx.font='bold 22px monospace';
+  cx.fillStyle='#FFB703';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.20)+'px monospace';
+  cx.fillText('ID / VDS',w/2,h*0.24);
+  cx.font='bold '+Math.round(h*0.30)+'px monospace';
   if(hide){
-    cx.fillText('¿?  /  ¿?',cv.width/2,108);
+    cx.fillText('¿?  /  ¿?',w/2,h*0.72);
   }else if(RES){
-    cx.fillText(fmtI(RES.ID),cv.width/2,86);
-    cx.fillText(RES.VDS.toFixed(2)+' V',cv.width/2,132);
+    cx.fillText(fmtI(RES.ID),w/2,h*0.56);
+    cx.fillText(RES.VDS.toFixed(2)+' V',w/2,h*0.90);
   }
   medidorBox.tex.needsUpdate=true;
 }
 function drawDriverScreen(){
-  const cx=driverBox.cx,cv=driverBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 15px monospace';cx.textAlign='center';
-  cx.fillText('t_on ≈ Qg / I_driver',cv.width/2,26);
+  const cx=driverBox.cx,cv=driverBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.16)+'px monospace';
+  cx.fillText('t_on ≈ Qg / I_driver',w/2,h*0.20);
   const t=tOn();
-  cx.font='bold 26px monospace';
   cx.fillStyle='#EAF4F1';
   if(t==null){
-    cx.font='bold 15px monospace';
-    cx.fillText('Qg no especificado',cv.width/2,90);
-    cx.fillText('por el fabricante',cv.width/2,112);
+    cx.font='bold '+Math.round(h*0.15)+'px monospace';
+    cx.fillText('Qg no especificado',w/2,h*0.58);
+    cx.fillText('por el fabricante',w/2,h*0.82);
   }else{
-    cx.fillText(fmtT(t),cv.width/2,96);
-    cx.font='12px monospace';cx.fillStyle='#8FB3AC';
-    cx.fillText('Qg='+curDev().qgTotal+'nC · I='+(curDriver()*1000).toFixed(0)+'mA',cv.width/2,132);
+    cx.font='bold '+Math.round(h*0.34)+'px monospace';
+    cx.fillText(fmtT(t),w/2,h*0.62);
+    cx.font=Math.round(h*0.14)+'px monospace';cx.fillStyle='#8FB3AC';
+    cx.fillText('Qg='+curDev().qgTotal+'nC · I='+(curDriver()*1000).toFixed(0)+'mA',w/2,h*0.90);
   }
   driverBox.tex.needsUpdate=true;
 }
 function refreshBenchDyn(){
   drawFuenteScreen();drawMedidorScreen();drawDriverScreen();
-  if(mosfetG.userData.bodyMesh){
+  if(regionRing){
     const hex=parseInt(curColor().slice(1),16);
-    mosfetG.userData.bodyMesh.material=std({color:hex,roughness:0.4,metalness:0.15});
+    regionRing.material.color.setHex(hex);regionRing.material.emissive.setHex(hex);
   }
 }
 

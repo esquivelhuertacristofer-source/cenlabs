@@ -32,7 +32,7 @@
        proteger una entrada digital de bajo consumo.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,3.4,7.6],target:[0,1.3,0.2],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 /* ---------- 1) Modelo físico ---------- */
@@ -310,46 +310,17 @@ function toggleCat(){
 }
 
 /* ---------- 6) Banco 3D ---------- */
+/* El pizarrón (esquemático + gráfica V-I) va arriba y al fondo; debajo, el
+   montaje REAL sobre un protoboard: la fuente y el medidor en el estante, y el
+   regulador —Rs, zener y carga— cableado a mano con sus encapsulados. */
 const boardG=new THREE.Group();
 const board=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshStandardMaterial({map:bTex,roughness:0.55,metalness:0.05}));
 board.userData.title='Esquemático + gráfica V-I';
 const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
 boardFrame.position.z=-0.03;
 boardG.add(boardFrame,board);
-boardG.position.set(-1.05,1.75,-0.85);boardG.rotation.y=0.16;
+boardG.position.set(0,2.3,-1.55);
 S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,2.2),MAT.bench);
-mesa.position.set(0.6,-0.06,0.9);benchG.add(mesa);
-const pcb=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.03,1.5),MAT.pcb);
-pcb.position.set(0.6,0.02,0.9);benchG.add(pcb);
-
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.scope);
-  g.add(body);
-  const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
-  const cx=cv.getContext('2d');
-  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),new THREE.MeshStandardMaterial({map:tex,emissive:0x0a1512,emissiveMap:tex,emissiveIntensity:0.6,roughness:0.4}));
-  screen.position.z=dp/2+0.001;g.add(screen);
-  return {g:g,cv:cv,cx:cx,tex:tex,screen:screen};
-}
-const fuenteBox=makeDisplayBox(0.62,0.42,0.14,256,180);
-fuenteBox.g.position.set(-0.15,0.42,0.55);
-fuenteBox.g.userData.act='src3d';fuenteBox.g.userData.title='Fuente Vs';
-benchG.add(fuenteBox.g);
-const medidorBox=makeDisplayBox(0.62,0.42,0.14,256,180);
-medidorBox.g.position.set(0.55,0.42,0.55);
-medidorBox.g.userData.title='Medidor V / I';
-benchG.add(medidorBox.g);
-
-function leads(g){
-  const l1=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.16,10),MAT.lead);
-  l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
-  const l2=l1.clone();l2.position.x=0.16;g.add(l2);
-}
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -362,104 +333,91 @@ const MATP={
   goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+  mesa:MAT.bench,estante:MAT.frame,
 };
-/* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un taco
-   en un componente son las PATAS —por donde entra la corriente y por donde se
-   suelda— y las MARCAS: las bandas de la resistencia, la banda del catodo, la
-   cara plana del TO-92, la aleta del TO-220. Cada marca evita una averia
-   distinta, y ninguna estaba dibujada. */
-function makeResistor3D(){
-  const g=P3.resistencia(MATP,{largo:0.24,d:0.095,patas:0.10,paso:0.36,
-    bandas:[0x333333,0x333333,0x333333],cuerpo:MAT.resistor.color.getHex()});
-  g.userData.bands=g.userData.bandas;
-  g.userData.body=g.userData.cuerpo;
-  return g;
-}
-function paintBands(g,r){
-  const b=bandsFor(r);
-  const cols=[BAND_COLORS[b.d1],BAND_COLORS[b.d2],BAND_COLORS[b.mult]];
-  g.userData.bands.forEach(function(band,i){band.material=std({color:parseInt(cols[i].slice(1),16)});});
-}
-function makeDiode3D(colorHex){
-  const g=P3.diodoAxial(MATP,{largo:0.17,d:0.075,patas:0.10,paso:0.36,
-    cuerpo:colorHex,banda:MAT.diodeBand.color.getHex(),catodo:1});
-  g.userData.bodyMesh=g.userData.cuerpo;
-  return g;
-}
-function makeLed3D(){
-  const g=P3.led(MATP,{d:0.12,color:MAT.ledLens.color.getHex(),patas:0.14});
-  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.11,12,10),MAT.ledHalo);
-  halo.position.y=0.09; g.add(halo);
-  g.userData.lens=g.children[0];
-  g.userData.halo=halo;
-  return g;
-}
-// Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
-// con y = 0 en la placa y las patas por debajo. Antes flotaban dos decimas
-// por encima, que con patas horizontales no se notaba y con patas si.
-const Y_PCB=0.035;
-const rsG=makeResistor3D();
-rsG.position.set(-0.15,Y_PCB,1.15);
-rsG.userData.act='rs3d';rsG.userData.title='Resistor Rs';
-benchG.add(rsG);
-const ledG=makeLed3D();
-ledG.position.set(0.18,Y_PCB,1.15);
-ledG.userData.act='dut3d';ledG.userData.title='Dispositivo bajo prueba';
-benchG.add(ledG);
-const diodeG=makeDiode3D(0x8a8a8a);
-diodeG.position.set(0.18,Y_PCB,1.15);diodeG.rotation.y=Math.PI/2;
-diodeG.userData.act='dut3d';diodeG.userData.title='Dispositivo bajo prueba';
-benchG.add(diodeG);
 
+/* El banco de prototipos (mesa, estante con instrumentos y protoboard) viene de
+   la biblioteca: lo que es de ESTE laboratorio es el circuito que se arma en él. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:2});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H,railNear=BANCO.userData.rielCerca;
+const fuenteBox=BANCO.userData.instrumento(0);
+fuenteBox.g.userData.title='Fuente Vs';fuenteBox.g.userData.act='src3d';
+const medidorBox=BANCO.userData.instrumento(1);
+medidorBox.g.userData.title='Medidor V / I';
+const CAB={rojo:0xd64545,negro:0x1b1f24,amarillo:0xe0a21c,verde:0x2f9e5b};
+function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+
+/* EL CIRCUITO: +Vs → Rs → dispositivo → tierra. Rs, en la fila c; el dispositivo,
+   en la fila b, con el nodo en la columna 9. En conducción el dispositivo se
+   monta en directa (ánodo al nodo); en protección, en INVERSA (cátodo al nodo),
+   que es como se conecta un zener o un TVS en paralelo con lo que protege. */
+const C_R0=5,C_N=9;
+const rsG=P3.resistorAxial(MATP,{ohm:220,paso:0.4});
+rsG.position.copy(H(C_R0,'c')).lerp(H(C_N,'c'),0.5);rsG.position.y=H(C_R0,'c').y;
+rsG.userData.act='rs3d';rsG.userData.title='Resistor Rs';circG.add(rsG);
+wire(H(C_R0,'e'),railNear('+',C_R0),CAB.rojo);
+const dutG=new THREE.Group();dutG.userData={act:'dut3d',title:'Dispositivo bajo prueba'};circG.add(dutG);
+function axial(g,c1,c2){g.position.copy(H(c1,'b')).lerp(H(c2,'b'),0.5);g.position.y=H(c1,'b').y;return g;}
+function conTierra(g,col){const w=wire(H(col,'e'),railNear('-',col),CAB.negro);const v=new THREE.Group();v.add(g,w);return v;}
+const gLed=new THREE.Group(),ledP=P3.led5mm(MATP,{color:0xc0262b});
+ledP.position.copy(H(C_N-0.5,'b'));
+gLed.add(ledP);gLed.add(wire(H(C_N-1,'e'),railNear('-',C_N-1),CAB.negro));
+const ledLight=new THREE.PointLight(0xff3030,0,1.6,2);ledLight.position.set(0,0.35,0);ledP.add(ledLight);
+const gSch=conTierra(axial(P3.diodoRectificador(MATP,{rotulo:'1N5819',catodo:1}),C_N,C_N+4),C_N+4);
+const gSi=conTierra(axial(P3.diodoRectificador(MATP,{rotulo:'1N4007',catodo:1}),C_N,C_N+4),C_N+4);
+const gZen=conTierra(axial(P3.diodoRectificador(MATP,{rotulo:'1N4733A',catodo:-1}),C_N,C_N+4),C_N+4);
+const smd=P3.diodoSMD(MATP,{rotulo:'SMAJ5.0A',catodo:-1});
+const gTvs=conTierra(axial(smd,C_N,C_N+4),C_N+4);
+dutG.add(gLed,gSch,gSi,gZen,gTvs);
+// la fuente y el medidor, a los nodos del circuito
+BANCO.userData.cable(0,0,railNear('+',2),CAB.rojo);
+BANCO.userData.cable(0,1,railNear('-',3),CAB.negro);
+BANCO.userData.cable(1,0,H(C_N,'d'),CAB.amarillo);
+BANCO.userData.cable(1,1,railNear('-',14),CAB.verde);
 benchG.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
 board.castShadow=false;boardFrame.receiveShadow=true;
 S.scene.add(benchG);
 
 function refreshBenchSel(){
-  paintBands(rsG,curR());
-  if(cat==='cond'&&dsel==='led'){
-    ledG.visible=true;diodeG.visible=false;
-  }else{
-    ledG.visible=false;diodeG.visible=true;
-    const colorHex=cat==='cond'?DIODES[dsel].color:CLAMPS[csel].color;
-    diodeG.userData.bodyMesh.material=std({color:colorHex,roughness:0.25,metalness:0.15});
-  }
+  rsG.userData.ponValor(curR());
+  const cond=cat==='cond';
+  gLed.visible=cond&&dsel==='led';gSch.visible=cond&&dsel==='sch';gSi.visible=cond&&dsel==='si';
+  gZen.visible=!cond&&csel==='zen';gTvs.visible=!cond&&csel==='tvs';
 }
 function drawFuenteScreen(){
-  const cx=fuenteBox.cx,cv=fuenteBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 30px monospace';cx.textAlign='center';
-  cx.fillText('Vs',cv.width/2,54);
-  cx.font='bold 42px monospace';
-  cx.fillText(Vs.toFixed(1)+' V',cv.width/2,118);
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText('Vs',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.42)+'px monospace';
+  cx.fillText(Vs.toFixed(1)+' V',w/2,h*0.80);
   fuenteBox.tex.needsUpdate=true;
 }
 function drawMedidorScreen(){
-  const cx=medidorBox.cx,cv=medidorBox.cv;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#08120f';cx.fillRect(0,0,cv.width,cv.height);
+  const cx=medidorBox.cx,cv=medidorBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
   const hide=(mode==='predice'&&!predRevealed);
-  cx.fillStyle='#FFB703';cx.font='bold 18px monospace';cx.textAlign='center';
-  cx.fillText('V / I',cv.width/2,32);
-  cx.font='bold 26px monospace';
+  cx.fillStyle='#FFB703';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.20)+'px monospace';
+  cx.fillText('V / I',w/2,h*0.24);
+  cx.font='bold '+Math.round(h*0.30)+'px monospace';
   if(hide){
-    cx.fillText('¿?  /  ¿?',cv.width/2,110);
+    cx.fillText('¿?  /  ¿?',w/2,h*0.72);
   }else if(RES){
-    cx.fillText(RES.v.toFixed(2)+' V',cv.width/2,88);
-    cx.fillText(fmtI(RES.i),cv.width/2,136);
+    cx.fillText(RES.v.toFixed(2)+' V',w/2,h*0.56);
+    cx.fillText(fmtI(RES.i),w/2,h*0.90);
   }
   medidorBox.tex.needsUpdate=true;
 }
 function refreshBenchDyn(){
   drawFuenteScreen();drawMedidorScreen();
-  if(cat==='cond'&&dsel==='led'&&RES){
-    const t=Math.min(RES.i/DIODES.led.ifmax,1.4);
-    ledG.userData.lens.material.emissiveIntensity=0.15+t*1.2;
-    ledG.userData.halo.material.opacity=Math.min(t*0.5,0.6)*(0.7+0.3*Math.sin(performance.now()/1000*3));
-  }else if(ledG.userData.halo){
-    ledG.userData.halo.material.opacity=0;
-  }
+  let v=0;
+  if(cat==='cond'&&dsel==='led'&&RES)v=Math.min(1,RES.i/DIODES.led.ifmax);
+  ledP.userData.enciende(v);ledLight.intensity=v*0.9;
 }
 
 /* ---------- 7) HUD + panel ---------- */
@@ -590,10 +548,10 @@ function showToast(msg){
 }
 const MODES=['explora','predice','barrido','reto'];
 const MODE_META={
-  explora:{cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]]},
-  predice:{cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]]},
-  barrido:{cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]]},
-  reto:{cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]]},
+  explora:{cam:[[0,4.3,6.9],[0,1.15,0.5]]},
+  predice:{cam:[[0,4.3,6.9],[0,1.15,0.5]]},
+  barrido:{cam:[[0,2.5,2.7],[0,2.2,-1.55]]},
+  reto:{cam:[[0,4.1,6.6],[0,1.15,0.5]]},
 };
 const MISIONES={
   explora:'Explora libremente: cambia de categoría, dispositivo, Rs y Vs, y observa V, I y potencia.',

@@ -4007,3 +4007,818 @@ export function instrumentoBanco(mat, opts = {}) {
     visor: { ancho: vw, alto: vh }, alturaPata: H * 0.055 };
   return g;
 }
+
+/* ==========================================================================
+   §15 · PROTOBOARD Y ENCAPSULADOS DE SEMICONDUCTORES, A ESCALA DE PULGADA
+   --------------------------------------------------------------------------
+   Los componentes de §11 están dibujados «de oído»: sirven sueltos sobre una
+   placa, pero no encajan entre sí. Aquí todo está a la MISMA escala, y esa
+   escala es la de los agujeros: 1 unidad = 1 pulgada, de modo que el PASO de un
+   protoboard es 0,1 y cada pata cae en un agujero de verdad. Un resistor de
+   1/4 W mide 0,25 de largo y separa sus patas 0,4 —cuatro agujeros—; un TO-92
+   mide 0,2 y sus patas van en tres agujeros contiguos. Con esa regla, montar un
+   circuito es decir «columna 12, fila e» y no ajustar cifras a ojo.
+
+   Convenio: el protoboard está centrado en el origen, sus columnas corren en X
+   y sus filas en Z (la fila «a» mira a la cámara); `userData.hoyo(col, fila)`
+   da el punto de la cara superior de ese agujero, en coordenadas del grupo. Los
+   componentes tienen su origen en la CARA de la placa (y = 0) y sus patas bajan
+   por debajo, igual que los de §11. Los de patas en línea (TO-92, TO-220, LED)
+   tienen el origen en la pata central; los axiales y los radiales de dos
+   patas, entre sus dos patas.
+   Los rótulos impresos son una textura sobre la cara plana del encapsulado: es
+   lo que dice QUÉ ES la pieza, y un transistor sin tipo es un cilindro negro.
+   ========================================================================== */
+
+const _PASO = 0.1;
+const _metal15 = (mat) => mat.cromo || mat.acero || mat.aluminio;
+const _V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+/** Textura de canvas para rótulos: con mipmaps, que es lo que evita el
+ *  hormigueo de un texto pequeño visto en ángulo. */
+function _etiqueta(w, h, pinta) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const c = cv.getContext('2d'); pinta(c, w, h);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+/** Un plano con tinta encima de una cara: transparente salvo el texto. */
+function _tinta(tex, w, h) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({
+    map: tex, transparent: true, roughness: 0.55, metalness: 0,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  m.renderOrder = 2;
+  return m;
+}
+
+/**
+ * PROTOBOARD de 400 puntos (o los que se pidan): los dos bloques de terminales
+ * —filas a–e y f–j, unidas por columna— separados por el CANAL central, que es
+ * por donde se monta un integrado DIP, y los dos pares de RIELES de
+ * alimentación con su raya roja (+) y azul (−). Los agujeros están en la
+ * textura de la cara superior, con su mapa de relieve para que se vean
+ * hundidos, y cada bloque está levantado sobre la placa de fondo: la ranura
+ * entre bloques es lo que se reconoce de lejos como un protoboard.
+ *
+ *   hoyo(col, fila)        col 1…cols, fila 'a'…'j'
+ *   riel(signo, lado, k)   signo '+'|'-', lado 'tras'|'frente', k 0…24
+ */
+export function protoboard(mat, opts = {}) {
+  const { cols = 30, paso = _PASO, color = 0xcfcabb, rieles = true } = opts;
+  const p = paso, alto = 0.26, base = 0.10;
+  const g = new THREE.Group();
+  const ancho = cols * p + 0.40;
+  const zB0 = 0.75 * p, zB1 = 6.25 * p;               // los bloques de terminales
+  const zR0 = 7.25 * p, zR1 = 9.55 * p;               // los pares de rieles
+  /* `rieles`: true|'ambos' (los dos pares), 'tras' (sólo el de atrás, el que
+     queda junto a quien alimenta) o false. Con uno solo la placa se acorta por
+     delante, que es lo que hace una media placa de las baratas. */
+  const rielAtras = rieles !== false, rielFrente = rieles === true || rieles === 'ambos';
+  const zMin = -(rielAtras ? zR1 : zB1) - 0.14, zMax = (rielFrente ? zR1 : zB1) + 0.14;
+  const fondo = zMax - zMin;
+  const hex = '#' + color.toString(16).padStart(6, '0');
+
+  const matLado = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.0 });
+  const matBase = new THREE.MeshStandardMaterial({ color: 0x9d9888, roughness: 0.80, metalness: 0.0 });
+  const placa = new THREE.Mesh(new THREE.BoxGeometry(ancho, base, fondo), matBase);
+  placa.position.set(0, base / 2, (zMin + zMax) / 2); placa.receiveShadow = true;
+  placa.castShadow = true; g.add(placa);
+
+  const xCol = (c) => (c - (cols + 1) / 2) * p;
+
+  /* Un bloque de agujeros. Su textura lleva los huecos, las letras y los
+     números; su mapa de relieve lleva sólo los huecos, en negro. La cara
+     superior de una caja tiene la fila de ATRÁS arriba en la imagen. */
+  function bloque(w, d, huecos, rotulos, rayas) {
+    const E = 384, cw = Math.round(w * E), ch = Math.round(d * E);
+    const pinta = (c, relieve) => {
+      c.fillStyle = relieve ? '#fff' : hex; c.fillRect(0, 0, cw, ch);
+      if (!relieve && rayas) for (const r of rayas) {
+        c.fillStyle = r.col; c.fillRect(0, (r.z + d / 2) * E - 2.5, cw, 5);
+      }
+      for (const [x, z] of huecos) {
+        const px = (x + w / 2) * E, pz = (z + d / 2) * E, s = p * E * 0.42;
+        if (relieve) { c.fillStyle = '#000'; c.fillRect(px - s / 2, pz - s / 2, s, s); }
+        else {
+          c.fillStyle = '#14171a'; c.fillRect(px - s / 2, pz - s / 2, s, s);
+          c.fillStyle = '#6b7680'; c.fillRect(px - s / 2 + 1, pz + s * 0.20, s - 2, s * 0.22);
+        }
+      }
+      if (!relieve && rotulos) rotulos(c, E);
+    };
+    const cvT = document.createElement('canvas'); cvT.width = cw; cvT.height = ch; pinta(cvT.getContext('2d'), false);
+    const cvB = document.createElement('canvas'); cvB.width = cw; cvB.height = ch; pinta(cvB.getContext('2d'), true);
+    const tx = new THREE.CanvasTexture(cvT); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+    const bp = new THREE.CanvasTexture(cvB); bp.anisotropy = 8;
+    const arriba = new THREE.MeshStandardMaterial({ map: tx, bumpMap: bp, bumpScale: 1.6,
+      roughness: 0.62, metalness: 0.0 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, alto - base, d),
+      [matLado, matLado, arriba, matLado, matLado, matLado]);
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+
+  // Terminales: cada columna es un nodo de cinco agujeros. lado +1 = delante.
+  const wB = cols * p + 0.20, dB = zB1 - zB0;
+  for (const lado of [-1, 1]) {
+    const zc = lado * (zB0 + dB / 2);
+    const hu = [];
+    for (let c = 1; c <= cols; c++) for (let k = 0; k < 5; k++) {
+      hu.push([xCol(c), lado * (1.5 * p + k * p) - zc]);       // locales al bloque
+    }
+    const nombres = lado > 0 ? 'edcba' : 'fghij';
+    const rot = (c, E) => {
+      c.fillStyle = '#716d62'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = `bold ${Math.round(p * E * 0.34)}px sans-serif`;
+      for (let k = 0; k < 5; k++) {
+        c.fillText(nombres[k], 0.07 * E, (lado * (1.5 * p + k * p) - zc + dB / 2) * E);
+      }
+      for (let n = 5; n <= cols; n += 5) {
+        c.fillText(String(n), (xCol(n) + wB / 2) * E, lado > 0 ? (dB - 0.05) * E : 0.05 * E);
+      }
+    };
+    const b = bloque(wB, dB, hu, rot);
+    b.position.set(0, (base + alto) / 2, zc);
+    g.add(b);
+  }
+
+  // Rieles: grupos de cinco agujeros por hilera (los que quepan), dos hileras por par.
+  const grupos = Math.max(1, Math.floor((cols + 1) / 6)), nRiel = grupos * 5;
+  const posiciones = nRiel + grupos - 1;
+  const xRiel = (i) => (i + Math.floor(i / 5) - (posiciones - 1) / 2) * p;
+  const rielPos = { tras: {}, frente: {} };
+  if (rielAtras) {
+    const wR = posiciones * p + 0.20, dR = zR1 - zR0;
+    for (const lado of [-1, 1]) {
+      if (lado > 0 && !rielFrente) continue;
+      const zc = lado * (zR0 + dR / 2);
+      // «+» es la hilera exterior (raya roja al borde) y «−» la interior (azul).
+      const zMas = lado * 0.70 * p, zMenos = -lado * 0.70 * p;
+      const hu = [];
+      for (let i = 0; i < nRiel; i++) { hu.push([xRiel(i), zMas], [xRiel(i), zMenos]); }
+      const rayas = [{ z: zMas + lado * 0.36 * p, col: '#c0392b' },
+                     { z: zMenos - lado * 0.36 * p, col: '#2c63b5' }];
+      const b = bloque(wR, dR, hu, null, rayas);
+      b.position.set(0, (base + alto) / 2, zc);
+      g.add(b);
+      const nom = lado > 0 ? 'frente' : 'tras';
+      for (let i = 0; i < nRiel; i++) {
+        rielPos[nom]['+' + i] = _V(xRiel(i), alto, zc + zMas);
+        rielPos[nom]['-' + i] = _V(xRiel(i), alto, zc + zMenos);
+      }
+    }
+  }
+
+  // j…f atrás (z<0), e…a delante (z>0); el canal queda entre f y e.
+  const hoyo = (col, fila) => {
+    const f = 'abcdefghij'.indexOf(String(fila).toLowerCase());
+    return _V(xCol(col), alto, f < 5 ? (5.5 - f) * p : -(f - 3.5) * p);
+  };
+  g.userData = { ancho, fondo, alto, paso: p, cols, hoyo, xCol, zMin, zMax, nRiel,
+    riel: (signo, lado, k) => rielPos[lado][signo + k].clone() };
+  return g;
+}
+
+/**
+ * CÓDIGO DE COLORES de un resistor: de un valor en ohmios a la lista de
+ * colores de sus bandas, en el orden en que se leen. Con tolerancia del 5 % o
+ * del 10 % son cuatro bandas (dos cifras, multiplicador, tolerancia); con el
+ * 1 % o el 2 %, cinco (tres cifras). Un valor por debajo de 10 Ω usa el
+ * multiplicador dorado (×0,1) o plateado (×0,01).
+ */
+export function codigoColores(ohm, tol = 5) {
+  const CIF = ['#141414', '#6b3a1a', '#c0281e', '#e0711a', '#e8c81a',
+               '#2e9a3c', '#2a62c8', '#8a46c8', '#8a8a8a', '#ececec'];
+  const ORO = '#c9a227', PLATA = '#b8bcc4';
+  const n = tol <= 2 ? 3 : 2;
+  const v = Math.max(ohm, 0.01);
+  let e = Math.floor(Math.log10(v));
+  let m = Math.round(v / Math.pow(10, e - (n - 1)));
+  if (m >= Math.pow(10, n)) { m = Math.round(m / 10); e += 1; }
+  const mult = e - (n - 1);
+  const cols = String(m).padStart(n, '0').split('').map((d) => CIF[+d]);
+  cols.push(mult === -1 ? ORO : mult <= -2 ? PLATA : CIF[Math.min(9, Math.max(0, mult))]);
+  cols.push(tol <= 1 ? CIF[1] : tol <= 2 ? CIF[2] : tol <= 5 ? ORO : PLATA);
+  return cols;
+}
+
+/**
+ * RESISTOR axial de 1/4 W con el código de colores de SU VALOR: el dibujo dice
+ * lo mismo que el panel. `ponValor(ohm)` repinta las bandas sin rehacer nada,
+ * que es lo que hace falta cuando el alumno cambia la resistencia con un botón.
+ * Sus patas separan 0,4 (cuatro agujeros) salvo que se pida otro `paso`.
+ */
+export function resistorAxial(mat, opts = {}) {
+  const { ohm = 1000, tol = 5, largo = 0.25, d = 0.095, paso = 0.4, patas = 0.08 } = opts;
+  const metalFilm = tol <= 2;
+  const g = resistencia(mat, { largo, d, paso, patas, bandas: codigoColores(ohm, tol),
+    cuerpo: metalFilm ? 0x6f9bc4 : 0xcdb687 });
+  g.userData.ponValor = (nuevo) => {
+    const cs = codigoColores(nuevo, tol);
+    g.userData.bandas.forEach((b, i) => b.material.color.set(cs[i]));
+    g.userData.ohm = nuevo;
+  };
+  g.userData.ohm = ohm; g.userData.tol = tol;
+  g.userData.puntas = [_V(-paso / 2, 0, 0), _V(paso / 2, 0, 0)];
+  return g;
+}
+
+/** Cuerpo axial común a los diodos DO-41 (epoxi) y DO-35 (vidrio): tumbado en
+ *  +X, con la banda del CÁTODO en `catodo` (+1 = hacia +X) y las patas dobladas
+ *  que bajan a dos agujeros separados `paso`. */
+function _diodoAxialReal(mat, o) {
+  const { largo, d, cuerpo, banda, bandaAncho, rotulo, tinta, vidrio, paso, patas,
+          catodo, rPata } = o;
+  const g = new THREE.Group();
+  const R = d / 2, L = largo, yb = R + 0.028;
+  const met = _metal15(mat);
+  const matC = vidrio
+    ? new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.18, metalness: 0.0,
+        transparent: true, opacity: 0.72, emissive: cuerpo, emissiveIntensity: 0.12 })
+    : new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.52, metalness: 0.08 });
+  const cue = new THREE.Mesh(revolucion([
+    [0, -L / 2], [R * 0.80, -L / 2], [R, -L / 2 + R * 0.20], [R, L / 2 - R * 0.20],
+    [R * 0.80, L / 2], [0, L / 2]], { seg: 20 }), matC);
+  cue.rotation.z = -Math.PI / 2; cue.position.y = yb; cue.castShadow = true; g.add(cue);
+  const bd = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.012, R * 1.012, L * bandaAncho, 20),
+    new THREE.MeshStandardMaterial({ color: banda, roughness: 0.5, metalness: banda === 0xc9ced4 ? 0.5 : 0.04 }));
+  bd.rotation.z = Math.PI / 2; bd.position.set(catodo * (L / 2 - L * bandaAncho / 2 - R * 0.05), yb, 0);
+  g.add(bd);
+  if (vidrio) {
+    // Por dentro del vidrio se ve lo que hay: dos tapones de dumet y la pastilla.
+    for (const sx of [-1, 1]) {
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.62, R * 0.62, L * 0.30, 14), met);
+      t.rotation.z = Math.PI / 2; t.position.set(sx * L * 0.30, yb, 0); g.add(t);
+    }
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(L * 0.10, R * 0.55, R * 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x0f1216, roughness: 0.5 }));
+    pa.position.set(0, yb, 0); g.add(pa);
+  }
+  if (rotulo) {
+    const tx = _etiqueta(256, 64, (c, w, h) => {
+      c.fillStyle = tinta; c.font = 'bold 40px sans-serif'; c.textAlign = 'center';
+      c.textBaseline = 'middle'; c.fillText(rotulo, w / 2, h / 2 + 2);
+    });
+    const t = _tinta(tx, L * (0.62 - bandaAncho * 0.5), d * 0.62);
+    t.position.set(-catodo * L * 0.08, yb, R * 1.012); g.add(t);
+  }
+  const P = paso / 2;
+  for (const sx of [-1, 1]) {
+    g.add(_hilo([_V(sx * L * 0.49, yb, 0), _V(sx * (P - R * 0.9), yb, 0),
+      _V(sx * P, yb - R * 1.1, 0), _V(sx * P, -patas, 0)], rPata, met));
+  }
+  g.userData = { largo: L, d, paso, catodo, cuerpo: cue, banda: bd, alturaEje: yb,
+    puntas: [_V(-P, 0, 0), _V(P, 0, 0)] };
+  return g;
+}
+
+/**
+ * DIODO de encapsulado DO-41, el de un 1N4007 o un 1N5819: cuerpo de epoxi
+ * negro, BANDA PLATEADA en el cátodo y el código impreso a lo largo. La banda
+ * es el dato: dice hacia dónde conduce, y montarlo al revés es la avería más
+ * repetida de un montaje de prácticas.
+ */
+export function diodoRectificador(mat, opts = {}) {
+  const { rotulo = '1N4007', cuerpo = 0x1b1e22, banda = 0xc9ced4, paso = 0.4,
+          patas = 0.08, catodo = 1 } = opts;
+  return _diodoAxialReal(mat, { largo: 0.20, d: 0.106, cuerpo, banda, bandaAncho: 0.16,
+    rotulo, tinta: '#cfd5db', vidrio: false, paso, patas, catodo, rPata: 0.016 });
+}
+
+/**
+ * DIODO de VIDRIO DO-35, el de un 1N4148 o un zener de 500 mW: cuerpo
+ * translúcido —por dentro se ven la pastilla y los dos tapones de dumet— y la
+ * banda NEGRA del cátodo. Es la pieza más pequeña de un montaje y la más
+ * fácil de montar al revés.
+ */
+export function diodoVidrio(mat, opts = {}) {
+  const { rotulo = null, cuerpo = 0xd9822b, banda = 0x101215, paso = 0.4,
+          patas = 0.08, catodo = 1 } = opts;
+  return _diodoAxialReal(mat, { largo: 0.135, d: 0.071, cuerpo, banda, bandaAncho: 0.17,
+    rotulo, tinta: '#1b1b1b', vidrio: true, paso, patas, catodo, rPata: 0.011 });
+}
+
+/**
+ * TRANSISTOR TO-92 con su CARA PLANA ROTULADA. El cuerpo es un cilindro
+ * truncado y la cara plana lleva el tipo impreso —«BC547B», «2N3904»—: es lo
+ * que dice qué es y, con la hoja de datos delante, cuál es cada pata. Las tres
+ * van en línea, a un paso de distancia, y el origen es la pata central.
+ * `userData.patas` da, en orden, el punto de cada pata en la cara de la placa.
+ */
+export function to92Rotulado(mat, opts = {}) {
+  const { d = 0.20, alto = 0.20, patas = 0.12, paso = _PASO, rotulo = 'BC547',
+          cuerpo = 0x1e2329, levanta = 0.07, pines = ['C', 'B', 'E'] } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, yf = 0.60 * R, bis = R * 0.26;
+  /* `extruido` ENGROSA el contorno con el bisel, así que se dibuja más chico en
+     lo que va a engordar: la caja final mide justo `d`. */
+  const Rc = R - bis, yc = yf - bis, a0 = Math.atan2(-yc, Math.sqrt(Rc * Rc - yc * yc));
+  const cont = [];
+  for (let k = 0; k <= 26; k++) {
+    const a = a0 + (Math.PI - 2 * a0) * (k / 26);
+    cont.push([Math.cos(a) * Rc, Math.sin(a) * Rc]);
+  }
+  // El contorno vive en XY y se tumba: su y pasa a ser −z, así que la cara plana
+  // (y = −yf) queda mirando a +Z, hacia la cámara.
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.60, metalness: 0.04 });
+  const cue = new THREE.Mesh(extruido(cont, { espesor: alto, bisel: bis, biselSeg: 3 }), matC);
+  cue.rotation.x = -Math.PI / 2; cue.position.y = levanta + alto / 2; cue.castShadow = true; g.add(cue);
+  const tx = _etiqueta(256, 128, (c, w, h) => {
+    c.fillStyle = '#d4d9de'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 44px sans-serif'; c.fillText(rotulo, w / 2, h * 0.38);
+    c.font = '30px sans-serif'; c.fillText('CEN', w / 2, h * 0.76);
+  });
+  const t = _tinta(tx, R * 1.10, R * 1.10 * 0.5);
+  t.position.set(0, levanta + alto * 0.52, yf + 0.0015); g.add(t);
+  const met = _metal15(mat);
+  const pts = [];
+  for (let i = -1; i <= 1; i++) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, patas + levanta + 0.02, 8), met);
+    l.position.set(i * paso, (levanta + 0.02 - patas) / 2, yf * 0.45); g.add(l);
+    pts.push(_V(i * paso, 0, yf * 0.45));
+  }
+  g.userData = { d, alto, cuerpo: cue, patas: pts, pines, alturaTotal: levanta + alto, rotulo: t };
+  return g;
+}
+
+/**
+ * TRANSISTOR TO-220 con ALETA y RÓTULO: cuerpo de plástico negro con el tipo
+ * impreso, la aleta metálica por detrás con su AGUJERO para el tornillo y las
+ * tres patas planas en línea. La aleta no es adorno: en un MOSFET o un
+ * regulador está conectada eléctricamente a una pata —el drenador, aquí—, y
+ * por eso a veces hace falta una mica aislante al atornillarla a un disipador.
+ * El origen es la pata central, en la cara de la placa.
+ */
+export function to220Rotulado(mat, opts = {}) {
+  const { ancho = 0.40, alto = 0.36, grueso = 0.17, aletaAlto = 0.25, patas = 0.34,
+          paso = _PASO, rotulo = 'IRF540N', rotulo2 = 'G  D  S', levanta = 0.16,
+          cuerpo = 0x191c20, tumbado = false } = opts;
+  const g = new THREE.Group();
+  const met = _metal15(mat);
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.62, metalness: 0.04 });
+  const y0 = levanta, pa = tumbado ? 0.02 : patas;
+  const pla = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, 0], [ancho / 2, 0], [ancho / 2, alto], [-ancho / 2, alto]], ancho * 0.04, 3),
+    { espesor: grueso, bisel: grueso * 0.10 }), matC);
+  pla.position.set(0, y0, 0); pla.castShadow = true; g.add(pla);
+  const e = 0.045;                                  // espesor de la aleta
+  const ale = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, alto * 0.30], [ancho / 2, alto * 0.30], [ancho / 2, alto + aletaAlto],
+     [-ancho / 2, alto + aletaAlto]], [0, 0, ancho * 0.12, ancho * 0.12], 4),
+    { huecos: [circulo(0, alto + aletaAlto * 0.56, ancho * 0.145, 18)],
+      espesor: e, bisel: e * 0.15 }), met);
+  ale.position.set(0, y0, -grueso / 2 + e / 2); ale.castShadow = true; g.add(ale);
+  const tx = _etiqueta(512, 192, (c, w, h) => {
+    c.fillStyle = '#d4d9de'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 84px sans-serif'; c.fillText(rotulo, w / 2, h * 0.30);
+    c.font = '46px sans-serif'; c.fillText('CEN LABS', w / 2, h * 0.64);
+    c.font = '34px monospace'; c.fillStyle = '#9aa3ab'; c.fillText(rotulo2, w / 2, h * 0.88);
+  });
+  const t = _tinta(tx, ancho * 0.84, ancho * 0.84 * 192 / 512);
+  t.position.set(0, y0 + alto * 0.52, grueso / 2 + 0.0015); g.add(t);
+  const pts = [];
+  for (let i = -1; i <= 1; i++) {
+    const hombro = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.08, 0.022), met);
+    hombro.position.set(i * paso, y0 - 0.04, 0.012); g.add(hombro);
+    const Ll = pa + y0 - 0.08;
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.030, Ll, 0.020), met);
+    l.position.set(i * paso, (y0 - 0.08 - pa) / 2, 0.012); g.add(l);
+    pts.push(_V(i * paso, 0, 0.012));
+  }
+  g.userData = { ancho, alto, cuerpo: pla, aleta: ale, patas: pts, rotulo: t,
+    alturaTotal: y0 + alto + aletaAlto };
+  if (!tumbado) return g;
+  /* TUMBADO: así se monta en un protoboard un TO-220 que no va a un disipador,
+     con las patas dobladas noventa grados. Queda a ras de la placa, con el
+     rótulo hacia arriba y la aleta hacia el fondo; tapa mucho menos y se lee
+     igual. Se gira el cuerpo entero un cuarto de vuelta sobre X —su cara
+     delantera pasa a mirar arriba y su «arriba» al fondo— y cada pata baja al
+     agujero con un tramo vertical. El cuerpo queda DETRÁS del agujero. */
+  const w = new THREE.Group();
+  g.rotation.x = -Math.PI / 2; g.position.y = grueso / 2 + 0.02; w.add(g);
+  for (let i = -1; i <= 1; i++) {
+    const v = new THREE.Mesh(new THREE.BoxGeometry(0.030, grueso + 0.14, 0.020), met);
+    v.position.set(i * paso, (grueso + 0.14) / 2 - 0.14 + 0.02, 0); w.add(v);
+  }
+  w.userData = Object.assign({}, g.userData, { tumbado: true,
+    largoAtras: y0 + alto + aletaAlto, rotuloPlano: t });
+  return w;
+}
+
+/**
+ * CONDENSADOR ELECTROLÍTICO radial con su FUNDA impresa: manga de color con el
+ * valor y la tensión escritos en vertical, la FRANJA DEL NEGATIVO con sus
+ * signos «−», la tapa de aluminio con la entalla de alivio y el asiento de
+ * goma. La pata larga es el positivo. Montado al revés se hincha y revienta por
+ * la entalla, que es la razón de que la franja esté a la vista.
+ * El origen es el centro entre las dos patas; el negativo queda en −X.
+ */
+export function electrolitico(mat, opts = {}) {
+  const { d = 0.25, alto = 0.43, paso = _PASO, valor = '100µF', volt = '25V',
+          manga = 0x1b3358, patas = 0.30 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, sh = 0.03;
+  const al = new THREE.MeshStandardMaterial({ color: 0xb7bcc2, roughness: 0.34, metalness: 0.85 });
+  const lata = new THREE.Mesh(revolucion([
+    [0, sh], [R * 0.96, sh], [R * 0.96, alto - R * 0.34], [R * 0.90, alto - R * 0.26],
+    [R * 0.90, alto - R * 0.10], [R * 0.96, alto - R * 0.04], [R * 0.96, alto], [0, alto]],
+    { seg: 28 }), al);
+  lata.castShadow = true; g.add(lata);
+  const asi = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.97, R * 0.97, sh, 28),
+    mat.goma || new THREE.MeshStandardMaterial({ color: 0x14181e, roughness: 0.85 }));
+  asi.position.y = sh / 2; g.add(asi);
+  const tinta = new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.8 });
+  for (const a of [0, Math.PI / 2]) {                 // la entalla de alivio de la tapa
+    const en = new THREE.Mesh(new THREE.BoxGeometry(R * 1.30, R * 0.04, R * 0.07), tinta);
+    en.position.y = alto + R * 0.004; en.rotation.y = a; g.add(en);
+  }
+  const hexM = '#' + manga.toString(16).padStart(6, '0');
+  const tx = _etiqueta(1024, 512, (c, w, h) => {
+    c.fillStyle = hexM; c.fillRect(0, 0, w, h);
+    // la franja del negativo, centrada en u = 0,25 (−X), con sus signos
+    const x0 = w * 0.25 - w * 0.075, wf = w * 0.15;
+    c.fillStyle = '#dfe6ee'; c.fillRect(x0, 0, wf, h);
+    c.fillStyle = '#23324a'; c.font = 'bold 120px sans-serif'; c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    for (let k = 0; k < 4; k++) c.fillText('−', x0 + wf / 2, h * (0.14 + 0.24 * k));
+    // el texto, en vertical y de abajo arriba, en la cara que mira a +Z (u = 0,5)
+    // El texto va por DOS lados (delante y detrás, partido por la costura): el
+    // condensador se monta con el negativo a un lado u otro según el circuito.
+    for (const cxm of [w * 0.50, 0, w]) {
+      c.save(); c.translate(cxm, h * 0.5); c.rotate(-Math.PI / 2);
+      c.fillStyle = '#e6edf4'; c.font = 'bold 118px sans-serif'; c.textAlign = 'center';
+      c.fillText((valor + ' ' + volt).trim(), 0, -40);
+      c.font = '70px sans-serif'; c.fillStyle = '#b9c7d8'; c.fillText('105°C  CEN', 0, 70); c.restore();
+    }
+  });
+  const man = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.012, R * 1.012, alto - sh - R * 0.30, 32, 1,
+    true, -Math.PI, Math.PI * 2),
+    new THREE.MeshStandardMaterial({ map: tx, roughness: 0.46, metalness: 0.10, side: THREE.FrontSide }));
+  man.position.y = sh + (alto - sh - R * 0.30) / 2; man.castShadow = true; g.add(man);
+  const met = _metal15(mat);
+  const largo = [patas + 0.07, patas];                // [+, −]: la larga es el positivo
+  [[1, largo[0]], [-1, largo[1]]].forEach(([s, lg]) => {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, lg + sh, 8), met);
+    l.position.set(s * paso / 2, (sh - lg) / 2, 0); g.add(l);
+  });
+  g.userData = { d, alto, paso, cuerpo: lata, manga: man,
+    mas: _V(paso / 2, 0, 0), menos: _V(-paso / 2, 0, 0) };
+  return g;
+}
+
+/**
+ * LED de 5 mm con lo que se ve por dentro: el yunque donde apoya la pastilla
+ * en la pata del CÁTODO, el poste con su hilo en la del ánodo, la brida con su
+ * CHAFLÁN plano en el lado del cátodo y las patas de DISTINTO LARGO —la larga
+ * es el ánodo—. Cuatro marcas que dicen lo mismo: cuál es el negativo.
+ * Origen en el centro entre las patas; el cátodo queda en −X.
+ * `enciende(v)` va de 0 a 1 y sólo toca el emisivo: sin halos pegados.
+ */
+export function led5mm(mat, opts = {}) {
+  const { color = 0xd2342b, paso = _PASO, levanta = 0.10, patas = 0.34, encendido = 0 } = opts;
+  const g = new THREE.Group();
+  const d = 0.197, R = d / 2;
+  const matL = new THREE.MeshStandardMaterial({ color, roughness: 0.16, metalness: 0.0,
+    transparent: true, opacity: 0.74, emissive: color, emissiveIntensity: 0.06 + 0.5 * encendido });
+  const cup = [[0, 0], [R, 0], [R, 0.17]];
+  for (let k = 1; k <= 10; k++) {
+    const a = (k / 10) * Math.PI / 2;
+    cup.push([R * Math.cos(a), 0.17 + 0.165 * Math.sin(a)]);
+  }
+  const epox = new THREE.Mesh(revolucion(cup, { seg: 28 }), matL);
+  epox.position.y = levanta + 0.04; epox.castShadow = true; g.add(epox);
+  const Rf = R * 1.18, a = Math.acos(-0.86), br = [];
+  for (let k = 0; k <= 24; k++) {
+    const t = -a + 2 * a * (k / 24);
+    br.push([Math.cos(t) * Rf, Math.sin(t) * Rf]);
+  }
+  const bri = new THREE.Mesh(extruido(br, { espesor: 0.04, bisel: 0.006 }), matL);
+  bri.rotation.x = -Math.PI / 2; bri.position.y = levanta + 0.02; g.add(bri);
+  const met = _metal15(mat);
+  // por dentro: el yunque (copa) sobre la pata corta y el poste de la larga
+  const copa = new THREE.Mesh(revolucion([[0, 0], [0.026, 0], [0.050, 0.042], [0.040, 0.042],
+    [0.0, 0.016]], { seg: 14 }), met);
+  copa.position.set(-paso / 2, levanta + 0.17, 0); g.add(copa);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.19, 8), met);
+  post.position.set(paso / 2, levanta + 0.04 + 0.095, 0); g.add(post);
+  const hilo = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, paso * 1.0, 6), met);
+  hilo.rotation.z = Math.PI / 2; hilo.position.set(0, levanta + 0.215, 0); g.add(hilo);
+  const pie = [patas + 0.08, patas - 0.04];           // [ánodo, cátodo]: la larga es el ánodo
+  [[1, pie[0], 0.0125], [-1, pie[1], 0.0125]].forEach(([s, lg, r]) => {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(r, r, lg + levanta, 8), met);
+    l.position.set(s * paso / 2, (levanta - lg) / 2, 0); g.add(l);
+  });
+  g.userData = { d, cuerpo: epox, material: matL,
+    anodo: _V(paso / 2, 0, 0), catodo: _V(-paso / 2, 0, 0),
+    enciende: (v) => { matL.emissiveIntensity = 0.06 + 0.5 * Math.max(0, Math.min(1, v)); } };
+  return g;
+}
+
+/**
+ * DIODO SMD en su PLACA ADAPTADORA, que es como llega un SMA o un SMB —el del
+ * TVS, el del Schottky de potencia— a un protoboard: no tiene patas, así que se
+ * suelda a una plaquita de cobre que sí las tiene. El cuerpo lleva la banda del
+ * cátodo, las dos pistas con sus almohadillas y las espigas de 2,54 mm.
+ * El origen es el centro entre las espigas, que separan `paso`.
+ */
+export function diodoSMD(mat, opts = {}) {
+  const { rotulo = 'SMAJ5.0A', paso = 0.4, catodo = 1, placa = 0x1f7a49, banda = 0xc9ced4 } = opts;
+  const g = new THREE.Group();
+  const met = _metal15(mat);
+  const W = paso + 0.20, D = 0.22, esp = 0.04, y0 = 0.10;
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(W, esp, D),
+    new THREE.MeshStandardMaterial({ color: placa, roughness: 0.55, metalness: 0.05 }));
+  pcb.position.y = y0 + esp / 2; pcb.castShadow = true; g.add(pcb);
+  const oro = new THREE.MeshStandardMaterial({ color: 0xd8b04c, roughness: 0.35, metalness: 0.85 });
+  for (const s of [-1, 1]) {
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.004, 0.14), oro);
+    pad.position.set(s * 0.115, y0 + esp + 0.002, 0); g.add(pad);
+    const pista = new THREE.Mesh(new THREE.BoxGeometry(paso / 2 - 0.115 + 0.01, 0.004, 0.05), oro);
+    pista.position.set(s * (0.115 + 0.085 + (paso / 2 - 0.115 - 0.085) / 2), y0 + esp + 0.002, 0);
+    g.add(pista);
+    const esp1 = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, y0 + esp + 0.10 + 0.08, 6), met);
+    esp1.position.set(s * paso / 2, (-0.10 - 0.08 + (y0 + esp)) / 2 + 0.0, 0); g.add(esp1);
+  }
+  const zy = y0 + esp + 0.004;
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-0.085, -0.05], [0.085, -0.05], [0.085, 0.05], [-0.085, 0.05]], 0.012, 2),
+    { espesor: 0.085, bisel: 0.010 }), new THREE.MeshStandardMaterial({ color: 0x1b1e22, roughness: 0.55 }));
+  cue.rotation.x = -Math.PI / 2; cue.position.set(0, zy + 0.0425, 0); cue.castShadow = true; g.add(cue);
+  const bd = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.087, 0.101),
+    new THREE.MeshStandardMaterial({ color: banda, roughness: 0.4, metalness: 0.5 }));
+  bd.position.set(catodo * 0.062, zy + 0.0435, 0); g.add(bd);
+  const tx = _etiqueta(256, 64, (c, w, h) => {
+    c.fillStyle = '#e7ecf1'; c.font = 'bold 38px sans-serif'; c.textAlign = 'center';
+    c.textBaseline = 'middle'; c.fillText(rotulo, w / 2, h / 2);
+  });
+  const tt = _tinta(tx, 0.20, 0.20 * 0.25);
+  tt.rotation.x = -Math.PI / 2; tt.position.set(0, y0 + esp + 0.09, 0); tt.visible = true;
+  g.add(tt); tt.position.y = zy + 0.0865;
+  g.userData = { paso, catodo, cuerpo: cue, banda: bd, puntas: [_V(-paso / 2, 0, 0), _V(paso / 2, 0, 0)] };
+  return g;
+}
+
+/**
+ * PUENTE (jumper) de protoboard: hilo rígido con su aislante de color, que sale
+ * recto del agujero, hace un arco y baja al otro. `A` y `B` son los puntos de la
+ * cara de la placa —los que da `hoyo()` o `riel()`—. Con `pinA` o `pinB` en
+ * falso, ese extremo no lleva espiga y queda libre: sirve para cables que
+ * llegan de un instrumento, con `r` mayor. `minAlto` fuerza un arco mínimo: un
+ * puente corto que cruza el canal por encima de un TO-92 tiene que subir más
+ * que el transistor, y la fórmula por defecto lo dejaría pegado a la placa.
+ */
+export function puente(mat, A, B, opts = {}) {
+  const { color = 0xd64545, r = 0.022, alto = 0.30, pinA = true, pinB = true, sale = 0.08,
+          minAlto = 0 } = opts;
+  const g = new THREE.Group();
+  const met = _metal15(mat);
+  const dist = A.distanceTo(B);
+  const h = Math.max(minAlto, Math.min(alto, 0.05 + dist * 0.10));
+  const pts = [];
+  pts.push(A.clone().add(_V(0, sale, 0)));
+  const f = (t, k) => A.clone().lerp(B, t).add(_V(0, sale + k * h, 0));
+  pts.push(f(0.18, 0.85), f(0.5, 1.0), f(0.82, 0.85));
+  pts.push(B.clone().add(_V(0, sale, 0)));
+  const curva = new THREE.CatmullRomCurve3(pts);
+  const tubo = new THREE.Mesh(new THREE.TubeGeometry(curva, 36, r, 8, false),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.50, metalness: 0.04 }));
+  tubo.castShadow = true; g.add(tubo);
+  [[A, pinA], [B, pinB]].forEach(([P, hay]) => {
+    if (!hay) return;
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, sale + 0.09, 8), met);
+    pin.position.set(P.x, P.y + (sale - 0.09) / 2 - 0.0, P.z); g.add(pin);
+    const tapa = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.0, r * 1.0, 0.02, 8),
+      tubo.material);
+    tapa.position.set(P.x, P.y + sale, P.z); g.add(tapa);
+  });
+  g.userData = { tubo };
+  return g;
+}
+
+/**
+ * INSTRUMENTO DE BANCO CON PANTALLA PROPIA: una fuente o un medidor con su
+ * visor rebajado, sus mandos y sus BORNAS de 4 mm en la parte baja del frente.
+ * Devuelve el canvas listo para pintar (`cv`, `cx`, `tex`) y los puntos donde
+ * enchufa cada cable (`bocas`, en coordenadas del propio instrumento), que es
+ * lo que hace que el cable nazca de una borna y no de un costado cualquiera.
+ * El grupo se apoya en el banco con `userData.apoyo`: es la altura a la que hay
+ * que poner su origen para que las patas de goma toquen la mesa.
+ */
+export function instrumentoConPantalla(mat, opts = {}) {
+  const { ancho = 0.9, alto = 0.5, fondo = 0.36, mandos = 2, cw = 400,
+          bornas = [0xd64545, 0x14181e], color = 0x8b9490,
+          visor = 0.70, visorAlto = 0.46 } = opts;
+  const g = instrumentoBanco(mat, { ancho, alto, fondo, mandos, bnc: 0, color, visor, visorAlto });
+  const vis = g.userData.visor;
+  const ch = Math.round(cw * vis.alto / vis.ancho);
+  const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+  const cx = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(vis.ancho * 0.98, vis.alto * 0.98),
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0x0a1512, emissiveMap: tex,
+      emissiveIntensity: 0.6, roughness: 0.4 }));
+  g.userData.pantalla.add(screen);
+  const bocas = [];
+  bornas.forEach((col, i) => {
+    const b = bornaBanana(mat, { d: ancho * 0.095, color: col });
+    b.rotation.x = Math.PI / 2;
+    b.position.set(-ancho * 0.40 + i * ancho * 0.14, -alto * 0.30, fondo / 2);
+    g.add(b);
+    bocas.push(b.position.clone().add(_V(0, 0, b.userData.boca.y)));
+  });
+  g.userData.apoyo = alto / 2 + alto * 0.0535;
+  Object.assign(g.userData, { cv, cx, tex, screen, bocas, ch });
+  return g;
+}
+
+/**
+ * BANCO DE PROTOTIPOS: la mesa, el estante con sus instrumentos y el
+ * protoboard, ya montados y a una escala (`K` unidades por pulgada) con la que
+ * el circuito llena el cuadro. Es lo que tienen en común los laboratorios de
+ * electrónica de semiconductores, y lo que cambia de uno a otro es sólo el
+ * circuito que se arma en `circ`.
+ *
+ * Los instrumentos van ELEVADOS en un estante, detrás del montaje: a esta
+ * escala el protoboard sube casi medio palmo y, en el suelo, se los comería.
+ *
+ *   H(col, fila)            punto de la cara del protoboard (coordenadas locales)
+ *   rielCerca(signo, col)   el agujero libre del riel trasero más cercano en X
+ *   instrumento(i)          { g, cv, cx, tex, screen, bocas } del i-ésimo
+ *   cable(i, j, agujero, color)  del conector j del instrumento i a un agujero
+ *   reiniciaRieles()        olvida qué agujeros de riel están ocupados
+ *   limpia()                vacía `circ` liberando geometrías y texturas
+ *
+ * Valores recomendados para el resto de la escena: cámara en (0, 4.3, 6.9)
+ * mirando a (0, 1.15, 0.5); el pizarrón, a escala 1, en (0, 2.3, −1.55).
+ */
+export function bancoPrototipos(mat, opts = {}) {
+  const { cols = 18, K = 1.7, color = 0x9a978a, instrumentos = 2, anchoInst = null,
+          bornas = null, dims = null } = opts;
+  const g = new THREE.Group();
+  const mMesa = mat.mesa || new THREE.MeshStandardMaterial({ color: 0x0e1512, roughness: 0.9, metalness: 0.05 });
+  const mEst = mat.estante || new THREE.MeshStandardMaterial({ color: 0x11201c, roughness: 0.6, metalness: 0.3 });
+  const mesa = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.10, 3.9), mMesa);
+  mesa.position.set(0, -0.05, 0.55); mesa.receiveShadow = true; g.add(mesa);
+  const EY = 0.60;
+  const est = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.06, 0.62), mEst);
+  est.position.set(0, EY - 0.03, -1.15); est.castShadow = est.receiveShadow = true; g.add(est);
+  for (const sx of [-1, 1]) {
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(0.06, EY - 0.06, 0.5), mEst);
+    pa.position.set(sx * 2.1, (EY - 0.06) / 2, -1.15); pa.castShadow = true; g.add(pa);
+  }
+  const prot = protoboard(mat, { cols, rieles: 'tras', color });
+  prot.scale.setScalar(K); prot.position.set(0, 0, 1.15); g.add(prot);
+  const circ = new THREE.Group(); prot.add(circ);
+  const H = prot.userData.hoyo;
+
+  const n = instrumentos;
+  const xs = n === 1 ? [0] : n === 2 ? [-1.45, 1.45] : n === 3 ? [-1.55, 0, 1.55]
+    : Array.from({ length: n }, (_, i) => -1.7 + i * 3.4 / (n - 1));
+  const ai = anchoInst || (n >= 3 ? 0.80 : 0.84);
+  const lista = xs.map((x, i) => {
+    const dm = (dims && dims[i]) || {};
+    const ins = instrumentoConPantalla(mat, { ancho: dm.ancho || ai, alto: dm.alto || 0.48,
+      fondo: dm.fondo || 0.36, mandos: 2, bornas: bornas ? bornas[i] : undefined,
+      visorAlto: dm.visorAlto || 0.46 });
+    ins.position.set(x, EY + ins.userData.apoyo, -1.15); g.add(ins);
+    return ins;
+  });
+  const usados = {};
+  const rielCerca = (signo, col) => {
+    const x = H(col, 'e').x; let mejor = -1, dm = 1e9;
+    for (let i = 0; i < prot.userData.nRiel; i++) {
+      if (usados[signo + i]) continue;
+      const d = Math.abs(prot.userData.riel(signo, 'tras', i).x - x);
+      if (d < dm) { dm = d; mejor = i; }
+    }
+    usados[signo + mejor] = 1;
+    return prot.userData.riel(signo, 'tras', mejor);
+  };
+  const aProt = (ins, j) => ins.userData.bocas[j].clone().add(ins.position)
+    .sub(prot.position).multiplyScalar(1 / K);
+  const cable = (i, j, agujero, col, extra = {}) => {
+    const w = puente(mat, agujero, aProt(lista[i], j),
+      Object.assign({ color: col, r: 0.026 / K, alto: 0.30, pinB: false }, extra));
+    prot.add(w); return w;
+  };
+  const instrumento = (i) => {
+    const u = lista[i].userData;
+    return { g: lista[i], cv: u.cv, cx: u.cx, tex: u.tex, screen: u.screen, bocas: u.bocas };
+  };
+  const limpia = () => {
+    while (circ.children.length) {
+      const v = circ.children[0]; circ.remove(v);
+      v.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); });
+    }
+  };
+  const reiniciaRieles = () => { for (const k in usados) delete usados[k]; };
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.userData = { prot, circ, K, H, rielCerca, instrumento, cable, limpia, reiniciaRieles,
+    cuenta: n, estanteY: EY };
+  return g;
+}
+
+/**
+ * CIRCUITO INTEGRADO DIP con RÓTULO y MUESCA, a paso de protoboard. Se monta a
+ * caballo del canal central: las patas de una fila caen en la fila «e» y las de
+ * la otra en la «f». Con la muesca a la izquierda, la pata 1 es la de la fila
+ * delantera, a la izquierda, y se numera en sentido antihorario visto desde
+ * arriba: delante 1…n/2 de izquierda a derecha, detrás n…n/2+1 de izquierda a
+ * derecha. `userData.pata(k)` da el punto de la pata k (1…pines) en la cara de
+ * la placa. El origen es el centro del cuerpo.
+ */
+export function dipRotulado(mat, opts = {}) {
+  const { pines = 8, rotulo = 'DRIVER', rotulo2 = 'CEN LABS', alto = 0.13, patas = 0.12 } = opts;
+  const p = _PASO, n = pines / 2;
+  const g = dip(mat, { pines, paso: p, ancho: 0.24, alto, patas, cuerpo: 0x181b1f });
+  const L = g.userData.largo;
+  const tx = _etiqueta(512, 192, (c, w, h) => {
+    c.fillStyle = '#cfd5db'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 76px sans-serif'; c.fillText(rotulo, w / 2, h * 0.36);
+    c.font = '40px sans-serif'; c.fillStyle = '#98a2ab'; c.fillText(rotulo2, w / 2, h * 0.74);
+  });
+  const t = _tinta(tx, L * 0.64, L * 0.64 * 192 / 512);
+  t.rotation.x = -Math.PI / 2; t.position.set(L * 0.04, alto + 0.007, 0); g.add(t);
+  const pata = (k) => {
+    const delante = k <= n, i = delante ? k - 1 : pines - k;
+    return _V(-((n - 1) / 2) * p + i * p, 0, delante ? 0.15 : -0.15);
+  };
+  g.userData.pata = pata; g.userData.n = n;
+  return g;
+}
+
+/**
+ * RESISTENCIA DE CEMENTO (de potencia): bloque cerámico blanco con el valor
+ * IMPRESO y las dos patas gruesas. Es la que va donde un 1/4 W se quemaría: de
+ * carga, de sensado de corriente, de descarga. Se distingue de la de capa
+ * porque no tiene bandas de color —el valor va escrito— y porque es del tamaño
+ * de un dedo meñique. `ponValor(ohm)` repinta el texto sin rehacer la pieza.
+ */
+export function resistenciaCemento(mat, opts = {}) {
+  const { largo = 0.46, alto = 0.22, ancho = 0.22, paso = 0.6, rotulo = '10 Ω',
+          cuerpo = 0xb9ae93, patas = 0.08 } = opts;
+  const g = new THREE.Group();
+  const bis = 0.025, yb = alto / 2 + 0.05;
+  const met = _metal15(mat);
+  const mC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.72, metalness: 0.02 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-largo / 2 + bis, -alto / 2 + bis], [largo / 2 - bis, -alto / 2 + bis],
+     [largo / 2 - bis, alto / 2 - bis], [-largo / 2 + bis, alto / 2 - bis]], 0.03, 3),
+    { espesor: ancho, bisel: bis }), mC);
+  cue.position.y = yb; cue.castShadow = true; g.add(cue);
+  const pinta = (txt) => (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#2b2a28'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 130px sans-serif'; c.fillText(txt, w / 2, h * 0.50);
+  };
+  const tx = _etiqueta(512, 256, pinta(rotulo));
+  const t = _tinta(tx, largo * 0.70, largo * 0.70 * 0.5);
+  t.position.set(0, yb, ancho / 2 + 0.0015); g.add(t);
+  const P = paso / 2;
+  for (const sx of [-1, 1]) {
+    g.add(_hilo([_V(sx * largo * 0.49, yb, 0), _V(sx * (P - 0.05), yb, 0),
+      _V(sx * P, yb - 0.08, 0), _V(sx * P, -patas, 0)], 0.019, met));
+  }
+  g.userData = { largo, alto, ancho, paso, cuerpo: cue, rotulo: t,
+    ponTexto: (txt) => { pinta(txt)(tx.image.getContext('2d'), tx.image.width, tx.image.height); tx.needsUpdate = true; },
+    puntas: [_V(-P, 0, 0), _V(P, 0, 0)] };
+  return g;
+}
+
+/**
+ * TRANSISTOR DE LATA METÁLICA (TO-18), el del 2N2222A original: una cápsula de
+ * metal con su BRIDA en la base, la UÑETA que marca el lado del emisor y el
+ * tipo grabado en la tapa. Es la prueba de que no todo transistor pequeño es un
+ * TO-92: la lata blinda, disipa mejor y se reconoce de lejos. Las tres patas
+ * van en línea, y el origen es la pata central. La uñeta queda en −X, del
+ * lado del emisor.
+ */
+export function to18Metal(mat, opts = {}) {
+  const { d = 0.21, alto = 0.19, patas = 0.14, paso = _PASO, rotulo = '2N2222A',
+          levanta = 0.08, lata = 0x9aa2aa } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, Rb = R * 1.14;
+  const mL = new THREE.MeshStandardMaterial({ color: lata, roughness: 0.30, metalness: 0.92 });
+  const cuerpo = new THREE.Mesh(revolucion([
+    [0, 0], [Rb, 0], [Rb, 0.016], [R, 0.016], [R, alto - R * 0.16], [R * 0.93, alto - R * 0.05],
+    [R * 0.80, alto], [0, alto]], { seg: 28 }), mL);
+  cuerpo.position.y = levanta; cuerpo.castShadow = true; g.add(cuerpo);
+  const una = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.045), mL);
+  una.position.set(-Rb - 0.02, levanta + 0.008, 0); g.add(una);
+  const tx = _etiqueta(256, 128, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#23272b'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 54px sans-serif'; c.fillText(rotulo, w / 2, h / 2);
+  });
+  const t = _tinta(tx, R * 1.4, R * 0.7);
+  t.rotation.x = -Math.PI / 2; t.position.set(0, levanta + alto + 0.0015, 0.0); g.add(t);
+  const met = _metal15(mat), pts = [];
+  for (let i = -1; i <= 1; i++) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, patas + levanta + 0.02, 8), met);
+    l.position.set(i * paso, (levanta + 0.02 - patas) / 2, 0); g.add(l);
+    pts.push(_V(i * paso, 0, 0));
+  }
+  g.userData = { d, alto, cuerpo, patas: pts, pines: ['E', 'B', 'C'], alturaTotal: levanta + alto };
+  return g;
+}
