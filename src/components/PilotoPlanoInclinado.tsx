@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, ShieldAlert, Calculator, Activity } from 'lucide-react';
+import { RotateCcw, ShieldAlert, Activity } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { dinamicaPlano, evaluarF2, LONGITUD_RAMPA, POS_INICIAL_RAMPA, G_TIERRA } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 
 const PlanoInclinado3DScene = dynamic(() => import('./simuladores/fis02/PlanoInclinado3DScene'), {
   ssr: false,
@@ -109,146 +109,87 @@ export default function PilotoPlanoInclinado({ onValidate }: { onValidate?: () =
   }, [veredicto, medicion, audio]);
 
   const bloqueado = corriendo;
+  // sentido del movimiento durante el ensayo: solo orienta la flecha de fricción (la escena no la dibuja en reposo)
+  const movimiento = corriendo ? dinamicaPlano({ angulo, empuje, masa, muS, muK }).estado : 'reposo';
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      <div className="absolute inset-0 z-0">
+    <LabLayout
+      escena={
         <PlanoInclinado3DScene
-          angulo={angulo} bloquePos={pos / LONGITUD_RAMPA} masa={masa}
-          isDeslizando={corriendo} fuerzaAplicada={empuje} status={corriendo ? 'IGNICIÓN' : 'EN REPOSO'}
+          angulo={angulo} bloquePos={pos / LONGITUD_RAMPA} masa={masa} cargaExtra={cargaExtra} muK={muK}
+          isDeslizando={corriendo} fuerzaAplicada={empuje} movimiento={movimiento}
         />
-      </div>
-
-      <AnimatePresence>
-        {alerta && (
-          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 backdrop-blur-md border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
-            <ShieldAlert size={18} />
-            <span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* DATOS + PREDICCIÓN */}
-      <div className="absolute top-6 left-6 z-30 w-[360px] max-w-[92vw] flex flex-col gap-4">
-        <div className="bg-[#0f172a]/85 backdrop-blur-2xl border border-sky-500/30 p-6 rounded-[2rem]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-sky-500/20 rounded-xl"><Calculator className="text-sky-400" size={20} /></div>
-            <div>
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] block">Segunda ley de Newton</span>
-              <h3 className="text-sm font-black uppercase tracking-widest text-sky-400">Plano inclinado con fricción</h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <DataBox label="Masa m" value={`${masa} kg`} />
-            <DataBox label="Ángulo θ" value={`${angulo}°`} />
-            <DataBox label="Fuerza F" value={`${empuje} N`} />
-            <DataBox label="μ estático" value={muS.toFixed(2)} />
-            <DataBox label="μ cinético" value={muK.toFixed(2)} />
-            <DataBox label="g" value={`${G_TIERRA} m/s²`} />
-          </div>
-          <p className="text-[10px] text-slate-400 mb-3 leading-relaxed">
-            F actúa paralela a la rampa (+ hacia arriba). Toma la aceleración como positiva hacia ARRIBA de la rampa.
+      }
+      esquina={
+        <div className="rounded-lg border border-white/10 bg-[#0f1a2b]/85 px-2.5 py-1.5 font-mono text-[11px] leading-tight text-slate-100 backdrop-blur">
+          <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300">Sensor de movimiento</div>
+          t {tel.t.toFixed(2)} s · v {tel.v.toFixed(2)} m/s · x {pos.toFixed(2)} m
+        </div>
+      }
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Masa m" valor={masa} unidad="kg" />
+          <Lectura etiqueta="Ángulo θ" valor={angulo} unidad="°" />
+          <Lectura etiqueta="Fuerza F" valor={empuje} unidad="N" acento />
+          <Lectura etiqueta="μ estático" valor={muS.toFixed(2)} />
+          <Lectura etiqueta="μ cinético" valor={muK.toFixed(2)} />
+          <Lectura etiqueta="g" valor={G_TIERRA} unidad="m/s²" />
+        </>
+      }
+      tituloPanel="Ensayo"
+      panelLateral={
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] leading-snug text-slate-300">
+            F actúa paralela a la rampa (+ hacia arriba). Toma la aceleración como positiva hacia ARRIBA de la rampa. En el diagrama de cuerpo libre: W peso, N normal, F aplicada y f fricción cinética (solo aparece mientras el bloque desliza).
           </p>
-          <div className="relative">
-            <input type="number" step="0.01" placeholder="0.00" value={prediccion} disabled={bloqueado}
-              onChange={(e) => setPrediccion(e.target.value)}
-              className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-5 text-white font-mono text-2xl focus:border-sky-500 outline-none disabled:opacity-50" />
-            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-sky-500 uppercase">a predicha · m/s²</span>
-          </div>
-        </div>
-
-        {/* RESULTADO DEL ENSAYO */}
-        {medicion && (
-          <div className={`backdrop-blur-xl border p-5 rounded-[2rem] ${veredicto?.ok ? 'bg-emerald-900/40 border-emerald-500/40' : 'bg-[#0f172a]/80 border-white/10'}`}>
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/60 flex items-center gap-2"><Activity size={12} /> Medición del ensayo</span>
-            {medicion.estado === 'reposo' ? (
-              <p className="text-xs text-amber-300 mt-2">El bloque quedó en reposo. Un ensayo sin movimiento no sirve para comprobar la aceleración.</p>
-            ) : (
-              <>
-                <p className="text-xs text-slate-200 mt-2">
-                  El bloque {medicion.estado === 'sube' ? 'subió' : 'bajó'} {medicion.s.toFixed(2)} m en {medicion.t.toFixed(2)} s
-                  (v final = {medicion.v.toFixed(2)} m/s).
+          <p className="text-[10px] text-slate-500">La rampa mide {LONGITUD_RAMPA} m (cinta con cifras cada 2,5 m); el bloque parte de {POS_INICIAL_RAMPA} m.</p>
+          {medicion && (
+            <div className={`rounded-lg border p-2.5 ${veredicto?.ok ? 'border-emerald-500/40 bg-emerald-900/30' : 'border-white/10 bg-white/[0.04]'}`}>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-300"><Activity size={11} /> Medición del ensayo</span>
+              {medicion.estado === 'reposo' ? (
+                <p className="mt-1 text-[11px] text-amber-300">El bloque quedó en reposo. Un ensayo sin movimiento no sirve para comprobar la aceleración.</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-slate-200">
+                  El bloque {medicion.estado === 'sube' ? 'subió' : 'bajó'} {medicion.s.toFixed(2)} m en {medicion.t.toFixed(2)} s (v final = {medicion.v.toFixed(2)} m/s).
                 </p>
-                <p className={`text-[11px] mt-2 font-bold ${veredicto?.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
+              )}
+            </div>
+          )}
+        </div>
+      }
+      controles={
+        <div className="flex flex-col gap-2">
+          <GrupoControles>
+            <label className="flex min-w-[150px] flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">a predicha (m/s²)</span>
+              <input type="number" step="0.01" placeholder="0.00" value={prediccion} disabled={bloqueado}
+                onChange={(e) => setPrediccion(e.target.value)}
+                className="h-8 w-full rounded-lg border border-white/15 bg-slate-950 px-2.5 font-mono text-[14px] text-white outline-none focus:border-[#219EBC] disabled:opacity-50" />
+            </label>
+            <Deslizador etiqueta="Ángulo θ" unidad="°" valor={angulo} min={0} max={60} paso={0.5} deshabilitado={bloqueado} onChange={(v) => setPlano2({ angulo: v })} />
+            <Deslizador etiqueta="Fuerza F" unidad="N" valor={empuje} min={-200} max={600} paso={1} deshabilitado={bloqueado} onChange={(v) => setPlano2({ empuje: v })} />
+            <BotonLab variante="secundario" deshabilitado={bloqueado} onClick={() => { setPlano2({ cargaExtra: (cargaExtra + 5) % 30 }); audio?.playPop(); }}>Carga extra +{cargaExtra} kg</BotonLab>
+            <BotonLab onClick={lanzar} deshabilitado={bloqueado}>Soltar bloque</BotonLab>
+            <BotonLab variante="secundario" onClick={reiniciar} title="Regresar el bloque al centro"><RotateCcw size={14} /> Reiniciar</BotonLab>
+          </GrupoControles>
+          {(alerta || medicion || (veredicto?.ok && !corriendo)) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {alerta && (
+                <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
+                  <ShieldAlert size={14} /> {alerta}
+                </div>
+              )}
+              {medicion && medicion.estado !== 'reposo' && !alerta && (
+                <div className={`rounded-lg border px-3 py-1 text-[12px] font-bold leading-snug ${veredicto?.ok ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300' : 'border-white/15 bg-white/[0.05] text-slate-200'}`}>
                   {veredicto?.ok ? 'Tu predicción coincide con la medición.' : veredicto?.mensaje}
-                </p>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* CRONÓMETRO / TELEMETRÍA */}
-      <div className="absolute top-6 right-6 z-30 bg-[#0f172a]/80 backdrop-blur-2xl border border-white/10 p-5 rounded-[2rem] w-56">
-        <span className="text-[9px] font-black text-sky-400 uppercase tracking-[0.3em]">Sensor de movimiento</span>
-        <div className="mt-3 space-y-2 font-mono">
-          <Fila label="t" valor={`${tel.t.toFixed(2)} s`} />
-          <Fila label="v" valor={`${tel.v.toFixed(2)} m/s`} />
-          <Fila label="posición" valor={`${pos.toFixed(2)} m`} />
+                </div>
+              )}
+              <AvisoReto visible={!!veredicto?.ok && !corriendo} onValidate={onValidate} className="!px-3 !py-1.5"
+                texto="Tu predicción coincide con la aceleración medida. Valida tu práctica." />
+            </div>
+          )}
         </div>
-        <p className="text-[9px] text-slate-500 mt-3">La rampa mide {LONGITUD_RAMPA} m; el bloque parte de {POS_INICIAL_RAMPA} m.</p>
-      </div>
-
-      {/* DOCK */}
-      <div className="absolute bottom-6 inset-x-0 z-40 flex justify-center pointer-events-none px-4">
-        <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-white/10 p-5 rounded-[2.5rem] flex flex-wrap items-center justify-center gap-6 pointer-events-auto">
-          <ControlSlider label="Ángulo θ" value={angulo} min={0} max={60} step={0.5} unit="°" disabled={bloqueado} onChange={(v) => setPlano2({ angulo: v })} />
-          <ControlSlider label="Fuerza aplicada F" value={empuje} min={-200} max={600} step={1} unit=" N" disabled={bloqueado} onChange={(v) => setPlano2({ empuje: v })} />
-          <div className="flex flex-col gap-1 items-center">
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Carga extra</span>
-            <button disabled={bloqueado} onClick={() => { setPlano2({ cargaExtra: (cargaExtra + 5) % 30 }); audio?.playPop(); }}
-              className="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[11px] font-black disabled:opacity-40">+{cargaExtra} kg</button>
-          </div>
-          <button onClick={lanzar} disabled={bloqueado}
-            className="h-14 px-10 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-black text-[11px] uppercase tracking-[0.3em] rounded-[2rem] active:scale-95 transition-all">
-            Soltar bloque
-          </button>
-          <button onClick={reiniciar} aria-label="Regresar el bloque al centro"
-            className="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[2rem] flex items-center justify-center text-white/60">
-            <RotateCcw size={22} />
-          </button>
-        </div>
-      </div>
-
-      <div className="absolute bottom-36 right-6 z-50">
-        <AvisoReto visible={!!veredicto?.ok && !corriendo} onValidate={onValidate}
-          texto="Tu predicción coincide con la aceleración medida. Valida tu práctica." />
-      </div>
-    </div>
-  );
-}
-
-function DataBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-[#020617]/80 p-2.5 rounded-xl border border-white/5">
-      <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.15em] block">{label}</span>
-      <span className="text-sm font-black text-white font-mono">{value}</span>
-    </div>
-  );
-}
-
-function Fila({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div className="flex justify-between text-xs">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-white font-black">{valor}</span>
-    </div>
-  );
-}
-
-function ControlSlider({ label, value, min, max, step, unit, disabled, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; unit: string; disabled?: boolean; onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2 min-w-[200px]">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
-        <span className="text-lg font-black text-white">{value}{unit}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-sky-500 disabled:opacity-40" />
-    </div>
+      }
+    />
   );
 }

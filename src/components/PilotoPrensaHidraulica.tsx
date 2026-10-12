@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Settings2, Gauge, ShieldAlert, Target, RotateCcw } from 'lucide-react';
+import { ShieldAlert, Target, RotateCcw } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
@@ -11,6 +10,7 @@ import {
   RANGO_R1, RANGO_R2, RANGO_F1, CARRERA_ENTRADA_CM,
 } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 
 const PrensaHidraulica3DScene = dynamic(() => import('./simuladores/fis05/PrensaHidraulica3DScene'), {
   ssr: false,
@@ -70,105 +70,65 @@ export default function PilotoPrensaHidraulica({ onValidate }: { onValidate?: ()
   const subio = !!ensayo && ensayo.f1 >= fuerzaMinima(ensayo.masaCarga, ensayo.r1, ensayo.r2);
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      <div className="absolute inset-0 z-0">
-        <PrensaHidraulica3DScene y1={y1} y2={y2} r1={r1} r2={r2} />
-      </div>
-
-      <AnimatePresence>
-        {alerta && (
-          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
-            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MANÓMETRO Y RESULTADO */}
-      <div className="absolute top-6 left-6 z-30 w-[290px] max-w-[44%] flex flex-col gap-4">
-        <div className="bg-[#0f172a]/85 backdrop-blur-2xl border border-sky-500/30 p-6 rounded-[2rem]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-sky-500/20 rounded-xl"><Gauge className="text-sky-400" size={20} /></div>
-            <span className="text-[11px] font-black text-sky-300 uppercase tracking-[0.2em]">Manómetro</span>
-          </div>
-          <div className="flex justify-between items-end">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Presión con F₁ aplicada</span>
-            <span className="text-3xl font-black font-mono">{(presion / 1000).toFixed(1)} <span className="text-xs text-slate-400">kPa</span></span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
-            <Dato label="Carrera émbolo 1" valor={`${carrera.toFixed(1)} cm`} />
-            <Dato label="Subida de la carga" valor={`${d2.toFixed(2)} cm`} />
-          </div>
+    <LabLayout
+      escena={<PrensaHidraulica3DScene y1={y1} y2={y2} r1={r1} r2={r2} masaCarga={masaCarga} f1={f1} />}
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Carga" valor={masaCarga} unidad="kg" acento />
+          <Lectura etiqueta="Presión F₁/A₁" valor={(presion / 1000).toFixed(1)} unidad="kPa" />
+          <Lectura etiqueta="Carrera émbolo 1" valor={carrera.toFixed(1)} unidad="cm" />
+          <Lectura etiqueta="Subida de la carga" valor={d2.toFixed(2)} unidad="cm" />
+          <Lectura etiqueta="g" valor={G_TIERRA} unidad="m/s²" />
+        </>
+      }
+      tituloPanel="Último ensayo"
+      panelLateral={
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] leading-snug text-slate-300">
+            Las dos reglas laterales miden el nivel del aceite con la misma escala (en cm): compara lo que baja el émbolo de entrada con lo que sube el de salida. El manómetro marca F₁/A₁.
+          </p>
+          {ensayo ? (
+            <div className={`rounded-lg border p-2.5 ${veredicto?.ok ? 'border-emerald-500/40 bg-emerald-900/30' : 'border-white/10 bg-white/[0.04]'}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Último ensayo</span>
+              <p className="mt-1 text-[11px] text-slate-200">
+                F₁ = {ensayo.f1} N → {subio ? 'la carga subió' : 'la carga NO subió'}. Predicción: {ensayo.prediccion} N.
+              </p>
+              {subio && <p className={`mt-1 text-[11px] font-bold ${veredicto?.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{veredicto?.ok ? 'Tu predicción de la fuerza mínima es correcta.' : veredicto?.mensaje}</p>}
+            </div>
+          ) : <p className="text-[11px] italic text-slate-500">Aún no hay ensayos.</p>}
         </div>
-        {ensayo && (
-          <div className={`p-5 rounded-[2rem] border backdrop-blur-xl ${veredicto?.ok ? 'bg-emerald-900/40 border-emerald-500/40' : 'bg-[#0f172a]/80 border-white/10'}`}>
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Último ensayo</span>
-            <p className="text-xs text-slate-200 mt-2">
-              F₁ = {ensayo.f1} N → {subio ? 'la carga subió' : 'la carga NO subió'}. Predicción: {ensayo.prediccion} N.
-            </p>
-            {subio && <p className={`text-[11px] font-bold mt-1 ${veredicto?.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{veredicto?.ok ? 'Tu predicción de la fuerza mínima es correcta.' : veredicto?.mensaje}</p>}
-          </div>
-        )}
-      </div>
-
-      {/* CONFIGURACIÓN */}
-      <div className="absolute top-6 right-6 z-40 w-[320px] max-w-[48%]">
-        <div className="bg-[#0f172a]/95 backdrop-blur-2xl border border-slate-700/50 p-6 rounded-[2rem]">
-          <div className="flex items-center gap-3 mb-5 border-b border-white/5 pb-4">
-            <Settings2 className="text-amber-400" size={22} />
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">Prensa</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 mb-5">
-            <Dato label="Masa de la carga" valor={`${masaCarga} kg`} />
-            <Dato label="g" valor={`${G_TIERRA} m/s²`} />
-          </div>
-          <div className="space-y-5">
-            <ControlSlider label="Radio de entrada r₁" value={r1} r={RANGO_R1} unit="cm" decimales={1} onChange={(v) => ajustar({ r1: v })} />
-            <ControlSlider label="Radio de salida r₂" value={r2} r={RANGO_R2} unit="cm" decimales={1} onChange={(v) => ajustar({ r2: v })} />
-            <ControlSlider label="Fuerza aplicada F₁" value={f1} r={RANGO_F1} unit="N" decimales={0} onChange={(v) => ajustar({ f1: v })} />
-          </div>
-          <label className="block mt-5">
-            <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest">F₁ mínima que predices (N)</span>
-            <input type="number" step="0.1" value={prediccion} onChange={(e) => setPrediccion(e.target.value)}
-              className="w-full mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg" />
-          </label>
-          <div className="flex gap-2 mt-4">
-            <button onClick={bombear} className="flex-1 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2 active:scale-95">
-              <Target size={18} /> Bombear
-            </button>
-            <button onClick={() => setCarrera(0)} aria-label="Liberar la válvula" className="px-4 bg-slate-800 hover:bg-slate-700 rounded-2xl"><RotateCcw size={18} /></button>
-          </div>
+      }
+      controles={
+        <div className="flex flex-col gap-2">
+          <GrupoControles>
+            <Deslizador etiqueta="Radio de entrada r₁" valor={r1} min={RANGO_R1.min} max={RANGO_R1.max} paso={RANGO_R1.paso} unidad="cm" decimales={1} onChange={(v) => ajustar({ r1: Math.round(v * 10) / 10 })} />
+            <Deslizador etiqueta="Radio de salida r₂" valor={r2} min={RANGO_R2.min} max={RANGO_R2.max} paso={RANGO_R2.paso} unidad="cm" decimales={1} onChange={(v) => ajustar({ r2: Math.round(v * 10) / 10 })} />
+            <Deslizador etiqueta="Fuerza aplicada F₁" valor={f1} min={RANGO_F1.min} max={RANGO_F1.max} paso={RANGO_F1.paso} unidad="N" decimales={0} onChange={(v) => ajustar({ f1: Math.round(v * 10) / 10 })} />
+          </GrupoControles>
+          <GrupoControles>
+            <label className="flex w-48 flex-col gap-1">
+              <span className="text-[11px] font-semibold text-amber-300">F₁ mínima que predices (N)</span>
+              <input type="number" step="0.1" value={prediccion} onChange={(e) => setPrediccion(e.target.value)}
+                className="h-8 rounded-lg border border-amber-500/40 bg-slate-950 px-2.5 font-mono text-[14px] outline-none focus:border-amber-400" />
+            </label>
+            <BotonLab onClick={bombear}><Target size={14} /> Bombear</BotonLab>
+            <BotonLab variante="secundario" onClick={() => setCarrera(0)} title="Liberar la válvula"><RotateCcw size={14} /> Liberar válvula</BotonLab>
+          </GrupoControles>
+          {(alerta || veredicto?.ok || (ensayo && subio && !veredicto?.ok)) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {alerta && (
+                <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
+                  <ShieldAlert size={14} /> {alerta}
+                </div>
+              )}
+              {ensayo && subio && !veredicto?.ok && !alerta && (
+                <div className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-[12px] font-bold leading-snug text-slate-200">{veredicto?.mensaje}</div>
+              )}
+              <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="La carga subió y tu fuerza mínima es correcta. Valida tu práctica." />
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className="absolute bottom-6 right-6 z-50">
-        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="La carga subió y tu fuerza mínima es correcta. Valida tu práctica." />
-      </div>
-    </div>
-  );
-}
-
-function Dato({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div className="bg-[#020617] p-2.5 rounded-xl border border-white/5">
-      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">{label}</span>
-      <span className="text-sm font-black font-mono">{valor}</span>
-    </div>
-  );
-}
-
-function ControlSlider({ label, value, r, unit, decimales, onChange }: {
-  label: string; value: number; r: { min: number; max: number; paso: number }; unit: string; decimales: number; onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
-        <span className="text-lg font-black">{value.toFixed(decimales)} {unit}</span>
-      </div>
-      <input type="range" min={r.min} max={r.max} step={r.paso} value={value}
-        onChange={(e) => onChange(Math.round(parseFloat(e.target.value) * 10) / 10)}
-        className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-amber-500" />
-    </div>
+      }
+    />
   );
 }

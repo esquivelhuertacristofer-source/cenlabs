@@ -1,190 +1,151 @@
 "use client";
 
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Sky, Html } from '@react-three/drei';
+import React, { useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useThree } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, FlechaFuerza, Etiqueta } from '../_kit';
+import { G_TIERRA } from '@/domain/fisica';
+import {
+  PisoPruebas, PlacaRampa, Bisagra, BaseBisagra, Cuadrante, ColumnaSoporte, BloqueMasa, Cabestrante, CableRecto, SensorPosicion,
+  LARGO_UTIL, LARGO_PLACA, X0, X_TOPE, ALTO_BISAGRA, ALTO_RIEL, ESPESOR_PLACA, BLOQUE, ANCHO_PLACA,
+} from './piezas';
+
+/* ────────────────────────────────────────────────────────────────────────────
+   PlanoInclinado3DScene — rampa de pruebas de 10 m (1 u = 1 m).
+
+   Montaje: placa con rieles y cinta graduada (cifras cada 2,5 m) articulada en una
+   bisagra, columna de soporte con collarín en el extremo alto, cuadrante graduado
+   detrás (la rampa marca el ángulo), bloque de acero con lastre apilable y rótulo de
+   masa, un cabestrante en cada extremo (el del lado que tira lleva el cable, que es
+   la fuerza F del alumno, paralela al plano) y el detector de movimiento ultrasónico.
+
+   Diagrama de cuerpo libre: W (peso), N (normal) y F (aplicada) siempre; la fricción
+   cinética f solo mientras el bloque desliza (antes de soltarlo no se muestra para no
+   delatar el sentido del movimiento). Nunca se muestra la aceleración.
+
+   Props: { angulo, bloquePos (0–1 a lo largo de la rampa), masa, isDeslizando,
+   fuerzaAplicada, cargaExtra, muK, movimiento }.
+──────────────────────────────────────────────────────────────────────────── */
 
 interface SceneProps {
   angulo: number;
-  bloquePos: number; 
+  bloquePos: number;
   masa: number;
   isDeslizando: boolean;
   fuerzaAplicada: number;
-  status: string;
+  status?: string;
+  /** masa de lastre (kg) incluida en `masa`, dibujada como placas apiladas */
+  cargaExtra?: number;
+  /** μ cinético: solo para dibujar la fricción mientras desliza */
+  muK?: number;
+  /** sentido del movimiento durante el ensayo (para orientar f) */
+  movimiento?: 'reposo' | 'sube' | 'baja';
 }
 
-// ── SISTEMA DE FUEGO DEL MOTOR (SIN LUCES DINÁMICAS QUE CRASHEAN) ──
-function ThrusterFlames({ active, power }: { active: boolean, power: number }) {
-  const fireGroup = useRef<THREE.Group>(null);
-  const isBraking = power < 0;
-  // Usamos un color fijo en el render inicial para evitar recompilación de shaders
-  const colorStr = isBraking ? "#ff003c" : "#00f6ff";
+/** metros por newton de las flechas de fuerza (la misma escala para todas) */
+const ESC_FUERZA = 0.01;
 
-  useFrame((state) => {
-    if (fireGroup.current) {
-      if (active && power !== 0) {
-        fireGroup.current.visible = true;
-        fireGroup.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 40) * 0.2);
-      } else {
-        fireGroup.current.visible = false;
-      }
-    }
-  });
+function Escena({ angulo, bloquePos, masa, isDeslizando, fuerzaAplicada, cargaExtra = 0, muK = 0, movimiento = 'reposo' }: SceneProps) {
+  const scene = useThree((s) => s.scene);
+  // niebla suave hacia el color del fondo y sombras que cubran toda la rampa
+  useLayoutEffect(() => {
+    scene.fog = new THREE.Fog('#dfe3e6', 45, 110);
+    scene.traverse((o) => {
+      const l = o as THREE.DirectionalLight;
+      if (!l.isDirectionalLight || !l.castShadow) return;
+      const c = l.shadow.camera as THREE.OrthographicCamera;
+      c.left = -16; c.right = 16; c.top = 16; c.bottom = -16; c.near = 1; c.far = 90;
+      c.updateProjectionMatrix();
+      l.position.set(-8, 20, 14);
+      l.target.position.set(7, 0, 0); l.target.updateMatrixWorld();
+    });
+  }, [scene]);
 
-  return (
-    <group ref={fireGroup} position={[0, -1.8, 0]} visible={false}>
-      {/* Cono de fuego usando BasicMaterial (no requiere luces, no crashea) */}
-      <mesh rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[0.3, 1.2, 16]} />
-        <meshBasicMaterial color={colorStr} transparent opacity={0.8} />
-      </mesh>
-    </group>
-  );
-}
-
-// ── COHETE MULTI-ETAPA (MATERIALES BÁSICOS Y ESTABLES) ──
-function RocketModel({ active, power, pos }: { active: boolean, power: number, pos: number }) {
-  const group = useRef<THREE.Group>(null);
-  
-  useFrame(() => {
-    if (group.current && active && power > 0 && pos < 0.99) {
-      group.current.position.x = (Math.random() - 0.5) * 0.05;
-      group.current.position.z = (Math.random() - 0.5) * 0.05;
-    } else if (group.current) {
-      group.current.position.x = 0;
-      group.current.position.z = 0;
-    }
-  });
-
-  return (
-    <group ref={group} rotation={[0, 0, -Math.PI / 2]}>
-       {/* Fuselaje */}
-       <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[0.4, 0.45, 3, 16]} />
-          <meshLambertMaterial color="#f8fafc" />
-       </mesh>
-       {/* Punta */}
-       <mesh position={[0, 2, 0]} castShadow>
-          <coneGeometry args={[0.4, 1.2, 16]} />
-          <meshLambertMaterial color="#020617" />
-       </mesh>
-       {/* Aletas */}
-       {[-1, 1].map(side => (
-         <mesh key={side} position={[side * 0.45, -1, 0]} rotation={[0, 0, side * 0.15]} castShadow>
-            <boxGeometry args={[0.7, 1.2, 0.08]} />
-            <meshLambertMaterial color="#0f172a" />
-         </mesh>
-       ))}
-       {/* Tobera */}
-       <mesh position={[0, -1.6, 0]}>
-          <cylinderGeometry args={[0.25, 0.45, 0.5, 16]} />
-          <meshLambertMaterial color="#1e293b" />
-       </mesh>
-       
-       <ThrusterFlames active={active} power={power} />
-    </group>
-  );
-}
-
-// ── SEGUIMIENTO DE CÁMARA (RESPETANDO ORBIT CONTROLS) ──
-function CinematicCamera({ isDeslizando, rocketPos, angulo, controlsRef }: { isDeslizando: boolean, rocketPos: number, angulo: number, controlsRef: any }) {
-  const { camera } = useThree();
   const rad = (angulo * Math.PI) / 180;
-  
-  useFrame(() => {
-    if (isDeslizando && controlsRef.current) {
-      // Cálculo basado en el nuevo centro del cohete
-      const rX = -10 + (rocketPos * 16) * Math.cos(rad);
-      const rY = (rocketPos * 16) * Math.sin(rad);
-      
-      const targetCamX = rX + 15;
-      const targetCamY = Math.max(8, rY + 5); 
-      const distanceZ = 25 + (rY * 1.5); 
-      
-      camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, distanceZ), 0.05);
-      controlsRef.current.target.lerp(new THREE.Vector3(rX, rY, 0), 0.05);
-      controlsRef.current.update();
-    }
-  });
-  return null;
-}
+  const sen = Math.sin(rad), cos = Math.cos(rad);
+  const s = bloquePos * LARGO_UTIL;
+  const bx = X0 + s;                         // centro del bloque en la rampa (local)
+  const W = masa * G_TIERRA;
+  const N = W * cos;
+  const fk = muK * N;
 
-export default function PlanoInclinado3DScene({ angulo, bloquePos, masa, isDeslizando, fuerzaAplicada, status }: SceneProps) {
-  const rad = (angulo * Math.PI) / 180;
-  const controlsRef = useRef<any>(null);
-  
+  // apoyo de la columna: bajo el riel, cerca del extremo alto
+  const xc = LARGO_PLACA - 1.1;
+  const yRiel = -ESPESOR_PLACA - ALTO_RIEL + 0.1;
+  const ySoporte = ALTO_BISAGRA + xc * sen + yRiel * cos;
+  const xSoporte = xc * cos - yRiel * sen;
+
+  const aplicada = fuerzaAplicada;
+  const cableArriba = aplicada > 0.5;
+  const cableAbajo = aplicada < -0.5;
+  const xCaraArriba = bx + BLOQUE.largo / 2 + 0.03;
+  const xCaraAbajo = bx - BLOQUE.largo / 2 - 0.03;
+  const xSalidaArriba = LARGO_PLACA - X_TOPE;
+  const xSalidaAbajo = X_TOPE;
+
+  // vectores en el sistema local de la rampa
+  const wLocal = useMemo<[number, number, number]>(() => [-sen * W, -cos * W, 0], [sen, cos, W]);
+  const fSentido = movimiento === 'sube' ? -1 : movimiento === 'baja' ? 1 : 0;
+
+  // encuadre por pasos de 10° para que no «baile» al mover el deslizador
+  const q = Math.min(60, Math.ceil(Math.max(angulo, 1) / 10) * 10);
+  const radQ = (q * Math.PI) / 180;
+  const caja = useMemo<[[number, number, number], [number, number, number]]>(() => [
+    [-1.5, 0, -2.4], [Math.max(8, LARGO_PLACA * Math.cos(radQ) + 1.5), ALTO_BISAGRA + LARGO_PLACA * Math.sin(radQ) + 1.4, 2.4],
+  ], [radQ]);
+
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [20, 15, 30], fov: 40 }}>
-      {/* CIELO Y LUZ BÁSICA MUY ESTABLE */}
-      <color attach="background" args={["#87CEEB"]} />
-      <Sky sunPosition={[50, 20, 50]} turbidity={0.1} rayleigh={0.5} />
-      
-      <ambientLight intensity={1.5} color="#ffffff" />
-      <directionalLight position={[30, 50, 20]} intensity={2.5} castShadow shadow-mapSize={[1024, 1024]} />
-      
-      <CinematicCamera isDeslizando={isDeslizando} rocketPos={bloquePos} angulo={angulo} controlsRef={controlsRef} />
+    <>
+      <EncuadrarCaja caja={caja} margen={1.04} direccion={[0.05, 0.2, 1]} />
+      <PisoPruebas />
 
-      {/* Todo el escenario se eleva para evitar clipping */}
-      <group position={[0, -2, 0]}>
-        
-        {/* PISTA DE LANZAMIENTO */}
-        {/* PIVOTE CORREGIDO: Rotamos exactamente desde el extremo izquierdo e inferior */}
-        <group position={[-10, 0, 0]} rotation={[0, 0, rad]}>
-           
-           {/* El centro del chasis ahora está desplazado la mitad de su longitud hacia la derecha 
-               y la mitad de su altura hacia arriba. Así el punto [0,0,0] es la esquina inferior izquierda. */}
-           <mesh position={[9, 0.5, 0]} receiveShadow castShadow>
-              <boxGeometry args={[18, 1, 3.5]} />
-              <meshLambertMaterial color="#1e293b" />
-           </mesh>
-           
-           {/* Rieles (Usamos BasicMaterial para evitar recálculo de shader con la emisión) */}
-           {[-1.2, 1.2].map(side => (
-             <mesh key={side} position={[9, 1.05, side]}>
-                <boxGeometry args={[18, 0.1, 0.3]} />
-                <meshBasicMaterial color="#00f6ff" />
-             </mesh>
-           ))}
+      <group position={[0, 0, 0]}>
+        <BaseBisagra />
+        <group position={[xSoporte, 0, 0]}><ColumnaSoporte alto={ySoporte - 0.3} /></group>
+        {/* cuadrante graduado, detrás de la rampa */}
+        <Cuadrante radio={4.2} position={[0, ALTO_BISAGRA, -ANCHO_PLACA / 2 - 0.4]} />
+        <group position={[0, ALTO_BISAGRA, 0]} rotation={[0, 0, rad]}>
+          <Bisagra />
+          <PlacaRampa />
+          <group position={[LARGO_PLACA - X_TOPE + 0.66, 0, 0]}><Cabestrante haciaMenos /></group>
+          <group position={[X_TOPE - 0.66, 0, 0]}><Cabestrante /></group>
+          <group position={[LARGO_PLACA - 0.5, 0, -0.85]}><SensorPosicion /></group>
+          <Etiqueta texto="Sensor de posición" position={[LARGO_PLACA - 0.5, 2.0, -0.85]} tamano={0.26} color="#142330" fondo="rgba(255,255,255,0.85)" />
 
-           {/* Marcadores */}
-           {/* Marcas en metros reales: la pista de 16 unidades representa la rampa de 10 m */}
-           {[0, 2.5, 5, 7.5, 10].map(d => (
-             <Html key={d} position={[d * 1.6, -0.5, 2.5]} center distanceFactor={20}>
-               <div className="bg-black/90 border border-cyan-500/50 px-3 py-1 rounded text-[12px] font-black text-cyan-400 font-mono">
-                 {d} m
-               </div>
-             </Html>
-           ))}
+          {cableArriba && <CableRecto x0={xCaraArriba} x1={xSalidaArriba} />}
+          {cableAbajo && <CableRecto x0={xSalidaAbajo} x1={xCaraAbajo} />}
 
-           {/* COHETE (Montado sobre la superficie de la pista Y=1.4) */}
-           <group position={[bloquePos * 16, 1.5, 0]}>
-              <RocketModel active={isDeslizando || status === "IGNICIÓN"} power={fuerzaAplicada} pos={bloquePos} />
-           </group>
+          <group position={[bx, 0, 0]}>
+            <BloqueMasa masa={masa} extra={cargaExtra} />
+            {/* diagrama de cuerpo libre desde el centro del bloque */}
+            <group position={[0, BLOQUE.alto / 2, 0]}>
+              <FlechaFuerza vector={wLocal} escala={ESC_FUERZA} tipo="peso" etiqueta="W" grosor={0.07} siempreVisible />
+              <FlechaFuerza vector={[0, N, 0]} escala={ESC_FUERZA} tipo="normal" etiqueta="N" grosor={0.07} siempreVisible />
+              {Math.abs(aplicada) > 0.5 && (
+                <FlechaFuerza vector={[aplicada, 0, 0]} escala={ESC_FUERZA} tipo="aplicada" etiqueta="F" grosor={0.07} siempreVisible position={[0, 0.18, 0]} />
+              )}
+              {isDeslizando && fSentido !== 0 && fk > 0.5 && (
+                <FlechaFuerza vector={[fSentido * fk, 0, 0]} escala={ESC_FUERZA} tipo="friccion" etiqueta="f" grosor={0.07} siempreVisible position={[0, -0.18, 0]} />
+              )}
+            </group>
+          </group>
         </group>
-
-        {/* ESTRUCTURA DE SOPORTE */}
-        <mesh position={[2, -2.5, 0]} castShadow>
-           <cylinderGeometry args={[0.6, 0.6, 5, 16]} />
-           <meshLambertMaterial color="#475569" />
-        </mesh>
-
-        {/* SUELO (CONCRETO ESTABLE) */}
-        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-          <planeGeometry args={[200, 200]} />
-          <meshLambertMaterial color="#cbd5e1" />
-        </mesh>
-        <gridHelper args={[200, 40, 0x94a3b8, 0x94a3b8]} position={[0, 0.01, 0]} />
       </group>
+    </>
+  );
+}
 
-      <OrbitControls 
-        ref={controlsRef} 
-        makeDefault 
-        enablePan={false} 
-        maxPolarAngle={Math.PI / 2.1} 
-        minDistance={10} 
-        maxDistance={60} 
-      />
-    </Canvas>
+export default function PlanoInclinado3DScene(props: SceneProps) {
+  return (
+    <div className="h-full w-full">
+      <LabCanvas
+        fondo="laboratorio"
+        mesa={false}
+        camara={{ posicion: [7, 6, 22], objetivo: [6.5, 3, 0], fov: 38 }}
+        controles={{ minDistancia: 4, maxDistancia: 60, maxPolar: 1.5, cajaObjetivo: [[-5, 0, -6], [20, 14, 6]] }}
+      >
+        <Escena {...props} />
+      </LabCanvas>
+    </div>
   );
 }

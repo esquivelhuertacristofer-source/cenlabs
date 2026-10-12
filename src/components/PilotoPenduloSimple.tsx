@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Timer, RotateCcw, Play, Square, ShieldAlert, Activity, Plus, Trash2, Lock } from 'lucide-react';
+import { Timer, RotateCcw, Play, Square, ShieldAlert, Plus, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { evaluarF3, periodoMedido, OSCILACIONES_MIN } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 import { useCronometro, formatoCrono } from './fisica/useCronometro';
 
 const PenduloSimple3DScene = dynamic(() => import('./simuladores/fis03/PenduloSimple3DScene'), {
@@ -76,106 +76,81 @@ export default function PilotoPenduloSimple({ onValidate }: { onValidate?: () =>
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      <div className="absolute inset-0 z-0">
-        <PenduloSimple3DScene longitud={longitud} masa={masa} isOscilando={oscilando} gravedad={gSemilla} onOscilacion={setContador} />
-      </div>
-
-      <AnimatePresence>
-        {alerta && (
-          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] bg-rose-600/90 border border-rose-400 px-6 py-3 rounded-full flex items-center gap-3">
-            <ShieldAlert size={18} /><span className="font-black uppercase tracking-widest text-[11px]">{alerta}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* CRONÓMETRO + REGISTRO */}
-      <div className="absolute top-6 left-6 z-30 w-[360px] max-w-[92vw] flex flex-col gap-4">
-        <div className="bg-[#0f172a]/85 backdrop-blur-2xl border border-sky-500/30 p-6 rounded-[2rem]">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] flex items-center gap-2"><Timer size={16} className="text-sky-400" /> Cronómetro</span>
-            <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase ${oscilando ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
-              <Activity size={10} className="inline mr-1" />{oscilando ? `Fotopuerta: ${contador} osc.` : 'En reposo'}
-            </span>
-          </div>
-          <div className="text-5xl font-black font-mono text-center mb-4 tabular-nums">{formatoCrono(ms)}</div>
-          <div className="flex gap-2 mb-4">
-            <button onClick={toggleCrono} className={`flex-1 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest ${corriendo ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}`}>
-              {corriendo ? 'Detener' : 'Iniciar'}
-            </button>
-            <button onClick={resetCrono} aria-label="Reiniciar cronómetro" className="px-4 bg-slate-800/60 rounded-2xl border border-slate-700"><RotateCcw size={16} /></button>
-          </div>
-          <div className="flex items-end gap-2">
-            <label className="flex-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Oscilaciones cronometradas (n)</span>
-              <input type="number" min={1} value={nOsc} onChange={(e) => setNOsc(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 font-mono" />
-            </label>
-            <button onClick={registrar} className="h-10 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl flex items-center gap-1 text-[10px] font-black uppercase"><Plus size={14} /> Registrar</button>
-          </div>
-        </div>
-
-        <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-white/10 p-5 rounded-[2rem]">
-          <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Muestras ({muestras.length})</span>
-          <div className="mt-2 max-h-40 overflow-y-auto">
-            {muestras.length === 0 ? <p className="text-[10px] text-slate-500 italic">Sin muestras todavía.</p> : (
-              <table className="w-full text-[10px] font-mono">
-                <thead><tr className="text-slate-500"><th className="text-left">L</th><th className="text-left">m</th><th className="text-left">n</th><th className="text-left">t</th><th className="text-left">T = t/n</th><th /></tr></thead>
-                <tbody>
-                  {muestras.map((s, i) => (
-                    <tr key={i} className="border-t border-white/5">
-                      <td>{s.L} m</td><td>{s.m} kg</td><td>{s.n}</td><td>{s.t.toFixed(2)} s</td><td>{periodoMedido(s).toFixed(3)} s</td>
-                      <td><button aria-label="Borrar muestra" onClick={() => borrar(i)} className="text-slate-500 hover:text-rose-400"><Trash2 size={12} /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          <ul className="mt-3 space-y-1 text-[10px]">
+    <LabLayout
+      escena={<PenduloSimple3DScene longitud={longitud} masa={masa} isOscilando={oscilando} gravedad={gSemilla} onOscilacion={setContador} />}
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Longitud L" valor={longitud.toFixed(1)} unidad="m" />
+          <Lectura etiqueta="Masa m" valor={masa.toFixed(0)} unidad="kg" />
+          <Lectura etiqueta="Fotopuerta" valor={oscilando ? `${contador} osc.` : 'en reposo'} acento={oscilando} />
+          <Lectura etiqueta="Cronómetro" valor={formatoCrono(ms)} acento={corriendo} />
+          <Lectura etiqueta="Muestras" valor={muestras.length} />
+        </>
+      }
+      tituloPanel="Muestras"
+      panelLateral={
+        <div className="flex flex-col gap-3">
+          {muestras.length === 0 ? <p className="text-[11px] italic text-slate-500">Sin muestras todavía.</p> : (
+            <table className="w-full text-[10px] font-mono">
+              <thead><tr className="text-slate-500"><th className="text-left">L</th><th className="text-left">m</th><th className="text-left">n</th><th className="text-left">t</th><th className="text-left">T</th><th /></tr></thead>
+              <tbody>
+                {muestras.map((m, i) => (
+                  <tr key={i} className="border-t border-white/5">
+                    <td>{m.L}</td><td>{m.m}</td><td>{m.n}</td><td>{m.t.toFixed(2)}</td><td>{periodoMedido(m).toFixed(3)}</td>
+                    <td><button aria-label="Borrar muestra" onClick={() => borrar(i)} className="text-slate-500 hover:text-rose-400"><Trash2 size={12} /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="text-[10px] text-slate-500">L en m, m en kg, t en s, T = t/n en s.</p>
+          <ul className="space-y-1 text-[11px]">
             <li className={progreso.masaIndep ? 'text-emerald-300' : 'text-slate-400'}>• Dos masas con la misma longitud</li>
             <li className={progreso.Ls >= 3 ? 'text-emerald-300' : 'text-slate-400'}>• Tres longitudes distintas ({progreso.Ls}/3)</li>
           </ul>
-          <label className="block mt-3">
-            <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest">g calculada con tus datos (m/s²)</span>
-            <input type="number" step="0.01" value={gInput} onChange={(e) => guardarG(e.target.value)} placeholder="g = 4π²L/T²"
-              className="w-full mt-1 bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 font-mono text-lg" />
-          </label>
-          <button onClick={comprobar} className="w-full mt-3 py-3 bg-amber-600 hover:bg-amber-500 rounded-xl text-[10px] font-black uppercase tracking-widest">Comprobar análisis</button>
         </div>
-      </div>
-
-      {/* CONTROLES */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-6 bg-[#0f172a]/90 backdrop-blur-2xl border border-slate-700/50 px-6 py-4 rounded-[2rem]">
-        <ControlSlider label="Longitud L" value={longitud} min={0.5} max={3} step={0.5} unit=" m" locked={oscilando} onChange={(v) => setPendulo3({ longitud: v })} />
-        <ControlSlider label="Masa m" value={masa} min={1} max={5} step={1} unit=" kg" locked={oscilando} onChange={(v) => setPendulo3({ masa: v })} />
-        <button onClick={() => { setPendulo3({ oscilando: !oscilando }); audio?.playPop(); }}
-          aria-label={oscilando ? 'Detener el péndulo' : 'Soltar el péndulo'}
-          className={`h-14 w-14 rounded-full flex items-center justify-center ${oscilando ? 'bg-rose-600' : 'bg-sky-600'}`}>
-          {oscilando ? <Square fill="currentColor" size={20} /> : <Play fill="currentColor" size={20} className="ml-1" />}
-        </button>
-      </div>
-
-      <div className="absolute bottom-28 right-6 z-50">
-        <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} texto="Tus muestras y tu g son coherentes. Valida tu práctica." />
-      </div>
-    </div>
-  );
-}
-
-function ControlSlider({ label, value, min, max, step, unit, locked, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; unit: string; locked?: boolean; onChange: (v: number) => void;
-}) {
-  return (
-    <div className={`flex flex-col gap-2 min-w-[160px] ${locked ? 'opacity-50' : ''}`}>
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">{locked && <Lock size={10} />}{label}</span>
-        <span className="text-sm font-black text-sky-300">{value.toFixed(1)}{unit}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value} disabled={locked}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-slate-700 rounded-full appearance-none cursor-pointer accent-sky-500 disabled:cursor-not-allowed" />
-    </div>
+      }
+      controles={
+        <div className="flex flex-col gap-2">
+          <GrupoControles>
+            <Deslizador etiqueta="Longitud L" valor={longitud} min={0.5} max={3} paso={0.5} unidad="m" decimales={1} deshabilitado={oscilando} onChange={(v) => setPendulo3({ longitud: v })} />
+            <Deslizador etiqueta="Masa m" valor={masa} min={1} max={5} paso={1} unidad="kg" decimales={0} deshabilitado={oscilando} onChange={(v) => setPendulo3({ masa: v })} />
+            <BotonLab onClick={() => { setPendulo3({ oscilando: !oscilando }); audio?.playPop(); }} variante={oscilando ? 'acento' : 'primario'}>
+              {oscilando ? <><Square fill="currentColor" size={13} /> Detener péndulo</> : <><Play fill="currentColor" size={13} /> Soltar péndulo</>}
+            </BotonLab>
+            <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1">
+              <Timer size={14} className="text-sky-400" />
+              <span className="font-mono text-[15px] font-semibold tabular-nums">{formatoCrono(ms)}</span>
+              <BotonLab variante={corriendo ? 'acento' : 'secundario'} onClick={toggleCrono}>{corriendo ? 'Detener' : 'Iniciar'}</BotonLab>
+              <button onClick={resetCrono} aria-label="Reiniciar cronómetro" className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-slate-300 hover:text-white"><RotateCcw size={14} /></button>
+            </div>
+          </GrupoControles>
+          <GrupoControles>
+            <label className="flex w-32 flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">Oscilaciones n</span>
+              <input type="number" min={1} value={nOsc} onChange={(e) => setNOsc(e.target.value)}
+                className="h-8 rounded-lg border border-white/15 bg-slate-950 px-2.5 font-mono text-[13px] outline-none focus:border-[#219EBC]" />
+            </label>
+            <BotonLab onClick={registrar}><Plus size={14} /> Registrar muestra</BotonLab>
+            <label className="flex w-44 flex-col gap-1">
+              <span className="text-[11px] font-semibold text-amber-300">g calculada (m/s²)</span>
+              <input type="number" step="0.01" value={gInput} onChange={(e) => guardarG(e.target.value)} placeholder="g = 4π²L/T²"
+                className="h-8 rounded-lg border border-amber-500/40 bg-slate-950 px-2.5 font-mono text-[13px] outline-none focus:border-amber-400" />
+            </label>
+            <BotonLab variante="acento" onClick={comprobar}>Comprobar análisis</BotonLab>
+          </GrupoControles>
+          {(alerta || veredicto?.ok) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {alerta && (
+                <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
+                  <ShieldAlert size={14} /> {alerta}
+                </div>
+              )}
+              <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="Tus muestras y tu g son coherentes. Valida tu práctica." />
+            </div>
+          )}
+        </div>
+      }
+    />
   );
 }

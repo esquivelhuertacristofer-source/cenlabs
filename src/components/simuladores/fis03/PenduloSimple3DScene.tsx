@@ -1,9 +1,27 @@
 "use client";
 
-import React, { useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows, Grid, Sky } from '@react-three/drei';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame, useThree } from '@react-three/fiber';
+import { LabCanvas, EncuadrarCaja, cilindro, cajaRedondeada, useMateriales } from '../_kit';
+import {
+  CuartoPendulo, SoportePiso, TransportadorPendulo, ReglaVertical, Plomada, FotopuertaPendulo,
+  ALTURA_BOLA_REPOSO, X_REGLA, radioPlomada, distanciaCM,
+} from './piezas';
+
+/* ────────────────────────────────────────────────────────────────────────────
+   PenduloSimple3DScene — péndulo simple en un cuarto de pruebas (1 u = 1 dm).
+
+   Montaje: soporte universal de piso (base de fundición + varilla + nuez + brazo
+   horizontal), cuerda de la longitud L elegida colgando de una pinza, plomada de
+   latón (tamaño ∝ ∛m, la longitud se mide del pivote al centro de masa), transportador
+   graduado detrás del pivote (la amplitud inicial es de 10°), regla vertical con cifras
+   cada 50 cm y fotopuerta bajo la posición de reposo con contador de oscilaciones.
+
+   La animación es el MAS del dominio: ω = √(g/L), amplitud 10°. El contador de la
+   fotopuerta cuenta oscilaciones COMPLETAS desde que se soltó (igual que el Piloto).
+   Nunca se rotula la gravedad: el alumno la obtiene midiendo T.
+──────────────────────────────────────────────────────────────────────────── */
 
 interface PenduloSceneProps {
   longitud: number;
@@ -17,134 +35,96 @@ interface PenduloSceneProps {
 const MAX_ANGLE_DEG = 10;
 const MAX_ANGLE_RAD = (MAX_ANGLE_DEG * Math.PI) / 180;
 
-function PendulumModel({ longitud, masa, isOscilando, gravedad, onOscilacion }: PenduloSceneProps) {
-  const pivotRef = useRef<THREE.Group>(null);
-  // Fase acumulada: si L cambiara a media oscilación, el péndulo no «salta».
-  const faseRef = useRef(0);
+function Escena({ longitud, masa, isOscilando, gravedad, onOscilacion }: PenduloSceneProps) {
+  const m = useMateriales();
+  const scene = useThree((s) => s.scene);
+  const Lu = longitud * 10;
+  const pivoteY = Lu + ALTURA_BOLA_REPOSO;
+  const r = radioPlomada(masa);
+  const dcm = distanciaCM(r);
+
+  const pivote = useRef<THREE.Group>(null);
+  const fase = useRef(0);
   const cuentaRef = useRef(0);
+  const [cuenta, setCuenta] = useState(0);
+  const [bloqueada, setBloqueada] = useState(false);
+  const bloqRef = useRef(false);
+
+  useLayoutEffect(() => {
+    scene.traverse((o) => {
+      const l = o as THREE.DirectionalLight;
+      if (!l.isDirectionalLight || !l.castShadow) return;
+      const c = l.shadow.camera as THREE.OrthographicCamera;
+      c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 220;
+      c.updateProjectionMatrix();
+      l.position.set(-16, 60, 34);
+      l.target.position.set(-2, 18, 0); l.target.updateMatrixWorld();
+    });
+  }, [scene]);
 
   useFrame((_, delta) => {
-    if (!pivotRef.current) return;
+    const g = pivote.current; if (!g) return;
     if (isOscilando) {
       const omega = Math.sqrt(gravedad / longitud);
-      faseRef.current += omega * Math.min(delta, 0.1);
-      // Movimiento armónico simple (ángulos pequeños)
-      pivotRef.current.rotation.z = Math.cos(faseRef.current) * MAX_ANGLE_RAD;
-      const n = Math.floor(faseRef.current / (2 * Math.PI));
-      if (n !== cuentaRef.current) { cuentaRef.current = n; onOscilacion?.(n); }
+      fase.current += omega * Math.min(delta, 0.1);
+      g.rotation.z = Math.cos(fase.current) * MAX_ANGLE_RAD;
+      const n = Math.floor(fase.current / (2 * Math.PI));
+      if (n !== cuentaRef.current) { cuentaRef.current = n; setCuenta(n); onOscilacion?.(n); }
     } else {
-      faseRef.current = 0;
-      if (cuentaRef.current !== 0) { cuentaRef.current = 0; onOscilacion?.(0); }
-      // Posición inicial antes de soltar (ángulo máximo)
-      pivotRef.current.rotation.z = MAX_ANGLE_RAD;
+      fase.current = 0;
+      if (cuentaRef.current !== 0) { cuentaRef.current = 0; setCuenta(0); onOscilacion?.(0); }
+      g.rotation.z = MAX_ANGLE_RAD;   // sujeta en la amplitud máxima antes de soltarla
     }
+    // la fotopuerta se bloquea cuando la plomada cruza el haz (|x| < r)
+    const bloq = isOscilando && Math.abs(Lu * Math.sin(g.rotation.z)) < r * 1.05;
+    if (bloq !== bloqRef.current) { bloqRef.current = bloq; setBloqueada(bloq); }
   });
 
-  // El radio de la masa aumenta un poco visualmente según el valor de 'masa'
-  const radioMasa = 0.2 + (masa * 0.05);
+  const caja = useMemo<[[number, number, number], [number, number, number]]>(() => [[-13.6, 0, -4], [10.2, pivoteY + 3, 4]], [pivoteY]);
 
   return (
-    <group position={[0, 4, 0]}>
-      {/* Pivote Superior */}
-      <mesh position={[0, 0, 0.2]} rotation={[Math.PI / 2, 0, 0]}>
-         <cylinderGeometry args={[0.05, 0.05, 0.5, 16]} />
-         <meshStandardMaterial color="#475569" metalness={0.8} roughness={0.2} />
-      </mesh>
+    <>
+      <EncuadrarCaja caja={caja} margen={1.04} direccion={[0.06, 0.1, 1]} />
+      <CuartoPendulo />
+      <SoportePiso alturaBrazo={pivoteY + 0.5} />
 
-      {/* Brazo de soporte horizontal */}
-      <mesh position={[-1, 0, -0.2]}>
-         <boxGeometry args={[3, 0.1, 0.1]} />
-         <meshStandardMaterial color="#334155" metalness={0.9} roughness={0.3} />
-      </mesh>
-      
-      {/* Poste vertical del soporte */}
-      <mesh position={[-2.4, -4, -0.2]} castShadow receiveShadow>
-         <cylinderGeometry args={[0.1, 0.15, 8, 32]} />
-         <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.2} />
-      </mesh>
-
-      {/* Base del soporte */}
-      <mesh position={[-2.4, -7.9, -0.2]} castShadow receiveShadow>
-         <cylinderGeometry args={[0.8, 0.8, 0.2, 32]} />
-         <meshStandardMaterial color="#0f172a" metalness={0.8} roughness={0.4} />
-      </mesh>
-
-      {/* EL PÉNDULO (Agrupado en el pivote) */}
-      <group ref={pivotRef}>
-        {/* Cuerda */}
-        <mesh position={[0, -longitud / 2, 0]} castShadow>
-          <cylinderGeometry args={[0.015, 0.015, longitud, 16]} />
-          <meshStandardMaterial color="#cbd5e1" metalness={0.5} roughness={0.5} />
-        </mesh>
-        
-        {/* Masa (Bob) */}
-        <mesh position={[0, -longitud, 0]} castShadow receiveShadow>
-          <sphereGeometry args={[radioMasa, 32, 32]} />
-          <meshStandardMaterial color="#38bdf8" metalness={0.6} roughness={0.1} />
-        </mesh>
-
-        {/* Punto láser de medición (pequeña esfera emisiva en el centro de la masa) */}
-        <mesh position={[0, -longitud, 0.9 * radioMasa]}>
-           <sphereGeometry args={[0.02, 16, 16]} />
-           <meshBasicMaterial color="#ff0055" />
-        </mesh>
+      {/* pinza del pivote: la cuerda pende de aquí */}
+      <group position={[0, pivoteY, 0]}>
+        <mesh geometry={cajaRedondeada(0.7, 0.8, 0.7, 0.08, 2)} material={m.pintura('#9aa3aa')} position={[0, 0.5, 0]} castShadow />
+        <mesh geometry={cilindro(0.04, 0.04, 0.3, 8)} material={m.acero} position={[0, 0.03, 0]} castShadow />
+        {/* soporte del transportador */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} geometry={cilindro(0.06, 0.06, 0.45, 8)} material={m.acero} position={[0, 0.0, -0.2]} />
+        <TransportadorPendulo position={[0, 0, -0.45]} radio={3.5} />
+        {/* péndulo */}
+        <group ref={pivote}>
+          <mesh geometry={cilindro(0.03, 0.03, Lu - dcm, 6)} material={m.plastico('#5a4a30', 0.8)} position={[0, -(Lu - dcm) / 2, 0]} castShadow />
+          <group position={[0, -(Lu - dcm), 0]}>
+            <Plomada radio={r} />
+          </group>
+        </group>
       </group>
-    </group>
+
+      <ReglaVertical alto={pivoteY - 0.4} position={[X_REGLA, pivoteY, 0]} />
+
+      {/* fotopuerta en el haz de la posición de reposo */}
+      <group position={[0, ALTURA_BOLA_REPOSO, 0]}>
+        <FotopuertaPendulo bloqueada={bloqueada} cuenta={cuenta} />
+      </group>
+    </>
   );
 }
 
-export default function PenduloSimple3DScene({ longitud, masa, isOscilando, gravedad, onOscilacion }: PenduloSceneProps) {
+export default function PenduloSimple3DScene(props: PenduloSceneProps) {
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 10], fov: 45 }}>
-      {/* Sin <SoftShadows>: su parche PCSS llama a unpackRGBAToDepth con la firma
-          vieja, el shader de MeshStandardMaterial no compila y el péndulo desaparecía. */}
-      
-      {/* Iluminación Ambiental y Cielo */}
-      <color attach="background" args={["#020617"]} />
-      <Sky sunPosition={[10, 20, 50]} turbidity={0.1} rayleigh={0.1} inclination={0.49} />
-      
-      <ambientLight intensity={1.5} color="#e2e8f0" />
-      <directionalLight 
-        position={[10, 20, 15]} 
-        intensity={3} 
-        castShadow 
-        shadow-mapSize={[2048, 2048]} 
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-      />
-      <pointLight position={[-5, 2, 5]} intensity={1.5} color="#38bdf8" distance={20} />
-
-      <PendulumModel longitud={longitud} masa={masa} isOscilando={isOscilando} gravedad={gravedad} onOscilacion={onOscilacion} />
-
-      {/* Grid de Laboratorio */}
-      <Grid 
-        position={[0, -4.5, 0]} 
-        args={[30, 30]} 
-        cellSize={1} 
-        cellThickness={1} 
-        cellColor="#1e293b" 
-        sectionSize={5} 
-        sectionThickness={1.5} 
-        sectionColor="#334155" 
-        fadeDistance={25} 
-        fadeStrength={1} 
-      />
-
-      {/* Sombras de Contacto */}
-      <ContactShadows position={[0, -4.49, 0]} opacity={0.5} scale={20} blur={2} far={10} color="#000000" />
-
-      {/* Controles de Cámara (Limitados para no perder el péndulo) */}
-      <OrbitControls 
-        makeDefault 
-        enablePan={false} 
-        minPolarAngle={Math.PI / 4} 
-        maxPolarAngle={Math.PI / 1.8} 
-        minDistance={5} 
-        maxDistance={20} 
-        target={[0, -1, 0]}
-      />
-    </Canvas>
+    <div className="h-full w-full">
+      <LabCanvas
+        fondo="laboratorio"
+        mesa={false}
+        camara={{ posicion: [2, 14, 60], objetivo: [-2, 18, 0], fov: 35 }}
+        controles={{ minDistancia: 5, maxDistancia: 120, maxPolar: 1.5, cajaObjetivo: [[-25, 0, -10], [20, 45, 10]] }}
+      >
+        <Escena {...props} />
+      </LabCanvas>
+    </div>
   );
 }
