@@ -86,6 +86,29 @@ const POOL=[
    proc:'el empujador espera a que la pieza asiente'},
 ];
 
+// El reto tiene SU PROPIO banco de estaciones: ninguna se ensena en los modos de
+// estudio (Logica, Tiempo, Fuga), para que esos modos no den la respuesta de la
+// estacion que se juzga. Cada una se comprobo contra el motor: tiene terna de coste
+// minimo y la propuesta de partida falla en los tres ejes.
+const RPOOL=[
+  {id:'remachado', nom:'Prensa de remachado', fn:'Y', pRed:6,
+   ent:[{n:'Pulsador izquierdo',tipo:'organo',p:6,qn:100},{n:'Pulsador derecho',tipo:'organo',p:6,qn:100}],
+   tMin:9, tMax:20, D:50, s:80, v:200,
+   proc:'el remache necesita sujeción mantenida antes de que suba el punzón'},
+  {id:'troquel', nom:'Troqueladora', fn:'Y', pRed:6,
+   ent:[{n:'Pulsador de marcha',tipo:'organo',p:6,qn:100},{n:'Final de carrera de la guarda',tipo:'senal',p:6,qn:100}],
+   tMin:4, tMax:9, D:63, s:100, v:180,
+   proc:'la guarda debe quedar cerrada un tiempo antes de que baje el troquel'},
+  {id:'dosificador', nom:'Dosificador de tolva', fn:'O', pRed:6,
+   ent:[{n:'Pulsador local',tipo:'organo',p:6,qn:100},{n:'Pedal remoto',tipo:'organo',p:6,qn:350}],
+   tMin:7, tMax:14, D:40, s:120, v:200,
+   proc:'la compuerta se mantiene abierta mientras cae el material'},
+  {id:'cizalla', nom:'Cizalla con presostato', fn:'Y', pRed:5,
+   ent:[{n:'Presostato de línea',tipo:'senal',p:5,qn:100},{n:'Rama regulada a 2 bar',tipo:'senal',p:2,qn:100}],
+   tMin:8, tMax:14, D:50, s:150, v:150,
+   proc:'la chapa debe quedar apretada antes de que corte la cuchilla'},
+];
+
 const ELEM=k=>ELEMS.find(e=>e.k===k);
 const DEP =k=>DEPOS.find(d=>d.k===k);
 const depIdx=k=>DEPK.indexOf(k);
@@ -206,7 +229,7 @@ function porQue(sc,eje,v){
     if(!e.okFuga)return `El empalme en T fuga sin parar mientras se mantiene la señal: ${f1(fugaTe(sc).qA,0)} l/min ANR por el escape de la otra válvula.`;
     if(!e.okTopo)return `En serie sólo se pueden encadenar dos órganos alimentados por la misma línea; aquí al menos una entrada es una señal ya generada.`;
     if(!e.okPres)return `La salida se queda en ${f1(e.pOut,2)} bar y el pilotaje necesita ${f1(P_PILOT,1)}.`;
-    return `Vale, pero monta ${compTxt(E.comps)} frente a ${compTxt(ELEM(g.elem).comps)} de la solución mínima: ${ELEM(g.elem).rot.toLowerCase()}.`;
+    return `Vale, pero monta ${compTxt(E.comps)} y hay un montaje que cumple lo mismo con menos componentes.`;
   }
   if(eje==='dep'){
     const V=DEP(v).V;
@@ -215,13 +238,13 @@ function porQue(sc,eje,v){
       if(tMax_<sc.tMin)return `Con ${DEP(v).rot} el retardo no pasa de ${f1(tMax_,2)} s ni con el estrangulador en ${f1(K_MIN,2)}, y el proceso pide ${f1(sc.tMin,2)} s.`;
       return `Con ${DEP(v).rot} el retardo no baja de ${f1(tMin_,2)} s ni abriendo del todo, o se pasa de ${f1(sc.tMax,2)} s al caer la red.`;
     }
-    return `Vale, pero ${DEP(g.dep).rot} también cumple y llena menos aire: ese depósito gasta ${f1(V*P_PILOT,2)} l ANR por ciclo y el mínimo se queda en ${f1(DEP(g.dep).V*P_PILOT,2)} l.`;
+    return `Vale, pero hay un depósito más pequeño que también cumple y llena menos aire: éste gasta ${f1(V*P_PILOT,2)} l ANR por ciclo.`;
   }
   if(!e.okK)return `Por debajo de ${f1(K_MIN,2)} el estrangulador deja de repetir: el mismo tornillo da retardos distintos cada día.`;
   if(!e.okVent&&e.t<sc.tMin)return `El retardo se queda en ${f1(e.t,2)} s y el proceso pide al menos ${f1(sc.tMin,2)} s.`;
   if(!e.okVent)return `El retardo sube a ${f1(e.t,2)} s y el proceso admite ${f1(sc.tMax,2)} s como mucho.`;
   if(!e.okRob)return `A ${f1(sc.pRed,1)} bar da ${f1(e.t,2)} s, pero si la red cae ${f1(P_CAIDA,1)} bar sube a ${f1(e.tD,2)} s y se pasa de ${f1(sc.tMax,2)}.`;
-  return `Vale, pero deja un margen de ×${f1(e.margen,3)} y la apertura ${f1(g.aper,2)} deja ×${f1(evalCfg(sc,g).margen,3)}.`;
+  return `Vale, pero deja un margen de ×${f1(e.margen,3)} y hay otra apertura que deja más margen frente a la ventana y a la caída de red.`;
 }
 function ciclo(sc,cfg){
   const aE=areaEmb(sc.D), aA=areaAnu(sc.D);
@@ -249,6 +272,9 @@ let tmIdx=2, tmDep='d250', tmAper=0.25;
 let fgIdx=1;
 let retoK=0, retoCh=null;
 let retoChecked=false, retoOkElem=false, retoOkDep=false, retoOkAper=false, retoSolved=false, retoMsg='';
+// retoIntentos: fallos acumulados del alumno; retoFallos: los de la estacion en curso (a los 3 se resiembra)
+let retoIntentos=0, retoFallos=0;
+const RETO_RESIEMBRA=3;
 let solved=false, autoRunning=false, QUIZ={};
 let animT=0, animP=0, animLlen=0, animFase='espera';
 
@@ -263,10 +289,11 @@ function startCfg(sc){
     aper:APERT.slice().reverse().find(v=>v!==g.aper),
   };
 }
-const retoSc=()=>POOL[retoK];
+const retoSc=()=>RPOOL[retoK];
 const retoCfg=()=>({elem:retoCh.elem,dep:retoCh.dep,aper:retoCh.aper});
 function seedReto(k){
-  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoK=(k==null)?pickIdx(RPOOL.length,retoK):k;
+  retoFallos=0;
   retoCh=startCfg(retoSc());
   retoChecked=false;retoOkElem=false;retoOkDep=false;retoOkAper=false;retoSolved=false;retoMsg='';
 }
@@ -807,20 +834,24 @@ function drawReto(c){
     const col=i%2, row=Math.floor(i/2);
     const x=46+col*326, y=cy0+30+row*30;
     const okv=e[cr.k];
-    c.beginPath();c.arc(x+7,y-5,6,0,6.3);c.fillStyle=okv?OK_HEX:BAD_HEX;c.fill();
-    texto(c,cr.rot,x+22,y,okv?'#F4EFEA':BAD_HEX,'13px Outfit, sans-serif','left');
+    // Sin Comprobar no hay veredicto: puntos neutros y texto sin color.
+    c.beginPath();c.arc(x+7,y-5,6,0,6.3);c.fillStyle=retoChecked?(okv?OK_HEX:BAD_HEX):'#4a5568';c.fill();
+    texto(c,cr.rot,x+22,y,(retoChecked&&!okv)?BAD_HEX:'#F4EFEA','13px Outfit, sans-serif','left');
   });
   texto(c,retoChecked?(retoSolved?'PROYECTO ACEPTADO':'PROYECTO RECHAZADO'):'sin comprobar',
     594,cy0+120,retoChecked?(retoSolved?OK_HEX:BAD_HEX):GRIS,'bold 14px Outfit, sans-serif');
 
-  const diag=EJES.map(ej=>porQue(sc,ej,cfg[ej])).filter(Boolean);
-  c.fillStyle=hexA(diag.length?BAD_HEX:OK_HEX,0.07);c.fillRect(30,558,650,180);
-  c.strokeStyle=hexA(diag.length?BAD_HEX:OK_HEX,0.26);c.lineWidth=1;c.strokeRect(30,558,650,180);
-  c.fillStyle=diag.length?BAD_HEX:OK_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
-  c.fillText(diag.length?'Qué falla':'Terna válida y mínima',46,582);
+  // Diagnostico SOLO tras Comprobar (y refleja la propuesta comprobada, no la que se esta editando).
+  const diag=retoChecked?EJES.map(ej=>porQue(sc,ej,cfg[ej])).filter(Boolean):[];
+  const colD=!retoChecked?AZUL:(diag.length?BAD_HEX:OK_HEX);
+  c.fillStyle=hexA(colD,0.07);c.fillRect(30,558,650,180);
+  c.strokeStyle=hexA(colD,0.26);c.lineWidth=1;c.strokeRect(30,558,650,180);
+  c.fillStyle=colD;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(!retoChecked?'Sin comprobar':(diag.length?'Qué falla':'Terna válida y mínima'),46,582);
   c.fillStyle=GRIS;c.font='13px Outfit, sans-serif';
   let yy=606;
-  if(diag.length){diag.forEach(d=>{yy=wrapText(c,'• '+d,46,yy,618,18)+24;});}
+  if(!retoChecked){wrapText(c,'Elige montaje, depósito y apertura y pulsa «Comprobar»: hasta entonces no hay veredicto, sólo los números de tu montaje. Intentos fallidos: '+retoIntentos+' · fallos de esta estación: '+retoFallos+' de '+RETO_RESIEMBRA+'.',46,606,618,18);}
+  else if(diag.length){diag.forEach(d=>{yy=wrapText(c,'• '+d,46,yy,618,18)+24;});}
   else{wrapText(c,'Cumple los siete criterios y no hay ninguna combinación más barata: mismo número de componentes, mismo depósito y el mejor margen dentro de ese depósito.',46,606,618,18);}
 
   const ejeP=(y,tit,val,okv,det)=>{
@@ -834,9 +865,9 @@ function drawReto(c){
   ejeP(228,'Eje 2 · Depósito',DEP(cfg.dep).rot,retoOkDep,'El más pequeño que permita caer dentro de la ventana con una apertura repetible.');
   ejeP(386,'Eje 3 · Apertura',f1(cfg.aper,2),retoOkAper,'k ≥ '+f1(K_MIN,2)+', dentro de la ventana, robusto a la caída y con el mayor margen.');
   rpanel(c,PX.x,544,PX.w,194,'Números del montaje propuesto');
-  prow(c,PX.x,574,PX.w,'Presión de salida',f1(e.pOut,2)+' bar',colOk(e.okPres));
-  prow(c,PX.x,600,PX.w,'Retardo',f1(e.t,2)+' s',colOk(e.okVent));
-  prow(c,PX.x,626,PX.w,'Con la red baja',f1(e.tD,2)+' s',colOk(e.okRob));
+  prow(c,PX.x,574,PX.w,'Presión de salida',f1(e.pOut,2)+' bar',retoChecked?colOk(e.okPres):GRIS);
+  prow(c,PX.x,600,PX.w,'Retardo',f1(e.t,2)+' s',retoChecked?colOk(e.okVent):GRIS);
+  prow(c,PX.x,626,PX.w,'Con la red baja',f1(e.tD,2)+' s',retoChecked?colOk(e.okRob):GRIS);
   prow(c,PX.x,652,PX.w,'Margen',isFinite(e.margen)?f1(e.margen,3)+'×':'—',GRIS);
   prow(c,PX.x,678,PX.w,'Componentes',String(e.comps),GRIS);
   prow(c,PX.x,704,PX.w,'Aire por ciclo',f1(ciclo(sc,cfg).consTot,2)+' l ANR',GRIS);
@@ -975,23 +1006,25 @@ const pCv=document.createElement('canvas');pCv.width=256;pCv.height=160;
 const pTex=new THREE.CanvasTexture(pCv);
 const placa=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.39),new THREE.MeshBasicMaterial({map:pTex}));
 placa.position.set(1.28,1.16,0.05);placa.lookAt(new THREE.Vector3(5.2,2.4,5.6));scene.add(placa);
-function drawPlaca(sc,cfg,e){
+function drawPlaca(sc,cfg,e,ver){
+  ver=ver!==false;   // en el reto, sin Comprobar la placa no da veredicto
+  const cV=(ok)=>ver?(ok?OK_HEX:BAD_HEX):GRIS;
   const c=pCv.getContext('2d');
   c.fillStyle='#0c1016';c.fillRect(0,0,256,160);
-  c.strokeStyle=e.vale?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(2,2,252,156);
+  c.strokeStyle=cV(e.vale);c.lineWidth=3;c.strokeRect(2,2,252,156);
   c.fillStyle='#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
   c.fillText(sc.nom.length>22?sc.nom.slice(0,21)+'…':sc.nom,12,26);
   c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';
   c.fillText(ELEM(cfg.elem).rot,12,46);
   c.fillText(DEP(cfg.dep).rot+' · k = '+f1(cfg.aper,2),12,62);
-  c.fillStyle=e.okPres?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';
+  c.fillStyle=cV(e.okPres);c.font='bold 13px Outfit, sans-serif';
   c.fillText('p salida  '+f1(e.pOut,2)+' bar',12,88);
-  c.fillStyle=e.okVent?OK_HEX:BAD_HEX;
+  c.fillStyle=cV(e.okVent);
   c.fillText('retardo   '+f1(e.t,2)+' s',12,108);
-  c.fillStyle=e.okRob?OK_HEX:BAD_HEX;
+  c.fillStyle=cV(e.okRob);
   c.fillText('red baja  '+f1(e.tD,2)+' s',12,128);
-  c.fillStyle=e.vale?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
-  c.fillText(e.vale?'VÁLIDO':'NO VÁLIDO',244,150);
+  c.fillStyle=cV(e.vale);c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(ver?(e.vale?'VÁLIDO':'NO VÁLIDO'):'SIN COMPROBAR',244,150);
   pTex.needsUpdate=true;
 }
 
@@ -1073,13 +1106,15 @@ function updateHW(){
   tip.position.x=xp;
   carga.position.x=xp+0.16;
   // LEDs
+  const vOK=(mode!=='reto')||retoChecked;   // en el reto los pilotos no dan veredicto hasta Comprobar
   CRIT.forEach((cr,i)=>{
     const okv=e[cr.k];
+    if(!vOK){LEDS[i].material.color.set(0x8f97a5);LEDS[i].material.emissive.set(0x000000);LEDS[i].material.emissiveIntensity=0.1;return;}
     LEDS[i].material.color.set(okv?0x7CD992:0xff6b6b);
     LEDS[i].material.emissive.set(okv?0x7CD992:0xff6b6b);
     LEDS[i].material.emissiveIntensity=okv?1.3:0.55;
   });
-  drawPlaca(sc,cfg,e);
+  drawPlaca(sc,cfg,e,vOK);
 }
 
 // ===================== 9. HUD Y PANEL =====================
@@ -1272,11 +1307,12 @@ function updateTele(){
     h+=teleRow('Montaje',ELEM(cfg.elem).rot,retoChecked?(retoOkElem?'ok':'bad'):'');
     h+=teleRow('Depósito',DEP(cfg.dep).rot,retoChecked?(retoOkDep?'ok':'bad'):'');
     h+=teleRow('Apertura k',f1(cfg.aper,2),retoChecked?(retoOkAper?'ok':'bad'):'');
-    h+=teleRow('Presión de salida',f1(e.pOut,2)+' bar',e.okPres?'ok':'bad');
-    h+=teleRow('Retardo',f1(e.t,2)+' s',e.okVent?'ok':'bad');
-    h+=teleRow('Con la red −'+f1(P_CAIDA,1)+' bar',f1(e.tD,2)+' s',e.okRob?'ok':'bad');
-    h+=teleRow('Criterios cumplidos',CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length,e.vale?'ok':'bad');
+    h+=teleRow('Presión de salida',f1(e.pOut,2)+' bar',retoChecked?(e.okPres?'ok':'bad'):'');
+    h+=teleRow('Retardo',f1(e.t,2)+' s',retoChecked?(e.okVent?'ok':'bad'):'');
+    h+=teleRow('Con la red −'+f1(P_CAIDA,1)+' bar',f1(e.tD,2)+' s',retoChecked?(e.okRob?'ok':'bad'):'');
+    h+=teleRow('Criterios cumplidos',retoChecked?CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length:'sin comprobar',retoChecked?(e.vale?'ok':'bad'):'');
     h+=teleRow('Estado',retoChecked?(retoSolved?'aceptado':'rechazado'):'sin comprobar',retoChecked?(retoSolved?'ok':'bad'):'');
+    h+=teleRow('Intentos · fallos del caso',f1(retoIntentos,0)+' · '+f1(retoFallos,0)+' de '+f1(RETO_RESIEMBRA,0));
   }
   el('tele').innerHTML=h;
 }
@@ -1306,7 +1342,7 @@ function updateReport(){
     h='<b>'+sc.nom+'</b><br>'+
       (retoChecked?(retoSolved?'<span style="color:#7CD992">Proyecto aceptado: terna válida y mínima.</span>':'<span style="color:#ff6b6b">'+retoMsg+'</span>')
         :'Elige montaje, depósito y apertura y pulsa «Comprobar».')+
-      '<br>Criterios: '+CRIT.map(cr=>(e[cr.k]?'🟢':'🔴')+' '+cr.rot).join(' · ');
+      '<br>Criterios: '+CRIT.map(cr=>(retoChecked?(e[cr.k]?'🟢':'🔴'):'⚪')+' '+cr.rot).join(' · ');
   }
   el('report').innerHTML=h;
 }
@@ -1330,13 +1366,22 @@ function checkReto(){
   retoOkAper=okEje(sc,'aper',cfg.aper);
   retoChecked=true;
   retoSolved=retoOkElem&&retoOkDep&&retoOkAper;
-  solved=retoSolved;
+  // El recorrido guiado ensena el acierto pero NO resuelve el reto del alumno.
+  solved=autoRunning?false:retoSolved;
   retoMsg=retoSolved?'Terna válida y mínima.':retoExplain();
   synth.beep(retoSolved?880:200,0.10,0.05);
-  refreshAll();
   if(!autoRunning){
     showToast((retoSolved?'✅ <b>Proyecto aceptado.</b> ':'❌ <b>Proyecto rechazado.</b> ')+retoMsg);
+    if(!retoSolved){
+      retoIntentos++;retoFallos++;
+      if(retoFallos>=RETO_RESIEMBRA){
+        seedReto(null);solved=false;animT=0;afterEdit();
+        retoMsg='Tres proyectos rechazados en la misma estación: el reto pasa a otra. Repasa qué criterio te tumbó antes de volver a probar.';
+        showToast('🔁 <b>Estación nueva:</b> '+retoSc().nom+'. '+retoMsg);
+      }
+    }
   }
+  refreshAll();
   return retoSolved;
 }
 function retoSolveBuild(){
@@ -1352,52 +1397,52 @@ function buildQuiz(){
     logica:{
       pregunta:'Las dos señales de una función Y están «a 1», pero el cilindro no se mueve. ¿Qué explica mejor lo que pasa?',
       opciones:[
-        {t:'La válvula de simultaneidad entrega la MENOR de las dos presiones y esa no llega al umbral de pilotaje',ok:true,
+        {t:'La simultaneidad entrega la MENOR de las dos presiones y esa no llega al umbral de pilotaje',ok:true,
          why:'Exacto. En neumática el 1 lógico vale una presión: la simultaneidad saca min(p₁,p₂), y si la rama más baja está por debajo de '+f1(P_PILOT,1)+' bar la válvula de potencia no conmuta aunque las dos señales existan.'},
-        {t:'La válvula de simultaneidad suma las dos presiones y se pasa del máximo admisible',ok:false,
+        {t:'La válvula de simultaneidad suma las dos presiones y el resultado se pasa del máximo admisible',ok:false,
          why:'No suma nada: la bola bloquea una de las dos entradas. En la simultaneidad bloquea la de mayor presión, así que sale la menor.'},
-        {t:'Hace falta más caudal: hay que montar tubo más grueso',ok:false,
+        {t:'Hace falta más caudal: hay que montar un tubo más grueso entre la válvula y el cilindro de la estación',ok:false,
          why:'El problema no es de caudal sino de nivel de presión. El pilotaje necesita alcanzar un umbral; un tubo más grueso llega antes, pero al mismo valor insuficiente.'},
-        {t:'La función Y no se puede hacer en neumática sin electrónica',ok:false,
+        {t:'La función Y no se puede construir en neumática sin recurrir a electrónica o a un autómata programable',ok:false,
          why:'Sí se puede, y de dos formas: dos válvulas 3/2 en serie (sin comprar nada) o una válvula de simultaneidad.'},
       ],
     },
     tiempo:{
       pregunta:'El temporizador está ajustado y en la ventana. La red pierde 1 bar por una fuga en otra máquina. ¿Qué le pasa al retardo?',
       opciones:[
-        {t:'Se alarga alrededor de un 17 % porque el caudal a través del estrangulador cae con la presión de origen',ok:true,
+        {t:'Se alarga cerca de un 17 % a 6 bar de red porque el caudal por el estrangulador cae con la presión de origen',ok:true,
          why:'Correcto. El caudal sónico es proporcional a p₁: menos presión de origen, menos caudal, más tiempo en llenar el mismo depósito. Por eso el proyecto se comprueba también con la red baja.'},
-        {t:'No cambia: el depósito y el estrangulador son los mismos',ok:false,
+        {t:'No cambia: el depósito, el estrangulador y la presión de pilotaje siguen siendo exactamente los mismos',ok:false,
          why:'El volumen es el mismo, pero el caudal que lo llena no. Con la red 1 bar más baja el mismo montaje tarda sensiblemente más.'},
-        {t:'Se acorta, porque hay menos presión que vencer hasta el umbral',ok:false,
+        {t:'Se acorta, porque hay menos presión que vencer hasta alcanzar el umbral de pilotaje de la válvula',ok:false,
          why:'El umbral de pilotaje no baja con la red: sigue siendo '+f1(P_PILOT,1)+' bar. Lo que baja es el caudal disponible para alcanzarlo.'},
-        {t:'Se dispara antes y el cilindro sale sin retardo',ok:false,
+        {t:'Se dispara antes y el cilindro sale prácticamente sin retardo, porque la red tiene menos aire que llenar',ok:false,
          why:'Nunca se acorta por bajar la presión de alimentación. Y si la red cae por debajo del umbral, el temporizador no dispara jamás.'},
       ],
     },
     fuga:{
       pregunta:'Un empalme en T entre dos válvulas 3/2 enciende la máquina en el banco de pruebas. ¿Por qué no se acepta?',
       opciones:[
-        {t:'Porque la válvula que no está accionada deja su escape abierto y el nudo fuga sin parar mientras se mantiene la señal',ok:true,
+        {t:'Porque la válvula sin accionar deja su escape abierto y el nudo fuga sin parar mientras dura la señal',ok:true,
          why:'Exacto. Y no siempre da la misma presión: depende del Qn de cada válvula, así que puede arrancar desde un mando y no desde el otro. La selectora cierra ese escape por un componente.'},
-        {t:'Porque la T no está normalizada en la ISO 1219',ok:false,
+        {t:'Porque la T no está normalizada en la ISO 1219 y no existe un símbolo aceptado para dibujarla',ok:false,
          why:'El empalme se dibuja perfectamente en ISO 1219; el problema no es de símbolo sino de física: hay un camino permanente a la atmósfera.'},
-        {t:'Porque una función O necesita obligatoriamente dos válvulas selectoras',ok:false,
+        {t:'Porque una función O necesita obligatoriamente dos válvulas selectoras montadas una detrás de otra',ok:false,
          why:'Con dos entradas basta una selectora. El problema del empalme no es el número de componentes, es la fuga.'},
-        {t:'Porque el aire comprimido no puede circular en dos sentidos por la misma tubería',ok:false,
+        {t:'Porque el aire comprimido no puede circular en dos sentidos por la misma tubería a la vez',ok:false,
          why:'Sí puede: precisamente por eso el aire de la rama activa se va por el escape de la rama en reposo.'},
       ],
     },
     reto:{
       pregunta:'¿Cuándo se compra el relevador de baja presión en vez de quedarse con la válvula de simultaneidad?',
       opciones:[
-        {t:'Cuando la menor de las dos señales no llega al umbral de pilotaje pero sí alcanza el del relevador',ok:true,
+        {t:'Cuando la menor de las dos señales no llega al umbral de pilotaje pero sí al del relevador',ok:true,
          why:'Correcto. El relevador pilota con '+f1(P_PILOT_LP,1)+' bar y conmuta la línea entera: convierte una señal débil pero existente en una orden a presión de red. Es el único caso en que se paga un segundo componente.'},
-        {t:'Siempre que la función sea Y: es el montaje recomendado',ok:false,
+        {t:'Siempre que la función sea Y, porque es el montaje recomendado por los fabricantes de válvulas',ok:false,
          why:'No. Si las dos señales llegan al umbral, la simultaneidad basta; y si las dos entradas son órganos de la misma línea, ni siquiera hace falta: dos 3/2 en serie salen gratis.'},
-        {t:'Cuando el retardo pedido supera los 10 s',ok:false,
+        {t:'Cuando el retardo pedido supera los 10 s, porque entonces el depósito solo no consigue llegar',ok:false,
          why:'El retardo lo fijan el depósito y el estrangulador. El relevador resuelve un problema de presión, no de tiempo.'},
-        {t:'Cuando la red puede caer 1 bar',ok:false,
+        {t:'Cuando la red puede caer 1 bar y hay que asegurar que el temporizador siga disparando',ok:false,
          why:'La robustez frente a la caída de red se resuelve eligiendo depósito y apertura con margen, no añadiendo un relevador.'},
       ],
     },
@@ -1458,6 +1503,9 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
   if(autoRunning)return;
+  // DEMOSTRACION: guarda el estado del alumno y lo devuelve al terminar; no puntua.
+  const snap={mode,lgIdx,lgElem,tmIdx,tmDep,tmAper,fgIdx,solved,
+    retoK,retoCh:{...retoCh},retoChecked,retoOkElem,retoOkDep,retoOkAper,retoSolved,retoMsg,retoIntentos,retoFallos};
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
@@ -1511,14 +1559,14 @@ async function runAuto(){
 
     // --- 4. RETO ---
     setMode('reto');
-    seedReto(2);afterEdit();
-    showToast('🎯 <b>Reto</b>: proyecta la estación de encolado completa. Arranca mal en los tres ejes a propósito.');
+    seedReto(0);afterEdit();
+    showToast('🎯 <b>Reto</b>: proyecta la <b>'+retoSc().nom.toLowerCase()+'</b> completa. Arranca mal en los tres ejes a propósito.');
     await sleep(4400);
     checkReto();
     showToast('❌ Comprobado con la propuesta de arranque: '+retoMsg);
     await sleep(5400);
     retoSolveBuild();afterEdit();
-    const gE=GOOD(POOL[2]);
+    const gE=GOOD(retoSc());
     showToast('✅ La única terna <b>válida y mínima</b>: '+ELEM(gE.elem).rot.toLowerCase()+', '+DEP(gE.dep).rot+' y apertura '+f1(gE.aper,2)+'. Comprobamos.');
     await sleep(4400);
     checkReto();
@@ -1526,6 +1574,14 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    lgIdx=snap.lgIdx;lgElem=snap.lgElem;tmIdx=snap.tmIdx;tmDep=snap.tmDep;tmAper=snap.tmAper;fgIdx=snap.fgIdx;
+    retoK=snap.retoK;retoCh=snap.retoCh;retoChecked=snap.retoChecked;retoOkElem=snap.retoOkElem;retoOkDep=snap.retoOkDep;
+    retoOkAper=snap.retoOkAper;retoSolved=snap.retoSolved;retoMsg=snap.retoMsg;retoIntentos=snap.retoIntentos;retoFallos=snap.retoFallos;
+    // La demostración enseñó la solución de la primera estación del banco: si era la del alumno y aún no la resolvió, se cambia.
+    if(!snap.retoSolved&&snap.retoK===0){seedReto(null);retoMsg='';}
+    solved=snap.solved;
+    animT=0;
+    setMode(snap.mode);
   }
 }
 
@@ -1577,7 +1633,7 @@ window.__labDebug={
   fgGet:()=>({idx:fgIdx}),
   fgSet:(o)=>{if(o.idx!==undefined)fgIdx=o.idx;afterEdit();},
   // reto
-  retoK:()=>retoK,seedReto,retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
+  retoK:()=>retoK,intentos:()=>retoIntentos,retoIntentos:()=>retoIntentos,retoFallos:()=>retoFallos,RPOOL:()=>RPOOL,seedReto,retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
   retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,retoExplain,
   retoChecked:()=>retoChecked,retoOkElem:()=>retoOkElem,retoOkDep:()=>retoOkDep,retoOkAper:()=>retoOkAper,
   retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoGood:()=>GOOD(retoSc()),retoStart:()=>startCfg(retoSc()),

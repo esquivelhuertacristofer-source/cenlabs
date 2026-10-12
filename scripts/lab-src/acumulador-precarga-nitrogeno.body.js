@@ -430,13 +430,25 @@ const ST = {
 };
 // RETO.ejes guarda LO QUE EL ALUMNO HA MONTADO (no banderas): de ahi lee cfgDe.
 // RETO.pistas guarda que ejes ya se han destapado con el boton de pista.
-const RETO = { cfg:{ fk:'emerg' }, sol:null, ejes:{ acum:'m008', prec:0.50, nbot:0 },
-               pistas:{}, resuelto:false, msg:'', nval:0 };
+// intentos: fallos acumulados del alumno (no se pone a cero al resembrar); fallosCaso: los
+// del caso en curso (a los 3 el reto se resiembra). chk: el montaje que se COMPROBO la
+// ultima vez; mientras el montaje puesto no coincida con el, no hay veredicto en pantalla.
+const RETO = { cfg:{ fk:'termica' }, sol:null, ejes:{ acum:'m008', prec:0.50, nbot:0 },
+               pistas:{}, resuelto:false, msg:'', nval:0, intentos:0, fallosCaso:0, chk:null };
+const RETO_RESIEMBRA = 3;
+const RETO_PISTAS_MAX = 2;
+function retoVista(){
+  const k=RETO.chk, e=RETO.ejes;
+  return !!k && k.fk===RETO.cfg.fk && k.acum===e.acum && k.prec===e.prec && k.nbot===e.nbot;
+}
+// En modo reto el veredicto (marcas, colores, "cumple") solo existe tras Comprobar.
+const verOK = () => mode!=='reto' || retoVista();
 
 let CUR = null;          // punto de trabajo del modo activo
 let hw = {};             // lo que la maquina 3D tiene que representar
 let animT = 0;
 let autoRunning = false;
+let demoOk = false;      // el recorrido guiado acierta, pero eso NO resuelve el reto
 let solved = false;
 
 function cfgDe(m){
@@ -580,6 +592,8 @@ function marca(x,y,ok){
   bx.stroke();
 }
 const colOk=b=>b?OK_HEX:BAD_HEX;
+// Igual que colOk, pero en modo reto sin comprobar no pinta veredicto.
+const colV=b=>verOK()?colOk(b):'#dbe4f0';
 function tabla(x,y,cols,rows,anchos,colFn){
   let yy=y;
   cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
@@ -640,14 +654,18 @@ function panelPunto(p,alto){
   prow(y,'p₀ en frío / caliente',f1(pman(p.p0Fri),1)+' / '+f1(pman(p.p0Cal),1)+' bar'); y+=23;
   prow(y,'p₀ dentro de un año',f1(pman(p.p0Der),1)+' bar'); y+=30;
   texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
-  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colOk(p.okFunc)); y+=23;
+  const vv=verOK();
+  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colV(p.okFunc)); y+=23;
   prow(y,'objetivo',(FAENAS[p.fk].sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+' '+p.unidad); y+=23;
-  prow(y,'margen',pcm(p.margen),colOk(p.margen>=0)); y+=23;
+  prow(y,'margen',pcm(p.margen),colV(p.margen>=0)); y+=23;
   prow(y,'coste del conjunto',p.coste+' u'); y+=30;
   CRIT.forEach(c=>{
-    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
-    marca(PX.x+20,y-5,p[c]); y+=21;
+    texto(CRIT_ROT[c],PX.x+34,y,vv?(p[c]?'#c8d3e2':BAD_HEX):'#c8d3e2',13,'left','600');
+    if(vv) marca(PX.x+20,y-5,p[c]);
+    else { bx.fillStyle='#4a5568'; bx.beginPath(); bx.arc(PX.x+20,y-5,3,0,6.2832); bx.fill(); }
+    y+=21;
   });
+  if(!vv){ texto('Pulsa «Comprobar» para el veredicto',PX.x+14,y+6,'#8f9bb0',12,'left','600'); y+=18; }
   return y;
 }
 
@@ -982,14 +1000,14 @@ function drawCatalogo(){
   prow(y,'modelo',ACUM_ROT[c.ak],AZUL); y+=23;
   prow(y,'separador',TIPOS[p.tipo].rot); y+=23;
   prow(y,'volumen V₀',f1(p.v0,2)+' L'); y+=23;
-  prow(y,'relación de compresión',f1(p.rcReal,2)+' ≤ '+f1(p.rc,0),colOk(p.okRC)); y+=23;
-  prow(y,'presión admisible',f1(F.p2,0)+' ≤ '+f1(p.ps,0)+' bar',colOk(p.okPS)); y+=23;
-  prow(y,'caudal de paso',f1(p.q,1)+' ≤ '+f1(p.qmax,0)+' L/min',colOk(p.okQ)); y+=23;
-  prow(y,'respuesta del separador',f1(1000*p.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',colOk(p.okResp)); y+=23;
+  prow(y,'relación de compresión',f1(p.rcReal,2)+' ≤ '+f1(p.rc,0),colV(p.okRC)); y+=23;
+  prow(y,'presión admisible',f1(F.p2,0)+' ≤ '+f1(p.ps,0)+' bar',colV(p.okPS)); y+=23;
+  prow(y,'caudal de paso',f1(p.q,1)+' ≤ '+f1(p.qmax,0)+' L/min',colV(p.okQ)); y+=23;
+  prow(y,'respuesta del separador',f1(1000*p.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',colV(p.okResp)); y+=23;
   prow(y,'fricción del separador',f1(p.dpFric,1)+' bar'); y+=30;
-  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colOk(p.okFunc)); y+=23;
+  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colV(p.okFunc)); y+=23;
   prow(y,'coste del conjunto',p.coste+' u'); y+=23;
-  prow(y,'veredicto',p.valida?'válido':'no sirve',colOk(p.valida));
+  prow(y,'veredicto',verOK()?(p.valida?'válido':'no sirve'):'sin comprobar',colV(p.valida));
   wrapText(TIPOS[p.tipo].nota,PX.x+14,y+34,PX.w-28,18,'#8f9bb0',13);
 }
 
@@ -1003,7 +1021,8 @@ function drawReto(){
     f1(F.tMax,0)+' °C, con n = '+f1(F.n,1)+'. Hace falta '+(F.sentido==='ge'?'al menos ':'como mucho ')+
     f1(p.req,3)+' '+p.unidad+' de '+p.rotFun+'. Ajusta modelo, precarga y botellas.',
     64,140,584,22,'#dbe4f0',15);
-  texto('configuraciones válidas que existen: '+RETO.nval,64,208,'#8f9bb0',13,'left','700');
+  texto('configuraciones válidas que existen: '+RETO.nval+'  ·  intentos: '+RETO.intentos+
+    '  ·  pistas: '+Object.keys(RETO.pistas).length+'/'+RETO_PISTAS_MAX,64,208,'#8f9bb0',13,'left','700');
   let y=272;
   texto('TU INTENTO',44,y,'#8ab4f8',14,'left','800'); y+=30;
   const ejesRot=[['acumulador',ACUM_ROT[p.ak]],['precarga a 20 °C',f1(100*p.prec,0)+' % · '+f1(pman(p.p0Ref),2)+' bar'],
@@ -1012,18 +1031,20 @@ function drawReto(){
     texto(r[1],380,y,'#dbe4f0',15,'left','700'); y+=28; });
   y+=14;
   texto(p.rotFun,64,y,'#8f9bb0',14,'left','600');
-  texto(f1(p.val,3)+' '+p.unidad+'   ('+(F.sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+')',380,y,colOk(p.okFunc),15,'left','800');
-  y+=18; hbar(64,y,560,14,Number.isFinite(p.val)?(F.sentido==='ge'?p.val/p.req:p.req/Math.max(p.val,1e-9)):0,colOk(p.okFunc));
+  texto(f1(p.val,3)+' '+p.unidad+'   ('+(F.sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+')',380,y,colV(p.okFunc),15,'left','800');
+  y+=18; hbar(64,y,560,14,Number.isFinite(p.val)?(F.sentido==='ge'?p.val/p.req:p.req/Math.max(p.val,1e-9)):0,colV(p.okFunc));
   y+=44;
   texto('CRITERIOS',44,y,'#8ab4f8',14,'left','800'); y+=28;
   CRIT.forEach((c,i)=>{
     const xx=44+(i%2)*310, yy=y+Math.floor(i/2)*26;
-    marca(xx+12,yy-5,p[c]);
-    texto(CRIT_ROT[c],xx+28,yy,p[c]?'#c8d3e2':'#ff9d9d',13,'left','600');
+    if(verOK()) marca(xx+12,yy-5,p[c]);
+    else { bx.fillStyle='#4a5568'; bx.beginPath(); bx.arc(xx+12,yy-5,3,0,6.2832); bx.fill(); }
+    texto(CRIT_ROT[c],xx+28,yy,verOK()?(p[c]?'#c8d3e2':'#ff9d9d'):'#c8d3e2',13,'left','600');
   });
   y+=Math.ceil(CRIT.length/2)*26+18;
-  texto('coste del conjunto: '+p.coste+' u',44,y,p.valida?OK_HEX:'#8f9bb0',16,'left','800');
-  if(RETO.msg) wrapText(RETO.msg,44,y+30,620,20,solved?OK_HEX:'#8f9bb0',14);
+  texto('coste del conjunto: '+p.coste+' u',44,y,(verOK()&&p.valida)?OK_HEX:'#8f9bb0',16,'left','800');
+  if(RETO.msg) wrapText(RETO.msg,44,y+30,620,20,(solved||demoOk)?OK_HEX:'#8f9bb0',14);
+  else texto('Pulsa «Comprobar» para saber si el montaje cumple.',44,y+30,'#8f9bb0',14,'left','500');
   panelPunto(p);
 }
 
@@ -1476,7 +1497,7 @@ const MODE_META={
     mision:'La precarga es el único ajuste que se hace con el aparato ya montado, y tiene ventana por los dos lados. Barre p₀ de punta a punta y mira dónde entra y dónde sale: por arriba manda el plato en caliente, por abajo mandan la relación de compresión en frío y la fuga de un año.'},
   catalogo:{nombre:'El catálogo',cam:[[5.0,3.2,6.6],[0.85,1.00,-0.40]],
     mision:'Diecinueve modelos con la misma faena delante. Cumplir la función no basta: hay que sobrevivir al plato, a la relación de compresión, a la presión admisible, al caudal de paso, al tiempo de respuesta del separador y a la permeación de un año. Fíjate en cuáles caen y por qué motivo caen.'},
-  reto:{nombre:'Reto',cam:[[7.6,4.2,9.4],[1.95,1.15,0.00]],
+  reto:{nombre:'Reto',cam:[[7.0,4.2,9.4],[1.35,1.15,0.00]],
     mision:'Tres ejes —modelo, precarga y botellas— y siete criterios que hay que cumplir a la vez. Monta el conjunto válido MÁS BARATO para la faena que te toca; a igualdad de coste gana el que menos gas instala, y después el de más margen.'},
 };
 const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
@@ -1505,7 +1526,7 @@ const EJE_CAMPO={acum:'ak',prec:'prec',nbot:'nbot'};
 function buildControls(){
   const bar=el('selbar');let h='';
   if(mode!=='reto'){
-    h+=lbl('Faena')+optBtns('fa',OPT_FAENA,ST.fk);
+    h+=lbl('Faena')+optBtns('fa',OPT_FAENA.filter(o=>mode==='gas'||o[0]!==RETO.cfg.fk),ST.fk);
     h+=lbl('Acumulador · V vejiga, M membrana, P pistón')+optBtns('ac',OPT_ACUM,ST.ak);
     h+=lbl('Precarga')+optBtns('pr',OPT_PREC,ST.prec);
     h+=lbl('Botellas')+optBtns('nb',OPT_NBOT,ST.nbot);
@@ -1525,30 +1546,44 @@ function buildControls(){
   wire('data-pr',v=>{ST.prec=Number(v);});
   wire('data-nb',v=>{ST.nbot=Number(v);});
   wire('data-gn',v=>{ST.nGas=Number(v);});
-  wire('data-xa',v=>{RETO.ejes.acum=v;RETO.msg='';RETO.resuelto=false;});
-  wire('data-xp',v=>{RETO.ejes.prec=Number(v);RETO.msg='';RETO.resuelto=false;});
-  wire('data-xn',v=>{RETO.ejes.nbot=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xa',v=>{RETO.ejes.acum=v;RETO.msg='';RETO.resuelto=false;solved=false;});
+  wire('data-xp',v=>{RETO.ejes.prec=Number(v);RETO.msg='';RETO.resuelto=false;solved=false;});
+  wire('data-xn',v=>{RETO.ejes.nbot=Number(v);RETO.msg='';RETO.resuelto=false;solved=false;});
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Valores de un eje que aparecen en alguna configuracion optima (hay empates
-// cuando dos montajes distintos cuestan lo mismo y ademas empatan en volumen,
-// margen y precarga).
-function ejeSolC(fk,eje){
-  const campo=EJE_CAMPO[eje], out=[];
-  empates(fk).forEach(p=>{ if(out.indexOf(p[campo])<0) out.push(p[campo]); });
-  return out;
-}
-// Una pista destapa UN eje. No resuelve el reto: los tres ejes se juzgan juntos
-// y acertar uno no garantiza que la combinacion cumpla los siete criterios.
+// Dos pistas como maximo, graduadas y registradas en RETO.pistas. Orientan, no
+// entregan montaje: la 1 dice QUE criterio vigilar y la 2 QUE familia de separador
+// sobrevive. Ninguna nombra modelo, precarga ni botellas.
 function pista(){
-  const eje=EJES.find(e=>!RETO.pistas[e]);
-  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.pistas[eje]=true;beep();
-  const vals=ejeSolC(RETO.cfg.fk,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el conjunto más barato aparece: '+
-    (vals||'ningún valor: esta faena no tiene solución'));
+  const n=Object.keys(RETO.pistas).length;
+  if(n>=RETO_PISTAS_MAX){showToast('💡 Ya usaste las '+RETO_PISTAS_MAX+' pistas de este caso. El montaje lo cierras tú.');return;}
+  const b=barrido(RETO.cfg.fk), v=b.filter(p=>p.valida);
+  RETO.pistas[n+1]=true;beep();
+  if(n===0){
+    const solo={}, tot={};
+    CRIT.forEach(k=>{solo[k]=0;tot[k]=b.filter(p=>!p[k]).length;});
+    b.filter(p=>p.fallos.length===1).forEach(p=>solo[p.fallos[0]]++);
+    const peor=CRIT.slice().sort((a,x)=>(solo[x]-solo[a])||(tot[x]-tot[a]))[0];
+    showToast('💡 <b>Pista 1 de '+RETO_PISTAS_MAX+'.</b> En esta faena el criterio que más montajes tumba él solo es «'+
+      CRIT_ROT[peor]+'». Aunque la función se cumpla, no lo des por bueno.');
+  }else{
+    const tipos=[];
+    v.forEach(p=>{const t=TIPOS[p.tipo].rot.toLowerCase();if(tipos.indexOf(t)<0)tipos.push(t);});
+    showToast('💡 <b>Pista 2 de '+RETO_PISTAS_MAX+'.</b> '+(tipos.length
+      ? 'Los conjuntos que cumplen los siete criterios en esta faena llevan separador de '+tipos.join(' o ')+
+        '. Dentro de ese tipo, elegir el más barato sigue siendo cosa tuya.'
+      : 'Esta faena no tiene ningún conjunto válido.'));
+  }
   afterEdit();
+}
+// Los modos de estudio no pueden ensenar la faena del reto: se reserva y, si el
+// alumno estaba mirandola, el ensayo salta a la siguiente.
+function sinReto(){
+  if(autoRunning||mode==='reto'||mode==='gas') return;
+  if(ST.fk===RETO.cfg.fk){
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+  }
 }
 
 function updateScenarioInfo(){
@@ -1563,6 +1598,7 @@ function updateHwRot(){
     f1(pman(p.p0Ref),1)+' bar) · '+(c.nbot?(c.nbot+' × '+f1(V_BOT,0)+' L de N₂'):'sin botellas');
 }
 function afterEdit(){
+  sinReto();
   computa();
   refrescaHW();
   buildControls();
@@ -1571,7 +1607,7 @@ function afterEdit(){
   refreshAll();
 }
 function setMode(k){
-  mode=k;animT=0;
+  mode=k;animT=0;sinReto();
   MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
@@ -1606,7 +1642,8 @@ function newSignal(){
     const i=FAENA_KEYS.indexOf(RETO.cfg.fk);RETO.cfg.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
     retoSolveBuild(true);
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
+  if(mode==='reto'){RETO.resuelto=false;solved=false;RETO.msg='';}
+  sinReto();
   computa();refrescaHW();
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
@@ -1620,6 +1657,7 @@ function teleRow(l,v,cls){
   return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
 }
 const cls2=b=>b?'ok':'bad';
+const clsV=b=>verOK()?cls2(b):'';
 const estRot=e=>EST_ROT[e];
 
 function updateTele(){
@@ -1682,16 +1720,16 @@ function updateTele(){
     h+=teleRow('Montado',ACUM_ROT[c.ak]+' · '+f1(100*c.prec,0)+' % · '+
       (c.nbot?c.nbot+' × '+f1(V_BOT,0)+' L':'sin botellas'));
     h+=teleRow('Coste del conjunto',f1(r.coste,0)+' u');
-    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
+    h+=teleRow('Criterios cumplidos',verOK()?f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0):'sin comprobar',clsV(r.valida));
     h+=teleRow(F.rotFun.charAt(0).toUpperCase()+F.rotFun.slice(1),
-      Number.isFinite(r.val)?f1(r.val,3)+' '+r.unidad:'no llega',cls2(r.okFunc));
-    h+=teleRow('Plato en caliente',f1(pman(r.p0Cal),2)+' ≤ '+f1(pman(r.platoLim),2)+' bar',cls2(r.okPlato));
-    h+=teleRow('Compresión p₂/p₀',f1(r.rcReal,2)+' ≤ '+f1(r.rc,0),cls2(r.okRC));
-    h+=teleRow('Presión admisible',f1(F.p2,0)+' ≤ '+f1(r.ps,0)+' bar',cls2(r.okPS));
-    h+=teleRow('Caudal de paso',f1(r.q,1)+' ≤ '+f1(r.qmax,0)+' L/min',cls2(r.okQ));
-    h+=teleRow('Respuesta del separador',f1(1000*r.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',cls2(r.okResp));
-    h+=teleRow('A un año',Number.isFinite(r.valDer)?f1(r.valDer,3)+' '+r.unidad:'no llega',cls2(r.okDeriva));
-    h+=teleRow('Coste mínimo posible',s?f1(s.coste,0)+' u':'sin solución');
+      Number.isFinite(r.val)?f1(r.val,3)+' '+r.unidad:'no llega',clsV(r.okFunc));
+    h+=teleRow('Plato en caliente',f1(pman(r.p0Cal),2)+' ≤ '+f1(pman(r.platoLim),2)+' bar',clsV(r.okPlato));
+    h+=teleRow('Compresión p₂/p₀',f1(r.rcReal,2)+' ≤ '+f1(r.rc,0),clsV(r.okRC));
+    h+=teleRow('Presión admisible',f1(F.p2,0)+' ≤ '+f1(r.ps,0)+' bar',clsV(r.okPS));
+    h+=teleRow('Caudal de paso',f1(r.q,1)+' ≤ '+f1(r.qmax,0)+' L/min',clsV(r.okQ));
+    h+=teleRow('Respuesta del separador',f1(1000*r.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',clsV(r.okResp));
+    h+=teleRow('A un año',Number.isFinite(r.valDer)?f1(r.valDer,3)+' '+r.unidad:'no llega',clsV(r.okDeriva));
+    h+=teleRow('Intentos · pistas',f1(RETO.intentos,0)+' · '+f1(Object.keys(RETO.pistas).length,0)+' / '+f1(RETO_PISTAS_MAX,0));
   }
   el('tele').innerHTML=h;
 }
@@ -1766,11 +1804,12 @@ function updateReport(){
     t='> '+F.rot+'. Monta el conjunto válido más barato.\n';
     t+='> Puesto: '+ACUM_ROT[c.ak]+' · precarga '+f1(100*c.prec,0)+' % ('+f1(pman(r.p0Ref),2)+' bar) · '+
       (c.nbot?c.nbot+' × '+f1(V_BOT,0)+' L de N₂':'sin botellas')+' → '+f1(r.coste,0)+' u.\n';
-    t+=r.valida?'> Cumple los siete criterios.\n'
-               :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=!retoVista()?'> Pulsa «Comprobar» para saber si cumple los siete criterios.\n'
+      :(r.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n');
     t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f1(RETO.nval,0)+' conjuntos válidos, el más barato cuesta '+
-      (s?f1(s.coste,0)+' u':'—')+'.';
+    t+='> Hay '+f1(RETO.nval,0)+' conjuntos válidos; sólo uno es el más barato. Intentos: '+
+      f1(RETO.intentos,0)+' · pistas: '+f1(Object.keys(RETO.pistas).length,0)+'/'+f1(RETO_PISTAS_MAX,0)+'.';
   }
   el('report').textContent=t;
 }
@@ -1837,6 +1876,8 @@ function retoSolveBuild(reset){
     RETO.pistas={};
     RETO.resuelto=false;
     RETO.msg='';
+    RETO.fallosCaso=0;
+    RETO.chk=null;
   }
 }
 function updateRetoSpec(){
@@ -1883,13 +1924,17 @@ function retoExplain(r,c){
 function checkReto(){
   const c=cfgDe('reto'), s=RETO.sol;
   const r=punto(c.fk,c.ak,c.prec,c.nbot);
+  RETO.chk={fk:c.fk,acum:c.ak,prec:c.prec,nbot:c.nbot};
+  let bien=false;
   if(!s){
     RETO.msg='Esta faena no tiene ningún conjunto válido en el catálogo.';
     RETO.resuelto=false;
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>Sin solución.</b> '+RETO.msg);
   }else if(r.valida && mejor(r,s)===0){
-    RETO.resuelto=true; solved=true;
+    bien=true;
+    // El recorrido guiado muestra el acierto pero no resuelve el reto del alumno.
+    if(autoRunning){ demoOk=true; } else { RETO.resuelto=true; solved=true; }
     RETO.msg='Correcto: '+f1(r.coste,0)+' u con '+f1(r.vT,3)+
       ' L de gas instalado, el mínimo del catálogo.';
     synth.beep(880,0.10,0.06);
@@ -1897,12 +1942,9 @@ function checkReto(){
       f1(r.coste,0)+' u · '+pc1(r.margen,1)+' de margen.');
   }else if(r.valida){
     RETO.resuelto=false;
-    RETO.msg=(r.coste!==s.coste)
-      ? 'Válido, pero no es el más barato: '+f1(r.coste,0)+' u frente a '+f1(s.coste,0)+' u.'
-      : (r.vT!==s.vT
-        ? 'Válido y al precio mínimo, pero instala '+f1(r.vT,3)+' L de gas y hay otro igual de barato con '+f1(s.vT,3)+'.'
-        : 'Válido y empatado en precio y volumen, pero con menos margen: '+pc1(r.margen,1)+
-          ' frente a '+pc1(s.margen,1)+'.');
+    // Cualitativo: no se da el coste, el gas ni el margen del optimo.
+    RETO.msg='Cumple los siete criterios, pero no es el óptimo: se puede mejorar en el orden de desempate '+
+      '(coste, luego gas instalado, luego margen, luego precarga).';
     synth.beep(520,0.09,0.05);
     showToast('🟡 <b>Cumple, pero no es el óptimo.</b> '+RETO.msg);
   }else{
@@ -1911,8 +1953,17 @@ function checkReto(){
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>No cumple.</b> '+RETO.msg);
   }
-  computa();
-  refreshAll();
+  if(!bien && !autoRunning){
+    RETO.intentos++;RETO.fallosCaso++;
+    if(RETO.fallosCaso>=RETO_RESIEMBRA){
+      const i=FAENA_KEYS.indexOf(RETO.cfg.fk);
+      RETO.cfg.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+      retoSolveBuild(true);
+      RETO.msg='Tres intentos sin acertar: el reto se resiembra con otra faena. Repasa qué criterio te tumbó antes de volver a probar.';
+      showToast('🔁 <b>Caso nuevo.</b> '+RETO.msg);
+    }
+  }
+  afterEdit();
 }
 
 // ===================== 14. CUESTIONARIO =====================
@@ -1921,34 +1972,34 @@ function checkReto(){
 const QUIZ={
   gas:{pregunta:'Un acumulador de 10 L precargado al 90 % y trabajando entre 100 y 160 bar entrega 3,3538 L si el ciclo es lento (n = 1,0) y sólo 2,6271 L si es rápido (n = 1,4): un 21,67 % menos con el mismo hierro y la misma precarga. ¿Qué ha pasado?',
     opciones:[
-      {t:'Que al comprimirse deprisa el nitrógeno se calienta y sube de presión antes de tiempo, así que la misma banda de 100 a 160 bar barre menos volumen de gas',ok:true,why:'La curva adiabática es más empinada que la isoterma: alcanza los 160 bar habiendo cedido menos volumen. La velocidad del ciclo no es un detalle de montaje, entra en la ecuación como el exponente n, y ningún ajuste de precarga la compensa: subir p₀ topa en la válvula de plato.'},
-      {t:'Que a más velocidad el separador no llega a seguir el ciclo y estrangula el paso de aceite',ok:false,why:'Ésa es otra limitación y se juzga aparte, con el tiempo de respuesta del separador. Las dos cifras de arriba están calculadas con el mismo acumulador y el mismo separador: lo único que cambia es n.'},
-      {t:'Que en los ciclos rápidos el nitrógeno se disuelve en el aceite y hay menos gas',ok:false,why:'El nitrógeno sí se escapa, pero por permeación y a razón de un 3 % al año, no en cada ciclo. En un ciclo de segundos la masa de gas es la misma; lo que cambia es su temperatura.'},
-      {t:'Que el aceite se comprime al pasar de 100 a 160 bar y esa parte no sale del acumulador',ok:false,why:'El aceite se comprime, pero poquísimo: con K = 1,5 GPa esos 60 bar dan un 0,4 % de volumen. No explica un 21,67 %, y además ese efecto no depende de la velocidad del ciclo.'}]},
+      {t:'Que al comprimirse deprisa el nitrógeno se calienta y llega a 160 bar habiendo cedido menos volumen: la banda barre menos gas',ok:true,why:'La curva adiabática es más empinada que la isoterma: alcanza los 160 bar habiendo cedido menos volumen. La velocidad del ciclo no es un detalle de montaje, entra en la ecuación como el exponente n, y ningún ajuste de precarga la compensa: subir p₀ topa en la válvula de plato.'},
+      {t:'Que a más velocidad el separador no llega a seguir el ciclo, se retrasa respecto de la presión del aceite y estrangula el paso por el puerto',ok:false,why:'Ésa es otra limitación y se juzga aparte, con el tiempo de respuesta del separador. Las dos cifras de arriba están calculadas con el mismo acumulador y el mismo separador: lo único que cambia es n.'},
+      {t:'Que en los ciclos rápidos parte del nitrógeno se disuelve en el aceite y queda menos gas disponible para comprimirse en cada carrera',ok:false,why:'El nitrógeno sí se escapa, pero por permeación y a razón de un 3 % al año, no en cada ciclo. En un ciclo de segundos la masa de gas es la misma; lo que cambia es su temperatura.'},
+      {t:'Que el aceite se comprime al pasar de 100 a 160 bar y esa fracción de volumen se queda dentro del acumulador sin salir',ok:false,why:'El aceite se comprime, pero poquísimo: con K = 1,5 GPa esos 60 bar dan un 0,4 % de volumen. No explica un 21,67 %, y además ese efecto no depende de la velocidad del ciclo.'}]},
   faena:{pregunta:'En el golpe de ariete la válvula tarda 40 ms en cerrar, la celeridad de la onda es de 1 258,1 m/s y el tubo mide 120 m, de modo que la onda tarda 190,8 ms en ir hasta la bomba y volver. ¿Por qué se aplica el golpe de Joukowsky entero si 40 ms parece un cierre lento?',
     opciones:[
-      {t:'Porque un cierre es rápido cuando dura menos que el tiempo de ida y vuelta 2L/c: la onda de alivio todavía no ha regresado cuando la válvula ya está cerrada, y nada frena el pico',ok:true,why:'Lento o rápido no se mide en milisegundos, se mide contra 2L/c. Los mismos 40 ms en un tubo corto —digamos 10 m, con 2L/c = 16 ms— serían un cierre lento y el pico bajaría mucho. La longitud de la tubería decide el veredicto.'},
-      {t:'Porque 40 ms es un tiempo muy corto en términos absolutos y toda maniobra tan breve provoca el golpe completo',ok:false,why:'No hay ningún tiempo absoluto que sirva de frontera. El criterio siempre es relativo al tubo: 2L/c.'},
-      {t:'Porque con una celeridad de 1 258,1 m/s cualquier cierre resulta rápido',ok:false,why:'La celeridad no dicta el veredicto, sólo entra en el cálculo de 2L/c. Cerrar esa misma válvula en 5 s sería un cierre lento en este mismo tubo y con esta misma celeridad.'},
-      {t:'Porque el acumulador de vejiga necesita 5 ms para responder y en 40 ms no le da tiempo',ok:false,why:'Sí le da: 5 ms de respuesta frente a los 15 ms que la faena exige, y por eso este montaje cumple el criterio de tiempo de respuesta. El golpe es entero por la geometría del tubo, no por el separador.'}]},
+      {t:'Porque un cierre es rápido si dura menos que la ida y vuelta de la onda, 2L/c: nada frena el pico antes de cerrar',ok:true,why:'Lento o rápido no se mide en milisegundos, se mide contra 2L/c. Los mismos 40 ms en un tubo corto —digamos 10 m, con 2L/c = 16 ms— serían un cierre lento y el pico bajaría mucho. La longitud de la tubería decide el veredicto.'},
+      {t:'Porque 40 ms es un tiempo muy corto en términos absolutos y toda maniobra tan breve provoca siempre el golpe completo en cualquier tubo',ok:false,why:'No hay ningún tiempo absoluto que sirva de frontera. El criterio siempre es relativo al tubo: 2L/c.'},
+      {t:'Porque con una celeridad de 1 258,1 m/s cualquier cierre resulta rápido, sea cual sea la longitud del tubo y lo que tarde la válvula',ok:false,why:'La celeridad no dicta el veredicto, sólo entra en el cálculo de 2L/c. Cerrar esa misma válvula en 5 s sería un cierre lento en este mismo tubo y con esta misma celeridad.'},
+      {t:'Porque el acumulador de vejiga necesita 5 ms para responder y en 40 ms de cierre no le da tiempo a absorber nada del golpe',ok:false,why:'Sí le da: 5 ms de respuesta frente a los 15 ms que la faena exige, y por eso este montaje cumple el criterio de tiempo de respuesta. El golpe es entero por la geometría del tubo, no por el separador.'}]},
   precarga:{pregunta:'La prensa de emergencia necesita 2,1058 L. Con el acumulador de pistón de 5 L y la precarga al 75 % el ensayo da 2,2021 L —un 4,6 % de margen— y aun así el conjunto se rechaza. ¿Por qué?',
     opciones:[
-      {t:'Porque el nitrógeno permea un 3 % al año: dentro de doce meses el mismo acumulador entregará 2,0916 L y ya no llegará a los 2,1058 L que la prensa pide',ok:true,why:'Un acumulador se dimensiona para el final del intervalo de mantenimiento, no para el día del montaje. Al 80 % la cifra de dentro de un año es 2,1944 L y sigue cumpliendo: por eso ésa es la precarga que vale y no la de 75 %.'},
-      {t:'Porque con precarga al 75 % la relación de compresión llega a 4,967 y un separador de pistón no la aguanta',ok:false,why:'El pistón aguanta hasta 10, precisamente porque no tiene elastómero que plegar. Con 4,967 va sobrado; quien caería con esa relación sería una vejiga, que sólo admite 4.'},
-      {t:'Porque al calentarse el circuito el separador se echa sobre la válvula de plato y la golpea',ok:false,why:'A 75 % la presión en caliente es de 58,61 bar y el tope del plato está en 62,90: no lo toca. Quien golpea el plato en esta faena es la precarga del 90 %, que se va a 70,53 bar.'},
-      {t:'Porque un margen del 4,6 % es demasiado estrecho y hay que dejar siempre al menos un 10 %',ok:false,why:'No existe esa regla, y aquí no se aplica ninguna: los siete criterios están escritos y el margen no es uno de ellos. El margen sólo sirve para desempatar entre conjuntos que ya cumplen.'}]},
+      {t:'Porque el nitrógeno permea un 3 % al año: dentro de doce meses entregará 2,0916 L y ya no llegará a los 2,1058 L que la prensa pide',ok:true,why:'Un acumulador se dimensiona para el final del intervalo de mantenimiento, no para el día del montaje. Es el criterio de la deriva: el conjunto cumple hoy y deja de cumplir antes de la siguiente revisión, y por eso la precarga tiene una ventana también por abajo.'},
+      {t:'Porque con precarga al 75 % la relación de compresión llega a 4,967 y un separador de pistón no admite una relación tan alta',ok:false,why:'El pistón aguanta hasta 10, precisamente porque no tiene elastómero que plegar. Con 4,967 va sobrado; quien caería con esa relación sería una vejiga, que sólo admite 4.'},
+      {t:'Porque al calentarse el circuito hasta su temperatura máxima el separador se echa sobre la válvula de plato y la golpea en cada ciclo',ok:false,why:'A 75 % la presión en caliente es de 58,61 bar y el tope del plato está en 62,90: no lo toca. Quien golpea el plato en esta faena es la precarga del 90 %, que se va a 70,53 bar.'},
+      {t:'Porque un margen del 4,6 % es demasiado estrecho para una prensa de emergencia y hay que dejar siempre al menos un 10 %',ok:false,why:'No existe esa regla, y aquí no se aplica ninguna: los siete criterios están escritos y el margen no es uno de ellos. El margen sólo sirve para desempatar entre conjuntos que ya cumplen.'}]},
   catalogo:{pregunta:'En la prensa de emergencia el criterio del año que viene tumba 239 de los 399 montajes, más que ningún otro; pero sólo en 3 casos es el único motivo del rechazo. ¿Qué te dice esa diferencia entre 239 y 3?',
     opciones:[
-      {t:'Que casi siempre que la deriva tumba un montaje, ese montaje ya fallaba por otra cosa; los criterios no son independientes y contar bajas totales exagera el peso de los que van acompañados',ok:true,why:'Un montaje que hoy se queda corto también se quedará corto dentro de un año, así que Función y Deriva caen juntas 229 veces. Lo que mide la utilidad de un criterio es cuántas veces suspende él solo, y ahí mandan el plato (39) y la relación de compresión (40).'},
-      {t:'Que el criterio de la deriva sobra y se podría quitar del pliego sin cambiar nada',ok:false,why:'Justo al contrario: esos 3 casos son los peligrosos. Son montajes que cumplen el día de la puesta en marcha y dejan tirada la prensa antes de la siguiente revisión, y ningún otro criterio los detecta.'},
-      {t:'Que la mayoría de los montajes de esta faena caen por la presión máxima admisible del cuerpo',ok:false,why:'La presión admisible tumba 63 montajes y no suspende en solitario ni una sola vez: cuando cae por presión, ya caía por otra cosa. No es lo que decide esta faena.'},
-      {t:'Que el 3 % anual de permeación es un valor demasiado severo y por eso arrastra tantas bajas',ok:false,why:'Es el dato que dan los fabricantes de vejiga y membrana, y su severidad no se mide por el total de bajas sino por los suspensos en solitario: 3 de 399. Es un criterio exigente, no severo.'}]},
-  reto:{pregunta:'Amarre con la bomba parada, entre 90 y 140 bar, con la vejiga de 10 L precargada al 80 %. Sin botellas sostiene 3,738 h; con una botella de 10 L sube a 7,196 h y cumple; con dos botellas baja a 3,850 h y deja de cumplir. ¿Por qué empeora la segunda botella?',
+      {t:'Que casi todo montaje que la deriva tumba ya fallaba por otra causa: los criterios no son independientes y las bajas totales engañan',ok:true,why:'Un montaje que hoy se queda corto también se quedará corto dentro de un año, así que Función y Deriva caen juntas 229 veces. Lo que mide la utilidad de un criterio es cuántas veces suspende él solo, y ahí mandan el plato (39) y la relación de compresión (40).'},
+      {t:'Que el criterio de la deriva sobra y se podría quitar del pliego sin cambiar el resultado de la selección del catálogo de acumuladores',ok:false,why:'Justo al contrario: esos 3 casos son los peligrosos. Son montajes que cumplen el día de la puesta en marcha y dejan tirada la prensa antes de la siguiente revisión, y ningún otro criterio los detecta.'},
+      {t:'Que la mayoría de los montajes de esta faena caen por la presión máxima admisible del cuerpo, que es el criterio que más pesa en el barrido',ok:false,why:'La presión admisible tumba 63 montajes y no suspende en solitario ni una sola vez: cuando cae por presión, ya caía por otra cosa. No es lo que decide esta faena.'},
+      {t:'Que el 3 % anual de permeación es un valor demasiado severo y por eso arrastra tantas bajas en el barrido del catálogo',ok:false,why:'Es el dato que dan los fabricantes de vejiga y membrana, y su severidad no se mide por el total de bajas sino por los suspensos en solitario: 3 de 399. Es un criterio exigente, no severo.'}]},
+  reto:{pregunta:'Amarre con la bomba parada, entre 90 y 140 bar, con la vejiga de 10 L precargada al 80 %. Sin botellas sostiene 3,738 h y con dos botellas de 10 L sostiene 3,850 h: casi lo mismo, pese a pasar de 10 a 30 L de gas, y sin cumplir las 5 h. ¿Por qué no sirve de nada tanto nitrógeno extra?',
     opciones:[
-      {t:'Porque el aceite sólo cabe en el cuerpo del acumulador, 10 L: con 20 L de botella el conjunto se llena de aceite cuando la línea va por 102,6 bar y ahí se acaba la carga. El ciclo real pasa a ser 102,6 → 90 bar en vez de 140 → 90, y una banda estrecha entrega poco aceite',ok:true,why:'Las botellas de transferencia amplían el gas, no el sitio donde meter aceite. Cuando el nitrógeno de las botellas ya no puede comprimirse más porque el cuerpo está lleno, todo lo que sobra es peso muerto: se paga y encima estorba.'},
-      {t:'Porque al añadir la segunda botella baja la presión de precarga y habría que recargar el conjunto',ok:false,why:'La precarga es una presión, y no cambia por poner más botellas: se cargan todas al mismo p₀. Lo que cambia es el volumen de gas, y es ese volumen el que se come el recorrido del separador.'},
-      {t:'Porque con 30 L de gas la relación de compresión se dispara y el criterio de relación de compresión tumba el montaje',ok:false,why:'La relación de compresión es p₂/p₀ y no depende del volumen. De hecho el montaje de dos botellas suspende por función y por deriva, no por relación de compresión.'},
-      {t:'Porque más nitrógeno siempre entrega más aceite, pero el reto premia lo barato y las dos botellas cuestan de más',ok:false,why:'No entrega más: entrega 2,772 L frente a los 5,181 L de una sola botella. El precio aquí es lo de menos, el montaje ni siquiera cumple la faena.'}]},
+      {t:'Porque el aceite sólo cabe en el cuerpo de 10 L: con 30 L de gas se llena antes de llegar a 140 bar y el ciclo útil se acorta',ok:true,why:'Las botellas de transferencia amplían el gas, no el sitio donde meter aceite. Cuando el nitrógeno de las botellas ya no puede comprimirse más porque el cuerpo está lleno, todo lo que sobra es peso muerto: se paga y encima estorba.'},
+      {t:'Porque al añadir la segunda botella baja la presión de precarga de todo el conjunto y habría que volver a cargarlo entero con el kit',ok:false,why:'La precarga es una presión, y no cambia por poner más botellas: se cargan todas al mismo p₀. Lo que cambia es el volumen de gas, y es ese volumen el que se come el recorrido del separador.'},
+      {t:'Porque con 30 L de gas la relación de compresión se dispara y el criterio de relación de compresión tumba el conjunto de la faena',ok:false,why:'La relación de compresión es p₂/p₀ y no depende del volumen. De hecho el montaje de dos botellas suspende por función y por deriva, no por relación de compresión.'},
+      {t:'Porque más nitrógeno siempre entrega más aceite, pero el reto premia lo barato y dos botellas cuestan demasiado para lo que dan',ok:false,why:'No siempre entrega más: pasar de 10 a 30 L de gas sólo da 2,772 L por ciclo. El precio es lo de menos, el montaje ni siquiera cumple la faena.'}]},
 };
 let QORD=[], answered=false;
 function buildQuiz(){
@@ -2169,6 +2220,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function runAuto(){
   if(autoRunning) return;
+  // El recorrido es una DEMOSTRACION: guarda el estado del alumno y lo devuelve al
+  // terminar. No puntua ni deja el reto resuelto (checkReto no latchea con autoRunning).
+  const snap={ mode, ST:{...ST}, solved,
+    RETO:{ cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, pistas:{...RETO.pistas}, resuelto:RETO.resuelto,
+           msg:RETO.msg, intentos:RETO.intentos, fallosCaso:RETO.fallosCaso, chk:RETO.chk&&{...RETO.chk} } };
   autoRunning=true;
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
@@ -2298,8 +2354,19 @@ async function runAuto(){
     }
     answer(quizCorrectIndex());
   } finally {
-    autoRunning=false;
+    autoRunning=false;demoOk=false;
     el('btnAuto').textContent=rot;
+    Object.assign(ST,snap.ST);
+    Object.assign(RETO,snap.RETO);
+    solved=snap.solved;
+    retoSolveBuild(false);
+    // El recorrido ensena la solucion de cuatro faenas: si el alumno aun no ha
+    // resuelto la suya, se le cambia por la unica que no se enseno.
+    if(!snap.solved && snap.RETO.cfg.fk!=='termica'){
+      RETO.cfg.fk='termica';retoSolveBuild(true);
+      RETO.msg='El recorrido enseñó la solución de tu faena: el reto pasa a otro caso.';
+    }
+    setMode(snap.mode);
   }
 }
 
@@ -2356,9 +2423,12 @@ window.__labDebug={
   newSignal,
   // --- reto
   reto:()=>({cfg:{...RETO.cfg},ejes:{...RETO.ejes},sol:RETO.sol,nval:RETO.nval,
-             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas}}),
+             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas},
+             intentos:RETO.intentos,fallosCaso:RETO.fallosCaso,nPistas:Object.keys(RETO.pistas).length,
+             verOK:retoVista()}),
   setRetoFaena:v=>{RETO.cfg.fk=v;retoSolveBuild(true);afterEdit();},
-  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='acum'?v:Number(v));RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='acum'?v:Number(v));RETO.msg='';RETO.resuelto=false;solved=false;afterEdit();},
+  intentos:()=>RETO.intentos,
   check:()=>checkReto(), pista:()=>pista(), FUNC_REQ,
   solved:()=>solved, retoSolveBuild,
   // --- cuestionario

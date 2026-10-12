@@ -711,8 +711,24 @@ let mode='fluido';
 // Configuracion del banco en los cuatro modos de estudio.
 const ST={ fk:'presion', ck:'t18', rk:'directa', nlin:1, tk:'reg' };
 // Configuracion del reto: la faena la fija el guion y el alumno mueve los tres ejes.
-const RETO={ cfg:{fk:'presion'}, sol:null, ejes:{ck:'h06',rk:'compacta',nlin:1},
-             pistas:{}, resuelto:false, msg:'', nval:0 };
+const RETO={ cfg:{fk:'larga'}, sol:null, ejes:{ck:'h06',rk:'compacta',nlin:1},
+             pistas:{}, resuelto:false, msg:'', nval:0,
+             checked:false, intentos:0, libre:false };
+const MAX_INT=3, MAX_PISTAS=2;
+const nPistas=()=>Object.keys(RETO.pistas).length;
+// En el reto no hay veredicto en vivo: los siete criterios se muestran sólo tras Comprobar.
+function ocultaVer(){ return mode==='reto' && !RETO.checked; }
+// La faena del reto no se abre en los modos de estudio mientras el reto esté sin resolver:
+// el catálogo y el censo marcan ahí el montaje más barato de poseer.
+const faenaBloq=k=>k===RETO.cfg.fk&&!RETO.libre;
+function evitaFaenaReto(){
+  if(!faenaBloq(ST.fk)) return;
+  const i=FAENA_KEYS.indexOf(ST.fk);
+  for(let d=1;d<=FAENA_KEYS.length;d++){
+    const k=FAENA_KEYS[(i+d)%FAENA_KEYS.length];
+    if(!faenaBloq(k)){ ST.fk=k; break; }
+  }
+}
 
 let CUR=null;          // punto de trabajo vigente
 let hw={};             // lo que la maquina tiene montado ahora mismo
@@ -945,16 +961,18 @@ function panelPunto(p,alto){
   prow(y,'trazado',R.rot+' · '+f1(R.codos,0)+' codos'); y+=23;
   prow(y,'líneas en paralelo',f1(p.nlin,0)+' × '+f1(p.lReal,2)+' m'); y+=23;
   prow(y,'longitud equivalente',f1(p.lReal,2)+' + '+f1(p.lAcc,2)+' = '+f1(p.lEq,2)+' m'); y+=23;
-  prow(y,'velocidad',f1(p.v,3)+' m/s',colOk(p.okVel)); y+=23;
+  const oc=ocultaVer(), cOk=b=>oc?undefined:colOk(b);
+  prow(y,'velocidad',f1(p.v,3)+' m/s',cOk(p.okVel)); y+=23;
   prow(y,'Re · régimen ('+f1(estAct(p).tC,0)+' °C)',f1(estAct(p).re,0)+' · '+estAct(p).regimen,
-    colOk(!estAct(p).banda)); y+=30;
-  texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
-  prow(y,F.rotFun,f1(valAct(p),3)+' '+p.unidad,colOk(okAct(p))); y+=23;
+    cOk(!estAct(p).banda)); y+=30;
+  texto(oc?'CIFRAS (veredicto al comprobar)':'VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,F.rotFun,f1(valAct(p),3)+' '+p.unidad,cOk(okAct(p))); y+=23;
   prow(y,'objetivo',(F.sentido==='ge'?'≥ ':'≤ ')+f1(limAct(p),3)+' '+p.unidad); y+=23;
   prow(y,'coste de propiedad',f1(p.coste,0)+' € en '+f1(ANIOS,0)+' años'); y+=30;
   CRIT.forEach(c=>{
-    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
-    marca(PX.x+20,y-5,p[c]); y+=21;
+    texto(CRIT_ROT[c],PX.x+34,y,(oc||p[c])?'#c8d3e2':BAD_HEX,13,'left','600');
+    if(!oc) marca(PX.x+20,y-5,p[c]);
+    y+=21;
   });
   return y;
 }
@@ -1133,11 +1151,14 @@ function drawCatalogo(){
 // ---- vista RETO: comprar barato no es poseer barato ----
 function drawReto(){
   const p=CUR, F=FAENAS[p.fk], s=RETO.sol;
+  // Hasta resolver el reto no se dibuja ni el óptimo ni el más barato de comprar:
+  // serían la respuesta (o su vecino) a la vista.
+  const rev=RETO.resuelto;
   title2('Comprar barato no es poseer barato',
     F.rot+' · '+f1(RETO.nval,0)+' montajes válidos de '+f1(barrM(p.fk).length,0)+' · sólo uno es el más barato de poseer');
   const P={x:118,y:118,w:520,h:250};
-  const cand=[p]; if(s) cand.push(s);
-  const bc=masBarataCompra(p.fk); if(bc) cand.push(bc);
+  const cand=[p]; if(rev&&s) cand.push(s);
+  const bc=masBarataCompra(p.fk); if(rev&&bc) cand.push(bc);
   const xmax=Math.max.apply(null,cand.map(q=>q.compra+ANIOS*q.eAnio))*1.15;
   const A=ejes(P,0,xmax,0,3,'euros','',v=>f1(v,0),()=>'',6,3);
   const barra=(fila,q,rot,col)=>{
@@ -1150,30 +1171,36 @@ function drawReto(){
       A.X(0)+10,y+21,'#0b0f16',13,'left','800');
   };
   barra(2,p,'Tu montaje: '+COND[p.ck].rot+' · '+RUTAS[p.rk].rot+' · '+f1(p.nlin,0)+
-    (p.nlin>1?' líneas':' línea'),p.valida?'rgba(124,217,146,0.75)':'rgba(255,107,107,0.65)');
-  if(bc) barra(1,bc,'El más barato de comprar: '+COND[bc.ck].rot+' · '+RUTAS[bc.rk].rot+' · '+
+    (p.nlin>1?' líneas':' línea'),ocultaVer()?'rgba(138,180,248,0.60)':(p.valida?'rgba(124,217,146,0.75)':'rgba(255,107,107,0.65)'));
+  if(rev&&bc) barra(1,bc,'El más barato de comprar: '+COND[bc.ck].rot+' · '+RUTAS[bc.rk].rot+' · '+
     f1(bc.nlin,0)+(bc.nlin>1?' líneas':' línea'),'rgba(242,166,90,0.72)');
-  if(s) barra(0,s,'El más barato de poseer: '+COND[s.ck].rot+' · '+RUTAS[s.rk].rot+' · '+
+  if(rev&&s) barra(0,s,'El más barato de poseer: '+COND[s.ck].rot+' · '+RUTAS[s.rk].rot+' · '+
     f1(s.nlin,0)+(s.nlin>1?' líneas':' línea'),'rgba(138,180,248,0.72)');
+  if(!rev){
+    texto('Las barras del más barato de comprar y del más barato de poseer aparecen cuando resuelves el reto.',
+      A.X(0)+10,P.y+60,'#8f9bb0',13,'left','600');
+  }
   leyenda(118,406,[['compra y montaje',AZUL],['energía disipada en '+f1(ANIOS,0)+' años',WARN_HEX]]);
   let y=452;
   texto('LO QUE FALLA AHORA',118,y,'#8ab4f8',13,'left','800'); y+=24;
-  if(p.valida){
+  if(ocultaVer()){
+    texto('Sin comprobar: pulsa Comprobar para ver qué criterios incumple tu montaje.',118,y,'#c8d3e2',14,'left','600'); y+=22;
+  }else if(p.valida){
     texto('Ningún criterio: este montaje es válido.',118,y,OK_HEX,14,'left','700'); y+=22;
   }else{
     p.fallos.forEach(k=>{ marca(126,y-5,false); texto(CRIT_ROT[k]+' — '+CRIT_POR[k],142,y,'#c8d3e2',13,'left','600'); y+=21; });
   }
   y+=8;
-  const pistas=EJES.filter(e=>RETO.pistas[e]);
-  texto('PISTAS PEDIDAS: '+(pistas.length?pistas.map(e=>EJE_ROT[e]).join(' · '):'ninguna'),118,y,'#8f9bb0',13,'left','700');
-  nota(bc&&s&&(bc.ck!==s.ck||bc.rk!==s.rk||bc.nlin!==s.nlin)
-    ? 'Aquí la trampa está servida: el montaje más barato de comprar cuesta '+f1(bc.compra,0)+
+  texto('PISTAS USADAS: '+nPistas()+' / '+MAX_PISTAS+' · INTENTOS FALLIDOS: '+RETO.intentos+' / '+MAX_INT,118,y,'#8f9bb0',13,'left','700');
+  if(rev&&bc&&s) nota(!mismo(bc,s)
+    ? 'Aquí la trampa estaba servida: el montaje más barato de comprar cuesta '+f1(bc.compra,0)+
       ' € y el más barato de poseer cuesta '+f1(s.compra,0)+' €, pero en cinco años el primero se deja '+
       f1(ANIOS*bc.eAnio,0)+' € en calentar aceite y el segundo sólo '+f1(ANIOS*s.eAnio,0)+
       ' €. La diferencia final es de '+f1(bc.coste-s.coste,0)+' € a favor del caro.'
     : 'En esta faena el más barato de comprar es también el más barato de poseer: la pérdida es tan pequeña que '+
-      'la energía de cinco años ('+f1(s?ANIOS*s.eAnio:0,0)+' €) no cambia el orden. No siempre es así: pruébalo en la línea de presión.',
+      'la energía de cinco años ('+f1(ANIOS*s.eAnio,0)+' €) no cambia el orden.',
     y+30);
+  else nota('Compara compra y energía de cinco años: la oferta más barata de comprar no tiene por qué serlo de poseer.',y+30);
   panelPunto(p);
 }
 
@@ -1471,8 +1498,10 @@ function refrescaHW(){
   const pA=abs?valAct(p):F.pTrab+valAct(p), pB=abs?P_ATM:F.pTrab;
   const esc=abs?P_ATM*1.25:Math.max(C.padm,1);
   setManometro(manoA,pA/esc); setManometro(manoB,pB/esc);
-  CRIT.forEach(k=>{ M3.leds[k].material.color.set(p[k]?OK_HEX:BAD_HEX);
-    M3.leds[k].material.emissive.set(p[k]?OK_HEX:BAD_HEX); });
+  const oc=ocultaVer();
+  CRIT.forEach(k=>{ const col=oc?'#5a6473':(p[k]?OK_HEX:BAD_HEX);
+    M3.leds[k].material.color.set(col);
+    M3.leds[k].material.emissive.set(col); });
   hw={ v:p.v, dir:SENTIDO[p.fk], pA:pA, pB:pB, esc:esc, abs:abs };
 }
 function paso3D(t){
@@ -1581,7 +1610,7 @@ const EJE_VAL_ROT={cond:v=>COND[v].rot, ruta:v=>RUTAS[v].rot,
 function buildControls(){
   const bar=el('selbar');let h='';
   if(mode!=='reto'){
-    h+=lbl('Faena')+optBtns('fa',OPT_FAENA,ST.fk);
+    h+=lbl('Faena')+optBtns('fa',OPT_FAENA.map(([k,t])=>[k,faenaBloq(k)?t+' 🔒':t]),ST.fk);
     h+=lbl('Conducción · T tubo, M manguera de trenzas, E espiral')+optBtns('cd',OPT_COND,ST.ck);
     h+=lbl('Trazado')+optBtns('ru',OPT_RUTA,ST.rk);
     h+=lbl('Líneas en paralelo')+optBtns('nl',OPT_NLIN,ST.nlin);
@@ -1596,14 +1625,14 @@ function buildControls(){
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
     b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
   });
-  wire('data-fa',v=>{ST.fk=v;});
+  wire('data-fa',v=>{if(faenaBloq(v)){showToast('🔒 Esa faena es el caso de tu <b>Reto</b>: abrirla aquí marcaría el montaje más barato de poseer. Se libera cuando lo resuelvas.');return;}ST.fk=v;});
   wire('data-cd',v=>{ST.ck=v;});
   wire('data-ru',v=>{ST.rk=v;});
   wire('data-nl',v=>{ST.nlin=Number(v);});
   wire('data-tk',v=>{ST.tk=v;});
-  wire('data-xc',v=>{RETO.ejes.ck=v;RETO.msg='';RETO.resuelto=false;});
-  wire('data-xr',v=>{RETO.ejes.rk=v;RETO.msg='';RETO.resuelto=false;});
-  wire('data-xn',v=>{RETO.ejes.nlin=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xc',v=>{RETO.ejes.ck=v;RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
+  wire('data-xr',v=>{RETO.ejes.rk=v;RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
+  wire('data-xn',v=>{RETO.ejes.nlin=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
@@ -1614,15 +1643,26 @@ function ejeSolC(fk,eje){
   empates(fk).forEach(p=>{ if(out.indexOf(p[campo])<0) out.push(p[campo]); });
   return out;
 }
-// Una pista destapa UN eje. No resuelve el reto: los tres se juzgan juntos y
-// acertar el diametro no garantiza que el trazado quepa ni que el golpe entre.
+// Pistas graduadas (máximo 2) que orientan sin nombrar el montaje: la 1.ª dice qué criterio
+// manda en esta faena; la 2.ª, de qué familia de conducción es el más barato de poseer.
+// Quedan registradas (RETO.pistas) y cuentan en el panel.
 function pista(){
-  const eje=EJES.find(e=>!RETO.pistas[e]);
-  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.pistas[eje]=true;beep();
-  const vals=ejeSolC(RETO.cfg.fk,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el montaje más barato de poseer aparece: '+
-    (vals||'ningún valor: esta faena no tiene solución'));
+  if(RETO.resuelto){showToast('💡 Ya resolviste este reto.');return;}
+  const fk=RETO.cfg.fk, n=nPistas();
+  if(n>=MAX_PISTAS){showToast('💡 Ya usaste las '+MAX_PISTAS+' pistas. La combinación la tienes que cerrar tú.');return;}
+  beep();
+  if(n===0){
+    const cn=censoM(fk);
+    const peor=CRIT.slice().sort((a,x)=>cn.tot[x]-cn.tot[a])[0];
+    RETO.pistas[1]=true;
+    showToast('💡 <b>Pista 1/'+MAX_PISTAS+'.</b> En esta faena el criterio que más montajes tumba es «<b>'+CRIT_ROT[peor]+
+      '</b>». Míralo antes de mirar el precio.');
+  }else{
+    const s=RETO.sol;
+    RETO.pistas[2]=true;
+    showToast('💡 <b>Pista 2/'+MAX_PISTAS+'.</b> '+(s?'La línea más barata de poseer en esta faena es de la familia «<b>'+TIPO_ROT[COND[s.ck].tipo]+
+      '</b>»; el diámetro, el trazado y el número de líneas te tocan a ti.':'Esta faena no tiene solución.'));
+  }
   afterEdit();
 }
 
@@ -1644,7 +1684,7 @@ function afterEdit(){
   refreshAll();
 }
 function setMode(k){
-  mode=k;animT=0;
+  mode=k;animT=0;evitaFaenaReto();
   MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
@@ -1657,26 +1697,42 @@ function setMode(k){
 }
 // "Nuevo escenario": en el reto cambia de faena y rearma el montaje de partida;
 // en los modos de estudio mueve el ensayo al siguiente caso que ensena algo.
+// Caso nuevo del reto: la faena siguiente que no sea la que el alumno tiene abierta en un modo de estudio.
+function nuevaFaenaReto(excl){
+  const i=FAENA_KEYS.indexOf(RETO.cfg.fk);
+  for(let d=1;d<=FAENA_KEYS.length;d++){
+    const k=FAENA_KEYS[(i+d)%FAENA_KEYS.length];
+    if(k!==ST.fk&&!(excl&&excl.indexOf(k)>=0)){ RETO.cfg.fk=k; break; }
+  }
+  RETO.libre=false;
+  retoSolveBuild(true);
+  evitaFaenaReto();
+}
+function sigFaena(k0){
+  const i=FAENA_KEYS.indexOf(k0);
+  for(let d=1;d<=FAENA_KEYS.length;d++){ const k=FAENA_KEYS[(i+d)%FAENA_KEYS.length]; if(!faenaBloq(k)) return k; }
+  return k0;
+}
 function newSignal(){
   if(mode==='fluido'){
     ST.tk = ST.tk==='reg' ? 'frio' : 'reg';
-    if(ST.tk==='reg'){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+    if(ST.tk==='reg'){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=sigFaena(ST.fk);}
   }else if(mode==='perdida'){
-    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=sigFaena(ST.fk);
     const o=solM(ST.fk);
     if(o){ST.ck=o.ck;ST.rk=o.rk;ST.nlin=o.nlin;}
   }else if(mode==='golpe'){
     const i=COND_KEYS.indexOf(ST.ck);ST.ck=COND_KEYS[(i+1)%COND_KEYS.length];
-    if(i+1>=COND_KEYS.length){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+    if(i+1>=COND_KEYS.length){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=sigFaena(ST.fk);}
   }else if(mode==='catalogo'){
-    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=sigFaena(ST.fk);
     const o=solM(ST.fk);
     if(o){ST.ck=o.ck;ST.rk=o.rk;ST.nlin=o.nlin;}
   }else{
-    const i=FAENA_KEYS.indexOf(RETO.cfg.fk);RETO.cfg.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
-    retoSolveBuild(true);
+    nuevaFaenaReto();
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
+  evitaFaenaReto();
+  RETO.resuelto=false;solved=false;RETO.msg='';RETO.checked=false;
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1744,18 +1800,18 @@ function updateTele(){
     h+=teleRow('Más barato de comprar',bc?f1(bc.compra,0)+' € → '+f1(bc.coste,0)+' € en '+f1(ANIOS,0)+' años':'—');
     h+=teleRow('Más barato de poseer',s?f1(s.compra,0)+' € → '+f1(s.coste,0)+' € en '+f1(ANIOS,0)+' años':'—');
   }else{
-    const s=RETO.sol;
+    const oc=ocultaVer(), cc=b=>oc?'':cls2(b);
     h+=teleRow('Faena del reto',F.rot);
     h+=teleRow('Montado',C.rot+' · '+RUTAS[c.rk].rot+' · '+f1(c.nlin,0)+(c.nlin>1?' líneas':' línea'));
-    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
-    h+=teleRow(F.rotFun,f1(r.val,4)+' '+r.unidad,cls2(r.okFunc));
-    h+=teleRow('En frío ('+f1(F.tFrio,0)+' °C)',f1(r.valFrio,4)+' '+r.unidad,cls2(r.okFrio));
-    h+=teleRow('Velocidad',f1(r.v,3)+' ≤ '+f1(F.vMax,1)+' m/s',cls2(r.okVel));
-    h+=teleRow('Régimen',r.reg.regimen+' / '+r.fri.regimen,cls2(r.okReg));
-    h+=teleRow('Golpe sobre trabajo',f1(F.pTrab+r.dpGolpe,1)+' ≤ '+f1(r.padm,0)+' bar',cls2(r.okGolpe));
-    h+=teleRow('Radio de curvatura',f1(COND[c.ck].rmin,0)+' ≤ '+f1(RUTAS[c.rk].rDisp,0)+' mm',cls2(r.okRad));
+    h+=teleRow('Criterios cumplidos',oc?'— (sin comprobar)':f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cc(r.valida));
+    h+=teleRow(F.rotFun,f1(r.val,4)+' '+r.unidad,cc(r.okFunc));
+    h+=teleRow('En frío ('+f1(F.tFrio,0)+' °C)',f1(r.valFrio,4)+' '+r.unidad,cc(r.okFrio));
+    h+=teleRow('Velocidad',f1(r.v,3)+' ≤ '+f1(F.vMax,1)+' m/s',cc(r.okVel));
+    h+=teleRow('Régimen',r.reg.regimen+' / '+r.fri.regimen,cc(r.okReg));
+    h+=teleRow('Golpe sobre trabajo',f1(F.pTrab+r.dpGolpe,1)+' ≤ '+f1(r.padm,0)+' bar',cc(r.okGolpe));
+    h+=teleRow('Radio de curvatura',f1(COND[c.ck].rmin,0)+' ≤ '+f1(RUTAS[c.rk].rDisp,0)+' mm',cc(r.okRad));
     h+=teleRow('Compra + energía',f1(r.compra,0)+' + '+f1(ANIOS*r.eAnio,0)+' = '+f1(r.coste,0)+' €');
-    h+=teleRow('Coste mínimo posible',s?f1(s.coste,0)+' €':'sin solución');
+    h+=teleRow('Intentos fallidos · pistas',RETO.intentos+' / '+MAX_INT+' · '+nPistas()+' / '+MAX_PISTAS,RETO.intentos?'bad':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1821,15 +1877,17 @@ function updateReport(){
           f1(bc.coste,0)+' €.':'; aquí es también el más barato de comprar.')
        :'> Ningún montaje del catálogo cumple esta faena.';
   }else{
-    const s=RETO.sol;
     t='> '+F.rot+'. Monta la línea válida más barata de poseer en '+f1(ANIOS,0)+' años.\n';
     t+='> Puesto: '+C.rot+' · '+RUTAS[c.rk].rot+' · '+f1(c.nlin,0)+(c.nlin>1?' líneas':' línea')+
       ' → '+f1(r.compra,0)+' € + '+f1(ANIOS*r.eAnio,0)+' € = '+f1(r.coste,0)+' €.\n';
-    t+=r.valida?'> Cumple los siete criterios.\n'
-               :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
-    t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f1(RETO.nval,0)+' montajes válidos, el más barato cuesta '+
-      (s?f1(s.coste,0)+' €':'—')+'.';
+    if(RETO.checked){
+      t+=r.valida?'> Cumple los siete criterios.\n'
+                 :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+      t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    }else{
+      t+='> Pulsa Comprobar para ver qué criterios cumple tu montaje.\n';
+    }
+    t+='> De '+f1(RETO.nval,0)+' montajes válidos sólo uno es el más barato de poseer. Intentos fallidos: '+RETO.intentos+' / '+MAX_INT+'.';
   }
   el('report').textContent=t;
 }
@@ -1861,6 +1919,7 @@ function retoSolveBuild(reset){
     RETO.ejes=startCfg();
     RETO.pistas={};
     RETO.resuelto=false;
+    RETO.checked=false;RETO.intentos=0;
     RETO.msg='';
   }
 }
@@ -1908,13 +1967,15 @@ function retoExplain(r,c){
 function checkReto(){
   const c=cfgDe('reto'), s=RETO.sol;
   const r=punto(c.fk,c.ck,c.rk,c.nlin);
+  RETO.checked=true;
+  let fallo=false;
   if(!s){
     RETO.msg='Esta faena no tiene ninguna línea válida en el catálogo.';
     RETO.resuelto=false;
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>Sin solución.</b> '+RETO.msg);
   }else if(r.valida&&mismo(r,s)){
-    RETO.resuelto=true; solved=true;
+    RETO.resuelto=true; RETO.libre=true; solved=!autoRunning;
     RETO.msg='Correcto: '+f1(r.coste,0)+' € de coste de propiedad, el mínimo de los '+
       f1(RETO.nval,0)+' montajes válidos.';
     synth.beep(880,0.10,0.06);
@@ -1922,22 +1983,33 @@ function checkReto(){
       f1(c.nlin,0)+(c.nlin>1?' líneas':' línea')+' · '+f1(r.coste,0)+' € · '+
       f1(r.pot,1)+' W disipados.');
   }else if(r.valida){
-    RETO.resuelto=false;
+    // válida pero no óptima: se dice qué falta, no cuánto cuesta ni qué es el óptimo
+    RETO.resuelto=false; fallo=true;
     RETO.msg=(r.coste!==s.coste)
-      ? 'Válida, pero no es la más barata de poseer: '+f1(r.coste,0)+' € frente a '+f1(s.coste,0)+
-        ' € (compra '+f1(r.compra,0)+' frente a '+f1(s.compra,0)+', energía '+
-        f1(ANIOS*r.eAnio,0)+' frente a '+f1(ANIOS*s.eAnio,0)+').'
+      ? 'Válida, pero no es la más barata de poseer: tu montaje cuesta '+f1(r.coste,0)+' € entre compra ('+f1(r.compra,0)+
+        ') y energía de '+f1(ANIOS,0)+' años ('+f1(ANIOS*r.eAnio,0)+'), y hay otro válido que cuesta menos en total. Pregúntate qué sumando es el que pesa más.'
       : (r.pot!==s.pot
-        ? 'Válida y al mismo coste, pero disipa '+f1(r.pot,1)+' W y hay otra igual de barata con '+f1(s.pot,1)+'.'
-        : 'Válida y empatada en coste y potencia, pero con menos margen: '+pc1(r.margen,1)+
-          ' frente a '+pc1(s.margen,1)+'.');
+        ? 'Válida y al mismo coste que la mejor, pero hay otra igual de barata que disipa menos potencia.'
+        : 'Válida y empatada en coste y potencia con la mejor, pero hay otra con más margen sobre los límites.');
     synth.beep(520,0.09,0.05);
     showToast('🟡 <b>Cumple, pero no es la óptima.</b> '+RETO.msg);
   }else{
-    RETO.resuelto=false;
+    RETO.resuelto=false; fallo=true;
     RETO.msg=retoExplain(r,c);
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>No cumple.</b> '+RETO.msg);
+  }
+  if(!autoRunning&&(fallo||!s)&&s){
+    RETO.intentos++;
+    if(RETO.intentos>=MAX_INT){
+      // tres fallos: caso nuevo, para que no se apruebe por eliminación
+      nuevaFaenaReto();
+      RETO.checked=false;
+      RETO.msg='Tres intentos sin acertar: el caso cambió (otra faena). Lee de nuevo qué pide y razona antes de montar.';
+      showToast('🔁 <b>Caso nuevo.</b> '+RETO.msg);
+      afterEdit();
+      return;
+    }
   }
   refreshAll();
 }
@@ -1949,33 +2021,33 @@ const QUIZ={
   fluido:{pregunta:'La línea larga con tubo de acero 35×5 por el trazado compacto pierde 0,6018 bar a 50 °C, donde el aceite tiene 29,97 cSt. En el arranque a −5 °C la viscosidad sube a 904,0 cSt —treinta veces más— y la pérdida sube a 18,1492 bar: exactamente treinta veces más también. ¿Por qué coinciden los dos factores hasta la segunda cifra?',
     opciones:[
       {t:'Porque el flujo es laminar a las dos temperaturas (Re = 1 274 y Re = 42), y en laminar f = 64/Re hace que la pérdida sea rigurosamente proporcional a la viscosidad',ok:true,why:'Al sustituir f = 64/Re en Darcy–Weisbach queda Δp = 32·ρ·ν·v·L/D², donde ν aparece elevada a uno. De ahí la proporcionalidad exacta. Si alguno de los dos estados fuera turbulento la coincidencia se rompería: allí f apenas depende de Re y multiplicar la viscosidad por treinta subiría la pérdida sólo un par de veces.'},
-      {t:'Porque la pérdida de carga siempre es proporcional a la viscosidad del fluido, en cualquier régimen',ok:false,why:'Sólo en laminar. En turbulento pleno con pared rugosa el factor de fricción tiende a un valor que no depende de Re en absoluto, y entonces la viscosidad casi no entra: la pérdida la fija la rugosidad relativa y el cuadrado de la velocidad.'},
-      {t:'Porque al enfriarse el aceite también se hace más denso y la densidad multiplica la pérdida en la misma proporción',ok:false,why:'La densidad se toma constante en este laboratorio, y en la realidad varía un 4 % entre −5 y 50 °C: no da para un factor treinta. Además Δp es proporcional a ρ elevado a uno, así que un 4 % de densidad da un 4 % de pérdida.'},
-      {t:'Porque la velocidad del aceite baja al enfriarse y compensa parte del aumento de viscosidad',ok:false,why:'La velocidad no cambia: son los mismos 45 L/min por la misma sección, y la bomba es volumétrica. Lo único que cambia entre los dos casos es la viscosidad, y por eso el efecto se ve limpio.'}]},
+      {t:'Porque la pérdida de carga es siempre proporcional a la viscosidad del fluido, sea cual sea el régimen de flujo en que trabaje la línea y el tubo que se use',ok:false,why:'Sólo en laminar. En turbulento pleno con pared rugosa el factor de fricción tiende a un valor que no depende de Re en absoluto, y entonces la viscosidad casi no entra: la pérdida la fija la rugosidad relativa y el cuadrado de la velocidad.'},
+      {t:'Porque al enfriarse el aceite también se hace más denso y esa mayor densidad multiplica la pérdida en la misma proporción que la viscosidad, así que ambos factores coinciden',ok:false,why:'La densidad se toma constante en este laboratorio, y en la realidad varía un 4 % entre −5 y 50 °C: no da para un factor treinta. Además Δp es proporcional a ρ elevado a uno, así que un 4 % de densidad da un 4 % de pérdida.'},
+      {t:'Porque la velocidad del aceite baja al enfriarse y compensa parte del aumento de viscosidad, de modo que el factor total sale casi igual por pura casualidad',ok:false,why:'La velocidad no cambia: son los mismos 45 L/min por la misma sección, y la bomba es volumétrica. Lo único que cambia entre los dos casos es la viscosidad, y por eso el efecto se ve limpio.'}]},
   perdida:{pregunta:'La aspiración de la bomba mide 1,80 m de recorrido, pero el cálculo se hace con 5,15 m de longitud equivalente: los accesorios pesan el 65,1 % del total. ¿De dónde salen esos 3,35 m que no existen?',
     opciones:[
-      {t:'De los accesorios expresados en diámetros: la entrada al tubo vale 20 D, cada codo 30 D y la válvula 8 D, o sea 88 diámetros, y con un paso de 38,1 mm eso son 3,35 m de tubo recto equivalente',ok:true,why:'El método de las longitudes equivalentes convierte cada estrechamiento y cada giro en los metros de tubo recto que perderían lo mismo. Y como Le se cuenta en diámetros, cuanto más gordo es el tubo más metros pesa cada codo: en una línea corta y ancha los accesorios mandan sobre el tubo.'},
-      {t:'De un coeficiente de seguridad que se aplica a la longitud para cubrir imprevistos de montaje',ok:false,why:'No hay ningún coeficiente de seguridad en el cálculo de la pérdida. Los 3,35 m son la suma de accesorios concretos y contados: una entrada, dos codos y una válvula.'},
-      {t:'Del trazado, que alarga el tubo recto un 45 % al bordear la máquina',ok:false,why:'Ése es otro efecto y aquí no se aplica: el trazado es directo, con factor 1,00, y por eso el tubo recto son los 1,80 m de la faena. Los 3,35 m son accesorios.'},
-      {t:'De la manguera de espiral, que al ser corrugada por dentro se calcula con el triple de longitud',ok:false,why:'La rugosidad de la espiral ya está en el cálculo, pero por la vía del factor de fricción (ε = 0,06 mm), no alargando el tubo. La longitud equivalente cuenta accesorios, no acabados superficiales.'}]},
+      {t:'De los accesorios expresados en diámetros: la entrada vale 20 D, cada codo 30 D y la válvula 8 D, o sea 88 diámetros, que con 38,1 mm de paso son 3,35 m de tubo recto',ok:true,why:'El método de las longitudes equivalentes convierte cada estrechamiento y cada giro en los metros de tubo recto que perderían lo mismo. Y como Le se cuenta en diámetros, cuanto más gordo es el tubo más metros pesa cada codo: en una línea corta y ancha los accesorios mandan sobre el tubo.'},
+      {t:'De un coeficiente de seguridad que se aplica a toda la longitud del tubo para cubrir imprevistos de montaje, dilataciones y tolerancias de instalación',ok:false,why:'No hay ningún coeficiente de seguridad en el cálculo de la pérdida. Los 3,35 m son la suma de accesorios concretos y contados: una entrada, dos codos y una válvula.'},
+      {t:'Del trazado, que alarga el tubo recto un 45 % al bordear la máquina y obliga a añadir tramos de tubo entre los soportes y los codos del recorrido',ok:false,why:'Ése es otro efecto y aquí no se aplica: el trazado es directo, con factor 1,00, y por eso el tubo recto son los 1,80 m de la faena. Los 3,35 m son accesorios.'},
+      {t:'De la manguera de espiral, que al ser corrugada por dentro se calcula siempre con el triple de longitud para compensar su rugosidad interior elevada',ok:false,why:'La rugosidad de la espiral ya está en el cálculo, pero por la vía del factor de fricción (ε = 0,06 mm), no alargando el tubo. La longitud equivalente cuenta accesorios, no acabados superficiales.'}]},
   golpe:{pregunta:'Con el aceite a 1 m/s, cerrar de golpe da 11,07 bar de pico en un tubo de acero 22×2, 3,04 bar en una manguera de trenzas y 2,09 bar en una de espiral. El tubo de acero es la conducción más resistente de las tres y es la que peor lo pasa. ¿Cómo se explica?',
     opciones:[
-      {t:'Porque el pico vale ρ·c·v y la celeridad c depende de cuánto cede la pared: el acero no cede y devuelve toda la inercia en presión (1 273 m/s), mientras que la manguera se hincha y absorbe volumen (350 m/s)',ok:true,why:'Korteweg lo dice explícitamente: la elasticidad de la pared se suma en serie a la del fluido. Resistencia y celeridad son cosas distintas —el acero gana en la primera y pierde en la segunda— y por eso un tramo de manguera al final de una línea rígida es un amortiguador barato.'},
-      {t:'Porque el tubo de acero tiene mucho menos paso y el aceite circula más deprisa',ok:false,why:'Las tres cifras están calculadas a la misma velocidad, 1 m/s, precisamente para aislar el efecto de la pared. Si el diámetro fuera el que manda, el pico dependería del caudal, y no depende: depende de la velocidad y de la celeridad.'},
-      {t:'Porque el acero transmite el golpe por la propia pared metálica hasta la válvula',ok:false,why:'La onda que se calcula viaja por el aceite, no por el metal. Lo que hace el metal es no dejarle sitio: al no deformarse, no hay volumen extra donde meter el líquido que sigue llegando.'},
-      {t:'Porque las mangueras, al ser de goma, disipan el golpe por rozamiento interno antes de que llegue a la válvula',ok:false,why:'El amortiguamiento viscoelástico existe, pero este laboratorio no lo modela: las tres cifras salen de la misma fórmula de Joukowsky. La diferencia está entera en la celeridad, que es un dato de rigidez, no de disipación.'}]},
+      {t:'Porque el pico vale ρ·c·v y la celeridad c depende de cuánto cede la pared: el acero no cede (1 273 m/s) y la manguera se hincha y absorbe volumen (350 m/s)',ok:true,why:'Korteweg lo dice explícitamente: la elasticidad de la pared se suma en serie a la del fluido. Resistencia y celeridad son cosas distintas —el acero gana en la primera y pierde en la segunda— y por eso un tramo de manguera al final de una línea rígida es un amortiguador barato.'},
+      {t:'Porque el tubo de acero tiene mucho menos paso útil que las mangueras, y por eso el aceite circula más deprisa por su interior al cerrar',ok:false,why:'Las tres cifras están calculadas a la misma velocidad, 1 m/s, precisamente para aislar el efecto de la pared. Si el diámetro fuera el que manda, el pico dependería del caudal, y no depende: depende de la velocidad y de la celeridad.'},
+      {t:'Porque el acero transmite el golpe por la propia pared metálica hasta la válvula, mucho más rápido que el aceite, y lo devuelve íntegro',ok:false,why:'La onda que se calcula viaja por el aceite, no por el metal. Lo que hace el metal es no dejarle sitio: al no deformarse, no hay volumen extra donde meter el líquido que sigue llegando.'},
+      {t:'Porque las mangueras, al ser de goma, disipan buena parte del golpe por rozamiento interno de la propia pared antes de que llegue a la válvula',ok:false,why:'El amortiguamiento viscoelástico existe, pero este laboratorio no lo modela: las tres cifras salen de la misma fórmula de Joukowsky. La diferencia está entera en la celeridad, que es un dato de rigidez, no de disipación.'}]},
   catalogo:{pregunta:'En la línea de presión, el criterio de Compatibilidad (que la presión admisible cubra los 210 bar de trabajo) tumba 54 montajes de los 171, y sin embargo no suspende él solo ni una sola vez. Lo mismo pasa en las cinco faenas. ¿Es casualidad del catálogo?',
     opciones:[
-      {t:'No: es un teorema. El criterio del golpe exige p_trabajo + Δp_golpe ≤ p_admisible y Δp_golpe es siempre positivo, así que todo montaje que pasa el golpe pasa también la compatibilidad. La compatibilidad sólo puede caer cuando el golpe ya ha caído',ok:true,why:'Cuando un criterio implica lógicamente a otro, el implicado nunca suspende en solitario, por muchos montajes que tumbe. Por eso el censo se lee en dos columnas: el total mide cuánto se solapan los criterios y el «sólo por eso» mide cuáles son imprescindibles. Aquí los que deciden en solitario son el arranque en frío (14), el golpe (8), el régimen (4) y el radio (4).'},
-      {t:'Sí, es una casualidad de este catálogo: con otras conducciones habría montajes que sólo fallasen la compatibilidad',ok:false,why:'No puede haberlos, sea cual sea el catálogo. Mientras el aceite tenga velocidad, Δp_golpe > 0 y la desigualdad del golpe es más exigente que la de compatibilidad. Ningún fabricante puede romper una implicación lógica.'},
-      {t:'Es que la compatibilidad se comprueba después del golpe y por eso nunca aparece sola',ok:false,why:'El orden en que se comprueban no cambia nada: los siete criterios se evalúan todos y se cuentan todos los fallos de cada montaje. Lo que hace que nunca aparezca sola es la implicación entre las dos desigualdades, no el orden del código.'},
-      {t:'Porque en la línea de presión la velocidad recomendada de 6 m/s ya elimina antes a las conducciones débiles',ok:false,why:'La velocidad tumba 48 montajes por su cuenta y no coincide con los 54 de compatibilidad: hay mangueras anchas que van despacio y aun así no aguantan 210 bar. Quien las elimina siempre es el golpe.'}]},
-  reto:{pregunta:'En la línea de presión, la línea válida más barata de COMPRAR son dos tubos 18×2 en paralelo: 192 € de material y montaje frente a los 242 € del 35×5 de una sola línea. Aun así el 35×5 es el que gana el reto. ¿Por qué?',
+      {t:'No: es un teorema. Quien pasa el golpe (p_trabajo + Δp_golpe ≤ p_admisible) pasa la compatibilidad, así que ésta sólo cae cuando el golpe ya ha caído',ok:true,why:'Cuando un criterio implica lógicamente a otro, el implicado nunca suspende en solitario, por muchos montajes que tumbe. Por eso el censo se lee en dos columnas: el total mide cuánto se solapan los criterios y el «sólo por eso» mide cuáles son imprescindibles. Aquí los que deciden en solitario son el arranque en frío (14), el golpe (8), el régimen (4) y el radio (4).'},
+      {t:'Sí, es una casualidad de este catálogo: con otras conducciones habría montajes que fallasen sólo la compatibilidad y pasasen el golpe sin problema',ok:false,why:'No puede haberlos, sea cual sea el catálogo. Mientras el aceite tenga velocidad, Δp_golpe > 0 y la desigualdad del golpe es más exigente que la de compatibilidad. Ningún fabricante puede romper una implicación lógica.'},
+      {t:'Es sólo cuestión de orden: la compatibilidad se evalúa después del golpe en el código y por eso nunca aparece sola en el censo',ok:false,why:'El orden en que se comprueban no cambia nada: los siete criterios se evalúan todos y se cuentan todos los fallos de cada montaje. Lo que hace que nunca aparezca sola es la implicación entre las dos desigualdades, no el orden del código.'},
+      {t:'Porque en la línea de presión la velocidad recomendada de 6 m/s ya elimina antes a las conducciones débiles, que ni llegan a evaluarse',ok:false,why:'La velocidad tumba 48 montajes por su cuenta y no coincide con los 54 de compatibilidad: hay mangueras anchas que van despacio y aun así no aguantan 210 bar. Quien las elimina siempre es el golpe.'}]},
+  reto:{pregunta:'El reto puntúa el coste de propiedad (la compra más la energía disipada en cinco años) y no el precio de compra. ¿Por qué un montaje muy barato de comprar puede acabar siendo caro de poseer?',
     opciones:[
-      {t:'Porque el 18×2 estrangula el paso, pierde mucha más carga y disipa 320 € de energía en cinco años frente a 72 €: 513 € de coste de propiedad contra 315 €',ok:true,why:'Una conducción se paga dos veces, y la segunda es en el recibo de la luz: 4 000 h al año durante cinco años convierten cada vatio disipado en dinero. Por eso el criterio del reto es el coste de propiedad y no el precio de compra, que es el que se ve en la oferta.'},
-      {t:'Porque montar dos líneas en paralelo está prohibido en la línea de presión',ok:false,why:'No lo está: el catálogo admite una, dos o tres líneas en cualquier faena, y el reparto de caudal está calculado. De hecho la solución de otras faenas podría llevar varias líneas; aquí simplemente sale más cara de poseer.'},
-      {t:'Porque dos tubos de 18×2 no aguantan los 210 bar de trabajo',ok:false,why:'El 18×2 da 272 bar admisibles por Barlow con 4:1, así que aguanta de sobra: si no aguantase, el montaje sería inválido y ni siquiera entraría en la comparación de precios. El problema no es que no valga, es que sale caro de tener.'},
-      {t:'Porque el 35×5 pierde menos carga y por eso se compra más barato por metro',ok:false,why:'Al revés: el 35×5 cuesta 52 €/m frente a los 15 €/m del 18×2, y por eso pierde la comparación de compra. Lo que le hace ganar es lo que ahorra después.'}]},
+      {t:'Porque un paso estrecho pierde más carga, esa pérdida se disipa en calor y el motor la paga como electricidad en cada hora de servicio durante los cinco años',ok:true,why:'Una conducción se paga dos veces, y la segunda es en el recibo de la luz: cada vatio disipado durante miles de horas de servicio al año se convierte en dinero. Por eso el criterio del reto es el coste de propiedad y no el precio de la oferta.'},
+      {t:'Porque los montajes baratos de comprar siempre incumplen algún criterio de la faena y por eso hay que sustituirlos a los pocos meses de servicio',ok:false,why:'No: un montaje barato puede cumplir los siete criterios y ser perfectamente válido. Lo que lo penaliza no es un incumplimiento sino lo que gasta en energía mientras trabaja.'},
+      {t:'Porque la energía sólo se contabiliza en las líneas de presión, y cualquier montaje de retorno o de drenaje cuesta lo mismo que su compra',ok:false,why:'La pérdida de carga existe en las cinco faenas y se paga con energía en todas; lo que cambia es cuánto pesa frente al precio de compra, no si se contabiliza.'},
+      {t:'Porque el precio de compra por metro sube con el caudal de la faena y el montaje barato se encarece al instalarlo en una línea más larga',ok:false,why:'El precio de cada conducción es el de catálogo por metro y la longitud la fija la faena: no hay ningún recargo por caudal. La diferencia está en la energía que se disipa después.'}]},
 };
 let QORD=[], answered=false;
 function buildQuiz(){
@@ -2089,6 +2161,8 @@ const PICK_INFO={
   criterios:()=>{
     const {r}=pickCtx();
     const malos=r.fallos.map(k=>CRIT_ROT[k]);
+    if(ocultaVer()) return ['Los siete criterios',
+      'En el reto los pilotos no dan veredicto en vivo: pulsa Comprobar. Se rechaza una línea por la función, el arranque en frío, la velocidad, el régimen indefinido, la presión, el golpe o el radio de curvatura.'];
     return ['Los siete criterios',
       (r.valida?'Los siete en verde: este montaje se puede firmar.'
               :'En rojo: '+malos.join(', ')+'. ')+
@@ -2150,6 +2224,9 @@ async function runAuto(){
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: guarda el estado del alumno y lo devuelve al terminar.
+  const SAVE={mode,ST:{...ST},RETO:{cfg:{...RETO.cfg},ejes:{...RETO.ejes},pistas:{...RETO.pistas},resuelto:RETO.resuelto,
+    msg:RETO.msg,checked:RETO.checked,intentos:RETO.intentos,libre:RETO.libre},solved};
   try{
     // --- 1. EL FLUIDO: la misma linea con dos aceites distintos dentro
     setMode('fluido');
@@ -2257,9 +2334,20 @@ async function runAuto(){
         (bc&&!mismo(bc,s)?', un '+pc1(bc.coste/s.coste-1,0)+' menos que el barato de la oferta.':'.'));
       await sleep(5200);
     }
-    answer(quizCorrectIndex());
+    await sleep(1800);
   } finally {
+    // estado previo del alumno: la demostración no resuelve ni puntúa el reto
+    Object.assign(ST,SAVE.ST);
+    Object.assign(RETO.cfg,SAVE.RETO.cfg);
+    RETO.ejes={...SAVE.RETO.ejes};RETO.pistas={...SAVE.RETO.pistas};RETO.resuelto=SAVE.RETO.resuelto;
+    RETO.msg=SAVE.RETO.msg;RETO.checked=SAVE.RETO.checked;RETO.intentos=SAVE.RETO.intentos;RETO.libre=SAVE.RETO.libre;
+    RETO.sol=solM(RETO.cfg.fk);RETO.nval=censoM(RETO.cfg.fk).val;
+    // la demostración enseñó la solución de la aspiración y de la línea de presión: si ése era el caso del alumno, caso nuevo
+    if(RETO.cfg.fk==='aspir'||RETO.cfg.fk==='presion') nuevaFaenaReto(['aspir','presion']);
     autoRunning=false;
+    solved=SAVE.solved&&SAVE.RETO.resuelto&&RETO.cfg.fk===SAVE.RETO.cfg.fk;
+    setMode(SAVE.mode);
+    solved=mode==='reto'?RETO.resuelto:false;
     el('btnAuto').textContent=rot;
   }
 }
@@ -2314,10 +2402,11 @@ window.__labDebug={
   setTemp:v=>{ST.tk=v;afterEdit();},
   newSignal,
   // --- reto
+  intentos:()=>RETO.intentos, pistasUsadas:()=>nPistas(), retoLibre:()=>RETO.libre,
   reto:()=>({cfg:{...RETO.cfg},ejes:{...RETO.ejes},sol:RETO.sol,nval:RETO.nval,
-             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas}}),
+             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas},checked:RETO.checked,intentos:RETO.intentos}),
   setRetoFaena:v=>{RETO.cfg.fk=v;retoSolveBuild(true);afterEdit();},
-  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='nlin'?Number(v):v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='nlin'?Number(v):v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;afterEdit();},
   check:()=>checkReto(), pista:()=>pista(), ejeSolC,
   solved:()=>solved, retoSolveBuild, startCfg,
   // --- cuestionario

@@ -863,9 +863,21 @@ const repCero=pk=>PLANTAS[pk].fugas.map(()=>false);
 // compresor a la consigna que tiene puesta. Deliberadamente mala.
 const ST={ pk:'taller', rep:repCero('taller'), pCons:PLANTAS.taller.pBase,
            fk:'f5', ek:'deposito' };
-const RETO={ cfg:{pk:'taller'}, ejes:{rep:repCero('taller'), pCons:PLANTAS.taller.pBase},
-             sol:null, nval:0, pistas:{}, resuelto:false, msg:'' };
-let CUR=null; let hw={}; let animT=0; let autoRunning=false; let solved=false;
+// El reto sortea entre estas plantas. El taller y el laboratorio quedan fuera porque
+// son los casos que citan los cuestionarios y el recorrido guiado de los otros modos.
+// intentos: fallos acumulados del alumno (no se pone a cero al resembrar); fallosCaso:
+// los del caso en curso (a los 3 el reto se resiembra). chk: la intervencion que se
+// COMPROBO la ultima vez; mientras la puesta no coincida con ella no hay veredicto.
+const RETO_PK=['embalaje','pintura','exterior'];
+const RETO_RESIEMBRA=3;
+const RETO_PISTAS_MAX=2;
+const RETO={ cfg:{pk:'embalaje'}, ejes:{rep:repCero('embalaje'), pCons:PLANTAS.embalaje.pBase},
+             sol:null, nval:0, pistas:{}, resuelto:false, msg:'', intentos:0, fallosCaso:0, chk:null };
+let CUR=null; let hw={}; let animT=0; let autoRunning=false; let demoOk=false; let solved=false;
+const retoKey=()=>RETO.cfg.pk+'|'+bits(RETO.ejes.rep)+'|'+RETO.ejes.pCons;
+function retoVista(){ return RETO.chk!==null && RETO.chk===retoKey(); }
+// En modo reto el veredicto (marcas, colores, "cumple") solo existe tras Comprobar.
+const verOK=()=>mode!=='reto'||retoVista();
 
 function cfgDe(m){
   return m==='reto'
@@ -1031,6 +1043,7 @@ function marca(x,y,ok){
   bx.stroke();
 }
 const colOk=b=>b?OK_HEX:BAD_HEX;
+const colV=b=>verOK()?colOk(b):'#dbe4f0';
 function tabla(x,y,cols,rows,anchos,colFn){
   let yy=y;
   cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
@@ -1095,17 +1108,20 @@ function panelPunto(p,alto){
   prow(y,'consigna',f1(p.pCons,1)+' barg'); y+=23;
   prow(y,'fugas reparadas',bits(p.rep)+' · '+f1(p.nRep,0)+'/'+f1(P.fugas.length,0)); y+=23;
   prow(y,'horas · con paro',f1(p.horas,1)+' + '+f1(p.horasParo,1)+' h'); y+=23;
-  prow(y,'caudal total',f1(p.qTot/1000,3)+' Nm³/min',colOk(p.okCaudal)); y+=23;
+  prow(y,'caudal total',f1(p.qTot/1000,3)+' Nm³/min',colV(p.okCaudal)); y+=23;
   prow(y,'fuga',f1(p.qFugaTot,1)+' Nl/min · '+pc1(p.frac,1)); y+=23;
   prow(y,'potencia',f1(p.potKW,2)+' kW'); y+=30;
   texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
   prow(y,'inversión',f1(p.inversion,2)+' €'); y+=23;
-  prow(y,'ahorro anual',f1(p.ahorro,2)+' €',colOk(p.okAhorro)); y+=23;
-  prow(y,'retorno',Number.isFinite(p.payback)?f1(p.payback,2)+' meses':'nunca',colOk(p.okPayback)); y+=23;
+  prow(y,'ahorro anual',f1(p.ahorro,2)+' €',colV(p.okAhorro)); y+=23;
+  prow(y,'retorno',Number.isFinite(p.payback)?f1(p.payback,2)+' meses':'nunca',colV(p.okPayback)); y+=23;
   prow(y,'coste a '+f1(ANIOS,0)+' años',f1(p.coste5,0)+' €'); y+=30;
+  const vv=verOK();
   CRIT.forEach(c=>{
-    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
-    marca(PX.x+20,y-5,p[c]); y+=21;
+    texto(CRIT_ROT[c],PX.x+34,y,vv?(p[c]?'#c8d3e2':BAD_HEX):'#c8d3e2',13,'left','600');
+    if(vv) marca(PX.x+20,y-5,p[c]);
+    else { bx.fillStyle='#4a5568'; bx.beginPath(); bx.arc(PX.x+20,y-5,3,0,6.2832); bx.fill(); }
+    y+=21;
   });
   return y;
 }
@@ -1388,12 +1404,15 @@ function vistaReto(){
       '≤ '+f1(P.paybackMax,1)+' meses'],
   ];
   const yF=tabla(44,132,['condición','lo que da el montaje','lo que exige el pliego'],
-    filas,[258,222,150],(ri,ci)=>ci===1?colOk(p[CRIT[ri]]):null);
-  CRIT.forEach((c,i)=>marca(668,153+i*22,p[c]));
+    filas,[258,222,150],(ri,ci)=>ci===1?colV(p[CRIT[ri]]):null);
+  CRIT.forEach((c,i)=>{
+    if(verOK()) marca(668,153+i*22,p[c]);
+    else { bx.fillStyle='#4a5568'; bx.beginPath(); bx.arc(668,153+i*22,3,0,6.2832); bx.fill(); }
+  });
   texto('Coste de poseer a '+f1(ANIOS,0)+' años',44,yF+34,'#eaf1fb',16,'left','800');
   const vm=Math.max(p.coste5,p.coste5Base);
   [['sin tocar nada, a '+f1(P.pBase,1)+' barg',p.coste5Base,'rgba(255,107,107,0.55)'],
-   ['con este montaje',p.coste5,p.valida?OK_HEX:'rgba(143,151,165,0.55)']].forEach((t,k)=>{
+   ['con este montaje',p.coste5,(verOK()&&p.valida)?OK_HEX:'rgba(143,151,165,0.55)']].forEach((t,k)=>{
     const y=yF+52+k*40;
     texto(t[0],44,y+16,'#a9b6c8',13,'left','600');
     const bw=Math.max(3,300*t[1]/vm);
@@ -1403,15 +1422,17 @@ function vistaReto(){
   const dif=p.coste5Base-p.coste5;
   texto((dif>=0?'ahorra ':'cuesta ')+f1(Math.abs(dif),0)+' € en '+f1(ANIOS,0)+' años ('+
     pcm(-dif/p.coste5Base)+')',44,yF+142,dif>=0?OK_HEX:BAD_HEX,15,'left','800');
-  if(RETO.resuelto){
+  if(RETO.resuelto||demoOk){
     texto('✅ SELLADO · mínimo único entre las '+f1(RETO.nval,0)+' válidas',
       44,yF+176,OK_HEX,17,'left','800');
   }else if(RETO.msg){
     wrapText(RETO.msg,44,yF+176,620,19,WARN_HEX,14);
   }else{
     texto('De los '+f1(barrM(RETO.cfg.pk).length,0)+' montajes, '+f1(RETO.nval,0)+
-      ' cumplen el pliego. Sólo uno es el más barato de poseer.',44,yF+176,'#8f9bb0',15,'left','600');
+      ' cumplen el pliego. Sólo uno es el más barato de poseer. Pulsa Comprobar para el veredicto.',44,yF+176,'#8f9bb0',15,'left','600');
   }
+  texto('intentos: '+RETO.intentos+'  ·  pistas: '+Object.keys(RETO.pistas).length+'/'+RETO_PISTAS_MAX,
+    44,yF+206,'#8f9bb0',13,'left','700');
   panelPunto(p);
 }
 
@@ -1707,7 +1728,9 @@ function refrescaHW(){
   gZona.forEach((g,j)=>{
     const z=p.zonas[j];
     g.position.y=0;
-    tinta(g.userData.led.material, z.ok?OK_HEX:BAD_HEX, z.ok?0.9:1.1);
+    // En el reto los pilotos no dan veredicto hasta Comprobar.
+    if(!verOK()) tinta(g.userData.led.material,'#8f97a5',0.35);
+    else tinta(g.userData.led.material, z.ok?OK_HEX:BAD_HEX, z.ok?0.9:1.1);
   });
   // --- fugas: color por tipo, tamaño por caudal, chorro sólo si sigue abierta ---
   gFuga.forEach((g,i)=>{
@@ -1727,7 +1750,10 @@ function refrescaHW(){
     g.userData.halo.scale.setScalar(mode==='fuga'&&F.k===ST.fk?1.6:1.1);
   });
   // --- semáforo de criterios ---
-  M3.leds.forEach((s,i)=>tinta(s.material, p[CRIT[i]]?OK_HEX:BAD_HEX, p[CRIT[i]]?0.9:1.15));
+  M3.leds.forEach((s,i)=>{
+    if(!verOK()) tinta(s.material,'#8f97a5',0.35);
+    else tinta(s.material, p[CRIT[i]]?OK_HEX:BAD_HEX, p[CRIT[i]]?0.9:1.15);
+  });
   // --- manómetros: descarga del compresor y final del tronco, misma escala 0–10 barg ---
   setManometro(M3.manoA,(p.pDesc-P_ATM)/10);
   setManometro(M3.manoB,p.pTronco/10);
@@ -1736,7 +1762,8 @@ function refrescaHW(){
   M3.nivel.scale.y=fr*11; M3.nivel.position.y=0.28+0.05*fr*11;
   tinta(M3.nivel.material,CIAN,0.35+0.6*fr);
   // --- secador: verde si traga el caudal, rojo si va corto ---
-  tinta(M3.frio.material, p.okSecado?OK_HEX:BAD_HEX, 0.85);
+  if(!verOK()) tinta(M3.frio.material,'#8f97a5',0.35);
+  else tinta(M3.frio.material, p.okSecado?OK_HEX:BAD_HEX, 0.85);
   // --- partículas del tronco: tantas visibles como caudal circule ---
   const nv=Math.round(clamp(p.qTot/420,2,16));
   M3.part.forEach((m,i)=>{ m.visible=i<nv; });
@@ -1807,7 +1834,7 @@ const MODE_META={
     mision:'Tres maneras de medir la misma fuga y tres resultados distintos. El vaciado del depósito sólo ve lo que queda conectado con la planta parada; el análisis de ciclos ve todo el consumo y no sabe separarlo; el censo ultrasónico ve fuga por fuga pero sólo si te acercas. Compara los tres con la verdad del motor.'},
   catalogo:{nombre:'El catálogo',cam:[[3.2,3.8,8.4],[0.80,1.45,-0.10]],
     mision:'Mil doscientas ochenta intervenciones por planta y siete criterios que hay que cumplir a la vez. Mira cuántas caen por cada motivo y, sobre todo, cuántas caen SÓLO por ese motivo: ahí se ve qué criterio manda de verdad y cuál no ha tumbado nunca a nadie por su cuenta.'},
-  reto:{nombre:'Reto',cam:[[7.2,4.8,10.4],[2.40,1.45,0.00]],
+  reto:{nombre:'Reto',cam:[[7.6,5.2,13.0],[1.95,1.45,0.00]],
     mision:'Elige qué fugas reparas y a qué consigna dejas el compresor. Gana la intervención válida más barata de POSEER a cinco años; a igualdad de coste, la de menos inversión, después la de menos horas y por último la que toca menos fugas.'},
 };
 const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
@@ -1835,7 +1862,7 @@ function repBtns(key,rep,P){
 function buildControls(){
   const bar=el('selbar'), c=cfgDe(mode), P=PLANTAS[c.pk]; let h='';
   if(mode!=='reto'){
-    h+=lbl('Planta')+optBtns('pl',OPT_PLANTA,ST.pk);
+    h+=lbl('Planta')+optBtns('pl',OPT_PLANTA.filter(o=>o[0]!==RETO.cfg.pk),ST.pk);
     h+=lbl('Consigna del compresor · barg')+optBtns('cs',OPT_CONS,ST.pCons);
     if(mode==='fuga') h+=lbl('Fuga · clave y diámetro en mm')+optBtns('fg',PLANTAS[ST.pk].fugas.map(F=>[F.k,fugaAbr(F)]),ST.fk);
     if(mode==='ensayo') h+=lbl('Ensayo de auditoría')+optBtns('en',OPT_ENSAYO,ST.ek);
@@ -1855,18 +1882,16 @@ function buildControls(){
   wire('data-fg',v=>{ST.fk=v;});
   wire('data-en',v=>{ST.ek=v;});
   wire('data-rp',v=>{const i=Number(v);ST.rep=ST.rep.map((b,j)=>j===i?!b:b);});
-  wire('data-xs',v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xs',v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;solved=false;});
   wire('data-xp',v=>{const i=Number(v);RETO.ejes.rep=RETO.ejes.rep.map((b,j)=>j===i?!b:b);
-    RETO.msg='';RETO.resuelto=false;});
+    RETO.msg='';RETO.resuelto=false;solved=false;});
   const bt=el('btnTodas'), bn=el('btnNinguna'), bp=el('btnPista');
   if(bt) bt.onclick=()=>{if(autoRunning)return;ST.rep=ST.rep.map(()=>true);beep();afterEdit();};
   if(bn) bn.onclick=()=>{if(autoRunning)return;ST.rep=repCero(ST.pk);beep();afterEdit();};
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// La fuga que aparece reparada en más intervenciones VÁLIDAS de la planta. No es
-// una garantía —hay válidas que no la tocan— sino la apuesta con más respaldo
-// estadístico del barrido. Se resuelve por máximo estricto: si dos empataran, se
-// quedaría la primera de la lista, y el rótulo dice la cuenta, no una promesa.
+// (Se conserva para las pruebas; el boton de pista ya NO la usa: daba la fuga mas
+// frecuente entre las validas, o sea, parte de la solucion.)
 function fugaFrec(pk){
   const V=valM(pk), P=PLANTAS[pk];
   if(!V.length) return null;
@@ -1877,10 +1902,7 @@ function fugaFrec(pk){
   });
   return mejor;
 }
-// Valores de un eje que se destapan como pista. Los dos primeros salen de las
-// intervenciones que empatan en coste con la óptima; el barrido de este catálogo
-// no tiene ningún empate al céntimo, así que hoy devuelven un único valor, pero la
-// función está escrita para la lista completa porque el motor sí admite empates.
+// (Solo para pruebas: ya no se ensena al alumno.)
 function ejeSolC(pk,eje){
   const E=empM(pk), out=[];
   if(eje==='pCons') E.forEach(p=>{ if(out.indexOf(p.pCons)<0) out.push(p.pCons); });
@@ -1888,24 +1910,42 @@ function ejeSolC(pk,eje){
   else { const m=fugaFrec(pk); if(m) out.push(m.k); }
   return out;
 }
-// Una pista destapa UN eje. Ninguna resuelve el reto: hay 256 repartos por consigna,
-// saber cuántas fugas se tocan no dice cuáles, y la fuga más frecuente entre las
-// válidas deja las otras siete sin decidir.
+// Dos pistas como maximo, graduadas y registradas en RETO.pistas. Orientan, no
+// entregan montaje: la 1 dice QUE criterio vigilar y la 2 que restricciones de
+// acceso tiene la planta. Ninguna nombra fuga, consigna ni numero de reparaciones.
 function pista(){
-  const eje=EJES.find(e=>!RETO.pistas[e]);
-  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.pistas[eje]=true;beep();
-  const pk=RETO.cfg.pk, v=ejeSolC(pk,eje);
-  if(!v.length){showToast('💡 <b>'+EJE_ROT[eje]+'.</b> Esta planta no tiene ninguna intervención válida.');
-    afterEdit();return;}
-  const m=eje==='frec'?fugaFrec(pk):null;
-  const txt = eje==='pCons' ? v.map(x=>f1(x,1)+' barg').join(' · ')
-            : eje==='nrep'  ? v.map(x=>f1(x,0)+' fugas de '+f1(PLANTAS[pk].fugas.length,0)).join(' · ')
-            : m.k.toUpperCase()+' ('+m.rot+'), reparada en '+f1(m.con,0)+' de las '+
-              f1(m.tot,0)+' válidas. Las otras siete las decides tú.';
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> '+txt);
+  const n=Object.keys(RETO.pistas).length;
+  if(n>=RETO_PISTAS_MAX){showToast('💡 Ya usaste las '+RETO_PISTAS_MAX+' pistas de este caso. La intervención la cierras tú.');return;}
+  const pk=RETO.cfg.pk, P=PLANTAS[pk], cn=censoM(pk);
+  RETO.pistas[n+1]=true;beep();
+  if(n===0){
+    const peor=CRIT.slice().sort((a,x)=>(cn.solo[x]-cn.solo[a])||(cn.tot[x]-cn.tot[a]))[0];
+    showToast('💡 <b>Pista 1 de '+RETO_PISTAS_MAX+'.</b> En esta planta el criterio que más intervenciones tumba por sí solo es «'+
+      CRIT_ROT[peor]+'». Que el compresor vaya sobrado no basta: mira primero ese pliego.');
+  }else{
+    const nParo=P.fugas.filter(F=>F.paro).length;
+    showToast('💡 <b>Pista 2 de '+RETO_PISTAS_MAX+'.</b> De las '+f1(P.fugas.length,0)+' fugas, '+f1(nParo,0)+
+      (nParo===1?' sólo se repara':' sólo se reparan')+' con la máquina parada, y la planta autoriza '+f1(P.ventanaParo,1)+
+      ' h de paro y '+f1(P.ventana,1)+' h en marcha. El aire que pierde cada fuga no es lo único que cuenta: también su acceso.');
+  }
   afterEdit();
 }
+// Los modos de estudio no pueden ensenar la planta del reto: se reserva y, si el
+// alumno la estaba mirando, el ensayo salta a la siguiente.
+function sinReto(){
+  if(autoRunning||mode==='reto') return;
+  if(ST.pk===RETO.cfg.pk){
+    const i=PLANTA_KEYS.indexOf(ST.pk);
+    let nk=PLANTA_KEYS[(i+1)%PLANTA_KEYS.length];
+    if(nk===RETO.cfg.pk) nk=PLANTA_KEYS[(i+2)%PLANTA_KEYS.length];
+    ST.pk=nk;ST.rep=repCero(nk);ST.pCons=PLANTAS[nk].pBase;ST.fk=PLANTAS[nk].fugas[0].k;
+  }
+}
+const sigPk=v=>{
+  const i=PLANTA_KEYS.indexOf(v); let nk=PLANTA_KEYS[(i+1)%PLANTA_KEYS.length];
+  if(mode!=='reto'&&nk===RETO.cfg.pk) nk=PLANTA_KEYS[(i+2)%PLANTA_KEYS.length];
+  return nk;
+};
 
 function updateScenarioInfo(){
   const d=el('scenarioInfo');
@@ -1921,13 +1961,14 @@ function updateHwRot(){
     ' · '+f1(c.pCons,1)+' barg · fuga '+f1(p.qFugaTot,1)+' Nl/min ('+pc1(p.frac,1)+')';
 }
 function afterEdit(){
+  sinReto();
   buildControls();
   updateScenarioInfo();
   if(mode==='reto')updateRetoSpec();
   refreshAll();
 }
 function setMode(k){
-  mode=k;animT=0;
+  mode=k;animT=0;sinReto();
   MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
@@ -1945,25 +1986,26 @@ function newSignal(){
   if(mode==='fuga'){
     const ks=PLANTAS[ST.pk].fugas.map(F=>F.k);
     ST.fk=sig(ks,ST.fk);
-    if(ks.indexOf(ST.fk)===0){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+    if(ks.indexOf(ST.fk)===0){ST.pk=sigPk(ST.pk);ST.rep=repCero(ST.pk);
       ST.pCons=PLANTAS[ST.pk].pBase;ST.fk=PLANTAS[ST.pk].fugas[0].k;}
   }else if(mode==='red'){
     ST.pCons=sig(CONSIGNAS,ST.pCons);
-    if(ST.pCons===CONSIGNAS[0]){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+    if(ST.pCons===CONSIGNAS[0]){ST.pk=sigPk(ST.pk);ST.rep=repCero(ST.pk);
       ST.fk=PLANTAS[ST.pk].fugas[0].k;}
   }else if(mode==='ensayo'){
     ST.ek=sig(['deposito','ciclo','ultra'],ST.ek);
-    if(ST.ek==='deposito'){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+    if(ST.ek==='deposito'){ST.pk=sigPk(ST.pk);ST.rep=repCero(ST.pk);
       ST.pCons=PLANTAS[ST.pk].pBase;ST.fk=PLANTAS[ST.pk].fugas[0].k;}
   }else if(mode==='catalogo'){
-    ST.pk=sig(PLANTA_KEYS,ST.pk);ST.fk=PLANTAS[ST.pk].fugas[0].k;
+    ST.pk=sigPk(ST.pk);ST.fk=PLANTAS[ST.pk].fugas[0].k;
     const o=solM(ST.pk);
     if(o){ST.rep=o.rep.slice();ST.pCons=o.pCons;} else {ST.rep=repCero(ST.pk);ST.pCons=PLANTAS[ST.pk].pBase;}
   }else{
-    RETO.cfg.pk=sig(PLANTA_KEYS,RETO.cfg.pk);
+    RETO.cfg.pk=sig(RETO_PK,RETO.cfg.pk);
     retoSolveBuild(true);
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
+  if(mode==='reto'){RETO.resuelto=false;solved=false;RETO.msg='';}
+  sinReto();
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1976,6 +2018,7 @@ function teleRow(l,v,cls){
   return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
 }
 const cls2=b=>b?'ok':'bad';
+const clsV=b=>verOK()?cls2(b):'';
 // Cuando una zona se queda sin presion el motor devuelve -Infinity: eso no es un
 // numero, es un "no llega", y asi hay que escribirlo.
 const NO_FIN='—';
@@ -2067,18 +2110,18 @@ function updateTele(){
     const s=RETO.sol;
     h+=teleRow('Planta del reto',P.ico+' '+P.rot);
     h+=teleRow('Puesto',bits(c.rep)+' · '+f1(p.nRep,0)+' fugas @'+f1(c.pCons,1)+' barg');
-    h+=teleRow('Criterios cumplidos',f1(CRIT.length-p.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(p.valida));
+    h+=teleRow('Criterios cumplidos',verOK()?f1(CRIT.length-p.fallos.length,0)+' / '+f1(CRIT.length,0):'sin comprobar',clsV(p.valida));
     h+=teleRow('Presión en el punto de uso',fin(Math.min.apply(null,p.zonas.map(z=>z.pUtil-z.pMin)),3)+
-      ' bar de margen mínimo',cls2(p.okPres));
+      ' bar de margen mínimo',clsV(p.okPres));
     h+=teleRow('Horas · en marcha y con paro',f1(p.horas,1)+' ≤ '+f1(P.ventana,1)+' · '+
-      f1(p.horasParo,1)+' ≤ '+f1(P.ventanaParo,1)+' h',cls2(p.okHoras&&p.okParo));
+      f1(p.horasParo,1)+' ≤ '+f1(P.ventanaParo,1)+' h',clsV(p.okHoras&&p.okParo));
     h+=teleRow('Inversión',f1(p.piezas,0)+' € piezas + '+f1((p.horas+p.horasParo)*EUR_HORA,0)+
       ' € mano = '+f1(p.inversion,2)+' €');
-    h+=teleRow('Ahorro anual',f1(p.ahorro,2)+' ≥ '+f1(P.objAhorro,0)+' €/año',cls2(p.okAhorro));
+    h+=teleRow('Ahorro anual',f1(p.ahorro,2)+' ≥ '+f1(P.objAhorro,0)+' €/año',clsV(p.okAhorro));
     h+=teleRow('Retorno',(Number.isFinite(p.payback)?f1(p.payback,2):'∞')+' ≤ '+
-      f1(P.paybackMax,1)+' meses',cls2(p.okPayback));
+      f1(P.paybackMax,1)+' meses',clsV(p.okPayback));
     h+=teleRow('Coste a '+f1(ANIOS,0)+' años',f1(p.coste5,0)+' € · sin tocar nada '+f1(p.coste5Base,0)+' €');
-    h+=teleRow('Coste mínimo posible',s?f1(s.coste5,0)+' €':'sin solución');
+    h+=teleRow('Intentos · fallos del caso',f1(RETO.intentos,0)+' · '+f1(RETO.fallosCaso,0)+' de '+f1(RETO_RESIEMBRA,0));
   }
   el('tele').innerHTML=h;
 }
@@ -2185,11 +2228,12 @@ function updateReport(){
     t='> '+P.rot+'. Decide qué fugas reparas y a qué consigna dejas el compresor.\n';
     t+='> Puesto: '+bits(c.rep)+' a '+f1(c.pCons,1)+' barg → '+f1(p.inversion,2)+
       ' € de inversión, '+f1(p.ahorro,2)+' €/año y '+f1(p.coste5,0)+' € en '+f1(ANIOS,0)+' años.\n';
-    t+=p.valida?'> Cumple los siete criterios.\n'
-               :'> Falla: '+p.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=!retoVista()?'> Pulsa «Comprobar» para saber si cumple los siete criterios.\n'
+      :(p.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+p.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n');
     t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f1(RETO.nval,0)+' intervenciones válidas, la más barata de poseer cuesta '+
-      (s?f1(s.coste5,0)+' €':'—')+'.';
+    t+='> Hay '+f1(RETO.nval,0)+' intervenciones válidas; sólo una es la más barata de poseer. Intentos: '+
+      f1(RETO.intentos,0)+' · pistas: '+f1(Object.keys(RETO.pistas).length,0)+'/'+f1(RETO_PISTAS_MAX,0)+'.';
   }
   el('report').textContent=t;
 }
@@ -2223,6 +2267,8 @@ function retoSolveBuild(reset){
     RETO.pistas={};
     RETO.resuelto=false;
     RETO.msg='';
+    RETO.fallosCaso=0;
+    RETO.chk=null;
   }
 }
 function updateRetoSpec(){
@@ -2283,13 +2329,17 @@ function retoExplain(r,c){
 function checkReto(){
   const c=cfgDe('reto'), s=RETO.sol;
   const r=punto(c.pk,c.rep,c.pCons);
+  RETO.chk=retoKey();
+  let bien=false;
   if(!s){
     RETO.msg='Esta planta no tiene ninguna intervención que cumpla los siete criterios.';
     RETO.resuelto=false;
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>Sin solución.</b> '+RETO.msg);
   }else if(r.valida&&empM(c.pk).some(q=>mismo(q,r))){
-    RETO.resuelto=true; solved=true;
+    bien=true;
+    // El recorrido guiado ensena el acierto pero NO resuelve el reto del alumno.
+    if(autoRunning){ demoOk=true; } else { RETO.resuelto=true; solved=true; }
     RETO.msg='Correcto: '+f1(r.coste5,0)+' € de coste de propiedad, el mínimo de las '+
       f1(RETO.nval,0)+' intervenciones válidas.';
     synth.beep(880,0.10,0.06);
@@ -2302,9 +2352,9 @@ function checkReto(){
     // que toda válida que no sea la óptima es estrictamente más cara y el mensaje
     // puede decirlo sin condicionales que nunca se cumplirían.
     RETO.resuelto=false;
-    RETO.msg='Válida, pero no es la más barata de poseer: '+f1(r.coste5,0)+' € frente a '+
-      f1(s.coste5,0)+' € (inversión '+f1(r.inversion,0)+' frente a '+f1(s.inversion,0)+
-      ', energía '+f1(ANIOS*r.eAnio,0)+' frente a '+f1(ANIOS*s.eAnio,0)+').';
+    // Cualitativo: no se da el coste, la inversion ni la energia de la optima.
+    RETO.msg='Cumple los siete criterios, pero no es la más barata de poseer a '+f1(ANIOS,0)+
+      ' años: revisa qué reparaciones compensan su coste y a qué consigna conviene dejar el compresor.';
     synth.beep(520,0.09,0.05);
     showToast('🟡 <b>Cumple, pero no es la óptima.</b> '+RETO.msg);
   }else{
@@ -2313,8 +2363,18 @@ function checkReto(){
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>No cumple.</b> '+RETO.msg);
   }
-  refreshAll();
+  if(!bien && !autoRunning){
+    RETO.intentos++;RETO.fallosCaso++;
+    if(RETO.fallosCaso>=RETO_RESIEMBRA){
+      RETO.cfg.pk=sig3(RETO_PK,RETO.cfg.pk);
+      retoSolveBuild(true);
+      RETO.msg='Tres intentos sin acertar: el reto se resiembra con otra planta. Repasa qué criterio te tumbó antes de volver a probar.';
+      showToast('🔁 <b>Caso nuevo.</b> '+RETO.msg);
+    }
+  }
+  afterEdit();
 }
+const sig3=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
 
 // ===================== 14. CUESTIONARIO =====================
 // Los cinco enunciados citan cifras que salen del motor de este laboratorio; el
@@ -2322,34 +2382,34 @@ function checkReto(){
 const QUIZ={
   fuga:{pregunta:'Un agujero de 1,0 mm a 7,0 barg deja escapar 48,1 Nl/min y uno de 2,0 mm, 192,5: exactamente cuatro veces más. En cambio, subir la consigna de 6,0 a 8,0 barg sólo lleva el de 1,0 mm de 42,1 a 54,1 Nl/min, un factor 1,2852 y no el 1,3333 que dice la regla de tres con las presiones del manómetro. ¿Por qué el diámetro cuadra exacto y la presión no?',
     opciones:[
-      {t:'Porque el orificio va bloqueado y entonces el gasto es proporcional al área —que va con d², de ahí el 4,0000 exacto— y a la presión ABSOLUTA aguas arriba: 9,013/7,013 = 1,2852, no 8/6',ok:true,why:'En régimen sónico ṁ = C_d·A·p₁·√(k/RT)·[2/(k+1)]^((k+1)/2(k−1)): el área y la presión absoluta entran las dos elevadas a uno. Doblar el diámetro cuadruplica el área y por eso el caudal se multiplica por cuatro sin redondeo. Y la fórmula no sabe nada de manómetros: el 1,2852 es el cociente de las absolutas, y por eso bajar un bar la consigna ahorra menos de lo que uno espera mirando la escala del manómetro.'},
-      {t:'Porque el caudal de fuga es proporcional al diámetro y a la presión, y el 1,2852 sale del rozamiento del aire dentro del agujero',ok:false,why:'Si fuera proporcional al diámetro, el de 2,0 mm daría el doble y no el cuádruple. Lo que manda es el área, d²·π/4: 0,7854 mm² contra 3,1416. Y el modelo del orificio no lleva rozamiento: lleva un coeficiente de descarga C_d = 0,65 que ya recoge la contracción de la vena.'},
-      {t:'Porque a 8,0 barg el orificio deja de estar bloqueado y el caudal crece más despacio',ok:false,why:'Al revés: cuanto más se sube la presión, más adentro del bloqueo se está. Se está bloqueado cuando p_atm/p₁ ≤ 0,5283, y a 6,0 barg ya vale 0,144. En todo el rango del laboratorio el chorro sale a la velocidad del sonido; lo único que cambia es la densidad del aire que atraviesa el agujero.'},
-      {t:'Porque al subir la presión el aire se calienta y pierde densidad, y eso se come parte del aumento',ok:false,why:'El laboratorio trabaja a temperatura constante, 20 °C en línea y en aspiración: la expansión en el agujero se toma como isentrópica pero la línea no se calienta. Si la temperatura entrase, lo haría como √T y afectaría también al caso del diámetro doble, que sin embargo cuadra exacto.'}]},
+      {t:'Porque el orificio va bloqueado: el gasto sigue al área (d², de ahí el 4,0000 exacto) y a la presión ABSOLUTA, 9,013/7,013 = 1,2852, no 8/6',ok:true,why:'En régimen sónico ṁ = C_d·A·p₁·√(k/RT)·[2/(k+1)]^((k+1)/2(k−1)): el área y la presión absoluta entran las dos elevadas a uno. Doblar el diámetro cuadruplica el área y por eso el caudal se multiplica por cuatro sin redondeo. Y la fórmula no sabe nada de manómetros: el 1,2852 es el cociente de las absolutas, y por eso bajar un bar la consigna ahorra menos de lo que uno espera mirando la escala del manómetro.'},
+      {t:'Porque el caudal de fuga es proporcional al diámetro y a la presión que marca el manómetro, y el 1,2852 sale del rozamiento del aire al atravesar el agujero',ok:false,why:'Si fuera proporcional al diámetro, el de 2,0 mm daría el doble y no el cuádruple. Lo que manda es el área, d²·π/4: 0,7854 mm² contra 3,1416. Y el modelo del orificio no lleva rozamiento: lleva un coeficiente de descarga C_d = 0,65 que ya recoge la contracción de la vena.'},
+      {t:'Porque a 8,0 barg el orificio deja de estar bloqueado y el caudal crece más despacio que a 6,0 barg, donde el aire aún sale a la velocidad del sonido',ok:false,why:'Al revés: cuanto más se sube la presión, más adentro del bloqueo se está. Se está bloqueado cuando p_atm/p₁ ≤ 0,5283, y a 6,0 barg ya vale 0,144. En todo el rango del laboratorio el chorro sale a la velocidad del sonido; lo único que cambia es la densidad del aire que atraviesa el agujero.'},
+      {t:'Porque al subir la presión el aire se calienta y pierde densidad al pasar por el agujero, y esa pérdida se come parte del aumento del caudal',ok:false,why:'El laboratorio trabaja a temperatura constante, 20 °C en línea y en aspiración: la expansión en el agujero se toma como isentrópica pero la línea no se calienta. Si la temperatura entrase, lo haría como √T y afectaría también al caso del diámetro doble, que sin embargo cuadra exacto.'}]},
   red:{pregunta:'En el taller, el ramal de los bancos de montaje son 18 m de tubo DN 21,7 y pierde 0,0107 bar. El último tramo —enchufe rápido, manguera y racor de la máquina— pierde 0,3508 bar, treinta y tres veces más, midiendo apenas un par de metros. En los sopladores la desproporción llega a noventa. ¿Qué está pasando?',
     opciones:[
-      {t:'Que el terminal no se calcula como tubo sino como un orificio equivalente: 15,0 mm² de paso frente a los 369,8 mm² del ramal, casi veinticinco veces menos sección, y ahí es donde se estrangula el aire',ok:true,why:'La caída no la fija la longitud sino la sección por la que hay que meter el caudal. Un enchufe rápido de 15 mm² es un cuello de botella que ningún metro de tubo grueso compensa. De ahí la regla de taller: antes de subir la consigna del compresor por una máquina que "no tiene presión", mira el enchufe y la manguera, que suelen costar diez euros.'},
-      {t:'Que el aire, al ser compresible, pierde más presión cuanto más cerca está del final del recorrido',ok:false,why:'No hay ninguna ley que diga eso. La pérdida en cada tramo depende de su caudal, su longitud y su diámetro; el orden en que se recorren no entra. La prueba es que en los sopladores el ramal son 8 m y pierde tres veces menos que en la prensa, que son 30 m: manda el paso, no la posición.'},
-      {t:'Que el ramal es de acero y el terminal de goma, y la goma tiene mucha más rugosidad',ok:false,why:'La rugosidad afecta al factor de fricción, y entre acero estirado y goma la diferencia es de un 20 % largo, no de un factor treinta. Además el terminal ni siquiera se calcula por Darcy: se calcula como un estrechamiento, porque lo que domina es la sección de paso del enchufe.'},
-      {t:'Que por el terminal pasa el caudal de la zona más el de las fugas, y por el ramal sólo el de la zona',ok:false,why:'Es al revés: las fugas están repartidas por la zona, así que el ramal de los bancos lleva 566,0 Nl/min —los 400 declarados más 166,0 de fugas— y el terminal de máquina sólo los 400 declarados. Aun llevando menos caudal que el ramal, el terminal pierde 0,3508 bar frente a 0,0107: treinta y tres veces más.'}]},
+      {t:'Que el terminal se calcula como orificio y no como tubo: 15,0 mm² de paso frente a los 369,8 mm² del ramal, y ahí se estrangula el aire',ok:true,why:'La caída no la fija la longitud sino la sección por la que hay que meter el caudal. Un enchufe rápido de 15 mm² es un cuello de botella que ningún metro de tubo grueso compensa. De ahí la regla de taller: antes de subir la consigna del compresor por una máquina que "no tiene presión", mira el enchufe y la manguera, que suelen costar diez euros.'},
+      {t:'Que el aire, al ser compresible, pierde más presión cuanto más cerca está del final del recorrido, porque va acumulando rozamiento tramo a tramo',ok:false,why:'No hay ninguna ley que diga eso. La pérdida en cada tramo depende de su caudal, su longitud y su diámetro; el orden en que se recorren no entra. La prueba es que en los sopladores el ramal son 8 m y pierde tres veces menos que en la prensa, que son 30 m: manda el paso, no la posición.'},
+      {t:'Que el ramal es de acero estirado y el terminal de goma, y la goma tiene mucha más rugosidad, lo que multiplica la pérdida por fricción',ok:false,why:'La rugosidad afecta al factor de fricción, y entre acero estirado y goma la diferencia es de un 20 % largo, no de un factor treinta. Además el terminal ni siquiera se calcula por Darcy: se calcula como un estrechamiento, porque lo que domina es la sección de paso del enchufe.'},
+      {t:'Que por el terminal pasa el caudal de la zona más el de todas las fugas, y por el ramal sólo el caudal de la zona sin contar las fugas',ok:false,why:'Es al revés: las fugas están repartidas por la zona, así que el ramal de los bancos lleva 566,0 Nl/min —los 400 declarados más 166,0 de fugas— y el terminal de máquina sólo los 400 declarados. Aun llevando menos caudal que el ramal, el terminal pierde 0,3508 bar frente a 0,0107: treinta y tres veces más.'}]},
   ensayo:{pregunta:'En el taller sin reparar nada, el ensayo de descarga del depósito declara 95,8 Nl/min de fuga y el censo con ultrasonidos suma 548,9: se queda en el 17 % de la verdad. Y sin embargo el error de la fórmula lineal del ensayo es de sólo −0,52 %. ¿Cómo pueden convivir las dos cosas?',
     opciones:[
-      {t:'Porque son dos errores distintos: la fórmula lineal apenas se equivoca (la presión cae exponencialmente y el −0,52 % es esa diferencia), pero al cerrar las llaves de zona el ensayo sólo ve 2 de las 8 fugas. No mide mal: mide otra cosa',ok:true,why:'Un ensayo bien hecho puede dar un número perfectamente calculado de una magnitud que no es la que interesa. El de depósito mide la fuga del tronco y del depósito, que es lo que queda conectado con la planta parada: ve 2 de las 8 y declara 95,8 Nl/min de los 548,9 que se pierden de verdad; las otras seis no aparecen. Por eso este ensayo se usa para vigilar la sala de compresores, no para valorar una planta.'},
-      {t:'Porque el ensayo se hace con la planta parada y las fugas sólo pierden cuando la planta está en marcha',ok:false,why:'Una fuga pierde siempre que haya presión detrás, esté la planta parada o no: de hecho las fugas se llevan la mayor parte de su aire por la noche y los fines de semana, cuando no producen nada. Lo que las quita del ensayo no es el paro, son las llaves de zona cerradas: por eso el depósito sólo ve 2 de las 8 y declara 95,8 Nl/min en vez de 548,9.'},
-      {t:'Porque el ultrasonido exagera: mide nivel sonoro y lo convierte a caudal con una curva aproximada, y ahí está el 83 % que falta',ok:false,why:'Las dos cifras salen del mismo modelo de orificio; el nivel en dB es una lectura derivada del caudal, no al revés. Si el censo estuviera inflado un 83 %, el compresor no tendría que mover los 2 398,9 Nl/min que mueve para 1 850 de consumo declarado.'},
-      {t:'Porque en 618 s la presión sólo baja 2 bar y ese salto es demasiado pequeño para medir nada',ok:false,why:'El salto de 2 bar es holgado y está bien elegido: si fuera mayor, el sesgo de la fórmula lineal crecería. La prueba de que el salto no es el problema es que la estimación lineal, 95,8 Nl/min, acierta la fuga que SÍ ve con un error del medio por ciento.'}]},
+      {t:'Porque son errores distintos: la fórmula lineal apenas falla, pero al cerrar las llaves de zona el ensayo sólo ve 2 de las 8 fugas',ok:true,why:'Un ensayo bien hecho puede dar un número perfectamente calculado de una magnitud que no es la que interesa. El de depósito mide la fuga del tronco y del depósito, que es lo que queda conectado con la planta parada: ve 2 de las 8 y declara 95,8 Nl/min de los 548,9 que se pierden de verdad; las otras seis no aparecen. Por eso este ensayo se usa para vigilar la sala de compresores, no para valorar una planta.'},
+      {t:'Porque el ensayo se hace con la planta parada y las fugas sólo pierden aire cuando la planta está en marcha, así que el depósito no llega a verlas',ok:false,why:'Una fuga pierde siempre que haya presión detrás, esté la planta parada o no: de hecho las fugas se llevan la mayor parte de su aire por la noche y los fines de semana, cuando no producen nada. Lo que las quita del ensayo no es el paro, son las llaves de zona cerradas: por eso el depósito sólo ve 2 de las 8 y declara 95,8 Nl/min en vez de 548,9.'},
+      {t:'Porque el ultrasonido exagera: mide nivel sonoro y lo convierte a caudal con una curva aproximada, y ahí está el 83 % de aire que falta en el ensayo',ok:false,why:'Las dos cifras salen del mismo modelo de orificio; el nivel en dB es una lectura derivada del caudal, no al revés. Si el censo estuviera inflado un 83 %, el compresor no tendría que mover los 2 398,9 Nl/min que mueve para 1 850 de consumo declarado.'},
+      {t:'Porque en 618 s la presión sólo baja 2 bar y ese salto es demasiado pequeño para que el ensayo de descarga pueda medir nada fiable',ok:false,why:'El salto de 2 bar es holgado y está bien elegido: si fuera mayor, el sesgo de la fórmula lineal crecería. La prueba de que el salto no es el problema es que la estimación lineal, 95,8 Nl/min, acierta la fuga que SÍ ve con un error del medio por ciento.'}]},
   catalogo:{pregunta:'En el laboratorio, 286 de las 1 280 intervenciones fallan por capacidad del secador, y no se reparten al azar: 149 de ellas están a 6,0 barg y sólo 1 a 8,0. Bajar la consigna ahorra energía, pero tumba el secador. ¿Por qué?',
     opciones:[
-      {t:'Porque la capacidad del secador se declara a 7,0 barg y se corrige con la presión absoluta de trabajo: a 6,0 barg sólo traga 1,0065 Nm³/min en vez de 1,15, mientras que el caudal que pasa baja mucho menos, porque el consumo de las máquinas está fijado en normales',ok:true,why:'El secador trabaja con aire real, no con normales: a menos presión el mismo caudal normal ocupa más volumen, va más deprisa por el intercambiador y le sobra menos tiempo para condensar. La capacidad cae proporcionalmente a la presión absoluta —de 1,2935 a 1,0065 Nm³/min entre 8,0 y 6,0 barg— y el caudal sólo baja lo que baja la fuga, de 1,3032 a 1,1866. Por eso "bajar un bar" no es gratis: hay que mirar el secador, los tratamientos y los actuadores antes de tocar el presostato.'},
-      {t:'Porque a menor presión el aire arrastra más agua y el secador tiene que quitar más humedad',ok:false,why:'La cantidad de agua que entra la fija la aspiración —temperatura y humedad ambiente—, no la presión de trabajo. Lo que cambia con la presión es la capacidad volumétrica del aparato, y es lo que el laboratorio corrige: 1,15 Nm³/min a 7,0 barg se quedan en 1,0065 a 6,0.'},
-      {t:'Porque al bajar la consigna aumentan las fugas y con ellas el caudal total',ok:false,why:'Las fugas hacen justo lo contrario: al bajar la consigna pierden menos, de 463,2 a 346,6 Nl/min entre 8,0 y 6,0 barg. El caudal total baja, de 1,3032 a 1,1866 Nm³/min; lo que pasa es que la capacidad del secador baja más deprisa, de 1,2935 a 1,0065.'},
-      {t:'Porque el laboratorio tiene el secador mal dimensionado y en el taller, con el mismo criterio, no falla nunca',ok:false,why:'Que en el taller no falle ninguna de las 1 280 no es cuestión de criterio: es que allí sobra capacidad, con 0,5378 Nm³/min de margen en el peor punto del barrido. En el laboratorio el secador va justo desde el primer momento, y por eso es la planta donde se ve el efecto. El criterio es el mismo en las cinco.'}]},
+      {t:'Porque la capacidad del secador se declara a 7,0 barg y se corrige con la presión absoluta: a 6,0 barg sólo traga 1,0065 Nm³/min en vez de 1,15',ok:true,why:'El secador trabaja con aire real, no con normales: a menos presión el mismo caudal normal ocupa más volumen, va más deprisa por el intercambiador y le sobra menos tiempo para condensar. La capacidad cae proporcionalmente a la presión absoluta —de 1,2935 a 1,0065 Nm³/min entre 8,0 y 6,0 barg— y el caudal sólo baja lo que baja la fuga, de 1,3032 a 1,1866. Por eso "bajar un bar" no es gratis: hay que mirar el secador, los tratamientos y los actuadores antes de tocar el presostato.'},
+      {t:'Porque a menor presión de línea el aire arrastra más agua y el secador tiene que quitar más humedad de la que está dimensionado para tratar a 7,0 barg',ok:false,why:'La cantidad de agua que entra la fija la aspiración —temperatura y humedad ambiente—, no la presión de trabajo. Lo que cambia con la presión es la capacidad volumétrica del aparato, y es lo que el laboratorio corrige: 1,15 Nm³/min a 7,0 barg se quedan en 1,0065 a 6,0.'},
+      {t:'Porque al bajar la consigna aumentan las fugas y con ellas el caudal total que el secador debe tratar, hasta rebasar su capacidad nominal',ok:false,why:'Las fugas hacen justo lo contrario: al bajar la consigna pierden menos, de 463,2 a 346,6 Nl/min entre 8,0 y 6,0 barg. El caudal total baja, de 1,3032 a 1,1866 Nm³/min; lo que pasa es que la capacidad del secador baja más deprisa, de 1,2935 a 1,0065.'},
+      {t:'Porque el secador del laboratorio está mal dimensionado desde el principio y en el taller, con el mismo criterio de proyecto, ese fallo no aparece nunca',ok:false,why:'Que en el taller no falle ninguna de las 1 280 no es cuestión de criterio: es que allí sobra capacidad, con 0,5378 Nm³/min de margen en el peor punto del barrido. En el laboratorio el secador va justo desde el primer momento, y por eso es la planta donde se ve el efecto. El criterio es el mismo en las cinco.'}]},
   reto:{pregunta:'En el taller, la mejor intervención tapa el racor del colector, que pierde 51,1 Nl/min, y deja abierta la junta de cilindro de la prensa, que pierde 51,0. Pierden lo mismo y se paga el mismo aire por las dos. ¿Qué las separa?',
     opciones:[
-      {t:'Que la junta sólo se cambia con la prensa parada y el taller no autoriza ni una hora de paro: las 640 intervenciones del catálogo que la tapan —la mitad exacta— son inválidas antes de mirar el dinero. El racor se cambia en 0,5 h en marcha y cuesta 4 €',ok:true,why:'La accesibilidad es una restricción tan dura como la presión mínima, y en este censo se ve al desnudo: los 640 puntos que fallan por ventana de paro son exactamente los 640 que reparan esa junta, ni uno más. Un plan de fugas que ordena por caudal y no por lo que cabe en la ventana no es un plan: es una lista de deseos.'},
-      {t:'Que la junta de cilindro es una fuga interna y el detector de ultrasonidos no la oye, así que no entra en el plan',ok:false,why:'Sí la oye: el censo la da a 54,2 dB, el mismo nivel que el racor, porque suenan igual los dos. Detectarla es lo fácil; el problema aparece después, cuando hay que parar la prensa para cambiarla.'},
-      {t:'Que reparar la junta subiría la caída de presión en la zona de la prensa y dejaría la máquina por debajo de su mínimo',ok:false,why:'Tapar una fuga siempre quita caudal del ramal y por tanto BAJA la caída: la presión en el punto de uso sólo puede mejorar. Tapar esa junta a 8,0 barg lleva el punto de uso de la prensa de 7,116 a 7,140 barg, y su caída de ramal de 0,0171 a 0,0143 bar. De hecho el criterio de presión es el que más se relaja a medida que se reparan fugas.'},
-      {t:'Que el racor está en el tronco y la junta en una zona, y el aire del tronco se paga más caro',ok:false,why:'El aire se paga por lo que cuesta comprimirlo, y eso no depende de por dónde se escape: reparar la junta sola ahorra 120,22 €/año y el racor solo, 120,42, prácticamente lo mismo. Lo que las separa son las 3,0 h con la máquina parada frente a 0,5 h en marcha.'}]},
+      {t:'Que la junta sólo se cambia con la prensa parada y el taller no autoriza paro: las 640 intervenciones que la tapan son inválidas de antemano',ok:true,why:'La accesibilidad es una restricción tan dura como la presión mínima, y en este censo se ve al desnudo: los 640 puntos que fallan por ventana de paro son exactamente los 640 que reparan esa junta, ni uno más. Un plan de fugas que ordena por caudal y no por lo que cabe en la ventana no es un plan: es una lista de deseos.'},
+      {t:'Que la junta de cilindro es una fuga interna y el detector de ultrasonidos no la oye, así que nunca llega a entrar en el plan de reparación',ok:false,why:'Sí la oye: el censo la da a 54,2 dB, el mismo nivel que el racor, porque suenan igual los dos. Detectarla es lo fácil; el problema aparece después, cuando hay que parar la prensa para cambiarla.'},
+      {t:'Que reparar la junta subiría la caída de presión en la zona de la prensa y dejaría a la máquina por debajo de su presión mínima de trabajo',ok:false,why:'Tapar una fuga siempre quita caudal del ramal y por tanto BAJA la caída: la presión en el punto de uso sólo puede mejorar. Tapar esa junta a 8,0 barg lleva el punto de uso de la prensa de 7,116 a 7,140 barg, y su caída de ramal de 0,0171 a 0,0143 bar. De hecho el criterio de presión es el que más se relaja a medida que se reparan fugas.'},
+      {t:'Que el racor está en el tronco y la junta en una zona, y el aire que se pierde en el tronco se paga más caro que el de las zonas',ok:false,why:'El aire se paga por lo que cuesta comprimirlo, y eso no depende de por dónde se escape: reparar la junta sola ahorra 120,22 €/año y el racor solo, 120,42, prácticamente lo mismo. Lo que las separa son las 3,0 h con la máquina parada frente a 0,5 h en marcha.'}]},
 };
 let QORD=[], answered=false;
 function buildQuiz(){
@@ -2557,6 +2617,11 @@ function parEjemplar(pk,s){
 
 async function runAuto(){
   if(autoRunning) return;
+  // DEMOSTRACION: guarda el estado del alumno y lo devuelve al terminar; no puntua.
+  // La demostracion usa el taller (nunca es planta del reto), asi que no ensena su caso.
+  const snap={mode,solved,ST:{...ST,rep:ST.rep.slice()},
+    RETO:{cfg:{...RETO.cfg},ejes:{rep:RETO.ejes.rep.slice(),pCons:RETO.ejes.pCons},pistas:{...RETO.pistas},
+          resuelto:RETO.resuelto,msg:RETO.msg,intentos:RETO.intentos,fallosCaso:RETO.fallosCaso,chk:RETO.chk}};
   autoRunning=true;
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
@@ -2707,8 +2772,13 @@ async function runAuto(){
     await sleep(5600);
     answer(quizCorrectIndex());
   } finally {
-    autoRunning=false;
+    autoRunning=false;demoOk=false;
     el('btnAuto').textContent=rot;
+    Object.assign(ST,snap.ST);
+    Object.assign(RETO,snap.RETO);
+    solved=snap.solved;
+    retoSolveBuild(false);
+    setMode(snap.mode);
   }
 }
 
@@ -2800,7 +2870,8 @@ window.__labDebug={
   st:()=>({...ST, rep:ST.rep.slice()}), cur:()=>CUR, cfg:()=>cfgDe(mode),
   reto:()=>({cfg:{...RETO.cfg}, ejes:{rep:RETO.ejes.rep.slice(), pCons:RETO.ejes.pCons},
              sol:RETO.sol, nval:RETO.nval, resuelto:RETO.resuelto, msg:RETO.msg,
-             pistas:{...RETO.pistas}}),
+             pistas:{...RETO.pistas}, intentos:RETO.intentos, fallosCaso:RETO.fallosCaso,
+             nPistas:Object.keys(RETO.pistas).length, verOK:retoVista()}),
   plantaAct, fugaAct, iFuga, zonaDe, bits, ahorroSolo,
   // --- setters equivalentes a los botones
   setPlanta:v=>{ST.pk=v;ST.rep=repCero(v);ST.pCons=PLANTAS[v].pBase;ST.fk=PLANTAS[v].fugas[0].k;afterEdit();},
@@ -2812,11 +2883,12 @@ window.__labDebug={
   newSignal,
   // --- reto
   setRetoPlanta:v=>{RETO.cfg.pk=v;retoSolveBuild(true);afterEdit();},
-  setRetoCons:v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoCons:v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;solved=false;afterEdit();},
   toggleRetoRep:i=>{const j=Number(i);RETO.ejes.rep=RETO.ejes.rep.map((b,k)=>k===j?!b:b);
-    RETO.msg='';RETO.resuelto=false;afterEdit();},
+    RETO.msg='';RETO.resuelto=false;solved=false;afterEdit();},
   setRetoRep:arr=>{RETO.ejes.rep=PLANTAS[RETO.cfg.pk].fugas.map((F,i)=>!!arr[i]);
-    RETO.msg='';RETO.resuelto=false;afterEdit();},
+    RETO.msg='';RETO.resuelto=false;solved=false;afterEdit();},
+  intentos:()=>RETO.intentos,
   check:()=>checkReto(), pista:()=>pista(), ejeSolC, fugaFrec, valM, clasesCoste, retoExplain,
   solved:()=>solved, retoSolveBuild, startCfg,
   // --- cuestionario

@@ -217,7 +217,7 @@ let scIdx=0;                          // máquina de Explora y Aplica
 let expAdc=POOL[0].adc, expXi=3;      // convertidor y punto de la escala en Explora
 let apTopic='resolucion', apAdc=POOL[0].adc, apCond=POOL[0].cond, apMues=POOL[0].mues;
 let retoK=0, retoCh={adc:'b10v5',cond:'directo',mues:'m200'};
-let retoChecked=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let retoOkAdc=false,retoOkCond=false,retoOkMues=false;
 
 const XFR=[0,0.19,0.37,0.53,0.78,1.0];   // puntos de la escala que ofrece Explora
@@ -253,6 +253,9 @@ function curCfg(){
   return {adc:expAdc,cond:sc.cond,mues:sc.mues};   // Explora: sólo cambia el convertidor
 }
 function expX(){const sc=POOL[scIdx];return sc.xMin+XFR[expXi]*(sc.xMax-sc.xMin);}
+// el caso del reto no se puede abrir en Explora/Aplica mientras no esté resuelto: la «máquina» ya trae la configuración válida
+function escLock(i){return i===retoK&&!retoSolved;}
+function fixSc(){if(escLock(scIdx)){scIdx=(scIdx+1)%POOL.length;expXi=3;syncSel();}}
 function syncSel(){const sc=POOL[scIdx];expAdc=sc.adc;apAdc=sc.adc;apCond=sc.cond;apMues=sc.mues;}
 
 // ===================== 4. MATERIALES =====================
@@ -713,7 +716,7 @@ function drawReto(c){
   yy+=hh+14;
   trow(c,60,yy,570,hh,['guardas previas','referencia','excursión','banda/plataforma'],[210,140,120,100],null,true);
   yy+=hh;
-  trow(c,60,yy,570,hh,['¿la elección es admisible?',gA?'admisible':'no',gC?'cabe':'se sale',gM?'correcta':'no'],
+  trow(c,60,yy,570,hh,['¿la elección es admisible?',retoChecked?(gA?'admisible':'no'):'—',retoChecked?(gC?'cabe':'se sale'):'—',retoChecked?(gM?'correcta':'no'):'—'],
     [210,140,120,100],[null,kc(gA,retoChecked),kc(gC,retoChecked),kc(gM,retoChecked)]);
 
   drawBar(c,70,604,560,16,Math.min(1,r.res/sc.reqRes),'paso físico frente al exigido',
@@ -1049,9 +1052,10 @@ function buildControls(){
     html+=lbl('Muestreo')+optBtns('rmues',MUESK.map(k=>[k,MUES_SH[k]]),retoCh.mues);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc]').forEach(b=>{if(escLock(parseInt(b.getAttribute('data-sc'),10))){b.disabled=true;b.title='Es la máquina de tu Reto';b.style.opacity='0.45';}});
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  wire('data-sc',v=>{scIdx=parseInt(v,10);expXi=3;syncSel();});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa máquina es la del Reto: se abre aquí cuando la resuelvas.');return;}scIdx=i;expXi=3;syncSel();});
   wire('data-adc',v=>{if(mode==='aplica')apAdc=v;else expAdc=v;});
   wire('data-xi',v=>{expXi=parseInt(v,10);});
   wire('data-tp',v=>{apTopic=v;});
@@ -1070,6 +1074,7 @@ function updateScenarioInfo(){
 }
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1084,12 +1089,12 @@ function setMode(k){
 function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
 function newSignal(){
   scIdx=pickIdx(POOL.length,scIdx);expXi=3;syncSel();
-  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);
+  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);fixSc();
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 12. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto')cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   const sc=curSc(),cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],m=MUES[cfg.mues],r=runC(sc,cfg);
   const uni=mode==='reto'?UNI[retoK]:UNI[scIdx];
@@ -1152,7 +1157,7 @@ function seedReto(k){
   retoCh={adc:firstWrong(ADCK,q=>okAdc(sc,q)),
           cond:firstWrong(CONDK,q=>okCond(sc,q)),
           mues:firstWrong(MUESK,q=>okMues(sc,q))};
-  retoChecked=false;retoSolved=false;retoMsg='';solved=false;
+  retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=0;solved=false;
   retoOkAdc=false;retoOkCond=false;retoOkMues=false;
 }
 function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
@@ -1164,7 +1169,8 @@ function updateRetoSpec(){
     `<span class="mono">Paso ≤ ${fR(sc,sc.reqRes)} ${UNI[retoK]} · banda útil ${fHz(sc.fBw)} · interferencia ${fHz(sc.fInt)} de ${fmV(sc.vInt)} mV · plataforma hasta ${fSs(sc.fsMax)}`+
     `${sc.ruidoAlim?' · alimentación sucia':''}${sc.ratio?' · medida ratiométrica':''}</span><br>`+
     `Elige las tres: convertidor, acondicionamiento y muestreo.`+
-    (retoChecked?`<br>${retoMsg}`:'');
+    `<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`+
+    (retoChecked?`<br>${retoMsg}`:(retoAviso?`<br>${retoAviso}`:''));
 }
 function whyCfg(sc,cfg){
   const a=ADCS[cfg.adc],c=CONDS[cfg.cond],m=MUES[cfg.mues];
@@ -1206,9 +1212,17 @@ function checkReto(){
   retoOkCond=okCond(sc,retoCh.cond);
   retoOkMues=okMues(sc,retoCh.mues);
   retoSolved=retoOkAdc&&retoOkCond&&retoOkMues;
-  retoChecked=true;solved=retoSolved;
+  retoChecked=true;solved=retoSolved;retoAviso='';
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  if(!retoSolved)intentos++;
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra instalación
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><span class="mono"><span class="dtc">Tres intentos sin acertar.</span> Se te plantea otra instalación: razona con sus datos, no por descarte.</span>';
+    showToast('Tres intentos sin acertar: se te plantea otra instalación.');
+    buildControls();updateScenarioInfo();
+  }
   updateRetoSpec();refreshAll();
 }
 
@@ -1218,33 +1232,33 @@ function buildQuiz(){
   QUIZ={
     explora:{p:'El horno pide un paso de 0,25 °C con el amplificador ×100. Con 12 bits y V_REF = 5 V el paso sale 0,298 °C; con 12 bits y V_REF = 2,560 V sale 0,152 °C. ¿Qué explica la diferencia?',
       opciones:[
-        {t:'El escalón vale V_REF/2ⁿ: con la misma cantidad de bits, bajar la referencia lo achica, y el paso físico es ese escalón dividido entre la ganancia por la sensibilidad.',ok:true,
+        {t:'El escalón vale V_REF/2ⁿ: con los mismos bits, bajar la referencia lo achica, y el paso físico es ese escalón entre ganancia y sensibilidad.',ok:true,
          why:'Exacto: 1,221 mV / (100 · 41 µV/°C) = 0,298 °C frente a 0,625 mV / 4,1 mV/°C = 0,152 °C. Lo que resuelve no es el número de bits, es el tamaño del escalón frente a la sensibilidad.'},
-        {t:'Una referencia interna siempre es más exacta que la alimentación, y por eso el paso mejora.',ok:false,
+        {t:'Una referencia interna es siempre más exacta que la alimentación del tablero, y esa mayor exactitud es la que afina el paso físico.',ok:false,
          why:'La exactitud de la referencia es otro problema (afecta al error de ganancia). Aquí lo que cambia es el TAMAÑO del escalón, no su exactitud.'},
-        {t:'Con V_REF = 5 V la señal satura el convertidor y se pierden códigos.',ok:false,
+        {t:'Con V_REF = 5 V la señal amplificada satura la entrada del convertidor y se pierden códigos en la parte alta de la escala.',ok:false,
          why:'No satura: el termopar amplificado llega a 2,050 V, muy por debajo de 5 V. Lo que ocurre es que sólo se usa el 36,9 % del rango.'},
-        {t:'A 12 bits el ruido ya domina y por eso el paso empeora.',ok:false,
+        {t:'A 12 bits el ruido de la cadena ya domina sobre el escalón, y por eso con 5 V de referencia el paso físico resulta peor.',ok:false,
          why:'Con esta cadena 2σ vale 0,490 mV, por debajo del LSB de 1,221 mV. El ruido todavía no manda; el problema es el tamaño del escalón.'}]},
     aplica:{p:'En el molino, pasar de 10 a 12 bits con V_REF = 5 V afina el paso de 0,244 A a 0,061 A. Aun así, el banco rechaza los 12 bits. ¿Por qué?',
       opciones:[
-        {t:'Porque el LSB baja a 1,221 mV y el ruido de la cadena vale 2σ = 1,697 mV: los dos últimos bits ya sólo digitalizan ruido.',ok:true,
+        {t:'Porque el LSB baja a 1,221 mV y el ruido de la cadena vale 2σ = 1,697 mV: el último bit ya sólo digitaliza ruido.',ok:true,
          why:'Correcto, y es el único criterio de todo el banco que castiga tener MÁS bits. Bajar σ (promediar, filtrar, apantallar) sí da bits; subir n, no.'},
-        {t:'Porque con 12 bits la señal deja de caber en el rango del convertidor.',ok:false,
+        {t:'Porque con 12 bits la señal amplificada deja de caber en el rango del convertidor y la parte alta de la escala queda recortada.',ok:false,
          why:'El rango no depende de n: la señal sigue ocupando el 56 % con 5 V de referencia. Lo que cambia es el tamaño del escalón.'},
-        {t:'Porque a 12 bits el establecimiento del muestreo y retención ya no cabe en la ventana.',ok:false,
-         why:'Con seguidor, el establecimiento pasa de 0,109 a 0,117 µs frente a una ventana de 50 µs: sobra margen. No es ése el criterio que falla.'},
-        {t:'Porque con más bits la interferencia de 16 kHz se pliega a una frecuencia distinta.',ok:false,
+        {t:'Porque a 12 bits el tiempo de asentamiento del muestreo y retención ya no cabe dentro de la ventana de adquisición disponible.',ok:false,
+         why:'Con seguidor, el establecimiento pasa de 0,117 a 0,139 µs frente a una ventana de 50 µs: sobra margen. No es ése el criterio que falla.'},
+        {t:'Porque con más bits la interferencia de 16 kHz se pliega a otra frecuencia y cae dentro de la banda útil de la medida.',ok:false,
          why:'El plegado depende sólo de f_s: 16 kHz con 5 kS/s cae en 1 kHz sin importar cuántos bits tenga el convertidor.'}]},
     reto:{p:'¿Por qué el criterio de Nyquist y el filtro antialias no son la misma condición?',
       opciones:[
         {t:'Porque f_s se fija frente a la banda ÚTIL y el filtro decide cuánto queda de lo que está FUERA de ella; cumplir uno no dice nada del otro.',ok:true,
          why:'Así es. En la línea hidráulica, 200 S/s sobre 30 Hz cumple Nyquist de sobra, y aun así los 4 kHz del variador se pliegan a 0 Hz exactos: sólo el filtro de 80 Hz impide que aparezcan como un error de calibración.'},
-        {t:'Son la misma condición escrita de dos maneras: si f_s ≥ 2B, el filtro sobra.',ok:false,
+        {t:'Son la misma condición escrita de dos maneras: si se cumple f_s ≥ 2B, el filtro antialias sobra y puede omitirse sin consecuencias.',ok:false,
          why:'Nyquist habla de la señal que se quiere medir; el alias lo produce lo que NO se quiere medir. Sin filtro, cualquier interferencia por encima de f_s/2 vuelve plegada y ya no se puede separar.'},
-        {t:'El filtro sólo sirve para bajar el ruido; el alias se corrige después por software.',ok:false,
+        {t:'El filtro sólo sirve para bajar el ruido de banda ancha; el alias, si aparece, se corrige después con procesamiento por software.',ok:false,
          why:'Una vez plegada, la interferencia ocupa exactamente las mismas frecuencias que la señal. Ningún filtro digital posterior puede distinguirlas.'},
-        {t:'Basta con muestrear mucho más rápido: con f_s alta el alias desaparece.',ok:false,
+        {t:'Basta con muestrear mucho más rápido que la banda útil: con f_s suficientemente alta el alias desaparece y el filtro no hace falta.',ok:false,
          why:'Muestrear más rápido aleja el plegado, pero la interferencia sigue entrando. En el rodamiento, los 150 kHz de la fuente conmutada se pliegan a 0 Hz incluso con 50 kS/s.'}]}};
   Object.values(QUIZ).forEach(q=>{
     for(let i=q.opciones.length-1;i>0;i--){
@@ -1299,6 +1313,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,scIdx,expAdc,expXi,apTopic,apAdc,apCond,apMues,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
@@ -1364,7 +1380,20 @@ async function runAuto(){
     await sleep(2600);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    scIdx=prev.scIdx;expAdc=prev.expAdc;expXi=prev.expXi;apTopic=prev.apTopic;apAdc=prev.apAdc;apCond=prev.apCond;apMues=prev.apMues;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkAdc=retoOkCond=retoOkMues=true;
+    }else if(prev.retoK===0){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkAdc=false;retoOkCond=false;retoOkMues=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -1378,7 +1407,7 @@ const soundBtn=el('soundBtn');
 if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
-seedReto(0);buildQuiz();S.start();setMode('explora');
+seedReto(1);buildQuiz();S.start();setMode('explora');
 
 // ===================== DEBUG HOOK =====================
 window.__labDebug={
@@ -1408,4 +1437,5 @@ window.__labDebug={
   whyCfg:(sc,cfg)=>whyCfg(sc,cfg),
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
+  intentos:()=>intentos,
   frames:()=>frames(),newSignal:()=>newSignal(),solved:()=>solved};

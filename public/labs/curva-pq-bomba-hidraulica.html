@@ -1038,7 +1038,25 @@ let pjEst='prensa', pjBomba='eng', pjD=25, pjAce='vg46', pjLim='dir';
 let retoEst='prensa';
 let retoCfg={bomba:'eng',D:25,aceite:'vg46',lim:'dir'};
 let retoMsg='', retoGood=false;
-let retoAxes={bomba:false,D:false,aceite:false,lim:false};
+// Política de reto: el veredicto NO se ve en vivo (ni en el pizarrón, ni en la
+// telemetría, ni en el tablero de criterios del 3D), sólo al pulsar Comprobar.
+// «retoVista» recuerda sobre qué montaje se comprobó; si el alumno toca un mando,
+// esa vista caduca y el reto deja de estar resuelto (se reevalúa). Tras TRES
+// fallos se resiembra con otra estación. Y mientras el reto esté sin resolver,
+// el modo Proyecto/Ciclo no puede abrir la estación del reto: listaría el óptimo.
+let retoVista=null, intentos=0, fallos=0, resiembras=0;
+const MAX_INT=3;
+const cfgKey=c=>[c.bomba,c.D,c.aceite,c.lim].join('|');
+function retoVer(){ return mode!=='reto' || autoRunning || (retoVista!==null && retoVista===retoEst+'|'+cfgKey(retoCfg)); }
+const ocultaSol=estK=>estK===retoEst&&!retoSolved;
+function apartaProyecto(){
+  if(retoSolved||pjEst!==retoEst)return;
+  const i=ESTK.indexOf(pjEst);pjEst=ESTK[(i+1)%ESTK.length];
+}
+function retoEdita(patch){
+  retoCfg={...retoCfg,...patch};
+  retoMsg='';retoGood=false;retoSolved=false;solved=false;
+}
 
 // Posicion del vastago al final de cada fase, en fraccion de carrera. Es dato
 // de PRESENTACION: sirve para que se vea por donde va el ciclo. La fisica no
@@ -1563,6 +1581,7 @@ function drawCiclo(c){
 
 function drawProyecto(c){
   const ev=CUR.ev, est=CUR.est, cfg=CUR.cfg;
+  const oc=ocultaSol(CUR.estK);   // la estación del reto, sin resolver: no se muestra el óptimo
   title2(c,'Los siete criterios del proyecto',
     est.nom+' · '+BOMBAS[cfg.bomba].nom+' · '+cfg.D+' cm³/rev · '+ACEITES[cfg.aceite].nom+' · '+LIMS[cfg.lim].abr);
   const filas=[
@@ -1588,8 +1607,8 @@ function drawProyecto(c){
   prow(c,PX.x,y,PX.w,'aceite',f1(ACEITES[cfg.aceite].coste,0)+' u');y+=dy;
   prow(c,PX.x,y,PX.w,'motor '+(ev.motE?f1(ev.motE.kW,1)+' kW':'—'),f1(ev.motE?ev.motE.coste:0,0)+' u');y+=dy;
   prow(c,PX.x,y,PX.w,'COSTE TOTAL',f1(ev.coste,0)+' u',
-    CUR.cm!==null&&ev.coste===CUR.cm&&ev.valido?VERDE:'#F4EFEA');y+=dy;
-  prow(c,PX.x,y,PX.w,'coste mínimo posible',CUR.cm===null?'no hay solución':f1(CUR.cm,0)+' u',NARANJA);y+=dy+6;
+    !oc&&CUR.cm!==null&&ev.coste===CUR.cm&&ev.valido?VERDE:'#F4EFEA');y+=dy;
+  prow(c,PX.x,y,PX.w,'coste mínimo posible',oc?'estación del reto':(CUR.cm===null?'no hay solución':f1(CUR.cm,0)+' u'),NARANJA);y+=dy+6;
   prow(c,PX.x,y,PX.w,'rendimiento del motor',ev.motE?f1(100*ev.motE.eta,1)+' %':'—');y+=dy;
   prow(c,PX.x,y,PX.w,'horas al año',f1(est.horas,0)+' h');y+=dy;
   prow(c,PX.x,y,PX.w,'factura anual',f1(ev.kWh,0)+' kWh',colOk(ev.okEnergia));
@@ -1597,18 +1616,18 @@ function drawProyecto(c){
   texto(c,'Coste frente al mínimo posible',72,344,'#cfd6e2','bold 15px Outfit, sans-serif');
   {
     const esc=Math.max(ev.coste,CUR.cm||0,1)*1.15;
-    hbar(c,72,356,566,26,ev.coste/esc,ev.valido?(ev.coste===CUR.cm?VERDE:AZUL):BAD_HEX);
-    if(CUR.cm!==null)marca(c,72,356,566,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
+    hbar(c,72,356,566,26,ev.coste/esc,ev.valido?((!oc&&ev.coste===CUR.cm)?VERDE:AZUL):BAD_HEX);
+    if(CUR.cm!==null&&!oc)marca(c,72,356,566,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
     texto(c,f1(ev.coste,0)+' u',80,369,'#0c1016','bold 14px Outfit, sans-serif');
   }
-  const o=CUR.opt;
+  const o=oc?null:CUR.opt;
   nota(c,400,ev.valido
-    ? 'Esta propuesta cumple los siete criterios. '+(ev.coste===CUR.cm
+    ? 'Esta propuesta cumple los siete criterios. '+(oc?'':(ev.coste===CUR.cm
         ? 'Y además al coste mínimo: no hay ninguna más barata que también cumpla.'
-        : 'Pero cuesta '+f1(ev.coste-CUR.cm,0)+' u más que la más barata que cumple ('+f1(CUR.cm,0)+' u).')
+        : 'Pero cuesta '+f1(ev.coste-CUR.cm,0)+' u más que la más barata que cumple ('+f1(CUR.cm,0)+' u).'))
     : 'Esta propuesta falla en '+ev.fallos.length+' criterio'+(ev.fallos.length>1?'s':'')+'. '+MOTIVO[ev.primero],
-    ev.valido?(ev.coste===CUR.cm?VERDE:WARN_HEX):BAD_HEX,74);
-  nota(c,484,o
+    ev.valido?((!oc&&ev.coste===CUR.cm)?VERDE:WARN_HEX):BAD_HEX,74);
+  nota(c,484,oc?'Ésta es la estación de tu reto: aquí no se muestra cuántas combinaciones cumplen ni cuál es la más barata. Eso es lo que tienes que encontrar tú.':o
     ? 'De las '+CFGS.length+' combinaciones posibles, en esta estación cumplen '+validas(CUR.estK).length+
       '. La más barata es '+BOMBAS[o.bomba].abr.toLowerCase()+' de '+o.D+' cm³/rev con '+ACEITES[o.aceite].nom+
       ' y limitadora '+LIMS[o.lim].abr.toLowerCase()+', por '+f1(CUR.cm,0)+' u y '+f1(evalua(CUR.estK,o).kWh,0)+' kWh al año.'
@@ -1619,52 +1638,54 @@ function drawProyecto(c){
 }
 
 function drawReto(c){
-  const ev=CUR.ev, est=CUR.est;
+  const ev=CUR.ev, est=CUR.est, ver=retoVer();
+  const resuelto=autoRunning?(ev.valido&&CUR.cm!==null&&ev.coste===CUR.cm):retoSolved;
   title2(c,'Reto · elige el grupo hidráulico',
-    est.nom+' — cumple los siete criterios al mínimo coste');
+    est.nom+' — cumple los siete criterios al mínimo coste; el veredicto sólo aparece al comprobar');
   const w=228, xs=[72,306,540,774];
   const EJ=[['bomba',BOMBAS[retoCfg.bomba].abr],['D',retoCfg.D+' cm³/rev'],
             ['aceite',ACEITES[retoCfg.aceite].nom],['lim',LIMS[retoCfg.lim].abr]];
   for(let i=0;i<4;i++){
-    const ok=retoAxes[EJ[i][0]], x=xs[i];
-    c.fillStyle=retoSolved||ok?'#152218':'#11161e';c.fillRect(x,104,w,86);
-    c.strokeStyle=retoSolved?OK_HEX:(ok?'#2e6b3f':'#2a3140');c.lineWidth=retoSolved?2:1;
+    const x=xs[i];
+    c.fillStyle=resuelto?'#152218':'#11161e';c.fillRect(x,104,w,86);
+    c.strokeStyle=resuelto?OK_HEX:'#2a3140';c.lineWidth=resuelto?2:1;
     c.strokeRect(x+0.5,104.5,w-1,85);
     texto(c,EJE_ROT[EJ[i][0]],x+12,124,'#8f97a5','13px Outfit, sans-serif');
     texto(c,EJ[i][1],x+12,150,'#F4EFEA','bold 17px Outfit, sans-serif');
-    texto(c,retoSolved?'✔ correcto':(ok?'✔':'·'),x+w-12,150,retoSolved||ok?OK_HEX:'#4a5262','bold 17px Outfit, sans-serif','right');
+    if(resuelto)texto(c,'✔ correcto',x+w-12,150,OK_HEX,'bold 17px Outfit, sans-serif','right');
     texto(c,EJE_VAL[EJ[i][0]].length+' opciones',x+12,172,'#59616f','12px Outfit, sans-serif');
   }
-  // criterios
-  texto(c,'Los siete criterios con esta propuesta',72,220,'#cfd6e2','bold 16px Outfit, sans-serif');
+  // criterios: los siete se ven en gris hasta que se comprueba
+  texto(c,ver?'Los siete criterios con esta propuesta':'Los siete criterios (se evalúan al pulsar «Comprobar»)',72,220,'#cfd6e2','bold 16px Outfit, sans-serif');
   let cx=72;
   for(const k of CRIT){
     const ok=ev[k];
-    c.fillStyle=ok?'#152218':'#241417';c.fillRect(cx,232,128,58);
-    c.strokeStyle=ok?'#2e6b3f':'#5c2b2b';c.lineWidth=1;c.strokeRect(cx+0.5,232.5,127,57);
-    texto(c,CRIT_LET[k],cx+12,254,colOk(ok),'bold 20px Outfit, sans-serif');
-    texto(c,ok?'✔':'✘',cx+116,254,colOk(ok),'bold 18px Outfit, sans-serif','right');
+    c.fillStyle=ver?(ok?'#152218':'#241417'):'#11161e';c.fillRect(cx,232,128,58);
+    c.strokeStyle=ver?(ok?'#2e6b3f':'#5c2b2b'):'#2a3140';c.lineWidth=1;c.strokeRect(cx+0.5,232.5,127,57);
+    texto(c,CRIT_LET[k],cx+12,254,ver?colOk(ok):'#8f97a5','bold 20px Outfit, sans-serif');
+    if(ver)texto(c,ok?'✔':'✘',cx+116,254,colOk(ok),'bold 18px Outfit, sans-serif','right');
     texto(c,CRIT_ROT[k].split(' ').slice(0,3).join(' '),cx+12,276,'#8f97a5','11px Outfit, sans-serif');
     cx+=131;
   }
-  // coste
-  texto(c,'Coste de la propuesta frente al mínimo',72,320,'#cfd6e2','bold 15px Outfit, sans-serif');
+  // coste: el mínimo sólo se marca cuando el reto ya está resuelto
+  texto(c,'Coste de la propuesta',72,320,'#cfd6e2','bold 15px Outfit, sans-serif');
   {
     const esc=Math.max(ev.coste,CUR.cm||0,1)*1.15;
-    hbar(c,72,332,918,26,ev.coste/esc,retoSolved?VERDE:(ev.valido?AZUL:BAD_HEX));
-    if(CUR.cm!==null)marca(c,72,332,918,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
+    hbar(c,72,332,918,26,ev.coste/esc,resuelto?VERDE:((ver&&ev.valido)?AZUL:(ver?BAD_HEX:AZUL)));
+    if(CUR.cm!==null&&resuelto)marca(c,72,332,918,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
     texto(c,f1(ev.coste,0)+' u',80,345,'#0c1016','bold 14px Outfit, sans-serif');
   }
   // telemetria resumida
+  const cl=b=>ver?colOk(b):'#F4EFEA';
   rpanel(c,72,380,440,240,'Lo que mide el banco');
   let y=432;const dy=27;
-  prow(c,72,y,440,'duración del ciclo',f1(ev.cic.tCic,2)+' s',colOk(ev.okCaudal));y+=dy;
-  prow(c,72,y,440,'presión a caudal completo',f1(ev.pff,1)+' bar',colOk(ev.okPresion));y+=dy;
-  prow(c,72,y,440,'viscosidad de trabajo / arranque',f1(ev.nuTrab,1)+' / '+f1(ev.nuFrio,0)+' mm²/s',colOk(ev.okViscosidad));y+=dy;
-  prow(c,72,y,440,'presión en el oído en frío',f1(ev.asp.pAsp,3)+' bar',colOk(ev.okAspiracion));y+=dy;
-  prow(c,72,y,440,'temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',colOk(ev.okTermico));y+=dy;
-  prow(c,72,y,440,'motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',colOk(ev.okMotor));y+=dy;
-  prow(c,72,y,440,'factura anual',f1(ev.kWh,0)+' kWh',colOk(ev.okEnergia));
+  prow(c,72,y,440,'duración del ciclo',f1(ev.cic.tCic,2)+' s',cl(ev.okCaudal));y+=dy;
+  prow(c,72,y,440,'presión a caudal completo',f1(ev.pff,1)+' bar',cl(ev.okPresion));y+=dy;
+  prow(c,72,y,440,'viscosidad de trabajo / arranque',f1(ev.nuTrab,1)+' / '+f1(ev.nuFrio,0)+' mm²/s',cl(ev.okViscosidad));y+=dy;
+  prow(c,72,y,440,'presión en el oído en frío',f1(ev.asp.pAsp,3)+' bar',cl(ev.okAspiracion));y+=dy;
+  prow(c,72,y,440,'temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',cl(ev.okTermico));y+=dy;
+  prow(c,72,y,440,'motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',cl(ev.okMotor));y+=dy;
+  prow(c,72,y,440,'factura anual',f1(ev.kWh,0)+' kWh',cl(ev.okEnergia));
 
   rpanel(c,550,380,440,240,'La estación');
   y=432;
@@ -1676,8 +1697,8 @@ function drawReto(c){
   prow(c,550,y,440,'energía contratada',f1(est.Emax,0)+' kWh/año');y+=dy;
   prow(c,550,y,440,'horas al año',f1(est.horas,0)+' h');
 
-  nota(c,636,retoMsg||'Elige familia de bomba, cilindrada, aceite y limitadora, y pulsa «Comprobar». Los cuatro ejes se juzgan juntos: la propuesta tiene que cumplir los siete criterios Y costar lo mínimo posible.',
-    retoSolved?VERDE:(retoMsg?WARN_HEX:AZUL),96,72,918);
+  nota(c,636,retoMsg||'Elige familia de bomba, cilindrada, aceite y limitadora, y pulsa «Comprobar». Los cuatro ejes se juzgan juntos: la propuesta tiene que cumplir los siete criterios Y costar lo mínimo posible. Intentos '+intentos+' · fallos '+fallos+' de '+MAX_INT+'.',
+    resuelto?VERDE:(retoMsg?WARN_HEX:AZUL),96,72,918);
 }
 
 function drawBoard(){
@@ -1912,7 +1933,7 @@ function hwState(){
   }else{
     const ev=CUR.ev,cic=ev.cic,cfg=CUR.cfg,B=BOMBAS[cfg.bomba];
     const cur=faseEn(cic,animT);const f=cic.fases[cur.i];
-    st.crit=ev;st.critOn=true;st.T=ev.Treg;st.ace=cfg.aceite;st.pc=ev.tar.pc;st.pMax=B.pMax;
+    st.crit=(mode==='reto'&&!retoVer())?null:ev;st.critOn=true;st.T=ev.Treg;st.ace=cfg.aceite;st.pc=ev.tar.pc;st.pMax=B.pMax;
     st.cav=ev.asp.cavita;
     if(f){
       st.p=f.p;st.Q=f.Qact+f.Qlim;st.Qlim=f.Qlim;st.Qcarga=f.Qact;st.desc=!!f.descargado;
@@ -2159,15 +2180,17 @@ function buildControls(){
   wire('data-acd',v=>{acD=Number(v);});
   wire('data-aca',v=>{acAce=v;});
   wire('data-act',v=>{acT=Number(v);});
-  wire('data-pje',v=>{pjEst=v;});
+  wire('data-pje',v=>{ if(v===retoEst&&!retoSolved){showToast('🔒 Ésa es la estación de tu reto: estudiarla aquí mostraría la solución. Se libera cuando lo resuelvas.');return;} pjEst=v;});
   wire('data-pjb',v=>{pjBomba=v;});
   wire('data-pjd',v=>{pjD=Number(v);});
   wire('data-pja',v=>{pjAce=v;});
   wire('data-pjl',v=>{pjLim=v;});
-  wire('data-rtb',v=>{retoCfg={...retoCfg,bomba:v};retoMsg='';});
-  wire('data-rtd',v=>{retoCfg={...retoCfg,D:Number(v)};retoMsg='';});
-  wire('data-rta',v=>{retoCfg={...retoCfg,aceite:v};retoMsg='';});
-  wire('data-rtl',v=>{retoCfg={...retoCfg,lim:v};retoMsg='';});
+  wire('data-rtb',v=>retoEdita({bomba:v}));
+  wire('data-rtd',v=>retoEdita({D:Number(v)}));
+  wire('data-rta',v=>retoEdita({aceite:v}));
+  wire('data-rtl',v=>retoEdita({lim:v}));
+  // la estación del reto no se puede abrir en Ciclo/Proyecto mientras esté sin resolver
+  bar.querySelectorAll('[data-pje]').forEach(b=>{ const bloq=(b.getAttribute('data-pje')===retoEst&&!retoSolved); b.disabled=bloq; if(bloq)b.title='Es la estación de tu reto: se libera al resolverlo'; });
 }
 function updateScenarioInfo(){
   const d=el('scenarioInfo');
@@ -2187,6 +2210,8 @@ function setMode(k){
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
   el('retoBox').style.display=k==='reto'?'':'none';
+  // en el reto el pizarrón de criterios es lo que hay que leer: el HUD izquierdo lo tapa a 1600×900
+  { const hud=el('hud'); if(hud) hud.style.display=(k==='reto')?'none':''; }
   computa();
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
@@ -2205,11 +2230,11 @@ function newSignal(){
     acT=ESTACIONES[acEst].Tfrio<=8?10:50;
   }else if(mode==='ciclo'||mode==='proyecto'){
     const i=ESTK.indexOf(pjEst);pjEst=ESTK[(i+1)%ESTK.length];
+    apartaProyecto();
   }else{
     const i=ESTK.indexOf(retoEst);retoEst=ESTK[(i+1)%ESTK.length];
-    retoSolveBuild(true);
+    retoSolveBuild(true);resiembras++;
   }
-  retoSolved=false;solved=false;retoMsg='';
   computa();buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -2251,20 +2276,24 @@ function updateTele(){
     h+=teleRow('Mínima de la bomba',f1(a.pMin,2)+' bar');
   }else{
     const ev=CUR.ev,cic=ev.cic,est=CUR.est;
-    h+=teleRow('Temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',ev.okTermico?'ok':'bad');
-    h+=teleRow('Duración del ciclo',cic.lento?'no cierra':f1(cic.tCic,2)+' s',ev.okCaudal?'ok':'bad');
+    // en el reto los colores de cumple/no cumple son un veredicto: sólo tras Comprobar
+    const vr=retoVer(), cl=b=>vr?(b?'ok':'bad'):'';
+    const oc=(mode!=='reto')&&ocultaSol(CUR.estK);
+    h+=teleRow('Temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',cl(ev.okTermico));
+    h+=teleRow('Duración del ciclo',cic.lento?'no cierra':f1(cic.tCic,2)+' s',cl(ev.okCaudal));
     h+=teleRow('Tarado de la limitadora',f1(ev.tar.pc,1)+' bar');
-    h+=teleRow('Presión a caudal completo',f1(ev.pff,1)+' bar',ev.okPresion?'ok':'bad');
+    h+=teleRow('Presión a caudal completo',f1(ev.pff,1)+' bar',cl(ev.okPresion));
     h+=teleRow('Máxima de la bomba',f1(BOMBAS[CUR.cfg.bomba].pMax,0)+' bar');
-    h+=teleRow('Viscosidad de trabajo',f1(ev.nuTrab,1)+' mm²/s',ev.okViscosidad?'ok':'bad');
-    h+=teleRow('Presión en el oído (frío)',f1(ev.asp.pAsp,4)+' bar',ev.okAspiracion?'ok':'bad');
+    h+=teleRow('Viscosidad de trabajo',f1(ev.nuTrab,1)+' mm²/s',cl(ev.okViscosidad));
+    h+=teleRow('Presión en el oído (frío)',f1(ev.asp.pAsp,4)+' bar',cl(ev.okAspiracion));
     h+=teleRow('Potencia media / pico',f1(cic.Pmed,2)+' / '+f1(cic.Ppico,2)+' kW');
-    h+=teleRow('Motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',ev.okMotor?'ok':'bad');
+    h+=teleRow('Motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',cl(ev.okMotor));
     h+=teleRow('Acometida de la estación',f1(est.kwMax,1)+' kW');
     h+=teleRow('Rendimiento del ciclo',f1(100*cic.etaCic,1)+' %');
-    h+=teleRow('Consumo anual',f1(ev.kWh,0)+' kWh',ev.okEnergia?'ok':'bad');
+    h+=teleRow('Consumo anual',f1(ev.kWh,0)+' kWh',cl(ev.okEnergia));
     h+=teleRow('Contratado',f1(est.Emax,0)+' kWh');
-    h+=teleRow('Coste del grupo',f1(ev.coste,0)+' u.',(CUR.cm!==null&&ev.valido&&ev.coste===CUR.cm)?'ok':'');
+    h+=teleRow('Coste del grupo',f1(ev.coste,0)+' u.',(!oc&&mode!=='reto'&&CUR.cm!==null&&ev.valido&&ev.coste===CUR.cm)?'ok':'');
+    if(mode==='reto')h+=teleRow('Intentos · fallos',intentos+' · '+fallos+' de '+MAX_INT);
   }
   el('tele').innerHTML=h;
 }
@@ -2290,13 +2319,18 @@ function updateReport(){
   }else{
     const ev=CUR.ev,est=CUR.est;
     h+='<b>'+est.nom+'</b><br>'+est.det+'<br><br>';
-    if(ev.valido){
-      h+='<span style="color:'+OK_HEX+'">Los siete criterios se cumplen.</span> El grupo cuesta '+f1(ev.coste,0)+' unidades';
-      h+=(CUR.cm!==null&&ev.coste===CUR.cm)?' y es <b>el más barato posible</b> para esta estación.':' — el más barato válido cuesta '+f1(CUR.cm,0)+'.';
+    if(!retoVer()){
+      h+='<span style="color:var(--muted)">Monta el grupo con los mandos de arriba y pulsa <b>Comprobar</b>: hasta entonces no hay veredicto. Mira la telemetría y la placa del grupo y razona qué criterio se te está yendo.</span>';
     }else{
-      h+='<span style="color:'+BAD_HEX+'">Falla '+ev.fallos.length+' de 7.</span> El primero que salta: <b>'+CRIT_ROT[ev.primero]+'</b>.<br>'+MOTIVO[ev.primero];
+      const oc=(mode!=='reto')&&ocultaSol(CUR.estK);
+      if(ev.valido){
+        h+='<span style="color:'+OK_HEX+'">Los siete criterios se cumplen.</span> El grupo cuesta '+f1(ev.coste,0)+' unidades';
+        h+=oc?'.':((CUR.cm!==null&&ev.coste===CUR.cm)?' y es <b>el más barato posible</b> para esta estación.':((mode==='reto')?', pero existe uno válido más barato.':' — el más barato válido cuesta '+f1(CUR.cm,0)+'.'));
+      }else{
+        h+='<span style="color:'+BAD_HEX+'">Falla '+ev.fallos.length+' de 7.</span> El primero que salta: <b>'+CRIT_ROT[ev.primero]+'</b>.<br>'+MOTIVO[ev.primero];
+      }
+      if(ev.extrapola)h+='<br><br><span style="color:'+WARN_HEX+'">Aviso: la temperatura se sale de la banda −20…120 °C en la que Walther está declarada. La viscosidad es una extrapolación.</span>';
     }
-    if(ev.extrapola)h+='<br><br><span style="color:'+WARN_HEX+'">Aviso: la temperatura se sale de la banda −20…120 °C en la que Walther está declarada. La viscosidad es una extrapolación.</span>';
   }
   c.innerHTML=h;
 }
@@ -2306,32 +2340,50 @@ function refreshAll(){computa();drawBoard();updateTele();updateReport();updateHW
 function retoSolveBuild(silent){
   const s=startCfg(retoEst);
   retoCfg=s?{...s}:{bomba:'eng',D:25,aceite:'vg46',lim:'dir'};
-  retoSolved=false;retoMsg='';retoAxes={bomba:false,D:false,aceite:false,lim:false};
+  retoSolved=false;solved=false;retoMsg='';retoGood=false;
+  retoVista=null;intentos=0;fallos=0;
+  apartaProyecto();
+  buildQuiz();
   if(!silent){computa();buildControls();updateRetoSpec();refreshAll();}
 }
 function updateRetoSpec(){
   const est=ESTACIONES[retoEst];
-  const v=validas(retoEst).length, cm=costeMin(retoEst);
   el('retoSpec').innerHTML=
     '<b>'+est.nom+'</b><br>'+
-    'Monta el grupo <b>válido más barato</b>: los siete criterios en verde y el coste mínimo. '+
-    'De las '+f1(CFGS.length,0)+' combinaciones posibles, <b>'+f1(v,0)+'</b> son válidas y la más barata cuesta <b>'+f1(cm,0)+'</b> unidades.<br>'+
-    '<span style="color:var(--muted)">Acometida '+f1(est.kwMax,1)+' kW · '+f1(est.horas,0)+' h/año · '+f1(est.Emax,0)+' kWh contratados · arranque a '+f1(est.Tfrio,0)+' °C.</span>';
+    'Monta el grupo <b>válido más barato</b>: los siete criterios en verde y, entre los que los cumplen, el de menor coste. '+
+    'Hay '+f1(CFGS.length,0)+' combinaciones posibles. El veredicto no se ve en vivo: sólo aparece al pulsar <b>Comprobar</b>.<br>'+
+    '<span style="color:var(--muted)">Acometida '+f1(est.kwMax,1)+' kW · '+f1(est.horas,0)+' h/año · '+f1(est.Emax,0)+' kWh contratados · arranque a '+f1(est.Tfrio,0)+' °C.</span><br>'+
+    '<b>Intentos: '+intentos+' · fallos '+fallos+' de '+MAX_INT+'</b>'+
+    '<span style="color:var(--muted)"> · tras '+MAX_INT+' fallos se te da un caso nuevo.</span>';
 }
-function retoExplain(){
-  const ev=evalua(retoEst,retoCfg), cm=costeMin(retoEst);
+// Qué se le dice al alumno tras comprobar. Nunca la respuesta: sólo el criterio
+// que falla y su causa, o que existe una combinación más barata.
+function retoExplain(ev){
+  if(!ev)ev=evalua(retoEst,retoCfg);
+  const cm=costeMin(retoEst);
   if(!ev.valido)return 'Falla <b>'+CRIT_ROT[ev.primero]+'</b>. '+MOTIVO[ev.primero];
-  if(ev.coste!==cm)return 'Válido, pero caro: cuesta '+f1(ev.coste,0)+' y el mínimo es '+f1(cm,0)+'. Hay al menos una combinación válida más barata.';
+  if(ev.coste!==cm)return 'Válido, pero caro: hay al menos una combinación válida más barata.';
   return 'Los siete criterios en verde y al coste mínimo: '+f1(ev.coste,0)+' unidades.';
 }
 function checkReto(){
   const ev=evalua(retoEst,retoCfg), cm=costeMin(retoEst);
-  EJES.forEach(e=>{retoAxes[e]=ejeSolC(retoEst,e).some(v=>String(v)===String(retoCfg[e]));});
+  retoVista=retoEst+'|'+cfgKey(retoCfg);
   retoSolved=ev.valido&&cm!==null&&ev.coste===cm;
   retoGood=retoSolved;
-  retoMsg=retoExplain();
   solved=retoSolved;
+  intentos++;
+  if(!retoSolved)fallos++;
+  const base=retoExplain(ev);retoMsg=base;
+  if(!retoSolved&&fallos<MAX_INT)retoMsg+=' (fallo '+fallos+' de '+MAX_INT+')';
+  if(!retoSolved&&fallos>=MAX_INT){
+    // tres fallos: no se puede aprobar por eliminación, se resiembra otro caso
+    const i=ESTK.indexOf(retoEst);retoEst=ESTK[(i+1)%ESTK.length];
+    retoSolveBuild(true);resiembras++;
+    retoMsg=base+' Tres fallos: se te da un caso nuevo, <b>'+ESTACIONES[retoEst].nom+'</b>.';
+    if(!autoRunning){computa();buildControls();clearDx();buildQuiz();refreshQuestion();}
+  }
   synth.beep(retoSolved?880:200,0.10,0.05);
+  if(mode==='reto')updateRetoSpec();
   refreshAll();
   if(!autoRunning)showToast((retoSolved?'✅ ':'❌ ')+retoMsg);
   return retoSolved;
@@ -2339,69 +2391,101 @@ function checkReto(){
 
 // ===================== 14. CUESTIONARIO =====================
 let QUIZ={};
+// Todas las cifras del cuestionario salen del MOTOR (nada copiado a mano) y los
+// escenarios de Ciclo/Proyecto/Reto NUNCA son la estación del reto del alumno:
+// preguntar por ella regalaría su solución. Las cuatro opciones de cada pregunta
+// tienen la misma plantilla y la correcta se baraja (Fisher-Yates).
+const otra=lista=>lista.find(k=>k!==retoEst)||lista[0];
+const CORTO={okCaudal:'caudal',okPresion:'presión',okViscosidad:'viscosidad',okAspiracion:'aspiración',okTermico:'temperatura',okMotor:'motor',okEnergia:'energía'};
+const resFallos=ev=>ev.valido?'no falla ningún criterio':'fallan '+ev.fallos.length+' ('+ev.fallos.map(k=>CORTO[k]).join(', ')+')';
+function escenarioProyecto(){
+  const A={bomba:'eng',D:25,aceite:'vg46',lim:'dir'}, B={...A,bomba:'var'};
+  for(const k of ['prensa','elevador','inyectora']){
+    if(k===retoEst)continue;
+    const a=evalua(k,A), b=evalua(k,B);
+    if(a.reg.conv&&b.reg.conv&&b.Treg<a.Treg&&b.kWh<a.kWh&&a.fallos.join()!==b.fallos.join())return {k,A,B,a,b};
+  }
+  const k='prensa';return {k,A,B,a:evalua(k,A),b:evalua(k,B)};
+}
 function buildQuiz(){
+  // ---- Banco ----
+  const pcB=tarado('banco','eng').pc;
+  const p9=puntoBanco('eng',25,9,ACE_BANCO,T_BANCO,N_BOMBA,pcB,'pil'), p3=puntoBanco('eng',25,3,ACE_BANCO,T_BANCO,N_BOMBA,pcB,'pil');
+  const eT=p=>etaTot('eng',25,p.p,p.mu,N_BOMBA), eV=p=>etaVol('eng',25,p.p,p.mu,N_BOMBA), eM=p=>etaMec('eng',25,p.p,p.mu,N_BOMBA);
+  // ---- Aceite ----
+  const sA=otra(['gruaFrio','elevador']), TfA=ESTACIONES[sA].Tfrio, PA=BOMBAS.pis;
+  const a32=aspiracion(sA,'pis',16,'vg32',TfA,N_BOMBA), a68=aspiracion(sA,'pis',16,'vg68',TfA,N_BOMBA);
+  // ---- Ciclo ----
+  const sC=otra(['elevador','prensa','inyectora']), cC=optimas(sC)[0], evC=evalua(sC,cC), fC=ESTACIONES[sC].fases;
+  const fasesC=evC.cic.fases.map((r,i)=>({r,nom:fC[i].nom}));
+  const topC=fasesC.reduce((a,b)=>b.r.Peje>a.r.Peje?b:a);
+  const otrasC=fasesC.filter(x=>x!==topC).slice(0,3);
+  const lineaC=x=>'La fase «'+x.nom+'»: '+f1(x.r.Peje,2)+' kW de eje.';
+  const detC=x=>'En «'+x.nom+'» la bomba absorbe '+f1(x.r.Peje,2)+' kW a '+f1(x.r.p,0)+' bar; de ellos '+f1(x.r.Putil,2)+' kW son trabajo útil y '+f1(x.r.Pcal,2)+' kW se van en calor.';
+  // ---- Proyecto ----
+  const E=escenarioProyecto(), eP=ESTACIONES[E.k];
+  // ---- Reto (pregunta de método sobre OTRA estación) ----
+  const sR=otra(['prensa','inyectora','elevador']);
+  const pcR=tarado(sR,'eng').pc, pffR=pFull(pcR,'dir'), pMaxR=BOMBAS.eng.pMax, pPilR=pFull(pcR,'pil');
+  const valR=[pffR,pcR,pPilR,pMaxR,pcR*1.5];
+  const ops=[];for(const v of valR){ if(!ops.some(x=>Math.abs(x-v)<0.05))ops.push(v); }
+  const bar=v=>f1(v,1)+' bar';
+  const ok=(t,why)=>({t,ok:true,why}), no=(t,why)=>({t,ok:false,why});
   QUIZ={
-    banco:{pregunta:'En el banco, con la bomba de engranajes de 25 cm³/rev y aceite ISO VG 46 a 50 °C, el rendimiento total vale 0,873 con el orificio de 9 mm² (59 bar) y sólo 0,802 a 210 bar. ¿Por qué el rendimiento no crece sin más al subir la presión?',
+    banco:{pregunta:'En el banco, con la bomba de engranajes de 25 cm³/rev y aceite ISO VG 46 a '+T_BANCO+' °C, el rendimiento total vale '+f1(eT(p9),3)+' con el orificio de 9 mm² ('+f1(p9.p,0)+' bar) y baja a '+f1(eT(p3),3)+' con el de 3 mm² ('+f1(p3.p,0)+' bar). ¿Por qué el rendimiento no crece sin más al subir la presión?',
       opciones:[
-        {t:'Porque a baja presión pesa el rozamiento viscoso y a alta presión pesa la fuga: el máximo queda en medio.',ok:true,
-         why:'Exacto. El par de rozamiento es casi constante, así que a poca presión se lleva una fracción enorme del par total; la fuga, en cambio, crece con Δp. Las dos pérdidas tiran en sentidos opuestos y el rendimiento total tiene un máximo intermedio.'},
-        {t:'Porque a 59 bar el rendimiento volumétrico vale 1 y no se pierde nada de caudal.',ok:false,
-         why:'No: a 59 bar el rendimiento volumétrico es 0,9586, no 1. La fuga existe desde el primer bar; lo que pasa es que todavía es pequeña comparada con el rozamiento.'},
-        {t:'Porque la limitadora empieza a abrirse y se lleva caudal.',ok:false,
-         why:'No: con el orificio de 9 mm² la presión se queda muy por debajo del tarado y la limitadora no interviene. Puedes comprobarlo en la telemetría: el caudal por la limitadora es cero.'},
-        {t:'Porque el aceite se calienta y pierde viscosidad al subir la presión.',ok:false,
-         why:'En el banco la temperatura está fijada en 50 °C: la viscosidad es la misma en los dos puntos. La diferencia es de reparto de pérdidas, no de temperatura.'},
+        ok('A poca presión pesa el rozamiento y a mucha, la fuga: el máximo queda en medio.',
+           'Exacto. A '+f1(p9.p,0)+' bar el rendimiento mecánico es '+f1(eM(p9),3)+' y el volumétrico '+f1(eV(p9),3)+'; a '+f1(p3.p,0)+' bar el mecánico sube a '+f1(eM(p3),3)+' pero la fuga tira del volumétrico hasta '+f1(eV(p3),3)+'. Dos pérdidas en sentidos opuestos dan un máximo intermedio.'),
+        no('A '+f1(p9.p,0)+' bar el rendimiento volumétrico vale 1 y no se pierde ningún caudal por fugas.',
+           'No: a '+f1(p9.p,0)+' bar el volumétrico es '+f1(eV(p9),4)+', no 1. La fuga existe desde el primer bar; sólo que todavía es pequeña frente al rozamiento.'),
+        no('La limitadora se lleva caudal por el camino y eso le resta rendimiento a la bomba.',
+           'No: la limitadora desvía caudal DESPUÉS de la bomba ('+f1(p3.Qlim,1)+' L/min en el punto de 3 mm²); es una pérdida del circuito. El rendimiento de la bomba sólo cuenta su fuga interna y su rozamiento.'),
+        no('El aceite se calienta y pierde viscosidad conforme sube la presión de trabajo del banco.',
+           'En el banco la temperatura está fijada en '+T_BANCO+' °C: la viscosidad es la misma en los dos puntos. La diferencia es de reparto de pérdidas, no de temperatura.'),
       ]},
-    aceite:{pregunta:'Si el aceite más espeso fuga menos y por tanto mejora el rendimiento volumétrico, ¿por qué no se monta siempre el ISO VG 68?',
+    aceite:{pregunta:'Con una bomba de pistones de 16 cm³/rev en «'+ESTACIONES[sA].nom+'» (arranque a '+f1(TfA,0)+' °C), el aceite más espeso fuga menos y mejora el rendimiento volumétrico. ¿Por qué no se monta siempre el ISO VG 68?',
       opciones:[
-        {t:'Porque en frío no llega al oído de la bomba —cavita— y además el rozamiento viscoso sube.',ok:true,
-         why:'Las dos cosas a la vez. En frío la pérdida en el colador crece con la viscosidad y la presión de aspiración cae por debajo de lo que la bomba admite; y en caliente el par de rozamiento, que es proporcional a la viscosidad, se come el rendimiento mecánico.'},
-        {t:'Porque el ISO VG 68 es más caro que el ISO VG 32.',ok:false,
-         why:'Falso, y puedes comprobarlo aquí mismo: los tres grados cuestan lo mismo en este laboratorio (5 unidades). La elección es técnica, no económica.'},
-        {t:'Porque el ISO VG 68 no admite temperaturas superiores a 60 °C.',ok:false,
-         why:'El límite de 60 °C es del aceite mineral y de las juntas, y es el mismo para los tres grados. Lo que distingue al VG 68 es su viscosidad, no su resistencia térmica.'},
-        {t:'Porque las bombas de pistones no admiten aceite mineral.',ok:false,
-         why:'Sí lo admiten. Lo que tienen las de pistones es la ventana de viscosidad más estrecha del catálogo: hasta 100 mm²/s en trabajo y 800 en arranque.'},
+        ok('En el arranque en frío cavita ('+f1(a68.pAsp,3)+' bar en el oído) y en caliente roza más.',
+           'Las dos cosas a la vez. En frío el ISO VG 68 deja '+f1(a68.pAsp,3)+' bar en el oído de la bomba —el ISO VG 32 deja '+f1(a32.pAsp,3)+'— y el mínimo de esta bomba es '+f1(PA.pAspMin,2)+' bar; en caliente el par de rozamiento, proporcional a la viscosidad, se come el rendimiento mecánico.'),
+        no('Porque el ISO VG 68 resulta bastante más caro que el ISO VG 32 y no compensa.',
+           'Falso, y puedes comprobarlo aquí mismo: los tres grados cuestan lo mismo en este laboratorio ('+ACEITES.vg32.coste+' unidades). La elección es técnica, no económica.'),
+        no('Porque el ISO VG 68 no admite trabajar a más de '+T_MAX_ACEITE+' °C sin degradarse.',
+           'El límite de '+T_MAX_ACEITE+' °C es del aceite mineral y de las juntas, y es el mismo para los tres grados. Lo que distingue al ISO VG 68 es su viscosidad, no su resistencia térmica.'),
+        no('Porque las bombas de pistones axiales no admiten aceite mineral de ningún grado.',
+           'Sí lo admiten. Lo que tienen las de pistones es la ventana de viscosidad más estrecha del catálogo: hasta '+f1(PA.nuMax,0)+' mm²/s en trabajo y '+f1(PA.nuArr,0)+' en arranque.'),
       ]},
-    ciclo:{pregunta:'En la plataforma elevadora con pistones de 16 cm³/rev, ISO VG 32 y limitadora pilotada con descarga, ¿qué fase del ciclo consume más potencia de eje?',
+    ciclo:{pregunta:'En «'+eP0(sC)+'» con '+BOMBAS[cC.bomba].abr.toLowerCase()+' de '+cC.D+' cm³/rev, '+ACEITES[cC.aceite].nom+' y '+LIMS[cC.lim].abr.toLowerCase()+', ¿qué fase del ciclo consume más potencia de eje?',
       opciones:[
-        {t:'Sostener la carga: 7,13 kW, y absolutamente toda se convierte en calor.',ok:true,
-         why:'Sí, y es el resultado que más sorprende. Sostener no mueve nada, así que la potencia útil es cero; pero la bomba sigue impulsando 26,35 L/min contra la limitadora a 147,3 bar. Sostener cuesta MÁS que subir.'},
-        {t:'La subida: 6,30 kW, porque es cuando se vence el peso.',ok:false,
-         why:'La subida pide 6,30 kW, menos que sostener. Al subir, casi todo el caudal va al cilindro y hace trabajo útil; al sostener, todo el caudal se tira por la limitadora.'},
-        {t:'La bajada, porque la carga empuja y la bomba tiene que frenarla.',ok:false,
-         why:'En la bajada la presión es de sólo 15 bar: es la fase más barata del ciclo. Este laboratorio no modela cargas negativas —eso es la válvula de contrabalance, otra práctica—.'},
-        {t:'La pausa, porque la bomba sigue girando contra la limitadora tarada.',ok:false,
-         why:'Sería cierto con una limitadora sin descarga. Con la pilotada con descarga el grupo baja a 3 bar en la pausa: por eso está montada.'},
+        ok(lineaC(topC),'Sí. '+detC(topC)+' Es la fase que más pide del ciclo.'),
+        ...otrasC.map(x=>no(lineaC(x),'No: '+detC(x)+' Pide menos que «'+topC.nom+'» ('+f1(topC.r.Peje,2)+' kW).')),
       ]},
-    proyecto:{pregunta:'La prensa con bomba de engranajes de 25 cm³/rev y limitadora directa se estabiliza a 72,5 °C y falla presión, térmico y energía. Cambiando SÓLO la bomba a pistones con compensador de presión, ¿qué ocurre?',
+    proyecto:{pregunta:'En «'+eP.nom+'», con la bomba de engranajes de 25 cm³/rev, ISO VG 46 y limitadora directa, el grupo se estabiliza a '+f1(E.a.Treg,1)+' °C y '+resFallos(E.a)+'. Cambiando SÓLO la bomba a pistones con compensador de presión, ¿qué ocurre?',
       opciones:[
-        {t:'Se estabiliza a 27,5 °C, no falla ningún criterio y el calor por ciclo cae de 110,9 a 5,9 kJ.',ok:true,
-         why:'Correcto: unas 19 veces menos calor. El compensador reduce la cilindrada hasta que la bomba entrega justo el caudal que el circuito pide, así que deja de haber caudal que tirar por la limitadora. El consumo anual baja de 43 386 a 5 684 kWh.'},
-        {t:'Baja la temperatura pero sigue fallando el criterio de energía.',ok:false,
-         why:'No: el consumo anual pasa a 5 684 kWh, muy por debajo de los 12 000 contratados. Al desaparecer el caudal en exceso desaparece casi toda la factura.'},
-        {t:'No cambia nada: la limitadora directa sigue siendo la que fija el calor.',ok:false,
-         why:'La limitadora fija a qué presión se tira el caudal sobrante, pero si no sobra caudal no hay nada que tirar. Con el compensador la limitadora se queda de válvula de seguridad y no pasa por ella prácticamente nada.'},
-        {t:'Mejora el calor pero el motor deja de caber en la acometida.',ok:false,
-         why:'Al revés: el pico de potencia baja, porque la bomba deja de impulsar caudal que no se usa. El motor necesario es más pequeño, no más grande.'},
+        ok('Baja a '+f1(E.b.Treg,1)+' °C, gasta '+f1(E.b.kWh,0)+' kWh al año y '+resFallos(E.b)+'.',
+           'Correcto. El compensador reduce la cilindrada hasta que la bomba entrega justo el caudal que el circuito pide, así que casi no hay caudal que tirar por la limitadora: el calor por ciclo pasa de '+f1(E.a.cic.Ecal,1)+' a '+f1(E.b.cic.Ecal,1)+' kJ y el consumo anual de '+f1(E.a.kWh,0)+' a '+f1(E.b.kWh,0)+' kWh.'),
+        no('No cambia nada importante: sigue en '+f1(E.a.Treg,1)+' °C y gastando '+f1(E.a.kWh,0)+' kWh al año, con los mismos fallos.',
+           'La limitadora fija a qué presión se tira el caudal sobrante, pero si no sobra caudal no hay nada que tirar. Con el compensador la temperatura baja a '+f1(E.b.Treg,1)+' °C y el consumo a '+f1(E.b.kWh,0)+' kWh.'),
+        no('Baja a '+f1(E.b.Treg,1)+' °C, pero siguen fallando exactamente los mismos criterios que antes, sin excepción.',
+           'No: antes '+resFallos(E.a)+' y ahora '+resFallos(E.b)+'. Al desaparecer el caudal en exceso cambia la lista de criterios que fallan.'),
+        no('Baja a '+f1(E.b.Treg,1)+' °C, pero el consumo anual sube por encima de '+f1(E.a.kWh,0)+' kWh y el motor no cabe.',
+           'Al revés: el consumo anual baja de '+f1(E.a.kWh,0)+' a '+f1(E.b.kWh,0)+' kWh, porque la bomba deja de impulsar caudal que no se usa.'),
       ]},
-    reto:{pregunta:'En la prensa, la limitadora de acción directa deja fuera a la bomba de engranajes. ¿Por qué?',
-      opciones:[
-        {t:'Porque su sobrepresión del 25 % lleva los 195 bar de tarado a 243,75 a caudal completo, por encima de los 210 bar de la bomba.',ok:true,
-         why:'Exacto. La limitadora directa necesita un 25 % más de presión que su tarado para tragar todo el caudal, y 195 × 1,25 = 243,75 bar. Con la pilotada son 195 × 1,06 = 206,7 bar, que sí caben en los 210 de la bomba de engranajes.'},
-        {t:'Porque la limitadora directa no admite el caudal de una bomba de 25 cm³/rev.',ok:false,
-         why:'El caudal nominal no es el problema: la directa está declarada para 40 L/min y la bomba entrega unos 43. Lo que la descalifica es la sobrepresión, que es un 25 % frente al 6 % de la pilotada.'},
-        {t:'Porque la bomba de engranajes fuga demasiado y no alcanza el caudal de la fase rápida.',ok:false,
-         why:'La fuga afecta al criterio de caudal, no al de presión. Aquí el criterio que salta primero es el de presión, y salta por la limitadora, no por la bomba.'},
-        {t:'Porque la bomba de engranajes no admite el ISO VG 32 de la solución.',ok:false,
-         why:'Sí lo admite: su ventana llega hasta 300 mm²/s, la más ancha del catálogo. La de engranajes es precisamente la menos exigente con el aceite.'},
-      ]},
+    reto:{pregunta:'En «'+ESTACIONES[sR].nom+'», una bomba de engranajes queda con la limitadora de acción directa tarada a '+bar(pcR)+'. Cuando la válvula tiene que dejar pasar TODO el caudal de la bomba, ¿a qué presión llega el circuito?',
+      opciones:ops.slice(0,4).map(v=>{
+        if(Math.abs(v-pffR)<0.05)return ok(bar(v),
+          'Exacto. La directa necesita un '+f1(LIMS.dir.ovr*100,0)+' % más que su tarado para tragar todo el caudal: '+bar(pcR)+' × '+f1(1+LIMS.dir.ovr,2)+' = '+bar(pffR)+', '+(pffR>pMaxR?'por encima de':'dentro de')+' los '+f1(pMaxR,0)+' bar de la bomba de engranajes'+(pffR>pMaxR?': el criterio de presión falla.':': el criterio de presión se cumple.'));
+        if(Math.abs(v-pcR)<0.05)return no(bar(v),'Ése es el tarado: la presión a la que la válvula EMPIEZA a abrir. Para pasar todo el caudal hace falta más.');
+        if(Math.abs(v-pPilR)<0.05)return no(bar(v),'Eso sería con una limitadora pilotada ('+f1(LIMS.pil.ovr*100,0)+' % de sobrepresión). La directa necesita un '+f1(LIMS.dir.ovr*100,0)+' %.');
+        if(Math.abs(v-pMaxR)<0.05)return no(bar(v),'Ésa es la presión máxima de la bomba de engranajes: un límite de catálogo, no lo que da la válvula.');
+        return no(bar(v),'Con este tarado la válvula directa no llega a esa presión: a caudal completo da '+bar(pffR)+'.');
+      })},
   };
   Object.keys(QUIZ).forEach(k=>{
     const o=QUIZ[k].opciones;
     for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=o[i];o[i]=o[j];o[j]=t;}
   });
 }
+function eP0(k){return ESTACIONES[k].nom;}
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
   const q=QUIZ[mode];if(!q)return;
@@ -2466,58 +2550,78 @@ async function runAuto(){
   const btn=el('btnAuto');const label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: no resuelve ni puntúa tu reto, no usa tu
+  // estación y no toca tus intentos. Se guarda el estado del alumno y se
+  // restaura entero al terminar (o si algo falla).
+  const snap={mode,bcBomba,bcD,bcArea,bcLim,acEst,acBomba,acD,acAce,acT,pjEst,pjBomba,pjD,pjAce,pjLim,
+    retoEst,retoCfg:{...retoCfg},retoSolved,solved,retoMsg,retoGood,retoVista,intentos,fallos,resiembras,animT};
   try{
     setMode('banco');
     bcBomba='eng';bcD=25;bcArea=40;bcLim='pil';afterEdit();
-    showToast('<b>1 · La carga manda.</b> Con el orificio grande de 40 mm² el aceite sale casi sin resistencia: el manómetro apenas marca 3,7 bar. La bomba entrega caudal, no presión.');
+    showToast('<b>1 · La carga manda.</b> Con el orificio grande de '+bcArea+' mm² el aceite sale casi sin resistencia: el manómetro apenas marca '+f1(CUR.pt.p,1)+' bar. La bomba entrega caudal, no presión.');
     await sleep(5200);
     bcArea=9;afterEdit();
-    showToast('<b>Estrecha el orificio a 9 mm²</b> y la misma bomba, girando igual, se planta en 66 bar. No ha cambiado la bomba: ha cambiado lo que le cuesta salir al aceite.');
+    showToast('<b>Estrecha el orificio a 9 mm²</b> y la misma bomba, girando igual, se planta en '+f1(CUR.pt.p,0)+' bar. No ha cambiado la bomba: ha cambiado lo que le cuesta salir al aceite.');
     await sleep(5400);
     bcArea=3;afterEdit();
     showToast('<b>Con 3 mm² la limitadora interviene:</b> '+f1(CUR.pt.Qlim,1)+' L/min se van por ella y se convierten en calor. El techo del circuito es la limitadora, no la bomba.');
     await sleep(5400);
     bcBomba='pis';bcArea=9;afterEdit();
-    showToast('<b>Cambia a pistones axiales:</b> los ajustes son más finos, fuga menos y el rendimiento total sube a '+f1(100*CUR.etaT,1)+' %. También cuesta tres veces más.');
+    showToast('<b>Cambia a pistones axiales:</b> los ajustes son más finos, fuga menos y el rendimiento total sube a '+f1(100*CUR.etaT,1)+' %. También cuesta '+f1(BOMBAS.pis.kCoste/BOMBAS.eng.kCoste,1)+' veces más.');
     await sleep(5400);
 
+    const sA=otra(['gruaFrio','elevador']);
     setMode('aceite');
-    acEst='gruaFrio';acBomba='pis';acD=16;acAce='vg68';acT=50;afterEdit();
-    showToast('<b>2 · El aceite.</b> Una grúa en invierno arranca a −5 °C. Con ISO VG 68 la viscosidad en frío se dispara a '+f1(CUR.nuF,0)+' mm²/s.');
+    acEst=sA;acBomba='pis';acD=16;acAce='vg68';acT=50;afterEdit();
+    showToast('<b>2 · El aceite.</b> «'+ESTACIONES[sA].nom+'» arranca a '+f1(ESTACIONES[sA].Tfrio,0)+' °C. Con ISO VG 68 la viscosidad en frío se dispara a '+f1(CUR.nuF,0)+' mm²/s.');
     await sleep(5400);
     acAce='vg32';afterEdit();
     showToast('<b>Con ISO VG 32</b> la viscosidad en frío baja a '+f1(CUR.nuF,0)+' mm²/s y la presión en el oído sube a '+f1(CUR.aspF.pAsp,3)+' bar. El aceite fino es el que arranca en frío.');
     await sleep(5400);
 
+    const sC=otra(['elevador','prensa','inyectora']), cC=optimas(sC)[0];
     setMode('ciclo');
-    pjEst='elevador';pjBomba='pis';pjD=16;pjAce='vg32';pjLim='pilDesc';afterEdit();
-    showToast('<b>3 · El ciclo.</b> Sube, sostiene, baja y espera. Mira la barra de potencia: la fase de sostener no mueve nada y sin embargo es la que más pide.');
+    pjEst=sC;pjBomba=cC.bomba;pjD=cC.D;pjAce=cC.aceite;pjLim=cC.lim;afterEdit();
+    {
+      const fs=CUR.ev.cic.fases, top=fs.reduce((a,b)=>b.Peje>a.Peje?b:a), nom=ESTACIONES[sC].fases[fs.indexOf(top)].nom;
+      showToast('<b>3 · El ciclo.</b> «'+ESTACIONES[sC].nom+'»: mira la barra de potencia. La fase que más pide es «'+nom+'», con '+f1(top.Peje,2)+' kW de eje.');
+    }
     await sleep(5800);
 
+    const sP=otra(['prensa','inyectora']);
     setMode('proyecto');
-    pjEst='prensa';pjBomba='eng';pjD=25;pjAce='vg46';pjLim='dir';afterEdit();
-    showToast('<b>4 · El proyecto.</b> La prensa con la bomba más barata: se estabiliza a '+f1(CUR.ev.Treg,1)+' °C y falla '+CUR.ev.fallos.length+' criterios de 7.');
+    pjEst=sP;pjBomba='eng';pjD=25;pjAce='vg46';pjLim='dir';afterEdit();
+    showToast('<b>4 · El proyecto.</b> «'+ESTACIONES[sP].nom+'» con la bomba más barata: se estabiliza a '+f1(CUR.ev.Treg,1)+' °C y falla '+CUR.ev.fallos.length+' criterios de 7.');
     await sleep(5600);
     pjBomba='var';afterEdit();
-    showToast('<b>Sólo cambia la bomba</b> a cilindrada variable con compensador: '+f1(CUR.ev.Treg,1)+' °C y los siete criterios en verde. Lo que sobraba de caudal ya no se fabrica.');
+    showToast('<b>Sólo cambia la bomba</b> a cilindrada variable con compensador: '+f1(CUR.ev.Treg,1)+' °C y '+CUR.ev.fallos.length+' criterios fallando. Lo que sobraba de caudal ya no se fabrica.');
     await sleep(5600);
 
+    // reto: demostración sobre OTRA estación; no se comprueba ni se puntúa
+    const sR=otra(['prensa','inyectora','elevador']);
     setMode('reto');
-    retoEst='prensa';retoSolveBuild(true);afterEdit();
-    showToast('<b>5 · El reto.</b> Cuatro ejes y un presupuesto: hay que montar el grupo válido más barato de la estación.');
-    await sleep(5000);
+    retoEst=sR;retoSolveBuild(true);afterEdit();
+    showToast('<b>5 · El reto</b> (demostración sobre «'+ESTACIONES[sR].nom+'»; no puntúa ni toca tu reto). De las '+CFGS.length+' combinaciones, sólo '+validas(sR).length+' cumplen los siete criterios, y entre ésas hay que montar la más barata.');
+    await sleep(5400);
     {
-      const o=optimas(retoEst)[0];
-      if(o){retoCfg={...o};afterEdit();}
+      const o=optimas(sR)[0];
+      if(o){retoCfg={...o};afterEdit();
+        showToast('<b>Montaje de la demostración:</b> '+BOMBAS[o.bomba].abr+' de '+o.D+' cm³/rev, '+ACEITES[o.aceite].nom+' y limitadora '+LIMS[o.lim].abr.toLowerCase()+': '+f1(CUR.ev.coste,0)+' unidades con los siete criterios en verde. Ahora te toca a ti con tu estación.');
+        await sleep(5600);
+      }
     }
-    checkReto();
-    showToast('<b>Solución:</b> '+retoMsg);
-    await sleep(5000);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
     const b=el('btnAuto');
     b.disabled=false;b.classList.remove('on');b.textContent=label;
     autoRunning=false;
+    // devolver al alumno exactamente lo que tenía
+    bcBomba=snap.bcBomba;bcD=snap.bcD;bcArea=snap.bcArea;bcLim=snap.bcLim;
+    acEst=snap.acEst;acBomba=snap.acBomba;acD=snap.acD;acAce=snap.acAce;acT=snap.acT;
+    pjEst=snap.pjEst;pjBomba=snap.pjBomba;pjD=snap.pjD;pjAce=snap.pjAce;pjLim=snap.pjLim;
+    retoEst=snap.retoEst;retoCfg=snap.retoCfg;retoSolved=snap.retoSolved;solved=snap.solved;
+    retoMsg=snap.retoMsg;retoGood=snap.retoGood;retoVista=snap.retoVista;
+    intentos=snap.intentos;fallos=snap.fallos;resiembras=snap.resiembras;
+    setMode(snap.mode);animT=snap.animT;
   }
 }
 
@@ -2540,6 +2644,7 @@ const soundBtn=el('soundBtn');
 if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 retoSolveBuild(true);
+apartaProyecto();
 buildQuiz();
 computa();          // CUR poblado ANTES del primer cuadro: updateHW lo lee
 S.start();
@@ -2573,12 +2678,14 @@ window.__labDebug={
   acSet:(o)=>{if(o.est)acEst=o.est;if(o.bomba)acBomba=o.bomba;if(o.D)acD=o.D;if(o.aceite)acAce=o.aceite;if(o.T!==undefined)acT=o.T;afterEdit();},
   // estado del proyecto
   pjGet:()=>({est:pjEst,bomba:pjBomba,D:pjD,aceite:pjAce,lim:pjLim}),
-  pjSet:(o)=>{if(o.est)pjEst=o.est;if(o.bomba)pjBomba=o.bomba;if(o.D)pjD=o.D;if(o.aceite)pjAce=o.aceite;if(o.lim)pjLim=o.lim;afterEdit();},
+  pjSet:(o)=>{if(o.est&&!(o.est===retoEst&&!retoSolved))pjEst=o.est;if(o.bomba)pjBomba=o.bomba;if(o.D)pjD=o.D;if(o.aceite)pjAce=o.aceite;if(o.lim)pjLim=o.lim;afterEdit();},
   // reto
   retoGet:()=>({est:retoEst,cfg:{...retoCfg}}),
-  retoSet:(est,cfg)=>{if(est)retoEst=est;if(cfg)retoCfg={...retoCfg,...cfg};retoMsg='';afterEdit();},
-  retoSolveBuild,checkReto,retoExplain,
-  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoAxes:()=>({...retoAxes}),
+  retoSet:(est,cfg)=>{ if(est&&est!==retoEst){retoEst=est;retoSolveBuild(true);}
+    if(cfg)retoEdita(cfg); else retoEdita({}); afterEdit();},
+  retoSolveBuild,checkReto,retoExplain,retoVer,
+  intentos:()=>intentos,fallos:()=>fallos,resiembras:()=>resiembras,MAX_INT:()=>MAX_INT,
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoVista:()=>retoVista,
   ejeSolC,
   // cuestionario
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),

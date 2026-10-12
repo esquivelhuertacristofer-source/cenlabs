@@ -849,7 +849,7 @@ let scIdx=0;                                   // máquina de Explora y Aplica
 let expAna=POOL[0].good.ana, expZoom=1;        // analizador y ampliación en Explora
 let apTopic='sonda', apSonda=POOL[0].good.sonda, apAna=POOL[0].good.ana, apDec=POOL[0].good.dec;
 let retoK=0, retoCh={sonda:'div5',ana:'a1M',dec:'u96n'};
-let retoChecked=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let retoOkSonda=false,retoOkAna=false,retoOkDec=false;
 
 function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
@@ -874,6 +874,9 @@ function curCfg(){
   if(mode==='aplica')return {sonda:apSonda,ana:apAna,dec:apDec};
   return {sonda:sc.good.sonda,ana:expAna,dec:sc.good.dec};   // Explora: sólo cambia el analizador
 }
+// el caso del reto no se abre en Explora/Aplica mientras no esté resuelto: la «instalación» ya trae la terna válida
+function escLock(i){return i===retoK&&!retoSolved;}
+function fixSc(){if(escLock(scIdx)){scIdx=(scIdx+1)%POOL.length;syncSel();}}
 function syncSel(){const sc=POOL[scIdx];expAna=sc.good.ana;apSonda=sc.good.sonda;apAna=sc.good.ana;apDec=sc.good.dec;}
 function chList(sc){const n=CHN[sc.proto],out=[];
   for(let i=0;i<4;i++)if(n[i])out.push({ch:'D'+i,lab:n[i],col:CHC[i]});
@@ -1408,10 +1411,12 @@ function drawReto(c){
   });
 
   rpanel(c,PX.x,PX.y+470,PX.w,224,'Diagnóstico');
-  const mal=whyCfg(sc,cfg);
-  c.fillStyle=mal?'#f3b5b5':'#b9e7c6';c.font='13px Outfit, sans-serif';c.textAlign='left';
-  wrapText(c,mal||('La terna «'+SONDA_SH[cfg.sonda]+' · '+ANA_SH[cfg.ana]+' · '+DEC_SH[cfg.dec]+
-    '» captura y reconstruye la trama entera.'),PX.x+16,PX.y+502,PX.w-32,19);
+  // en modo reto no hay veredicto en vivo: el diagnóstico sólo aparece al comprobar
+  const mal=retoChecked?whyCfg(sc,cfg):'';
+  c.fillStyle=!retoChecked?'#9fb0cf':(mal?'#f3b5b5':'#b9e7c6');c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,!retoChecked?'El diagnóstico aparece al pulsar «Comprobar». Intentos fallidos: '+intentos+' de 3.'
+    :(mal||('La terna «'+SONDA_SH[cfg.sonda]+' · '+ANA_SH[cfg.ana]+' · '+DEC_SH[cfg.dec]+
+    '» captura y reconstruye la trama entera.')),PX.x+16,PX.y+502,PX.w-32,19);
 }
 
 function drawBoard(){
@@ -1713,9 +1718,10 @@ function buildControls(){
     html+=lbl('Decodificador')+optBtns('rdc',DECK.map(k=>[k,DEC_SH[k]]),retoCh.dec);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc]').forEach(b=>{if(escLock(parseInt(b.getAttribute('data-sc'),10))){b.disabled=true;b.title='Es la instalación de tu Reto';b.style.opacity='0.45';}});
   const bind=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  bind('data-sc',v=>{scIdx=parseInt(v,10);syncSel();});
+  bind('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa instalación es la de tu Reto: se abre aquí cuando la resuelvas.');return;}scIdx=i;syncSel();});
   bind('data-ana',v=>{if(mode==='aplica')apAna=v;else expAna=v;});
   bind('data-zm',v=>{expZoom=parseInt(v,10);});
   bind('data-tp',v=>{apTopic=v;});
@@ -1734,6 +1740,7 @@ function updateScenarioInfo(){
 }
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1748,12 +1755,12 @@ function setMode(k){
 function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
 function newSignal(){
   scIdx=pickIdx(POOL.length,scIdx);syncSel();
-  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);
+  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);fixSc();
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 12. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto')cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg),so=r.so,an=r.an,de=r.de;
   let h='';
@@ -1810,7 +1817,7 @@ function seedReto(k){
   retoCh={sonda:firstWrong(SONDAK,q=>okSonda(sc,q)),
           ana:firstWrong(ANAK,q=>okAna(sc,q)),
           dec:firstWrong(DECK,q=>okDec(sc,q))};
-  retoChecked=false;retoSolved=false;retoMsg='';solved=false;
+  retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=0;solved=false;
   retoOkSonda=false;retoOkAna=false;retoOkDec=false;
 }
 function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
@@ -1822,7 +1829,8 @@ function updateRetoSpec(){
     `<span class="mono">${PROTO_LBL[sc.proto]} · ${fbits(sc.fBit)} · detalle a medir ${fns(sc.reqDt)} · captura ${fdur(sc.tSig)}`+
     `${sc.open?' · '+n0(sc.cb*1e12)+' pF de línea':''}${sc.iBud?' · presupuesto '+fma(sc.iBud):''}</span><br>`+
     `Elige las tres: sonda, analizador y decodificador.`+
-    (retoChecked?`<br>${retoMsg}`:'');
+    `<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`+
+    (retoChecked?`<br>${retoMsg}`:(retoAviso?`<br>${retoAviso}`:''));
 }
 function retoExplain(){
   const sc=retoSc(),p=[];
@@ -1836,14 +1844,22 @@ function checkReto(){
   retoOkSonda=okSonda(sc,retoCh.sonda);
   retoOkAna=okAna(sc,retoCh.ana);
   retoOkDec=okDec(sc,retoCh.dec);
-  retoChecked=true;
+  retoChecked=true;retoAviso='';
   retoSolved=retoOkSonda&&retoOkAna&&retoOkDec;
   solved=retoSolved;
+  if(!retoSolved)intentos++;
   synth.beep(retoSolved?1046:220,0.12,0.06);
   const n=(retoOkSonda?1:0)+(retoOkAna?1:0)+(retoOkDec?1:0);
   retoMsg=retoSolved
     ?`<b style="color:${OK_HEX}">Las tres decisiones son correctas.</b> Con «${SONDAS[retoCh.sonda].name}», «${ANAS[retoCh.ana].name}» y «${DECS[retoCh.dec].name}» la captura entra en memoria, tiene resolución para medir el detalle y la trama sale entera.`
     :`<b style="color:${BAD_HEX}">${n} de 3 decisiones correctas.</b><br>${retoExplain()}`;
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra instalación
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><b style="color:'+BAD_HEX+'">Tres intentos sin acertar.</b> Se te plantea otra instalación: razona con sus datos, no por descarte.';
+    showToast('Tres intentos sin acertar: se te plantea otra instalación.');
+    buildControls();updateScenarioInfo();
+  }
   updateRetoSpec();refreshAll();
 }
 function retoSolveBuild(){const sc=retoSc();retoCh={...GOOD(sc)};retoChecked=false;retoSolved=false;solved=false;}
@@ -1854,33 +1870,33 @@ function buildQuiz(){
   QUIZ={
     explora:{p:'En el volcado de la EEPROM salen 304 bytes y el último aparece sin reconocimiento. ¿Qué significa?',
       opciones:[
-        {t:'Que el maestro cierra la lectura con un NACK deliberado',ok:true,
+        {t:'Que el maestro cierra la lectura con un NACK deliberado al último byte',ok:true,
           why:'Correcto: en I²C el maestro avisa de que ya no quiere más datos no reconociendo el último byte. Es la firma de una trama BIEN formada; la sospechosa es la que no lo tiene.'},
-        {t:'Que la memoria se quedó sin datos y dejó de responder',ok:false,
+        {t:'Que la memoria se quedó sin datos que enviar y dejó de responder',ok:false,
           why:'No: la memoria respondió los 300 bytes pedidos. El NACK lo pone el maestro, no el esclavo.'},
-        {t:'Que la sonda perdió el último flanco de reloj',ok:false,
+        {t:'Que la sonda perdió el último flanco de reloj de esa trama',ok:false,
           why:'No: si se perdiera un flanco el byte saldría incompleto o con otro valor, no con la bandera de reconocimiento invertida.'},
-        {t:'Que el analizador se quedó sin memoria en ese byte',ok:false,
+        {t:'Que el analizador se quedó sin memoria justo en ese byte',ok:false,
           why:'No: a 50 MS/s la ventana es de 20,00 ms y el volcado dura 6,87 ms; cabe entero con holgura.'}]},
     aplica:{p:'El analizador de 200 MS/s es el más rápido del banco y aun así falla en la EEPROM. ¿Por qué?',
       opciones:[
         {t:'Porque su millón de muestras a 200 MS/s sólo cubre 5,00 ms y el volcado dura 6,87 ms',ok:true,
           why:'Correcto: la ventana es profundidad/f_s. Muestrear más rápido acorta el tiempo que cabe en la memoria; velocidad y ventana tiran en sentidos opuestos.'},
-        {t:'Porque a esa velocidad no caben suficientes muestras por bit',ok:false,
+        {t:'Porque a esa velocidad no caben suficientes muestras por cada bit del reloj',ok:false,
           why:'Al revés: a 200 MS/s caen 500 muestras por bit de los 400 kHz. Sobran.'},
-        {t:'Porque el paso de 5 ns no alcanza para medir el tiempo de subida',ok:false,
+        {t:'Porque el paso de 5 ns no alcanza para medir bien el tiempo de subida del bus',ok:false,
           why:'No: el tiempo de subida exigido es de 280 ns y con cuatro muestras encima pide 70 ns como mucho. 5 ns sobra.'},
-        {t:'Porque el decodificador de I²C no funciona a esa frecuencia de muestreo',ok:false,
+        {t:'Porque el decodificador de I²C no funciona con esa frecuencia de muestreo tan alta',ok:false,
           why:'No: el decodificador no depende de la frecuencia de muestreo, sólo de los flancos que le lleguen.'}]},
     reto:{p:'En el sensor a pila descartas los 2,2 kΩ que sí valían en la EEPROM. ¿Qué cambió?',
       opciones:[
-        {t:'El presupuesto: 2,2 kΩ consumen 1,32 mA permanentes y el nodo sólo tiene 500 µA',ok:true,
+        {t:'El presupuesto: 2,2 kΩ consumen 1,32 mA y el nodo sólo dispone de 500 µA',ok:true,
           why:'Correcto: la polarización se paga siempre que la línea esté en cero. La norma admite hasta 3,00 mA, pero la pila del nodo no.'},
-        {t:'La norma: en modo estándar el sumidero máximo baja de 3 mA',ok:false,
+        {t:'La norma: en modo estándar el sumidero máximo de la línea baja de 3 mA',ok:false,
           why:'No: el límite de la UM10204 es el mismo. Lo que aprieta aquí es el presupuesto del nodo, no la norma.'},
-        {t:'La capacidad: con 80 pF los 2,2 kΩ suben demasiado despacio',ok:false,
+        {t:'La capacidad: con 80 pF los 2,2 kΩ suben demasiado despacio para el bus',ok:false,
           why:'Al revés: con 80 pF los 2,2 kΩ suben en 149 ns y el modo estándar admite hasta 1 µs. Por tiempo iban sobrados.'},
-        {t:'La tensión: el bus del sensor no llega al umbral del analizador',ok:false,
+        {t:'La tensión: el bus del sensor no llega al umbral lógico del analizador',ok:false,
           why:'No: el bus es de 3,3 V y el umbral está en 1,40 V. El nivel no es el problema.'}]}};
   const arr=Object.values(QUIZ);
   arr.forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));
@@ -1933,6 +1949,8 @@ async function runAuto(){
   if(autoRunning)return;
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,scIdx,expAna,expZoom,apTopic,apSonda,apAna,apDec,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     // ---------------- EXPLORA
@@ -2026,7 +2044,20 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
     await sleep(2400);
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    scIdx=prev.scIdx;expAna=prev.expAna;expZoom=prev.expZoom;apTopic=prev.apTopic;apSonda=prev.apSonda;apAna=prev.apAna;apDec=prev.apDec;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkSonda=retoOkAna=retoOkDec=true;
+    }else if(prev.retoK===3){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkSonda=false;retoOkAna=false;retoOkDec=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -2038,7 +2069,7 @@ el('btnNew').onclick=()=>{if(!autoRunning)newSignal();};
 el('btnCheck').onclick=()=>{if(!autoRunning)checkReto();};
 {const sb=el('soundBtn');if(sb)sb.onclick=()=>{const on=synth.toggle();sb.textContent=on?'🔊':'🔇';};}
 window.addEventListener('pointerdown',()=>{synth.init();},{once:true});
-seedReto(0);buildQuiz();S.start();setMode('explora');
+seedReto(1);buildQuiz();S.start();setMode('explora');
 
 // ===================== DEBUG HOOK =====================
 window.__labDebug={
@@ -2064,6 +2095,7 @@ window.__labDebug={
   retoOkDec:()=>retoOkDec,retoSolved:()=>retoSolved,
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   quizAnswer:i=>answer(i),
+  intentos:()=>intentos,
   frames,newSignal,solved:()=>solved};
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

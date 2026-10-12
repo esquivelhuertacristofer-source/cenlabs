@@ -327,7 +327,15 @@ let tmEst='intemperie', tmValv='agu', tmTopo='in', tmArea=2.4;
 let retoEst='sierra';
 let retoCfg={valv:'agu',topo:'out',area:0.3,tarado:140};
 let retoMsg='', retoGood=false;
-let retoAxes={valv:false,topo:false,area:false,tarado:false};
+// Política de reto: el veredicto NO se ve en vivo, sólo al pulsar Comprobar.
+// «retoVista» recuerda sobre qué montaje se comprobó; si el alumno toca un
+// mando, esa vista caduca y el reto deja de estar resuelto (se reevalúa).
+// Las pistas son dos como máximo, graduadas y registradas; tras TRES
+// comprobaciones fallidas se resiembra con otra estación.
+let retoVista=null, intentos=0, fallos=0, resiembras=0, retoPistas=[];
+const MAX_INT=3, MAX_PISTAS=2;
+const cfgKey=c=>[c.valv,c.topo,c.area,c.tarado].join('|');
+function retoVer(){ return mode!=='reto' || autoRunning || (retoVista!==null && retoVista===retoEst+'|'+cfgKey(retoCfg)); }
 
 // Barridos de presentacion. No son fisica nueva: llaman a punto() del motor
 // sellado en 41 puntos para poder dibujar la curva.
@@ -643,7 +651,10 @@ function drawBanco(c){
 
   nota(c,486,'La ecuación del orificio Q = C_d·A·√(2Δp/ρ) sólo es una raíz cuadrada limpia cuando C_d ya se ha estabilizado. Merritt lo ata al número de transición λ: mientras λ es pequeño —aceite frío, orificio diminuto, poca caída— manda la viscosidad y el caudal se derrumba. El canto vivo llega a su C_d con λ ≈ 150; la aguja, larga y estrecha, necesita λ ≈ 2 500.',
     COL_VALV[K.valv],120,706,300);
-  nota(c,614,'Fíjate en la curva de abajo: entre 4 °C y 58 °C la aguja cambia su caudal un 86 %, el canto vivo un 3,4 % y la compensada de presión y temperatura un 1,8 %. La geometría del orificio es la primera compensación térmica, y es gratis.',
+  const subeQ=v=>{const a=caudalEstrang(v,K.area,K.dp,4), b=caudalEstrang(v,K.area,K.dp,58); return a>0?(b/a-1):Infinity;};
+  const sAg=subeQ('agu'), sDi=subeQ('dia'), sTe=subeQ('term');
+  nota(c,614,'Fíjate en la curva de abajo: con esta abertura y esta caída, al calentar el aceite de 4 °C a 58 °C el caudal por la aguja sube un '+pc1(sAg)+', por el canto vivo un '+pc1(sDi)+' y por la compensada de presión y temperatura un '+pc1(sTe)+'. '+
+    (sDi<0.1?'La geometría del orificio es la primera compensación térmica, y es gratis.':'Con tan poca abertura o tan poca caída hasta el canto vivo se queda en la zona laminar y se deja llevar por la temperatura.'),
     OK_HEX,120,706,300);
 }
 
@@ -730,8 +741,8 @@ function drawTopo(c){
 
   const arrastra=E.Fmax<0||E.Fmin<0;
   nota(c,PX.y+346,arrastra
-    ? 'Esta carga ARRASTRA: tira del vástago hacia donde ya iba. Si estrangulas a la entrada o sangras en derivación, la cámara motriz se queda sin presión, el aceite se rompe en vapor y el movimiento se desboca: aquí la plataforma cae a 71 mm/s en vez de a 40. Sólo el meter-out le pone un tapón por detrás.'
-    : 'Con carga que se opone, las tres topologías mueven el actuador. Cambian el calor que tiras y la presión que aparece: el meter-out intensifica la presión en la cámara resistente en la relación de áreas, y esa intensificación es MÁXIMA con la carga MÍNIMA.',
+    ? 'Esta carga ARRASTRA: tira del vástago hacia donde ya iba. Si estrangulas a la entrada o sangras en derivación, la cámara motriz se queda sin presión, el aceite se rompe en vapor y el movimiento se desboca: con el montaje que tienes ahora la velocidad sale a '+f1(ev.vMed,1)+' mm/s frente a los '+f1(E.vObj,0)+' pedidos. Sólo el meter-out le pone un tapón por detrás.'
+    : 'Con carga que se opone, las tres topologías pueden mover el actuador (el sangrado, con un área demasiado grande, desvía todo el caudal a tanque y no arranca). Cambian la velocidad, el calor que tiras y la presión que aparece: el meter-out intensifica la presión en la cámara resistente en la relación de áreas, y esa intensificación es MÁXIMA con la carga MÍNIMA.',
     arrastra?BAD_HEX:AZUL,150,706,300);
   nota(c,564,'El sangrado no estrangula el caudal del actuador: deja pasar lo que la carga pide y desvía el sobrante a tanque a la presión de la carga, no a la de tarado. Por eso tira poquísimo calor —y por eso deja de regular en cuanto la carga cambia.',
     WARN_HEX,110,30,650);
@@ -882,28 +893,29 @@ function drawTermico(c){
 // ---------- 6.5 RETO: elegir válvula, sitio, área y tarado ------------------
 function drawReto(c){
   bg(c);
-  const K=CUR, E=K.est, ev=K.ev, cfg=K.cfg;
+  const K=CUR, E=K.est, ev=K.ev, cfg=K.cfg, ver=retoVer();
   title2(c,'Encargo: '+E.nom,
-    'Cumple los seis criterios gastando lo menos posible. Cuatro decisiones: qué válvula, dónde ponerla, qué área y a qué tarado la limitadora.');
+    'Cuatro decisiones: válvula, montaje, área y tarado. El veredicto sólo aparece al pulsar Comprobar.');
 
-  const pt=ev.pTrab, lo=pt+MARG_LIM, hi=pt+MARG_MAX, pf=pFull(cfg.tarado);
+  const pt=ev.pTrab, pf=pFull(cfg.tarado);
   const filas=[
     ['Velocidad',f1(E.vObj,0)+' ± '+f1(E.tolVel*100,0)+' %',ev.seco?'—':f1(ev.vMed,2)+' mm/s',ev.okVel],
     ['Regulación con la carga','≤ '+pc1(E.tolReg),ev.seco?'—':pc1(ev.reg),ev.okReg],
     ['Sujeción de la carga','sin cavitación',ev.desboca?'se desboca':(ev.seco?'no arranca':'sujeta'),ev.okCarga],
-    ['Presión','tarado '+f1(lo,0)+'–'+f1(hi,0)+' · pico ≤ '+f1(E.pMaxCil,0),f1(pf,1)+' · '+f1(ev.pPico,1)+' bar',ev.okPresion],
+    ['Presión','+'+f1(MARG_LIM,0)+'…+'+f1(MARG_MAX,0)+' bar sobre '+f1(pt,0)+' · pico ≤ '+f1(E.pMaxCil,0),f1(pf,1)+' · '+f1(ev.pPico,1)+' bar',ev.okPresion],
     ['Térmico','≤ '+f1(E.Pdis,2)+' kW',f1(ev.calor,2)+' kW',ev.okTermico],
     ['Deriva térmica','≤ '+pc1(E.tolTerm),ev.seco?'—':pc1(ev.drift),ev.okTemp],
-  ].map(r=>({c:[r[0],r[1],r[2],r[3]?'cumple':'no'],cols:[null,'#8f97a5',null,colOk(r[3])]}));
+  ].map(r=>({c:[r[0],r[1],r[2],ver?(r[3]?'cumple':'no'):''],cols:[null,'#8f97a5',null,ver?colOk(r[3]):null]}));
   tabla(c,30,104,650,[236,214,120,80],filas,['Criterio','Lo que pide la estación','Lo que sale','']);
 
-  // coste
+  // coste: la barra del montaje; el mínimo sólo se marca cuando ya está resuelto
   texto(c,'Coste del montaje',30,336,'#cfd6e2','bold 15px Outfit, sans-serif');
   {
+    const resuelto=retoSolved||autoRunning;
     const cmax=Math.max(ev.coste,K.cm||0,25);
-    hbar(c,220,326,380,20,ev.coste/cmax,ev.valido?(ev.coste===K.cm?OK_HEX:WARN_HEX):GRIS);
+    hbar(c,220,326,380,20,ev.coste/cmax,(ver&&ev.valido)?(ev.coste===K.cm?OK_HEX:WARN_HEX):AZUL);
     texto(c,f1(ev.coste,0)+' u',610,336,'#F4EFEA','bold 15px ui-monospace, monospace');
-    if(K.cm!=null){
+    if(resuelto&&K.cm!=null){
       const mx=220+380*K.cm/cmax;
       linea(c,mx,318,mx,352,OK_HEX,[4,3],2);
       texto(c,'mínimo posible '+f1(K.cm,0),Math.min(mx+6,596),310,OK_HEX,'bold 13px Outfit, sans-serif',mx>500?'right':'left');
@@ -911,34 +923,31 @@ function drawReto(c){
     texto(c,'válvula '+f1(VALVULAS[cfg.valv].coste,0)+'  +  montaje '+f1(TOPOS[cfg.topo].coste,0),220,362,'#8f97a5','13px Outfit, sans-serif');
   }
 
-  // pistas por eje: solo las que el alumno ya ha pedido
-  texto(c,'Pistas',30,404,'#cfd6e2','bold 15px Outfit, sans-serif');
-  EJES.forEach((eje,i)=>{
-    const y=428+i*34;
-    texto(c,EJE_ROT[eje],40,y,'#c7cdd8','14px Outfit, sans-serif');
-    if(!retoAxes[eje]){ texto(c,'pulsa «Pista» para ver qué valores son compatibles',300,y,'#5c6473','13px Outfit, sans-serif'); return; }
-    const sol=ejeSolC(K.estK,eje);
-    const rot=v=>eje==='valv'?VALV_ABR[v]:(eje==='topo'?TOPO_ABR[v]:(eje==='area'?f1(v,1)+' mm²':f1(v,0)+' bar'));
-    texto(c,sol.length?sol.map(rot).join('  ·  '):'ninguno con el resto así',300,y,sol.length?OK_HEX:BAD_HEX,'bold 14px ui-monospace, monospace');
-  });
+  // intentos y pistas: las pistas pedidas quedan registradas aquí
+  texto(c,'Intentos '+intentos+'  ·  fallos '+fallos+' de '+MAX_INT+'  ·  pistas '+retoPistas.length+' de '+MAX_PISTAS,30,396,'#cfd6e2','bold 15px Outfit, sans-serif');
+  if(!retoPistas.length){
+    texto(c,'Pulsa «Pista» en el panel: hay dos, graduadas, y no dicen el valor de ningún eje.',30,430,'#5c6473','14px Outfit, sans-serif');
+  }
+  retoPistas.forEach((t,i)=>nota(c,410+i*76,'Pista '+(i+1)+' · '+t,AZUL,70,30,650));
 
   // panel: la configuracion montada ahora
   rpanel(c,PX.x,PX.y,PX.w,222,'Lo que has montado');
   let y=PX.y+54;const dy=32;
-  const marcaEje=eje=>retoAxes[eje]?(ejeSolC(K.estK,eje).indexOf(cfg[eje])>=0?OK_HEX:BAD_HEX):'#F4EFEA';
-  prow(c,PX.x,y,PX.w,'Válvula',VALV_ABR[cfg.valv],marcaEje('valv'));y+=dy;
-  prow(c,PX.x,y,PX.w,'Topología',TOPO_ABR[cfg.topo],marcaEje('topo'));y+=dy;
-  prow(c,PX.x,y,PX.w,'Área',f1(cfg.area,1)+' mm²',marcaEje('area'));y+=dy;
-  prow(c,PX.x,y,PX.w,'Tarado',f1(cfg.tarado,0)+' bar',marcaEje('tarado'));y+=dy+8;
-  prow(c,PX.x,y,PX.w,'Veredicto',ev.valido?(ev.coste===K.cm?'ÓPTIMO':'vale, pero caro'):'no vale',
-    ev.valido?(ev.coste===K.cm?OK_HEX:WARN_HEX):BAD_HEX);
+  prow(c,PX.x,y,PX.w,'Válvula',VALV_ABR[cfg.valv]);y+=dy;
+  prow(c,PX.x,y,PX.w,'Topología',TOPO_ABR[cfg.topo]);y+=dy;
+  prow(c,PX.x,y,PX.w,'Área',f1(cfg.area,1)+' mm²');y+=dy;
+  prow(c,PX.x,y,PX.w,'Tarado',f1(cfg.tarado,0)+' bar');y+=dy+8;
+  prow(c,PX.x,y,PX.w,'Veredicto',ver?(ev.valido?(ev.coste===K.cm?'ÓPTIMO':'vale, pero caro'):'no vale'):'sin comprobar',
+    ver?(ev.valido?(ev.coste===K.cm?OK_HEX:WARN_HEX):BAD_HEX):'#8f97a5');
 
-  const por=whyCfg(K.estK,cfg);
-  nota(c,PX.y+238,por?('Primero falla: '+CRIT_ROT[por.criterio]+'. '+por.texto):'Los seis criterios se cumplen. Ahora mira si puedes hacer lo mismo más barato.',
-    por?BAD_HEX:OK_HEX,190,706,300);
-  nota(c,570,retoMsg||'De las 216 combinaciones que puedes montar en esta estación, muy pocas cumplen las seis condiciones a la vez. No busques la válvula más cara: busca la más barata que aguante el peor caso.',
+  const por=ver?whyCfg(K.estK,cfg):null;
+  nota(c,PX.y+238,ver
+      ?(por?('Primero falla: '+CRIT_ROT[por.criterio]+'. '+por.texto):'Los seis criterios se cumplen. '+(ev.coste===K.cm?'':'Mira si puedes hacer lo mismo más barato.'))
+      :'Mira la telemetría de la derecha y el tablero del cilindro, cambia los mandos y pulsa Comprobar cuando creas que el montaje cumple.',
+    ver?(por?BAD_HEX:OK_HEX):AZUL,190,706,300);
+  nota(c,570,retoMsg||'Hay 216 combinaciones en cada estación y muy pocas cumplen las seis condiciones a la vez. No busques la válvula más cara: busca la más barata que aguante el peor caso.',
     retoGood?OK_HEX:AZUL,88,30,650);
-  if(retoSolved) texto(c,'✔ reto resuelto',680,404,OK_HEX,'bold 15px Outfit, sans-serif','right');
+  if(retoSolved&&!autoRunning) texto(c,'✔ reto resuelto',680,396,OK_HEX,'bold 15px Outfit, sans-serif','right');
 }
 
 function drawBoard(){
@@ -1149,6 +1158,16 @@ function updateHW(){
   pSan.vel=hw.topo==='sang'?esc(hw.qDer):0;
   pSan.grupo.visible=(hw.topo==='sang');
   pDre.grupo.visible=(hw.qLim>0.01);
+  // rótulo del panel: antes se quedaba en «Banco de ensayo · Aguja 2,4 mm²» en todos los modos
+  {
+    const rot=banco?'Banco de ensayo':CUR.est.nom;
+    const sub=banco?(VALV_ABR[hw.valv]+' · '+f1(hw.area,1)+' mm²'):(VALV_ABR[hw.valv]+' · '+TOPO_ABR[hw.topo]+' · '+f1(hw.area,1)+' mm² · tarado '+f1(hw.tarado,0)+' bar');
+    if(updateHW._k!==rot+'|'+sub){
+      updateHW._k=rot+'|'+sub;
+      const a=el('hwrot'),b=el('hwsub');
+      if(a)a.textContent=rot; if(b)b.textContent=sub;
+    }
+  }
   const colFlujo=hw.cav?MAT.flujoCal:MAT.flujoOk;
   pPre.ms.forEach(m=>m.material=colFlujo);
   drawTablero();
@@ -1313,25 +1332,42 @@ function buildControls(){
   wire('data-tmv',v=>{tmValv=v;});
   wire('data-tmt',v=>{tmTopo=v;});
   wire('data-tma',v=>{tmArea=Number(v);});
-  wire('data-rtv',v=>{retoCfg={...retoCfg,valv:v};retoMsg='';retoGood=false;});
-  wire('data-rtt',v=>{retoCfg={...retoCfg,topo:v};retoMsg='';retoGood=false;});
-  wire('data-rta',v=>{retoCfg={...retoCfg,area:Number(v)};retoMsg='';retoGood=false;});
-  wire('data-rtr',v=>{retoCfg={...retoCfg,tarado:Number(v)};retoMsg='';retoGood=false;});
+  wire('data-rtv',v=>retoEdita({valv:v}));
+  wire('data-rtt',v=>retoEdita({topo:v}));
+  wire('data-rta',v=>retoEdita({area:Number(v)}));
+  wire('data-rtr',v=>retoEdita({tarado:Number(v)}));
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Una pista destapa UN eje: dice que valores de ese eje llevan a una solucion
-// del coste minimo. No resuelve el reto, porque los cuatro ejes se juzgan
-// juntos y acertar uno no garantiza que la combinacion valga.
+// Tocar un mando del reto invalida lo comprobado: el reto deja de estar
+// resuelto hasta que se vuelva a pulsar Comprobar (no queda «latcheado»).
+function retoEdita(patch){
+  retoCfg={...retoCfg,...patch};
+  retoMsg='';retoGood=false;retoSolved=false;solved=false;
+}
+// Dos pistas como máximo, graduadas y por estación: la primera señala qué mirar,
+// la segunda qué comparar. Ninguna nombra el valor de un eje. Quedan registradas
+// en el pizarrón y en __labDebug.pistas().
+const PISTAS={
+  sierra:['La carga casi no cambia (5 900–6 600 N) y la nave sólo se calienta de 18 a 46 °C: pregúntate cuál de los seis criterios te obliga de verdad y cuál no merece que lo pagues.',
+          'Una reguladora compensada corrige variaciones que aquí apenas existen. Mira también el margen del tarado sobre la presión de trabajo: la regla pide entre 10 y 90 bar por encima.'],
+  elevador:['La carga tira del vástago en el sentido del movimiento. Pregúntate qué cámara del cilindro puede hacer de freno y desde qué lado de la reguladora se la presuriza.',
+            'Vigila la presión de la cámara motriz en la telemetría: si baja de cero el aceite cavita. Compara cómo la deja cada montaje, con cualquier área.'],
+  prensa:['La fuerza se multiplica por 14 dentro de la misma carrera y la velocidad tiene que seguirse. Mira cómo se mueve la regulación al cambiar el área con una válvula simple.',
+          'Fíjate en la Δp que queda en la reguladora a carga mínima y a carga máxima, y en si la limitadora llega a cerrarse: no toda regulación buena es una regulación que manda la válvula.'],
+  intemperie:['El aceite va de 4 a 58 °C en esta máquina: compara la deriva térmica de cada familia de reguladora en la telemetría antes de fijarte en el precio.',
+              'Compensar la presión no es compensar la viscosidad. Y el cilindro sólo admite 160 bar: compara con ese tope la presión de pico de cada montaje.'],
+  transfer:['La pieza es ligera y va rápida; lo que se juzga es la factura y el calor que puede disipar un depósito pequeño (0,55 kW). Compara el calor tirado de cada montaje.',
+            'Pregúntate cuánta presión se estrangula en serie y cuánta se deriva sólo cuando hace falta, y si esta carga constante necesita pagar una válvula compensada.'],
+};
 function pista(){
-  const eje=EJES.find(e=>!retoAxes[e]);
-  if(!eje){showToast('💡 Ya has destapado los cuatro ejes. La combinación la tienes que cerrar tú.');return;}
-  retoAxes[eje]=true;beep();
-  const vals=ejeSolC(retoEst,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> Con el resto en su sitio, sirve: '+(vals||'ninguno de los valores disponibles'));
+  if(mode!=='reto')return;
+  if(retoPistas.length>=MAX_PISTAS){showToast('💡 Ya has usado las dos pistas de este caso. Quedan registradas en el pizarrón.');return;}
+  const t=PISTAS[retoEst][retoPistas.length];
+  retoPistas.push(t);beep();
+  showToast('💡 <b>Pista '+retoPistas.length+' de '+MAX_PISTAS+'.</b> '+t);
   afterEdit();
 }
-const EJE_VAL_ROT={valv:v=>VALV_ABR[v],topo:v=>TOPO_ABR[v],area:v=>f1(v,1)+' mm²',tarado:v=>f1(v,0)+' bar'};
 
 function updateScenarioInfo(){
   const d=el('scenarioInfo');
@@ -1351,6 +1387,8 @@ function setMode(k){
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
   el('retoBox').style.display=k==='reto'?'':'none';
+  // en el reto el pizarrón de criterios es lo que hay que leer: el panel izquierdo (HUD) lo tapaba a 1600×900
+  { const hud=el('hud'); if(hud) hud.style.display=(k==='reto')?'none':''; }
   computa();
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
@@ -1374,9 +1412,8 @@ function newSignal(){
     const i=EST_KEYS.indexOf(tmEst);tmEst=EST_KEYS[(i+1)%EST_KEYS.length];
   }else{
     const i=EST_KEYS.indexOf(retoEst);retoEst=EST_KEYS[(i+1)%EST_KEYS.length];
-    retoSolveBuild(true);
+    retoSolveBuild(true);resiembras++;
   }
-  retoSolved=false;solved=false;retoMsg='';retoGood=false;
   computa();buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1413,22 +1450,24 @@ function updateTele(){
     h+=teleRow('Se queda por el camino',pc1(per),per>0.15?'bad':'');
   }else{
     const K=CUR,ev=K.ev,E=K.est,p=K.pM,cfg=K.cfg;
-    h+=teleRow('Velocidad media',ev.seco?'no arranca':f1(ev.vMed,2)+' mm/s',ev.okVel?'ok':'bad');
+    // en el reto los colores de cumple/no cumple son un veredicto: sólo tras Comprobar
+    const vr=retoVer(), cl=b=>vr?(b?'ok':'bad'):'';
+    h+=teleRow('Velocidad media',ev.seco?'no arranca':f1(ev.vMed,2)+' mm/s',cl(ev.okVel));
     h+=teleRow('Objetivo',f1(E.vObj,0)+' ± '+f1(E.tolVel*100,0)+' % mm/s');
-    h+=teleRow('Regulación con la carga',ev.seco?'—':pc1(ev.reg),ev.okReg?'ok':'bad');
-    h+=teleRow('Deriva térmica',ev.seco?'—':pc1(ev.drift),ev.okTemp?'ok':'bad');
+    h+=teleRow('Regulación con la carga',ev.seco?'—':pc1(ev.reg),cl(ev.okReg));
+    h+=teleRow('Deriva térmica',ev.seco?'—':pc1(ev.drift),cl(ev.okTemp));
     h+=teleRow('Presión de trabajo',f1(ev.pTrab,1)+' bar');
-    h+=teleRow('Tarado · a caudal pleno',f1(cfg.tarado,0)+' · '+f1(pFull(cfg.tarado),1)+' bar',ev.okPresion?'ok':'bad');
-    h+=teleRow('Pico de presión',f1(ev.pPico,1)+' bar',ev.pPico>E.pMaxCil?'bad':'ok');
+    h+=teleRow('Tarado · a caudal pleno',f1(cfg.tarado,0)+' · '+f1(pFull(cfg.tarado),1)+' bar',cl(ev.okPresion));
+    h+=teleRow('Pico de presión',f1(ev.pPico,1)+' bar',cl(ev.pPico<=E.pMaxCil));
     h+=teleRow('Máxima del cilindro',f1(E.pMaxCil,0)+' bar');
     h+=teleRow('Cámara motriz · resistente',f1(p.pmot,1)+' / '+f1(p.pres,1)+' bar',p.cavita?'bad':'');
     h+=teleRow('Δp en la reguladora',f1(p.dpv,2)+' bar',ev.satura?'bad':'');
-    h+=teleRow('Caudal al actuador',f1(p.q,2)+' L/min','ok');
+    h+=teleRow('Caudal al actuador',f1(p.q,2)+' L/min');
     h+=teleRow('· derivado / limitadora / fuga',f1(p.qDer,2)+' / '+f1(p.qLim,2)+' / '+f1(p.fuga,2));
-    h+=teleRow('Calor tirado',f1(ev.calor,2)+' kW',ev.okTermico?'ok':'bad');
+    h+=teleRow('Calor tirado',f1(ev.calor,2)+' kW',cl(ev.okTermico));
     h+=teleRow('Disipación de la estación',f1(E.Pdis,2)+' kW');
     h+=teleRow('Consumo anual',f1(ev.kWh,0)+' kWh');
-    h+=teleRow('Coste de la instalación',f1(ev.coste,0)+' u.',(K.cm!==null&&ev.valido&&ev.coste===K.cm)?'ok':'');
+    h+=teleRow('Coste de la instalación',f1(ev.coste,0)+' u.');
   }
   el('tele').innerHTML=h;
 }
@@ -1446,15 +1485,21 @@ function updateReport(){
   }else{
     const K=CUR,ev=K.ev,E=K.est;
     h+='<b>'+E.nom+'</b><br>'+EST_DET[K.estK]+'<br><br>';
-    if(ev.valido){
-      h+='<span style="color:'+OK_HEX+'">Los seis criterios se cumplen.</span> La instalación cuesta '+f1(ev.coste,0)+' unidades';
-      h+=(K.cm!==null&&ev.coste===K.cm)?' y es <b>la más barata posible</b> para esta estación.':' — la más barata válida cuesta '+f1(K.cm,0)+'.';
+    if(!retoVer()){
+      h+='<span style="color:var(--muted)">Monta la instalación con los mandos de arriba y pulsa <b>Comprobar</b>: hasta entonces no hay veredicto. Mira la telemetría y el tablero del cilindro y razona qué criterio se te está yendo.</span>';
     }else{
-      h+='<span style="color:'+BAD_HEX+'">Falla '+ev.fallos.length+' de 6.</span> El primero que salta: <b>'+CRIT_ROT[ev.primero]+'</b>.<br>'+MOTIVO[ev.primero];
+      if(ev.valido){
+        h+='<span style="color:'+OK_HEX+'">Los seis criterios se cumplen.</span> La instalación cuesta '+f1(ev.coste,0)+' unidades';
+        h+=(mode!=='reto')
+          ?((K.cm!==null&&ev.coste===K.cm)?' y es <b>la más barata posible</b> para esta estación.':'.')
+          :((K.cm!==null&&ev.coste===K.cm)?' y es <b>la más barata posible</b> para esta estación.':', pero existe una válida más barata.');
+      }else{
+        h+='<span style="color:'+BAD_HEX+'">Falla '+ev.fallos.length+' de 6.</span> El primero que salta: <b>'+CRIT_ROT[ev.primero]+'</b>.<br>'+MOTIVO[ev.primero];
+      }
+      if(ev.desboca)h+='<br><br><span style="color:'+BAD_HEX+'">La cámara motriz cavita y el actuador se desboca: con esta carga, ahí no hay quien sujete nada.</span>';
+      else if(ev.seco)h+='<br><br><span style="color:'+BAD_HEX+'">No arranca: la limitadora se abre entera antes de que el estrangulador deje pasar caudal.</span>';
+      if(ev.satura)h+='<br><br><span style="color:'+WARN_HEX+'">El compensador satura: se le acaba la caída de presión que tiene que gastar y deja de compensar. A partir de ahí se comporta como un estrangulador cualquiera.</span>';
     }
-    if(ev.desboca)h+='<br><br><span style="color:'+BAD_HEX+'">La cámara motriz cavita y el actuador se desboca: con esta carga, ahí no hay quien sujete nada.</span>';
-    else if(ev.seco)h+='<br><br><span style="color:'+BAD_HEX+'">No arranca: la limitadora se abre entera antes de que el estrangulador deje pasar caudal.</span>';
-    if(ev.satura)h+='<br><br><span style="color:'+WARN_HEX+'">El compensador satura: se le acaba la caída de presión que tiene que gastar y deja de compensar. A partir de ahí se comporta como un estrangulador cualquiera.</span>';
   }
   c.innerHTML=h;
 }
@@ -1465,35 +1510,48 @@ const N_CFG=VALV_KEYS.length*TOPO_KEYS.length*AREAS.length*TARADOS.length;
 function retoSolveBuild(silent){
   const s=startCfg(retoEst);
   retoCfg=s?{...s}:{valv:'agu',topo:'in',area:2.4,tarado:140};
-  retoSolved=false;retoMsg='';retoGood=false;
-  retoAxes={valv:false,topo:false,area:false,tarado:false};
+  retoSolved=false;solved=false;retoMsg='';retoGood=false;
+  retoVista=null;intentos=0;fallos=0;retoPistas=[];
   if(!silent){computa();buildControls();updateRetoSpec();refreshAll();}
 }
 function updateRetoSpec(){
   const E=ESTACIONES[retoEst];
-  const v=validas(retoEst).length, cm=costeMin(retoEst);
   el('retoSpec').innerHTML=
     '<b>'+E.nom+'</b><br>'+
-    'Monta la instalación <b>válida más barata</b>: los seis criterios en verde y el coste mínimo. '+
-    'De las '+f1(N_CFG,0)+' combinaciones posibles, <b>'+f1(v,0)+'</b> son válidas y la más barata cuesta <b>'+f1(cm,0)+'</b> unidades.<br>'+
-    '<span style="color:var(--muted)">Objetivo '+f1(E.vObj,0)+' mm/s ± '+f1(E.tolVel*100,0)+' % · carga de '+f1(E.Fmin,0)+' a '+f1(E.Fmax,0)+' N · aceite de '+f1(E.Tfrio,0)+' a '+f1(E.Tcal,0)+' °C · bomba de '+f1(E.Qb,0)+' L/min · cilindro hasta '+f1(E.pMaxCil,0)+' bar · disipa '+f1(E.Pdis,2)+' kW.</span>';
+    'Monta la instalación <b>válida más barata</b>: los seis criterios en verde y, entre las que los cumplen, la de menor coste. '+
+    'Hay '+f1(N_CFG,0)+' combinaciones posibles. El veredicto no se ve en vivo: sólo aparece al pulsar <b>Comprobar</b>.<br>'+
+    '<span style="color:var(--muted)">Objetivo '+f1(E.vObj,0)+' mm/s ± '+f1(E.tolVel*100,0)+' % · carga de '+f1(E.Fmin,0)+' a '+f1(E.Fmax,0)+' N · aceite de '+f1(E.Tfrio,0)+' a '+f1(E.Tcal,0)+' °C · bomba de '+f1(E.Qb,0)+' L/min · cilindro hasta '+f1(E.pMaxCil,0)+' bar · disipa '+f1(E.Pdis,2)+' kW.</span><br>'+
+    '<b id="retoInt">Intentos: '+intentos+' · fallos '+fallos+' de '+MAX_INT+'</b> · pistas: '+retoPistas.length+' de '+MAX_PISTAS+
+    '<span style="color:var(--muted)"> · tras '+MAX_INT+' comprobaciones fallidas se te da un caso nuevo.</span>';
 }
-function retoExplain(){
-  const ev=evalC(retoEst,retoCfg), cm=costeMin(retoEst);
+// Qué se le dice al alumno tras comprobar. Nunca la respuesta: sólo el
+// criterio que falla y su causa, o que existe una combinación más barata.
+function retoExplain(ev){
+  if(!ev)ev=evalC(retoEst,retoCfg);
+  const cm=costeMin(retoEst);
   if(!ev.valido)return 'Falla <b>'+CRIT_ROT[ev.primero]+'</b>. '+MOTIVO[ev.primero];
-  if(ev.coste!==cm)return 'Vale, pero es cara: cuesta '+f1(ev.coste,0)+' y el mínimo es '+f1(cm,0)+'. Hay al menos una combinación válida más barata.';
+  if(ev.coste!==cm)return 'Cumple los seis criterios, pero hay al menos una combinación válida más barata.';
   return 'Los seis criterios en verde y al coste mínimo: '+f1(ev.coste,0)+' unidades.';
 }
-// Comprobar tambien destapa los ejes que ya estan en un valor bueno: nunca
-// vuelve a taparlos, porque una pista pedida no se retira.
 function checkReto(){
   const ev=evalC(retoEst,retoCfg), cm=costeMin(retoEst);
-  EJES.forEach(e=>{ if(ejeSolC(retoEst,e).some(v=>String(v)===String(retoCfg[e]))) retoAxes[e]=true; });
+  retoVista=retoEst+'|'+cfgKey(retoCfg);
   retoSolved=ev.valido&&cm!==null&&ev.coste===cm;
   retoGood=retoSolved;
-  retoMsg=retoExplain();
   solved=retoSolved;
+  intentos++;
+  if(!retoSolved)fallos++;
+  const base=retoExplain(ev);retoMsg=base;
+  if(!retoSolved&&fallos<MAX_INT)retoMsg+=' (fallo '+fallos+' de '+MAX_INT+')';
+  if(!retoSolved&&fallos>=MAX_INT){
+    // tres fallos: no se puede aprobar por eliminación, se resiembra otro caso
+    const i=EST_KEYS.indexOf(retoEst);retoEst=EST_KEYS[(i+1)%EST_KEYS.length];
+    retoSolveBuild(true);resiembras++;
+    retoMsg=base+' Tres intentos sin acertar: se te da un caso nuevo, <b>'+ESTACIONES[retoEst].nom+'</b>.';
+    if(!autoRunning){computa();buildControls();clearDx();buildQuiz();refreshQuestion();}
+  }
   synth.beep(retoSolved?880:200,0.10,0.05);
+  if(mode==='reto')updateRetoSpec();
   refreshAll();
   if(!autoRunning)showToast((retoSolved?'✅ ':'❌ ')+retoMsg);
   return retoSolved;
@@ -1505,67 +1563,89 @@ function checkReto(){
    propio motor y el alumno puede comprobarlas en la telemetria.
    ============================================================ */
 let QUIZ={};
+// Cada pregunta nombra su caso y todas sus cifras salen del motor en el momento
+// de construirla (nada escrito a mano). Las cuatro opciones miden lo mismo de
+// largo, la correcta no es la más larga y se barajan con Fisher-Yates.
 function buildQuiz(){
+  const M=(e,v,t,a,tar)=>evalua(e,v,t,a,tar);
+  const pr=x=>f1(x*100,1)+' %';
+  // ---- banco: punto de referencia 2,4 mm² · 8 bar, 4 a 58 °C ----
+  const A0=2.4, P0=8;
+  const sube=v=>caudalEstrang(v,A0,P0,58)/caudalEstrang(v,A0,P0,4)-1;
+  const lamB=T=>{const nu=nuT(T),rho=rhoT(T),dh=Math.sqrt(4*A0*1e-6/Math.PI);return (dh/(nu*1e-6))*Math.sqrt(2*P0*1e5/rho);};
+  const l4=lamB(4), l58=lamB(58), lcD=VALVULAS.dia.lamC, lcA=VALVULAS.agu.lamC;
+  // ---- topología: elevador, canto vivo, 2,4 mm², tarado 80 ----
+  const eIn=M('elevador','dia','in',2.4,TAR_EST.elevador), eOut=M('elevador','dia','out',2.4,TAR_EST.elevador), eSa=M('elevador','dia','sang',2.4,TAR_EST.elevador);
+  const eT=M('elevador','dia','in',2.4,210);
+  const pmArea=AREAS.map(a=>M('elevador','dia','in',a,TAR_EST.elevador).pts.pM.pmot);
+  // ---- carga: prensa, canto vivo (tarado 210) ----
+  const TP=TAR_EST.prensa, Ep=ESTACIONES.prensa;
+  const c1=M('prensa','dia','in',1.2,TP), c2=M('prensa','dia','in',4.8,TP), c3=M('prensa','comp','in',4.8,TP), c4=M('prensa','comp','in',9.6,TP);
+  // ---- térmico: cabezal forestal, 2,4 mm², tarado 140 ----
+  const TT=TAR_EST.intemperie;
+  const t1=M('intemperie','agu','in',2.4,TT), t2=M('intemperie','dia','in',2.4,TT), t3=M('intemperie','comp','in',2.4,TT), t4=M('intemperie','term','in',2.4,TT);
+  // ---- reto: la estación que toca ----
+  const Er=ESTACIONES[retoEst], ptr=pTrabajo(retoEst);
   QUIZ={
     banco:{
-      pregunta:'Con la <b>misma abertura</b> (2,4 mm²) y el <b>mismo Δp</b> (8 bar), al calentar el aceite de 4 °C a 58 °C el caudal por la <b>aguja</b> sube un <b>606 %</b> y por el <b>canto vivo</b> sólo un <b>3,5 %</b>. ¿Por qué esa diferencia?',
+      pregunta:'Con la <b>misma abertura</b> ('+f1(A0,1)+' mm²) y el <b>mismo Δp</b> ('+f1(P0,0)+' bar), al calentar el aceite de 4 °C a 58 °C el caudal por la <b>aguja</b> sube un <b>'+pc1(sube('agu'))+'</b> y por el <b>canto vivo</b> sólo un <b>'+pc1(sube('dia'))+'</b> (pon el banco en esos valores para verlo en la telemetría). ¿Por qué esa diferencia?',
       opciones:[
-        {t:'Porque el canto vivo ya trabaja en turbulento y la aguja no',ok:true,
-         why:'Exacto. El número de transición λ vale 180 en frío y 3 425 en caliente. Para el canto vivo (λc = 150) la relación 2λ/λc pasa de 2,4 a 45,7: la tangente hiperbólica ya está saturada en los dos casos y C_d apenas se mueve, de 0,610 a 0,620. Para la aguja (λc = 2 500) pasa de 0,144 a 2,740: en frío está en plena zona laminar, donde C_d crece casi proporcional a λ, o sea a 1/ν.'},
-        {t:'Porque el aceite frío es mucho más denso y pesa más',ok:false,
-         why:'No. La densidad sólo baja de 878 a 850 kg/m³ entre 4 °C y 58 °C, un 3 %. El término √(2Δp/ρ) cambia menos del 2 %: no puede explicar un 606 %. Lo que cambia 18,7 veces es la viscosidad cinemática, de 414,2 a 22,1 mm²/s.'},
-        {t:'Porque la aguja deja pasar menos área al calentarse el vástago',ok:false,
-         why:'No. La abertura es un dato del ensayo y vale 2,4 mm² en las dos válvulas: el laboratorio no dilata el vástago. La única diferencia entre las dos familias es λc, el número de transición del orificio.'},
-        {t:'Porque el canto vivo tiene un coeficiente de descarga máximo mayor',ok:false,
-         why:'No. Las dos tienen el mismo C_d∞ = 0,62, y el banco lo enseña en la telemetría. Lo que las separa es lo deprisa que cada una llega a ese techo: λc = 150 para el canto vivo y λc = 2 500 para la aguja.'},
+        {t:'Porque el canto vivo ya trabaja en turbulento y la aguja todavía no',ok:true,
+         why:'Exacto. El número de transición λ vale '+f1(l4,0)+' en frío y '+f1(l58,0)+' en caliente. Para el canto vivo (λc = '+f1(lcD,0)+') la relación 2λ/λc pasa de '+f1(2*l4/lcD,1)+' a '+f1(2*l58/lcD,1)+': la tangente hiperbólica ya está saturada en los dos casos y C_d apenas se mueve, de '+f1(cdMerritt('dia',A0,P0,4),3)+' a '+f1(cdMerritt('dia',A0,P0,58),3)+'. Para la aguja (λc = '+f1(lcA,0)+') pasa de '+f1(2*l4/lcA,3)+' a '+f1(2*l58/lcA,3)+': en frío está en plena zona laminar, donde C_d crece casi proporcional a λ, o sea a 1/ν.'},
+        {t:'Porque el aceite frío es mucho más denso y por eso pesa más al pasar',ok:false,
+         why:'No. La densidad sólo baja de '+f1(rhoT(4),0)+' a '+f1(rhoT(58),0)+' kg/m³ entre 4 °C y 58 °C, un '+pr(1-rhoT(58)/rhoT(4))+'. El término √(2Δp/ρ) cambia menos del 2 %: no puede explicar esa diferencia. Lo que cambia '+f1(nuT(4)/nuT(58),1)+' veces es la viscosidad cinemática, de '+f1(nuT(4),1)+' a '+f1(nuT(58),1)+' mm²/s.'},
+        {t:'Porque la aguja deja pasar menos área al calentarse el vástago y dilatarse',ok:false,
+         why:'No. La abertura es un dato del ensayo y vale '+f1(A0,1)+' mm² en las dos válvulas: el laboratorio no dilata el vástago. La única diferencia entre las dos familias es λc, el número de transición del orificio.'},
+        {t:'Porque el canto vivo tiene un coeficiente de descarga máximo bastante mayor',ok:false,
+         why:'No. Las dos tienen el mismo C_d∞ = '+f1(CD_INF,2)+', y el banco lo enseña en la telemetría. Lo que las separa es lo deprisa que cada una llega a ese techo: λc = '+f1(lcD,0)+' para el canto vivo y λc = '+f1(lcA,0)+' para la aguja.'},
       ]},
     topo:{
-      pregunta:'En el descenso del elevador la carga <b>tira</b> del vástago. Con la reguladora a la entrada la velocidad se va a <b>71,3 mm/s</b> (se pedían 40) y la cámara motriz cae a <b>−32,1 bar</b>. ¿Qué está pasando?',
+      pregunta:'En el descenso del <b>elevador</b> (estación de referencia: selecciónala en Topología) la carga <b>tira</b> del vástago. Con la reguladora de canto vivo de 2,4 mm² a la <b>entrada</b> la velocidad se va a <b>'+f1(eIn.vMed,1)+' mm/s</b> (se pedían '+f1(ESTACIONES.elevador.vObj,0)+') y la cámara motriz cae a <b>'+f1(eIn.pts.pM.pmot,1)+' bar</b>. ¿Qué está pasando?',
       opciones:[
-        {t:'La carga vacía la cámara motriz más deprisa de lo que el estrangulador la llena',ok:true,
-         why:'Eso es. Con carga que arrastra, el cilindro tira de su propio aceite: la cámara motriz se queda en depresión, el aceite cavita y quien fija la velocidad es la carga, no la válvula. Poniendo la reguladora a la salida (meter-out) la cámara resistente se presuriza a 81,8 bar y hace de freno: la velocidad baja a 40,5 mm/s, justo lo pedido.'},
-        {t:'La limitadora está mal tarada y deja subir la presión',ok:false,
-         why:'No. El problema es el contrario: falta presión, no sobra. La limitadora ni siquiera abre, porque la presión de la bomba nunca llega a su tarado. Cambiar el tarado no arregla una carga que arrastra; hay que estrangular el aceite que <i>sale</i> del cilindro.'},
-        {t:'El estrangulador está demasiado cerrado y ahoga la entrada',ok:false,
-         why:'Al revés de lo que parece: por muy cerrado que esté, el meter-in nunca sujeta esta carga. Prueba con cualquier área en modo Topología: la velocidad se queda por encima del objetivo y la cámara motriz sigue en depresión, porque la reguladora está en el lado que no aguanta el esfuerzo.'},
-        {t:'El sangrado (bleed-off) lo resolvería igual de bien',ok:false,
-         why:'No. El sangrado deriva parte del caudal al tanque, pero deja el cilindro conectado directamente a la línea: con carga que arrastra da 77,6 mm/s y −31,8 bar en la cámara motriz, prácticamente lo mismo que el meter-in. El sangrado sólo vale con cargas que se oponen.'},
+        {t:'La carga vacía la cámara motriz más deprisa de lo que la llena la válvula',ok:true,
+         why:'Eso es. Con carga que arrastra, el cilindro tira de su propio aceite: la cámara motriz se queda en depresión, el aceite cavita y quien fija la velocidad es la carga, no la válvula. Con la reguladora a la salida (meter-out) la cámara resistente se presuriza a '+f1(eOut.pts.pM.pres,1)+' bar y hace de freno: la velocidad baja a '+f1(eOut.vMed,1)+' mm/s, justo lo pedido.'},
+        {t:'La limitadora está mal tarada y deja que la presión de la bomba suba demasiado',ok:false,
+         why:'No. La presión de la bomba se queda en '+f1(eIn.pts.pM.pb,1)+' bar, el techo del tarado de '+f1(TAR_EST.elevador,0)+' bar con su 6 % de sobrepresión: no sobra presión, falta en la cámara motriz ('+f1(eIn.pts.pM.pmot,1)+' bar). Y subir el tarado a 140 o 210 bar no lo arregla: la velocidad sigue en '+f1(eT.vMed,1)+' mm/s y la cámara cavita igual.'},
+        {t:'El estrangulador está demasiado cerrado y ahoga la entrada del cilindro motriz',ok:false,
+         why:'No. Prueba las seis áreas, de '+f1(AREAS[0],1)+' a '+f1(AREAS[AREAS.length-1],1)+' mm²: con todas la cámara motriz sigue en depresión (de '+f1(Math.min(...pmArea),1)+' a '+f1(Math.max(...pmArea),1)+' bar). Las áreas pequeñas sólo hacen que se desboque más despacio; ninguna sujeta esta carga con el estrangulador a la entrada.'},
+        {t:'El sangrado a tanque lo resolvería igual de bien que cambiar a meter-out aquí',ok:false,
+         why:'No. El sangrado deriva parte del caudal al tanque, pero deja el cilindro conectado directamente a la línea: con esta carga da '+f1(eSa.vMed,1)+' mm/s y '+f1(eSa.pts.pM.pmot,1)+' bar en la cámara motriz, prácticamente lo mismo que el meter-in. Con una carga que arrastra, el sangrado tampoco sujeta.'},
       ]},
     carga:{
-      pregunta:'La prensa pasa de 9 000 N a 128 000 N, <b>14,2 veces</b> más carga. Con canto vivo <b>ningún</b> área da a la vez los 14 mm/s pedidos y menos del 10 % de regulación: a 1,2 mm² sale 16,8 mm/s con un 58,6 % y a 4,8 mm² sale 28,4 mm/s con un 6,1 %. ¿Por qué?',
+      pregunta:'La <b>prensa</b> pasa de '+f1(Ep.Fmin,0)+' N a '+f1(Ep.Fmax,0)+' N, <b>'+f1(Ep.Fmax/Ep.Fmin,1)+' veces</b> más carga. Con canto vivo y tarado de '+f1(TP,0)+' bar hay que cumplir a la vez los '+f1(Ep.vObj,0)+' mm/s pedidos y menos de un '+pc1(Ep.tolReg)+' de regulación, y <b>ningún</b> área lo logra: a 1,2 mm² sale '+f1(c1.vMed,1)+' mm/s con un '+pc1(c1.reg)+' y a 4,8 mm² sale '+f1(c2.vMed,1)+' mm/s con un '+pc1(c2.reg)+'. ¿Por qué?',
       opciones:[
-        {t:'Porque en un orificio simple el Δp depende de la carga, y si lo abres deja de mandar él y manda la bomba',ok:true,
-         why:'Justo. Con el orificio pequeño la caída en la válvula es p_b − p_carga, y como p_carga va de 11,5 a 163,0 bar la velocidad se hunde: 58,6 % de regulación. Con el orificio grande la limitadora se cierra y el cilindro se lleva <i>todo</i> el caudal de la bomba: la regulación parece buena (6,1 %, sólo por la fuga interna de la bomba) pero la velocidad es el doble de la pedida. La compensada a 4,8 mm² mantiene Δp en 8,00 bar pase lo que pase y da 15,25 mm/s con un 0,0 %.'},
-        {t:'Porque el canto vivo tiene demasiada deriva térmica',ok:false,
-         why:'No es eso. En la prensa la temperatura de trabajo es fija; lo que cambia es la carga. De hecho el canto vivo es la familia con <i>menos</i> deriva térmica de todas, y aun así aquí falla: el problema no es el aceite, es que el Δp de un orificio simple no está compensado.'},
-        {t:'Porque hace falta subir el tarado de la limitadora por encima de 210 bar',ok:false,
-         why:'No. Con 210 bar de tarado la presión a caudal pleno es de 222,6 bar y la de trabajo de 163,4: hay margen de sobra. Subir el tarado sólo añadiría calor y presión inútil al cilindro; no cambiaría en nada la relación entre carga y velocidad.'},
-        {t:'Con la compensada basta con abrir mucho el estrangulador',ok:false,
-         why:'Cuidado con eso. La compensada a 9,6 mm² se <b>satura</b>: el orificio pide menos de los 8 bar de consigna y el compensador se queda sin margen. Vuelve a comportarse como un orificio simple, 28,6 mm/s y 6,2 % de regulación. Una reguladora compensada mal dimensionada no compensa nada.'},
+        {t:'Con orificio simple la carga fija el Δp; si se abre, manda la bomba y no la válvula',ok:true,
+         why:'Justo. Con el orificio pequeño la caída en la válvula es p_b − p_carga, y como p_carga va de '+f1(c1.pts.pA.pmot,1)+' a '+f1(c1.pts.pB.pmot,1)+' bar la velocidad se hunde: '+pc1(c1.reg)+' de regulación. Con el orificio grande la limitadora se cierra y el cilindro se lleva todo el caudal de la bomba: la regulación parece buena ('+pc1(c2.reg)+') pero la velocidad es '+f1(c2.vMed/Ep.vObj,1)+' veces la pedida. La compensada a 4,8 mm² mantiene Δp en '+f1(c3.pts.pM.dpv,2)+' bar pase lo que pase y da '+f1(c3.vMed,2)+' mm/s con un '+pc1(c3.reg)+'.'},
+        {t:'Porque el canto vivo deriva demasiado con la temperatura en una prensa de conformado',ok:false,
+         why:'No es eso. En la prensa el aceite trabaja de '+f1(Ep.Tfrio,0)+' a '+f1(Ep.Tcal,0)+' °C y lo que cambia es la carga. El canto vivo apenas deriva con la temperatura ('+pc1(c2.drift)+' a 4,8 mm²) y aun así falla: el problema no es el aceite, es que el Δp de un orificio simple no está compensado.'},
+        {t:'Porque hay que subir el tarado de la limitadora por encima de los 210 bar de ahora',ok:false,
+         why:'No. Con '+f1(TP,0)+' bar de tarado la presión a caudal pleno es de '+f1(pFull(TP),1)+' bar y la de trabajo de '+f1(c2.pTrab,1)+': hay margen de sobra. Subir el tarado sólo añadiría calor y presión inútil al cilindro; no cambiaría la relación entre carga y velocidad.'},
+        {t:'Con una compensada basta abrir el estrangulador cuanto se pueda para ganar margen',ok:false,
+         why:'Cuidado con eso. La compensada a 9,6 mm² se <b>satura</b>: el orificio pide menos de los '+f1(DP_COMP,0)+' bar de consigna y el compensador se queda sin margen. Vuelve a comportarse como un orificio simple, '+f1(c4.vMed,1)+' mm/s y '+pc1(c4.reg)+' de regulación. Una reguladora compensada mal dimensionada no compensa nada.'},
       ]},
     termico:{
-      pregunta:'El cabezal está a la intemperie, de 4 °C a 58 °C. La aguja deriva un <b>64,6 %</b>, el canto vivo un <b>1,8 %</b>… y la <b>compensada de presión</b> un <b>113,9 %</b>, peor que la aguja sola. ¿Cómo puede ser?',
+      pregunta:'El <b>cabezal forestal</b> está a la intemperie, de '+f1(ESTACIONES.intemperie.Tfrio,0)+' °C a '+f1(ESTACIONES.intemperie.Tcal,0)+' °C. Con 2,4 mm² la aguja deriva un <b>'+pc1(t1.drift)+'</b>, el canto vivo un <b>'+pc1(t2.drift)+'</b>… y la <b>compensada de presión</b> un <b>'+pc1(t3.drift)+'</b>, peor que la aguja sola. ¿Cómo puede ser?',
       opciones:[
-        {t:'Porque el compensador fija Δp en 8 bar y con menos Δp el orificio se mete aún más en la zona laminar',ok:true,
-         why:'Eso es. El compensador hace muy bien su trabajo: mantiene 8,00 bar en frío y en caliente. Pero su orificio es de tipo aguja (λc = 2 500) y con sólo 8 bar el λ es pequeño; en frío C_d se desploma y la velocidad se queda en 3,68 mm/s frente a 25,99 mm/s en caliente. Compensar la presión no compensa la viscosidad. Para eso está la compensada térmica, que corrige el área con la temperatura y baja la deriva al 1,8 %.'},
-        {t:'Porque el compensador tiene fugas internas que crecen con el calor',ok:false,
-         why:'No. Las fugas que modela el laboratorio son las de la bomba, proporcionales a p/μ, y se ven aparte en la telemetría: valen centésimas de litro por minuto. No mueven la velocidad del cilindro un 113 %.'},
-        {t:'Porque la compensada está saturada en frío',ok:false,
-         why:'No: la telemetría enseña Δp = 8,00 bar en los dos extremos, en frío y en caliente, sin saturar. El compensador cumple su consigna; el problema es que esa consigna es baja y deja el orificio en la zona donde manda la viscosidad.'},
-        {t:'Porque a 4 °C la limitadora abre antes y roba caudal',ok:false,
-         why:'No. En frío el cilindro va más despacio, así que pide menos caudal y la limitadora derivaría <i>más</i>, no menos: eso frenaría todavía más. Pero la causa de fondo es el coeficiente de descarga, que en frío cae por el número de transición λ, no el reparto de caudal.'},
+        {t:'El compensador fija Δp en 8 bar y con tan poca caída el orificio entra en laminar',ok:true,
+         why:'Eso es. El compensador hace muy bien su trabajo: mantiene '+f1(t3.pts.pF.dpv,2)+' bar en frío y '+f1(t3.pts.pC.dpv,2)+' en caliente. Pero su orificio es de tipo aguja (λc = '+f1(lcA,0)+') y con sólo 8 bar el λ es pequeño; en frío C_d se desploma y la velocidad se queda en '+f1(t3.pts.pF.v,2)+' mm/s frente a '+f1(t3.pts.pC.v,2)+' mm/s en caliente. Compensar la presión no compensa la viscosidad. Para eso está la compensada térmica, que corrige el área con la temperatura y baja la deriva al '+pc1(t4.drift)+'.'},
+        {t:'Las fugas internas del compensador crecen con el calor y le quitan caudal al cilindro',ok:false,
+         why:'No. La única fuga que modela el laboratorio es la de la bomba, proporcional a p/μ, y está aparte en la telemetría: con la compensada vale '+f1(t3.pts.pF.fuga,2)+' L/min en frío y '+f1(t3.pts.pC.fuga,2)+' en caliente, frente a un caudal al cilindro de '+f1(t3.pts.pF.q,2)+' y '+f1(t3.pts.pC.q,2)+' L/min. Crece con el calor, sí, pero no explica una diferencia de velocidad de ese tamaño.'},
+        {t:'El compensador se satura en frío y se queda sin caída de presión que poder gastar',ok:false,
+         why:'No: la telemetría enseña Δp = '+f1(t3.pts.pF.dpv,2)+' bar en frío y '+f1(t3.pts.pC.dpv,2)+' en caliente, sin saturar ('+(t3.pts.pF.satura||t3.pts.pC.satura?'satura':'no satura')+'). El compensador cumple su consigna; el problema es que esa consigna es baja y deja el orificio en la zona donde manda la viscosidad.'},
+        {t:'La compensada va con una limitadora tarada distinta a la de la aguja y el canto vivo',ok:false,
+         why:'No. En este modo el tarado es el mismo ('+f1(TT,0)+' bar) para las cuatro válvulas: la limitadora no cambia de una a otra. La diferencia viene del coeficiente de descarga, que en frío cae por el número de transición λ, no del reparto de caudal.'},
       ]},
     reto:{
-      pregunta:'La sierra trabaja a <b>33,8 bar</b>. De los tres tarados disponibles sólo <b>80 bar</b> es admisible. ¿Por qué no valen 140 ni 210?',
+      pregunta:'<b>'+Er.nom+'</b>: la presión de trabajo sale de <b>'+f1(ptr,1)+' bar</b> y el cilindro aguanta '+f1(Er.pMaxCil,0)+' bar. La limitadora necesita un 6 % de sobrepresión sobre su tarado para pasar el caudal completo. ¿Qué regla debe cumplir el tarado que elijas?',
       opciones:[
-        {t:'Porque la limitadora tiene que quedar por encima de la de trabajo, pero no tan alta que sólo sirva para hacer calor',ok:true,
-         why:'Eso es. La ventana admisible va de 43,8 a 123,8 bar: al menos 10 bar por encima de la presión de trabajo para que no abra en servicio, y como mucho 90 por encima para no disipar energía ni castigar el cilindro en un atasco. Con el 6 % de sobrepresión a caudal pleno, 80 bar dan 84,8 (dentro) y 140 dan 148,4 (fuera por arriba).'},
-        {t:'Porque a 140 bar la bomba no puede llegar',ok:false,
-         why:'No. La bomba de la sierra alcanza de sobra ese tarado; si no lo alcanzara, la limitadora simplemente nunca abriría. El criterio es de diseño, no de capacidad: un tarado muy por encima de la presión de trabajo convierte en calor toda la diferencia cuando la válvula descarga.'},
-        {t:'Porque un tarado alto haría al cilindro ir más deprisa',ok:false,
-         why:'No directamente. La velocidad la fija el caudal que pasa por el estrangulador, y el tarado sólo entra en juego cuando la limitadora abre. Lo que sí cambia un tarado alto es la presión máxima que ve el cilindro y el calor que se genera.'},
-        {t:'Porque con 210 bar la reguladora se saturaría',ok:false,
-         why:'No: la saturación del compensador depende del Δp que le queda disponible, y con más presión de línea tendría <i>más</i> margen, no menos. El tarado se descarta porque queda 176 bar por encima de la presión de trabajo de la sierra.'},
+        {t:'A caudal pleno, entre '+f1(MARG_LIM,0)+' y '+f1(MARG_MAX,0)+' bar sobre la presión de trabajo y bajo el tope del cilindro',ok:true,
+         why:'Eso es. Al menos '+f1(MARG_LIM,0)+' bar por encima de la de trabajo para que no abra en servicio, y como mucho '+f1(MARG_MAX,0)+' por encima para no disipar energía ni castigar el cilindro en un atasco. Con la sobrepresión del 6 %, el tarado t da '+f1(1+OVR_LIM,2)+'·t a caudal pleno, y ése es el número que se compara con la ventana (y con los '+f1(Er.pMaxCil,0)+' bar del cilindro).'},
+        {t:'Que coincida con la presión de trabajo, para que la limitadora ya esté regulando en servicio',ok:false,
+         why:'No. Una limitadora que abre en servicio deriva caudal a tanque todo el tiempo: la velocidad se pierde y la energía se convierte en calor. Por eso la regla pide un margen mínimo de '+f1(MARG_LIM,0)+' bar sobre los '+f1(ptr,1)+' bar de trabajo.'},
+        {t:'Cuanto más alto mejor: así la limitadora nunca abre y no se pierde caudal por ella en servicio',ok:false,
+         why:'No. Un tarado muy por encima de la presión de trabajo convierte en calor toda la diferencia cuando la válvula descarga, y deja pasar al cilindro picos que quizá no aguante. Por eso la regla también pone un techo, '+f1(MARG_MAX,0)+' bar sobre la presión de trabajo.'},
+        {t:'Que quede por debajo de la presión de trabajo, para proteger al cilindro de cualquier atasco',ok:false,
+         why:'No. Con el tarado por debajo de la presión de trabajo la limitadora abriría antes de que el cilindro pudiera mover la carga: la máquina no arranca (el calado que el modelo detecta). El tarado va por encima, con margen.'},
       ]},
   };
   Object.keys(QUIZ).forEach(k=>{
@@ -1606,7 +1686,7 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 });
 function boardClick(){
   if(mode==='banco')showToast('<b>Banco de ensayo</b><br>El coeficiente de descarga no es una constante de catálogo: es una curva. Mientras 2λ/λ<sub>c</sub> no pase de 3 o 4, C<sub>d</sub> crece casi proporcional al número de transición, y ahí el caudal depende de la viscosidad tanto como de la abertura.');
-  else if(mode==='topo')showToast('<b>Dónde se pone la reguladora</b><br>Meter-in, meter-out y sangrado dan la misma velocidad con cargas que se oponen. En cuanto la carga arrastra, sólo el meter-out sujeta: es el único que deja una cámara presurizada haciendo de freno.');
+  else if(mode==='topo')showToast('<b>Dónde se pone la reguladora</b><br>'+(()=>{const g=t=>f1(evalua('sierra','dia',t,0.6,80).vMed,1);return 'Con una carga que se opone (la sierra, canto vivo de 0,6 mm²) los tres montajes sostienen la carga, pero no dan la misma velocidad: '+g('in')+' / '+g('out')+' / '+g('sang')+' mm/s en meter-in / meter-out / sangrado, para '+f1(ESTACIONES.sierra.vObj,0)+' pedidos.';})()+' En cuanto la carga arrastra, sólo el meter-out sujeta: es el único que deja una cámara presurizada haciendo de freno.');
   else if(mode==='carga')showToast('<b>La velocidad frente a la carga</b><br>La regulación se mide entre los dos extremos de carga, no en un punto. Y ojo con las regulaciones sospechosamente buenas: si la limitadora está cerrada, la velocidad la fija la bomba y el estrangulador ha dejado de mandar.');
   else if(mode==='termico')showToast('<b>Deriva por temperatura</b><br>La viscosidad del ISO VG 46 cae de 414 a 22 mm²/s entre 4 °C y 58 °C. Esa es la perturbación real de una máquina a la intemperie, y no la corrige ningún compensador de presión.');
   else showToast('<b>Reto</b><br>Los cuatro ejes se califican juntos y los seis criterios se cumplen a la vez o no vale. Entre las combinaciones válidas manda el coste.');
@@ -1644,19 +1724,26 @@ async function runAuto(){
   const btn=el('btnAuto');const label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: no resuelve ni puntúa tu reto. Se guarda
+  // el estado del alumno y se restaura entero al terminar (o si algo falla).
+  const snap={mode,bcValv,bcArea,bcDp,bcT,tpEst,tpTopo,tpValv,tpArea,cgEst,cgValv,cgTopo,cgArea,tmEst,tmValv,tmTopo,tmArea,
+    retoEst,retoCfg:{...retoCfg},retoSolved,solved,retoMsg,retoGood,retoVista,intentos,fallos,resiembras,retoPistas:[...retoPistas]};
   try{
     setMode('banco');
     bcValv='agu';bcArea=2.4;bcDp=8;bcT=4;afterEdit();
-    showToast('<b>1 · El orificio solo.</b> Una aguja de 2,4 mm² con 8 bar de caída, y el aceite a 4 °C: pasan '+f1(CUR.q,3)+' L/min. El coeficiente de descarga vale '+f1(CUR.cd,4)+', muy lejos del 0,62 de catálogo.');
+    const qAg4=CUR.q;
+    showToast('<b>Demostración · 1 · El orificio solo.</b> Una aguja de 2,4 mm² con 8 bar de caída, y el aceite a 4 °C: pasan '+f1(CUR.q,3)+' L/min. El coeficiente de descarga vale '+f1(CUR.cd,4)+', muy lejos del 0,62 de catálogo.');
     await sleep(5600);
     bcT=58;afterEdit();
+    const qAg58=CUR.q;
     showToast('<b>La misma abertura y la misma presión, sólo aceite caliente:</b> '+f1(CUR.q,3)+' L/min. C<sub>d</sub> ha subido a '+f1(CUR.cd,4)+' porque 2λ/λ<sub>c</sub> ha pasado de 0,14 a '+f1(2*CUR.lam/CUR.lamC,2)+'. Nadie ha tocado la válvula.');
     await sleep(5800);
     bcValv='dia';bcT=4;afterEdit();
+    const qDi4=CUR.q;
     showToast('<b>Cambia a un orificio de canto vivo</b>, misma área y mismo Δp, otra vez a 4 °C: '+f1(CUR.q,3)+' L/min. Su λ<sub>c</sub> es '+f1(CUR.lamC,0)+' en vez de 2 500, así que ya está en turbulento incluso con el aceite helado.');
     await sleep(5800);
     bcT=58;afterEdit();
-    showToast('<b>Y en caliente:</b> '+f1(CUR.q,3)+' L/min. Un 3,5 % de diferencia frente al 606 % de la aguja. La geometría del orificio es compensación térmica gratis.');
+    showToast('<b>Y en caliente:</b> '+f1(CUR.q,3)+' L/min. Un '+pc1(CUR.q/qDi4-1)+' de diferencia frente al '+pc1(qAg58/qAg4-1)+' de la aguja. La geometría del orificio es compensación térmica gratis.');
     await sleep(5600);
 
     setMode('topo');
@@ -1675,7 +1762,7 @@ async function runAuto(){
     showToast('<b>3 · La carga cambia 14 veces.</b> Canto vivo a 4,8 mm²: la regulación sale de '+pc1(CUR.ev.reg)+', que parece excelente… pero la velocidad es de '+f1(CUR.ev.vMed,1)+' mm/s y se pedían '+f1(CUR.est.vObj,0)+'. La limitadora está cerrada: manda la bomba, no la válvula.');
     await sleep(6200);
     cgArea=1.2;afterEdit();
-    showToast('<b>Cierra el orificio a 1,2 mm²</b> y ahora sí manda él: '+f1(CUR.ev.vMed,1)+' mm/s. Pero la regulación se va a '+pc1(CUR.ev.reg)+', porque su Δp es p<sub>b</sub>−p<sub>carga</sub> y la carga se mueve entre 11,5 y 163,0 bar.');
+    showToast('<b>Cierra el orificio a 1,2 mm²</b> y ahora sí manda él: '+f1(CUR.ev.vMed,1)+' mm/s. Pero la regulación se va a '+pc1(CUR.ev.reg)+', porque su Δp es p<sub>b</sub>−p<sub>carga</sub> y la carga se mueve entre '+f1(CUR.ev.pts.pA.pmot,1)+' y '+f1(CUR.ev.pts.pB.pmot,1)+' bar.');
     await sleep(6000);
     cgValv='comp';cgArea=4.8;afterEdit();
     showToast('<b>Reguladora compensada de presión:</b> '+f1(CUR.ev.vMed,1)+' mm/s con '+pc1(CUR.ev.reg)+' de regulación. El compensador mantiene '+f1(CUR.pM.dpv,2)+' bar en el orificio pase lo que pase con la carga.');
@@ -1692,25 +1779,35 @@ async function runAuto(){
     showToast('<b>Y con la compensada de presión va a peor:</b> '+pc1(CUR.ev.drift)+'. El compensador fija Δp en '+f1(CUR.pM.dpv,2)+' bar, y con tan poca caída el orificio se mete todavía más en la zona laminar. Compensar la presión no compensa la viscosidad.');
     await sleep(6400);
     tmValv='term';afterEdit();
-    showToast('<b>Compensada de presión y temperatura:</b> '+pc1(CUR.ev.drift)+'. Corrige el área con la temperatura del aceite. Cuesta '+f1(CUR.ev.coste,0)+' unidades, la más cara del catálogo, y es la única que aguanta esta banda.');
+    showToast('<b>Compensada de presión y temperatura:</b> '+pc1(CUR.ev.drift)+'. Corrige el área con la temperatura del aceite. Cuesta '+f1(CUR.ev.coste,0)+' unidades, la más cara del catálogo, y es la única que aguanta esta banda con velocidad y regulación.');
     await sleep(6000);
 
+    // El reto se demuestra sobre OTRA estación distinta de la tuya y no se
+    // comprueba: ni resuelve, ni gasta intentos, ni toca tu montaje.
     setMode('reto');
-    retoEst='sierra';retoSolveBuild(true);afterEdit();
-    showToast('<b>5 · El reto.</b> Cuatro ejes, '+f1(N_CFG,0)+' combinaciones y sólo '+f1(validas(retoEst).length,0)+' válidas. Hay que montar la más barata de la sierra.');
+    retoEst=['transfer','sierra','prensa','intemperie','elevador'].find(k=>k!==snap.retoEst);
+    retoSolveBuild(true);buildQuiz();afterEdit();
+    showToast('<b>5 · El reto (demostración sobre '+ESTACIONES[retoEst].nom+', no puntúa y no toca tu reto).</b> Cuatro ejes, '+f1(N_CFG,0)+' combinaciones y sólo '+f1(validas(retoEst).length,0)+' válidas. Hay que montar la más barata.');
     await sleep(5400);
     {
       const o=optimas(retoEst)[0];
       if(o){retoCfg={...o};afterEdit();}
     }
-    checkReto();
-    showToast('<b>Solución:</b> '+retoMsg);
+    showToast('<b>Montaje de la demostración:</b> '+retoExplain(evalC(retoEst,retoCfg)));
     await sleep(5200);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
     const b=el('btnAuto');
     b.disabled=false;b.classList.remove('on');b.textContent=label;
     autoRunning=false;
+    // devolver al alumno exactamente lo que tenía
+    bcValv=snap.bcValv;bcArea=snap.bcArea;bcDp=snap.bcDp;bcT=snap.bcT;
+    tpEst=snap.tpEst;tpTopo=snap.tpTopo;tpValv=snap.tpValv;tpArea=snap.tpArea;
+    cgEst=snap.cgEst;cgValv=snap.cgValv;cgTopo=snap.cgTopo;cgArea=snap.cgArea;
+    tmEst=snap.tmEst;tmValv=snap.tmValv;tmTopo=snap.tmTopo;tmArea=snap.tmArea;
+    retoEst=snap.retoEst;retoCfg=snap.retoCfg;retoSolved=snap.retoSolved;solved=snap.solved;
+    retoMsg=snap.retoMsg;retoGood=snap.retoGood;retoVista=snap.retoVista;
+    intentos=snap.intentos;fallos=snap.fallos;resiembras=snap.resiembras;retoPistas=snap.retoPistas;
+    setMode(snap.mode);
   }
 }
 
@@ -1803,9 +1900,16 @@ window.__labDebug={
   tmSet:(o)=>{if(o.est)tmEst=o.est;if(o.valv)tmValv=o.valv;if(o.topo)tmTopo=o.topo;if(o.area)tmArea=o.area;afterEdit();},
   // reto
   retoGet:()=>({est:retoEst,cfg:{...retoCfg}}),
-  retoSet:(est,cfg)=>{if(est)retoEst=est;if(cfg)retoCfg={...retoCfg,...cfg};retoMsg='';retoGood=false;afterEdit();},
-  retoSolveBuild,checkReto,retoExplain,pista,
-  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoAxes:()=>({...retoAxes}),
+  retoSet:(est,cfg)=>{
+    if(est&&est!==retoEst){retoEst=est;intentos=0;fallos=0;retoPistas=[];}
+    if(cfg)retoCfg={...retoCfg,...cfg};
+    retoMsg='';retoGood=false;retoSolved=false;solved=false;
+    if(mode==='reto'){buildQuiz();refreshQuestion();}
+    afterEdit();
+  },
+  retoSolveBuild,checkReto,retoExplain,pista,retoVer,
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,
+  intentos:()=>intentos,fallos:()=>fallos,resiembras:()=>resiembras,pistas:()=>[...retoPistas],MAX_INT:()=>MAX_INT,MAX_PISTAS:()=>MAX_PISTAS,
   // cuestionario
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   quizAnswer:answer,quizText:()=>QUIZ[mode].pregunta,

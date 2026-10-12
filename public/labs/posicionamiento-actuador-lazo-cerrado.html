@@ -796,8 +796,32 @@ const MODES=['lazo','banda','fuga','censo','reto'];
 let mode='lazo', animT=0, autoRunning=false, solved=false;
 // Se arranca en la sintonía más floja de la rejilla: un lazo que no llega.
 const ST={ mk:'prensa', kp:2, ki:0, kd:0, aw:true };
-const RETO={ cfg:{mk:'prensa'}, ejes:{kp:2,ki:0,kd:0}, sol:null, nval:0,
-             resuelto:false, msg:'', pistas:{kp:false,ki:false,kd:false} };
+const RETO={ cfg:{mk:'fresadora'}, ejes:{kp:2,ki:0,kd:0}, sol:null, nval:0,
+             resuelto:false, msg:'', pistas:{}, pistaTxt:[], checked:false, intentos:0, libre:false };
+const MAX_INT=3, MAX_PISTAS=2;
+const nPistas=()=>Object.keys(RETO.pistas).length;
+// En el reto no hay veredicto en vivo: pliego, coste y «aceptada/rechazada» salen al pulsar Comprobar.
+function ocultaVer(){ return mode==='reto' && !RETO.checked; }
+// La máquina del reto no se abre en los modos de estudio mientras el reto esté sin resolver:
+// el censo y la fuga cargan ahí la sintonía más barata de poseer.
+const maqBloq=k=>k===RETO.cfg.mk&&!RETO.libre;
+function sigMaq(k0){
+  const i=MAQ_KEYS.indexOf(k0);
+  for(let d=1;d<=MAQ_KEYS.length;d++){ const k=MAQ_KEYS[(i+d)%MAQ_KEYS.length]; if(!maqBloq(k)) return k; }
+  return k0;
+}
+function evitaMaqReto(){ if(maqBloq(ST.mk)) ST.mk=sigMaq(ST.mk); }
+// Caso nuevo del reto: la máquina siguiente que no sea la que el alumno tiene abierta en un modo de estudio.
+function nuevaMaquinaReto(excl){
+  const i=MAQ_KEYS.indexOf(RETO.cfg.mk);
+  for(let d=1;d<=MAQ_KEYS.length;d++){
+    const k=MAQ_KEYS[(i+d)%MAQ_KEYS.length];
+    if(k!==ST.mk&&!(excl&&excl.indexOf(k)>=0)){ RETO.cfg.mk=k; break; }
+  }
+  RETO.libre=false;
+  retoSolveBuild();
+  evitaMaqReto();
+}
 let CUR=null;
 
 function cfgDe(m){
@@ -1279,17 +1303,18 @@ function vistaReto(){
   linea(A.X(T_CARGA),P.y,A.X(T_CARGA),P.y+P.h,NARANJA,1.5,[4,4]);
   curva(serie(A,tr,'x',1000),RETO.resuelto?OK_HEX:AZUL,2.4);
 
+  const oc=ocultaVer();
   let y=418;
-  texto('PLIEGO',44,y-24,'#7f8b9c',13,'left','700');
+  texto(oc?'PLIEGO (el veredicto sale al comprobar)':'PLIEGO',44,y-24,'#7f8b9c',13,'left','700');
   const fil=pliegoFilas(M,R);
   fil.forEach((f,i)=>{
     const cx=44+(i%4)*160, cy=y+Math.floor(i/4)*62;
-    bx.fillStyle=f[3]?'rgba(124,217,146,0.08)':'rgba(255,107,107,0.08)';
-    bx.strokeStyle=f[3]?'rgba(124,217,146,0.35)':'rgba(255,107,107,0.35)';
+    bx.fillStyle=oc?'rgba(138,180,248,0.06)':(f[3]?'rgba(124,217,146,0.08)':'rgba(255,107,107,0.08)');
+    bx.strokeStyle=oc?'rgba(138,180,248,0.25)':(f[3]?'rgba(124,217,146,0.35)':'rgba(255,107,107,0.35)');
     bx.lineWidth=1.2; bx.beginPath(); bx.roundRect(cx,cy,150,52,8); bx.fill(); bx.stroke();
-    marca(cx+16,cy+16,f[3]);
-    texto(f[0],cx+30,cy+20,'#c8d3e2',12,'left','700');
-    texto(f[1],cx+12,cy+40,colOk(f[3]),13,'left','700');
+    if(!oc) marca(cx+16,cy+16,f[3]);
+    texto(f[0],oc?cx+12:cx+30,cy+20,'#c8d3e2',12,'left','700');
+    texto(f[1],cx+12,cy+40,oc?TINTA:colOk(f[3]),13,'left','700');
     texto(f[2],cx+142,cy+40,'#6b7788',11,'right','600');
   });
 
@@ -1303,11 +1328,9 @@ function vistaReto(){
   prow(py,'ciclos al año',f0(M.ciclos)); py+=28;
   linea(PX.x+14,py-12,PX.x+PX.w-14,py-12,'#243043',1);
   prow(py+4,'tu sintonía',f0(c.kp)+' · '+f0(c.ki)+' · '+f2(c.kd)); py+=27;
-  prow(py+4,'criterios',f0(7-fallosDe(R).length)+' de 7',colOk(R.valida)); py+=27;
-  prow(py+4,'coste a '+ANIOS+' años',R.valida?f0(R.coste5)+' €':'—',R.valida?TINTA:'#6b7788'); py+=27;
-  if(R.valida&&!RETO.resuelto){
-    prow(py+4,'te sobra',f0(R.coste5-sol.coste5)+' €',WARN_HEX); py+=27;
-  }
+  prow(py+4,'criterios',oc?'—':f0(7-fallosDe(R).length)+' de 7',oc?'#6b7788':colOk(R.valida)); py+=27;
+  prow(py+4,'coste a '+ANIOS+' años',(!oc&&R.valida)?f0(R.coste5)+' €':'—',(!oc&&R.valida)?TINTA:'#6b7788'); py+=27;
+  prow(py+4,'intentos fallidos',RETO.intentos+' / '+MAX_INT,RETO.intentos?WARN_HEX:'#6b7788'); py+=27;
   py+=8; linea(PX.x+14,py-12,PX.x+PX.w-14,py-12,'#243043',1); py+=14;
   if(RETO.resuelto){
     texto('RECEPCIÓN FIRMADA',PX.x+PX.w/2,py+6,OK_HEX,16,'center','800'); py+=26;
@@ -1315,20 +1338,14 @@ function vistaReto(){
       +f0(RETO.nval)+' que pasan el pliego: '+f0(sol.coste5)+' € a '+ANIOS+' años.',
       PX.x+14,py+8,PX.w-28,17,'#a8c4b0',13);
   }else{
-    texto('PISTAS',PX.x+14,py+4,'#8ab4f8',13,'left','800'); py+=24;
-    const ps=pisM(c.mk);
-    ['kp','ki','kd'].forEach((eje,i)=>{
-      const p=ps[i], ab=RETO.pistas[eje];
-      texto(eje,PX.x+18,py+6,ab?TINTA:'#5b6474',13,'left','700');
-      texto(ab?('= '+(eje==='kd'?f2(p.v):f0(p.v))):'oculta',PX.x+58,py+6,ab?AMBAR:'#5b6474',14,'left','700');
-      texto(ab?('quedan '+f0(p.n)):'',PX.x+PX.w-14,py+6,'#7f8b9c',12,'right','600');
-      py+=24;
-    });
-    py+=6;
-    wrapText('Cada pista deja fija una constante. Ninguna te da la terna: entre las que quedan hay '
-      +'que elegir por coste.',PX.x+14,py+4,PX.w-28,16,'#8f9bb0',12);
+    texto('PISTAS USADAS '+nPistas()+' / '+MAX_PISTAS,PX.x+14,py+4,'#8ab4f8',13,'left','800'); py+=24;
+    if(!RETO.pistaTxt.length){
+      wrapText('Hay '+f0(MAX_PISTAS)+' pistas graduadas. Orientan; ninguna te da la terna.',PX.x+14,py+4,PX.w-28,16,'#8f9bb0',12);
+    }else{
+      RETO.pistaTxt.forEach(t=>{ wrapText('• '+t,PX.x+14,py+4,PX.w-28,16,'#c8d3e2',12); py+=50; });
+    }
   }
-  nota(RETO.msg||('De las '+f0(RETO.nval)+' sintonías que pasan el pliego, sólo una es la más '
+  nota((RETO.checked&&RETO.msg)||('De las '+f0(RETO.nval)+' sintonías que pasan el pliego, sólo una es la más '
     +'barata. Energía, desgaste del carrete y tiempo de máquina no pesan lo mismo: comprueba cuál '
     +'de los tres decide.'),660);
 }
@@ -1711,7 +1728,7 @@ function optBtns(key,opts,cur){
   }).join('');
 }
 const beep=()=>synth.beep(680,0.05,0.04);
-const OPT_MAQ=MAQ_KEYS.map(k=>[k,MAQUINAS[k].icono+' '+MAQUINAS[k].rot]);
+const optMaq=()=>MAQ_KEYS.map(k=>[k,MAQUINAS[k].icono+' '+MAQUINAS[k].rot+(maqBloq(k)?' 🔒':'')]);
 const OPT_KP=KP_G.map(v=>[v,f0(v)]);
 const OPT_KI=KI_G.map(v=>[v,f0(v)]);
 const OPT_KD=KD_G.map(v=>[v,f2(v)]);
@@ -1719,7 +1736,7 @@ const OPT_KD=KD_G.map(v=>[v,f2(v)]);
 function buildControls(){
   const bar=el('selbar'); let h='';
   if(mode!=='reto'){
-    h+=lbl('Máquina')+optBtns('mq',OPT_MAQ,ST.mk);
+    h+=lbl('Máquina')+optBtns('mq',optMaq(),ST.mk);
     h+=lbl('kp · % de mando por mm de error')+optBtns('kp',OPT_KP,ST.kp);
     if(mode!=='banda'){
       h+=lbl('ki · % por mm·s')+optBtns('ki',OPT_KI,ST.ki);
@@ -1739,37 +1756,49 @@ function buildControls(){
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
     b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
   });
-  wire('data-mq',v=>{ST.mk=v;aplicaMaquina();});
+  wire('data-mq',v=>{if(maqBloq(v)){showToast('🔒 Esa máquina es el caso de tu <b>Reto</b>: abrirla aquí cargaría la sintonía más barata de poseer. Se libera cuando lo resuelvas.');return;}ST.mk=v;aplicaMaquina();});
   wire('data-kp',v=>{ST.kp=Number(v);});
   wire('data-ki',v=>{ST.ki=Number(v);});
   wire('data-kd',v=>{ST.kd=Number(v);});
-  wire('data-xp',v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;});
-  wire('data-xi',v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;});
-  wire('data-xd',v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xp',v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
+  wire('data-xi',v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
+  wire('data-xd',v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;});
   const ba=el('btnAW'), bp=el('btnPista');
   if(ba) ba.onclick=()=>{if(autoRunning)return;ST.aw=!ST.aw;beep();afterEdit();};
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Una pista destapa UN eje del óptimo, en orden kp → ki → kd, y dice cuántas
-// sintonías válidas siguen compatibles con lo destapado. Ninguna cierra el trío:
-// el embudo termina en 1 sólo cuando ya has visto los tres.
+// Pistas graduadas (máximo 2) que orientan sin dar la terna: la 1.ª dice qué criterio del pliego
+// tumba más sintonías en esta máquina; la 2.ª, en qué mitad de la rejilla de kp está la más barata.
+// Quedan registradas (RETO.pistas / RETO.pistaTxt) y cuentan en el panel.
 const EJE_ROT={kp:'ganancia proporcional kp',ki:'ganancia integral ki',kd:'ganancia derivativa kd'};
 function pista(){
-  const eje=['kp','ki','kd'].find(e=>!RETO.pistas[e]);
-  if(!eje){showToast('💡 Ya has destapado los tres ejes: la sintonía está sobre la mesa, sólo falta marcarla.');return;}
-  RETO.pistas[eje]=true;beep();
-  const P=pisM(RETO.cfg.mk).find(p=>p.eje===eje);
-  const val=eje==='kd'?f2(P.v):f0(P.v);
-  showToast('💡 <b>'+EJE_ROT[eje]+' = '+val+'.</b> Con eso quedan '+f0(P.n)+' de las '+
-    f0(RETO.nval)+' sintonías válidas de esta máquina.');
+  if(RETO.resuelto){showToast('💡 Ya resolviste este reto.');return;}
+  const mk=RETO.cfg.mk, n=nPistas();
+  if(n>=MAX_PISTAS){showToast('💡 Ya usaste las '+MAX_PISTAS+' pistas. La sintonía la tienes que cerrar tú.');return;}
+  beep();
+  let txt;
+  if(n===0){
+    const cn=censoM(mk);
+    const peor=CRIT.slice().sort((a,b)=>cn.tot[b]-cn.tot[a])[0];
+    txt='En esta máquina el criterio que más sintonías tumba es «'+CRIT_ROT[peor]+'»: míralo antes de mirar el coste.';
+    RETO.pistas[1]=true;
+  }else{
+    const s=RETO.sol, mitad=KP_G.length/2, idx=s?KP_G.indexOf(s.kp):0;
+    txt=s?('La sintonía más barata de poseer lleva kp en la mitad '+(idx<mitad?'baja':'alta')+' de la rejilla ('+
+      (idx<mitad?f0(KP_G[0])+' a '+f0(KP_G[mitad-1]):f0(KP_G[mitad])+' a '+f0(KP_G[KP_G.length-1]))+'). ki y kd te tocan a ti.')
+      :'Esta máquina no tiene solución.';
+    RETO.pistas[2]=true;
+  }
+  RETO.pistaTxt.push(txt);
+  showToast('💡 <b>Pista '+nPistas()+'/'+MAX_PISTAS+'.</b> '+txt);
   afterEdit();
 }
 function retoSolveBuild(){
   const mk=RETO.cfg.mk;
   RETO.sol=solM(mk); RETO.nval=valM(mk).length;
   RETO.ejes={kp:KP_G[0],ki:0,kd:0};
-  RETO.pistas={kp:false,ki:false,kd:false};
-  RETO.resuelto=false; RETO.msg='';
+  RETO.pistas={}; RETO.pistaTxt=[];
+  RETO.resuelto=false; RETO.msg=''; RETO.checked=false; RETO.intentos=0;
 }
 function updateScenarioInfo(){
   const d=el('scenarioInfo');
@@ -1782,8 +1811,8 @@ function updateHwRot(){
     ' mm · carga '+f1(M.f0/1000)+' → '+f1(M.f1/1000)+' kN · '+f0(M.ciclos)+' ciclos/año';
   const fal=fallosDe(R).length;
   el('hwsub').textContent='kp '+f0(c.kp)+' · ki '+f0(c.ki)+' · kd '+f2(c.kd)+
-    (c.aw?'':' · SIN antisaturación')+' → '+
-    (R.valida?'sintonía aceptada':'rechazada por '+f0(fal)+(fal===1?' criterio':' criterios'));
+    (c.aw?'':' · SIN antisaturación')+
+    (ocultaVer()?' · sin comprobar':' → '+(R.valida?'sintonía aceptada':'rechazada por '+f0(fal)+(fal===1?' criterio':' criterios')));
 }
 function afterEdit(){
   buildControls();
@@ -1792,7 +1821,7 @@ function afterEdit(){
   refreshAll();
 }
 function setMode(k){
-  mode=k;animT=0;
+  mode=k;animT=0;evitaMaqReto();
   // El reto barre las 96 sintonías de la máquina: se arma la primera vez que se
   // entra, no al cargar la página, para que el arranque no cueste 96 maniobras.
   if(k==='reto'&&!RETO.sol) retoSolveBuild();
@@ -1813,20 +1842,19 @@ function newSignal(){
   const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
   if(mode==='lazo'){
     ST.aw=!ST.aw;
-    if(ST.aw){ ST.mk=sig(MAQ_KEYS,ST.mk); const o=solM(ST.mk);
+    if(ST.aw){ ST.mk=sigMaq(ST.mk); const o=solM(ST.mk);
       if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;} }
   }else if(mode==='banda'){
     ST.kp=sig(KP_G,ST.kp);
-    if(ST.kp===KP_G[0]) ST.mk=sig(MAQ_KEYS,ST.mk);
+    if(ST.kp===KP_G[0]) ST.mk=sigMaq(ST.mk);
   }else if(mode==='fuga'){
-    ST.mk=sig(MAQ_KEYS,ST.mk);
+    ST.mk=sigMaq(ST.mk);
     const o=solM(ST.mk); if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;}
   }else if(mode==='censo'){
-    ST.mk=sig(MAQ_KEYS,ST.mk);
+    ST.mk=sigMaq(ST.mk);
     const o=solM(ST.mk); if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;} else {ST.kp=KP_G[0];ST.ki=0;ST.kd=0;}
   }else{
-    RETO.cfg.mk=sig(MAQ_KEYS,RETO.cfg.mk);
-    retoSolveBuild();
+    nuevaMaquinaReto();
   }
   solved=false;
   aplicaMaquina();
@@ -1843,7 +1871,8 @@ function teleRow(l,v,cls){
 }
 const cls2=b=>b?'ok':'bad';
 function filasPliego(M,R){
-  return pliegoFilas(M,R).map(f=>teleRow(f[0],f[1]+'  <span style="opacity:.55">/ '+f[2]+'</span>',cls2(f[3]))).join('');
+  const oc=ocultaVer();
+  return pliegoFilas(M,R).map(f=>teleRow(f[0],f[1]+'  <span style="opacity:.55">/ '+f[2]+'</span>',oc?'':cls2(f[3]))).join('');
 }
 function updateTele(){
   const c=cfgDe(mode), M=MAQUINAS[c.mk], R=CUR, G=geom(M), H=hidraulica(M);
@@ -1855,7 +1884,9 @@ function updateTele(){
     h+=teleRow('mando de la válvula','<span id="tvU">—</span>');
     h+=teleRow('p₁ · p₂','<span id="tvP">—</span>');
     h+=filasPliego(M,R);
-    h+=teleRow('coste a '+f0(ANIOS)+' años',f0(R.coste5)+' €',cls2(R.valida));
+    if(ocultaVer()) h+=teleRow('coste a '+f0(ANIOS)+' años','— (sin comprobar)');
+    else h+=teleRow('coste a '+f0(ANIOS)+' años',f0(R.coste5)+' €',cls2(R.valida));
+    if(mode==='reto') h+=teleRow('intentos fallidos · pistas',RETO.intentos+' / '+MAX_INT+' · '+nPistas()+' / '+MAX_PISTAS,RETO.intentos?'bad':'');
     if(mode==='lazo'&&!c.aw){
       const A=sim(c.mk,c.kp,c.ki,c.kd);
       h+=teleRow('sobrepaso con antisaturación',f2(A.sobre)+' %',cls2(A.okSobre));
@@ -2022,11 +2053,12 @@ function updateReport(){
     t='> '+M.nom+'. '+M.proc+'\n';
     t+='> Puesto: kp '+f0(c.kp)+' · ki '+f0(c.ki)+' · kd '+f2(c.kd)+' → '+f0(R.coste5)+
       ' € a '+f0(ANIOS)+' años ('+f0(M.ciclos)+' ciclos/año a '+f4(R.cUno)+' €/ciclo).\n';
-    t+=R.valida?'> Cumple los siete criterios.\n'
-               :'> Falla: '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n';
-    t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f0(RETO.nval)+' sintonías válidas, la más barata de poseer cuesta '+
-      (s?f0(s.coste5)+' €':'—')+'.';
+    if(RETO.checked){
+      t+=R.valida?'> Cumple los siete criterios.\n'
+                 :'> Falla: '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+      t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    }else t+='> Pulsa Comprobar para ver qué criterios cumple y cuánto cuesta tu sintonía.\n';
+    t+='> De '+f0(RETO.nval)+' sintonías válidas sólo una es la más barata de poseer. Intentos fallidos: '+RETO.intentos+' / '+MAX_INT+'.';
   }
   el('report').textContent=t;
 }
@@ -2056,30 +2088,51 @@ function updateRetoSpec(){
   h+='Objetivo: la sintonía <b>válida</b> más barata de poseer a '+f0(ANIOS)+' años. '+
      'Hay '+f0(RETO.nval)+' válidas de '+f0(KP_G.length*KI_G.length*KD_G.length)+
      (emp>1?' y '+f0(emp)+' empatan en el mínimo.':' y el mínimo es único.')+'<br>';
-  h+='Ahora mismo: <b>'+(R.valida?'válida':'no válida')+'</b>, '+f0(R.coste5)+' €'+
-     (s&&R.valida&&R.coste5>s.coste5?' ('+f0(R.coste5-s.coste5)+' € por encima de la mejor)':'')+'.';
-  if(RETO.msg) h+='<br><span style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</span>';
+  if(RETO.checked){
+    h+='Comprobada: <b>'+(R.valida?'válida':'no válida')+'</b>'+(R.valida?', '+f0(R.coste5)+' € a '+f0(ANIOS)+' años':'')+'.';
+    if(RETO.msg) h+='<br><span style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</span>';
+  }else{
+    h+='Sin comprobar: elige kp, ki y kd y pulsa <b>Comprobar</b>. Intentos fallidos: '+RETO.intentos+' / '+MAX_INT+'.';
+  }
   el('retoSpec').innerHTML=h;
 }
 function checkReto(){
   const R=CUR, s=RETO.sol, M=MAQUINAS[RETO.cfg.mk];
+  RETO.checked=true;
+  let fallo=false;
   if(!s){ RETO.msg='Esta máquina no tiene ninguna sintonía válida en el catálogo.'; }
   else if(!R.valida){
     const f=fallosDe(R);
     RETO.msg='Todavía no: falla '+f.map(k=>CRIT_ROT[k]).join(', ')+
       '. Una sintonía barata que no cumple el pliego no es barata, es chatarra.';
+    fallo=true;
   }else if(R.coste5>s.coste5+1e-9){
-    RETO.msg='Válida, pero cuesta '+f0(R.coste5-s.coste5)+' € más que la mejor a '+f0(ANIOS)+
-      ' años ('+pcm(R.coste5/s.coste5-1)+'). Casi todo ese dinero es tiempo de máquina: '+
-      'cada décima de segundo de más en establecer se paga '+f0(M.ciclos*ANIOS)+' veces.';
-    RETO.resuelto=false;
+    // válida pero no mínima: no se dice cuánto le sobra ni cuál es la mejor
+    RETO.msg='Válida, pero hay otra sintonía válida más barata de poseer a '+f0(ANIOS)+
+      ' años. Mira de qué partida (energía, desgaste del carrete, tiempo de máquina) se compone el coste de un ciclo y cuántos ciclos son '+
+      f0(M.ciclos*ANIOS)+'.';
+    RETO.resuelto=false; fallo=true;
   }else{
-    RETO.resuelto=true; solved=true;
+    RETO.resuelto=true; RETO.libre=true; solved=!autoRunning;
     RETO.msg='✅ Recepción firmada: kp '+f0(R.kp)+' · ki '+f0(R.ki)+' · kd '+f2(R.kd)+' → '+
       f0(R.coste5)+' € a '+f0(ANIOS)+' años.';
     [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
   }
   if(!RETO.resuelto) synth.beep(220,0.12,0.05);
+  if(fallo&&!autoRunning){
+    RETO.intentos++;
+    if(RETO.intentos>=MAX_INT){
+      // tres fallos: caso nuevo, para que no se apruebe por eliminación
+      nuevaMaquinaReto();
+      RETO.msg='Tres intentos sin acertar: el caso cambió (otra máquina). Lee de nuevo el pliego y razona antes de sintonizar.';
+      RETO.checked=true;
+      solved=false;
+      aplicaMaquina();
+      afterEdit();
+      showToast('🔁 <b>Caso nuevo.</b> '+RETO.msg);
+      return;
+    }
+  }
   afterEdit();
   showToast((RETO.resuelto?'✅ ':'⚠️ ')+RETO.msg);
 }
@@ -2088,60 +2141,60 @@ function checkReto(){
 // Una pregunta por modo. Todas las cifras salen del motor sellado, no de la
 // intuición: están comprobadas contra la simulación de la máquina que se nombra.
 const QUIZ={
-  lazo:{pregunta:'En la prensa, con su sintonía más barata (kp 9 · ki 10 · kd 0), apagar la antisaturación hace que el tiempo de establecimiento BAJE de 0,344 a 0,292 s. ¿Qué se concluye de ahí?',
+  lazo:{pregunta:'En la prensa, con la sintonía kp 13 · ki 10 · kd 0, apagar la antisaturación hace que el tiempo de establecimiento BAJE de 0,329 a 0,292 s. ¿Qué se concluye de ahí?',
     opciones:[
-      {t:'Que el windup no es lentitud: el integrador cargado empuja de más, llega antes y se pasa.',ok:true,
-       why:'Exacto. El sobrepaso salta de 0,40 a 14,58 % (máximo 6) y la punta llega a 211,67 mm sobre una consigna de 200. Llegar antes al sitio equivocado no es ir más rápido: por eso se juzga con el pliego entero, no con un número.'},
-      {t:'Que la antisaturación estorba y conviene quitarla siempre que se busque velocidad.',
+      {t:'Que el windup no es lentitud: el integrador cargado empuja de más, llega antes de tiempo y se pasa de largo.',ok:true,
+       why:'Exacto. El sobrepaso salta de 0,60 a 10,54 % (máximo 6) y la punta llega a 208,43 mm sobre una consigna de 200. Llegar antes al sitio equivocado no es ir más rápido: por eso se juzga con el pliego entero, no con un número.'},
+      {t:'Que la antisaturación estorba, y conviene quitarla siempre que lo que se busque sea velocidad de respuesta.',
        why:'No. Sin ella esa misma sintonía falla cuatro criterios de golpe: sobrepaso, error sin carga, error con carga y ciclo límite. El tiempo mejora y la pieza sale mal.'},
-      {t:'Que el tiempo de establecimiento está mal medido, porque el windup siempre retrasa.',
+      {t:'Que el tiempo de establecimiento está mal medido, porque el windup siempre retrasa la entrada en la banda.',
        why:'Se mide igual en los dos casos: la última entrada en la banda de ±1 mm antes de que llegue la carga. Lo que cambia no es la regla, es la trayectoria.'},
-      {t:'Que sin antisaturación la válvula pasa menos tiempo pegada al tope.',
-       why:'Al revés: los pasos con la válvula al ±100 % suben de 256 a 304. Justo por eso el integrador se carga de error que no puede corregir.'},
+      {t:'Que sin antisaturación la válvula pasa menos tiempo pegada al tope, porque el integrador deja de saturarla.',
+       why:'Al revés: los pasos con la válvula al ±100 % suben de 268 a 302. Justo por eso el integrador se carga de error que no puede corregir.'},
     ]},
   banda:{pregunta:'El banco de fatiga lleva una servoválvula de solape nulo: su banda muerta es del 0,5 % del mando. Pero con ki = 0 el producto |e|·kp ronda el 0,65 % en los seis kp del catálogo, un 30 % más. ¿De dónde sale ese exceso?',
     opciones:[
       {t:'De la fuga interna: con el pistón parado el carrete tiene que quedar abierto lo justo para reponerla.',ok:true,
        why:'Eso es. Cruzar el solape sólo deja el carrete en el punto en que empieza a pasar aceite; para que el pistón no se mueva hay que dar además el caudal que se escapa entre pistón y camisa, y con carga esa fuga no es cero.'},
-      {t:'De la resonancia de la columna de aceite: el pistón oscila y el error medio se dispara.',
+      {t:'De la resonancia de la columna de aceite: el pistón oscila alrededor de la consigna y el error medio se dispara.',
        why:'En el banco de fatiga el ciclo límite no llega a 0,03 mm en ninguno de los seis kp del catálogo: ahí no hay temblor que valga. El exceso es la reposición de la fuga.'},
-      {t:'De que el motor mide el error con la carga puesta, y eso lo falsea.',
+      {t:'De que el motor mide el error con la carga ya puesta, y eso falsea la comparación con la banda muerta.',
        why:'Se mide en la ventana de 2,30 a 2,50 s, con todo ya en régimen. La cuenta cuadra en las cinco máquinas mientras el pistón está quieto: lo que falla es dar por buena la banda muerta a secas.'},
-      {t:'De que el 0,5 % es del recorrido del carrete, no del mando del regulador.',
+      {t:'De que el 0,5 % se refiere al recorrido del carrete y no al mando que da el regulador a la válvula.',
        why:'Es del mando: la apertura vale cero mientras |u| ≤ 0,5 %, y a partir de ahí se renormaliza. El resto del mando en reposo es la fuga.'},
     ]},
   fuga:{pregunta:'En la prensa, en régimen SIN carga, Δp = p₁ − p₂ vale −14,88 bar; con los 26 kN encima pasa a +34,81 bar. ¿Qué le hace ese cambio de signo a la fuga interna del cilindro?',
     opciones:[
       {t:'Le cambia el sentido: sin carga empuja el vástago hacia fuera, con carga tira de él hacia dentro.',ok:true,
        why:'Sí. q_L = c_ip·(p₁−p₂), así que la fuga sigue el signo de Δp. Si el carrete cerrara del todo, el pistón derivaría a 0,0592 mm/s en un sentido y a 0,1385 mm/s en el otro. Un centro cerrado no es un tapón.'},
-      {t:'Nada: la fuga la fija el caudal de la bomba, no las presiones de las cámaras.',
+      {t:'Nada: la fuga la fija el caudal de la bomba y no las presiones de las dos cámaras del cilindro.',
        why:'La bomba no entra en la cuenta. La fuga es interna, de cámara a cámara, y la manda la diferencia de presiones entre ellas.'},
-      {t:'La multiplica, pero siempre en el mismo sentido: del fondo hacia el lado del vástago.',
+      {t:'La multiplica, pero siempre en el mismo sentido: del fondo del cilindro hacia el lado del vástago.',
        why:'Sólo con carga. Sin ella el fondo está a MENOS presión que el anillo, porque A₁ &gt; A₂ y el equilibrio pide p₁·A₁ = p₂·A₂ + fuerza.'},
-      {t:'La anula, porque el aceite se comprime y deja de circular.',
+      {t:'La anula, porque con la carga puesta el aceite se comprime y deja de circular entre las cámaras.',
        why:'La compresibilidad explica el arranque, no el régimen: cuando las presiones se estabilizan el aceite ya no se comprime más y lo único que sigue circulando por dentro es la fuga.'},
     ]},
   censo:{pregunta:'De las 480 sintonías del catálogo (96 por máquina en las cinco), sólo 66 cumplen los siete criterios — y ninguna de esas 66 lleva ki = 0. ¿Qué dice eso del integral y de la derivada?',
     opciones:[
-      {t:'El integral es obligatorio; la derivada, opcional: 43 de las 66 la llevan, pero ninguna de las cinco óptimas.',ok:true,
-       why:'Correcto. Sin integral el error en régimen es el mando en reposo dividido por kp, y ninguna de las cinco máquinas tiene tolerancia para eso. La derivada ayuda a amortiguar, pero cuando se paga el coste de propiedad las cinco ganadoras salen con kd = 0.'},
-      {t:'Que hay que poner el ki más alto del catálogo siempre.',
-       why:'ki 22 no gana siempre: la prensa y la fresadora firman con ki 10. Un integral de más se carga durante la saturación y dispara el sobrepaso.'},
-      {t:'Que el catálogo de kp está mal elegido: debería haber válidas con ki = 0.',
+      {t:'El integral es obligatorio y la derivada opcional: ninguna válida usa ki = 0 y 23 de 66 no tienen derivada.',ok:true,
+       why:'Correcto. Sin integral el error en régimen es el mando en reposo dividido por kp, y ninguna de las cinco máquinas tiene tolerancia para eso. La derivada ayuda a amortiguar, pero es opcional: 23 de las 66 válidas cumplen el pliego sin ella.'},
+      {t:'Que hay que poner siempre el ki más alto del catálogo, porque cuanto más integral mejor es el resultado.',
+       why:'ki 22 no es la mejor opción siempre: un integral de más se carga durante la saturación y dispara el sobrepaso.'},
+      {t:'Que el catálogo de kp está mal elegido: con una rejilla mejor tendría que haber válidas con ki = 0.',
        why:'Es al revés. El catálogo llega hasta kp 18 justamente para que se vea que ni con el kp más alto llega el proporcional solo a la tolerancia con carga.'},
-      {t:'Que la derivada es la que decide, porque la llevan 43 de las 66.',
-       why:'Llevarla no es necesitarla. En las cinco máquinas la sintonía más barata de poseer tiene kd = 0: la derivada compra amortiguamiento que ahí no hace falta pagar.'},
+      {t:'Que la derivada es la que decide y hay que ponerla siempre, porque la llevan 43 de las 66 válidas.',
+       why:'Llevarla no es necesitarla: 23 de las 66 válidas cumplen el pliego sin derivada. La derivada compra un amortiguamiento que muchas máquinas no necesitan pagar.'},
     ]},
-  reto:{pregunta:'El reto no pide la sintonía más rápida, sino la válida más barata de POSEER a 5 años: energía + desgaste del carrete + tiempo de máquina. ¿Cuál de las tres partidas manda?',
+  reto:{pregunta:'El reto no pide la sintonía más rápida, sino la válida más barata de POSEER a 5 años: energía + desgaste del carrete + tiempo de máquina. En la prensa con kp 13 · ki 10 · kd 0, ¿cuál de las tres partidas manda?',
     opciones:[
-      {t:'El tiempo de máquina, y por mucho: en la prensa son 0,0184 € de los 0,0214 que cuesta un ciclo.',ok:true,
-       why:'Sí. El desgaste pone 0,0024 y la energía 0,0006: el tiempo pesa más que las otras dos juntas. Por eso una décima de segundo de más en establecer se paga 600 000 veces en cinco años.'},
-      {t:'La energía, porque el grupo hidráulico está bombeando durante todo el ciclo.',
-       why:'La energía es la partida más pequeña de las tres en las cinco máquinas. En la prensa son 0,0006 € de 0,0214: menos de la treintava parte.'},
-      {t:'El desgaste del carrete, porque cada carrera del proporcional cuesta dinero.',
-       why:'Cuenta, pero está un orden por debajo del tiempo: 0,0024 frente a 0,0184 €/ciclo en la prensa.'},
-      {t:'Depende de la máquina: en las lentas y de pocos ciclos manda la energía.',
-       why:'Ni ahí. La compuerta es la más lenta y la de menos ciclos al año, y el tiempo sigue mandando: 0,0132 de los 0,0162 €/ciclo.'},
+      {t:'El tiempo de máquina, y por mucho: en la prensa son 0,0182 € de los 0,0220 que cuesta un ciclo.',ok:true,
+       why:'Sí. El desgaste pone 0,0033 y la energía 0,0006: el tiempo pesa más que las otras dos juntas. Por eso una décima de segundo de más en establecer se paga 600 000 veces en cinco años.'},
+      {t:'La energía, porque el grupo hidráulico está bombeando durante todo el ciclo y consume más que el resto.',
+       why:'La energía es la partida más pequeña de las tres en las cinco máquinas. En la prensa son 0,0006 € de 0,0220: menos de la treintava parte.'},
+      {t:'El desgaste del carrete, porque cada carrera del proporcional cuesta dinero y se repite miles de veces.',
+       why:'Cuenta, pero está muy por debajo del tiempo: 0,0033 frente a 0,0182 €/ciclo en la prensa.'},
+      {t:'Depende de la máquina: en las más lentas y de menos ciclos al año manda la energía y no el tiempo.',
+       why:'Ni ahí: en todas las sintonías válidas de las cinco máquinas, incluida la compuerta (la más lenta y la de menos ciclos al año), el tiempo de máquina es la partida mayor.'},
     ]},
 };
 let QORD=[], answered=false;
@@ -2236,6 +2289,8 @@ const PICK_INFO={
   cuadro:()=>{
     const {M,R}=pickCtx();
     const f=fallosDe(R);
+    if(ocultaVer()) return ['Cuadro de recepción',
+      'En el reto los siete pilotos no dan veredicto en vivo: pulsa Comprobar. El pliego pide sobrepaso, tiempo de establecimiento, error sin carga, error con carga, ciclo límite, presión y carrera de carrete dentro de límites.'];
     const filas=pliegoFilas(M,R).map(x=>'<br>'+(x[3]?'✔':'✘')+' '+x[0]+': '+x[1]+' <span style="opacity:.6">('+x[2]+')</span>').join('');
     return ['Cuadro de recepción',
       'Siete pilotos, un criterio del pliego cada uno; la máquina se firma sólo con los siete en verde.'+filas+
@@ -2313,6 +2368,10 @@ async function runAuto(){
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: guarda el estado del alumno y lo devuelve al terminar.
+  const SAVE={mode,ST:{...ST},RETO:{cfg:{...RETO.cfg},ejes:{...RETO.ejes},pistas:{...RETO.pistas},pistaTxt:RETO.pistaTxt.slice(),
+    resuelto:RETO.resuelto,msg:RETO.msg,checked:RETO.checked,intentos:RETO.intentos,libre:RETO.libre}};
+  RETO.libre=true;   // en la demostración la máquina de trabajo es siempre la prensa
   try{
     // --- 1. el lazo que no llega ---------------------------------------
     ST.mk='prensa'; ST.kp=KP_G[0]; ST.ki=0; ST.kd=0; ST.aw=true;
@@ -2439,10 +2498,21 @@ async function runAuto(){
       await sleep(1600);
       checkReto();
     }
-    await sleep(5600);
-    answer(quizCorrectIndex());
+    await sleep(2400);
   } finally {
+    // estado previo del alumno: la demostración no resuelve ni puntúa el reto
+    Object.assign(ST,SAVE.ST);
+    Object.assign(RETO.cfg,SAVE.RETO.cfg);
+    RETO.ejes={...SAVE.RETO.ejes};RETO.pistas={...SAVE.RETO.pistas};RETO.pistaTxt=SAVE.RETO.pistaTxt.slice();
+    RETO.resuelto=SAVE.RETO.resuelto;RETO.msg=SAVE.RETO.msg;RETO.checked=SAVE.RETO.checked;
+    RETO.intentos=SAVE.RETO.intentos;RETO.libre=SAVE.RETO.libre;
+    RETO.sol=solM(RETO.cfg.mk);RETO.nval=valM(RETO.cfg.mk).length;
+    // la demostración enseñó la solución de la prensa: si ése era el caso del alumno, caso nuevo
+    if(RETO.cfg.mk==='prensa') nuevaMaquinaReto(['prensa']);
     autoRunning=false;
+    solved=false;
+    setMode(SAVE.mode);
+    solved=mode==='reto'?RETO.resuelto:false;
     el('btnAuto').textContent=rot;
     buildControls();
   }
@@ -2489,7 +2559,8 @@ window.__labDebug={
   simT, bandaM, censoM, solM, valM, empM, pisM,
   // --- estado vivo
   st:()=>({...ST}), cur:()=>CUR, cfg:()=>cfgDe(mode), frame:()=>FR, maq:()=>maqAct(),
-  reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval,
+  intentos:()=>RETO.intentos, pistasUsadas:()=>nPistas(), retoLibre:()=>RETO.libre,
+  reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval, checked:RETO.checked, intentos:RETO.intentos,
              resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas}}),
   // --- setters equivalentes a los botones
   setMaquina:v=>{ST.mk=v;aplicaMaquina();afterEdit();},
@@ -2500,11 +2571,11 @@ window.__labDebug={
   newSignal,
   // --- reto
   setRetoMaquina:v=>{RETO.cfg.mk=v;retoSolveBuild();afterEdit();},
-  setRetoKp:v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
-  setRetoKi:v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
-  setRetoKd:v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoKp:v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;afterEdit();},
+  setRetoKi:v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;afterEdit();},
+  setRetoKd:v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;RETO.checked=false;afterEdit();},
   setReto:(kp,ki,kd)=>{RETO.ejes={kp:Number(kp),ki:Number(ki),kd:Number(kd)};
-    RETO.msg='';RETO.resuelto=false;afterEdit();},
+    RETO.msg='';RETO.resuelto=false;RETO.checked=false;afterEdit();},
   check:()=>checkReto(), pista:()=>pista(), retoSolveBuild,
   solved:()=>solved,
   // --- cuestionario

@@ -754,7 +754,11 @@ const ST={
   estab:    { est:'pluma',       ratio:3,   mont:'corta' },
   reto:     { est:'pluma' },
 };
-const RETO={ cfg:{ratio:1.5,tarado:70,dren:'int',mont:'bloque'}, sol:null, hechos:[], resuelto:false, msg:'', ejes:{} };
+const RETO={ cfg:{ratio:1.5,tarado:70,dren:'int',mont:'bloque'}, sol:null, hechos:[], resuelto:false, msg:'', ejes:{},
+  // comprobado: la configuración visible ya se entregó a Comprobar. Hasta entonces el reto NO da veredicto
+  // (ni criterios, ni ejes acertados, ni el óptimo). intentos: fallos de la estación en curso.
+  comprobado:false, intentos:0, agotado:false, pistas:[] };
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 let CUR=null;               // resultado de evalua() de la configuracion visible
 let hw={};                  // estado geometrico de la maquina para el 3D
 let animT=0;                // fase de la animacion de descenso
@@ -767,7 +771,17 @@ function cfgDe(m){
   if(m==='induc')    return { est:s.est, ratio:1.5, tarado:s.tarado, dren:'vent', mont:'corta' };
   if(m==='descenso') return { est:s.est, ratio:s.ratio, tarado:s.tarado, dren:s.dren, mont:'corta' };
   if(m==='pilotaje') return { est:s.est, ratio:s.ratio, tarado:s.tarado, dren:s.dren, mont:'corta' };
-  if(m==='estab'){ const o=solucion(s.est); return { est:s.est, ratio:s.ratio, tarado:o.tarado, dren:o.dren, mont:s.mont }; }
+  if(m==='estab'){
+    const o=solucion(s.est);
+    // La estabilidad sólo depende de estación, R y montaje: tarado y drenaje son de relleno. Si la
+    // estación es la del reto sin resolver, NO se usan los óptimos (serían dos ejes de la respuesta).
+    if(s.est===ST.reto.est && !RETO.resuelto){
+      const t=TARADOS.find(x=>x>o.tarado)||TARADOS[TARADOS.length-2];
+      const d=DREN_KEYS.find(x=>x!==o.dren);
+      return { est:s.est, ratio:s.ratio, tarado:t, dren:d, mont:s.mont };
+    }
+    return { est:s.est, ratio:s.ratio, tarado:o.tarado, dren:o.dren, mont:s.mont };
+  }
   return { est:ST.reto.est, ...RETO.cfg };
 }
 function estAct(){ return cfgDe(mode).est; }
@@ -1216,7 +1230,7 @@ function drawReto(){
   for(const e of EJES_D){
     const sol=ejeSolC(estK,e.k), vis=RETO.ejes[e.k];
     texto(EJE_ROT[e.k],44,y,'#dbe4f0',14,'left','700');
-    if(vis) texto('pista: '+sol.map(e.rot).join(' · '),640,y,VIO,13,'right','700');
+    if(vis) texto('✔ acertado: '+sol.filter(v=>v===e.cur).map(e.rot).join(' · '),640,y,VIO,13,'right','700');
     let x=44; const yy=y+14;
     for(const v of e.vals){
       bx.font='600 13px ui-sans-serif,system-ui,sans-serif';
@@ -1232,29 +1246,35 @@ function drawReto(){
     y+=68;
   }
 
-  texto('Cómo va la configuración de ahora',44,y+16,AZUL,16,'left','700');
+  const ver=RETO.comprobado||RETO.resuelto;     // veredicto sólo tras Comprobar
+  texto(ver?'Cómo quedó la configuración comprobada':'Configuración sin comprobar',44,y+16,AZUL,16,'left','700');
   let cy2=y+50;
-  for(const c of CRIT){
-    const ok=r[c];
-    marca(56,cy2,ok);
-    texto(CRIT_ROT[c],74,cy2+5,ok?'#dbe4f0':BAD_HEX,13,'left','700');
-    texto(ok?'':CRIT_POR[c],250,cy2+5,'#8f9bb0',12,'left','500');
-    cy2+=26;
+  if(ver){
+    for(const c of CRIT){
+      const ok=r[c];
+      marca(56,cy2,ok);
+      texto(CRIT_ROT[c],74,cy2+5,ok?'#dbe4f0':BAD_HEX,13,'left','700');
+      texto(ok?'':CRIT_POR[c],250,cy2+5,'#8f9bb0',12,'left','500');
+      cy2+=26;
+    }
+  }else{
+    texto('Los seis criterios no se muestran en vivo: monta el conjunto y pulsa Comprobar.',56,cy2+5,'#8f9bb0',13,'left','600');
   }
 
   rpanel(300);
-  prow(PX.y+34,'Configuraciones válidas',o?f1(o.validas,0)+' de 225':'ninguna');
-  prow(PX.y+62,'Coste mínimo posible',o?f1(o.best.coste,0):'—',VIO);
-  prow(PX.y+90,'Coste de la tuya',f1(r.coste,0),r.valido?colOk(r.coste===o.best.coste):GRIS);
-  prow(PX.y+118,'Calor de la tuya',f1(r.pCalor,2)+' kW');
-  prow(PX.y+146,'Calor del óptimo',o?f1(o.best.pCalor,2)+' kW':'—',VIO);
-  prow(PX.y+174,'Criterios cumplidos',f1(CRIT.filter(c=>r[c]).length,0)+' de 6',
-    colOk(r.valido));
+  const res=RETO.resuelto;
+  prow(PX.y+34,'Configuraciones válidas',res&&o?f1(o.validas,0)+' de 225':'tras resolver');
+  prow(PX.y+62,'Coste mínimo posible',res&&o?f1(o.best.coste,0):'tras resolver',VIO);
+  prow(PX.y+90,'Coste de la tuya',f1(r.coste,0),ver&&r.valido?colOk(res):GRIS);
+  prow(PX.y+118,'Calor de la tuya',ver?f1(r.pCalor,2)+' kW':'sin comprobar');
+  prow(PX.y+146,'Calor del óptimo',res&&o?f1(o.best.pCalor,2)+' kW':'tras resolver',VIO);
+  prow(PX.y+174,'Criterios cumplidos',ver?f1(CRIT.filter(c=>r[c]).length,0)+' de 6':'sin comprobar',
+    ver?colOk(r.valido):GRIS);
   prow(PX.y+202,'Ejes acertados',
-    f1(EJES.filter(k=>ejeSolC(estK,k).indexOf(RETO.cfg[k])>=0).length,0)+' de 4');
-  prow(PX.y+230,'Estado',RETO.resuelto?'resuelto':(r.valido?'válida, no óptima':'no válida'),
-    RETO.resuelto?OK_HEX:(r.valido?WARN_HEX:BAD_HEX));
-  prow(PX.y+258,'Soluciones equivalentes',o?f1(o.empatesTot,0):'—');
+    ver?f1(EJES.filter(k=>ejeSolC(estK,k).indexOf(RETO.cfg[k])>=0).length,0)+' de 4':'sin comprobar');
+  prow(PX.y+230,'Estado',res?'resuelto':(ver?(r.valido?'válida, no óptima':'no válida'):'sin comprobar'),
+    res?OK_HEX:(ver?(r.valido?WARN_HEX:BAD_HEX):GRIS));
+  prow(PX.y+258,'Fallos · pistas',f1(RETO.intentos,0)+' de '+MAX_INTENTOS+' · '+f1(RETO.pistas.length,0)+' de '+MAX_PISTAS);
 
   if(RETO.msg) wrapText(RETO.msg,PX.x+16,PX.y+318,PX.w-32,18,'#9fb0c6',13);
 }
@@ -1687,7 +1707,7 @@ const MODE_META={
     mision:'La misma estación con distinta relación R y distinto drenaje del muelle. R alta pide menos presión de pilotaje, pero con drenaje interno multiplica la contrapresión del retorno por (R+1). Seis bar de retorno pueden convertirse en sesenta y seis.'},
   estab:{nombre:'Estabilidad del lazo',cam:[[3.8,3.4,8.2],[1.20,1.30,0.00]],
     mision:'Una contrabalance es un lazo cerrado: la presión motriz abre la válvula, la válvula deja bajar la carga, y al bajar cambia la presión motriz. Con R alta y mucho volumen entre la válvula y el actuador, el lazo se hace inestable y la máquina cabecea.'},
-  reto:{nombre:'Reto',cam:[[4.8,3.6,8.6],[1.20,1.30,0.05]],
+  reto:{nombre:'Reto',cam:[[3.56,3.6,9.13],[-0.04,1.30,0.58]],
     mision:'Cuatro ejes y seis criterios que hay que cumplir a la vez. Monta el conjunto válido más barato para la estación que te toca; a igualdad de coste gana el que menos calienta.'},
 };
 const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
@@ -1747,23 +1767,60 @@ function buildControls(){
   wire('data-ee',v=>{ST.estab.est=v;});
   wire('data-er',v=>{ST.estab.ratio=Number(v);});
   wire('data-em',v=>{ST.estab.mont=v;});
-  wire('data-xr',v=>{RETO.cfg={...RETO.cfg,ratio:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xt',v=>{RETO.cfg={...RETO.cfg,tarado:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xd',v=>{RETO.cfg={...RETO.cfg,dren:v};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xm',v=>{RETO.cfg={...RETO.cfg,mont:v};RETO.msg='';RETO.resuelto=false;});
+  wire('data-xr',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,ratio:Number(v)};});
+  wire('data-xt',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,tarado:Number(v)};});
+  wire('data-xd',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,dren:v};});
+  wire('data-xm',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,mont:v};});
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Una pista destapa UN eje: dice que valores de ese eje llevan a una solucion
-// de coste minimo. No resuelve el reto, porque los cuatro ejes se juzgan juntos
-// y acertar uno no garantiza que la combinacion valga.
-const EJE_VAL_ROT={ratio:v=>R_ROT[v],tarado:v=>f1(v,0)+' bar',dren:v=>DREN_ROT[v],mont:v=>MONT_ROT[v]};
+// Cualquier cambio de selección anula la comprobación anterior y el `solved` latcheado: el reto
+// sólo está resuelto para la configuración que se comprobó. Con la estación agotada (tres fallos)
+// el primer toque la renueva. Devuelve false si el toque se consumió en renovar la estación.
+function tocaReto(){
+  if(RETO.agotado){ renuevaReto('Tres comprobaciones fallidas: caso nuevo.'); return false; }
+  RETO.msg='';RETO.resuelto=false;solved=false;RETO.comprobado=false;RETO.ejes={};
+  return true;
+}
+function renuevaReto(motivo){
+  const i=EST_KEYS.indexOf(ST.reto.est);ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
+  retoSolveBuild(true);
+  showToast('🔀 <b>Estación nueva.</b> '+motivo+' '+ESTACIONES[ST.reto.est].nom);
+}
+// Pistas GRADUADAS (máximo 2) y registradas. Ninguna nombra un valor: la primera dice qué criterio
+// domina la estación; la segunda, hacia dónde mover el primer eje que no acierta.
 function pista(){
-  const eje=EJES.find(e=>!RETO.ejes[e]);
-  if(!eje){showToast('💡 Ya has destapado los cuatro ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.ejes[eje]=true;beep();
-  const vals=ejeSolC(ST.reto.est,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> Con el resto en su sitio, sirve: '+(vals||'ninguno de los valores disponibles'));
+  if(RETO.resuelto){showToast('💡 El reto ya está resuelto.');return;}
+  if(RETO.agotado){renuevaReto('Tres comprobaciones fallidas: caso nuevo.');afterEdit();return;}
+  if(RETO.pistas.length>=MAX_PISTAS){showToast('💡 Ya usaste las '+MAX_PISTAS+' pistas de esta estación. La combinación la tienes que cerrar tú.');return;}
+  const estK=ST.reto.est;
+  let txt;
+  if(RETO.pistas.length===0){
+    const cnt={};CRIT.forEach(c=>{cnt[c]=0;});
+    barrido(estK).forEach(x=>x.fallos.forEach(c=>{cnt[c]++;}));
+    const top=CRIT.slice().sort((a,b)=>cnt[b]-cnt[a])[0];
+    txt='De las 225 combinaciones, el criterio que más descarta en esta estación es «'+CRIT_ROT[top]+
+      '» ('+f1(cnt[top],0)+' caen por él). Averigua qué ejes lo gobiernan.';
+  }else{
+    const eje=EJES.find(k=>ejeSolC(estK,k).indexOf(RETO.cfg[k])<0);
+    if(!eje){ txt='Cada eje, por separado, ya tiene un valor que sirve; revisa el conjunto completo contra los seis criterios.'; }
+    else{
+      const vals=EJE_VAL[eje], cur=vals.indexOf(RETO.cfg[eje]), sol=ejeSolC(estK,eje).map(v=>vals.indexOf(v));
+      const dir=sol.every(i=>i>cur)?'sube':(sol.every(i=>i<cur)?'baja':'cambia');
+      const ordin=(eje==='ratio'||eje==='tarado');
+      const costeV={dren:DRENES,mont:MONTAJES}[eje];
+      let how;
+      if(ordin) how=dir==='cambia'?'el valor que sirve está a los dos lados del actual':'con el resto bien resuelto, hay que '+dir+'r este valor';
+      else{
+        const c=k=>costeV[k].coste, cs=ejeSolC(estK,eje).map(c);
+        how=cs.every(x=>x>c(RETO.cfg[eje]))?'el que hace falta es más caro que el actual':(cs.every(x=>x<c(RETO.cfg[eje]))?'el que hace falta es más barato que el actual':'el actual no sirve');
+      }
+      txt='Eje «'+EJE_ROT[eje]+'»: '+how+'.';
+    }
+  }
+  RETO.pistas.push({n:RETO.pistas.length+1,txt});
+  beep();
+  showToast('💡 <b>Pista '+RETO.pistas.length+' de '+MAX_PISTAS+'.</b> '+txt);
   afterEdit();
 }
 
@@ -1808,7 +1865,8 @@ function newSignal(){
   }else if(mode==='descenso'){
     const i=EST_KEYS.indexOf(ST.descenso.est);ST.descenso.est=EST_KEYS[(i+1)%EST_KEYS.length];
     const o=solucion(ST.descenso.est);
-    if(o){ST.descenso.tarado=o.tarado;ST.descenso.dren=o.dren;}
+    // el tarado y el drenaje óptimos de la estación del reto son parte de su respuesta: no se ponen solos
+    if(o && !(ST.descenso.est===ST.reto.est && !RETO.resuelto)){ST.descenso.tarado=o.tarado;ST.descenso.dren=o.dren;}
   }else if(mode==='pilotaje'){
     const i=RATIOS.indexOf(ST.pilotaje.ratio);ST.pilotaje.ratio=RATIOS[(i+1)%RATIOS.length];
     const j=DREN_KEYS.indexOf(ST.pilotaje.dren);
@@ -1820,7 +1878,8 @@ function newSignal(){
     const i=EST_KEYS.indexOf(ST.reto.est);ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
     retoSolveBuild(true);
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
+  if(mode!=='reto'){/* los modos de estudio no tocan el reto */}
+  else{RETO.resuelto=false;solved=false;RETO.msg='';}
   computa();buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1887,15 +1946,17 @@ function updateTele(){
     h+=teleRow('Routh c₂c₁ − c₀',f1(pl.routh,0),cls2(pl.routh>0));
   }else{
     const o=optimo(ST.reto.est);
+    const ver=RETO.comprobado||RETO.resuelto, res=RETO.resuelto;
     h+=teleRow('Estación',E.nom);
-    h+=teleRow('Coste de tu conjunto',f1(r.coste,0),o?cls2(r.valido&&r.coste===o.best.coste):'');
-    h+=teleRow('Coste mínimo posible',o?f1(o.best.coste,0):'—');
-    h+=teleRow('Calor de tu conjunto',f1(r.pCalor,2)+' kW',cls2(r.okTermico));
-    h+=teleRow('Criterios cumplidos',f1(CRIT.filter(k=>r[k]).length,0)+' de 6',cls2(r.valido));
-    h+=teleRow('Ejes acertados',f1(EJES.filter(k=>ejeSolC(ST.reto.est,k).indexOf(RETO.cfg[k])>=0).length,0)+' de 4');
-    h+=teleRow('Configuraciones válidas',o?f1(o.validas,0)+' de 225':'ninguna');
-    h+=teleRow('Estado',RETO.resuelto?'resuelto':(r.valido?'válida, no óptima':'no válida'),
-      RETO.resuelto?'ok':(r.valido?'':'bad'));
+    h+=teleRow('Coste de tu conjunto',f1(r.coste,0),ver&&o?cls2(res):'');
+    h+=teleRow('Coste mínimo posible',res&&o?f1(o.best.coste,0):'tras resolver');
+    h+=teleRow('Calor de tu conjunto',ver?f1(r.pCalor,2)+' kW':'sin comprobar',ver?cls2(r.okTermico):'');
+    h+=teleRow('Criterios cumplidos',ver?f1(CRIT.filter(k=>r[k]).length,0)+' de 6':'sin comprobar',ver?cls2(r.valido):'');
+    h+=teleRow('Ejes acertados',ver?f1(EJES.filter(k=>ejeSolC(ST.reto.est,k).indexOf(RETO.cfg[k])>=0).length,0)+' de 4':'sin comprobar');
+    h+=teleRow('Configuraciones válidas',res&&o?f1(o.validas,0)+' de 225':'tras resolver');
+    h+=teleRow('Fallos · pistas',f1(RETO.intentos,0)+' de '+MAX_INTENTOS+' · '+f1(RETO.pistas.length,0)+' de '+MAX_PISTAS);
+    h+=teleRow('Estado',res?'resuelto':(ver?(r.valido?'válida, no óptima':'no válida'):'sin comprobar'),
+      res?'ok':(ver&&!r.valido?'bad':''));
   }
   el('tele').innerHTML=h;
 }
@@ -1961,10 +2022,12 @@ function updateReport(){
   }else{
     const o=optimo(ST.reto.est);
     L.push('Estación: '+E.nom+' · '+EST_SUB[ST.reto.est]+'.');
-    L.push('De las 225 combinaciones, '+(o?f1(o.validas,0):'0')+' cumplen los seis criterios.');
-    L.push('Tu conjunto cuesta '+f1(r.coste,0)+' y calienta '+f1(r.pCalor,2)+' kW.');
-    if(r.fallos.length) L.push('Fallan: '+r.fallos.map(k=>CRIT_ROT[k]).join(' · ')+'.');
-    else L.push('Cumple los seis. '+(o&&r.coste===o.best.coste?'Y con el coste mínimo.':'Pero la hay más barata.'));
+    if(RETO.resuelto) L.push('De las 225 combinaciones, '+(o?f1(o.validas,0):'0')+' cumplen los seis criterios.');
+    if(RETO.comprobado||RETO.resuelto){
+      L.push('Tu conjunto cuesta '+f1(r.coste,0)+' y calienta '+f1(r.pCalor,2)+' kW.');
+      if(r.fallos.length) L.push('Fallan: '+r.fallos.map(k=>CRIT_ROT[k]).join(' · ')+'.');
+      else L.push('Cumple los seis. '+(RETO.resuelto?'Y es el óptimo.':'Pero hay uno mejor.'));
+    }else L.push('Tu conjunto cuesta '+f1(r.coste,0)+'. Pulsa Comprobar para ver cómo queda frente a los seis criterios.');
     if(RETO.msg) L.push(RETO.msg);
     L.push('Recuerda el orden: primero el coste del conjunto, y sólo a igualdad de coste, el calor.');
   }
@@ -1989,14 +2052,19 @@ function retoSolveBuild(silent){
   RETO.hechos=[];
   RETO.resuelto=false;
   RETO.msg='';
+  RETO.comprobado=false; RETO.intentos=0; RETO.agotado=false; RETO.pistas=[];
   solved=false;
   if(!silent) showToast('🎯 <b>Reto nuevo.</b> '+ESTACIONES[estK].nom);
 }
 function updateRetoSpec(){
   const estK=ST.reto.est, E=ESTACIONES[estK], o=optimo(estK);
   const c=RETO.cfg, r=CUR;
-  const crit=CRIT.map(k=>'<span style="color:'+(r[k]?OK_HEX:BAD_HEX)+'">'+
-    (r[k]?'✓':'✗')+' '+CRIT_LET[k]+'</span>').join(' &nbsp; ');
+  const ver=RETO.comprobado||RETO.resuelto;
+  const crit=ver?CRIT.map(k=>'<span style="color:'+(r[k]?OK_HEX:BAD_HEX)+'">'+
+    (r[k]?'✓':'✗')+' '+CRIT_LET[k]+'</span>').join(' &nbsp; '):'<span style="color:var(--muted)">Criterios: se evalúan al pulsar Comprobar.</span>';
+  const pst=RETO.pistas.map(p=>'<br>💡 <b>Pista '+p.n+':</b> '+p.txt).join('');
+  const inten='<br><span style="color:var(--muted)">Fallos: '+RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas.length+' de '+MAX_PISTAS+
+    (RETO.agotado?' · <b>estación agotada: la próxima acción la renueva</b>':'')+'</span>';
   el('retoSpec').innerHTML=
     '<b>'+E.nom+'</b> · '+EST_SUB[estK]+'<br>'+
     'Carga '+f1(E.F/1000,1)+' kN · bomba '+f1(E.qb,0)+' L/min · retorno '+f1(E.pBp,0)+' bar · '+
@@ -2005,7 +2073,7 @@ function updateRetoSpec(){
     'Monta el conjunto <b>válido más barato</b>; a igualdad de coste, el que menos caliente.<br>'+
     '<span style="color:var(--muted)">Ahora: '+R_ROT[c.ratio]+' · '+f1(c.tarado,0)+' bar · '+
     DREN_ROT[c.dren]+' · '+MONT_ROT[c.mont]+' → coste '+f1(r.coste,0)+
-    (o?' (mínimo '+f1(o.best.coste,0)+')':'')+'</span><br>'+crit;
+    (RETO.resuelto&&o?' (mínimo '+f1(o.best.coste,0)+')':'')+'</span><br>'+crit+inten+pst;
 }
 // El texto de cierre no repite la respuesta: dice POR QUE cada eje esta donde esta,
 // y de paso avisa de los empates, porque en varias estaciones hay mas de una solucion.
@@ -2028,24 +2096,33 @@ function retoExplain(){
   return p.join(' ');
 }
 function checkReto(){
+  if(RETO.agotado){ renuevaReto('Tres comprobaciones fallidas: caso nuevo.'); afterEdit(); return false; }
   const estK=ST.reto.est, o=optimo(estK), r=CUR;
-  // destapar los ejes que ya estan bien: no regala la solucion, confirma lo acertado
+  RETO.comprobado=true;
+  // confirma los ejes que ya estan bien (sólo tras comprobar): no regala la solucion
+  RETO.ejes={};
   EJES.forEach(k=>{ if(ejeSolC(estK,k).indexOf(RETO.cfg[k])>=0) RETO.ejes[k]=true; });
   const optimoOk=!!o && r.valido && r.coste===o.best.coste && Math.abs(r.pCalor-o.best.pCalor)<1e-9;
   RETO.resuelto=optimoOk;
+  if(!optimoOk){
+    RETO.intentos++;
+    if(RETO.intentos>=MAX_INTENTOS) RETO.agotado=true;
+  }
   if(optimoOk){
     solved=true;
     RETO.msg=retoExplain();
     if(!autoRunning) showToast('✅ <b>Conjunto óptimo.</b> '+retoExplain());
   }else if(r.valido){
-    RETO.msg='Cumple los seis criterios, pero cuesta '+f1(r.coste,0)+
-      (o?' y se puede bajar a '+f1(o.best.coste,0)+'.':'.')+
+    RETO.msg='Cumple los seis criterios, pero existe un conjunto válido mejor (más barato o, a igual coste, que caliente menos).'+
       ' Mira qué eje te está cobrando de más.';
     if(!autoRunning) showToast('🟡 <b>Válida, pero no la más barata.</b> '+RETO.msg);
   }else{
     const f=r.fallos.map(k=>CRIT_ROT[k]+' ('+CRIT_POR[k]+')');
     RETO.msg='Todavía falla: '+f.join('; ')+'.';
     if(!autoRunning) showToast('❌ <b>Aún no.</b> '+RETO.msg);
+  }
+  if(!optimoOk){
+    RETO.msg+=' Fallo '+RETO.intentos+' de '+MAX_INTENTOS+(RETO.agotado?': la próxima vez se renueva la estación.':'.');
   }
   synth.beep(optimoOk?880:200,0.10,0.05);
   refreshAll();
@@ -2057,34 +2134,34 @@ function checkReto(){
 const QUIZ={
   induc:{pregunta:'La pluma cuelga 68,0 kN sobre 12 272 mm² de cámara resistente. ¿Cuál es el tarado más bajo de la lista que la sujeta en reposo con el margen que pide la norma de taller?',
     opciones:[
-      {t:'105 bar',ok:true,why:'p_ind = 10·68 000/12 272 = 55,4 bar y el criterio pide 1,3·p_ind = 72,0 bar. 70 se queda a dos bar; el siguiente escalón disponible es 105.'},
-      {t:'70 bar',ok:false,why:'Se queda corto por poco: hacen falta 72,0 bar y 70 no llega. Y "por poco" en una pluma significa que baja sola.'},
-      {t:'55 bar, justo la presión inducida',ok:false,why:'Tarar justo en p_ind deja la válvula en el punto de abrir: no sujeta nada y además fuga a chorro.'},
-      {t:'280 bar, cuanto más alto mejor',ok:false,why:'Tarar de más no es gratis: obliga a más presión de pilotaje, calienta más y puede pasarse del límite del actuador.'}]},
+      {t:'105 bar: el primer escalón de la lista que supera lo exigido',ok:true,why:'p_ind = 10·68 000/12 272 = 55,4 bar y el criterio pide 1,3·p_ind = 72,0 bar. 70 se queda a dos bar; el siguiente escalón disponible es 105.'},
+      {t:'70 bar: queda a dos bar de lo exigido y basta en la práctica',ok:false,why:'Se queda corto por poco: hacen falta 72,0 bar y 70 no llega. Y "por poco" en una pluma significa que baja sola.'},
+      {t:'55 bar, justo la presión inducida, que ya basta para que no baje',ok:false,why:'Tarar justo en p_ind deja la válvula en el punto de abrir: no sujeta nada y además fuga a chorro.'},
+      {t:'280 bar: cuanto más alto mejor, así nunca se abre sola',ok:false,why:'Tarar de más no es gratis: obliga a más presión de pilotaje, calienta más y puede pasarse del límite del actuador.'}]},
   descenso:{pregunta:'La pluma baja con su conjunto óptimo: la bomba aporta 1,68 kW y el calor total es 5,71 kW. ¿De dónde sale la diferencia?',
     opciones:[
       {t:'De la propia carga, que al caer devuelve energía potencial',ok:true,why:'F·v = 68 000·59,4 mm/s = 4,04 kW. Bajar una carga no consume energía: la libera, y la contrabalance es quien tiene que tragársela en forma de calor.'},
-      {t:'Del motor eléctrico, que trabaja más al bajar',ok:false,why:'El motor sólo mueve la bomba, y la bomba aporta 1,68 kW. Los otros 4 kW no pasan por el motor.'},
-      {t:'De la fricción de las juntas del cilindro',ok:false,why:'La fricción existe, pero este modelo ni la incluye y aun así el balance cierra: la energía es de la carga.'},
-      {t:'De la compresibilidad del aceite',ok:false,why:'La compresibilidad almacena y devuelve energía dentro del ciclo, no la aporta de forma sostenida.'}]},
+      {t:'Del motor eléctrico, que trabaja más cuando la carga baja',ok:false,why:'El motor sólo mueve la bomba, y la bomba aporta 1,68 kW. Los otros 4 kW no pasan por el motor.'},
+      {t:'De la fricción de las juntas del cilindro y del carrete',ok:false,why:'La fricción existe, pero este modelo ni la incluye y aun así el balance cierra: la energía es de la carga.'},
+      {t:'De la compresibilidad del aceite al comprimirse en la bajada',ok:false,why:'La compresibilidad almacena y devuelve energía dentro del ciclo, no la aporta de forma sostenida.'}]},
   pilotaje:{pregunta:'Pluma con 6 bar de contrapresión en el retorno, relación 10:1 y drenaje interno del muelle. ¿Cuánta presión de más tiene que vencer la válvula por culpa de esa contrapresión?',
     opciones:[
-      {t:'66 bar',ok:true,why:'Con drenaje interno f_bp = 1 + R = 11, así que 6 bar de retorno se convierten en 66 bar sobre el muelle. Seis bar que nadie mira acaban costando sesenta y seis.'},
-      {t:'6 bar, los mismos que hay en el retorno',ok:false,why:'Eso sería con drenaje balanceado (f_bp = 1). Con drenaje interno la contrapresión entra multiplicada por (1+R).'},
-      {t:'60 bar',ok:false,why:'Casi: el factor es 1 + R = 11, no R = 10. La contrapresión actúa también sobre el área del asiento.'},
-      {t:'Ninguna: el retorno no afecta a la contrabalance',ok:false,why:'Sólo con el muelle ventilado al tanque. Con drenaje interno o balanceado el retorno sí entra en el equilibrio.'}]},
+      {t:'66 bar: los 6 bar de retorno por el factor 1 + R = 11',ok:true,why:'Con drenaje interno f_bp = 1 + R = 11, así que 6 bar de retorno se convierten en 66 bar sobre el muelle. Seis bar que nadie mira acaban costando sesenta y seis.'},
+      {t:'6 bar: los mismos del retorno, sin multiplicar por ningún factor',ok:false,why:'Eso sería con drenaje balanceado (f_bp = 1). Con drenaje interno la contrapresión entra multiplicada por (1+R).'},
+      {t:'60 bar: los 6 bar de retorno por la relación R = 10',ok:false,why:'Casi: el factor es 1 + R = 11, no R = 10. La contrapresión actúa también sobre el área del asiento.'},
+      {t:'Ninguna: con ese drenaje el retorno no afecta a la válvula',ok:false,why:'Sólo con el muelle ventilado al tanque. Con drenaje interno o balanceado el retorno sí entra en el equilibrio.'}]},
   estab:{pregunta:'En la pluma con manguera corta, subir la relación de 1,5:1 a 10:1 lleva las raíces de −0,48 ± 94,5i a +3,81 ± 94,8i. ¿Qué te está diciendo ese movimiento?',
     opciones:[
       {t:'Que R se come el amortiguamiento sin tocar la frecuencia: el cabeceo pasa de apagarse a crecer, y suena igual en los dos casos',ok:true,why:'La parte imaginaria apenas se mueve (15,04 → 15,09 Hz) y la real cruza a positiva. Por eso el cabeceo de una contrabalance siempre suena parecido: lo que cambia es si se va o no.'},
-      {t:'Que la máquina va a vibrar mucho más rápido',ok:false,why:'La frecuencia se queda en ~15 Hz en los dos casos. Lo que cambia es el signo de la parte real.'},
-      {t:'Que hace falta más masa para estabilizarla',ok:false,why:'La condición de Routh se reduce a R·A_mot·V_res < A_res·V_mot: la masa se cancela y no aparece.'},
-      {t:'Que hay que bajar la ganancia del carrete',ok:false,why:'La ganancia K tampoco aparece en la condición de estabilidad. Cambia la velocidad del transitorio, no si converge.'}]},
+      {t:'Que la máquina va a vibrar mucho más rápido, porque R sube la frecuencia del cabeceo y el lazo deja de converger',ok:false,why:'La frecuencia se queda en ~15 Hz en los dos casos. Lo que cambia es el signo de la parte real.'},
+      {t:'Que hace falta más masa en la carga para estabilizarla, porque la inercia amortigua el par complejo de raíces',ok:false,why:'La condición de Routh se reduce a R·A_mot·V_res < A_res·V_mot: la masa se cancela y no aparece.'},
+      {t:'Que hay que bajar la ganancia del carrete de la direccional, porque es la que decide si el lazo converge o diverge',ok:false,why:'La ganancia K tampoco aparece en la condición de estabilidad. Cambia la velocidad del transitorio, no si converge.'}]},
   reto:{pregunta:'Dos conjuntos cumplen los seis criterios. Uno cuesta 14 y disipa 6,1 kW; el otro cuesta 17 y disipa 4,6 kW. ¿Cuál gana con el orden declarado en este laboratorio?',
     opciones:[
       {t:'El de coste 14: primero el coste del conjunto y sólo a igualdad de coste, el calor',ok:true,why:'El orden es lexicográfico y está declarado: coste primero, calor como desempate. En una máquina real el orden lo fija el pliego; lo que no vale es dejarlo implícito.'},
-      {t:'El de 4,6 kW, porque el calor es lo que mata las máquinas',ok:false,why:'Es un criterio defendible, pero no es el declarado aquí. Cambiar el orden a mitad de un estudio es cómo se cuelan las decisiones arbitrarias.'},
-      {t:'Da igual: los dos son válidos',ok:false,why:'Los dos son válidos, sí, pero el reto pide el óptimo, y sin un orden total no hay óptimo.'},
-      {t:'El que tenga la relación de pilotaje más alta',ok:false,why:'La relación de pilotaje no es un criterio de decisión: es una de las variables que se ajustan.'}]},
+      {t:'El de 4,6 kW, porque el calor es lo que acorta la vida de las máquinas y del aceite',ok:false,why:'Es un criterio defendible, pero no es el declarado aquí. Cambiar el orden a mitad de un estudio es cómo se cuelan las decisiones arbitrarias.'},
+      {t:'Da igual: los dos cumplen los seis criterios y el reto sólo pide uno válido',ok:false,why:'Los dos son válidos, sí, pero el reto pide el óptimo, y sin un orden total no hay óptimo.'},
+      {t:'El que tenga la relación de pilotaje más alta, porque abarata la válvula',ok:false,why:'La relación de pilotaje no es un criterio de decisión: es una de las variables que se ajustan.'}]},
 };
 let QORD=[], answered=false;
 function buildQuiz(){
@@ -2196,7 +2273,16 @@ async function runAuto(){
   autoRunning=true;
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
-  synth.init(); synth.resume(); clearDx();
+  synth.init(); synth.resume();
+  // La narración (pluma, prensa, cabrestante y la estación de la demostración) enseña configuraciones
+  // que SON la respuesta de esas estaciones. Si el alumno tiene un reto sin resolver en una de ellas,
+  // se le pasa antes a la única que la demostración no toca (volquete), con aviso.
+  if(!RETO.resuelto && ST.reto.est!=='volquete'){
+    ST.reto.est='volquete'; retoSolveBuild(true);
+    showToast('ℹ El recorrido explica otras estaciones: tu reto pasa a la Caja basculante de volquete para que no te dé la respuesta.');
+  }
+  const snapReto={est:ST.reto.est,cfg:{...RETO.cfg},resuelto:RETO.resuelto,msg:RETO.msg,ejes:{...RETO.ejes},comprobado:RETO.comprobado,
+    intentos:RETO.intentos,agotado:RETO.agotado,pistas:RETO.pistas.map(p=>({...p})),solved};
   try{
     // --- 1. presion inducida ---
     setMode('induc'); ST.induc.est='pluma'; ST.induc.tarado=70; afterEdit();
@@ -2264,24 +2350,33 @@ async function runAuto(){
       ' y aguanta. Es el mismo hardware: sólo cambia el volumen de manguera que hay que comprimir.');
     await sleep(5400);
 
-    // --- 5. reto ---
+    // --- 5. reto: DEMOSTRACIÓN. Se hace sobre una estación que NO es la del alumno y no resuelve ni
+    // comprueba nada: el estado del reto del alumno se guarda y se devuelve intacto. ---
     setMode('reto');
-    ST.reto.est='tijera'; retoSolveBuild(true); afterEdit();
-    showToast('Reto: plataforma de tijera con personas a bordo. De las 225 combinaciones sólo UNA cumple los seis criterios a la vez.');
+    const demoK='tijera';
+    ST.reto.est=demoK; retoSolveBuild(true); afterEdit();
+    showToast('Demostración en otra estación, no en la tuya: '+ESTACIONES[demoK].nom+'. De las 225 combinaciones sólo '+
+      f1(optimo(demoK).validas,0)+' cumplen los seis criterios a la vez.');
     await sleep(4400);
-    checkReto();
-    await sleep(3000);
-    const s=solucion('tijera');
-    RETO.cfg={ratio:s.ratio,tarado:s.tarado,dren:s.dren,mont:s.mont}; afterEdit();
-    checkReto();
+    RETO.comprobado=true; refreshAll(); updateRetoSpec();    // sólo muestra cómo queda la configuración de partida
+    showToast('Una configuración de partida cualquiera: fallan '+CUR.fallos.length+' de los seis criterios ('+
+      CUR.fallos.map(k=>CRIT_ROT[k]).join(', ')+').');
+    await sleep(4200);
+    const s=solucion(demoK);
+    RETO.cfg={ratio:s.ratio,tarado:s.tarado,dren:s.dren,mont:s.mont}; afterEdit(); refreshAll(); updateRetoSpec();
     await sleep(1200);
-    showToast('Ahí está: '+R_ROT[s.ratio]+' · '+f1(s.tarado,0)+' bar · '+DREN_ROT[s.dren]+' · '+MONT_ROT[s.mont]+
-      '. Coste '+f1(CUR.coste,0)+' y '+f1(CUR.pCalor,2)+' kW. Ni un eje se puede mover.');
-    await sleep(4600);
-    answer(quizCorrectIndex());
+    showToast('Con '+R_ROT[s.ratio]+' · '+f1(s.tarado,0)+' bar · '+DREN_ROT[s.dren]+' · '+MONT_ROT[s.mont]+
+      ' cumple los seis: coste '+f1(CUR.coste,0)+' y '+f1(CUR.pCalor,2)+' kW. Esto es sólo la demostración: tu reto sigue como lo dejaste.');
+    await sleep(5000);
   } finally {
+    // devolver el reto del alumno tal como estaba
+    ST.reto.est=snapReto.est; retoSolveBuild(true);
+    Object.assign(RETO,{cfg:{...snapReto.cfg},resuelto:snapReto.resuelto,msg:snapReto.msg,ejes:{...snapReto.ejes},
+      comprobado:snapReto.comprobado,intentos:snapReto.intentos,agotado:snapReto.agotado,pistas:snapReto.pistas.map(p=>({...p}))});
+    solved=snapReto.solved;
     autoRunning=false;
     el('btnAuto').textContent=rot;
+    computa(); buildControls(); updateScenarioInfo(); if(mode==='reto') updateRetoSpec(); refreshAll();
   }
 }
 
@@ -2378,6 +2473,8 @@ window.__labDebug={
     afterEdit(); },
   retoSolveBuild, checkReto, retoExplain, pista,
   retoSolved:()=>RETO.resuelto, retoMsg:()=>RETO.msg, retoAxes:()=>({...RETO.ejes}),
+  intentos:()=>RETO.intentos, pistas:()=>RETO.pistas.map(p=>({...p})), retoEstado:()=>({intentos:RETO.intentos,agotado:RETO.agotado,
+    pistas:RETO.pistas.length,comprobado:RETO.comprobado,resuelto:RETO.resuelto}),
   // --- cuestionario y control ---
   quizCorrectIndex, quizAnswer:answer, quizText:()=>QUIZ[mode].pregunta,
   quizOptions:()=>QORD.map(i=>QUIZ[mode].opciones[i].t),

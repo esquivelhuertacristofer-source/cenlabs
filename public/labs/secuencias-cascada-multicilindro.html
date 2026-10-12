@@ -874,6 +874,13 @@ let rtIdx=3, rtDiam=32;
 let retoK=0, retoCh=null;
 let retoChecked=false, retoOkCortes=false, retoOkCambio=false, retoOkDiam=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let retoInt=0, retoLib=false;   // fallos en el caso actual (0..3) y si la estación del reto ya se liberó para Explora
+const MAX_INT=3;
+// En el reto no hay veredicto en vivo: criterios, estado y «ejecuta» salen al pulsar Comprobar.
+function veredictoOculto(){return mode==='reto'&&!retoChecked;}
+// La estación del reto no se abre en Reparto/Mando/Ritmo mientras el reto esté sin resolver:
+// ahí el pizarrón dice cuántos grupos bastan, qué señal cierra el grupo 1 y qué diámetros cumplen.
+const estBloq=i=>i===retoK&&!retoLib;
 let animT=0;
 
 function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
@@ -885,12 +892,22 @@ function startCfg(sc){
 }
 const retoSc=()=>POOL[retoK];
 const retoCfg=()=>({cortes:retoCh.cortes.slice(),cambio:retoCh.cambio,diam:retoCh.diam});
-function seedReto(k){
-  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+function evitaReto(){
+  if(retoLib)return;
+  if(rpIdx===retoK){rpIdx=pickIdx(POOL.length,retoK);rpCortes=[];}
+  if(mnIdx===retoK){mnIdx=pickIdx(POOL.length,retoK);mnCambio=fcOpts(POOL[mnIdx])[0];}
+  if(rtIdx===retoK)rtIdx=pickIdx(POOL.length,retoK);
+}
+function seedReto(k,excl){
+  if(k==null){
+    let n=0;do{retoK=pickIdx(POOL.length,retoK);n++;}while(excl&&excl.indexOf(retoK)>=0&&n<50);
+  }else retoK=k;
   retoCh=startCfg(retoSc());
   retoChecked=false;retoOkCortes=false;retoOkCambio=false;retoOkDiam=false;retoSolved=false;retoMsg='';
+  retoInt=0;retoLib=false;
+  evitaReto();
 }
-seedReto(0);
+seedReto(1);
 
 function curSc(){
   if(mode==='reparto')return POOL[rpIdx];
@@ -1337,7 +1354,7 @@ function drawReto(c){
   const sc=retoSc(), cfg=retoCfg(), e=evalCfg(sc,cfg), cy=ciclo(sc,cfg), tl=curTL();
   const gs=grupos(sc.seq,cfg.cortes), G=gs.length;
   title2(c,'Reto · proyecta el mando de '+sc.nom,
-    'Tres decisiones encadenadas: cómo se parte la secuencia, qué señal cierra el primer grupo y con qué diámetro se monta el cilindro crítico. Se califican por separado.');
+    'Tres decisiones encadenadas: cómo se parte la secuencia, qué señal cierra el primer grupo y con qué diámetro se monta el cilindro crítico. Se evalúa la propuesta completa al pulsar «Comprobar».');
 
   c.fillStyle=hexA(VIO,0.10);c.fillRect(30,110,650,92);
   c.strokeStyle=hexA(VIO,0.45);c.lineWidth=1;c.strokeRect(30.5,110.5,649,91);
@@ -1346,7 +1363,8 @@ function drawReto(c){
   c.fillStyle='#F4EFEA';c.font='13px Outfit, sans-serif';
   wrapText(c,`${rotSec(sc.seq)} · ${sc.proc}. Red ${f1(sc.pRed,0)} bar, válvulas de ${f1(sc.qn,0)} l/min, ${f1(sc.manL,0)} m de tubo de mando. La línea pide ${f1(sc.ritmo,0)} ciclos/h.`,46,158,618,19);
 
-  chipSec(c,sc,cfg.cortes,30,224,650,true);
+  const oc=veredictoOculto();
+  chipSec(c,sc,cfg.cortes,30,224,650,!oc);
 
   const cy0=372;
   c.fillStyle='rgba(255,255,255,0.035)';c.fillRect(30,cy0,650,132);
@@ -1355,14 +1373,14 @@ function drawReto(c){
     const col=i%2, row=Math.floor(i/2);
     const x=46+col*326, y=cy0+30+row*30;
     const ok=e[cr.k];
-    c.fillStyle=colOk(ok);c.beginPath();c.arc(x+7,y-5,6,0,Math.PI*2);c.fill();
-    c.fillStyle=ok?'#F4EFEA':GRIS;c.font='13px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
+    c.fillStyle=oc?'#5a6473':colOk(ok);c.beginPath();c.arc(x+7,y-5,6,0,Math.PI*2);c.fill();
+    c.fillStyle=(oc||ok)?'#F4EFEA':GRIS;c.font='13px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
     c.fillText(cr.rot,x+24,y);
   });
   c.fillStyle=retoChecked?colOk(retoSolved):GRIS;c.font='bold 15px Outfit, sans-serif';c.textAlign='right';
   c.fillText(retoChecked?(retoSolved?'PROYECTO ACEPTADO':'PROYECTO RECHAZADO'):'sin comprobar',664,cy0+120);
 
-  const dx=retoChecked?EJES.map(ej=>porQue(sc,ej,cfg[ej])).filter(Boolean):[];
+  const dx=(retoChecked&&!retoSolved&&retoMsg)?[retoMsg]:[];
   c.fillStyle='rgba(255,255,255,0.035)';c.fillRect(30,518,650,220);
   c.strokeStyle='rgba(255,255,255,0.13)';c.lineWidth=1;c.strokeRect(30.5,518.5,649,219);
   c.fillStyle=AZUL;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
@@ -1371,9 +1389,9 @@ function drawReto(c){
   if(!retoChecked){
     c.fillStyle=GRIS;
     wrapText(c,'Elige el reparto, la señal de cambio y el diámetro y pulsa «Comprobar». El informe sale después de la revisión, no antes.',46,570,618,19);
-  }else if(!dx.length){
+  }else if(retoSolved){
     c.fillStyle=OK_HEX;
-    wrapText(c,`Los tres ejes correctos: ${G} grupos (${rotCortes(sc,cfg.cortes)}), cambio con ${cfg.cambio} y Ø${cfg.diam} mm. Ciclo ${f1(cy.total,3)} s → ${f1(cy.ciclosH,0)} ciclos/h con ${f1(cy.aireTot,3)} l ANR por ciclo.`,46,570,618,19);
+    wrapText(c,`Proyecto aceptado: ${G} grupos (${rotCortes(sc,cfg.cortes)}), cambio con ${cfg.cambio} y Ø${cfg.diam} mm. Ciclo ${f1(cy.total,3)} s → ${f1(cy.ciclosH,0)} ciclos/h con ${f1(cy.aireTot,3)} l ANR por ciclo.`,46,570,618,19);
   }else{
     let yy=570;
     dx.forEach(t=>{
@@ -1385,8 +1403,8 @@ function drawReto(c){
 
   const ejeP=(y,tit,val,okv,det)=>{
     rpanel(c,PX.x,y,PX.w,146,tit);
-    prow(c,PX.x,y+32,PX.w,'Elegido',val,okv?OK_HEX:(retoChecked?BAD_HEX:GRIS));
-    prow(c,PX.x,y+58,PX.w,'Estado',retoChecked?(okv?'correcto':'incorrecto'):'sin comprobar',retoChecked?colOk(okv):GRIS);
+    prow(c,PX.x,y+32,PX.w,'Elegido',val,'#F4EFEA');
+    prow(c,PX.x,y+58,PX.w,'Estado',retoChecked?(retoSolved?'aceptado':'ver informe'):'sin comprobar',retoChecked?(retoSolved?OK_HEX:WARN_HEX):GRIS);
     c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
     wrapText(c,det,PX.x+16,y+84,PX.w-32,16);
   };
@@ -1396,12 +1414,12 @@ function drawReto(c){
 
   rpanel(c,PX.x,544,PX.w,194,'Números del montaje propuesto');
   prow(c,PX.x,574,PX.w,'Inversores',String(G-1));
-  prow(c,PX.x,600,PX.w,'Ejecuta la secuencia',tl.ok?'sí':'no',colOk(tl.ok));
-  prow(c,PX.x,626,PX.w,'Ciclo',isFinite(cy.total)?f1(cy.total,3)+' s':'no cierra');
-  prow(c,PX.x,652,PX.w,'Ritmo',f1(cy.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h',colOk(e.okRit));
-  prow(c,PX.x,678,PX.w,'Relación de carga',f1(e.cargaMax,3),colOk(e.okFza));
-  prow(c,PX.x,704,PX.w,'Velocidad máx',f1(e.velMax,3)+' m/s',colOk(e.okVel));
-  prow(c,PX.x,730,PX.w,'Aire por ciclo',f1(cy.aireTot,3)+' l ANR');
+  prow(c,PX.x,600,PX.w,'Ejecuta la secuencia',oc?'—':(tl.ok?'sí':'no'),oc?GRIS:colOk(tl.ok));
+  prow(c,PX.x,626,PX.w,'Ciclo',oc?'—':(isFinite(cy.total)?f1(cy.total,3)+' s':'no cierra'));
+  prow(c,PX.x,652,PX.w,'Ritmo',f1(cy.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h',oc?'#F4EFEA':colOk(e.okRit));
+  prow(c,PX.x,678,PX.w,'Relación de carga',f1(e.cargaMax,3),oc?'#F4EFEA':colOk(e.okFza));
+  prow(c,PX.x,704,PX.w,'Velocidad máx',f1(e.velMax,3)+' m/s',oc?'#F4EFEA':colOk(e.okVel));
+  prow(c,PX.x,730,PX.w,'Intentos fallidos',retoInt+' / '+MAX_INT,retoInt?WARN_HEX:GRIS);
 }
 
 function drawBoard(){
@@ -1416,7 +1434,7 @@ function boardClick(){
   if(mode==='reparto')showToast('<b>Reparto en grupos</b><br>La única regla: dentro de un grupo ningún cilindro se repite. El número de grupos lo fija el entrelazado de la secuencia, no cuántos cilindros haya.');
   else if(mode==='mando')showToast('<b>Mando en cascada</b><br>Sólo una línea está viva. El inversor conmuta cuando llega la señal del último movimiento del grupo, y con ella muere el grupo anterior: por eso las órdenes viejas no estorban.');
   else if(mode==='ritmo')showToast('<b>Ritmo y dimensionado</b><br>Fuerza, velocidad y ritmo tiran en direcciones distintas. Se monta el MENOR diámetro que cumpla los tres, no el más grande.');
-  else showToast('<b>Reto</b><br>Reparto, señal de cambio y diámetro se califican por separado: puedes acertar dos y fallar uno.');
+  else showToast('<b>Reto</b><br>Reparto, señal de cambio y diámetro se evalúan juntos al comprobar: el informe dice qué criterio incumple tu propuesta, no cuál es la solución.');
 }
 
 // ===================== 8. BANCO 3D =====================
@@ -1551,13 +1569,14 @@ placa.position.set(3.52,2.22,0.55);placa.lookAt(6.0,2.6,5.6);scene.add(placa);
 function drawPlaca(sc,cfg,e,cy,tl){
   const c=pCv.getContext('2d');
   c.fillStyle='#0c1016';c.fillRect(0,0,256,160);
-  c.strokeStyle=e.vale?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(1.5,1.5,253,157);
+  const oc=veredictoOculto();
+  c.strokeStyle=oc?AZUL:(e.vale?OK_HEX:BAD_HEX);c.lineWidth=3;c.strokeRect(1.5,1.5,253,157);
   c.fillStyle='#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
   c.fillText(sc.nom.length>22?sc.nom.slice(0,22)+'…':sc.nom,12,24);
   c.font='11px Outfit, sans-serif';c.fillStyle=GRIS;
   c.fillText(rotSec(sc.seq),12,42);
   const rows=[
-    ['Grupos',String(grupos(sc.seq,cfg.cortes).length)+' (mín '+sc.gMin+')'],
+    ['Grupos',String(grupos(sc.seq,cfg.cortes).length)+(mode==='reto'?'':' (mín '+sc.gMin+')')],
     ['Cambio',cfg.cambio],
     ['Ø crítico',cfg.diam+' mm'],
     ['Ciclo',isFinite(cy.total)?f1(cy.total,3)+' s':'no cierra'],
@@ -1569,8 +1588,8 @@ function drawPlaca(sc,cfg,e,cy,tl){
     c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(r[0],12,y);
     c.fillStyle='#F4EFEA';c.font='bold 12px Outfit, sans-serif';c.textAlign='right';c.fillText(r[1],244,y);
   });
-  c.fillStyle=tl.ok?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
-  c.fillText(tl.ok?'ejecuta la secuencia':(tl.sim.bloqueo?'la máquina se para':'el ciclo cierra a medias'),244,152);
+  c.fillStyle=oc?GRIS:(tl.ok?OK_HEX:BAD_HEX);c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(oc?'sin comprobar':(tl.ok?'ejecuta la secuencia':(tl.sim.bloqueo?'la máquina se para':'el ciclo cierra a medias')),244,152);
   pTex.needsUpdate=true;
 }
 
@@ -1629,10 +1648,11 @@ function updateHW(){
   });
   INV.forEach((b,i)=>{b.visible=i<G-1;});
   CRIT.forEach((cr,i)=>{
-    const okv=e[cr.k];
-    LEDS[i].material.color.set(okv?0x7CD992:0xff6b6b);
-    LEDS[i].material.emissive.set(okv?0x7CD992:0xff6b6b);
-    LEDS[i].material.emissiveIntensity=okv?1.3:0.55;
+    const okv=e[cr.k], oc=veredictoOculto();
+    const col=oc?0x5a6473:(okv?0x7CD992:0xff6b6b);
+    LEDS[i].material.color.set(col);
+    LEDS[i].material.emissive.set(col);
+    LEDS[i].material.emissiveIntensity=oc?0.2:(okv?1.3:0.55);
   });
   drawPlaca(sc,cfg,e,cy,tl);
 }
@@ -1704,7 +1724,7 @@ function optBtns(key,opts,cur){
   return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');
 }
 const beep=()=>synth.beep(680,0.05,0.04);
-const estOpts=()=>POOL.map((s,i)=>[i,s.nom]);
+const estOpts=()=>POOL.map((s,i)=>[i,s.nom+((mode!=='reto'&&estBloq(i))?' 🔒':'')]);
 const diamOpts=()=>DIAMS.map(D=>['' + D,'Ø'+D]);
 const camOpts=sc=>fcOpts(sc).map(k=>[k,k]);
 function corteBtns(sc,cortes,key){
@@ -1741,6 +1761,7 @@ function buildControls(){
   bar.querySelectorAll('[data-est]').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;
     const i=+b.dataset.est;
+    if(estBloq(i)){showToast('🔒 Esta estación es el caso de tu <b>Reto</b>: abrirla aquí diría cuántos grupos bastan, qué señal cierra el grupo 1 y qué diámetro cumple. Se libera cuando lo resuelvas.');return;}
     if(mode==='reparto'){rpIdx=i;rpCortes=[];}
     else if(mode==='mando'){mnIdx=i;mnCambio=fcOpts(POOL[i])[0];}
     else rtIdx=i;
@@ -1774,7 +1795,7 @@ function updateScenarioInfo(){
   box.innerHTML=`<b>${sc.nom}</b> · ${rotSec(sc.seq)} · red ${f1(sc.pRed,0)} bar · pide ${f1(sc.ritmo,0)} ciclos/h<br><span style="color:var(--muted)">${MODE_META[mode].mision}</span>`;
 }
 function setMode(k){
-  mode=k;
+  mode=k;evitaReto();
   ['reparto','mando','ritmo','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1788,14 +1809,14 @@ function setMode(k){
   refreshAll();
 }
 function newSignal(){
-  if(mode==='reparto'){rpIdx=pickIdx(POOL.length,rpIdx);rpCortes=[];}
+  if(mode==='reparto'){rpIdx=pickIdx(POOL.length,rpIdx);rpCortes=[];evitaReto();}
   else if(mode==='mando'){
-    mnIdx=pickIdx(POOL.length,mnIdx);
+    mnIdx=pickIdx(POOL.length,mnIdx);evitaReto();
     const o=fcOpts(POOL[mnIdx]);
     mnCambio=o[Math.floor(Math.random()*o.length)];
   }
-  else if(mode==='ritmo'){rtIdx=pickIdx(POOL.length,rtIdx);rtDiam=DIAMS[Math.floor(Math.random()*DIAMS.length)];}
-  else{seedReto(null);solved=false;}
+  else if(mode==='ritmo'){rtIdx=pickIdx(POOL.length,rtIdx);evitaReto();rtDiam=DIAMS[Math.floor(Math.random()*DIAMS.length)];}
+  else{seedReto(null,[rpIdx,mnIdx,rtIdx]);solved=false;}
   animT=0;
   clearDx();refreshQuestion();
   afterEdit();
@@ -1837,14 +1858,15 @@ function updateTele(){
     h+=teleRow('Ritmo',f1(cy.ciclosH,0)+' / '+f1(sc.ritmo,0)+' ciclos/h',e.okRit?'ok':'bad');
     h+=teleRow('Aire por ciclo',f1(cy.aireTot,3)+' l ANR');
   }else{
-    h+=teleRow('Reparto',G+' grupos',retoChecked?(retoOkCortes?'ok':'bad'):'');
-    h+=teleRow('Señal de cambio',cfg.cambio,retoChecked?(retoOkCambio?'ok':'bad'):'');
-    h+=teleRow('Diámetro','Ø'+cfg.diam+' mm',retoChecked?(retoOkDiam?'ok':'bad'):'');
-    h+=teleRow('Ejecuta la secuencia',tl.ok?'sí':'no',tl.ok?'ok':'bad');
-    h+=teleRow('Ritmo',f1(cy.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h',e.okRit?'ok':'bad');
+    h+=teleRow('Reparto',G+' grupos');
+    h+=teleRow('Señal de cambio',cfg.cambio);
+    h+=teleRow('Diámetro','Ø'+cfg.diam+' mm');
+    h+=teleRow('Ejecuta la secuencia',retoChecked?(tl.ok?'sí':'no'):'— (sin comprobar)',retoChecked?(tl.ok?'ok':'bad'):'');
+    h+=teleRow('Ritmo',f1(cy.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h',retoChecked?(e.okRit?'ok':'bad'):'');
     h+=teleRow('Aire por ciclo',f1(cy.aireTot,3)+' l ANR');
-    h+=teleRow('Criterios cumplidos',CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length,e.vale?'ok':'bad');
+    h+=teleRow('Criterios cumplidos',retoChecked?CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length:'—',retoChecked?(e.vale?'ok':'bad'):'');
     h+=teleRow('Estado',retoChecked?(retoSolved?'aceptado':'rechazado'):'sin comprobar',retoChecked?(retoSolved?'ok':'bad'):'');
+    h+=teleRow('Intentos fallidos',retoInt+' / '+MAX_INT,retoInt?'bad':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1874,7 +1896,8 @@ function updateReport(){
     h='<b>'+sc.nom+'</b><br>'+
       (retoChecked?(retoSolved?'<span style="color:#7CD992">Proyecto aceptado: reparto mínimo, señal correcta y diámetro justo.</span>':'<span style="color:#ff6b6b">'+retoMsg+'</span>')
         :'Elige el reparto, la señal de cambio y el diámetro y pulsa «Comprobar».')+
-      '<br>Criterios: '+CRIT.map(cr=>(e[cr.k]?'🟢':'🔴')+' '+cr.rot).join(' · ');
+      (retoChecked?'<br>Criterios: '+CRIT.map(cr=>(e[cr.k]?'🟢':'🔴')+' '+cr.rot).join(' · '):'<br>Los criterios se muestran al comprobar.')+
+      '<br>Intentos fallidos: '+retoInt+' / '+MAX_INT+'.';
   }
   el('report').innerHTML=h;
 }
@@ -1888,22 +1911,62 @@ function updateRetoSpec(){
     `Red ${f1(sc.pRed,0)} bar · válvulas ${f1(sc.qn,0)} l/min · ${f1(sc.manL,0)} m de tubo de mando · ${f1(sc.ritmo,0)} ciclos/h porque ${sc.proc}.<br>`+
     `<span style="color:var(--muted)">Sólo el cilindro ${sc.prot} está sin elegir; los demás vienen dados.</span>`;
 }
+// Retroalimentación sobre la PROPUESTA completa: sólo dice qué criterio incumple lo que montaste,
+// sin nombrar cuántos grupos bastan, qué señal cierra el grupo 1 ni qué diámetro es el justo.
 function retoExplain(){
-  return EJES.map(ej=>porQue(retoSc(),ej,retoCfg()[ej])).filter(Boolean).join(' · ');
+  const sc=retoSc(), cfg=retoCfg(), e=evalCfg(sc,cfg), sim=e.cy.sim;
+  if(!e.okSep){
+    const r=cilRepe(sc.seq,e.gs);
+    const det=sim.bloqueo?(sim.bloqueo.tipo==='opuestas'
+        ?`la máquina se para en seco: ${sim.bloqueo.cil} recibe las dos órdenes a la vez`
+        :`la cascada se queda esperando ${sim.bloqueo.senal||'una señal'}, que ya no se va a pisar`)
+      :`la cascada da la vuelta antes de llegar al conflicto y cierra el ciclo con ${sim.orden.length} de ${sc.seq.length} movimientos`;
+    return `El cilindro ${r.cil} aparece dos veces en el grupo ${r.g}: los dos pilotajes de su válvula biestable cuelgan de la misma línea viva. Con este mando, ${det}.`;
+  }
+  if(!e.okCam){
+    const det=sim.bloqueo?(sim.bloqueo.tipo==='opuestas'
+        ?`el cilindro ${sim.bloqueo.cil} recibe las dos órdenes a la vez`
+        :`la cascada se queda esperando una señal que no llega`)
+      :`la máquina ejecuta ${sim.orden.length?sim.orden.join(' '):'nada'} en vez de ${rotSec(sc.seq)}`;
+    return `Con la señal de cambio ${cfg.cambio}, ${det}. Piensa cuál es el último movimiento del grupo 1: su final de carrera es el que debe cerrarlo.`;
+  }
+  if(!e.okFza){
+    const peor=e.dr.carga>=e.de.carga?'retroceso (área anular)':'avance (área del émbolo)';
+    return `Con Ø${cfg.diam} mm la relación de carga en el ${peor} es ${f1(e.cargaMax,3)}, por encima del máximo admisible ${f1(CARGA_MAX,2)}.`;
+  }
+  if(!e.okVel)return `Con Ø${cfg.diam} mm el émbolo alcanza ${f1(e.velMax,3)} m/s, por encima de ${f1(V_MAX,2)} m/s: la amortiguación estándar no absorbe ese impacto.`;
+  if(!e.okRit)return `Con Ø${cfg.diam} mm el ciclo dura ${f1(e.cy.total,3)} s: ${f1(e.cy.ciclosH,0)} ciclos/h frente a los ${f1(sc.ritmo,0)} que pide la línea.`;
+  if(!e.okMin)return 'La secuencia se ejecuta y el diámetro cumple, pero el reparto usa más grupos de los necesarios: cada grupo de más es un inversor, tiempo muerto de línea y aire de mando en cada ciclo.';
+  return 'La estación funciona, pero hay un diámetro menor que también cumple y consume menos aire: el criterio es el menor diámetro que cumpla.';
 }
 function checkReto(){
-  const sc=retoSc(), cfg=retoCfg();
+  const sc=retoSc(), cfg=retoCfg(), g=GOOD(sc);
   retoOkCortes=okEje(sc,'cortes',cfg.cortes);
   retoOkCambio=okEje(sc,'cambio',cfg.cambio);
   retoOkDiam=okEje(sc,'diam',cfg.diam);
   retoChecked=true;
-  retoSolved=retoOkCortes&&retoOkCambio&&retoOkDiam;
-  solved=retoSolved;
+  const e=evalCfg(sc,cfg);
+  retoSolved=e.vale&&cmpCoste(e.coste,evalCfg(sc,g).coste)===0;
+  solved=autoRunning?false:retoSolved;
   retoMsg=retoSolved?'Reparto mínimo, señal correcta y diámetro justo.':retoExplain();
   synth.beep(retoSolved?880:200,0.10,0.05);
-  refreshAll();
+  let nuevo=false;
+  if(retoSolved){
+    retoLib=true;
+  }else if(!autoRunning){
+    retoInt++;
+    if(retoInt>=MAX_INT){
+      // tres fallos: caso nuevo, para que no se apruebe por eliminación
+      seedReto(null,[rpIdx,mnIdx,rtIdx]);
+      retoChecked=true;
+      retoMsg='Tres intentos sin acertar: el caso cambió (otra estación). Lee de nuevo el pliego y razona antes de proyectar.';
+      solved=false;nuevo=true;
+    }
+  }
+  animT=0;
+  if(nuevo)afterEdit();else refreshAll();
   if(!autoRunning){
-    showToast((retoSolved?'✅ <b>Proyecto aceptado.</b> ':'❌ <b>Proyecto rechazado.</b> ')+retoMsg);
+    showToast(nuevo?('🔁 <b>Caso nuevo.</b> '+retoMsg):((retoSolved?'✅ <b>Proyecto aceptado.</b> ':'❌ <b>Proyecto rechazado.</b> ')+retoMsg));
   }
   return retoSolved;
 }
@@ -1921,11 +1984,11 @@ function buildQuiz(){
       opciones:[
         {t:'El entrelazado de la secuencia: dónde vuelve a aparecer un cilindro que ya se movió',ok:true,
          why:'Exacto. La prensa de punzonado (A+ A− B+ B−) tiene 2 cilindros y necesita 3 grupos; la encajadora (A+ B+ B− C+ C− A−) tiene 3 cilindros y también 3. El número de cilindros no manda: manda dónde se repiten.'},
-        {t:'El número de cilindros: tantos grupos como cilindros',ok:false,
+        {t:'El número de cilindros que intervienen: tantos grupos como cilindros tenga la máquina',ok:false,
          why:'Falso en las dos direcciones. Hay secuencias de 2 cilindros que piden 3 grupos y secuencias de 3 cilindros que se resuelven con 3, o incluso con menos si no hay repeticiones cruzadas.'},
-        {t:'El número de movimientos dividido entre dos',ok:false,
+        {t:'El número total de movimientos de la secuencia, dividido entre dos y redondeado hacia arriba',ok:false,
          why:'No. Con 4 movimientos hay secuencias de 2 grupos (A+ B+ B− A−) y de 3 (A+ A− B+ B−): el mismo número de movimientos y distinta respuesta.'},
-        {t:'La presión de red: a menos presión, más grupos',ok:false,
+        {t:'La presión de red: cuanto menor es la presión disponible, más grupos hacen falta',ok:false,
          why:'La presión no interviene en el reparto. El reparto es un problema de lógica de señales; la presión aparece después, al dimensionar y al calcular tiempos.'},
       ],
     },
@@ -1934,37 +1997,37 @@ function buildQuiz(){
       opciones:[
         {t:'Qué señal cierra el grupo 1: debe ser el final de carrera del ÚLTIMO movimiento de ese grupo',ok:true,
          why:'Correcto. Si conmutas la línea con un final de carrera anterior, cortas la alimentación del grupo antes de que termine, y el resto de sus órdenes se quedan sin presión. Con la señal correcta, el cambio ocurre justo cuando el grupo ha acabado.'},
-        {t:'El caudal de las válvulas: seguramente son pequeñas',ok:false,
+        {t:'El caudal de las válvulas de pilotaje: seguramente son demasiado pequeñas para esta línea',ok:false,
          why:'Una válvula pequeña hace la máquina lenta, no la para. Si no se ejecuta un movimiento entero es un problema de señales, no de caudal.'},
-        {t:'Las memorias biestables: hay que cambiarlas por monoestables',ok:false,
+        {t:'Las memorias biestables de los cilindros: hay que cambiarlas por válvulas monoestables',ok:false,
          why:'Al revés: la cascada necesita memorias biestables precisamente porque la línea que dio la orden se apaga después. Con monoestables el cilindro volvería solo al morir su grupo.'},
-        {t:'El número de grupos: hay que añadir uno más',ok:false,
+        {t:'El número de grupos del reparto: probablemente hace falta añadir uno más a la cascada',ok:false,
          why:'Añadir grupos no arregla una señal de cambio equivocada; sólo suma un inversor, tiempo muerto y aire. Primero se comprueba con qué señal conmuta cada línea.'},
       ],
     },
     ritmo:{
       pregunta:'Un cilindro cumple de sobra la fuerza con Ø63. ¿Por qué no montar directamente el Ø100 y olvidarse?',
       opciones:[
-        {t:'Porque un émbolo mayor mueve mucho más aire por carrera y, pasado cierto punto, el ciclo se ALARGA en vez de acortarse',ok:true,
+        {t:'Porque un émbolo mayor mueve más aire por carrera y, pasado cierto punto, el ciclo se ALARGA',ok:true,
          why:'Exacto. En cuatro de las cinco estaciones del banco el mejor ritmo está en un diámetro intermedio, no en el mayor: el más grande nunca es el más rápido. Y además consume más aire cada ciclo.'},
-        {t:'Porque el aire comprimido no llega a llenar un cilindro tan grande',ok:false,
+        {t:'Porque el aire comprimido de la red no llega nunca a llenar por completo un cilindro tan grande',ok:false,
          why:'Sí llega: acaba llenándolo. El problema es cuánto TARDA, y con él, cuántos ciclos por hora salen.'},
-        {t:'Porque un cilindro grande no cabe en la máquina',ok:false,
+        {t:'Porque un cilindro de ese tamaño no cabe físicamente en el hueco que deja la máquina',ok:false,
          why:'El espacio importa, pero aquí el criterio es medible: el ciclo, el ritmo y el aire por ciclo. Se monta el menor diámetro que cumpla los tres criterios.'},
-        {t:'Porque con más diámetro sube la velocidad y se pasa del límite de impacto',ok:false,
+        {t:'Porque con más diámetro sube la velocidad y el émbolo se pasa del límite de impacto',ok:false,
          why:'Es al revés: a igual válvula, un émbolo mayor va más despacio. El riesgo de velocidad aparece con los diámetros PEQUEÑOS, no con los grandes.'},
       ],
     },
     reto:{
       pregunta:'Un montaje con un grupo de más ejecuta la secuencia perfectamente en el banco. ¿Se acepta el proyecto?',
       opciones:[
-        {t:'No: funciona, pero paga un inversor de más y entre 0,16 y 0,40 s de tiempo muerto y 0,26 a 0,47 l ANR por ciclo',ok:true,
+        {t:'No: funciona, pero paga un inversor de más, 0,16 a 0,40 s de tiempo muerto y 0,26 a 0,47 l ANR por ciclo',ok:true,
          why:'Correcto. Todo reparto sin cilindros repetidos ejecuta la secuencia, así que «funciona en el banco» no demuestra nada. Lo que separa al bueno del que sobra es el hardware, el tiempo muerto y el aire de cada ciclo, que se pagan todos los días.'},
-        {t:'Sí: si la secuencia sale bien, el reparto es correcto por definición',ok:false,
+        {t:'Sí: si la secuencia sale bien en el banco, el reparto es correcto por definición y no hay más que revisar',ok:false,
          why:'No. La prueba de banco sólo descarta los repartos rotos. Entre los que funcionan hay uno con los grupos justos y varios que sobran; los que sobran cuestan más en cada ciclo.'},
-        {t:'No, porque un grupo de más hace que la máquina se pare a mitad de secuencia',ok:false,
+        {t:'No, porque un grupo de más hace que la máquina se pare en seco a mitad de la secuencia y quede bloqueada',ok:false,
          why:'No se para: los repartos válidos no mínimos ejecutan la secuencia completa. Lo que hacen es alargar el ciclo y tirar aire, que es un problema distinto y menos visible.'},
-        {t:'Sí, siempre que el consumo de aire no suba más de un 10 %',ok:false,
+        {t:'Sí, siempre que el consumo de aire de cada ciclo no suba más de un 10 % respecto al reparto mínimo',ok:false,
          why:'No hay un umbral así en ninguna norma. El criterio de proyecto es el mínimo de grupos que resuelve la secuencia; el consumo es la consecuencia, no el permiso.'},
       ],
     },
@@ -2028,6 +2091,10 @@ async function runAuto(){
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: guarda el estado del alumno y lo devuelve al terminar.
+  const SAVE={mode,rpIdx,rpCortes:rpCortes.slice(),mnIdx,mnCambio,rtIdx,rtDiam,retoK,retoCh:{cortes:retoCh.cortes.slice(),cambio:retoCh.cambio,diam:retoCh.diam},
+    retoChecked,retoOkCortes,retoOkCambio,retoOkDiam,retoSolved,retoMsg,retoInt,retoLib};
+  retoLib=true;   // en la demostración se pueden abrir todas las estaciones
   try{
     // --- 1. REPARTO: la regla y de dónde sale el número de grupos ---
     setMode('reparto');
@@ -2092,10 +2159,18 @@ async function runAuto(){
     showToast('✅ La única propuesta <b>válida y mínima</b>: '+rotCortes(POOL[2],gR.cortes)+', cambio con <b>'+gR.cambio+'</b> y Ø'+gR.diam+' mm. Comprobamos.');
     await sleep(4800);
     checkReto();
-    await sleep(700);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2200);
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    // estado previo del alumno: la demostración no resuelve ni puntúa el reto
+    rpIdx=SAVE.rpIdx;rpCortes=SAVE.rpCortes;mnIdx=SAVE.mnIdx;mnCambio=SAVE.mnCambio;rtIdx=SAVE.rtIdx;rtDiam=SAVE.rtDiam;
+    retoK=SAVE.retoK;retoCh=SAVE.retoCh;retoChecked=SAVE.retoChecked;retoOkCortes=SAVE.retoOkCortes;retoOkCambio=SAVE.retoOkCambio;
+    retoOkDiam=SAVE.retoOkDiam;retoSolved=SAVE.retoSolved;retoMsg=SAVE.retoMsg;retoInt=SAVE.retoInt;retoLib=SAVE.retoLib;
+    // la demostración enseñó la solución de la marcadora, la punzonadora y la encajadora: si el reto del alumno era una de ellas, caso nuevo
+    if([0,2,3].indexOf(retoK)>=0){seedReto(null,[0,2,3]);}
+    autoRunning=false;
+    setMode(SAVE.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
+    solved=mode==='reto'?retoSolved:false;
   }
 }
 
@@ -2142,7 +2217,7 @@ window.__labDebug={
   retoK:()=>retoK,seedReto,retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
   retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,retoExplain,
   retoChecked:()=>retoChecked,retoOkCortes:()=>retoOkCortes,retoOkCambio:()=>retoOkCambio,retoOkDiam:()=>retoOkDiam,
-  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoGood:()=>GOOD(retoSc()),retoStart:()=>startCfg(retoSc()),
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,intentos:()=>retoInt,retoLib:()=>retoLib,retoGood:()=>GOOD(retoSc()),retoStart:()=>startCfg(retoSc()),
   // cuestionario
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   quizAnswer:answer,newSignal,

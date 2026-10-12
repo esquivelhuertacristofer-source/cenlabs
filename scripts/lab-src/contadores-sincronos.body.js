@@ -74,6 +74,8 @@ const RETO_POOL=[
 ];
 let retoIdx=0, retoDET=0, retoClear=false, retoChecked=false, retoOkDetect=false, retoOkClear=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+// política de fallos: intentos totales (visible), fallos del caso en curso (a los 3 se resiembra) y pistas graduadas (máx. 2)
+let intentos=0, fallosCaso=0, hintLevel=0, pistas=0;
 let hwStep=0, hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -83,6 +85,7 @@ function seedReto(idx){
   const f=RETO_POOL[retoIdx],n=bitsFor(f.N);
   retoDET=0; retoClear=false;
   retoChecked=false; retoOkDetect=false; retoOkClear=false; retoSolved=false; retoMsg='';
+  fallosCaso=0; hintLevel=0;
 }
 seedReto(0);
 
@@ -413,42 +416,45 @@ function drawReto(c){
   const sim=simulate(n,retoDET,retoClear);
   c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';c.fillText('RETO · Construye un contador módulo '+N,30,42);
   c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
-  wrapText(c,'Objetivo: '+f.ctx+'. Con '+n+' flip-flops (capacidad '+(1<<n)+') define la detección del terminal DET y activa el borrado síncrono para que cuente 0..'+(N-1)+'.',30,64,660,18);
+  wrapText(c,'Objetivo: '+f.ctx+'. Con '+n+' flip-flops (capacidad '+(1<<n)+') decide en qué estado detectar el terminal (DET) y si hace falta borrado síncrono para que cuente 0..'+(N-1)+'.',30,64,660,18);
   drawRing(c,290,330,145,n,N,sim.seq.length?sim.seq[sim.seq.length-1]%(1<<n):0,retoDET,retoClear);
   // tu configuración
   c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('Tu DET (binario):',30,540);
   drawNumRow(c,200,522,'',retoDET,n,retoChecked?(retoOkDetect?OK_HEX:BAD_HEX):WARN_HEX,34);
   c.fillStyle=retoClear?OK_HEX:BAD_HEX;c.font='bold 14px Outfit, sans-serif';c.fillText('Borrado síncrono: '+(retoClear?'ACTIVO':'inactivo'),30,580);
-  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.fillText('Secuencia resultante (periodo '+sim.period+'): '+sim.seq.join(',')+' →…',30,606);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+  c.fillText(retoChecked?'Secuencia resultante (periodo '+sim.period+'): '+sim.seq.join(',')+' →…':'Secuencia y periodo: se muestran al pulsar «Comprobar».',30,606);
   rpanel(c,PX.x,PX.y,PX.w,150,'TU CONFIGURACIÓN');
-  prow(c,PX.x,PX.y+52,PX.w,'DET elegido',retoDET+'  (objetivo '+(N-1)+')',retoDET===N-1?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+86,PX.w,'Borrado síncrono',retoClear?'activo':'inactivo',retoClear?OK_HEX:BAD_HEX);
-  prow(c,PX.x,PX.y+116,PX.w,'Periodo obtenido',String(sim.period),sim.period===N?OK_HEX:'#C9D3E2');
+  prow(c,PX.x,PX.y+52,PX.w,'DET elegido',String(retoDET),'#C9D3E2');
+  prow(c,PX.x,PX.y+86,PX.w,'Borrado síncrono',retoClear?'activo':'inactivo','#C9D3E2');
+  prow(c,PX.x,PX.y+116,PX.w,'Periodo obtenido',retoChecked?String(sim.period):'—',retoChecked&&sim.period===N?OK_HEX:'#C9D3E2');
   const by=PX.y+170;
   if(retoChecked){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
     c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkDetect?OK_HEX:BAD_HEX;c.fillText((retoOkDetect?'✔':'✗')+' Detección terminal DET = N−1 = '+(N-1),PX.x+14,by+54);
+    c.fillStyle=retoOkDetect?OK_HEX:BAD_HEX;c.fillText((retoOkDetect?'✔':'✗')+' Detección del estado terminal',PX.x+14,by+54);
     c.fillStyle=retoOkClear?OK_HEX:BAD_HEX;c.fillText((retoOkClear?'✔':'✗')+' Borrado síncrono activo',PX.x+14,by+78);
     c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,n),PX.x+14,by+106,PX.w-28,17);
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Regla: para contar N estados (0..N−1), el estado terminal es DET = N − 1 = '+(N-1)+'. Ajusta DET con los botones y activa el borrado síncrono para que, al llegar a DET, el siguiente flanco vuelva a 0.',PX.x+14,by+26,PX.w-28,18);
-    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Cuidado con el error clásico: si pones DET = N ('+N+') cuentas un estado de más → módulo '+(N+1)+'. Y sin borrado, el contador corre libre hasta '+((1<<n)-1)+' (módulo '+(1<<n)+').',PX.x+14,by+110,PX.w-28,18);
+    wrapText(c,'Ajusta DET con los botones y decide si activas el borrado síncrono. Nada se califica hasta que pulses «Comprobar». Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,retoHintText(),PX.x+14,by+110,PX.w-28,18);
   }
 }
 function retoExplain(f,n){
   const N=f.N,sim=simulate(n,retoDET,retoClear);
   if(retoSolved)return 'DET = N−1 = '+(N-1)+' y borrado síncrono activo: al llegar a '+(N-1)+' el siguiente flanco fuerza 0, dando el ciclo 0..'+(N-1)+' (periodo '+N+'). Así se construye cualquier contador módulo N con n = ⌈log₂ N⌉ flip-flops.';
   let s='';
-  if(!retoOkClear)s+='Sin borrado síncrono el contador corre libre hasta '+((1<<n)-1)+' (módulo '+(1<<n)+', periodo '+sim.period+'); nunca vuelve a 0 en N−1. Actívalo. ';
+  if(!retoOkClear)s+='Sin borrado síncrono el contador no vuelve a 0 por sí solo: corre libre hasta '+((1<<n)-1)+' (periodo '+sim.period+'). ';
   if(!retoOkDetect){
-    if(retoDET===N)s+='Detectas DET='+N+' en vez de N−1='+(N-1)+': cuentas un estado de más → módulo '+(N+1)+' (periodo '+(retoClear?N+1:sim.period)+'). El terminal de N estados es N−1. ';
-    else s+='DET debe ser N−1 = '+(N-1)+' (el último de los '+N+' estados 0..'+(N-1)+'); pusiste '+retoDET+'. ';
+    const per=simulate(n,retoDET,true).period;   // periodo que daría tu DET CON borrado
+    if(per>N)s+='Con tu DET el ciclo tendría '+per+' estados (con borrado): cuenta '+(per-N)+' estado(s) de más; el módulo pedido es '+N+'. ';
+    else if(per<N)s+='Con tu DET el ciclo tendría sólo '+per+(per===1?' estado':' estados')+' (con borrado): se borra '+(N-per)+' estado(s) antes de tiempo; el módulo pedido es '+N+'. ';
+    else s+='Revisa la detección del terminal. ';
   }
   return s||'Revisa la detección del terminal y el borrado.';
 }
@@ -550,7 +556,7 @@ document.getElementById('panel').innerHTML=`
   <h4 class="sec" id="retoTitle" style="display:none">Reto de construcción</h4>
   <div id="retoBox" style="display:none">
     <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
-    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button><button class="b" id="btnHint">💡 Pista</button></div>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
@@ -628,7 +634,7 @@ function updateScenarioInfo(){
   const box=el('scenarioInfo');
   if(mode!=='reto'){box.style.display='none';return;}
   const f=RETO_POOL[retoIdx],n=bitsFor(f.N);box.style.display='block';
-  box.innerHTML=`Objetivo: <b>módulo ${f.N}</b> (cuenta 0..${f.N-1}). Con ${n} flip-flops, fija <b>DET = ${f.N-1}</b> y activa el borrado síncrono.`;
+  box.innerHTML=`Objetivo: <b>módulo ${f.N}</b> (cuenta 0..${f.N-1}) con ${n} flip-flops. Decide DET y el borrado síncrono.`;
 }
 function setMode(k){
   mode=k;hwStep=0;
@@ -667,10 +673,12 @@ function updateTele(){
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx],n=bitsFor(f.N),sim=simulate(n,retoDET,retoClear);
     t.innerHTML=teleRow('Objetivo','módulo '+f.N+' (0..'+(f.N-1)+')')+
-      teleRow('DET elegido',retoDET+' / objetivo '+(f.N-1),retoDET===f.N-1?'good':'warn')+
-      teleRow('Borrado',retoClear?'activo':'inactivo',retoClear?'good':'warn')+
-      teleRow('Periodo obtenido',String(sim.period),sim.period===f.N?'good':'warn')+
-      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn');
+      teleRow('DET elegido',String(retoDET))+
+      teleRow('Borrado',retoClear?'activo':'inactivo')+
+      teleRow('Periodo obtenido',retoChecked?String(sim.period):'—',retoChecked&&sim.period===f.N?'good':'')+
+      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn')+
+      teleRow('Intentos',intentos+' (fallos de este caso: '+fallosCaso+'/3)','warn')+
+      teleRow('Pistas',pistas+'/2','warn');
     return;
   }
   if(mode==='aplica'){
@@ -696,7 +704,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx];
-    html+=retoMsg||`<span class="mono">Contador módulo ${f.N}: fija DET = ${f.N-1} (el último estado válido) y activa el borrado síncrono. Comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">Contador módulo ${f.N}: decide en qué estado detectar el terminal y si necesitas borrado síncrono. Comprueba cuando estés seguro.</span>`;
   }else if(mode==='aplica'){
     if(apTopic==='exc'){html+=`<span class="mono">Excitación ${apFFType.toUpperCase()}: reverso de la tabla característica. Dado Q→Qn, ¿qué entrada? ${apFFType==='jk'?'El JK tiene "don\'t care" que simplifican el diseño.':''}</span>`;}
     else if(apTopic==='design'){const N=DESIGN_POOL[apDesignIdx].N,n=bitsFor(N);html+=`<span class="mono">Módulo ${N}: n=⌈log₂${N}⌉=${n} flip-flops, DET=${N-1}, borrado síncrono → cuenta 0..${N-1}. Si detectaras ${N} tendrías módulo ${N+1}.</span>`;}
@@ -713,7 +721,18 @@ function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const f=RETO_POOL[retoIdx],n=bitsFor(f.N);
-  el('retoSpec').innerHTML=`Construye un contador <b>módulo ${f.N}</b> (cuenta 0..${f.N-1}) con ${n} flip-flops. Fija la detección del terminal <b>DET = N−1 = ${f.N-1}</b> y activa el <b>borrado síncrono</b>. Pulsa "Comprobar".`;
+  el('retoSpec').innerHTML=`Construye un contador <b>módulo ${f.N}</b> (cuenta 0..${f.N-1}) con ${n} flip-flops: elige la detección del terminal <b>DET</b> y si activas el <b>borrado síncrono</b>. Pulsa "Comprobar".`;
+}
+function retoHintText(){
+  if(hintLevel<=0)return 'Si te atascas, pide una pista (máximo 2). Orientan sin darte la respuesta.';
+  const h=['Cuenta los estados que debe recorrer el contador: ¿en cuál se encuentra justo antes de tener que volver a 0?',
+    'Fíjate en lo que ocurre con tu configuración tras «Comprobar»: compara el periodo obtenido con el módulo pedido y razona hacia qué lado te equivocaste.'];
+  return h.slice(0,hintLevel).map((t,i)=>(i+1)+') '+t).join('  ');
+}
+function pedirPista(){
+  if(autoRunning||mode!=='reto')return;
+  if(hintLevel>=2){showToast('💡 Ya usaste las 2 pistas de este caso.');return;}
+  hintLevel++;pistas++;refreshAll();
 }
 function checkReto(){
   const f=RETO_POOL[retoIdx],n=bitsFor(f.N);
@@ -722,6 +741,20 @@ function checkReto(){
   retoSolved=retoOkDetect&&retoOkClear;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,n)}</span>`;
+  // La demostración automática no cuenta como intento del alumno.
+  if(!autoRunning){
+    intentos++;
+    if(!retoSolved){
+      fallosCaso++;
+      if(fallosCaso>=3){
+        // tres fallos: el caso se resiembra (no se aprueba por eliminación)
+        const msg=retoMsg;
+        seedReto();updateRetoSpec();buildControls();updateScenarioInfo();
+        retoMsg=msg+`<br><span class="mono dtc">Tres intentos fallidos: se te asigna otro contador (módulo ${RETO_POOL[retoIdx].N}). Razona de nuevo desde su secuencia de estados.</span>`;
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 
@@ -732,27 +765,27 @@ function buildQuiz(){
       pregunta:'¿Cuál es la ecuación característica del flip-flop JK?',
       opciones:[
         {t:"Qn = J·Q' + K'·Q — retiene con J=K=0, pone a 0 con (0,1), pone a 1 con (1,0) y conmuta con J=K=1.",ok:true,why:"Correcto: el JK hace las cuatro operaciones. Con J=K=1 conmuta (Qn=Q'), por eso sirve para contadores; con J=K se comporta como un flip-flop T."},
-        {t:'Qn = D, copia siempre la entrada sin importar el estado previo.',ok:false,why:'Esa es la ecuación del flip-flop D, no del JK. El JK depende del estado actual Q y de dos entradas.'},
-        {t:'Qn = Q ⊕ T, conmuta cuando la entrada vale 1.',ok:false,why:'Esa es la del flip-flop T. El JK se reduce a un T sólo cuando J=K, pero su ecuación general usa J y K por separado.'},
-        {t:'Qn = J·K, la AND de sus dos entradas.',ok:false,why:'No: con J=1,K=0 el JK pone Qn=1 aunque J·K=0. La salida depende también del estado previo Q, no sólo de las entradas.'},
+        {t:'Qn = D — copia siempre la entrada sin importar el estado previo, de modo que no puede retener ni conmutar por sí mismo.',ok:false,why:'Esa es la ecuación del flip-flop D, no del JK. El JK depende del estado actual Q y de dos entradas.'},
+        {t:'Qn = Q ⊕ T — conmuta cuando la entrada vale 1 y retiene cuando vale 0, con una sola entrada de control.',ok:false,why:'Esa es la del flip-flop T. El JK se reduce a un T sólo cuando J=K, pero su ecuación general usa J y K por separado.'},
+        {t:'Qn = J·K — la AND de sus dos entradas, que sólo vale 1 cuando ambas están en alto y 0 en cualquier otro caso.',ok:false,why:'No: con J=1,K=0 el JK pone Qn=1 aunque J·K=0. La salida depende también del estado previo Q, no sólo de las entradas.'},
       ],
     },
     aplica:{
       pregunta:'Para un contador síncrono módulo N (que cuente 0,1,…,N−1), ¿qué estado terminal se detecta para borrar?',
       opciones:[
-        {t:'DET = N − 1: es el último de los N estados válidos (0..N−1). Al alcanzarlo, el siguiente flanco borra a 0 y el ciclo tiene periodo N.',ok:true,why:'Correcto: N estados van de 0 a N−1, así que el terminal es N−1. Detectarlo y borrar de forma síncrona da exactamente el módulo N.'},
-        {t:'DET = N: se cuenta hasta N y entonces se borra.',ok:false,why:'Ése es el error clásico off-by-one: contar 0..N son N+1 estados → módulo N+1. El terminal correcto es N−1.'},
-        {t:'DET = 2ⁿ − 1, el máximo que caben n flip-flops.',ok:false,why:'Eso daría el módulo natural 2ⁿ (contador libre), no el módulo N deseado. Hay que detectar N−1 antes de llegar al máximo.'},
-        {t:'DET = N/2, la mitad del recorrido.',ok:false,why:'No tiene relación con el fin del conteo. El terminal es siempre el último estado válido, N−1.'},
+        {t:'DET = N − 1: el último estado válido (0..N−1); al alcanzarlo, el siguiente flanco borra a 0 y el periodo es N.',ok:true,why:'Correcto: N estados van de 0 a N−1, así que el terminal es N−1. Detectarlo y borrar de forma síncrona da exactamente el módulo N.'},
+        {t:'DET = N — se cuenta hasta N y entonces se borra, de modo que el último estado que alcanza el contador es el propio N.',ok:false,why:'Ése es el error clásico off-by-one: contar 0..N son N+1 estados → módulo N+1. El terminal correcto es N−1.'},
+        {t:'DET = 2ⁿ − 1 — el máximo estado que cabe en n flip-flops, desde el cual el siguiente flanco devuelve el contador a 0.',ok:false,why:'Eso daría el módulo natural 2ⁿ (contador libre), no el módulo N deseado. Hay que detectar N−1 antes de llegar al máximo.'},
+        {t:'DET = N/2 — la mitad del recorrido, para que el contador regrese a 0 antes de agotar todos los estados posibles.',ok:false,why:'No tiene relación con el fin del conteo. El terminal es siempre el último estado válido, N−1.'},
       ],
     },
     reto:{
-      pregunta:'Detectaste el terminal correcto (N−1) pero el contador cuenta libre hasta 2ⁿ−1. ¿Qué falta?',
+      pregunta:'¿Por qué un contador síncrono admite una frecuencia de reloj mayor que uno asíncrono (de rizado) con el mismo número de bits?',
       opciones:[
-        {t:'Activar el borrado síncrono: la detección de N−1 debe FORZAR el estado a 0 en el siguiente flanco. Sin esa acción, detectar el terminal no hace nada y el contador sigue hasta 2ⁿ−1.',ok:true,why:'Correcto: detectar el terminal es sólo la mitad; hay que conectar esa señal al borrado (síncrono) para que el contador regrese a 0 y se cierre el ciclo 0..N−1.'},
-        {t:'Aumentar el número de flip-flops.',ok:false,why:'No: con más flip-flops la capacidad crece pero el problema persiste. Lo que falta es actuar (borrar) cuando se detecta el terminal.'},
-        {t:'Cambiar los flip-flops de T a D.',ok:false,why:'El tipo de flip-flop no cambia el módulo. La cuenta se recorta con la detección del terminal más el borrado, sin importar el tipo.'},
-        {t:'Poner DET = N en lugar de N − 1.',ok:false,why:'Eso empeora las cosas: daría módulo N+1. El DET ya era correcto; lo que falta es habilitar el borrado.'},
+        {t:'Porque todos los flip-flops reciben el MISMO reloj y conmutan a la vez; en el de rizado el retardo de cada etapa se suma.',ok:true,why:'Correcto: en el asíncrono cada flip-flop se dispara con la salida del anterior y los retardos se acumulan (y aparecen estados transitorios falsos). En el síncrono el retardo es el de una sola etapa más la lógica.'},
+        {t:'Porque usa menos flip-flops para el mismo módulo, así que hay menos etapas que recorrer entre dos flancos de reloj consecutivos.',ok:false,why:'No: ambos necesitan n = ⌈log₂ N⌉ flip-flops. La ventaja no está en la cantidad de flip-flops sino en cómo se les aplica el reloj.'},
+        {t:'Porque sus flip-flops son siempre de tipo D, que conmutan más rápido que los T y los JK usados en los contadores de rizado.',ok:false,why:'No: el tipo de flip-flop no fija la velocidad del contador. Se puede hacer un síncrono con T, D o JK; lo que importa es que comparten reloj.'},
+        {t:'Porque no necesita compuertas entre etapas, de modo que cada flip-flop depende sólo de su propia salida anterior y del reloj.',ok:false,why:'Al revés: el síncrono SÍ necesita lógica (por ejemplo T_i = Q0·Q1·…·Q(i−1)) para decidir qué bit conmuta; esa lógica es el precio de compartir reloj.'},
       ],
     },
   };
@@ -794,11 +827,28 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// El recorrido es una DEMOSTRACIÓN: no puntúa, no marca el reto como resuelto y al terminar (o fallar)
+// devuelve el laboratorio al estado exacto en que lo dejó el alumno.
+function snapState(){
+  return {mode,expKind,ffType,ffQ,ffD,ffJ,ffK,ffT,cntType,cntN,cntState,modN,modState,apTopic,apFFType,apDesignIdx,apSelfIdx,
+    retoIdx,retoDET,retoClear,retoChecked,retoOkDetect,retoOkClear,retoSolved,retoMsg,intentos,fallosCaso,hintLevel,pistas};
+}
+function restoreState(z){
+  expKind=z.expKind;ffType=z.ffType;ffQ=z.ffQ;ffD=z.ffD;ffJ=z.ffJ;ffK=z.ffK;ffT=z.ffT;
+  cntType=z.cntType;cntN=z.cntN;cntState=z.cntState;modN=z.modN;modState=z.modState;
+  apTopic=z.apTopic;apFFType=z.apFFType;apDesignIdx=z.apDesignIdx;apSelfIdx=z.apSelfIdx;
+  retoIdx=z.retoIdx;retoDET=z.retoDET;retoClear=z.retoClear;retoChecked=z.retoChecked;retoOkDetect=z.retoOkDetect;retoOkClear=z.retoOkClear;
+  retoSolved=z.retoSolved;retoMsg=z.retoMsg;intentos=z.intentos;fallosCaso=z.fallosCaso;hintLevel=z.hintLevel;pistas=z.pistas;
+  setMode(z.mode);refreshAll();
+}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Demostrando…';
+  const snap=snapState();
   try{
     synth.init();synth.resume();clearDx();
+    showToast('👁 Demostración: no puntúa ni toca tu reto; al terminar todo vuelve a como lo dejaste.');
+    await sleep(2400);
     setMode('explora');
     expKind='ff';ffType='jk';ffQ=0;ffJ=1;ffK=1;afterEdit();
     showToast('🔁 Flip-flop JK con J=K=1: conmuta en cada flanco (Qn=Q\'). Es la base de un contador.');
@@ -809,7 +859,6 @@ async function runAuto(){
     expKind='mod';modN=5;modState=0;afterEdit();
     showToast('🔟 Contador módulo 5: cuenta 0..4 y detecta DET=4 para borrar a 0. Necesita 3 flip-flops.');
     await sleep(4200);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('aplica');
     apTopic='exc';apFFType='jk';afterEdit();
@@ -821,22 +870,26 @@ async function runAuto(){
     apTopic='selfcorr';apSelfIdx=0;afterEdit();
     showToast('♻️ Autocorrección: aunque arranque en un estado no usado (6), el borrado lo devuelve al ciclo 0..4.');
     await sleep(4200);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
+    // Reto de demostración: un contador distinto del del alumno (se descarta al terminar)
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Primero probamos el error clásico: DET=N con borrado…');
-    const f0=RETO_POOL[retoIdx];retoDET=f0.N;retoClear=true;afterEdit();await sleep(3400);
+    seedReto((snap.retoIdx+1)%RETO_POOL.length);updateRetoSpec();afterEdit();
+    const f0=RETO_POOL[retoIdx];
+    showToast('🎯 Contador de demostración: '+f0.ctx+'. Primero probamos el error clásico: DET=N con borrado…');
+    retoDET=f0.N&mask(bitsFor(f0.N));retoClear=true;afterEdit();await sleep(3400);
     checkReto();
-    showToast('…DET='+f0.N+' cuenta un estado de más → módulo '+(f0.N+1)+'. Corregimos a DET=N−1.');
+    showToast('…DET='+f0.N+' cuenta un estado de más. Corregimos a DET=N−1.');
     await sleep(3600);
-    retoDET=f0.N-1;retoClear=true;afterEdit();
-    showToast('✔ DET=N−1='+(f0.N-1)+' y borrado síncrono: contador módulo '+f0.N+'. Comprobamos.');
+    retoDET=f0.N-1;retoClear=true;retoChecked=false;afterEdit();
+    showToast('✔ DET=N−1='+(f0.N-1)+' y borrado síncrono: contador módulo '+f0.N+'. Comprobamos (en demostración).');
     await sleep(2400);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    checkReto();await sleep(3200);
   }finally{
+    restoreState(snap);
+    solved=(mode==='reto')?retoSolved:false;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    refreshAll();
+    showToast('↩ Demostración terminada: tu estado y tu reto quedaron como estaban.');
   }
 }
 
@@ -849,6 +902,7 @@ S.setAnimate((dt,time)=>{
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
 el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
 el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+el('btnHint').onclick=()=>pedirPista();
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
@@ -879,16 +933,17 @@ window.__labDebug={
   apSelfResult:()=>{const f=SELF_POOL[apSelfIdx],n=bitsFor(f.N),DET=f.N-1;let x=f.start,steps=0;const path=[x];while(x>=f.N&&steps<10){x=modNext(x,n,DET,true);path.push(x);steps++;}return{N:f.N,start:f.start,stepsToValid:steps,entersCycle:x<f.N,path};},
   offByOne:(N)=>{const n=bitsFor(N);return{modNm1:simulate(n,N-1,true).period,modN:simulate(n,N,true).period};},
   // reto
-  retoN:()=>RETO_POOL[retoIdx].N, retoIdx:()=>retoIdx, seedReto:i=>{seedReto(i);afterEdit();},
+  retoN:()=>RETO_POOL[retoIdx].N, retoIdx:()=>retoIdx, seedReto:i=>{seedReto(i);updateRetoSpec();afterEdit();},
   retoDET:()=>retoDET, retoSetDET:v=>{const n=bitsFor(RETO_POOL[retoIdx].N);retoDET=v&mask(n);retoChecked=false;retoSolved=false;afterEdit();},
   retoClear:()=>retoClear, retoSetClear:v=>{retoClear=!!v;retoChecked=false;retoSolved=false;afterEdit();},
   retoSolveBuild:()=>{const f=RETO_POOL[retoIdx];retoDET=f.N-1;retoClear=true;retoChecked=false;retoSolved=false;afterEdit();},
   checkReto:()=>checkReto(),
-  retoChecked:()=>retoChecked, retoOkDetect:()=>retoOkDetect, retoOkClear:()=>retoOkClear, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkDetect:()=>retoOkDetect, retoOkClear:()=>retoOkClear, retoSolved:()=>autoRunning?false:retoSolved,
+  intentos:()=>intentos, fallosCaso:()=>fallosCaso, pistas:()=>pistas, pedirPista:()=>pedirPista(), autoRunning:()=>autoRunning, runAuto:()=>runAuto(),
   retoPeriod:()=>{const f=RETO_POOL[retoIdx],n=bitsFor(f.N);return simulate(n,retoDET,retoClear).period;},
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
   newSignal:()=>newSignal(),
-  solved:()=>solved,
+  solved:()=>autoRunning?false:solved,
 };

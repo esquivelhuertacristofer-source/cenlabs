@@ -210,7 +210,7 @@ let apIdx=0,apErr=0,apCal=false,apAwg=20,apDb=0;
 // reto
 let retoK=0;
 let retoCh={rango:0,awg:22,db:0.5};
-let retoChecked=false,retoOkRango=false,retoOkAwg=false,retoOkDb=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoOkRango=false,retoOkAwg=false,retoOkDb=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let solved=false,autoRunning=false,QUIZ={};
 let hwStep=0,hwT=0,framesCache=null;
 
@@ -252,6 +252,12 @@ const expSt=()=>statusOf(expI());
 const retoSc=()=>POOL[RETO_POOL[retoK]];
 const retoRango=()=>retoSc().rangos[retoCh.rango];
 const retoCfg=()=>({rango:retoRango(),awg:retoCh.awg,db:retoCh.db});
+// la instalación del reto no se abre en Explora/Aplica mientras no esté resuelto: ahí se muestran el rango, el calibre y la banda válidos
+function escLock(i){return i===RETO_POOL[retoK]&&!retoSolved;}
+function fixSc(){
+  if(escLock(expIdx)){expIdx=(expIdx+1)%POOL.length;expStep=2;expFalla='no';}
+  if(escLock(apIdx)){apIdx=(apIdx+1)%POOL.length;apDb=0;apAwg=goodAwg(POOL[apIdx]);}
+}
 function seedReto(k){
   retoK=(k==null)?pickIdx(RETO_POOL.length,retoK):k;
   const sc=retoSc();
@@ -260,9 +266,9 @@ function seedReto(k){
   const badAwg=[...AWGS].reverse().find(a=>!okAwg(sc,a));
   const badDb=sc.dbOpts.find(d=>!okDb(sc,d));
   retoCh={rango:badRg<0?0:badRg,awg:badAwg===undefined?AWGS[AWGS.length-1]:badAwg,db:badDb===undefined?sc.dbOpts[0]:badDb};
-  retoChecked=false;retoOkRango=false;retoOkAwg=false;retoOkDb=false;retoSolved=false;retoMsg='';
+  retoChecked=false;retoOkRango=false;retoOkAwg=false;retoOkDb=false;retoSolved=false;retoMsg='';retoAviso='';intentos=0;
 }
-seedReto(0);
+seedReto(1);
 
 // ===================== 4. MATERIALES =====================
 function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
@@ -726,10 +732,11 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   const cubre=inBand(sc.hProc[0],r)&&inBand(sc.hProc[1],r);
   const inc=ERR_SPAN*spanOf(r);
-  c.fillText('¿cubre el recorrido dentro de 3,8–20,5 mA? '+(cubre?'sí':'NO')+'   ·   incertidumbre 0,5 % del span = '+n0(inc*1000)+' mm (máx '+n0(sc.tolMeas*1000)+' mm)',30,y+20);
+  c.fillText('banda de medida 3,8–20,5 mA   ·   incertidumbre 0,5 % del span = '+n0(inc*1000)+' mm (máx '+n0(sc.tolMeas*1000)+' mm)',30,y+20);
   const rgok=okRango(sc,rg);
-  c.fillStyle=rgok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  c.fillText(rgok?'Un span más estrecho da mejor resolución; uno demasiado estrecho deja el proceso fuera de la banda de medida.'
+  // en modo reto no hay veredicto en vivo: el diagnóstico sólo aparece al comprobar
+  c.fillStyle=!retoChecked?'#6b7280':(rgok?OK_HEX:WARN_HEX);c.font='12px Outfit, sans-serif';
+  c.fillText(!retoChecked?'El diagnóstico de este criterio aparece al pulsar «Comprobar».':rgok?'Un span más estrecho da mejor resolución; uno demasiado estrecho deja el proceso fuera de la banda de medida.'
     :(cubre?'El proceso cabe, pero el span es tan ancho que la incertidumbre del transmisor no cumple la tolerancia pedida.'
            :'Con este rango el proceso sale de la banda 3,8–20,5 mA: parte del recorrido no se puede medir.'),30,y+38);
   // 2) calibre
@@ -739,8 +746,8 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText('R total '+n1(rTotal(lp))+' Ω   ·   i máx '+n2(iMax(lp))+' mA   ·   R máx a 20,5 mA = '+n1(rMaxAt(lp,NE43.hi))+' Ω',30,y+20);
   const aok=okAwg(sc,cfg.awg);
-  c.fillStyle=aok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  c.fillText(aok?'Es el cobre mínimo que sostiene 20,5 mA: cumple sin pagar sección de más.'
+  c.fillStyle=!retoChecked?'#6b7280':(aok?OK_HEX:WARN_HEX);c.font='12px Outfit, sans-serif';
+  c.fillText(!retoChecked?'El diagnóstico de este criterio aparece al pulsar «Comprobar».':aok?'Es el cobre mínimo que sostiene 20,5 mA: cumple sin pagar sección de más.'
     :(okAt(lp,NE43.hi)?'Cumple, pero hay un calibre más fino que también cumple: estás pagando cobre de más.'
                       :'No sostiene 20,5 mA: la corriente satura y la lectura se congela por debajo del fondo de escala.'),30,y+38);
   // 3) banda muerta
@@ -751,8 +758,8 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText('arranques/h nominales '+n1(rn.startsH)+'   ·   peor caso '+n1(rp.startsH)+' (máx '+n0(sc.maxStarts)+')   ·   banda de error '+n3(rn.band)+' m (máx '+n2(sc.tolBand)+')',30,y+20);
   const dok=okDb(sc,cfg.db);
-  c.fillStyle=dok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  c.fillText(dok?'Protege al motor en el peor caudal y mantiene el nivel dentro de la tolerancia.'
+  c.fillStyle=!retoChecked?'#6b7280':(dok?OK_HEX:WARN_HEX);c.font='12px Outfit, sans-serif';
+  c.fillText(!retoChecked?'El diagnóstico de este criterio aparece al pulsar «Comprobar».':dok?'Protege al motor en el peor caudal y mantiene el nivel dentro de la tolerancia.'
     :(rp.startsH>sc.maxStarts?'Demasiados arranques por hora en el peor caudal: el motor no lo aguanta.'
                              :'El nivel se aparta más de lo admitido: la banda muerta se paga en precisión.'),30,y+38);
   // gráfica de la corrida actual
@@ -791,6 +798,9 @@ function drawReto(c){
   if(retoChecked){
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
     c.fillText(retoSolved?'✔ Lazo correcto: los tres criterios se cumplen':'✗ Todavía no: revisa los criterios marcados',30,700);
+  }else{
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Intentos fallidos: '+intentos+' de 3',30,700);
   }
   c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
   c.fillText('Cada criterio se simula con los otros dos correctos, para que un acierto no tape un error',30,752);
@@ -1081,9 +1091,10 @@ function buildControls(){
     html+=lbl('3 · Banda muerta')+optBtns('rdb',sc.dbOpts.map(d=>[d,n1(d)+' %']),retoCh.db);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc]').forEach(b=>{if(escLock(parseInt(b.getAttribute('data-sc'),10))){b.disabled=true;b.title='Es la instalación de tu Reto';b.style.opacity='0.45';}});
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  wire('data-sc',v=>{const i=parseInt(v,10);if(mode==='explora'){expIdx=i;expStep=2;expFalla='no';}else{apIdx=i;apDb=0;apAwg=goodAwg(POOL[i]);}});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa instalación es la de tu Reto: se abre aquí cuando la resuelvas.');return;}if(mode==='explora'){expIdx=i;expStep=2;expFalla='no';}else{apIdx=i;apDb=0;apAwg=goodAwg(POOL[i]);}});
   wire('data-pv',v=>{expStep=parseInt(v,10);});
   wire('data-fa',v=>{expFalla=v;});
   wire('data-tp',v=>{apTopic=v;if(v==='lazo')apAwg=goodAwg(POOL[apIdx]);});
@@ -1116,6 +1127,7 @@ function updateScenarioInfo(){
 
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1132,13 +1144,13 @@ function newSignal(){
     showToast('🔧 '+expSc().name+' — '+expSc().tag+'.');}
   else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);apDb=0;apAwg=goodAwg(POOL[apIdx]);
     showToast('🧩 '+POOL[apIdx].name+' — '+POOL[apIdx].tag+'.');}
-  else{seedReto();updateRetoSpec();
+  else{seedReto();fixSc();updateRetoSpec();
     showToast('🎯 Nueva instalación: '+retoSc().name+'. La configuración de partida vuelve a estar mal en las tres decisiones.');}
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 11. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto'&&!retoChecked)cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   let h='';
   if(mode==='explora'){
@@ -1223,6 +1235,7 @@ function updateReport(){
     const sc=retoSc();
     html+=`Instalación: <b>${sc.name}</b> · proceso ${n2(sc.hProc[0])}–${n2(sc.hProc[1])} m · tolerancia ${n0(sc.tolMeas*1000)} mm.<br>`;
     if(retoChecked)html+=retoMsg;
+    else if(retoAviso)html+=retoAviso;
     else html+=`<span class="mono">Elige rango, calibre y banda muerta, y pulsa Comprobar.</span>`;
   }
   el('report').innerHTML=html;
@@ -1232,7 +1245,7 @@ function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();u
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const sc=retoSc();
-  el('retoSpec').innerHTML=`Pon en marcha el lazo de <b>${sc.name}</b>: (1) el <b>rango calibrado</b> del transmisor, que debe cubrir el recorrido del proceso dentro de la banda de medida y cumplir una tolerancia de ${n0(sc.tolMeas*1000)} mm; (2) el <b>calibre</b> del cable de ${n0(sc.len)} m, que debe sostener 20,5 mA sin pagar cobre de más; y (3) la <b>banda muerta</b> del control on/off, limitada a ${n0(sc.maxStarts)} arranques/hora en el peor caudal y a ${n2(sc.tolBand)} m de desviación.`;
+  el('retoSpec').innerHTML=`Pon en marcha el lazo de <b>${sc.name}</b>: (1) el <b>rango calibrado</b> del transmisor, que debe cubrir el recorrido del proceso dentro de la banda de medida y cumplir una tolerancia de ${n0(sc.tolMeas*1000)} mm; (2) el <b>calibre</b> del cable de ${n0(sc.len)} m, que debe sostener 20,5 mA sin pagar cobre de más; y (3) la <b>banda muerta</b> del control on/off, limitada a ${n0(sc.maxStarts)} arranques/hora en el peor caudal y a ${n2(sc.tolBand)} m de desviación.<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`;
 }
 function retoExplain(){
   const sc=retoSc(),cfg=retoCfg(),lp=lpWith(sc,{awg:cfg.awg});
@@ -1248,10 +1261,18 @@ function checkReto(){
   retoOkRango=okRango(sc,retoRango());
   retoOkAwg=okAwg(sc,retoCh.awg);
   retoOkDb=okDb(sc,retoCh.db);
-  retoSolved=retoOkRango&&retoOkAwg&&retoOkDb;retoChecked=true;solved=retoSolved;
+  retoSolved=retoOkRango&&retoOkAwg&&retoOkDb;retoChecked=true;solved=retoSolved;retoAviso='';
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  if(!retoSolved)intentos++;
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
-  refreshAll();
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra instalación
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><span class="mono"><span class="dtc">Tres intentos sin acertar.</span> Se te plantea otra instalación: razona con sus datos, no por descarte.</span>';
+    showToast('Tres intentos sin acertar: se te plantea otra instalación.');
+    buildControls();updateScenarioInfo();
+  }
+  updateRetoSpec();refreshAll();
 }
 
 // ===================== 13. QUIZ =====================
@@ -1260,28 +1281,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué la señal analógica de campo se transmite como corriente de 4 a 20 mA y no como una tensión de 0 a 10 V?',
       opciones:[
-        {t:'Porque la corriente es la misma en todo el lazo: la caída del cable no altera la medida, y el arranque en 4 mA permite distinguir «proceso en el mínimo» de «lazo roto».',ok:true,why:'Correcto. Son las dos ventajas y van juntas: inmunidad a la resistencia del cable y cero vivo, que es lo que hace detectable la avería.'},
-        {t:'Porque una señal de corriente no se ve afectada por el ruido electromagnético, mientras que una de tensión sí.',ok:false,why:'El lazo de corriente es más robusto frente al ruido de modo común, pero no es inmune: por eso se usa par trenzado y apantallado. La razón principal es otra: la corriente no se pierde por el camino.'},
-        {t:'Porque 20 mA es la corriente máxima que puede entregar sin peligro una fuente de 24 V.',ok:false,why:'Una fuente de 24 V entrega mucho más de 20 mA. El valor de 20 mA es un convenio histórico de la instrumentación neumática trasladado a la eléctrica, no un límite de la fuente.'},
-        {t:'Porque el transmisor de dos hilos no puede generar tensión, sólo consumir corriente.',ok:false,why:'Es cierto que un transmisor de dos hilos regula la corriente que consume, pero eso es consecuencia del formato de señal elegido, no su causa. Existen transmisores de cuatro hilos y siguen entregando 4–20 mA.'},
+        {t:'Porque la corriente es la misma en todo el lazo, así que la caída del cable no altera la medida, y el arranque en 4 mA distingue «proceso en el mínimo» de «lazo roto».',ok:true,why:'Correcto. Son las dos ventajas y van juntas: inmunidad a la resistencia del cable y cero vivo, que es lo que hace detectable la avería.'},
+        {t:'Porque una señal de corriente no se ve afectada por el ruido electromagnético ni por las interferencias del cableado, mientras que una señal de tensión sí lo está.',ok:false,why:'El lazo de corriente es más robusto frente al ruido de modo común, pero no es inmune: por eso se usa par trenzado y apantallado. La razón principal es otra: la corriente no se pierde por el camino.'},
+        {t:'Porque 20 mA es la corriente máxima que puede entregar sin peligro una fuente de 24 V, y con más corriente el transmisor de dos hilos se dañaría.',ok:false,why:'Una fuente de 24 V entrega mucho más de 20 mA. El valor de 20 mA es un convenio histórico de la instrumentación neumática trasladado a la eléctrica, no un límite de la fuente.'},
+        {t:'Porque el transmisor de dos hilos no puede generar tensión por sí mismo, sólo consumir corriente, y por eso el estándar industrial no admite señales en tensión.',ok:false,why:'Es cierto que un transmisor de dos hilos regula la corriente que consume, pero eso es consecuencia del formato de señal elegido, no su causa. Existen transmisores de cuatro hilos y siguen entregando 4–20 mA.'},
       ],
     },
     aplica:{
       pregunta:'Un lazo con cable largo lee correctamente en la parte baja de la escala, pero al subir el proceso la lectura se queda clavada en 18 mA. ¿Qué está pasando?',
       opciones:[
-        {t:'La resistencia total del lazo supera la que admite el presupuesto de tensión: el transmisor no consigue subir más la corriente y satura. Es un problema de dimensionado, no del sensor.',ok:true,why:'Correcto. R_max = (V_alim − V_tx,mín)/I. Con demasiada resistencia el transmisor se queda sin la tensión mínima que necesita y la corriente se topa. El síntoma imita a un sensor averiado.'},
-        {t:'El transmisor tiene un error de span negativo y hay que recalibrarlo en el URV.',ok:false,why:'Un error de span inclina la recta pero la mantiene recta: la lectura seguiría subiendo, sólo que con la pendiente equivocada. Aquí la lectura no sube: se congela.'},
-        {t:'La resistencia de medida es demasiado pequeña y no deja llegar la corriente al receptor.',ok:false,why:'Al revés: una resistencia de medida pequeña consume menos tensión y deja más margen. Lo que estrangula el lazo es tener demasiada resistencia total, no demasiado poca.'},
-        {t:'El proceso está por encima del URV y la NAMUR NE 43 limita la señal a 20,5 mA.',ok:false,why:'Si fuera eso la lectura se quedaría en 20,5 mA, que es el tope de la NE 43, no en 18 mA. Un tope por debajo de 20 mA no lo pone ninguna norma: lo pone el cable.'},
+        {t:'La resistencia total del lazo supera la que admite el presupuesto de tensión: el transmisor no puede subir más la corriente y satura. Es un fallo de dimensionado, no del sensor.',ok:true,why:'Correcto. R_max = (V_alim − V_tx,mín)/I. Con demasiada resistencia el transmisor se queda sin la tensión mínima que necesita y la corriente se topa. El síntoma imita a un sensor averiado.'},
+        {t:'El transmisor tiene un error de span negativo y hay que recalibrarlo en el URV, porque su pendiente quedó por debajo de la debida y limita la lectura alta.',ok:false,why:'Un error de span inclina la recta pero la mantiene recta: la lectura seguiría subiendo, sólo que con la pendiente equivocada. Aquí la lectura no sube: se congela.'},
+        {t:'La resistencia de medida es demasiado pequeña y no deja llegar la corriente al receptor, así que el lazo se queda corto justo en la parte alta de la escala.',ok:false,why:'Al revés: una resistencia de medida pequeña consume menos tensión y deja más margen. Lo que estrangula el lazo es tener demasiada resistencia total, no demasiado poca.'},
+        {t:'El proceso está por encima del URV y la NAMUR NE 43 limita la señal a 20,5 mA, de modo que el transmisor queda clavado en el tope que fija la norma.',ok:false,why:'Si fuera eso la lectura se quedaría en 20,5 mA, que es el tope de la NE 43, no en 18 mA. Un tope por debajo de 20 mA no lo pone ninguna norma: lo pone el cable.'},
       ],
     },
     reto:{
       pregunta:'¿Contra qué caudal de entrada se debe dimensionar la banda muerta de un control on/off de nivel?',
       opciones:[
-        {t:'Contra un caudal de entrada igual a la MITAD del caudal de la bomba, porque entonces llenar y vaciar tardan lo mismo y el ciclo es el más corto posible: ahí se dan los arranques por hora máximos.',ok:true,why:'Correcto. El periodo del ciclo es proporcional a 1/q_in + 1/(q_out − q_in), que es mínimo en q_in = q_out/2. Dimensionar con el caudal nominal deja el motor sin protección justo en el caso peor.'},
-        {t:'Contra el caudal de entrada máximo, que es cuando el tanque se llena más deprisa.',ok:false,why:'Con el caudal de entrada máximo el tanque se llena rápido, pero la bomba tarda mucho más en vaciarlo —le queda poco caudal neto— y el ciclo se alarga. Los arranques bajan, no suben.'},
-        {t:'Contra el caudal de entrada nominal de la instalación, que es el que se da la mayor parte del tiempo.',ok:false,why:'Es el que se da la mayor parte del tiempo, sí, pero un límite de arranques por hora protege un motor frente al caso peor. Dimensionar con el caso típico deja el equipo desprotegido justo cuando importa.'},
-        {t:'Contra un caudal de entrada nulo, que es cuando la bomba trabaja a pleno caudal.',ok:false,why:'Con caudal de entrada nulo el tanque no vuelve a llenarse: la bomba arranca una vez y ya no vuelve a hacerlo. Ese es el caso más benigno de todos.'},
+        {t:'Contra un caudal de entrada igual a la MITAD del de la bomba: llenar y vaciar tardan lo mismo, el ciclo es el más corto posible y se dan los arranques por hora máximos.',ok:true,why:'Correcto. El periodo del ciclo es proporcional a 1/q_in + 1/(q_out − q_in), que es mínimo en q_in = q_out/2. Dimensionar con el caudal nominal deja el motor sin protección justo en el caso peor.'},
+        {t:'Contra el caudal de entrada máximo de la instalación, porque es cuando el tanque se llena más deprisa y la bomba tiene que arrancar con mayor frecuencia.',ok:false,why:'Con el caudal de entrada máximo el tanque se llena rápido, pero la bomba tarda mucho más en vaciarlo —le queda poco caudal neto— y el ciclo se alarga. Los arranques bajan, no suben.'},
+        {t:'Contra el caudal de entrada nominal de la instalación, que es el que se da la mayor parte del tiempo y por tanto el que más desgasta el motor de la bomba.',ok:false,why:'Es el que se da la mayor parte del tiempo, sí, pero un límite de arranques por hora protege un motor frente al caso peor. Dimensionar con el caso típico deja el equipo desprotegido justo cuando importa.'},
+        {t:'Contra un caudal de entrada nulo, que es cuando la bomba trabaja a pleno caudal y el motor sufre los arranques más seguidos de todo el funcionamiento.',ok:false,why:'Con caudal de entrada nulo el tanque no vuelve a llenarse: la bomba arranca una vez y ya no vuelve a hacerlo. Ese es el caso más benigno de todos.'},
       ],
     },
   };
@@ -1325,7 +1346,10 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,expIdx,expStep,expFalla,apTopic,apIdx,apErr,apCal,apAwg,apDb,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1385,7 +1409,20 @@ async function runAuto(){
     checkReto();await sleep(2600);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    expIdx=prev.expIdx;expStep=prev.expStep;expFalla=prev.expFalla;apTopic=prev.apTopic;apIdx=prev.apIdx;apErr=prev.apErr;apCal=prev.apCal;apAwg=prev.apAwg;apDb=prev.apDb;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkRango=retoOkAwg=retoOkDb=true;
+    }else if(prev.retoK===0){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkRango=false;retoOkAwg=false;retoOkDb=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -1444,5 +1481,6 @@ window.__labDebug={
   quizAnswer:i=>answer(i),
   frames:()=>frames(),
   newSignal:()=>newSignal(),
+  intentos:()=>intentos,
   solved:()=>solved,
 };

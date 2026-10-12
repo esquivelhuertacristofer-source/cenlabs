@@ -1186,14 +1186,12 @@ function drawReto(){
 
   labelAt(40,404,'Tu tren',CL.fg,20,'left',true);
   const ejesTxt={fino:FINOS[RET.fino].corto,sec:SECADORES[RET.sec].corto,lub:RET.lub?'con lubricador':'sin lubricador',tam:TAM_CORTO[RET.tam]};
+  // sin calificación por eje: se evalúa el tren completo al comprobar, y el informe no dice qué eje es el bueno
   EJES.forEach((j,i)=>{
     const x=40+i*246;
-    const okj=retoChecked?retoOk[j]:null;
-    const col=okj===null?CL.grid:(okj?CL.ok:CL.bad);
-    caja(x,420,232,74,col,okj===null?'rgba(255,255,255,.02)':(okj?'rgba(67,217,173,.10)':'rgba(255,107,107,.10)'));
+    caja(x,420,232,74,CL.grid,'rgba(255,255,255,.02)');
     labelAt(x+14,444,{fino:'Filtración',sec:'Secador',lub:'Lubricación',tam:'Cuerpo'}[j],CL.dim,14);
     labelAt(x+14,470,ejesTxt[j],CL.fg,18,'left',true);
-    if(okj!==null) labelAt(x+214,470,okj?'✔':'✗',col,22,'right',true);
   });
 
   labelAt(40,540,'Resultado del tren',CL.fg,19,'left',true);
@@ -1207,52 +1205,57 @@ function drawReto(){
   res.forEach((f,i)=>{ const x=40+i*192; labelAt(x,566,f[0],CL.dim,14); labelAt(x,592,f[1],CL.fg,19,'left',true); });
 
   let y=628;
-  CRIT.forEach((k,i)=>{
-    const x=40+(i%4)*246, yy=y+Math.floor(i/4)*28;
-    labelAt(x,yy,(r[k]?'✔ ':'✗ ')+CRITNOM[k],r[k]?CL.ok:CL.bad,16);
-  });
-  y+=64;
-  if(!r.valido) wrapText(40,y+8,MOTIVO[r.primero],CL.bad,17,940,22);
-  else if(!retoSolved) wrapText(40,y+8,'El tren es válido: ahora comprueba si además es el más barato. Coste actual '+f1(r.coste,0)+' u.c. y el mínimo del catálogo es '+f1(costeMin(esc.est,esc.clima),0)+' u.c.',CL.warn,17,940,22);
-  else wrapText(40,y+8,'Resuelto: válido y de coste mínimo en los cuatro ejes.',CL.ok,17,940,22);
+  if(retoOculto()){
+    labelAt(40,y,'Criterios del pliego: se muestran al pulsar Comprobar. Intentos fallidos: '+retoInt+' / '+MAX_INT+'.',CL.dim,16);
+    y+=64;
+    wrapText(40,y+8,'Elige filtración, secador, lubricación y cuerpo con las cifras de arriba y pulsa Comprobar. No hay veredicto en vivo.',CL.dim,17,940,22);
+  }else{
+    CRIT.forEach((k,i)=>{
+      const x=40+(i%4)*246, yy=y+Math.floor(i/4)*28;
+      labelAt(x,yy,(r[k]?'✔ ':'✗ ')+CRITNOM[k],r[k]?CL.ok:CL.bad,16);
+    });
+    y+=64;
+    if(retoSolved) wrapText(40,y+8,'Resuelto: válido y de coste mínimo.',CL.ok,17,940,22);
+    else wrapText(40,y+8,retoMsg+'  Intentos fallidos: '+retoInt+' / '+MAX_INT+'.',r.valido?CL.warn:CL.bad,17,940,22);
+  }
 }
 
 /* ============================ QUIZ ============================ */
 const QUIZ=[
   { q:'El martillo cincelador pide 900 Nl/min. Con el cuerpo G1/4 el tren necesita 8,20 bar de red y con el G3/8 sólo 7,31. ¿Por qué el cuerpo grande resuelve el problema?',
     opts:[
-      'Porque la conductancia sónica C de cada elemento crece con el cuerpo (×1,90 en el G3/8) y en ISO 6358 la caída depende de la relación q/(C·p₁): al subir C baja la caída y ya no hay que empujar la red por encima de los 8,0 bar disponibles.',
-      'Porque el cuerpo grande tiene más volumen interno y almacena aire, así que amortigua los picos del martillo.',
-      'Porque con el cuerpo G3/8 el regulador puede entregar una presión de consigna más alta.',
-      'Porque al aumentar la sección del cuerpo circula menos caudal por cada filtro.'],
+      'Porque la conductancia sónica C crece con el cuerpo (×1,90 en el G3/8) y en ISO 6358 la caída baja con C: ya no hay que subir la red por encima de los 8,0 bar disponibles.',
+      'Porque el cuerpo grande tiene más volumen interno y almacena aire a presión, así que amortigua los picos de demanda del martillo y evita que la red caiga durante el golpe.',
+      'Porque con el cuerpo G3/8 el regulador puede entregar una presión de consigna más alta que con el G1/4, y así el martillo recibe los 6,0 bar que pide con holgura.',
+      'Porque al aumentar la sección del cuerpo circula menos caudal por cada filtro y por eso cada elemento pierde menos presión que con el cuerpo pequeño de la misma serie.'],
     ok:0 },
   { q:'En la cabina de pintura a la intemperie el aceite residual sólo puede llegar a clase 2 (≤ 0,1 mg/m³). Con prefiltro y coalescente quedan 0,149 mg/m³. ¿Qué falta?',
     opts:[
-      'El microfiltro de 0,01 µm: baja el aerosol hasta su piso de 0,01 mg/m³ y deja el total en 0,059 mg/m³, que ya es clase 2.',
-      'Un segundo coalescente en serie: dos coalescentes iguales multiplican su rendimiento.',
-      'El carbón activado, porque es el único elemento que retiene aerosol.',
-      'Un secador frigorífico: al condensar el agua arrastra también el aceite.'],
+      'El microfiltro de 0,01 µm: baja el aerosol hasta su piso de 0,01 mg/m³ y deja el total en 0,059 mg/m³, así que ya cumple la clase 2.',
+      'Un segundo coalescente en serie: dos coalescentes iguales multiplican su rendimiento y llevan el aerosol por debajo de lo que exige la clase 2.',
+      'El carbón activado, porque es el único elemento del catálogo que retiene aerosol de aceite además de su vapor, y con él basta para la clase 2.',
+      'Un secador frigorífico: al condensar el agua arrastra también el aceite líquido y deja el total por debajo de los 0,1 mg/m³ de la clase 2.'],
     ok:0 },
   { q:'El envasado con contacto directo exige clase C 1 (≤ 0,01 mg/m³ de aceite) pero admite clase B 4 (rocío a presión ≤ +3 °C). ¿Por qué basta un secador frigorífico y en cambio hace falta carbón activado?',
     opts:[
-      'Porque el punto más frío de esa línea está a 12 °C y un rocío de +3 °C ya no condensa allí; pero ningún filtro mecánico toca el vapor de aceite, y a 48 °C de salida del posenfriador el vapor ya son 5,46 mg/m³: sólo el carbón lo baja a 0,003.',
-      'Porque el secador frigorífico también adsorbe el aceite en su intercambiador.',
-      'Porque el carbón activado seca el aire y el frigorífico limpia el aceite.',
-      'Porque la clase C se mide únicamente sobre el aceite líquido, que el frigorífico purga con el condensado.'],
+      'Porque a 12 °C de punto más frío un rocío de +3 °C no condensa, pero ningún filtro mecánico toca el vapor de aceite (5,46 mg/m³ a 48 °C): sólo el carbón lo baja a 0,003.',
+      'Porque el secador frigorífico también adsorbe el aceite en su intercambiador, igual que lo haría un filtro de carbón colocado después del secador.',
+      'Porque el carbón activado seca el aire hasta el rocío de +3 °C que pide la clase B y el secador frigorífico es el que limpia el aceite.',
+      'Porque la clase C se mide únicamente sobre el aceite líquido, que el frigorífico purga con el condensado, y el vapor no cuenta para esa clase.'],
     ok:0 },
   { q:'Para el aire de instrumentación el secador de membrana (26 u.c.) es más barato que el de adsorción (34 u.c.) y su rocío de −20 °C también cumple el margen ISA de 10 K. Aun así la solución es el de adsorción. ¿Por qué?',
     opts:[
-      'Porque la membrana purga un 18 % del aire de forma permanente frente al 15 % de la adsorción: ese aire extra que el compresor tiene que aspirar sube el consumo a 6 061 kWh/año y el pliego topa en 6 000.',
-      'Porque la membrana no puede bajar de −20 °C y el pliego exige un rocío a presión de −40 °C.',
-      'Porque la membrana suelta finos de desecante y limita la clase A a 2.',
-      'Porque la membrana exige un microfiltro previo y el de adsorción no exige nada.'],
+      'Porque la membrana purga un 18 % del aire de forma permanente frente al 15 % de la adsorción: ese aire extra sube el consumo a 6 061 kWh/año y el pliego topa en 6 000.',
+      'Porque la membrana no puede bajar de −20 °C de rocío a presión y el pliego de este aire exige llegar a −40 °C para dar margen en invierno.',
+      'Porque la membrana suelta finos de desecante aguas abajo y por eso limita la clase de sólidos A a 2 en lugar de la clase 1 que pide la línea.',
+      'Porque la membrana exige un microfiltro previo de 0,01 µm que encarece el tren, y el secador de adsorción no exige ninguna filtración previa.'],
     ok:0 },
   { q:'El soplado en la línea de electrónica exige clase A 1 (partículas). El secador de adsorción es el que da el rocío más bajo, pero aquí queda descartado. ¿Por qué?',
     opts:[
-      'Porque el lecho de desecante se desgasta por atrición y suelta finos aguas abajo: en este catálogo la adsorción topa la clase A en 2 por muy fino que sea el filtro anterior, y la estación pide 1.',
-      'Porque un rocío de −40 °C reseca tanto el aire que carga de electricidad estática las placas.',
-      'Porque su purga del 15 % dispara el consumo por encima del presupuesto energético.',
-      'Porque el secador de adsorción no puede trabajar a los 3 bar que pide el soplado.'],
+      'Porque el lecho de desecante suelta finos por atrición: aquí la adsorción topa la clase A en 2 por fino que sea el filtro anterior, y la estación pide 1.',
+      'Porque un rocío de −40 °C reseca tanto el aire que carga de electricidad estática las placas electrónicas y las dañaría durante el soplado.',
+      'Porque su purga permanente del 15 % dispara el consumo del compresor por encima del presupuesto energético que fija la estación.',
+      'Porque el secador de adsorción no puede trabajar a los 3 bar que pide el soplado, ya que necesita al menos 6 bar de presión de red.'],
     ok:0 },
 ];
 let quizOrder=[], quizPick=-1, quizOkIdx=0;
@@ -1265,6 +1268,13 @@ function shuffleQuiz(){
 }
 function renderQuiz(){
   const Q=QUIZ[retoK];
+  if(!retoLib){
+    // la pregunta explica POR QUÉ funciona la solución de esta estación: se desbloquea al resolver el reto
+    el('quizQ').innerHTML='Pregunta de ingeniería bloqueada: explica por qué funciona la solución de esta estación y se desbloquea al resolver el reto.';
+    el('dxbtns').innerHTML='';
+    const v0=el('quizVerd'); v0.textContent='Bloqueada'; v0.className='';
+    return;
+  }
   el('quizQ').innerHTML=Q.q;
   el('dxbtns').innerHTML=quizOrder.map((oi,i)=>{
     let cls='b';
@@ -1277,7 +1287,7 @@ function renderQuiz(){
   v.className=quizPick<0?'':(quizPick===quizOkIdx?'ok':'bad');
 }
 function answerQuiz(i){
-  if(quizPick>=0) return;
+  if(quizPick>=0||!retoLib) return;
   quizPick=i;
   const good=(i===quizOkIdx);
   renderQuiz();
@@ -1291,33 +1301,77 @@ let AG={clima:'veracruz',sec:'s0',pUso:6};
 let PR={est:'martillo',clima:'toluca',fino:'f0',sec:'sf',lub:true,tam:'g14'};
 let PY={est:'instrum',clima:'monterrey',lub:false,tam:'g14'};
 let retoK=0, RET=null, retoChecked=false, retoSolved=false;
+let retoInt=0, retoLib=false, retoMsg='';   // fallos en el caso actual (0..3), reto ya resuelto (desbloquea Proyecto y el diagnóstico) y mensaje
+const MAX_INT=3;
+// El modo Proyecto marca el óptimo global de CADA estación: el par estación+clima del reto no se abre ahí hasta resolverlo.
+const pyBloq=(est,clima)=>est===ESCENAS[retoK].est&&clima===ESCENAS[retoK].clima&&!retoLib;
+function evitaPY(){
+  if(!pyBloq(PY.est,PY.clima)) return;
+  const i=ESTK.indexOf(PY.est);
+  for(let d=1;d<=ESTK.length;d++){ const e=ESTK[(i+d)%ESTK.length]; if(!pyBloq(e,PY.clima)){ PY.est=e; return; } }
+  const c=CLIMAK.find(k=>!pyBloq(PY.est,k)); if(c) PY.clima=c;
+}
+// En el reto no hay veredicto en vivo: el pliego, los criterios y el coste frente al mínimo salen al pulsar Comprobar.
+const retoOculto=()=>!retoChecked;
 const retoOk={fino:false,sec:false,lub:false,tam:false};
 let RIGR=null;
 function cfgPR(){ return {fino:PR.fino,sec:PR.sec,lub:PR.lub,tam:PR.tam}; }
 
-function newReto(){
-  let k=retoK;
-  if(ESCENAS.length>1){ while(k===retoK) k=Math.floor(Math.random()*ESCENAS.length); }
+function sembrarReto(k){
   retoK=k;
   RET=startCfg(ESCENAS[k].est,ESCENAS[k].clima);
-  retoChecked=false; retoSolved=false;
+  retoChecked=false; retoSolved=false; retoInt=0; retoLib=false; retoMsg='';
   EJES.forEach(j=>retoOk[j]=false);
+  evitaPY();
   shuffleQuiz(); renderQuiz();
+}
+function newReto(avisar){
+  let k=retoK;
+  if(ESCENAS.length>1){
+    let n=0;
+    while((k===retoK||(ESCENAS[k].est===PY.est&&ESCENAS[k].clima===PY.clima))&&n<60){ k=Math.floor(Math.random()*ESCENAS.length); n++; }
+  }
+  sembrarReto(k);
   refreshAll();
-  showToast('🎲 Nueva estación asignada.');
+  if(avisar!==false) showToast('🎲 Nueva estación asignada.');
+}
+// Retroalimentación sobre el tren completo: sólo dice qué criterio incumple o que existe otro válido más barato,
+// sin nombrar el secador, el filtro ni el cuerpo que sí valen ni el coste mínimo.
+function retoExplica(r){
+  if(!r.valido) return MOTIVO[r.primero]+(r.fallos.length>1?' (y '+(r.fallos.length-1)+' criterio'+(r.fallos.length>2?'s':'')+' más)':'');
+  return 'El tren cumple el pliego, pero hay otro válido más barato: revisa si cada elemento que montas hace falta o si un escalón más barato también cumple.';
 }
 function checkReto(){
   const esc=ESCENAS[retoK];
   retoChecked=true;
   EJES.forEach(j=>retoOk[j]=okEje(esc.est,esc.clima,j,RET[j]));
-  const todo=EJES.every(j=>retoOk[j]);
+  // se evalúa el tren COMPLETO: válido y de coste mínimo (no cada eje por separado)
+  const r=evalua(esc.est,esc.clima,{...RET});
+  const todo=r.valido&&costeCfg(RET)===costeMin(esc.est,esc.clima);
   retoSolved=todo;
+  let nuevo=false;
+  if(todo){
+    retoLib=true;
+    retoMsg='Resuelto: tren válido y de coste mínimo.';
+    synth.beep(523,0.1,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+    showToast('✔ Correcto: tren válido y de coste mínimo en los cuatro ejes.',4200);
+  } else {
+    retoMsg=retoExplica(r);
+    retoInt++;
+    synth.beep(220,0.14,0.05);
+    if(retoInt>=MAX_INT){
+      // tres fallos: estación nueva, para que no se apruebe por eliminación
+      newReto(false);
+      retoMsg='Tres intentos sin acertar: la estación cambió. Lee de nuevo el pliego y razona antes de montar.';
+      nuevo=true;
+      showToast('<span style="color:var(--warn)">🔁 '+retoMsg+'</span>',4600);
+    } else {
+      showToast('<span style="color:var(--bad)">✗ '+retoMsg+'</span>',4600);
+    }
+  }
+  if(nuevo){ retoChecked=true; }
   refreshAll();
-  if(todo){ synth.beep(523,0.1,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
-    showToast('✔ Correcto: tren válido y de coste mínimo en los cuatro ejes.',4200); }
-  else { synth.beep(220,0.14,0.05);
-    const r=evalua(esc.est,esc.clima,{...RET});
-    showToast('<span style="color:var(--bad)">✗ '+(r.valido?'El tren funciona pero no es el más barato.':MOTIVO[r.primero])+'</span>',4600); }
+  renderQuiz();
 }
 
 /* ============================ TELEMETRÍA ============================ */
@@ -1380,8 +1434,8 @@ function updateTele(){
     set('re_clase','['+r.clase.A+':'+r.clase.B+':'+r.clase.C+']');
     set('re_pide','['+ESTACIONES[esc.est].cl.A+':'+ESTACIONES[esc.est].cl.B+':'+ESTACIONES[esc.est].cl.C+']');
     set('re_coste',f1(r.coste,0)+' u.c.');
-    set('re_kwh',f1(r.ene.kWh,0)+' / '+f1(ESTACIONES[esc.est].Emax,0),r.okEnergia?'ok':'bad');
-    set('re_verd',!retoChecked?'sin comprobar':(retoSolved?'resuelto':'revisa el eje marcado'),!retoChecked?'':(retoSolved?'ok':'bad'));
+    set('re_kwh',f1(r.ene.kWh,0)+' / '+f1(ESTACIONES[esc.est].Emax,0),retoChecked?(r.okEnergia?'ok':'bad'):'');
+    set('re_verd',!retoChecked?'sin comprobar':(retoSolved?'resuelto':'no resuelto · fallos '+retoInt+' / '+MAX_INT),!retoChecked?'':(retoSolved?'ok':'bad'));
     el('retoText').innerHTML='<b>'+ESTACIONES[esc.est].nom+'</b> en <b>'+CLIMAS[esc.clima].nom+'</b>. '+
       'Elige filtración, secador, lubricación y cuerpo para que el tren cumpla el pliego <b>['+ESTACIONES[esc.est].cl.A+':'+ESTACIONES[esc.est].cl.B+':'+ESTACIONES[esc.est].cl.C+']</b> al <b>coste mínimo</b>.';
   }
@@ -1443,7 +1497,7 @@ function setMode(k){
     showToast('<span style="color:var(--bad)">🔒 Termina el ensamble primero.</span>');
     synth.beep(220,0.08,0.05); return;
   }
-  mode=k;
+  mode=k; evitaPY();
   modes.forEach(m=>{ const b=el('m_'+m); if(b) b.classList.toggle('on',m===k); });
   el('p_mode').textContent=MODE_META[k].nombre;
   el('secEnsamble').style.display=k==='ensamble'?'':'none';
@@ -1636,9 +1690,13 @@ async function runAuto(){
     PY.est='instrum'; PY.clima='monterrey'; PY.lub=false; PY.tam='g14'; refreshAll();
     showToast('④ Aire de instrumentación: sólo 3 de las 120 combinaciones cumplen, y la más barata cuesta 86 u.c. La letra de cada celda dice qué criterio cae primero.',5600);
     await sleep(5800);
-    showToast('⑤ Ahora tú: en el reto tienes que acertar los cuatro ejes — filtración, secador, lubricación y cuerpo — válidos y al coste mínimo.',4800);
+    showToast('⑤ Ahora tú: en el reto tienes que acertar los cuatro ejes — filtración, secador, lubricación y cuerpo — válidos y al coste mínimo. El recorrido es una demostración: no resuelve ni puntúa el reto.',4800);
   } finally {
+    // la malla de Proyecto enseñó el óptimo de instrumentación/Monterrey: si ése es el caso del reto del alumno, estación nueva
+    const e3=ESCENAS[retoK];
+    if(!retoLib && e3.est==='instrum' && e3.clima==='monterrey'){ let k=retoK; while(k===retoK) k=Math.floor(Math.random()*ESCENAS.length); sembrarReto(k); }
     if(bt)bt.disabled=false; if(ba)ba.disabled=false; autoRunning=false;
+    refreshAll();
   }
 }
 
@@ -1773,6 +1831,7 @@ el('panel').innerHTML=`
   </div>`;
 
 /* ============================ CABLEADO ============================ */
+function avisaPY(){ showToast('<span style="color:var(--warn)">🔒 Esa estación con ese clima es el caso de tu Reto: la malla marcaría ahí el óptimo. Se libera al resolverlo.</span>',4200); synth.beep(220,0.08,0.05); }
 modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
   if(mode==='reto'&&!retoSolved&&m!=='reto'){
     showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (filtración, secador, lubricación y cuerpo correctos) antes de salir a otro modo.</span>');
@@ -1799,14 +1858,14 @@ document.querySelectorAll('#prFino [data-k]').forEach(b=>{ b.onclick=()=>{ PR.fi
 document.querySelectorAll('#prSec [data-k]').forEach(b=>{ b.onclick=()=>{ PR.sec=b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#prLub [data-k]').forEach(b=>{ b.onclick=()=>{ PR.lub=b.dataset.k==='1'; refreshAll(); }; });
 document.querySelectorAll('#prTam [data-k]').forEach(b=>{ b.onclick=()=>{ PR.tam=b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#pyEst [data-k]').forEach(b=>{ b.onclick=()=>{ PY.est=b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#pyClima [data-k]').forEach(b=>{ b.onclick=()=>{ PY.clima=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#pyEst [data-k]').forEach(b=>{ b.onclick=()=>{ if(pyBloq(b.dataset.k,PY.clima)){ avisaPY(); return; } PY.est=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#pyClima [data-k]').forEach(b=>{ b.onclick=()=>{ if(pyBloq(PY.est,b.dataset.k)){ avisaPY(); return; } PY.clima=b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#pyLub [data-k]').forEach(b=>{ b.onclick=()=>{ PY.lub=b.dataset.k==='1'; refreshAll(); }; });
 document.querySelectorAll('#pyTam [data-k]').forEach(b=>{ b.onclick=()=>{ PY.tam=b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#reFino [data-k]').forEach(b=>{ b.onclick=()=>{ RET.fino=b.dataset.k; retoChecked=false; retoSolved=false; refreshAll(); }; });
-document.querySelectorAll('#reSec [data-k]').forEach(b=>{ b.onclick=()=>{ RET.sec=b.dataset.k; retoChecked=false; retoSolved=false; refreshAll(); }; });
-document.querySelectorAll('#reLub [data-k]').forEach(b=>{ b.onclick=()=>{ RET.lub=b.dataset.k==='1'; retoChecked=false; retoSolved=false; refreshAll(); }; });
-document.querySelectorAll('#reTam [data-k]').forEach(b=>{ b.onclick=()=>{ RET.tam=b.dataset.k; retoChecked=false; retoSolved=false; refreshAll(); }; });
+document.querySelectorAll('#reFino [data-k]').forEach(b=>{ b.onclick=()=>{ RET.fino=b.dataset.k; retoChecked=false; retoSolved=false; retoMsg=''; refreshAll(); }; });
+document.querySelectorAll('#reSec [data-k]').forEach(b=>{ b.onclick=()=>{ RET.sec=b.dataset.k; retoChecked=false; retoSolved=false; retoMsg=''; refreshAll(); }; });
+document.querySelectorAll('#reLub [data-k]').forEach(b=>{ b.onclick=()=>{ RET.lub=b.dataset.k==='1'; retoChecked=false; retoSolved=false; retoMsg=''; refreshAll(); }; });
+document.querySelectorAll('#reTam [data-k]').forEach(b=>{ b.onclick=()=>{ RET.tam=b.dataset.k; retoChecked=false; retoSolved=false; retoMsg=''; refreshAll(); }; });
 
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
@@ -1863,19 +1922,18 @@ window.__labDebug={
   proyecto:()=>({...PY,validas:validas(PY.est,PY.clima).length,costeMin:costeMin(PY.est,PY.clima),
     optimas:optimas(PY.est,PY.clima)}),
   retoCfg:()=>({...RET}),
-  reto:()=>({k:retoK,escena:ESCENAS[retoK],cfg:{...RET},checked:retoChecked,solved:retoSolved,
+  reto:()=>({k:retoK,escena:ESCENAS[retoK],cfg:{...RET},checked:retoChecked,solved:retoSolved,intentos:retoInt,lib:retoLib,
     ok:{...retoOk},r:evalua(ESCENAS[retoK].est,ESCENAS[retoK].clima,{...RET}),
     costeMin:costeMin(ESCENAS[retoK].est,ESCENAS[retoK].clima)}),
   quiz:()=>({q:QUIZ[retoK].q,opts:quizOrder.map(i=>QUIZ[retoK].opts[i]),pick:quizPick,ok:quizOkIdx}),
-  quizAnswer:(i)=>answerQuiz(i),
+  quizAnswer:(i)=>answerQuiz(i), intentos:()=>retoInt, retoLib:()=>retoLib, retoMsg:()=>retoMsg,
   // setters
   setTren:(o)=>{ Object.assign(TR,o); refreshAll(); },
   setAgua:(o)=>{ Object.assign(AG,o); refreshAll(); },
   setPresion:(o)=>{ Object.assign(PR,o); refreshAll(); },
   setProyecto:(o)=>{ Object.assign(PY,o); refreshAll(); },
   setReto:(o)=>{ Object.assign(RET,o); retoChecked=false; retoSolved=false; refreshAll(); },
-  setEscena:(k)=>{ retoK=k; RET=startCfg(ESCENAS[k].est,ESCENAS[k].clima); retoChecked=false; retoSolved=false;
-    EJES.forEach(j=>retoOk[j]=false); shuffleQuiz(); renderQuiz(); refreshAll(); },
+  setEscena:(k)=>{ sembrarReto(k); refreshAll(); },
   setFlujo:(v)=>{ flujoOn=!!v; refreshAll(); },
   setMode, checkReto, newReto, runAuto, autoAssemble,
 };

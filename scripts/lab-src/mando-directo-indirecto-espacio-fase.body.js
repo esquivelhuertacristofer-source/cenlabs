@@ -350,6 +350,8 @@ let fsIdx=0, fsMar='momentanea', fsArr=false;                   // modo FASE
 let retoK=0, retoCh=null;                                       // modo RETO
 let retoChecked=false, retoOkTipo=false, retoOkValv=false, retoOkTubo=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let retoInt=0, retoLib=false;   // fallos en el caso actual (0..3) y si la estación del reto ya se liberó para Explora
+const MAX_INT=3;
 let animT=0, animP=0, animDir=1;
 
 function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
@@ -373,10 +375,22 @@ function startCfg(sc){
 }
 const retoSc=()=>POOL[retoK];
 const retoCfg=()=>({tipo:retoCh.tipo,valv:retoCh.valv,tubo:retoCh.tubo});
-function seedReto(k){
-  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+// La estación del reto no se puede abrir en Mando/Línea mientras el reto esté sin resolver:
+// ahí el pizarrón diría qué combinación sirve para ESE caso.
+const estBloq=i=>i===retoK&&!retoLib;
+function evitaReto(){
+  if(retoLib)return;
+  if(mnIdx===retoK)mnIdx=pickIdx(POOL.length,retoK);
+  if(lnIdx===retoK)lnIdx=pickIdx(POOL.length,retoK);
+}
+function seedReto(k,excl){
+  if(k==null){
+    let n=0;do{retoK=pickIdx(POOL.length,retoK);n++;}while(excl&&excl.indexOf(retoK)>=0&&n<50);
+  }else retoK=k;
   retoCh=startCfg(retoSc());
   retoChecked=false;retoOkTipo=false;retoOkValv=false;retoOkTubo=false;retoSolved=false;retoMsg='';
+  retoInt=0;retoLib=false;
+  evitaReto();
 }
 seedReto(0);
 
@@ -835,7 +849,7 @@ function drawFase(c){
 function drawReto(c){
   const sc=retoSc(),cfg=retoCfg(),g=GOOD(sc),e=evalCfg(sc,cfg),eg=evalCfg(sc,g);
   title2(c,'Reto: proyecta el mando de '+EST_TXT[sc.id].toLowerCase(),
-    'Tres decisiones independientes: la ARQUITECTURA (directo o indirecto), la VÁLVULA y el TUBO. Cada una se califica por separado, con las otras dos ya correctas. Y no basta que funcione: tiene que ser la solución más barata que funcione.');
+    'Tres decisiones: la ARQUITECTURA (directo o indirecto), la VÁLVULA y el TUBO. Se evalúa la propuesta completa al pulsar Comprobar. Y no basta que funcione: tiene que ser la solución más barata que funcione.');
 
   c.fillStyle=hexA(AZUL,0.07);c.fillRect(30,104,650,82);
   c.strokeStyle=hexA(AZUL,0.28);c.lineWidth=1;c.strokeRect(30,104,650,82);
@@ -845,9 +859,9 @@ function drawReto(c){
     ' s como máximo hasta el primer movimiento.',46,128,618,18);
 
   const AXES=[
-    ['Arquitectura',TIPO_TXT[cfg.tipo],retoChecked?okEje(sc,'tipo',cfg.tipo):null,porQue(sc,'tipo',cfg.tipo)],
-    ['Válvula',VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min',retoChecked?okEje(sc,'valv',cfg.valv):null,porQue(sc,'valv',cfg.valv)],
-    ['Tubo de la línea larga','Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1)+' mm',retoChecked?okEje(sc,'tubo',cfg.tubo):null,porQue(sc,'tubo',cfg.tubo)],
+    ['Arquitectura',TIPO_TXT[cfg.tipo],null,''],
+    ['Válvula',VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min',null,''],
+    ['Tubo de la línea larga','Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1)+' mm',null,''],
   ];
   let y=200;
   AXES.forEach(([nom,val,ok,why])=>{
@@ -868,11 +882,13 @@ function drawReto(c){
     ['Caudal efectivo',f1(e.qnEf,0)+' l/min','≥ '+f1(e.req,0),e.okCaudal],
     ['Velocidad del aire',f1(e.va,1)+' m/s','≤ '+V_AIRE_MAX+' m/s',e.okTubo],
     ['Tiempo de respuesta',f1(e.tResp,3)+' s','≤ '+f1(sc.tMax,2)+' s',e.okTiempo],
-    ['Coste (válvulas, rosca, tubo)',e.coste.join(' · '),eg.coste.join(' · '),cmpCoste(e.coste,eg.coste)<=0],
+    ['Coste (válvulas, rosca, tubo)',e.coste.join(' · '),'el mínimo',cmpCoste(e.coste,eg.coste)<=0],
   ];
+  // sin veredicto en vivo: el «¿Pasa?» sólo aparece tras Comprobar
   crits.forEach((cr,i)=>{
-    trowC(c,30,yT+26+i*26,650,26,[cr[0],cr[1],cr[2],cr[3]?'sí':'no'],W,
-      [null,cr[3]?'#F4EFEA':BAD_HEX,GRIS,cr[3]?OK_HEX:BAD_HEX],false);
+    const v=retoChecked;
+    trowC(c,30,yT+26+i*26,650,26,[cr[0],cr[1],cr[2],v?(cr[3]?'sí':'no'):'—'],W,
+      [null,v&&!cr[3]?BAD_HEX:'#F4EFEA',GRIS,v?(cr[3]?OK_HEX:BAD_HEX):GRIS],false);
   });
 
   const dy=yT+26+5*26+16;
@@ -881,41 +897,19 @@ function drawReto(c){
   c.fillStyle=retoSolved?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
   wrapText(c,retoSolved
     ? 'Proyecto válido y mínimo: '+TIPO_TXT[cfg.tipo].toLowerCase()+' con la '+VAL(cfg.valv).rot+' y tubo Ø'+TUB(cfg.tubo).ext+'.'
-    : 'De las '+(TIPOK.length*VALVK.length*TUBK.length)+' combinaciones del catálogo sólo una es válida Y mínima en esta estación. Corrige los ejes marcados.',46,dy+24,618,18);
+    : (retoChecked?retoMsg:'De las '+(TIPOK.length*VALVK.length*TUBK.length)+' combinaciones del catálogo sólo una es válida Y mínima en esta estación. Elige las tres y pulsa Comprobar.'),46,dy+24,618,18);
 
-  // panel derecho
-  rpanel(c,PX.x,PX.y,PX.w,176,'Calificación por ejes');
+  // panel derecho: sólo intentos y criterios de la propuesta comprobada (nada de lo que valdría)
+  rpanel(c,PX.x,PX.y,PX.w,176,'Tu propuesta');
   let yr=PX.y+58;
-  prow(c,PX.x,yr,PX.w,'Arquitectura',retoChecked?(retoOkTipo?'✓':'✗'):'—',retoChecked?(retoOkTipo?OK_HEX:BAD_HEX):GRIS);yr+=30;
-  prow(c,PX.x,yr,PX.w,'Válvula',retoChecked?(retoOkValv?'✓':'✗'):'—',retoChecked?(retoOkValv?OK_HEX:BAD_HEX):GRIS);yr+=30;
-  prow(c,PX.x,yr,PX.w,'Tubo',retoChecked?(retoOkTubo?'✓':'✗'):'—',retoChecked?(retoOkTubo?OK_HEX:BAD_HEX):GRIS);yr+=30;
-  prow(c,PX.x,yr,PX.w,'Criterios internos',(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'),e.vale?OK_HEX:WARN_HEX);
+  prow(c,PX.x,yr,PX.w,'Comprobada',retoChecked?(retoSolved?'sí, válida':'sí'):'aún no',retoChecked?(retoSolved?OK_HEX:WARN_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Intentos fallidos',retoInt+' / '+MAX_INT,retoInt?WARN_HEX:GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Criterios cumplidos',retoChecked?(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'):'—',retoChecked?(e.vale?OK_HEX:WARN_HEX):GRIS);
 
-  rpanel(c,PX.x,262,PX.w,164,'Por qué no la otra arquitectura');
-  let yv=298;
-  TIPOK.forEach(tk=>{
-    const oo=okEje(sc,'tipo',tk),vv2=todasCfg().some(x=>x.tipo===tk&&evalCfg(sc,x).vale);
-    prow(c,PX.x,yv,PX.w,TIPO_TXT[tk].split(' ')[1]+(tk===cfg.tipo?' ◂':''),oo?'válida y mínima':(vv2?'válida pero cara':'imposible'),oo?OK_HEX:(vv2?WARN_HEX:BAD_HEX));
-    yv+=28;
-  });
-  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
-  wrapText(c,'Cada fila se evalúa con la válvula y el tubo ya correctos, para que la arquitectura se juzgue sola.',PX.x+16,yv+14,PX.w-32,15);
-
-  rpanel(c,PX.x,442,PX.w,158,'Por qué no otra válvula');
-  let yw=478;
-  VALVK.forEach(k=>{
-    const oo=okEje(sc,'valv',k),ee=evalCfg(sc,cfgWith(sc,{valv:k}));
-    prow(c,PX.x,yw,PX.w,VAL(k).rot+' ('+VAL(k).qn+')'+(k===cfg.valv?' ◂':''),oo?'mínima':(ee.vale?'de más':'no sirve'),oo?OK_HEX:(ee.vale?WARN_HEX:BAD_HEX));
-    yw+=28;
-  });
-
-  rpanel(c,PX.x,616,PX.w,124,'Por qué no otro tubo');
-  let yz=652;
-  TUBK.forEach(k=>{
-    const oo=okEje(sc,'tubo',k),ee=evalCfg(sc,cfgWith(sc,{tubo:k}));
-    prow(c,PX.x,yz,PX.w,'Ø'+TUB(k).ext+(k===cfg.tubo?' ◂':''),oo?'mínimo':(ee.vale?'de más':'no'),oo?OK_HEX:(ee.vale?WARN_HEX:BAD_HEX));
-    yz+=18;
-  });
+  rpanel(c,PX.x,262,PX.w,200,'Cómo razonarlo');
+  c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'D: la válvula se puede comprar con mando manual. Q: el caudal efectivo cubre el que pide el cilindro. V: el aire no pasa del tope en el tubo que lleva el caudal. T: la orden llega a tiempo. Con las cifras de la estación puedes razonar cada criterio antes de comprobar.',PX.x+16,300,PX.w-32,16);
+  wrapText(c,'Tras '+MAX_INT+' intentos fallidos el caso cambia.',PX.x+16,444,PX.w-32,16);
 }
 
 function drawBoard(){
@@ -1029,8 +1023,9 @@ function drawPlaca(sc,cfg,e){
   const c=pCv.getContext('2d');
   c.clearRect(0,0,256,160);
   c.fillStyle='rgba(10,13,18,0.88)';c.fillRect(0,0,256,160);
-  c.strokeStyle=e.vale?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(2,2,252,156);
-  c.fillStyle=e.vale?OK_HEX:BAD_HEX;c.font='bold 20px Outfit, sans-serif';c.textAlign='center';
+  const colV=veredictoOculto()?AZUL:(e.vale?OK_HEX:BAD_HEX);
+  c.strokeStyle=colV;c.lineWidth=3;c.strokeRect(2,2,252,156);
+  c.fillStyle=colV;c.font='bold 20px Outfit, sans-serif';c.textAlign='center';
   c.fillText(TIPO_TXT[cfg.tipo].toUpperCase(),128,30);
   c.fillStyle='#C7D6F5';c.font='15px Outfit, sans-serif';
   c.fillText(VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min',128,58);
@@ -1076,10 +1071,12 @@ function updateHW(){
   }
   // LEDs
   const oks=[e.okDisp,e.okCaudal,e.okTubo,e.okTiempo];
+  const ocul=veredictoOculto();
   LEDS.forEach((l,i)=>{
-    l.material.color.set(oks[i]?0x7CD992:0xff6b6b);
-    l.material.emissive.set(oks[i]?0x7CD992:0xff6b6b);
-    l.material.emissiveIntensity=oks[i]?1.3:0.55;
+    const col=ocul?0x5a6473:(oks[i]?0x7CD992:0xff6b6b);
+    l.material.color.set(col);
+    l.material.emissive.set(col);
+    l.material.emissiveIntensity=ocul?0.2:(oks[i]?1.3:0.55);
   });
   drawPlaca(sc,cfg,e);
 }
@@ -1145,7 +1142,7 @@ const MODE_META={
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
-const EST_OPTS=()=>POOL.map((p,i)=>[i,EST_BTN[p.id]]);
+const EST_OPTS=()=>POOL.map((p,i)=>[i,EST_BTN[p.id]+((mode!=='fase'&&estBloq(i))?' 🔒':'')]);
 const TIPO_OPTS=()=>TIPOK.map(k=>[k,k==='directo'?'Directo':'Indirecto']);
 const VALV_OPTS=()=>VALVK.map(k=>[k,VAL(k).rot]);
 const TUBO_OPTS=()=>TUBK.map(k=>[k,TUB_BTN(k)]);
@@ -1170,6 +1167,7 @@ function buildControls(){
   }
   bar.innerHTML=html;
   bar.querySelectorAll('[data-est]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const v=+b.dataset.est;
+    if(mode!=='fase'&&estBloq(v)){showToast('🔒 Esta estación es el caso de tu <b>Reto</b>: abrirla aquí daría el veredicto de cada combinación. Se libera cuando lo resuelvas.');return;}
     if(mode==='mando')mnIdx=v;else if(mode==='linea')lnIdx=v;else fsIdx=v;beep();afterEdit();});
   bar.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{if(autoRunning)return;
     if(mode==='mando')mnTipo=b.dataset.tipo;else lnTipo=b.dataset.tipo;beep();afterEdit();});
@@ -1195,12 +1193,12 @@ function updateScenarioInfo(){
 }
 function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
 function setMode(k){
-  mode=k;
+  mode=k;evitaReto();
   ['mando','linea','fase','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
-  buildControls();updateScenarioInfo();
+  buildControls();updateScenarioInfo();if(k==='reto')updateRetoSpec();
   solved=k==='reto'?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
   const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
@@ -1208,12 +1206,12 @@ function setMode(k){
 }
 function newSignal(){
   if(mode==='mando'){
-    mnIdx=pickIdx(POOL.length,mnIdx);
+    mnIdx=pickIdx(POOL.length,mnIdx);evitaReto();
     mnTipo=TIPOK[Math.floor(Math.random()*TIPOK.length)];
     mnValv=VALVK[Math.floor(Math.random()*VALVK.length)];
     mnTubo=TUBK[Math.floor(Math.random()*TUBK.length)];
   }else if(mode==='linea'){
-    lnIdx=pickIdx(POOL.length,lnIdx);
+    lnIdx=pickIdx(POOL.length,lnIdx);evitaReto();
     lnTipo=TIPOK[Math.floor(Math.random()*TIPOK.length)];
     lnTubo=TUBK[Math.floor(Math.random()*TUBK.length)];
   }else if(mode==='fase'){
@@ -1258,7 +1256,8 @@ function updateTele(){
     h+=teleRow('Arquitectura',TIPO_TXT[cfg.tipo],retoChecked?(retoOkTipo?'ok':'bad'):'');
     h+=teleRow('Válvula',VAL(cfg.valv).rot,retoChecked?(retoOkValv?'ok':'bad'):'');
     h+=teleRow('Tubo','Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1),retoChecked?(retoOkTubo?'ok':'bad'):'');
-    h+=teleRow('Criterios',(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'),e.vale?'ok':'warn');
+    h+=teleRow('Criterios',retoChecked?(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'):'— (sin comprobar)',retoChecked?(e.vale?'ok':'warn'):'');
+    h+=teleRow('Intentos fallidos',retoInt+' / '+MAX_INT,retoInt?'warn':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1300,20 +1299,37 @@ function updateRetoSpec(){
   const sc=retoSc(),g=GOOD(sc);
   el('retoSpec').innerHTML=`<b>${sc.nom}</b><br>Ø${sc.D} × ${sc.s} mm a ${sc.v} mm/s · ${sc.p} bar · ${sc.sen} ${sc.sen===1?'señal':'señales'} a ${f1(sc.L,1)} m · primer movimiento en ≤ ${f1(sc.tMax,2)} s.<br>De las ${TIPOK.length*VALVK.length*TUBK.length} combinaciones del catálogo, sólo una es válida <b>y</b> mínima.`;
 }
+// Retroalimentación sobre la PROPUESTA completa (no por eje con los otros dos ya correctos) y sin nombrar
+// la válvula, el tubo ni la arquitectura que sí valen: sólo qué criterio incumple lo que montaste.
 function retoExplain(){
-  return EJES.map(ej=>porQue(retoSc(),ej,retoCfg()[ej])).filter(Boolean).join(' · ');
+  const sc=retoSc(),cfg=retoCfg(),e=evalCfg(sc,cfg);
+  if(!e.vale)return diagCfg(sc,cfg);
+  return 'Tu propuesta cumple los cuatro criterios, pero no es la más barata que los cumple: revisa si todo lo que montas hace falta (el mando indirecto cuesta una válvula más; una válvula o un tubo mayores de lo necesario también cuestan).';
 }
+function veredictoOculto(){return mode==='reto'&&!retoChecked;}   // en el reto no hay veredicto en vivo
 function checkReto(){
-  const sc=retoSc(),cfg=retoCfg();
+  const sc=retoSc(),cfg=retoCfg(),g=GOOD(sc);
   retoOkTipo=okEje(sc,'tipo',cfg.tipo);
   retoOkValv=okEje(sc,'valv',cfg.valv);
   retoOkTubo=okEje(sc,'tubo',cfg.tubo);
-  retoSolved=retoOkTipo&&retoOkValv&&retoOkTubo&&evalCfg(sc,cfg).vale;
-  retoChecked=true;solved=retoSolved;
+  retoSolved=cfg.tipo===g.tipo&&cfg.valv===g.valv&&cfg.tubo===g.tubo&&evalCfg(sc,cfg).vale;
+  retoChecked=true;solved=autoRunning?false:retoSolved;
   synth.beep(retoSolved?1046:220,0.10,0.05);
-  retoMsg=retoSolved
-    ?`Válido y mínimo: ${TIPO_TXT[cfg.tipo].toLowerCase()} con la ${VAL(cfg.valv).rot} y tubo Ø${TUB(cfg.tubo).ext}.`
-    :retoExplain();
+  if(retoSolved){
+    retoLib=true;
+    retoMsg=`Válido y mínimo: ${TIPO_TXT[cfg.tipo].toLowerCase()} con la ${VAL(cfg.valv).rot} y tubo Ø${TUB(cfg.tubo).ext}.`;
+  }else{
+    retoMsg=retoExplain();
+    if(!autoRunning){
+      retoInt++;
+      if(retoInt>=MAX_INT){
+        // tres fallos: caso nuevo, para que no se apruebe por eliminación
+        seedReto(null);
+        retoChecked=true;retoMsg='Tres intentos sin acertar: el caso cambió. Mira de nuevo las cifras de la estación y razona qué pide cada criterio antes de elegir.';
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 function retoSolveBuild(){const g=GOOD(retoSc());retoCh={tipo:g.tipo,valv:g.valv,tubo:g.tubo};}
@@ -1329,9 +1345,9 @@ function buildQuiz(){
          why:'Exacto. Las restricciones en serie se componen igual en las dos, pero en indirecto lo que se compone es la línea de pilotaje: sólo tiene que mover un carrete. La válvula de potencia entrega su caudal nominal íntegro.'},
         {t:'Porque las válvulas pilotadas tienen menos pérdida de carga que las manuales',ok:false,
          why:'No. Una válvula pilotada del mismo tamaño de rosca tiene el mismo Qn. Lo que cambia es DÓNDE están las señales: en el pilotaje, no en la potencia.'},
-        {t:'Porque el aire de pilotaje va a 2,5 bar y eso compensa la pérdida',ok:false,
+        {t:'Porque el aire de pilotaje va a 2,5 bar y eso compensa de sobra la pérdida',ok:false,
          why:'No. La presión de pilotaje es menor, no mayor; lo que la salva es que sólo debe llenar el volumen del actuador del carrete, no alimentar al cilindro.'},
-        {t:'Porque en indirecto sólo hay una válvula de señal, nunca dos',ok:false,
+        {t:'Porque en indirecto sólo hay una válvula de señal por estación, nunca dos',ok:false,
          why:'Falso: la prensa y el volteador tienen dos señales en las dos arquitecturas. La diferencia es sobre qué línea van montadas.'},
       ],
     },
@@ -1340,24 +1356,24 @@ function buildQuiz(){
       opciones:[
         {t:'Nada bueno: sólo añades volumen muerto y la orden tarda más en llegar',ok:true,
          why:'Correcto. La velocidad del aire de trabajo la fija el tubo corto de la válvula de potencia, no el largo. Engordar el largo sólo aumenta el volumen que hay que llenar a 2,5 bar con una válvula de señal pequeña.'},
-        {t:'Bajas la velocidad del aire de trabajo por debajo de 20 m/s',ok:false,
+        {t:'Bajas la velocidad del aire de trabajo por debajo de 20 m/s y ganas margen',ok:false,
          why:'No. En indirecto el aire de trabajo ni siquiera pasa por el tubo largo: va del cilindro a la válvula de potencia por los '+f1(L_POT,1)+' m de la rosca.'},
-        {t:'Subes el caudal efectivo de la válvula de potencia',ok:false,
+        {t:'Subes el caudal efectivo que entrega la válvula de potencia al cilindro',ok:false,
          why:'No. El caudal de la válvula de potencia es el suyo de catálogo y no depende del tubo de pilotaje.'},
-        {t:'Reduces la pérdida de carga y por eso responde antes',ok:false,
+        {t:'Reduces la pérdida de carga de la línea y por eso la orden llega antes',ok:false,
          why:'La pérdida de carga sí baja, pero el modelo que decide aquí es el volumen a llenar, y ese crece con el cuadrado del diámetro: el efecto neto es que TARDA más.'},
       ],
     },
     fase:{
       pregunta:'En el método directo, ¿qué es exactamente un conflicto de señales?',
       opciones:[
-        {t:'Que la señal que ordena un movimiento y la que ordena el contrario están a 1 a la vez',ok:true,
+        {t:'Que la señal de un movimiento y la del movimiento contrario valen 1 a la vez',ok:true,
          why:'Eso es. El carrete recibe las dos órdenes y se queda donde está o hace lo que decida el pilotaje dominante: la secuencia se detiene. Es el síntoma de que el método directo ya no basta.'},
-        {t:'Que dos cilindros se mueven al mismo tiempo',ok:false,
+        {t:'Que dos cilindros se mueven al mismo tiempo durante una fase de la secuencia',ok:false,
          why:'No. Que dos cilindros se muevan a la vez es un diseño legítimo; el conflicto es entre las dos señales de UNA misma válvula.'},
-        {t:'Que un final de carrera se avería y deja de dar señal',ok:false,
+        {t:'Que un final de carrera se avería y deja de dar señal en pleno ciclo',ok:false,
          why:'Eso es una avería, no un conflicto. El conflicto aparece con todo funcionando: es un defecto del ESQUEMA, no del componente.'},
-        {t:'Que la secuencia tarda más de lo que admite la máquina',ok:false,
+        {t:'Que la secuencia completa tarda más tiempo del que la máquina admite',ok:false,
          why:'Eso es un problema de tiempo, que se ve en el diagrama espacio-tiempo. El conflicto es lógico y se ve en el espacio-fase.'},
       ],
     },
@@ -1366,11 +1382,11 @@ function buildQuiz(){
       opciones:[
         {t:'Cuando el caudal, la distancia o el catálogo hacen imposible el directo',ok:true,
          why:'Correcto. El indirecto se paga con una válvula más y sólo se compra cuando hace falta: caudal que ya no se sirve con mando manual, o una línea larga que en potencia tardaría demasiado en llenarse.'},
-        {t:'Siempre: es la arquitectura moderna y el directo está obsoleto',ok:false,
+        {t:'Siempre: es la arquitectura más moderna y el directo ya está obsoleto',ok:false,
          why:'No. La grapadora y el expulsor se resuelven con mando directo, y montar indirecto ahí es comprar una válvula que no hace falta.'},
-        {t:'Cuando el cilindro es de doble efecto',ok:false,
+        {t:'Cuando el cilindro es de doble efecto, porque necesita una válvula 5/2',ok:false,
          why:'El número de efectos no decide la arquitectura del mando: decide el número de vías de la válvula. Son dos cosas distintas.'},
-        {t:'Cuando hay que cumplir la ISO 13851 de mando a dos manos',ok:false,
+        {t:'Cuando hay que cumplir la ISO 13851 de mando a dos manos en la prensa',ok:false,
          why:'La ISO 13851 exige simultaneidad y comprobación de las dos señales, y eso se puede resolver en las dos arquitecturas. Este laboratorio la cita pero no la simula.'},
       ],
     },
@@ -1434,6 +1450,9 @@ async function runAuto(){
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: guarda el estado del alumno y lo devuelve al terminar.
+  const SAVE={mode,mnIdx,mnTipo,mnValv,mnTubo,lnIdx,lnTipo,lnTubo,fsIdx,fsMar,fsArr,retoK,retoCh:Object.assign({},retoCh),
+    retoChecked,retoOkTipo,retoOkValv,retoOkTubo,retoSolved,retoMsg,retoInt,retoLib};
   try{
     // --- 1. MANDO: la misma estación con las dos arquitecturas ---
     setMode('mando');
@@ -1483,20 +1502,29 @@ async function runAuto(){
     // --- 4. RETO ---
     setMode('reto');
     seedReto(3);afterEdit();
-    showToast('🎯 <b>Reto</b>: proyecta el mando del volteador. Arranca mal en los tres ejes a propósito.');
+    showToast('🎯 <b>Reto</b> (demostración con el volteador, no puntúa): arranca mal en los tres ejes a propósito.');
     await sleep(4200);
     checkReto();
     showToast('❌ Comprobado con la propuesta de arranque: '+retoMsg);
     await sleep(5200);
     retoSolveBuild();afterEdit();
     const gV=GOOD(POOL[3]);
-    showToast('✅ La única terna válida <b>y</b> mínima: '+TIPO_TXT[gV.tipo].toLowerCase()+' con la '+VAL(gV.valv).rot+' y tubo Ø'+TUB(gV.tubo).ext+'. Comprobamos.');
+    showToast('✅ La única terna válida <b>y</b> mínima del volteador: '+TIPO_TXT[gV.tipo].toLowerCase()+' con la '+VAL(gV.valv).rot+' y tubo Ø'+TUB(gV.tubo).ext+'. Comprobamos.');
     await sleep(4200);
     checkReto();
-    await sleep(600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2200);
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    // devuelve el estado previo del alumno: ni reto resuelto ni intentos gastados por la demostración
+    mnIdx=SAVE.mnIdx;mnTipo=SAVE.mnTipo;mnValv=SAVE.mnValv;mnTubo=SAVE.mnTubo;
+    lnIdx=SAVE.lnIdx;lnTipo=SAVE.lnTipo;lnTubo=SAVE.lnTubo;fsIdx=SAVE.fsIdx;fsMar=SAVE.fsMar;fsArr=SAVE.fsArr;
+    retoK=SAVE.retoK;retoCh=SAVE.retoCh;retoChecked=SAVE.retoChecked;retoOkTipo=SAVE.retoOkTipo;retoOkValv=SAVE.retoOkValv;
+    retoOkTubo=SAVE.retoOkTubo;retoSolved=SAVE.retoSolved;retoMsg=SAVE.retoMsg;retoInt=SAVE.retoInt;retoLib=SAVE.retoLib;
+    // la demostración enseñó la solución de prensa, puerta y volteador: si el reto del alumno era uno de ellos, caso nuevo
+    if([1,2,3].indexOf(retoK)>=0){seedReto(null,[1,2,3]);}
+    autoRunning=false;
+    setMode(SAVE.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
+    solved=mode==='reto'?retoSolved:false;
   }
 }
 
@@ -1545,7 +1573,7 @@ window.__labDebug={
   retoK:()=>retoK,seedReto,retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
   retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,retoExplain,
   retoChecked:()=>retoChecked,retoOkTipo:()=>retoOkTipo,retoOkValv:()=>retoOkValv,retoOkTubo:()=>retoOkTubo,
-  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoGood:()=>GOOD(retoSc()),
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,intentos:()=>retoInt,retoLib:()=>retoLib,retoGood:()=>GOOD(retoSc()),
   // cuestionario
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   quizAnswer:answer,newSignal,

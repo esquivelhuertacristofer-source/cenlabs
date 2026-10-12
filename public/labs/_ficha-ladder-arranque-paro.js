@@ -14,7 +14,7 @@ fichaTecnica({
       'La resolución del empate por PRIORIDAD DE RUNG: con ambas marchas desde reposo gana el rung superior',
       'La tabla de verdad del enclavamiento para las cuatro combinaciones de marchas desde reposo',
       'Un tablero 3D con pilotos de contactor F/R, de retención (sello), de paro, de motor energizado y de reloj de scan',
-      'Reto de DISEÑO del programa: elegir la rama de sello, el tipo de contacto del paro y el enclavamiento, con calificación separada de las tres decisiones',
+      'Reto de DISEÑO del programa: elegir la rama de sello, el tipo de contacto del paro y el enclavamiento, comprobado por simulación del comportamiento resultante',
     ],
     omitidos: [
       'El tiempo real del ciclo de scan y el retardo entrada→salida (aquí cada pulso es un scan idealizado)',
@@ -29,7 +29,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Elementos del laboratorio',
-    warn: 'En Explora conduces el programa en vivo: cada pulsación es un ciclo de scan y el rung se ilumina por donde conduce la corriente. Pulsa Marcha y luego Reposo (soltar) para ver el sello retener la bobina, y Paro para verlo romperse; cambia al circuito de inversión e intenta arrancar el sentido contrario sin parar. En Aplica comparas el rung con sello contra el mismo rung sin ella (jog) ante la misma secuencia de pulsos, y lees la tabla de verdad del enclavamiento. En el Reto no hay valor oculto que adivinar: es un reto de DISEÑO en el que programas los dos rungs de inversión de un proceso real eligiendo tres piezas —la rama de retención, el contacto del paro y el enclavamiento— y el sistema califica cada decisión por separado contra el modelo lógico verificado.',
+    warn: 'En Explora conduces el programa en vivo: cada pulsación es un ciclo de scan y el rung se ilumina por donde conduce la corriente. Pulsa Marcha y luego Reposo (soltar) para ver el sello retener la bobina, y Paro para verlo romperse; cambia al circuito de inversión e intenta arrancar el sentido contrario sin parar. En Aplica comparas el rung con sello contra el mismo rung sin ella (jog) ante la misma secuencia de pulsos, y lees la tabla de verdad del enclavamiento. En el Reto no hay valor oculto que adivinar: es un reto de DISEÑO en el que programas los dos rungs de inversión de un proceso real eligiendo tres piezas —la rama de retención, el contacto del paro y el enclavamiento— y al comprobar el sistema SIMULA el programa con el motor de scan y describe lo que hace (si retiene, si el paro detiene, si F y R pueden coincidir) sin nombrar la pieza correcta; tras 3 intentos fallidos el caso se renueva.',
     rows: [
       ['Contacto NO', 'Conduce si la señal vale 1', 'NO(x) = x', 'Pulsadores de marcha, sensores en activo alto'],
       ['Contacto NC', 'Conduce si la señal vale 0', 'NC(x) = ¬x', 'Paro, enclavamientos, protecciones (falla segura)'],
@@ -48,7 +48,7 @@ fichaTecnica({
     'Modo Aplica con dos temas: comparación con sello vs sin sello (jog) sobre la misma secuencia, y tabla de verdad del enclavamiento',
     'Tablero 3D con pilotos de contactor F/R, de retención, de paro, de motor energizado y de reloj de scan, más un chip que muestra el evento actual',
     'Reto de DISEÑO del programa de inversión de un proceso (banda reversible, portón, husillo de torno o polipasto) con tres decisiones independientes',
-    'Calificación separada de la retención, el contacto de paro y el enclavamiento, con explicación del comportamiento resultante de cada error',
+    'Retroalimentación por síntomas simulados (retiene o no, el paro detiene o no, F y R excluyentes o no) sin revelar la opción correcta, con contador de intentos y caso nuevo tras 3 fallos',
     'Recorrido guiado automático y pregunta de ingeniería distinta por modo, con retroalimentación razonada en cada opción',
   ],
   s4: {
@@ -57,7 +57,7 @@ fichaTecnica({
       'En Explora, con el circuito de ARRANQUE-PARO, pulsa "Marcha ▸": el rung conduce por el contacto de marcha y la bobina se enciende. Ahora pulsa "Reposo ▸" (soltar el botón): la bobina SIGUE encendida y el camino conductor pasa por la rama de sello, que es el contacto NO de la propia bobina. Ésa es la retención. Pulsa "Paro ▸": el contacto NC se abre, rompe el AND y la bobina cae; comprueba en la traza que ya no vuelve sola. Prueba también a pulsar marcha y paro a la vez para confirmar que el paro DOMINA.',
       'Cambia al circuito de INVERSIÓN. Arranca "Marcha ADEL ▸" y, sin parar, pulsa "Marcha ATRÁS ▸": no ocurre nada, porque el contacto NC de F en serie con el rung de R está abierto (enclavamiento). Pulsa "Paro ▸" y luego "Marcha ATRÁS ▸": ahora sí invierte. Verifica en el panel que F y R nunca están activas a la vez.',
       'En Aplica, en "Sello vs jog" observa las dos trazas ante la misma secuencia de pulsos: la del rung con sello se mantiene alta tras soltar la marcha; la del jog sólo está alta en el scan del pulso. Ese contraste es la razón de existir del sello. En "Enclavamiento" lee la tabla de verdad: con ambas marchas desde reposo gana ADELANTE, porque su rung se resuelve primero en el scan.',
-      'En el Reto, programa la inversión de un proceso real. Elige la RETENCIÓN (la rama de sello debe ser el contacto NO de la propia bobina), el PARO (debe ser NC en serie para que sea dominante y falle en seguro) y el ENCLAVAMIENTO (el NC de la bobina contraria). Pulsa "Comprobar": cada decisión se califica por separado y se te explica qué haría el programa con la opción elegida. Errores clásicos: sin sello el equipo sólo se mueve mientras aprietas (jog involuntario); con el paro como NO el motor no arranca o no para como debe; sin enclavamiento pueden cerrarse ambos contactores.',
+      'En el Reto, programa la inversión de un proceso real. Elige la RETENCIÓN, el PARO y el ENCLAVAMIENTO usando lo que viste en Explora y Aplica. Pulsa "Comprobar": el programa se simula y se te describe qué hace (por ejemplo, si cae al soltar la marcha o si pueden coincidir F y R), sin decirte cuál es la pieza correcta. Tras 3 intentos fallidos el caso se renueva, así que conviene razonar cada pieza en lugar de probar combinaciones.',
     ],
   },
   s5: {

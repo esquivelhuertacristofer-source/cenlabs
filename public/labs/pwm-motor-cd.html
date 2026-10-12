@@ -688,7 +688,7 @@ const DUTIES=[0,0.10,0.25,0.50,0.75,1.00];
 let expIdx=0,expTim='p1t255',expDuty=3;
 let apIdx=0,apTopic='recta',apTim='p1t255',apTd=0,apMod='diodo';
 let retoK=0,retoCh={tim:'p1t255',td:0,mod:'diodo'};
-let retoChecked=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let retoOkTim=false,retoOkTd=false,retoOkMod=false;
 
 const expSc=()=>POOL[expIdx];
@@ -1125,12 +1125,12 @@ function drawReto(c){
   // requisitos
   const W=[300,180,170],TX=30,TY=106;
   const reqs=[
-    ['Banda de velocidad',n0(sc.nMin)+' a '+n0(sc.nMax)+' rpm',run.cubre?'se alcanza':'no se alcanza',run.cubre],
+    ['Banda de velocidad',n0(sc.nMin)+' a '+n0(sc.nMax)+' rpm',n0(run.rpmLo)+' a '+n0(run.rpmHi)+' rpm',run.cubre],
     ['Escalones útiles mínimos',String(sc.pasosMin),String(run.pasos)+' disponibles',run.okPasos],
     ['Rizado máximo',n2(sc.dIMax)+' A',n3(run.dIMax)+' A',run.okRizado],
     ['Pérdidas máximas del puente',n2(sc.pMax)+' W',n3(run.pBrMax)+' W',run.okPerdida],
     ['Techo del driver de puerta',fmtF(sc.fMax),fmtF(fPwm(t)),fPwm(t)<=sc.fMax],
-    ['Ruido audible',sc.silencio?'prohibido (f ≥ 20 kHz)':'admitido',fPwm(t)<F_AUD?'silba':'no silba',!(sc.silencio&&fPwm(t)<F_AUD)],
+    ['Ruido audible',sc.silencio?'prohibido (f ≥ 20 kHz)':'admitido',fmtF(fPwm(t)),!(sc.silencio&&fPwm(t)<F_AUD)],
     ['Tiempo muerto mínimo',sc.puente==='chopper'?'no aplica (chopper)':fmtTd(sc.tdMin),fmtTd(cfg.td),
       sc.puente==='chopper'?cfg.td===0:cfg.td>=sc.tdMin],
     ['Distorsión de duty admisible',n0(sc.ddMax*100)+' %',n2(ddLoss(m,cfg.td,T)*100)+' %',ddLoss(m,cfg.td,T)<=sc.ddMax],
@@ -1154,13 +1154,13 @@ function drawReto(c){
   // barras de los cuatro criterios numéricos
   const bx=400,bw=280;
   drawBar(c,bx,404,bw,16,run.pasos/Math.max(1,sc.pasosMin*1.5),'escalones útiles',
-    run.okPasos?OK_HEX:BAD_HEX,String(run.pasos)+' / '+String(sc.pasosMin));
+    retoChecked?(run.okPasos?OK_HEX:BAD_HEX):ACC,String(run.pasos)+' / '+String(sc.pasosMin));
   drawBar(c,bx,452,bw,16,run.dIMax/(sc.dIMax*1.5),'rizado ΔI',
-    run.okRizado?OK_HEX:BAD_HEX,n3(run.dIMax)+' / '+n2(sc.dIMax)+' A');
+    retoChecked?(run.okRizado?OK_HEX:BAD_HEX):ACC,n3(run.dIMax)+' / '+n2(sc.dIMax)+' A');
   drawBar(c,bx,500,bw,16,run.pBrMax/(sc.pMax*1.5),'pérdidas del puente',
-    run.okPerdida?OK_HEX:BAD_HEX,n3(run.pBrMax)+' / '+n2(sc.pMax)+' W');
+    retoChecked?(run.okPerdida?OK_HEX:BAD_HEX):ACC,n3(run.pBrMax)+' / '+n2(sc.pMax)+' W');
   drawBar(c,bx,548,bw,16,ddLoss(m,cfg.td,T)/(sc.ddMax*1.5),'duty perdido',
-    ddLoss(m,cfg.td,T)<=sc.ddMax?OK_HEX:BAD_HEX,n2(ddLoss(m,cfg.td,T)*100)+' / '+n0(sc.ddMax*100)+' %');
+    retoChecked?(ddLoss(m,cfg.td,T)<=sc.ddMax?OK_HEX:BAD_HEX):ACC,n2(ddLoss(m,cfg.td,T)*100)+' / '+n0(sc.ddMax*100)+' %');
 
   c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
   wrapText(c,sc.nota,30,600,650,17);
@@ -1184,6 +1184,9 @@ function drawReto(c){
   if(retoChecked){
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
     c.fillText(retoSolved?'✔ Accionamiento correcto: los tres criterios se cumplen':'✗ Todavía no: revisa los criterios marcados',30,700);
+  }else{
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Intentos fallidos: '+intentos+' de 3',30,700);
   }
   c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
   c.fillText('Cada decisión se califica con las otras dos correctas, para que un acierto no tape un error',30,752);
@@ -1497,9 +1500,10 @@ function buildControls(){
     html+=lbl('Modo')+optBtns('rmod',MODOS.map(m=>[m.k,m.k]),retoCh.mod);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc]').forEach(b=>{if(escLock(parseInt(b.getAttribute('data-sc'),10))){b.disabled=true;b.title='Es la máquina de tu Reto';b.style.opacity='0.45';}});
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  wire('data-sc',v=>{const i=parseInt(v,10);if(mode==='explora')expIdx=i;else apIdx=i;});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa máquina es la de tu Reto: se abre aquí cuando la resuelvas.');return;}if(mode==='explora')expIdx=i;else apIdx=i;});
   wire('data-tim',v=>{if(mode==='explora')expTim=v;else apTim=v;});
   wire('data-duty',v=>{expDuty=parseInt(v,10);});
   wire('data-topic',v=>{apTopic=v;});
@@ -1523,6 +1527,7 @@ function updateScenarioInfo(){
 }
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1534,23 +1539,29 @@ function setMode(k){
   const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
 }
 function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+// la máquina del reto no se abre en Explora/Aplica mientras no esté resuelto: ahí se estudia sin calificar y se podría tantear su solución
+function escLock(i){return i===RETO_POOL[retoK]&&!retoSolved;}
+function fixSc(){
+  if(escLock(expIdx))expIdx=(expIdx+1)%POOL.length;
+  if(escLock(apIdx))apIdx=(apIdx+1)%POOL.length;
+}
 function seedReto(k){
   retoK=(k===undefined||k===null)?pickIdx(RETO_POOL.length,retoK):k;
   const sc=retoSc();
   retoCh={tim:TIMS.find(t=>t.k!==sc.tim).k,td:TDS.find(v=>v!==sc.td),mod:MODOS.find(m=>m.k!==sc.mod).k};
-  retoChecked=false;retoSolved=false;solved=false;retoMsg='';
+  retoChecked=false;retoSolved=false;solved=false;retoMsg='';retoAviso='';intentos=0;
   retoOkTim=false;retoOkTd=false;retoOkMod=false;
 }
 function newSignal(){
-  if(mode==='reto'){seedReto();updateRetoSpec();}
-  else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);}
-  else{expIdx=pickIdx(POOL.length,expIdx);}
+  if(mode==='reto'){seedReto();fixSc();updateRetoSpec();}
+  else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);fixSc();}
+  else{expIdx=pickIdx(POOL.length,expIdx);fixSc();}
   buildQuiz();refreshQuestion();clearDx();
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 12. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto'&&!retoChecked)cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   const sc=curSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),run=runC(sc,cfg);
   let h='';
@@ -1626,6 +1637,7 @@ function updateReport(){
   }else{
     html+=`Máquina: <b>${sc.name}</b> · banda ${n0(sc.nMin)}–${n0(sc.nMax)} rpm · Vcc ${n0(sc.vcc)} V.<br>`;
     if(retoChecked)html+=retoMsg;
+    else if(retoAviso)html+=retoAviso;
     else html+=`<span class="mono">Elige temporizador, tiempo muerto y modo, y pulsa Comprobar.</span>`;
   }
   el('report').innerHTML=html;
@@ -1640,7 +1652,7 @@ function updateRetoSpec(){
     : (sc.holdCero?'el lazo de posición debe <b>sostener el eje parado</b> con par a los dos lados'
       :(sc.paroSeguro?'al soltar el habilitador la orden de par debe poder <b>irse a cero</b>'
         :'hay puente completo disponible'));
-  el('retoSpec').innerHTML=`Pon en marcha el accionamiento de <b>${sc.name}</b>: (1) el <b>temporizador</b>, que fija a la vez la frecuencia y los códigos de duty; (2) el <b>tiempo muerto</b> del driver; y (3) el <b>modo de recirculación</b>. Debe cubrir de ${n0(sc.nMin)} a ${n0(sc.nMax)} rpm con al menos <b>${sc.pasosMin} escalones útiles</b>, rizado ≤ <b>${n2(sc.dIMax)} A</b>, pérdidas del puente ≤ <b>${n2(sc.pMax)} W</b>, frecuencia ≤ <b>${fmtF(sc.fMax)}</b> por el driver${sc.silencio?' y <b>≥ 20 kHz</b> por el ruido':''}, tiempo muerto ≥ <b>${fmtTd(sc.tdMin)}</b> y distorsión de duty ≤ <b>${n0(sc.ddMax*100)} %</b>. Además, ${topo}.`;
+  el('retoSpec').innerHTML=`Pon en marcha el accionamiento de <b>${sc.name}</b>: (1) el <b>temporizador</b>, que fija a la vez la frecuencia y los códigos de duty; (2) el <b>tiempo muerto</b> del driver; y (3) el <b>modo de recirculación</b>. Debe cubrir de ${n0(sc.nMin)} a ${n0(sc.nMax)} rpm con al menos <b>${sc.pasosMin} escalones útiles</b>, rizado ≤ <b>${n2(sc.dIMax)} A</b>, pérdidas del puente ≤ <b>${n2(sc.pMax)} W</b>, frecuencia ≤ <b>${fmtF(sc.fMax)}</b> por el driver${sc.silencio?' y <b>≥ 20 kHz</b> por el ruido':''}, tiempo muerto ≥ <b>${fmtTd(sc.tdMin)}</b> y distorsión de duty ≤ <b>${n0(sc.ddMax*100)} %</b>. Además, ${topo}.<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`;
 }
 function whyRun(sc,cfg){
   const r=runC(sc,cfg);
@@ -1682,10 +1694,18 @@ function checkReto(){
   retoOkTim=okTim(sc,retoCh.tim);
   retoOkTd=okTd(sc,retoCh.td);
   retoOkMod=okMod(sc,retoCh.mod);
-  retoSolved=retoOkTim&&retoOkTd&&retoOkMod;retoChecked=true;solved=retoSolved;
+  retoSolved=retoOkTim&&retoOkTd&&retoOkMod;retoChecked=true;solved=retoSolved;retoAviso='';
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  if(!retoSolved)intentos++;
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
-  refreshAll();
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra máquina
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><span class="mono"><span class="dtc">Tres intentos sin acertar.</span> Se te plantea otra máquina: razona con sus datos, no por descarte.</span>';
+    showToast('Tres intentos sin acertar: se te plantea otra máquina.');
+    buildControls();updateScenarioInfo();
+  }
+  updateRetoSpec();refreshAll();
 }
 
 // ===================== 14. QUIZ =====================
@@ -1694,28 +1714,28 @@ function buildQuiz(){
     explora:{
       pregunta:'Con el reloj del microcontrolador fijo, ¿qué relación hay entre la frecuencia del PWM y el número de escalones de duty disponibles?',
       opciones:[
-        {t:'Son la MISMA decisión: f = f_clk/(prescaler·(TOP+1)) y N = TOP+1, así que subir la frecuencia bajando TOP cuesta códigos de duty, y ganarlos subiendo TOP baja la frecuencia.',ok:true,why:'Correcto. TOP aparece en las dos fórmulas: no hay un mando de frecuencia y otro de resolución, hay uno solo. El prescaler mueve las dos a la vez sin cambiar la relación entre ellas.'},
-        {t:'Son independientes: la frecuencia la fija el prescaler y la resolución la fija el TOP.',ok:false,why:'El prescaler sí toca sólo la frecuencia, pero el TOP toca las dos: aparece en f = f_clk/(prescaler·(TOP+1)) y en N = TOP+1. Por eso no se pueden elegir por separado.'},
-        {t:'La resolución sólo depende del ancho del registro de comparación (8 o 16 bits) y no de la frecuencia elegida.',ok:false,why:'El ancho del registro pone el máximo, no el valor real. Un temporizador de 16 bits configurado con TOP = 255 da 256 códigos, exactamente los mismos que uno de 8 bits.'},
-        {t:'Subir la frecuencia mejora la resolución porque hay más periodos por segundo y por tanto más valores medios distintos.',ok:false,why:'Más periodos por segundo no son más niveles: la resolución es cuántos valores distintos de t_on caben en UN periodo, y ese número baja cuando el periodo se acorta con el mismo reloj.'},
+        {t:'Son la MISMA decisión: f = f_clk/(prescaler·(TOP+1)) y N = TOP+1, así que subir la frecuencia bajando TOP cuesta códigos de duty, y ganarlos baja la frecuencia.',ok:true,why:'Correcto. TOP aparece en las dos fórmulas: no hay un mando de frecuencia y otro de resolución, hay uno solo. El prescaler mueve las dos a la vez sin cambiar la relación entre ellas.'},
+        {t:'Son independientes: la frecuencia la fija sólo el prescaler y la resolución la fija sólo el TOP, así que se pueden elegir por separado sin que una afecte a la otra.',ok:false,why:'El prescaler sí toca sólo la frecuencia, pero el TOP toca las dos: aparece en f = f_clk/(prescaler·(TOP+1)) y en N = TOP+1. Por eso no se pueden elegir por separado.'},
+        {t:'La resolución sólo depende del ancho del registro de comparación (8 o 16 bits) y no de la frecuencia elegida, porque el contador siempre cuenta hasta su máximo.',ok:false,why:'El ancho del registro pone el máximo, no el valor real. Un temporizador de 16 bits configurado con TOP = 255 da 256 códigos, exactamente los mismos que uno de 8 bits.'},
+        {t:'Subir la frecuencia mejora la resolución porque hay más periodos por segundo y por tanto más valores medios distintos que el motor puede promediar.',ok:false,why:'Más periodos por segundo no son más niveles: la resolución es cuántos valores distintos de t_on caben en UN periodo, y ese número baja cuando el periodo se acorta con el mismo reloj.'},
       ],
     },
     aplica:{
       pregunta:'El rizado de corriente de un PWM sobre un motor, ¿dónde es máximo y por qué en antifase resulta el doble?',
       opciones:[
-        {t:'Es máximo en D = 0,5 porque ΔI ≈ Vcc·D(1−D)/(L·f), y en antifase el escalón de tensión no es Vcc sino 2·Vcc, así que el rizado se duplica con la misma L, la misma f y el mismo duty.',ok:true,why:'Correcto. El rizado es la EXCURSIÓN de la corriente dentro del periodo: producto de la pendiente por la duración del tramo, máximo justo en el medio. En antifase el motor ve +Vcc y −Vcc, y ese salto doble dobla la pendiente.'},
-        {t:'Es máximo con duty 100 % porque es cuando circula más corriente por el inducido.',ok:false,why:'Se confunde la corriente con su rizado. Con duty 100 % el transistor no conmuta: la tensión es continua y el rizado es exactamente cero, aunque la corriente media sea la mayor de todas.'},
-        {t:'Depende de la resistencia del inducido: cuanto menor sea R, mayor será el rizado.',ok:false,why:'La R fija la corriente MEDIA, no su excursión dentro del periodo. Quien se opone al cambio de corriente durante unos microsegundos es la inductancia, y por eso L aparece en el denominador y R no.'},
-        {t:'En antifase es el doble porque conmutan dos transistores en vez de uno.',ok:false,why:'Que conmuten dos ramas duplica las PÉRDIDAS de conmutación, que es otra cuenta. El rizado se duplica por la amplitud del escalón de tensión —2·Vcc en vez de Vcc—, no por cuántos transistores conmutan.'},
+        {t:'Es máximo en D = 0,5 porque ΔI ≈ Vcc·D(1−D)/(L·f), y en antifase el escalón de tensión es 2·Vcc y no Vcc, así que el rizado se duplica con la misma L, f y duty.',ok:true,why:'Correcto. El rizado es la EXCURSIÓN de la corriente dentro del periodo: producto de la pendiente por la duración del tramo, máximo justo en el medio. En antifase el motor ve +Vcc y −Vcc, y ese salto doble dobla la pendiente.'},
+        {t:'Es máximo con duty 100 % porque es cuando circula más corriente por el inducido, y en antifase se duplica porque la corriente media también lo hace.',ok:false,why:'Se confunde la corriente con su rizado. Con duty 100 % el transistor no conmuta: la tensión es continua y el rizado es exactamente cero, aunque la corriente media sea la mayor de todas.'},
+        {t:'Depende de la resistencia del inducido: cuanto menor sea R, mayor será el rizado, porque la corriente se limita menos y oscila más en cada periodo.',ok:false,why:'La R fija la corriente MEDIA, no su excursión dentro del periodo. Quien se opone al cambio de corriente durante unos microsegundos es la inductancia, y por eso L aparece en el denominador y R no.'},
+        {t:'En antifase es el doble porque conmutan dos transistores en vez de uno, y cada conmutación suma su propio escalón de corriente al rizado del inducido.',ok:false,why:'Que conmuten dos ramas duplica las PÉRDIDAS de conmutación, que es otra cuenta. El rizado se duplica por la amplitud del escalón de tensión —2·Vcc en vez de Vcc—, no por cuántos transistores conmutan.'},
       ],
     },
     reto:{
       pregunta:'Un driver de puerta lento exige un tiempo muerto grande. ¿Eso limita también la frecuencia del PWM?',
       opciones:[
-        {t:'Sí: la fracción de periodo que se come el tiempo muerto es t_d/T = t_d·f, así que exigir una distorsión máxima ddMax equivale a exigir f ≤ ddMax/(bip·t_d). El driver pone un techo de frecuencia que el temporizador no conoce.',ok:true,why:'Correcto, y es el techo que más se olvida. Con 5 µs de tiempo muerto y un periodo de 16 µs se pierde casi un tercio del duty; el mismo tiempo muerto sobre un periodo de 512 µs apenas se nota.'},
-        {t:'No: el tiempo muerto sólo desplaza el valor medio y se compensa con un ajuste del duty, sin afectar a la frecuencia.',ok:false,why:'Se puede compensar el valor medio, pero no el duty que ya no existe: por encima de cierta frecuencia el tiempo muerto se come el tramo activo entero y hay códigos que no se pueden alcanzar de ninguna manera.'},
-        {t:'No: el techo de frecuencia lo pone únicamente la inductancia del motor, porque es la que fija el rizado.',ok:false,why:'La inductancia pone el SUELO de frecuencia —por debajo de cierta f el rizado se dispara—, no el techo. El techo lo ponen el driver y las pérdidas de conmutación.'},
-        {t:'Sí, pero sólo en modo unipolar; en bipolar el tiempo muerto de las dos ramas se cancela.',ok:false,why:'Al revés: en bipolar conmutan las dos ramas en cada periodo, así que el tiempo muerto se paga DOS veces y la distorsión del duty es el doble para el mismo t_d.'},
+        {t:'Sí: la fracción de periodo que se come el tiempo muerto es t_d/T = t_d·f, así que exigir una distorsión máxima ddMax equivale a exigir f ≤ ddMax/(bip·t_d).',ok:true,why:'Correcto, y es el techo que más se olvida. Con 5 µs de tiempo muerto y un periodo de 16 µs se pierde casi un tercio del duty; el mismo tiempo muerto sobre un periodo de 512 µs apenas se nota.'},
+        {t:'No: el tiempo muerto sólo desplaza el valor medio de la tensión y se compensa con un ajuste del duty, sin afectar nunca al techo de la frecuencia del PWM.',ok:false,why:'Se puede compensar el valor medio, pero no el duty que ya no existe: por encima de cierta frecuencia el tiempo muerto se come el tramo activo entero y hay códigos que no se pueden alcanzar de ninguna manera.'},
+        {t:'No: el techo de frecuencia lo pone únicamente la inductancia del motor, porque es la que fija el rizado, y el tiempo muerto del driver no interviene en él.',ok:false,why:'La inductancia pone el SUELO de frecuencia —por debajo de cierta f el rizado se dispara—, no el techo. El techo lo ponen el driver y las pérdidas de conmutación.'},
+        {t:'Sí, pero sólo en modo unipolar; en bipolar el tiempo muerto de las dos ramas se cancela entre sí y deja la distorsión del duty en cero a cualquier frecuencia.',ok:false,why:'Al revés: en bipolar conmutan las dos ramas en cada periodo, así que el tiempo muerto se paga DOS veces y la distorsión del duty es el doble para el mismo t_d.'},
       ],
     },
   };
@@ -1759,7 +1779,10 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,expIdx,expTim,expDuty,apIdx,apTopic,apTim,apTd,apMod,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1824,7 +1847,20 @@ async function runAuto(){
     checkReto();await sleep(2600);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    expIdx=prev.expIdx;expTim=prev.expTim;expDuty=prev.expDuty;apIdx=prev.apIdx;apTopic=prev.apTopic;apTim=prev.apTim;apTd=prev.apTd;apMod=prev.apMod;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkTim=retoOkTd=retoOkMod=true;
+    }else if(prev.retoK===0){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkTim=false;retoOkTd=false;retoOkMod=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -1840,7 +1876,7 @@ el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
-seedReto(0);
+seedReto(1);
 buildQuiz();
 S.start();
 setMode('explora');
@@ -1879,6 +1915,7 @@ window.__labDebug={
   quizAnswer:i=>answer(i),
   frames:()=>frames(),
   newSignal:()=>newSignal(),
+  intentos:()=>intentos,
   solved:()=>solved,
 };
 </script>

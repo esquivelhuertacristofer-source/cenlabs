@@ -347,7 +347,13 @@ const ST = {
   proyecto: { est:'prensa', valv:'p24', dith:'d40', ramp:0.1, comp:'exc' },
   reto:     { est:'prensa' },
 };
-const RETO = { cfg:{valv:'p24',dith:'off',ramp:0.6,comp:'no'}, sol:null, ejes:{}, resuelto:false, msg:'', nval:0 };
+const RETO = { cfg:{valv:'p24',dith:'off',ramp:0.6,comp:'no'}, sol:null, ejes:{}, resuelto:false, msg:'', nval:0,
+  // comprobado: la combinación visible ya se entregó a Comprobar; hasta entonces no hay veredicto en vivo.
+  // intentos: fallos de la faena en curso (a los MAX_INTENTOS se renueva). pistas: graduadas, máx. MAX_PISTAS.
+  comprobado:false, intentos:0, agotado:false, pistas:[] };
+const MAX_INTENTOS = 3, MAX_PISTAS = 2;
+const retoVer = () => RETO.comprobado || RETO.resuelto;   // ¿se puede mostrar el veredicto del reto?
+const proyBloq = () => ST.proyecto.est===ST.reto.est && !RETO.resuelto;   // el censo de la faena del reto es su respuesta
 
 let CUR = null;          // punto de trabajo vigente
 let hw = {};             // manijas del grupo 3D
@@ -768,7 +774,14 @@ function censo(k){
   return CACHE[k];
 }
 const COSTE_MAX=Math.max(...VALV_KEYS.map(k=>VALV[k].coste));
-function barraCoste(y,p,C){
+function barraCoste(y,p,C,muestraMin){
+  if(muestraMin===undefined) muestraMin=true;
+  if(!muestraMin){
+    texto('coste del equipo',44,y,'#8f9bb0',13,'left','700');
+    texto(f1(p.coste,0)+' u.',644,y,'#c8d3e2',15,'right','800');
+    hbar(44,y+10,600,14,p.coste/COSTE_MAX,'#8f9bb0');
+    return y+56;
+  }
   const cmin=C.best?C.best.coste:COSTE_MAX;
   texto('coste del equipo',44,y,'#8f9bb0',13,'left','700');
   texto(f1(p.coste,0)+' u.',644,y,p.coste<=cmin?OK_HEX:WARN_HEX,15,'right','800');
@@ -798,7 +811,7 @@ function drawProyecto(){
     E.nombre+' — las '+f1(C.B.length,0)+' combinaciones del catálogo, criterio por criterio');
   let y=tablaCrit(p,E,126);
   y=veredicto(p,y+16);
-  y=barraCoste(y+14,p,C);
+  y=barraCoste(y+14,p,C,!proyBloq());
   rpanel(400);
   let py=PX.y+30;
   texto('MONTADO',PX.x+14,py,'#7f8b9c',13,'left','800'); py+=26;
@@ -811,8 +824,8 @@ function drawProyecto(){
   texto('CENSO DE LA ESTACIÓN',PX.x+14,py,'#7f8b9c',13,'left','800'); py+=26;
   prow(py,'combinaciones',f1(C.B.length,0),TINTA); py+=24;
   prow(py,'válidas',f1(C.V.length,0),colOk(C.V.length>0)); py+=24;
-  prow(py,'más barata válida',C.best?VALV[C.best.valv].abr:'—',C.best?OK_HEX:BAD_HEX); py+=24;
-  prow(py,'coste mínimo',C.best?f1(C.best.coste,0)+' u.':'—',C.best?OK_HEX:BAD_HEX); py+=26;
+  prow(py,'más barata válida',proyBloq()?'tras el reto':(C.best?VALV[C.best.valv].abr:'—'),proyBloq()?GRIS:(C.best?OK_HEX:BAD_HEX)); py+=24;
+  prow(py,'coste mínimo',proyBloq()?'tras el reto':(C.best?f1(C.best.coste,0)+' u.':'—'),proyBloq()?GRIS:(C.best?OK_HEX:BAD_HEX)); py+=26;
   linea(PX.x+14,py-14,PX.x+PX.w-14,py-14,'#243043',1);
   texto('CRITERIOS QUE FALLAN SOLOS',PX.x+14,py,'#7f8b9c',13,'left','800'); py+=26;
   for(const c of CRIT){ prow(py,CRIT_ROT[c],f1(C.solo[c],0),C.solo[c]>0?TINTA:GRIS); py+=22; }
@@ -832,9 +845,17 @@ function drawProyecto(){
 function drawReto(){
   const E=estAct(), p=CUR, C=censo(ST.reto.est);
   title2('Reto · '+E.nombre, E.detalle+' — monta la combinación más barata que cumpla los siete criterios');
-  let y=tablaCrit(p,E,126);
-  y=veredicto(p,y+16);
-  y=barraCoste(y+14,p,C);
+  let y;
+  if(retoVer()){
+    y=tablaCrit(p,E,126);
+    y=veredicto(p,y+16);
+    y=barraCoste(y+14,p,C,RETO.resuelto);
+  }else{
+    texto('Los siete criterios se miden al pulsar Comprobar: no hay veredicto en vivo.',44,142,'#c8d3e2',15,'left','700');
+    texto('Monta la combinación, comprueba, y razona con lo que se mida.',44,168,'#8f9bb0',13,'left','600');
+    texto('coste del montaje: '+f1(p.coste,0)+' u.',44,206,'#c8d3e2',14,'left','700');
+    y=230;
+  }
   rpanel(392);
   let py=PX.y+30;
   texto('LO QUE EXIGE LA FAENA',PX.x+14,py,'#7f8b9c',13,'left','800'); py+=26;
@@ -854,15 +875,14 @@ function drawReto(){
   prow(py,'compensación',COMP_ROT[RETO.cfg.comp],colOk(RETO.ejes.comp)); py+=26;
   linea(PX.x+14,py-14,PX.x+PX.w-14,py-14,'#243043',1);
   prow(py,'válidas en el censo',f1(C.V.length,0),TINTA); py+=24;
-  prow(py,'estado',RETO.resuelto?'RESUELTO':'en curso',RETO.resuelto?OK_HEX:WARN_HEX);
+  prow(py,'estado',RETO.resuelto?'RESUELTO':('fallos '+RETO.intentos+'/'+MAX_INTENTOS+' · pistas '+RETO.pistas.length+'/'+MAX_PISTAS),RETO.resuelto?OK_HEX:WARN_HEX);
   let ny=y+18;
   if(RETO.resuelto){
     nota('Resuelto. Ésta es la combinación más barata que cumple: '+VALV[p.valv].rot+', '
         +DITH[p.dith].rot+', rampa de '+f1(p.ramp,1)+' s y amplificador '+COMP_ROT[p.comp]
         +'. Ciclo '+f1(p.tCiclo,2)+' s, parada '+f1(p.disp*1000,3)+' mm, pico '+f1(p.pPico,1)+' bar.',ny);
   } else {
-    nota(RETO.msg||'Ajusta los cuatro mandos y comprueba. La marca blanca de la barra señala el coste '
-        +'mínimo con el que esta faena se puede resolver.',ny);
+    nota(RETO.msg||'Ajusta los cuatro mandos y comprueba. Tienes '+MAX_INTENTOS+' fallos por faena y '+MAX_PISTAS+' pistas.',ny);
   }
   ny+=62;
   nota('Ojo con el orden: no se busca la combinación más rápida ni la más precisa, sino la más barata '
@@ -1304,7 +1324,7 @@ const MODE_META={
     mision:'Programa una rampa y compara lo que ordena la tarjeta con lo que hace la máquina. Entre las dos hay un tiempo muerto al arrancar, una subida que se suma en cuadratura con la de la válvula y, al parar, un arrastre por el juego de la histéresis: ahí está la dispersión del punto de parada.'},
   proyecto:{nombre:'Proyecto',cam:[[6.6,3.8,9.2],[2.60,1.10,0.00]],
     mision:'Siete criterios a la vez sobre la estación montada: velocidad, zona útil, arranque, presión de pico, tiempo de ciclo, precisión de parada y rizado. El censo de las 450 combinaciones te dice cuántas caen por cada criterio y cuántas caen sólo por ése.'},
-  reto:{nombre:'Reto',cam:[[7.0,4.0,9.4],[2.30,1.10,0.00]],
+  reto:{nombre:'Reto',cam:[[5.21,4.0,10.29],[0.51,1.10,0.89]],
     mision:'Monta el eje válido más barato para la faena que te toca. Cuatro ejes —válvula, dither, rampa y compensación— y siete criterios que hay que cumplir juntos; a igualdad de coste gana el ciclo más rápido.'},
 };
 const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
@@ -1382,22 +1402,59 @@ function buildControls(){
   wire('data-dd',v=>{ST.proyecto.dith=v;});
   wire('data-dr',v=>{ST.proyecto.ramp=Number(v);});
   wire('data-dc',v=>{ST.proyecto.comp=v;});
-  wire('data-xv',v=>{RETO.cfg={...RETO.cfg,valv:v};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xd',v=>{RETO.cfg={...RETO.cfg,dith:v};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xr',v=>{RETO.cfg={...RETO.cfg,ramp:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xc',v=>{RETO.cfg={...RETO.cfg,comp:v};RETO.msg='';RETO.resuelto=false;});
+  wire('data-xv',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,valv:v};});
+  wire('data-xd',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,dith:v};});
+  wire('data-xr',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,ramp:Number(v)};});
+  wire('data-xc',v=>{if(!tocaReto())return;RETO.cfg={...RETO.cfg,comp:v};});
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Una pista destapa UN eje: dice que valores de ese eje aparecen en alguna
-// combinacion optima. No resuelve el reto, porque los cuatro ejes se juzgan
-// juntos y acertar uno no garantiza que el conjunto valga.
+// Cualquier cambio de selección anula la comprobación anterior y el `solved` latcheado: el reto sólo
+// está resuelto para la combinación que se comprobó. Con la faena agotada (tres fallos) el primer
+// toque la renueva. Devuelve false si el toque se consumió en renovarla.
+function tocaReto(){
+  if(RETO.agotado){ renuevaReto(); return false; }
+  RETO.msg='';RETO.resuelto=false;solved=false;RETO.comprobado=false;RETO.ejes={};
+  refreshQuestion();
+  return true;
+}
+function renuevaReto(){
+  const i=EST_KEYS.indexOf(ST.reto.est);ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
+  retoSolveBuild(true);
+  showToast('🔀 <b>Tres comprobaciones fallidas: faena nueva.</b> '+ESTACIONES[ST.reto.est].nombre);
+}
+// Pistas GRADUADAS (máximo 2) y registradas; ninguna nombra el valor. La 1ª dice qué criterio domina
+// la faena; la 2ª, en qué sentido hay que mover el primer eje que no coincide con el montaje óptimo.
 function pista(){
-  const eje=EJES.find(e=>!RETO.ejes[e]);
-  if(!eje){showToast('💡 Ya has destapado los cuatro ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.ejes[eje]=true;beep();
-  const vals=ejeSolC(ST.reto.est,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el montaje más barato aparece: '+(vals||'ningún valor: esta estación no tiene solución'));
+  if(RETO.resuelto){showToast('💡 El reto ya está resuelto.');return;}
+  if(RETO.agotado){renuevaReto();afterEdit();return;}
+  if(RETO.pistas.length>=MAX_PISTAS){showToast('💡 Ya usaste las '+MAX_PISTAS+' pistas de esta faena. La combinación la tienes que cerrar tú.');return;}
+  const est=ST.reto.est, sol=RETO.sol;
+  let txt;
+  if(RETO.pistas.length===0){
+    const cnt={};CRIT.forEach(k=>{cnt[k]=0;});
+    barrido(est).forEach(p=>p.fallos.forEach(k=>{cnt[k]++;}));
+    const top=CRIT.slice().sort((a,b)=>cnt[b]-cnt[a])[0];
+    txt='De las 450 combinaciones, el criterio que más descarta en esta faena es «'+CRIT_ROT[top]+'» ('+f1(cnt[top],0)+
+      ' caen por él). Mira qué ejes lo gobiernan.';
+  }else if(!sol){
+    txt='Esta faena no tiene ninguna combinación válida en el catálogo.';
+  }else{
+    const eje=EJES.find(e=>!okEje(est,RETO.cfg,e));
+    if(!eje) txt='Cada eje, por separado, ya coincide con el montaje óptimo; revisa la combinación completa.';
+    else{
+      const cur=RETO.cfg[eje], objetivo=ejeSolC(est,eje)[0];
+      let how;
+      if(eje==='valv') how=VALV[objetivo].coste<VALV[cur].coste?'la que hace falta es más barata que la tuya':'la que hace falta es más cara que la tuya';
+      else if(eje==='dith') how=objetivo==='off'?'aquí sobra el dither':(cur==='off'?'aquí hace falta algún dither':(DITH[objetivo].f<DITH[cur].f?'hace falta un dither de menor frecuencia':'hace falta un dither de mayor frecuencia'));
+      else if(eje==='ramp') how=objetivo<cur?'la rampa que hace falta es más corta que la tuya':'la rampa que hace falta es más larga que la tuya';
+      else how=COMPS.indexOf(objetivo)<COMPS.indexOf(cur)?'hace falta menos compensación que la tuya':'hace falta más compensación que la tuya';
+      txt='Eje «'+EJE_ROT[eje]+'»: '+how+'.';
+    }
+  }
+  RETO.pistas.push({n:RETO.pistas.length+1,txt});
+  beep();
+  showToast('💡 <b>Pista '+RETO.pistas.length+' de '+MAX_PISTAS+'.</b> '+txt);
   afterEdit();
 }
 
@@ -1443,12 +1500,12 @@ function newSignal(){
     if(i+1>=CINS.length){const j=VALV_KEYS.indexOf(ST.consigna.valv);ST.consigna.valv=VALV_KEYS[(j+1)%VALV_KEYS.length];}
   }else if(mode==='carga'){
     const i=EST_KEYS.indexOf(ST.carga.est);ST.carga.est=EST_KEYS[(i+1)%EST_KEYS.length];
-    const o=solucion(ST.carga.est); if(o)ST.carga.valv=o.valv;
+    const o=solucion(ST.carga.est); if(o && !(ST.carga.est===ST.reto.est && !RETO.resuelto))ST.carga.valv=o.valv;
   }else if(mode==='rampa'){
     const i=RAMPAS.indexOf(ST.rampa.ramp);ST.rampa.ramp=RAMPAS[(i+1)%RAMPAS.length];
     if(i+1>=RAMPAS.length){
       const j=EST_KEYS.indexOf(ST.rampa.est);ST.rampa.est=EST_KEYS[(j+1)%EST_KEYS.length];
-      const o=solucion(ST.rampa.est); if(o){ST.rampa.valv=o.valv;ST.rampa.comp=o.comp;ST.rampa.dith=o.dith;}
+      const o=solucion(ST.rampa.est); if(o && !(ST.rampa.est===ST.reto.est && !RETO.resuelto)){ST.rampa.valv=o.valv;ST.rampa.comp=o.comp;ST.rampa.dith=o.dith;}
     }
   }else if(mode==='proyecto'){
     const i=EST_KEYS.indexOf(ST.proyecto.est);ST.proyecto.est=EST_KEYS[(i+1)%EST_KEYS.length];
@@ -1458,7 +1515,7 @@ function newSignal(){
     const i=EST_KEYS.indexOf(ST.reto.est);ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
     retoSolveBuild(true);
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
+  if(mode==='reto'){RETO.resuelto=false;solved=false;RETO.msg='';}
   computa();buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1531,26 +1588,28 @@ function updateTele(){
     h+=teleRow('Combinaciones ensayadas',f1(C.B.length,0));
     h+=teleRow('Combinaciones válidas',f1(C.V.length,0),cls2(C.V.length>0));
     h+=teleRow('Coste montado',f1(r.coste,0)+' u.');
-    h+=teleRow('Coste mínimo viable',C.best?f1(C.best.coste,0)+' u.':'sin solución');
+    h+=teleRow('Coste mínimo viable',proyBloq()?'tras resolver el reto':(C.best?f1(C.best.coste,0)+' u.':'sin solución'));
     h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
     const M=critMed(r,E);
     for(const k of CRIT) h+=teleRow(CRIT_ROT[k],M[k],cls2(r[k]));
-    h+=teleRow('Coinciden con el óptimo',f1(empates(c.est).length,0)+' combinaciones');
+    h+=teleRow('Coinciden con el óptimo',proyBloq()?'tras resolver el reto':f1(empates(c.est).length,0)+' combinaciones');
   }else{
     const s=RETO.sol;
     h+=teleRow('Estación',E.nombre);
     h+=teleRow('Montaje',V.abr+' · '+DITH[c.dith].abr+' · '+f1(c.ramp,1)+' s · '+COMP_ROT[c.comp]);
+    const ver=retoVer();
+    const SC='sin comprobar';
     h+=teleRow('Coste del montaje',f1(r.coste,0)+' u.');
-    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
-    h+=teleRow('Velocidad máxima',mms(r.vTop)+' ≥ '+mms(E.vReq,0),cls2(r.okVel));
-    h+=teleRow('Zona de trabajo','c = '+f1(r.c0c,1)+' % · u = '+f1(r.u0,3),cls2(r.okZona));
-    h+=teleRow('Arranque',f1(r.tMuerto,3)+' s · salto '+mms(r.vKick,2),cls2(r.okArr));
-    h+=teleRow('Presión de pico',f1(r.pPico,1)+' / '+f1(E.pLim,0)+' bar',cls2(r.okPico));
-    h+=teleRow('Tiempo de ciclo',f1(r.tCiclo,2)+' / '+f1(E.tMax,1)+' s',cls2(r.okCiclo));
-    h+=teleRow('Dispersión de parada',mm(r.disp,3)+' / '+f1(E.tol,2)+' mm',cls2(r.okPos));
-    h+=teleRow('Rizado',mm(r.rip,3)+' / '+f1(E.riz,3)+' mm',cls2(r.okRizo));
+    h+=teleRow('Criterios cumplidos',ver?f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0):SC,ver?cls2(r.valida):'');
+    h+=teleRow('Velocidad máxima',ver?mms(r.vTop)+' ≥ '+mms(E.vReq,0):SC,ver?cls2(r.okVel):'');
+    h+=teleRow('Zona de trabajo',ver?'c = '+f1(r.c0c,1)+' % · u = '+f1(r.u0,3):SC,ver?cls2(r.okZona):'');
+    h+=teleRow('Arranque',ver?f1(r.tMuerto,3)+' s · salto '+mms(r.vKick,2):SC,ver?cls2(r.okArr):'');
+    h+=teleRow('Presión de pico',ver?f1(r.pPico,1)+' / '+f1(E.pLim,0)+' bar':SC,ver?cls2(r.okPico):'');
+    h+=teleRow('Tiempo de ciclo',ver?f1(r.tCiclo,2)+' / '+f1(E.tMax,1)+' s':SC,ver?cls2(r.okCiclo):'');
+    h+=teleRow('Dispersión de parada',ver?mm(r.disp,3)+' / '+f1(E.tol,2)+' mm':SC,ver?cls2(r.okPos):'');
+    h+=teleRow('Rizado',ver?mm(r.rip,3)+' / '+f1(E.riz,3)+' mm':SC,ver?cls2(r.okRizo):'');
     h+=teleRow('Montajes válidos',f1(RETO.nval,0));
-    h+=teleRow('Coste mínimo posible',s?f1(s.coste,0)+' u.':'sin solución');
+    h+=teleRow('Fallos · pistas',f1(RETO.intentos,0)+' / '+MAX_INTENTOS+' · '+f1(RETO.pistas.length,0)+' / '+MAX_PISTAS,RETO.agotado?'bad':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1616,7 +1675,7 @@ function updateReport(){
     const C=censo(c.est);
     t='> '+E.nombre+' · '+E.detalle+'.\n';
     t+='> Censo de '+f1(C.B.length,0)+' combinaciones: '+f1(C.V.length,0)+' válidas'+
-       (C.best?' y la más barata cuesta '+f1(C.best.coste,0)+' u.\n':'; ninguna cumple los siete.\n');
+       (proyBloq()?'; el coste mínimo de esta faena se abre al resolver tu reto.\n':(C.best?' y la más barata cuesta '+f1(C.best.coste,0)+' u.\n':'; ninguna cumple los siete.\n'));
     const solos=CRIT.filter(k=>C.solo[k]>0)
       .sort((a,b)=>C.solo[b]-C.solo[a]).slice(0,3)
       .map(k=>CRIT_ROT[k].toLowerCase()+' ('+f1(C.solo[k],0)+')');
@@ -1633,10 +1692,11 @@ function updateReport(){
        f1(E.pLim,0)+' bar.\n';
     t+='> Montado: '+V.abr+' · '+DITH[c.dith].abr+' · rampa '+f1(c.ramp,1)+' s · '+COMP_ROT[c.comp]+
        ' → '+f1(r.coste,0)+' u.\n';
-    t+=r.valida?'> Cumple los siete criterios.\n'
+    if(retoVer()) t+=r.valida?'> Cumple los siete criterios.\n'
                :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k].toLowerCase()).join(', ')+'.\n';
+    else t+='> Pulsa Comprobar para medir los siete criterios: no hay veredicto en vivo.\n';
     t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f1(RETO.nval,0)+' montajes válidos, el más barato cuesta '+(s?f1(s.coste,0)+' u.':'—')+'.';
+    t+='> De '+f1(RETO.nval,0)+' montajes válidos'+(RETO.resuelto&&s?', el más barato cuesta '+f1(s.coste,0)+' u.':', sólo uno es el más barato.');
   }
   el('report').textContent=t;
 }
@@ -1670,6 +1730,8 @@ function retoSolveBuild(reset){
     RETO.ejes={};
     RETO.resuelto=false;
     RETO.msg='';
+    RETO.comprobado=false; RETO.intentos=0; RETO.agotado=false; RETO.pistas=[];
+    solved=false;
   }
 }
 function updateRetoSpec(){
@@ -1681,6 +1743,9 @@ function updateRetoSpec(){
   h+='</ul>';
   h+='<div style="margin-top:6px;color:var(--muted)">De las 450 combinaciones de esta estación, '+
      f1(RETO.nval,0)+' cumplen las siete. Empate de precio: gana el ciclo más corto, luego la parada más precisa, luego el pico más bajo.</div>';
+  h+='<div style="margin-top:6px;color:var(--muted)">Fallos: '+RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas.length+' de '+MAX_PISTAS+
+     (RETO.agotado?' · <b>faena agotada: la próxima acción la renueva</b>':'')+'</div>';
+  RETO.pistas.forEach(p=>{ h+='<div style="margin-top:4px">💡 <b>Pista '+p.n+':</b> '+p.txt+'</div>'; });
   el('retoSpec').innerHTML=h;
 }
 // Explica por que la configuracion puesta no vale, mirando eje por eje.
@@ -1712,8 +1777,10 @@ function retoExplain(r,c,est){
   return p;
 }
 function checkReto(){
+  if(RETO.agotado){ renuevaReto(); afterEdit(); return; }
   const est=ST.reto.est, c=RETO.cfg, s=RETO.sol;
   const r=punto(est,c.valv,c.dith,c.ramp,c.comp);
+  RETO.comprobado=true;
   if(!s){
     RETO.msg='Esta estación no tiene ninguna combinación válida en el catálogo.';
     RETO.resuelto=false;
@@ -1729,9 +1796,9 @@ function checkReto(){
     RETO.resuelto=false;
     RETO.msg=(r.coste===s.coste)
       ? 'Válido y al precio mínimo, pero '+(r.tCiclo>s.tCiclo+1e-9
-          ? 'tarda '+f1(r.tCiclo,2)+' s por ciclo y hay otro igual de barato con '+f1(s.tCiclo,2)+'.'
-          : 'para con '+f1(r.disp*1000,3)+' mm de dispersión y hay otro igual de barato con '+f1(s.disp*1000,3)+'.')
-      : 'Válido, pero no es el más barato: coste '+f1(r.coste,0)+' frente a '+f1(s.coste,0)+'.';
+          ? 'hay otro igual de barato que cierra el ciclo en menos tiempo.'
+          : 'hay otro igual de barato que para con menos dispersión.')
+      : 'Válido, pero no es el más barato: tu montaje cuesta '+f1(r.coste,0)+' u. y existe una combinación válida que cuesta menos.';
     synth.beep(520,0.09,0.05);
     showToast('🟡 <b>Cumple, pero no es el óptimo.</b> '+RETO.msg);
   }else{
@@ -1740,41 +1807,48 @@ function checkReto(){
     synth.beep(240,0.12,0.05);
     showToast('❌ <b>No cumple.</b> '+RETO.msg);
   }
+  if(!RETO.resuelto){
+    RETO.intentos++;
+    if(RETO.intentos>=MAX_INTENTOS) RETO.agotado=true;
+    RETO.msg+=' Fallo '+RETO.intentos+' de '+MAX_INTENTOS+(RETO.agotado?': la próxima vez se renueva la faena.':'.');
+  }
   computa();
   refreshAll();
+  if(mode==='reto') updateRetoSpec();
+  refreshQuestion();
 }
 // ===================== 14. CUESTIONARIO =====================
 const QUIZ={
   consigna:{pregunta:'La NG10 de 24 L/min tiene 6,5 % de histéresis y 15 Hz de ancho de banda. Con dither del 12 % a 40 Hz la histéresis efectiva baja a 3,08 %, pero con el 3 % a 180 Hz apenas baja a 6,30 %. ¿Por qué el dither rápido casi no sirve en esta válvula?',
     opciones:[
-      {t:'Porque la corredera tiene que seguir físicamente el temblor: a 180 Hz sobre una válvula de 15 Hz la respuesta se atenúa a 0,083 y los 3 % de orden se quedan en 0,25 % de movimiento real',ok:true,why:'El dither sólo despega el vástago del sello si de verdad se mueve. La atenuación es 1/√(1+(f/f_v)²): a 40 Hz vale 0,351 y quedan 4,21 % efectivos; a 180 Hz vale 0,083 y quedan 0,25 %. Por eso el dither se elige contra el ancho de banda de la válvula que tienes, no contra la teoría.'},
-      {t:'Porque a 180 Hz el aceite ya no tiene tiempo de atravesar el orificio de mando',ok:false,why:'El aceite atraviesa el canto en microsegundos. Lo lento no es el fluido: es la masa de la corredera con su muelle y su solenoide, y eso es lo que mide f_v.'},
-      {t:'Porque el dither de 180 Hz lleva cuatro veces menos amplitud y la histéresis sólo depende de la amplitud ordenada',ok:false,why:'La amplitud ordenada baja de 12 a 3 (×4), pero la efectiva baja de 4,21 a 0,25 (×17). Las otras cuatro veces las pone la atenuación de la válvula.'},
-      {t:'Porque por encima de 100 Hz el dither excita la resonancia del cilindro y hay que quitarlo',ok:false,why:'Un dither que la corredera no reproduce tampoco puede excitar nada aguas abajo. Aquí el problema no es que llegue de más, es que no llega.'}]},
+      {t:'Porque la corredera tiene que seguir el temblor: a 180 Hz sobre una válvula de 15 Hz se atenúa a 0,083 y los 3 % ordenados quedan en 0,25 % real',ok:true,why:'El dither sólo despega el vástago del sello si de verdad se mueve. La atenuación es 1/√(1+(f/f_v)²): a 40 Hz vale 0,351 y quedan 4,21 % efectivos; a 180 Hz vale 0,083 y quedan 0,25 %. Por eso el dither se elige contra el ancho de banda de la válvula que tienes, no contra la teoría.'},
+      {t:'Porque a 180 Hz el aceite ya no tiene tiempo de atravesar el orificio de mando, y el caudal de dither se queda retenido en la cámara',ok:false,why:'El aceite atraviesa el canto en microsegundos. Lo lento no es el fluido: es la masa de la corredera con su muelle y su solenoide, y eso es lo que mide f_v.'},
+      {t:'Porque el dither de 180 Hz lleva cuatro veces menos amplitud, y la histéresis sólo depende de la amplitud que se ordena a la corredera de la válvula',ok:false,why:'La amplitud ordenada baja de 12 a 3 (×4), pero la efectiva baja de 4,21 a 0,25 (×17). Las otras cuatro veces las pone la atenuación de la válvula.'},
+      {t:'Porque por encima de 100 Hz el dither excita la resonancia del cilindro y la tarjeta lo desconecta para proteger el vástago',ok:false,why:'Un dither que la corredera no reproduce tampoco puede excitar nada aguas abajo. Aquí el problema no es que llegue de más, es que no llega.'}]},
   carga:{pregunta:'En el carro de transferencia, cambiar la NG6 de 4 L/min por la NG16 de 60 sube la velocidad de 92,6 a 320,8 mm/s, pero p_A se queda clavada en 38,7 bar y p_B en 48,9. ¿Por qué el reparto de presiones no se entera del cambio de válvula?',
     opciones:[
-      {t:'Porque el reparto sale de Δp_PA = ΔF·A_a²/Ω y Δp_BT = ΔF·A_b²/Ω: sólo entran la fuerza neta y las dos áreas. La válvula fija el caudal, y con él la velocidad',ok:true,why:'Ésta es la separación que hay que interiorizar: la carga fija las presiones, la válvula fija la velocidad. Por eso Δp_PA/Δp_BT = φ² = 2,20 en el carro pase lo que pase con el catálogo.'},
-      {t:'Porque las dos válvulas comparten el mismo Δp nominal de 5 bar por canto',ok:false,why:'Ese dato fija la ganancia de caudal, no el reparto. La servoválvula de 40 L/min a 35 bar por canto tiene otro nominal y da exactamente los mismos 38,7 y 48,9 bar.'},
-      {t:'Porque a esas velocidades la caída en la válvula es despreciable frente a la carga',ok:false,why:'Al contrario: entre los dos cantos se pierden 147,2 bar de los 140 de central. La caída es enorme; lo que pasa es que se reparte siempre en la misma proporción.'},
-      {t:'Porque p_B no puede ser mayor que p_A y el modelo satura las dos presiones',ok:false,why:'p_B sí puede ser mayor, y aquí lo es: es la intensificación del cilindro diferencial. La corona es menor, así que para tragar el mismo caudal necesita más presión que la que empuja el pistón.'}]},
+      {t:'Porque el reparto sale de Δp_PA = ΔF·A_a²/Ω y Δp_BT = ΔF·A_b²/Ω: sólo entran la fuerza neta y las áreas; la válvula fija el caudal',ok:true,why:'Ésta es la separación que hay que interiorizar: la carga fija las presiones, la válvula fija la velocidad. Por eso Δp_PA/Δp_BT = φ² = 2,20 en el carro pase lo que pase con el catálogo.'},
+      {t:'Porque las dos válvulas comparten el mismo Δp nominal de 5 bar por canto, y por eso reparten la presión exactamente igual',ok:false,why:'Ese dato fija la ganancia de caudal, no el reparto. La servoválvula de 40 L/min a 35 bar por canto tiene otro nominal y da exactamente los mismos 38,7 y 48,9 bar.'},
+      {t:'Porque a esas velocidades la caída en la válvula es despreciable frente a la carga, y las cámaras ven siempre la presión de central de la bomba',ok:false,why:'Al contrario: entre los dos cantos se pierden 147,2 bar de los 140 de central. La caída es enorme; lo que pasa es que se reparte siempre en la misma proporción.'},
+      {t:'Porque p_B no puede ser mayor que p_A y el modelo satura las dos presiones al valor que fija la carga, sea cual sea la válvula',ok:false,why:'p_B sí puede ser mayor, y aquí lo es: es la intensificación del cilindro diferencial. La corona es menor, así que para tragar el mismo caudal necesita más presión que la que empuja el pistón.'}]},
   rampa:{pregunta:'En el carro, la rampa de 0,1 s revienta la presión de frenado (141 bar frente a los 120 del grupo) y la de 2,5 s se sale de tolerancia con 29,8 mm de dispersión; sólo la de 0,3 s vale, con 3,82 mm. ¿Por qué la rampa lenta empeora la precisión de parada en vez de mejorarla?',
     opciones:[
-      {t:'Porque al dar la orden de parar el mando todavía tiene que atravesar la histéresis, y con la rampa lenta tarda 8,4 veces más; mientras la atraviesa el vástago sigue casi a velocidad de meseta',ok:true,why:'t_hold = (H/pendiente) crece proporcional a la rampa: 11,8 ms con 0,3 s y 98,6 ms con 2,5 s. La velocidad de meseta no cambia, así que el recorrido perdido se multiplica igual: 3,82 → 29,85 mm.'},
-      {t:'Porque la rampa lenta deja más tiempo para que la inercia del carro arrastre el vástago',ok:false,why:'La inercia manda en la punta de presión, no en la dispersión: aquí el vástago no se va de más porque le empuje la masa, sino porque todavía le están mandando caudal.'},
-      {t:'Porque con la rampa lenta la velocidad de meseta es mayor y hay más carrera que descontar',ok:false,why:'La meseta es la misma en las cinco rampas: la fija la apertura de régimen, no la pendiente. Comprueba la telemetría cambiando sólo la rampa.'},
-      {t:'Porque la rampa lenta obliga a abrir más la válvula para llegar a tiempo',ok:false,why:'La consigna de régimen no se toca. Lo único que cambia es cuánto tarda el mando en subir hasta ella y en volver a bajar.'}]},
+      {t:'Porque al ordenar el paro el mando aún cruza la histéresis, y con la rampa lenta tarda 8,4 veces más: el vástago sigue a velocidad de meseta',ok:true,why:'t_hold = (H/pendiente) crece proporcional a la rampa: 11,8 ms con 0,3 s y 98,6 ms con 2,5 s. La velocidad de meseta no cambia, así que el recorrido perdido se multiplica igual: 3,82 → 29,85 mm.'},
+      {t:'Porque la rampa lenta deja más tiempo para que la inercia del carro arrastre el vástago, y esa inercia es la que alarga la parada',ok:false,why:'La inercia manda en la punta de presión, no en la dispersión: aquí el vástago no se va de más porque le empuje la masa, sino porque todavía le están mandando caudal.'},
+      {t:'Porque con la rampa lenta la velocidad de meseta es mayor y hay más carrera que descontar antes de que el vástago pare',ok:false,why:'La meseta es la misma en las cinco rampas: la fija la apertura de régimen, no la pendiente. Comprueba la telemetría cambiando sólo la rampa.'},
+      {t:'Porque la rampa lenta obliga a abrir más la válvula para llegar a tiempo, y esa mayor apertura alarga el recorrido de frenado del carro',ok:false,why:'La consigna de régimen no se toca. Lo único que cambia es cuánto tarda el mando en subir hasta ella y en volver a bajar.'}]},
   proyecto:{pregunta:'De las 2 250 combinaciones del censo (5 estaciones × 450 ejes) sólo 475 cumplen los siete criterios. La precisión de parada la fallan 1 098, y 391 de ellas no fallan nada más. ¿Qué te dice ese 391?',
     opciones:[
-      {t:'Que la precisión de parada es la restricción que manda: hay 391 ejes que ya cumplen los otros seis y se caen sólo por ahí, así que es donde renta gastar el esfuerzo',ok:true,why:'Es la lectura de un censo: no interesa cuántos fallan un criterio, interesa cuántos fallan sólo ése. Arreglar la parada convertiría 391 ejes en válidos y casi duplicaría el catálogo útil, de 475 a 866.'},
-      {t:'Que arreglando la precisión de parada las 1 098 pasarían a ser válidas',ok:false,why:'Sólo 391. Las otras 707 fallan además otra cosa: llegarían a la parada correcta sin llegar a la velocidad, al tiempo de ciclo o a la presión.'},
-      {t:'Que la precisión de parada es el criterio más fácil, porque es el único que se falla en solitario',ok:false,why:'Es el más difícil: lo falla casi la mitad del censo. Y no es el único que se falla solo — el arranque limpio se falla solo 93 veces y la zona de trabajo 82.'},
-      {t:'Que la tolerancia de parada está mal puesta y habría que relajarla para tener más opciones',ok:false,why:'La tolerancia la impone la máquina, no el catálogo. Un censo sirve para elegir hierro dentro de la especificación, no para negociar la especificación.'}]},
+      {t:'Que la precisión de parada manda: 391 ejes cumplen los otros seis y se caen sólo por ahí, así que es donde renta gastar el esfuerzo',ok:true,why:'Es la lectura de un censo: no interesa cuántos fallan un criterio, interesa cuántos fallan sólo ése. Arreglar la parada convertiría 391 ejes en válidos y casi duplicaría el catálogo útil, de 475 a 866.'},
+      {t:'Que arreglando la precisión de parada las 1 098 combinaciones que la fallan pasarían todas a ser válidas en el censo de la estación',ok:false,why:'Sólo 391. Las otras 707 fallan además otra cosa: llegarían a la parada correcta sin llegar a la velocidad, al tiempo de ciclo o a la presión.'},
+      {t:'Que la precisión de parada es el criterio más fácil, porque es el único que se falla en solitario dentro del censo',ok:false,why:'Es el más difícil: lo falla casi la mitad del censo. Y no es el único que se falla solo — el arranque limpio se falla solo 93 veces y la zona de trabajo 82.'},
+      {t:'Que la tolerancia de parada está mal puesta y habría que relajarla para tener más opciones de compra en el catálogo',ok:false,why:'La tolerancia la impone la máquina, no el catálogo. Un censo sirve para elegir hierro dentro de la especificación, no para negociar la especificación.'}]},
   reto:{pregunta:'En la prensa hay un eje válido que cierra el ciclo en 2,06 s, cuarenta milésimas más rápido que el que el reto da por bueno (2,10 s). ¿Por qué no es ése la respuesta?',
     opciones:[
-      {t:'Porque la primera clave del orden declarado es el coste: la NG16 vale 14 y la NG10 vale 9. El tiempo sólo desempata entre montajes que cuestan lo mismo',ok:true,why:'Un criterio de selección se declara antes de barrer, no después. Aquí es coste → ciclo → dispersión → pico, y 40 ms no compran cinco unidades de coste. Si el ciclo fuera lo primero, el reto pediría otra cosa y la respuesta sería otra.'},
-      {t:'Porque ese eje incumple alguno de los siete criterios',ok:false,why:'Los cumple todos: por eso está en la lista de válidos. Lo que pasa es que cuesta más.'},
-      {t:'Porque el tiempo de ciclo no es un objetivo de este laboratorio',ok:false,why:'Lo es dos veces: como criterio duro (t ≤ 3,4 s en la prensa) y como segunda clave del desempate. Simplemente no es la primera.'},
-      {t:'Porque el reto pide siempre la válvula más pequeña que cumpla',ok:false,why:'No: pide la más barata de las que cumplen. En la plataforma elevadora la más pequeña, la NG6 de 4 L/min, no llega a la velocidad y no aparece en ningún montaje válido.'}]},
+      {t:'Porque la primera clave del orden declarado es el coste: la NG16 vale 14 y la NG10 vale 9, y el tiempo sólo desempata entre iguales',ok:true,why:'Un criterio de selección se declara antes de barrer, no después. Aquí es coste → ciclo → dispersión → pico, y 40 ms no compran cinco unidades de coste. Si el ciclo fuera lo primero, el reto pediría otra cosa y la respuesta sería otra.'},
+      {t:'Porque ese eje incumple alguno de los siete criterios duros, aunque la telemetría no lo muestre a simple vista en el catálogo',ok:false,why:'Los cumple todos: por eso está en la lista de válidos. Lo que pasa es que cuesta más.'},
+      {t:'Porque el tiempo de ciclo no es un objetivo de este laboratorio y el reto sólo mira el coste y la dispersión de la parada del vástago',ok:false,why:'Lo es dos veces: como criterio duro (t ≤ 3,4 s en la prensa) y como segunda clave del desempate. Simplemente no es la primera.'},
+      {t:'Porque el reto pide siempre la válvula más pequeña que cumpla, medida por su caudal nominal y no por su precio de catálogo',ok:false,why:'No: pide la más barata de las que cumplen. En la plataforma elevadora la más pequeña, la NG6 de 4 L/min, no llega a la velocidad y no aparece en ningún montaje válido.'}]},
 };
 let QORD=[], answered=false;
 function buildQuiz(){
@@ -1784,8 +1858,19 @@ function buildQuiz(){
   answered=false;
 }
 function clearDx(){ answered=false; }
+// El enunciado de estas preguntas explica POR QUÉ vale la solución de una faena: hasta resolver el reto
+// de esa faena se oculta (la del modo Reto, siempre; la de Rampa, si el reto es el carro).
+function quizBloq(){
+  if(RETO.resuelto) return false;
+  return mode==='reto' || (mode==='rampa' && ST.reto.est==='carro');
+}
 function refreshQuestion(){
   const q=QUIZ[mode];
+  if(quizBloq()){
+    el('q_text').textContent='Esta pregunta se abre cuando el reto está resuelto: su enunciado explica la solución de la faena que tienes asignada.';
+    el('dxbtns').innerHTML='';
+    return;
+  }
   el('q_text').textContent=q.pregunta;
   el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
   el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
@@ -1793,7 +1878,7 @@ function refreshQuestion(){
   });
 }
 function answer(i){
-  if(answered) return;
+  if(answered || quizBloq()) return;
   answered=true;
   const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
   btns.forEach((b,k)=>{
@@ -1902,6 +1987,15 @@ async function runAuto(){
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
   synth.init(); synth.resume(); clearDx();
+  // Es una DEMOSTRACIÓN: no resuelve ni puntúa el reto del alumno, que se devuelve como estaba. La
+  // narración da la combinación óptima de la prensa y la rampa del carro: si el reto sin resolver es
+  // una de esas faenas, pasa antes a una que el recorrido no explica (sierra), con aviso.
+  if(!RETO.resuelto && (ST.reto.est==='prensa' || ST.reto.est==='carro' || ST.reto.est==='elevad')){
+    ST.reto.est='sierra'; retoSolveBuild(true);
+    showToast('ℹ El recorrido explica otras faenas: tu reto pasa a la sierra de cinta para que no te dé la respuesta.');
+  }
+  const snap={est:ST.reto.est,cfg:{...RETO.cfg},res:RETO.resuelto,msg:RETO.msg,ejes:{...RETO.ejes},comp:RETO.comprobado,
+    int:RETO.intentos,ag:RETO.agotado,pist:RETO.pistas.map(p=>({...p})),sol:solved};
   try{
     // --- 1. banda muerta e histeresis ---
     setMode('consigna');
@@ -2000,28 +2094,32 @@ async function runAuto(){
       await sleep(5600);
     }
 
-    // --- 5. reto ---
+    // --- 5. reto: DEMOSTRACIÓN en la prensa (no es tu faena); no resuelve ni puntúa nada ---
     setMode('reto'); ST.reto.est='prensa'; retoSolveBuild(true); afterEdit();
-    showToast('Reto: misma prensa, montaje de partida equivocado en los cuatro ejes. De las '+
+    showToast('Demostración del reto en la prensa: montaje de partida equivocado en los cuatro ejes. De las '+
       f1(VALV_KEYS.length*DITH_KEYS.length*RAMPAS.length*COMPS.length,0)+
       ' combinaciones, '+f1(RETO.nval,0)+' valen y una sola es la más barata.');
     await sleep(5000);
-    checkReto();
+    RETO.comprobado=true; computa(); refreshAll(); updateRetoSpec();    // sólo muestra la medición, sin resolver
     await sleep(3400);
     const s=RETO.sol;
     if(s){
-      RETO.cfg={valv:s.valv,dith:s.dith,ramp:s.ramp,comp:s.comp}; afterEdit();
-      checkReto();
+      RETO.cfg={valv:s.valv,dith:s.dith,ramp:s.ramp,comp:s.comp}; afterEdit(); computa(); refreshAll();
       await sleep(1600);
       showToast('Hay un eje válido que cierra el ciclo en 2,06 s, más rápido que estos '+
         f1(s.tCiclo,2)+' s, pero monta una NG16 que cuesta '+f1(VALV.p60.coste,0)+
-        ' en vez de '+f1(VALV[s.valv].coste,0)+'. El criterio se declara antes de barrer: coste, y luego el tiempo.');
+        ' en vez de '+f1(VALV[s.valv].coste,0)+'. El criterio se declara antes de barrer: coste, y luego el tiempo. Esto es sólo la demostración: tu reto sigue como lo dejaste.');
       await sleep(5600);
     }
-    answer(quizCorrectIndex());
   } finally {
+    // devolver el reto del alumno tal como estaba
+    ST.reto.est=snap.est; retoSolveBuild(true);
+    Object.assign(RETO,{cfg:{...snap.cfg},resuelto:snap.res,msg:snap.msg,ejes:{...snap.ejes},comprobado:snap.comp,
+      intentos:snap.int,agotado:snap.ag,pistas:snap.pist.map(p=>({...p}))});
+    solved=snap.sol;
     autoRunning=false;
     el('btnAuto').textContent=rot;
+    computa(); buildControls(); updateScenarioInfo(); if(mode==='reto') updateRetoSpec(); refreshAll();
   }
 }
 // ===================== 17. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
@@ -2095,11 +2193,13 @@ window.__labDebug={
   retoGet:()=>({est:ST.reto.est, ...RETO.cfg, resuelto:RETO.resuelto, msg:RETO.msg,
     nval:RETO.nval, sol:RETO.sol?{valv:RETO.sol.valv, dith:RETO.sol.dith, ramp:RETO.sol.ramp,
     comp:RETO.sol.comp, coste:RETO.sol.coste, tCiclo:RETO.sol.tCiclo, disp:RETO.sol.disp,
-    pPico:RETO.sol.pPico}:null, ejes:{...RETO.ejes}}),
+    pPico:RETO.sol.pPico}:null, ejes:{...RETO.ejes}, intentos:RETO.intentos, agotado:RETO.agotado,
+    comprobado:RETO.comprobado, pistas:RETO.pistas.map(p=>({...p}))}),
+  intentos:()=>RETO.intentos, pistas:()=>RETO.pistas.map(p=>({...p})),
   retoSet:(valv,dith,ramp,comp)=>{
     if(valv)RETO.cfg.valv=valv; if(dith)RETO.cfg.dith=dith;
     if(ramp!==undefined&&ramp!==null)RETO.cfg.ramp=Number(ramp); if(comp)RETO.cfg.comp=comp;
-    RETO.msg=''; RETO.resuelto=false; afterEdit();
+    RETO.msg=''; RETO.resuelto=false; solved=false; RETO.comprobado=false; afterEdit();
   },
   retoEst:e=>{ ST.reto.est=e; retoSolveBuild(true); afterEdit(); },
   check:()=>checkReto(),

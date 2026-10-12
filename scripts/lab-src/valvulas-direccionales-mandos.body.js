@@ -361,6 +361,9 @@ let mdIdx=0, mdVal='v32nc', mdAcc='pulsMuelle', mdFase='reposo';   // modo MANDO
 let arIdx=2, arCon='ok', arSin=false;                       // modo AIRE
 let retoK=0, retoCh=null;                                   // modo RETO
 let retoChecked=false, retoOkVal=false, retoOkAcc=false, retoOkCon=false, retoSolved=false, retoMsg='';
+// Política de fallos: sin revelar la respuesta; a los MAX_INTENTOS fallos la estación se renueva.
+const MAX_INTENTOS=3;
+let retoIntentos=0, retoAgotado=false;
 let solved=false, autoRunning=false, QUIZ={};
 let animT=0, animP=0;
 
@@ -372,6 +375,17 @@ function seedReto(k){
   retoK=(k==null)?pickIdx(POOL.length,retoK):k;
   retoCh=startCfg(retoSc());      // arranca deliberadamente MAL en los tres ejes
   retoChecked=false;retoOkVal=false;retoOkAcc=false;retoOkCon=false;retoSolved=false;retoMsg='';
+  retoIntentos=0;retoAgotado=false;
+  guardaEst();
+}
+// Los modos MANDO y SIN AIRE ponen "el mando correcto" de la estación elegida: la estación del reto
+// sin resolver no se puede abrir ahí, porque sería enseñar su respuesta. Devuelve true si movió algo.
+const retoBloq=i=>i===retoK&&!retoSolved;
+function guardaEst(){
+  let m=false;
+  if(retoBloq(mdIdx)){mdIdx=(mdIdx+1)%POOL.length;m=true;}
+  if(retoBloq(arIdx)){arIdx=(arIdx+1)%POOL.length;m=true;}
+  return m;
 }
 seedReto(0);
 
@@ -854,12 +868,12 @@ function drawReto(c){
 
   // diagnóstico
   const dy=y+32+4*26+14;
-  const bienTodo=validaTerna(sc,cfg);
+  const bienTodo=retoChecked&&retoSolved;      // sin veredicto hasta Comprobar
   c.fillStyle=hexA(bienTodo?OK_HEX:WARN_HEX,0.08);c.fillRect(30,dy,650,64);
   c.strokeStyle=hexA(bienTodo?OK_HEX:WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,dy,650,64);
   c.fillStyle=bienTodo?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
   wrapText(c,bienTodo?'Terna válida y mínima: '+VALVULAS[cfg.valv].sig+' con '+ACC[cfg.acc].simb+' y conexionado '+CONEXIONES[cfg.conex].nom.toLowerCase()+'.'
-    :'De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo sólo una es válida y mínima en esta estación. Corrige los ejes marcados.',46,dy+24,618,18);
+    :'De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo sólo una es válida y mínima en esta estación. '+(retoChecked?'Corrige los ejes marcados. Fallos: '+retoIntentos+' de '+MAX_INTENTOS+(retoAgotado?': la próxima acción renueva la estación.':'.'):'Arma tu propuesta y pulsa Comprobar: no hay veredicto en vivo.'),46,dy+24,618,18);
 
   // panel derecho
   rpanel(c,PX.x,PX.y,PX.w,206,'Calificación por ejes');
@@ -867,12 +881,17 @@ function drawReto(c){
   prow(c,PX.x,yr,PX.w,'Válvula',retoChecked?(okValvEje(sc,cfg.valv)?'✓':'✗'):'—',retoChecked?(okValvEje(sc,cfg.valv)?OK_HEX:BAD_HEX):GRIS);yr+=30;
   prow(c,PX.x,yr,PX.w,'Accionamiento',retoChecked?(okAccEje(sc,cfg.acc)?'✓':'✗'):'—',retoChecked?(okAccEje(sc,cfg.acc)?OK_HEX:BAD_HEX):GRIS);yr+=30;
   prow(c,PX.x,yr,PX.w,'Conexionado',retoChecked?(okConEje(sc,cfg.conex)?'✓':'✗'):'—',retoChecked?(okConEje(sc,cfg.conex)?OK_HEX:BAD_HEX):GRIS);yr+=30;
-  prow(c,PX.x,yr,PX.w,'Criterios internos',(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'),e.ok?OK_HEX:WARN_HEX);yr+=30;
-  prow(c,PX.x,yr,PX.w,'Coste mínimo',costoMin(sc)+' / el tuyo '+VALVULAS[cfg.valv].costo,VALVULAS[cfg.valv].costo===costoMin(sc)?OK_HEX:WARN_HEX);
+  prow(c,PX.x,yr,PX.w,'Criterios internos',retoChecked?(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'):'—',retoChecked?(e.ok?OK_HEX:WARN_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Fallos',retoIntentos+' de '+MAX_INTENTOS,retoIntentos?WARN_HEX:GRIS);
 
   rpanel(c,PX.x,296,PX.w,262,'Por qué no otra válvula');
   let yv=332;
-  VALK.forEach(k=>{
+  if(!retoSolved){
+    c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'Este panel compara una por una las válvulas del catálogo: es justo lo que el reto te pide descubrir, así que se abre cuando lo resuelvas.',PX.x+16,yv+10,PX.w-32,17);
+    yv=1e5;
+  }
+  if(retoSolved) VALK.forEach(k=>{
     const oo=okValvEje(sc,k),on=k===cfg.valv;
     prow(c,PX.x,yv,PX.w,VALVULAS[k].sig+(on?' ◂':''),oo?'válida y mínima':(evalua(sc,cfgWith(sc,{valv:k})).ok?'válida pero de más':'no sirve'),oo?OK_HEX:(evalua(sc,cfgWith(sc,{valv:k})).ok?WARN_HEX:BAD_HEX));
     yv+=28;
@@ -1128,6 +1147,7 @@ const MODE_META={
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
 const EST_OPTS=()=>POOL.map((p,i)=>[i,p.id]);
+const EST_OPTS_L=()=>POOL.map((p,i)=>[i,(retoBloq(i)?'🔒 ':'')+p.id]);   // en MANDO y SIN AIRE, la del reto va marcada
 const VAL_OPTS=VALK.map(k=>[k,VALVULAS[k].sig]);
 const ACC_OPTS=ACCK.map(k=>[k,ACC[k].nom.split(' ')[0]+(ACC[k].mandos===2?' ×2':'')]);
 const CON_OPTS=CONK.map(k=>[k,k==='ok'?'convención':k==='cruzado'?'cruzado':'escapes tapados']);
@@ -1142,12 +1162,12 @@ function buildControls(){
     html+=lbl('Posición:')+optBtns('vp',POS_OPTS(viVal),Math.min(viPos,VALVULAS[viVal].np-1));
     html+=lbl('Cilindro:')+optBtns('vi',EST_OPTS(),viIdx);
   }else if(mode==='mando'){
-    html+=lbl('Estación:')+optBtns('mi',EST_OPTS(),mdIdx);
+    html+=lbl('Estación:')+optBtns('mi',EST_OPTS_L(),mdIdx);
     html+=lbl('Válvula:')+optBtns('mv',VAL_OPTS,mdVal);
     html+=lbl('Accionamiento:')+optBtns('ma',ACC_OPTS,mdAcc);
     html+=lbl('Fase:')+optBtns('mf',FASE_OPTS,mdFase);
   }else if(mode==='aire'){
-    html+=lbl('Estación:')+optBtns('ai',EST_OPTS(),arIdx);
+    html+=lbl('Estación:')+optBtns('ai',EST_OPTS_L(),arIdx);
     html+=lbl('Conexionado:')+optBtns('ac',CON_OPTS,arCon);
     html+=lbl('Red:')+optBtns('as',[[0,'con presión'],[1,'despresurizada']],arSin?1:0);
   }else{
@@ -1159,11 +1179,11 @@ function buildControls(){
   bar.querySelectorAll('[data-vv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viVal=b.dataset.vv;viPos=Math.min(viPos,VALVULAS[viVal].np-1);beep();afterEdit();});
   bar.querySelectorAll('[data-vp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viPos=+b.dataset.vp;beep();afterEdit();});
   bar.querySelectorAll('[data-vi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viIdx=+b.dataset.vi;beep();afterEdit();});
-  bar.querySelectorAll('[data-mi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdIdx=+b.dataset.mi;beep();afterEdit();});
+  bar.querySelectorAll('[data-mi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;if(retoBloq(+b.dataset.mi)){showToast('🔒 Esa es la estación de tu reto: su mando correcto es la respuesta. Se abre cuando lo resuelvas.');return;}mdIdx=+b.dataset.mi;beep();afterEdit();});
   bar.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdVal=b.dataset.mv;beep();afterEdit();});
   bar.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdAcc=b.dataset.ma;beep();afterEdit();});
   bar.querySelectorAll('[data-mf]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdFase=b.dataset.mf;beep();afterEdit();});
-  bar.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arIdx=+b.dataset.ai;beep();afterEdit();});
+  bar.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>{if(autoRunning)return;if(retoBloq(+b.dataset.ai)){showToast('🔒 Esa es la estación de tu reto: en este modo la válvula y el mando ya vienen puestos, y sería enseñarte la respuesta. Se abre cuando lo resuelvas.');return;}arIdx=+b.dataset.ai;beep();afterEdit();});
   bar.querySelectorAll('[data-ac]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arCon=b.dataset.ac;beep();afterEdit();});
   bar.querySelectorAll('[data-as]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arSin=b.dataset.as==='1';beep();afterEdit();});
   bar.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('valv',b.dataset.rv);});
@@ -1171,6 +1191,7 @@ function buildControls(){
   bar.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('conex',b.dataset.rc);});
 }
 function retoSet(field,v){
+  if(retoAgotado){seedReto(null);showToast('🎯 Tres comprobaciones fallidas: estación nueva, '+retoSc().nom+'. Los tres ejes arrancan mal a propósito.');beep();afterEdit();return;}
   retoCh[field]=v;
   retoChecked=false;retoOkVal=false;retoOkAcc=false;retoOkCon=false;retoSolved=false;retoMsg='';solved=false;
   beep();afterEdit();
@@ -1181,9 +1202,10 @@ function updateScenarioInfo(){
   box.style.display='block';
   box.innerHTML=`<b>${sc.nom}</b> · ${CILS[sc.cil].nom} Ø${sc.D} a ${sc.p} bar · orden ${ORIGEN_TXT[sc.origen]} ${CLASE_TXT[sc.clase]}`;
 }
-function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
+function afterEdit(){guardaEst();buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
 
 function setMode(k){
+  guardaEst();
   mode=k;
   ['vias','mando','aire','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
@@ -1201,10 +1223,10 @@ function newSignal(){
     viVal=VALK[pickIdx(VALK.length,VALK.indexOf(viVal))];viPos=0;
     showToast('🔢 Válvula nueva: '+VALVULAS[viVal].nom+' — '+VALVULAS[viVal].vias+' vías y '+VALVULAS[viVal].np+' posiciones.');
   }else if(mode==='mando'){
-    mdIdx=pickIdx(POOL.length,mdIdx);mdVal=GOOD(POOL[mdIdx]).valv;mdAcc=GOOD(POOL[mdIdx]).acc;mdFase='orden';
+    do{mdIdx=pickIdx(POOL.length,mdIdx);}while(retoBloq(mdIdx));mdVal=GOOD(POOL[mdIdx]).valv;mdAcc=GOOD(POOL[mdIdx]).acc;mdFase='orden';
     showToast('🎛️ Estación nueva: '+POOL[mdIdx].nom+'. Se ha puesto el mando correcto; prueba a estropearlo.');
   }else if(mode==='aire'){
-    arIdx=pickIdx(POOL.length,arIdx);arCon='ok';arSin=false;
+    do{arIdx=pickIdx(POOL.length,arIdx);}while(retoBloq(arIdx));arCon='ok';arSin=false;
     showToast('💨 Estación nueva: '+POOL[arIdx].nom+'. Quita el aire y mira qué queda sosteniendo el vástago.');
   }else{
     seedReto(null);
@@ -1243,7 +1265,8 @@ function updateTele(){
     h+=teleRow('Válvula',V.sig,retoChecked?(okValvEje(sc,cfg.valv)?'ok':'bad'):'');
     h+=teleRow('Accionamiento',ACC[cfg.acc].nom.split(' ')[0],retoChecked?(okAccEje(sc,cfg.acc)?'ok':'bad'):'');
     h+=teleRow('Conexionado',CONEXIONES[cfg.conex].nom.split(' ')[0],retoChecked?(okConEje(sc,cfg.conex)?'ok':'bad'):'');
-    h+=teleRow('Criterios F·M·T·R',(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'),e.ok?'ok':'');
+    h+=teleRow('Criterios F·M·T·R',retoChecked?(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'):'sin comprobar',retoChecked&&e.ok?'ok':'');
+    h+=teleRow('Fallos',retoIntentos+' de '+MAX_INTENTOS,retoAgotado?'bad':'');
   }
   el('tele').innerHTML=h;
 }
@@ -1276,7 +1299,8 @@ function updateRetoSpec(){
   el('retoSpec').innerHTML=`<b>${sc.nom}</b> · ${CILS[sc.cil].nom} Ø${sc.D} a ${sc.p} bar.<br>`+
     `Con la orden: <b>${sc.movOrden}</b> · al soltar: <b>${sc.trasSoltar}</b>`+
     (sc.alFaltarAire?` · sin aire: <b>${sc.alFaltarAire}</b>`:' · sin aire: no se declara')+`.<br>`+
-    `Propuesta: ${VALVULAS[cfg.valv].sig} + ${ACC[cfg.acc].nom.split(' ')[0]} + ${CONEXIONES[cfg.conex].nom.split(' ')[0]}.`;
+    `Propuesta: ${VALVULAS[cfg.valv].sig} + ${ACC[cfg.acc].nom.split(' ')[0]} + ${CONEXIONES[cfg.conex].nom.split(' ')[0]}.<br>`+
+    `<span style="color:var(--muted)">Fallos: ${retoIntentos} de ${MAX_INTENTOS}${retoAgotado?' · estación agotada: la próxima acción la renueva':''}</span>`;
 }
 function retoExplain(){
   const sc=retoSc(),cfg=retoCfg();
@@ -1284,17 +1308,20 @@ function retoExplain(){
   return ws.join(' · ');
 }
 function checkReto(){
+  if(retoAgotado){seedReto(null);showToast('🎯 Tres comprobaciones fallidas: estación nueva, '+retoSc().nom+'. Los tres ejes arrancan mal a propósito.');afterEdit();return;}
   const sc=retoSc(),cfg=retoCfg();
   retoOkVal=okValvEje(sc,cfg.valv);
   retoOkAcc=okAccEje(sc,cfg.acc);
   retoOkCon=okConEje(sc,cfg.conex);
   retoSolved=retoOkVal&&retoOkAcc&&retoOkCon&&validaTerna(sc,cfg);
   retoChecked=true;solved=retoSolved;
+  if(!retoSolved){retoIntentos++;if(retoIntentos>=MAX_INTENTOS)retoAgotado=true;}
   synth.beep(retoSolved?1046:220,0.10,0.05);
   retoMsg=retoSolved
     ?`${VALVULAS[cfg.valv].sig} con ${ACC[cfg.acc].simb} y conexionado ${CONEXIONES[cfg.conex].nom.toLowerCase()}: la orden ${sc.movOrden}, al soltar queda ${sc.trasSoltar} y es la válvula más simple que lo consigue.`
-    :retoExplain();
+    :retoExplain()+' Fallo '+retoIntentos+' de '+MAX_INTENTOS+(retoAgotado?': la próxima vez se renueva la estación.':'.');
   refreshAll();
+  if(mode==='reto')updateRetoSpec();
 }
 function retoSolveBuild(){const g=GOOD(retoSc());retoCh={valv:g.valv,acc:g.acc,conex:g.conex};}
 
@@ -1302,28 +1329,28 @@ function retoSolveBuild(){const g=GOOD(retoSc());retoCh={valv:g.valv,acc:g.acc,c
 function buildQuiz(){
   QUIZ={
     vias:{pregunta:'En una 5/2, ¿qué puerto es el escape de la salida de trabajo 4?',opciones:[
-      {t:'El 5',ok:true,why:'Correcto: cada salida tiene su escape propio. El 3 vacía la 2 y el 5 vacía la 4.'},
-      {t:'El 3',ok:false,why:'El 3 es el escape de la salida 2, no de la 4.'},
-      {t:'El 1',ok:false,why:'El 1 es la alimentación: por ahí entra el aire de red, no sale.'},
-      {t:'No tiene: las dos salidas comparten escape',ok:false,why:'Eso sería una 4/2. Precisamente la quinta vía es el segundo escape.'},
+      {t:'El 5: es el segundo escape, el que vacía la salida 4',ok:true,why:'Correcto: cada salida tiene su escape propio. El 3 vacía la 2 y el 5 vacía la 4.'},
+      {t:'El 3: es el escape que comparten las dos salidas de trabajo',ok:false,why:'El 3 es el escape de la salida 2, no de la 4.'},
+      {t:'El 1: es el puerto por el que sale el aire de la salida 4',ok:false,why:'El 1 es la alimentación: por ahí entra el aire de red, no sale.'},
+      {t:'No tiene: las dos salidas comparten escape, como en una 4/2',ok:false,why:'Eso sería una 4/2. Precisamente la quinta vía es el segundo escape.'},
     ]},
     mando:{pregunta:'Montas una 5/2 biestable con UN solo solenoide y retiras la señal. ¿Qué ocurre?',opciones:[
       {t:'Se queda en la posición en la que estaba y nadie puede devolverla',ok:true,why:'Correcto: una biestable no tiene muelle. Con un solo mando la válvula queda pegada; por eso exige dos órdenes.'},
-      {t:'Vuelve sola a la posición de reposo',ok:false,why:'Eso lo hace una monoestable, que sí lleva muelle de retorno.'},
-      {t:'Se pone en el centro y bloquea las dos cámaras',ok:false,why:'No hay centro: una 5/2 tiene dos posiciones. El centro es cosa de las 5/3.'},
-      {t:'Vibra entre las dos posiciones',ok:false,why:'No hay nada que la empuje: el carrete se queda quieto donde estaba.'},
+      {t:'Vuelve sola a la posición de reposo gracias al muelle de retorno',ok:false,why:'Eso lo hace una monoestable, que sí lleva muelle de retorno.'},
+      {t:'Se pone en el centro y bloquea las dos cámaras del cilindro',ok:false,why:'No hay centro: una 5/2 tiene dos posiciones. El centro es cosa de las 5/3.'},
+      {t:'Vibra entre las dos posiciones hasta que vuelve la señal',ok:false,why:'No hay nada que la empuje: el carrete se queda quieto donde estaba.'},
     ]},
     aire:{pregunta:'Un cilindro de doble efecto con 5/2 monoestable, sin muelle de cilindro. Se despresuriza la red. ¿Dónde queda el vástago?',opciones:[
-      {t:'Sin fuerza en las dos cámaras: lo decide la carga',ok:true,why:'Correcto: la válvula ya no puede empujar nada. Un doble efecto no tiene posición definida sin aire; la única cosa que sostiene una posición es un muelle.'},
-      {t:'Vuelve a la posición de reposo de la válvula',ok:false,why:'La válvula conmuta, pero sin presión de red ninguna posición mueve nada.'},
-      {t:'Se bloquea donde esté, porque el aire queda atrapado',ok:false,why:'Con escapes libres el aire se va. Y aunque quedara atrapado, la ISO 4414 no lo admite como medio de retención.'},
-      {t:'Sale del todo por la fuerza diferencial',ok:false,why:'La fuerza diferencial existe con las DOS cámaras a presión, no con la red vacía.'},
+      {t:'Sin fuerza en las dos cámaras: lo decide la carga y su peso',ok:true,why:'Correcto: la válvula ya no puede empujar nada. Un doble efecto no tiene posición definida sin aire; la única cosa que sostiene una posición es un muelle.'},
+      {t:'Vuelve a la posición de reposo que fija el muelle de la válvula',ok:false,why:'La válvula conmuta, pero sin presión de red ninguna posición mueve nada.'},
+      {t:'Se bloquea donde esté, porque el aire atrapado lo retiene',ok:false,why:'Con escapes libres el aire se va. Y aunque quedara atrapado, la ISO 4414 no lo admite como medio de retención.'},
+      {t:'Sale del todo empujado por la fuerza diferencial residual',ok:false,why:'La fuerza diferencial existe con las DOS cámaras a presión, no con la red vacía.'},
     ]},
     reto:{pregunta:'¿Por qué el catálogo industrial está dominado por las 3/2 normalmente cerradas y no por las normalmente abiertas?',opciones:[
       {t:'Porque el estado sin señal debe ser el seguro, y en la mayoría de máquinas el estado seguro es sin presión',ok:true,why:'Correcto: es una decisión de seguridad, no de precio. La NA se reserva a los casos en que el estado seguro sí está presurizado, como un tope que debe bloquear una línea.'},
-      {t:'Porque una NA consume más aire',ok:false,why:'El consumo depende del cilindro y del ciclo, no de si la válvula es NC o NA.'},
-      {t:'Porque una NA no puede mandar un cilindro de simple efecto',ok:false,why:'Sí puede: cambia la posición de reposo, no la capacidad de mandar.'},
-      {t:'Porque la ISO 1219-1 sólo normaliza la NC',ok:false,why:'La norma da símbolos para las dos: no prescribe cuál usar.'},
+      {t:'Porque la NA consume más aire de red en cada ciclo de trabajo, y eso encarece toda la instalación',ok:false,why:'El consumo depende del cilindro y del ciclo, no de si la válvula es NC o NA.'},
+      {t:'Porque una NA no puede mandar un cilindro de simple efecto, y la mayoría de los cilindros industriales lo son',ok:false,why:'Sí puede: cambia la posición de reposo, no la capacidad de mandar.'},
+      {t:'Porque la ISO 1219-1 sólo normaliza el símbolo de la NC, y el de la NA no tiene representación oficial',ok:false,why:'La norma da símbolos para las dos: no prescribe cuál usar.'},
     ]},
   };
   Object.keys(QUIZ).forEach(k=>{
@@ -1379,12 +1406,25 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+// Sólo para la demostración del recorrido: muestra la calificación por ejes sin resolver ni puntuar nada.
+function demoCheck(){
+  const sc=retoSc(),cfg=retoCfg();
+  retoOkVal=okValvEje(sc,cfg.valv);retoOkAcc=okAccEje(sc,cfg.acc);retoOkCon=okConEje(sc,cfg.conex);
+  retoChecked=true;retoSolved=false;solved=false;
+  retoMsg=retoExplain();
+  refreshAll();if(mode==='reto')updateRetoSpec();
+}
 async function runAuto(){
   if(autoRunning)return;
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // Es una DEMOSTRACIÓN: no resuelve ni puntúa el reto del alumno y se lo devuelve como estaba. Además
+  // salta los pasos que enseñarían el mando correcto de SU estación mientras no la haya resuelto.
+  const snap={k:retoK,ch:{...retoCh},checked:retoChecked,ov:retoOkVal,oa:retoOkAcc,oc:retoOkCon,solved:retoSolved,msg:retoMsg,
+    int:retoIntentos,ag:retoAgotado,sol:solved};
+  const sk=i=>!snap.solved&&i===snap.k;
   try{
     // ---------- VÍAS ----------
     setMode('vias');
@@ -1397,67 +1437,88 @@ async function runAuto(){
     viVal='v52m';viPos=0;afterEdit();
     showToast('🔢 La 5/2 no añade una vía: añade DOS salidas con escape propio. El 3 vacía la 2 y el 5 vacía la 4. El pilotaje 14 conecta 1 con 4; el 12, 1 con 2.');
     await sleep(4800);
+    if(!sk(4)){
     viVal='v53c';viPos=1;viIdx=4;afterEdit();
     const camsC=camaras(POOL[4],{valv:'v53c',acc:'solenoideDoble',conex:'ok'},1,false);
     showToast('🔢 El centro cerrado no comunica NADA: sus dos salidas quedan '+EST_ABR[camsC.tras]+' y '+EST_ABR[camsC.anu]+'. Eso es lo que permite parar a media carrera… y es también aire atrapado.');
     await sleep(4800);
+    }
 
     // ---------- MANDO ----------
     setMode('mando');
+    if(!sk(0)){
     mdIdx=0;mdVal='v32nc';mdAcc='pulsMuelle';mdFase='orden';afterEdit();
     const Fav0=fUtil(areaEmb(POOL[0].D),POOL[0].p),Fm0a=fMuelle(POOL[0].D,MUELLE_MIN),Fm0b=fMuelle(POOL[0].D,MUELLE_MAX);
     showToast('🎛️ Expulsor: pulsador con retorno por muelle, orden momentánea. El Ø'+POOL[0].D+' da '+f1(Fav0,1)+' N útiles, pero el muelle se lleva entre '+f1(Fm0a,1)+' y '+f1(Fm0b,1)+' N: queda de '+f1(Fav0-Fm0b,1)+' a '+f1(Fav0-Fm0a,1)+' N. El catálogo da un RANGO, no una cifra.');
     await sleep(5200);
+    }
+    if(!sk(1)){
     mdIdx=1;mdVal='v32nc';mdAcc='rodillo';mdFase='soltada';afterEdit();
     showToast('🎛️ La MISMA 3/2 NC, y el tope queda FUERA al soltar en vez de dentro: lo que cambió es el muelle del cilindro, que aquí avanza. La válvula no decide la posición de reposo por sí sola.');
     await sleep(5000);
+    }
+    if(!sk(3)){
     mdIdx=3;mdVal='v52b';mdAcc='pilotoDoble';mdFase='soltada';afterEdit();
     const camsM=camaras(POOL[3],{valv:'v52b',acc:'pilotoDoble',conex:'ok'},1,false);
     showToast('🎛️ Mordaza: la 5/2 biestable recuerda el pulso y deja la cámara motriz '+EST_ABR[camsM.tras]+'. Sigue apretando con '+f1(fUtil(areaEmb(POOL[3].D),POOL[3].p),1)+' N. Memoria, no fuerza extra.');
     await sleep(5000);
+    }
+    if(!sk(4)){
     mdIdx=4;mdVal='v53c';mdAcc='solenoideMuelle';mdFase='soltada';afterEdit();
     showToast('🎛️ Elevador con un solo solenoide sobre la 5/3: '+whyAcc(POOL[4],'solenoideMuelle')+' Contar órdenes es parte de elegir la válvula.');
     await sleep(4800);
+    }
 
     // ---------- SIN AIRE ----------
     setMode('aire');
+    if(!sk(2)){
     arIdx=2;arCon='ok';arSin=true;afterEdit();
     const cams2=camaras(POOL[2],GOOD(POOL[2]),posicion(GOOD(POOL[2]).valv,GOOD(POOL[2]).acc,'soltada'),true);
     showToast('💨 Barrera de doble efecto y red despresurizada: las dos cámaras quedan '+EST_ABR[cams2.tras]+' y '+EST_ABR[cams2.anu]+'. '+VER_TXT[veredicto(POOL[2],cams2)]+': la barrera cae por su propio peso. Sólo un muelle sostiene una posición.');
     await sleep(5200);
+    }
+    if(!sk(4)){
     arIdx=4;arSin=true;afterEdit();
     const cams4=camaras(POOL[4],GOOD(POOL[4]),posicion(GOOD(POOL[4]).valv,GOOD(POOL[4]).acc,'soltada'),true);
     showToast('💨 El elevador con centro cerrado guarda la POSICIÓN, no la presión: sus cámaras quedan '+EST_ABR[cams4.tras]+' y '+EST_ABR[cams4.anu]+'. ISO 4414: el aire atrapado no es un medio de retención para una carga suspendida.');
     await sleep(5200);
+    }
+    if(!sk(2)){
     arIdx=2;arSin=false;arCon='cruzado';afterEdit();
     const conOk2=CONK.filter(k=>okConEje(POOL[2],k));
     showToast('💨 Y aquí cruzar las salidas NO es una avería: de los '+CONK.length+' conexionados del banco la barrera sólo funciona con '+conOk2.length+', el cruzado. Es la única forma de que una 5/2 monoestable deje el vástago '+POOL[2].trasSoltar+' —la barrera BAJADA— al retirar la orden.');
     await sleep(4600);
+    }
+    if(!sk(0)){
     arIdx=0;arCon='tapado';afterEdit();
     showToast('💨 '+whyCon(POOL[0],'tapado')+' En un doble efecto, en cambio, no se movería ni al dar la orden: son dos averías distintas.');
     await sleep(5000);
+    }
+    if(!sk(4)){
     arIdx=4;arCon='ok';arSin=false;afterEdit();
     const sc4=POOL[4],Fd=fDifer(sc4.D,sc4.p),Fa=fUtil(areaEmb(sc4.D),sc4.p);
     showToast('💨 Y si las dos cámaras se presurizan a la vez, el cilindro no se bloquea: sale con la fuerza del ÁREA DEL VÁSTAGO, '+f1(Fd,1)+' N frente a '+f1(Fa,1)+' N, '+f1(Fa/Fd,2)+' veces menos.');
     await sleep(5000);
+    }
 
-    // ---------- RETO ----------
+    // ---------- RETO: demostración sobre OTRA estación; no toca ni resuelve la tuya ----------
     setMode('reto');
-    seedReto(0);afterEdit();
-    showToast('🎯 Reto: '+retoSc().nom+'. Los tres ejes arrancan mal a propósito: '+VALVULAS[retoCh.valv].sig+', '+ACC[retoCh.acc].nom.split(' ')[0]+', '+CONEXIONES[retoCh.conex].nom.toLowerCase()+'.');
+    const demoK=[0,1,2,3,4].find(i=>i!==snap.k);
+    seedReto(demoK);afterEdit();
+    showToast('🎯 Demostración del reto en otra estación, no en la tuya: '+retoSc().nom+'. Los tres ejes arrancan mal a propósito: '+VALVULAS[retoCh.valv].sig+', '+ACC[retoCh.acc].nom.split(' ')[0]+', '+CONEXIONES[retoCh.conex].nom.toLowerCase()+'.');
     await sleep(4600);
-    checkReto();
+    demoCheck();
     showToast('🎯 Comprobado en rojo: '+retoExplain());
     await sleep(5000);
-    retoSolveBuild();afterEdit();
+    retoSolveBuild();afterEdit();demoCheck();
     const g=GOOD(retoSc());
-    showToast('🎯 Terna válida y mínima: '+VALVULAS[g.valv].sig+' con '+ACC[g.acc].simb+' y conexionado '+CONEXIONES[g.conex].nom.toLowerCase()+'. De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo, sólo una lo consigue en esta estación.');
-    await sleep(4800);
-    checkReto();
-    await sleep(600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('🎯 Terna válida y mínima de esta estación: '+VALVULAS[g.valv].sig+' con '+ACC[g.acc].simb+' y conexionado '+CONEXIONES[g.conex].nom.toLowerCase()+'. De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo, sólo una lo consigue. Esto es sólo la demostración: tu reto sigue como lo dejaste.');
+    await sleep(5200);
   }finally{
+    retoK=snap.k;retoCh={...snap.ch};retoChecked=snap.checked;retoOkVal=snap.ov;retoOkAcc=snap.oa;retoOkCon=snap.oc;
+    retoSolved=snap.solved;retoMsg=snap.msg;retoIntentos=snap.int;retoAgotado=snap.ag;solved=snap.sol;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    guardaEst();afterEdit();
   }
 }
 
@@ -1504,6 +1565,7 @@ window.__labDebug={
   retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,
   retoChecked:()=>retoChecked,retoOkVal:()=>retoOkVal,retoOkAcc:()=>retoOkAcc,retoOkCon:()=>retoOkCon,
   retoSolved:()=>retoSolved,retoGood:()=>GOOD(retoSc()),retoExplain,
+  intentos:()=>retoIntentos,retoAgotado:()=>retoAgotado,
   quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
   quizAnswer:answer,newSignal,
   solved:()=>solved,

@@ -66,6 +66,20 @@ function buildRetoCoil(coil,startRef,otherCoil,ch){
   else if(ch.lock==='NO')blocks.push([[{ref:otherCoil,type:'NO'}]]);
   return {coil,blocks};
 }
+// síntomas OBSERVABLES de una configuración (qué hace el programa), sin nombrar la opción correcta
+function retoSintomas(ch){
+  const R=retoRungs(ch);
+  const arranca=run(R,[{StartF:1}],['F','R'])[0].F===true;
+  const b=retoBehavior(ch);
+  const out=[];
+  if(!arranca)out.push('con Marcha la bobina no llega a energizarse');
+  else{
+    if(!b.reten)out.push('al soltar Marcha la bobina cae (se comporta como jog)');
+    if(!b.paro)out.push('el Paro no detiene la bobina como debe (arranca y se corta con Paro, y se queda parada)');
+  }
+  if(!b.lock)out.push('pulsando las dos marchas pueden energizarse F y R a la vez');
+  return {arranca,reten:b.reten,paro:b.paro,lock:b.lock,lista:out};
+}
 function retoRungs(ch){return [buildRetoCoil('F','StartF','R',ch),buildRetoCoil('R','StartR','F',ch)];}
 // pruebas de comportamiento sobre una configuración del Reto (feedback honesto)
 function retoBehavior(ch){
@@ -101,12 +115,15 @@ let retoCh={seal:'none',stop:'NO',lock:'none'};   // arranca sin resolver: fuerz
 let retoField='seal';                             // decisión que se edita
 let retoChecked=false,retoOkSeal=false,retoOkStop=false,retoOkLock=false,retoSolved=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+let intentos=0,demoShow=false,retoRot=0;   // intentos fallidos con el caso (3 → caso nuevo) · demostración sin tocar el reto · rotación del orden de opciones
 let hwStep=0,hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
 function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
 function seedReto(idx){
+  retoRot=(idx==null)?Math.floor(Math.random()*3):0;      // sorteo propio: el orden de las opciones cambia con el caso
   retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
+  intentos=0;
   retoCh={seal:'none',stop:'NO',lock:'none'};
   retoField='seal';
   retoChecked=false;retoOkSeal=false;retoOkStop=false;retoOkLock=false;retoSolved=false;retoMsg='';
@@ -365,7 +382,7 @@ function drawReto(c){
   const p=RETO_POOL[retoIdx];
   c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';c.fillText('RETO · Diseña el ladder de inversión',30,42);
   c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
-  wrapText(c,'Programa el arranque-paro con inversión para '+p.ctx+'. Decide las tres piezas de cada rung: la rama de retención (sello), el contacto de Paro y el enclavamiento. Se califica cada decisión por separado.',30,64,660,18);
+  wrapText(c,'Programa el arranque-paro con inversión para '+p.ctx+'. Decide las tres piezas de cada rung: la rama de retención (sello), el contacto de Paro y el enclavamiento. Al comprobar se simula el programa y se describe qué hace.',30,64,660,18);
   // dibuja los dos rungs según las decisiones actuales
   drawRung(c,60,180,560,schemReto('F'),r=>false);
   drawRung(c,60,300,560,schemReto('R'),r=>false);
@@ -373,25 +390,31 @@ function drawReto(c){
   c.fillText('Vista del programa que estás diseñando (F arriba, R abajo). Ajústalo con los selectores del panel.',60,370);
   // calificación por decisión
   const dy=410;
-  drawDecision(c,40,dy,'Retención (sello)',retoCh.seal==='none'?'sin rama':(retoCh.seal==='NO'?'NO de la bobina':'NC de la bobina'),retoChecked,retoOkSeal);
-  drawDecision(c,40,dy+56,'Paro en serie',retoCh.stop==='NC'?'contacto NC':'contacto NO',retoChecked,retoOkStop);
-  drawDecision(c,40,dy+112,'Enclavamiento',retoCh.lock==='none'?'ninguno':(retoCh.lock==='NC'?'NC de la contraria':'NO de la contraria'),retoChecked,retoOkLock);
-  rpanel(c,PX.x,PX.y,PX.w,150,'CALIFICACIÓN');
-  prow(c,PX.x,PX.y+48,PX.w,'Retención',retoChecked?(retoOkSeal?'✓':'✗'):'—',retoChecked?(retoOkSeal?OK_HEX:BAD_HEX):'#6b7280');
-  prow(c,PX.x,PX.y+80,PX.w,'Paro',retoChecked?(retoOkStop?'✓':'✗'):'—',retoChecked?(retoOkStop?OK_HEX:BAD_HEX):'#6b7280');
-  prow(c,PX.x,PX.y+112,PX.w,'Enclavamiento',retoChecked?(retoOkLock?'✓':'✗'):'—',retoChecked?(retoOkLock?OK_HEX:BAD_HEX):'#6b7280');
+  drawDecision(c,40,dy,'Retención (sello)',retoCh.seal==='none'?'sin rama':(retoCh.seal==='NO'?'NO de la bobina':'NC de la bobina'),false,false);
+  drawDecision(c,40,dy+56,'Paro en serie',retoCh.stop==='NC'?'contacto NC':'contacto NO',false,false);
+  drawDecision(c,40,dy+112,'Enclavamiento',retoCh.lock==='none'?'ninguno':(retoCh.lock==='NC'?'NC de la contraria':'NO de la contraria'),false,false);
+  // el comportamiento solo se simula al comprobar (o en la demostración): sin veredicto en vivo
+  const vCh=retoChecked||demoShow, sy=vCh?retoSintomas(retoCh):null;
+  const vSol=demoShow?(sy.arranca&&sy.reten&&sy.paro&&sy.lock):retoSolved;
+  const cel=(ok)=>vCh?(ok?'✓':'✗'):'—', col=(ok)=>vCh?(ok?OK_HEX:BAD_HEX):'#6b7280';
+  rpanel(c,PX.x,PX.y,PX.w,150,'COMPORTAMIENTO SIMULADO');
+  prow(c,PX.x,PX.y+48,PX.w,'Retiene al soltar',vCh?cel(sy.arranca&&sy.reten):'—',vCh?col(sy.arranca&&sy.reten):'#6b7280');
+  prow(c,PX.x,PX.y+80,PX.w,'Paro detiene',vCh?cel(sy.arranca&&sy.paro):'—',vCh?col(sy.arranca&&sy.paro):'#6b7280');
+  prow(c,PX.x,PX.y+112,PX.w,'F y R excluyentes',vCh?cel(sy.lock):'—',vCh?col(sy.lock):'#6b7280');
   const by=PX.y+170;
-  if(retoChecked){
+  if(vCh){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,310);
-    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,310);
-    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
-    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX.x+14,by+52,PX.w-28,17);
+    c.strokeStyle=vSol?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,310);
+    c.fillStyle=vSol?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(vSol?(demoShow?'✔ CORRECTO (demostración)':'✔ CORRECTO'):'✗ REVISA',PX.x+14,by+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(vSol),PX.x+14,by+52,PX.w-28,17);
+    if(!demoShow){c.fillStyle='#7a8494';c.fillText('Intentos fallidos con este caso: '+intentos+' / 3',PX.x+14,by+290);}
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,310);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,310);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Un arranque-paro seguro necesita: (1) retención por sello para no depender del botón; (2) Paro como contacto NC en serie, para que sea dominante; (3) enclavamiento con el NC de la bobina contraria, para que nunca giren ambos sentidos.',PX.x+14,by+26,PX.w-28,18);
+    wrapText(c,'El programa debe: (1) seguir energizado tras soltar el botón de Marcha; (2) detenerse con Paro aunque se pierda el cable del pulsador (falla segura) y no arrancar solo; (3) no permitir nunca los dos sentidos a la vez. Elige cada pieza de forma que se cumplan las tres.',PX.x+14,by+26,PX.w-28,18);
     c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Errores clásicos: sin sello (queda como jog), Paro con NO (el motor sólo corre mientras pulsas Paro) o sin enclavamiento (pueden cerrarse ambos contactores).',PX.x+14,by+140,PX.w-28,18);
+    wrapText(c,'Al comprobar se simula tu programa y se describe lo que hace. Tras 3 intentos fallidos el caso se renueva.',PX.x+14,by+150,PX.w-28,18);
+    c.fillText('Intentos fallidos con este caso: '+intentos+' / 3',PX.x+14,by+290);
   }
 }
 function drawDecision(c,x,y,title,val,checked,ok){
@@ -402,14 +425,13 @@ function drawDecision(c,x,y,title,val,checked,ok){
   c.fillStyle=checked?(ok?OK_HEX:BAD_HEX):'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';
   c.fillText(val+(checked?(ok?'  ✓':'  ✗'):''),x+w-16,y+28);
 }
-function retoExplain(){
-  if(retoSolved)return 'Programa correcto: cada bobina se retiene por su sello, el Paro NC es dominante y el NC de la contraria impide el arranque simultáneo. Éste es el patrón universal de arranque-paro con inversión (IEC 61131-3).';
-  let s='';
-  const b=retoBehavior(retoCh);
-  if(!retoOkSeal)s+='Retención: usa el contacto NO de la propia bobina en paralelo con la marcha ('+(b.reten?'':'ahora no se retiene: es un jog')+'). ';
-  if(!retoOkStop)s+='Paro: debe ser NC en serie para que sea dominante ('+(b.paro?'':'con NO el rung sólo conduce mientras se pulsa Paro: ni arranca con la marcha ni se puede parar')+'). ';
-  if(!retoOkLock)s+='Enclavamiento: falta el NC de la bobina contraria ('+(b.lock?'':'ahora pueden encenderse ambas')+'). ';
-  return s||'Revisa el programa.';
+function retoExplain(sol){
+  if(sol===undefined)sol=retoSolved;
+  if(sol)return 'Programa correcto: cada bobina se retiene por su sello, el Paro NC es dominante y el NC de la contraria impide el arranque simultáneo. Éste es el patrón universal de arranque-paro con inversión (IEC 61131-3).';
+  // Retroalimentación cualitativa: lo que HACE tu programa (simulado), sin nombrar el contacto correcto
+  const sy=retoSintomas(retoCh);
+  if(sy.lista.length)return 'Simulando tu programa: '+sy.lista.join('; ')+'. Piensa qué pieza del rung produce ese síntoma.';
+  return 'El programa se comporta bien en las pruebas, pero alguna pieza no es la del patrón normalizado de arranque-paro con inversión. Revisa el tipo de contacto de cada decisión.';
 }
 
 // ---- trazas ----
@@ -569,7 +591,7 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 const MODE_META={
   explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Conduce el ladder: pulsa Marcha y suéltala para ver el sello retener la bobina, y Paro para romperlo (NC dominante). En inversión, comprueba que hay que parar antes de invertir (enclavamiento).'},
   aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Compara el rung con sello contra el jog (sin sello) ante la misma secuencia, y lee la tabla de verdad del enclavamiento de inversión.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Diseña el ladder de inversión de un proceso: elige la rama de sello, el tipo de contacto del Paro y el enclavamiento. Se califica cada decisión.'},
+  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Diseña el ladder de inversión de un proceso: elige la rama de sello, el tipo de contacto del Paro y el enclavamiento. Al comprobar se simula tu programa.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){
@@ -596,12 +618,12 @@ function buildControls(){
     else html+=lbl('Enclav.:')+optBtns('rl',[['NC','NC de la contraria'],['NO','NO de la contraria'],['none','Sin enclavamiento']],retoCh.lock);
     bar.innerHTML=html;
     bar.querySelectorAll('[data-rf]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoField=b.dataset.rf;synth.beep(640,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.seal=b.dataset.rs;retoChecked=false;retoSolved=false;synth.beep(720,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.stop=b.dataset.rp;retoChecked=false;retoSolved=false;synth.beep(720,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rl]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.lock=b.dataset.rl;retoChecked=false;retoSolved=false;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.seal=b.dataset.rs;retoChecked=false;retoSolved=false;solved=false;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.stop=b.dataset.rp;retoChecked=false;retoSolved=false;solved=false;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rl]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCh.lock=b.dataset.rl;retoChecked=false;retoSolved=false;solved=false;synth.beep(720,0.05,0.04);afterEdit();});
   }
 }
-function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${cur===v?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+function optBtns(key,opts,cur){const k=retoRot%opts.length;opts=opts.slice(k).concat(opts.slice(0,k));return opts.map(([v,t])=>`<button class="b sm ${cur===v?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
 
 function updateScenarioInfo(){
   const box=el('scenarioInfo');
@@ -646,9 +668,8 @@ function updateTele(){
     const p=RETO_POOL[retoIdx];
     t.innerHTML=teleRow('Proceso',p.name)+
       teleRow('Editando',retoField==='seal'?'Retención':retoField==='stop'?'Paro':'Enclavamiento','good')+
-      teleRow('Sello',retoChecked?(retoOkSeal?'✓':'✗'):'—',retoChecked&&retoOkSeal?'good':'warn')+
-      teleRow('Paro',retoChecked?(retoOkStop?'✓':'✗'):'—',retoChecked&&retoOkStop?'good':'warn')+
-      teleRow('Enclav.',retoChecked?(retoOkLock?'✓':'✗'):'—',retoChecked&&retoOkLock?'good':'warn');
+      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'elige y comprueba',(retoChecked&&retoSolved)?'good':'warn')+
+      teleRow('Intentos fallidos',intentos+' / 3',intentos?'warn':'');
     return;
   }
   if(mode==='aplica'){
@@ -666,7 +687,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const p=RETO_POOL[retoIdx];
-    html+=retoMsg||`<span class="mono">${p.name}: elige cada pieza con los selectores. La solución robusta lleva sello (NO de la bobina), Paro NC en serie y NC de la contraria para enclavar. Comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">${p.name}: elige cada pieza con los selectores y comprueba. Tras 3 intentos fallidos el caso se renueva.</span>`;
   }else if(mode==='aplica'){
     if(apTopic==='sello')html+=`<span class="mono">La rama de sello (OR con la propia bobina) hace que, tras soltar Marcha, el rung se sostenga solo en el siguiente scan. Sin ella, la bobina cae al soltar (jog).</span>`;
     else html+=`<span class="mono">El NC de la bobina contraria en serie hace que F y R sean excluyentes. Ante marchas simultáneas desde reposo, gana el rung superior (F): el orden del scan resuelve el empate.</span>`;
@@ -689,7 +710,17 @@ function checkReto(){
   retoOkLock=retoCh.lock==='NC';
   retoSolved=retoOkSeal&&retoOkStop&&retoOkLock;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(retoSolved)}</span>`;
+  if(!retoSolved){
+    intentos++;
+    if(intentos>=3){
+      // 3 fallos: caso nuevo (no se aprueba por eliminación) y sin revelar la solución
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">✗ Revisa</span> — Tres intentos fallidos: el caso se renovó ('+RETO_POOL[retoIdx].name+'). Razona qué hace cada pieza antes de comprobar.</span>';
+      showToast('🔀 Tres intentos fallidos: nuevo proceso, '+RETO_POOL[retoIdx].name+'.');
+      afterEdit();return;
+    }
+  }
   refreshAll();
 }
 
@@ -699,28 +730,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Para qué sirve la rama de sello (contacto NO de la propia bobina en paralelo con el botón de marcha)?',
       opciones:[
-        {t:'Para que la bobina se RETENGA encendida tras soltar el botón de marcha (memoria por realimentación).',ok:true,why:'Correcto. Sin esa rama, la bobina sólo estaría ON mientras aprietas (jog). El OR con la propia bobina la sostiene en los scans siguientes.'},
-        {t:'Para apagar la bobina más rápido cuando se pulsa el paro.',ok:false,why:'No: el apagado lo hace el contacto NC de Paro en serie. El sello es lo contrario: MANTIENE encendido, no apaga.'},
-        {t:'Para invertir el sentido de giro del motor.',ok:false,why:'La inversión la dan dos bobinas (F y R) con enclavamiento, no el sello. El sello sólo aporta retención.'},
-        {t:'Para limitar la corriente de arranque del motor.',ok:false,why:'El ladder es lógica de mando (bobinas de contactores), no de potencia. La corriente de arranque se limita con arrancadores (estrella-triángulo, suave), no con un contacto de sello.'},
+        {t:'Para que la bobina se retenga encendida tras soltar la marcha, por realimentación de su propio estado.',ok:true,why:'Correcto. Sin esa rama, la bobina sólo estaría ON mientras aprietas (jog). El OR con la propia bobina la sostiene en los scans siguientes.'},
+        {t:'Para apagar la bobina con mayor rapidez cuando se pulsa el paro, cortando antes la alimentación del rung.',ok:false,why:'No: el apagado lo hace el contacto NC de Paro en serie. El sello es lo contrario: MANTIENE encendido, no apaga.'},
+        {t:'Para invertir el sentido de giro del motor cada vez que se vuelve a pulsar el botón de marcha en operación.',ok:false,why:'La inversión la dan dos bobinas (F y R) con enclavamiento, no el sello. El sello sólo aporta retención.'},
+        {t:'Para limitar la corriente de arranque del motor mientras la bobina del contactor permanece energizada.',ok:false,why:'El ladder es lógica de mando (bobinas de contactores), no de potencia. La corriente de arranque se limita con arrancadores (estrella-triángulo, suave), no con un contacto de sello.'},
       ],
     },
     aplica:{
       pregunta:'En la inversión de giro, ¿qué garantiza el contacto NC de la bobina contraria en serie con cada marcha?',
       opciones:[
-        {t:'Que F y R nunca conduzcan a la vez (enclavamiento): mientras una corre, la otra no puede arrancar.',ok:true,why:'Correcto. Es el enclavamiento por software; evita cerrar ambos contactores y cortocircuitar la red. Hay que parar antes de invertir.'},
-        {t:'Que el motor arranque más suave al invertir.',ok:false,why:'El enclavamiento es lógico (impide una combinación), no controla la rampa de arranque. La suavidad se logra con temporizadores o arrancadores, no con el NC.'},
-        {t:'Que la bobina se retenga sin necesidad de sello.',ok:false,why:'La retención la da la rama de sello, no el enclavamiento. Son piezas distintas del mismo rung.'},
-        {t:'Que el paro deje de ser necesario.',ok:false,why:'Al revés: por el enclavamiento hay que PARAR para poder invertir (soltar la bobina activa antes de energizar la otra).'},
+        {t:'Que F y R nunca conduzcan a la vez: mientras una de las dos bobinas está activa, la otra no puede arrancar.',ok:true,why:'Correcto. Es el enclavamiento por software; evita cerrar ambos contactores y cortocircuitar la red. Hay que parar antes de invertir.'},
+        {t:'Que el motor arranque con una rampa más suave al invertir el giro, evitando el pico de corriente del cambio.',ok:false,why:'El enclavamiento es lógico (impide una combinación), no controla la rampa de arranque. La suavidad se logra con temporizadores o arrancadores, no con el NC.'},
+        {t:'Que la bobina se mantenga energizada sin necesidad de sello, porque el NC realimenta el estado de la otra.',ok:false,why:'La retención la da la rama de sello, no el enclavamiento. Son piezas distintas del mismo rung.'},
+        {t:'Que el botón de paro deje de ser necesario, porque el cambio de sentido ya corta la bobina que estaba activa.',ok:false,why:'Al revés: por el enclavamiento hay que PARAR para poder invertir (soltar la bobina activa antes de energizar la otra).'},
       ],
     },
     reto:{
-      pregunta:'¿Por qué el Paro se cablea como contacto NC (normalmente cerrado) y no como NO?',
+      pregunta:'En el programa correcto de inversión, ¿qué ocurre si se pulsan Marcha ADELANTE y Marcha ATRÁS al mismo tiempo desde reposo?',
       opciones:[
-        {t:'Para que sea dominante y a prueba de fallos: en serie, abrir el NC corta el rung; y si se rompe el cable del pulsador, el motor se detiene (falla segura).',ok:true,why:'Correcto. El Paro NC en serie hace AND: pulsar (o perder el cable) abre el circuito y detiene. Un Paro NO no pararía si se cortara su cable: inseguro.'},
-        {t:'Porque un contacto NC conduce más corriente que uno NO.',ok:false,why:'No hay diferencia de capacidad de corriente por ser NO o NC; es lógica de mando. La razón es la lógica dominante y la falla segura.'},
-        {t:'Porque el NC hace que el motor arranque solo al energizar el PLC.',ok:false,why:'Eso sería un arranque involuntario peligroso. El arranque exige pulsar Marcha; el NC de Paro sólo permite que el rung conduzca cuando NO se pulsa Paro.'},
-        {t:'Porque con NC no hace falta la rama de sello.',ok:false,why:'Son independientes: el sello da retención; el Paro NC da el corte dominante. Se necesitan ambos.'},
+        {t:'Arranca solo ADELANTE: su rung se resuelve primero en el scan y, al evaluar el de ATRÁS, ya no puede energizarse.',ok:true,why:'Correcto. Los rungs se resuelven en orden y el de ATRÁS ya ve la bobina F actualizada en el mismo scan: la prioridad la da el orden de rung (lo muestra la tabla de Aplica).'},
+        {t:'Arranca solo ATRÁS, porque la última marcha que se pulsa dentro del scan siempre tiene prioridad sobre la anterior.',ok:false,why:'En un PLC no hay «último pulsado» dentro de un scan: las dos entradas se leen a la vez y el desempate lo da el ORDEN de los rungs, no el orden de las pulsaciones.'},
+        {t:'Arrancan las dos bobinas durante un scan y solo el enclavamiento de hardware evita el cortocircuito entre contactores.',ok:false,why:'Con el programa correcto las dos bobinas nunca valen 1 en el mismo scan. El enclavamiento de hardware es un refuerzo adicional, no lo que resuelve este empate.'},
+        {t:'No arranca ninguna: con ambas marchas pulsadas los dos contactos NC cruzados se abren y ningún rung conduce.',ok:false,why:'El NC de cada rung depende de la bobina contraria, que vale 0 al inicio del scan; el rung de F conduce primero y es el que cierra el paso al otro.'},
       ],
     },
   };
@@ -765,6 +796,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  // DEMOSTRACIÓN: guarda el estado del alumno y lo restituye (el reto jamás queda resuelto por el recorrido)
+  const prev={mode,expBlock,apTopic,retoIdx,retoCh:{...retoCh},retoField,retoChecked,retoOkSeal,retoOkStop,retoOkLock,retoSolved,retoMsg,intentos,retoRot,solved};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -801,19 +834,26 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('reto');
+    // DEMOSTRACIÓN: se simula sin pulsar «Comprobar»; el reto del alumno queda como estaba
     seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: diseñar el ladder de una banda reversible. Primero, un intento sin sello ni enclavamiento…');
-    await sleep(3400);
-    checkReto();
-    showToast('…sin sello queda como jog, y sin enclavamiento pueden encenderse ambos sentidos. Lo diseñamos bien.');
-    await sleep(3600);
+    retoCh={seal:'none',stop:'NO',lock:'none'};demoShow=true;afterEdit();
+    showToast('🎯 Demostración con '+RETO_POOL[retoIdx].name+'. Primero un diseño sin sello, con Paro NO y sin enclavamiento: se simula y se ve lo que hace.');
+    await sleep(4200);
+    showToast('…'+retoSintomas(retoCh).lista.join('; ')+'. Ahora lo diseñamos bien.');
+    await sleep(4200);
     retoCh={seal:'NO',stop:'NC',lock:'NC'};afterEdit();
-    showToast('✔ Sello NO, Paro NC y enclavamiento NC de la contraria. Comprobamos.');
-    await sleep(2600);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('✔ Sello NO, Paro NC y enclavamiento NC de la contraria. Esto es solo una demostración: tu reto sigue intacto.');
+    await sleep(3200);
+    demoShow=false;
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2400);
   }finally{
+    demoShow=false;
+    expBlock=prev.expBlock;apTopic=prev.apTopic;
+    retoIdx=prev.retoIdx;retoCh=prev.retoCh;retoField=prev.retoField;retoChecked=prev.retoChecked;retoOkSeal=prev.retoOkSeal;
+    retoOkStop=prev.retoOkStop;retoOkLock=prev.retoOkLock;retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;retoRot=prev.retoRot;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    setMode(prev.mode);
+    solved=(prev.mode==='reto')?retoSolved:false;
   }
 }
 
@@ -852,7 +892,7 @@ window.__labDebug={
   retoGet:()=>({...retoCh}),
   retoSet:(field,val)=>{retoCh[field]=val;retoChecked=false;retoSolved=false;afterEdit();},
   retoSolveBuild:()=>{retoCh={seal:'NO',stop:'NC',lock:'NC'};retoChecked=false;retoSolved=false;afterEdit();},
-  checkReto:()=>checkReto(),
+  checkReto:()=>checkReto(), intentos:()=>intentos, retoSintomas:()=>retoSintomas(retoCh),
   retoChecked:()=>retoChecked, retoOkSeal:()=>retoOkSeal, retoOkStop:()=>retoOkStop, retoOkLock:()=>retoOkLock, retoSolved:()=>retoSolved,
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},

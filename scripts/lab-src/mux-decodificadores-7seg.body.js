@@ -103,6 +103,7 @@ const RETO_POOL=[
 ];
 let retoIdx=0, retoData=[], retoEn=1, retoChecked=false, retoOkData=false, retoOkEnable=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let intentos=0, demoShow=false;      // intentos fallidos con el caso (3 → caso nuevo) · demostración sin tocar el reto
 // entrenador 3D
 let hwStep=0, hwT=0;
 
@@ -112,7 +113,7 @@ function resizeMuxData(){const N=1<<muxN;const nd=new Array(N).fill(0);for(let i
 function seedReto(idx){
   retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
   const f=RETO_POOL[retoIdx];const N=1<<f.n;
-  retoData=new Array(N).fill(0); retoEn=1;
+  retoData=new Array(N).fill(0); retoEn=1; intentos=0;
   retoChecked=false; retoOkData=false; retoOkEnable=false; retoSolved=false; retoMsg='';
 }
 seedReto(0);
@@ -427,36 +428,47 @@ function drawReto(c){
   // lo que tu MUX realiza
   const userMts=[];retoData.forEach((d,i)=>{if(d)userMts.push(i);});
   const rU=minimize(userMts,f.n,[]), rT=minimize(f.mts,f.n,[]);
+  // sin veredicto en vivo (ni «datos correctos n/N» ni colores de acierto): el veredicto llega con «Comprobar»
   rpanel(c,PX.x,PX.y,PX.w,150,'TU CONFIGURACIÓN');
-  const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
-  prow(c,PX.x,PX.y+56,PX.w,'Datos correctos',correct+' / '+N,correct===N?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+86,PX.w,'Habilitación (EN)',retoEn?'1':'0',retoEn?OK_HEX:BAD_HEX);
-  prow(c,PX.x,PX.y+116,PX.w,'Tu MUX realiza',(rU.special||sopStr(rU.terms,f.n)),correct===N?OK_HEX:'#C9D3E2');
+  prow(c,PX.x,PX.y+56,PX.w,'Datos en 1',retoData.reduce((a,d)=>a+(d?1:0),0)+' / '+N,'#C9D3E2');
+  prow(c,PX.x,PX.y+86,PX.w,'Habilitación (EN)',retoEn?'1':'0','#C9D3E2');
+  prow(c,PX.x,PX.y+116,PX.w,'Tu MUX realiza',(rU.special||sopStr(rU.terms,f.n)),'#C9D3E2');
   const by=PX.y+170;
-  if(retoChecked){
+  const dEv=demoShow?retoEval():{okData:retoOkData,okEn:retoOkEnable,solved:retoSolved};
+  if(retoChecked||demoShow){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
-    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
-    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
-    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.strokeStyle=dEv.solved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=dEv.solved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(dEv.solved?(demoShow?'✔ CORRECTO (demostración)':'✔ CORRECTO'):'✗ REVISA',PX.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkData?OK_HEX:BAD_HEX;c.fillText((retoOkData?'✔':'✗')+' Todos los datos = f(i)',PX.x+14,by+54);
-    c.fillStyle=retoOkEnable?OK_HEX:BAD_HEX;c.fillText((retoOkEnable?'✔':'✗')+' Habilitación activa (EN=1)',PX.x+14,by+78);
-    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,target,correct),PX.x+14,by+106,PX.w-28,17);
+    c.fillStyle=dEv.okData?OK_HEX:BAD_HEX;c.fillText(dEv.okData?'✔ Reproduce la función':'✗ No reproduce la función',PX.x+14,by+54);
+    c.fillStyle=dEv.okEn?OK_HEX:BAD_HEX;c.fillText(dEv.okEn?'✔ Habilitado':'✗ Deshabilitado',PX.x+14,by+78);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,target,dEv.solved),PX.x+14,by+106,PX.w-28,17);
+    if(!demoShow){c.fillStyle='#7a8494';c.fillText('Intentos fallidos con este objetivo: '+intentos+' / 3',PX.x+14,by+300);}
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);
     c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Regla de oro: con las variables A..'+VN[f.n-1]+' en la selección, el dato D_i debe valer lo que la función vale en la fila i (D_i = f(i)). Copia la columna F de la tabla en los datos del MUX. Y no olvides EN=1, o la salida será siempre 0.',PX.x+14,by+26,PX.w-28,18);
+    wrapText(c,'Con las variables A..'+VN[f.n-1]+' en la selección, cada fila de la tabla objetivo corresponde a una entrada de datos del MUX. Decide qué valor lleva cada una y cuida también la habilitación del dispositivo.',PX.x+14,by+26,PX.w-28,18);
     c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Ajusta los datos abajo y pulsa "Comprobar".',PX.x+14,by+140,PX.w-28,18);
+    wrapText(c,'Ajusta los datos abajo y pulsa "Comprobar". Tras 3 intentos fallidos el objetivo se renueva.',PX.x+14,by+140,PX.w-28,18);
+    c.fillText('Intentos fallidos con este objetivo: '+intentos+' / 3',PX.x+14,by+300);
   }
 }
-function retoExplain(f,target,correct){
+// evaluación pura de la configuración actual (la usan «Comprobar» y la demostración)
+function retoEval(){
+  const f=RETO_POOL[retoIdx],N=1<<f.n;
+  const okData=retoData.every((d,i)=>(d?1:0)===(f.mts.includes(i)?1:0));
+  const okEn=retoEn===1;
+  return {okData,okEn,solved:okData&&okEn};
+}
+function retoExplain(f,target,sol){
   const N=1<<f.n;
-  if(retoSolved)return 'D_i = f(i) para las '+N+' filas y EN=1: el MUX reproduce exactamente la función objetivo. Un MUX 2^n:1 realiza cualquier función de n variables.';
-  let s='';
-  if(!retoOkEnable)s+='La habilitación está en 0: la salida es 0 pase lo que pase. Pon EN=1. ';
-  if(!retoOkData)s+='Hay '+(N-correct)+' dato(s) que no coinciden con f(i). Compáralos con la columna F de la tabla objetivo. ';
+  if(sol)return 'D_i = f(i) para las '+N+' filas y EN=1: el MUX reproduce exactamente la función objetivo. Un MUX 2^n:1 realiza cualquier función de n variables.';
+  // Cualitativo: lo que se observa de TU MUX, sin decir cuántos ni cuáles datos fallan
+  const ev=retoEval();let s='';
+  if(!ev.okEn)s+='Con la habilitación en 0 tu MUX entrega siempre 0, sin importar los datos: ¿está activo el dispositivo? ';
+  if(!ev.okData)s+='Al recorrer la selección, hay combinaciones en las que tu MUX entrega un valor distinto del que pide la función. Recórrelas y compáralas con la tabla objetivo. ';
   return s||'Revisa datos y habilitación.';
 }
 
@@ -467,7 +479,7 @@ function drawBoard(){
 }
 function boardClick(){
   if(mode==='aplica')showToast('🧩 Un MUX 2^n:1 (datos = f(i)) o un decodificador+OR realizan cualquier función combinacional. El display 7seg descompone cada segmento en su propia función booleana.');
-  else if(mode==='reto')showToast('🎯 Copia la columna F de la tabla objetivo en los datos D_i del MUX. Con las variables en la selección, D_i = f(i) reproduce la función. EN debe estar en 1.');
+  else if(mode==='reto')showToast('🎯 Con las variables en la selección, cada dato D_i es la salida de una fila de la tabla objetivo. EN debe estar en 1.');
   else showToast('📟 Conduce el dispositivo: cambia selección/datos, entrada o dígito y observa cómo responde la salida.');
 }
 
@@ -604,7 +616,7 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 const MODE_META={
   explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Elige un bloque (MUX, decodificador o display 7seg) y condúcelo: cambia selección/datos, entrada o dígito y observa la salida.'},
   aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Comprueba que un MUX (D_i=f(i)) o un decodificador+OR realizan cualquier función, y cómo cada segmento del display es una función booleana.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Configura los datos del MUX (y la habilitación) para que realice la función objetivo. D_i = f(i).'},
+  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Configura los datos del MUX (y la habilitación) para que realice la función objetivo.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){
@@ -654,15 +666,15 @@ function buildControls(){
     html+=lbl('EN:')+`<button class="b sm ${retoEn?'on':''}" data-ren="t">${retoEn?'1':'0'}</button>`;
     html+=lbl('Datos del MUX (clic=0/1):')+Array.from({length:N},(_,i)=>`<button class="b sm ${retoData[i]?'on':''}" data-rd="${i}" style="min-width:40px">D${i}:${retoData[i]?1:0}</button>`).join('');
     bar.innerHTML=html;
-    bar.querySelectorAll('[data-ren]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoEn=retoEn?0:1;retoChecked=false;retoSolved=false;synth.beep(retoEn?820:360,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.rd,10);retoData[i]=retoData[i]?0:1;retoChecked=false;retoSolved=false;synth.beep(retoData[i]?900:420,0.04,0.035);afterEdit();});
+    bar.querySelectorAll('[data-ren]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoEn=retoEn?0:1;retoChecked=false;retoSolved=false;solved=false;synth.beep(retoEn?820:360,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.rd,10);retoData[i]=retoData[i]?0:1;retoChecked=false;retoSolved=false;solved=false;synth.beep(retoData[i]?900:420,0.04,0.035);afterEdit();});
   }
 }
 function updateScenarioInfo(){
   const box=el('scenarioInfo');
   if(mode!=='reto'){box.style.display='none';return;}
   const f=RETO_POOL[retoIdx];box.style.display='block';
-  box.innerHTML=`Objetivo <b>F(${VN.slice(0,f.n).join(',')})</b> = Σm(${f.mts.join(',')}) — ${f.ctx}. Copia la columna F en los datos del MUX (D_i = f(i)) y activa EN.`;
+  box.innerHTML=`Objetivo <b>F(${VN.slice(0,f.n).join(',')})</b> = Σm(${f.mts.join(',')}) — ${f.ctx}. Configura los datos del MUX para que realice la función y activa EN.`;
 }
 function setMode(k){
   mode=k;hwStep=0;
@@ -694,12 +706,11 @@ function updateTele(){
   const t=el('tele');
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx],N=1<<f.n;
-    const target=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);
-    const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
     t.innerHTML=teleRow('Objetivo','Σm('+f.mts.join(',')+')')+
       teleRow('MUX',N+':1')+
-      teleRow('Datos correctos',correct+'/'+N,correct===N?'good':'warn')+
-      teleRow('Habilitación',retoEn?'1':'0',retoEn?'good':'warn')+
+      teleRow('Datos en 1',retoData.reduce((a,d)=>a+(d?1:0),0)+'/'+N)+
+      teleRow('Habilitación',retoEn?'1':'0')+
+      teleRow('Intentos fallidos',intentos+' / 3',intentos?'warn':'')+
       teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn');
     return;
   }
@@ -725,7 +736,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx];
-    html+=retoMsg||`<span class="mono">F = Σm(${f.mts.join(',')}). Pon D_i = f(i) en el MUX ${1<<f.n}:1 y EN=1. Comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">F = Σm(${f.mts.join(',')}). Configura el MUX ${1<<f.n}:1 para que realice la función y comprueba. Tras 3 intentos fallidos el objetivo se renueva.</span>`;
   }else if(mode==='aplica'){
     const f=APLICA_POOL[apFnIdx];
     if(apTopic==='seg'){const s=SEG_SOP[apSeg];html+=`<span class="mono">Segmento ${s.name} enciende en {${s.mts.join(',')}} → SOP mínimo ${s.name} = ${s.expr} (${s.cost} literales, don't-care 10-15).</span>`;}
@@ -742,17 +753,27 @@ function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const f=RETO_POOL[retoIdx],N=1<<f.n;
-  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}) en un MUX <b>${N}:1</b>. Pon cada dato D_i = f(i) (copia la columna F) y activa <b>EN</b>. Pulsa "Comprobar".`;
+  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}) en un MUX <b>${N}:1</b>. Configura cada dato D_i de modo que, recorriendo la selección, el MUX reproduzca la función, y no olvides la habilitación <b>EN</b>. Pulsa "Comprobar" (tras 3 intentos fallidos el objetivo se renueva).`;
 }
 function checkReto(){
   const f=RETO_POOL[retoIdx],N=1<<f.n;
   const target=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);
-  const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
-  retoOkData=(correct===N);
-  retoOkEnable=(retoEn===1);
-  retoSolved=retoOkData&&retoOkEnable;retoChecked=true;solved=retoSolved;
+  const ev=retoEval();
+  retoOkData=ev.okData;
+  retoOkEnable=ev.okEn;
+  retoSolved=ev.solved;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,target,correct)}</span>`;
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,target,retoSolved)}</span>`;
+  if(!retoSolved){
+    intentos++;
+    if(intentos>=3){
+      // 3 fallos: objetivo nuevo (no se aprueba por eliminación) y sin revelar la solución
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">✗ Revisa</span> — Tres intentos fallidos: el objetivo se renovó ('+RETO_POOL[retoIdx].ctx+'). Razona fila por fila antes de comprobar.</span>';
+      showToast('🔀 Tres intentos fallidos: nuevo objetivo, '+RETO_POOL[retoIdx].ctx+'.');
+      afterEdit();return;
+    }
+  }
   refreshAll();
 }
 
@@ -762,28 +783,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Qué distingue a un multiplexor de un decodificador?',
       opciones:[
-        {t:'El MUX SELECCIONA una de varias entradas de datos y la lleva a una única salida (Y=D[sel]); el decodificador ACTIVA una de varias salidas (one-hot) según el número de entrada. Son operaciones inversas.',ok:true,why:'Correcto: el MUX es "muchas entradas → una salida" guiado por la selección; el decodificador es "una entrada → una de muchas salidas". Uno enruta datos, el otro identifica un valor.'},
-        {t:'Son lo mismo con distinto nombre; ambos suman sus entradas.',ok:false,why:'No suman nada y no son lo mismo. El MUX enruta la entrada elegida a la salida; el decodificador enciende la salida correspondiente al número de entrada.'},
-        {t:'El decodificador tiene una sola salida y el MUX muchas.',ok:false,why:'Al revés: el MUX tiene UNA salida (Y) y varias entradas de datos; el decodificador tiene una entrada (de n bits) y 2ⁿ salidas.'},
-        {t:'El MUX sólo funciona con señales analógicas.',ok:false,why:'Aquí se trata el MUX digital (selecciona bits). Existen MUX analógicos, pero la lógica de selección Y=D[sel] es la misma idea.'},
+        {t:'El MUX selecciona una entrada y la lleva a una sola salida (Y=D[sel]); el decodificador activa una de varias salidas (one-hot) según su entrada.',ok:true,why:'Correcto: el MUX es "muchas entradas → una salida" guiado por la selección; el decodificador es "una entrada → una de muchas salidas". Uno enruta datos, el otro identifica un valor.'},
+        {t:'Son el mismo bloque con distinto nombre: ambos reciben bits de selección y suman las entradas activas para producir una salida única.',ok:false,why:'No suman nada y no son lo mismo. El MUX enruta la entrada elegida a la salida; el decodificador enciende la salida correspondiente al número de entrada.'},
+        {t:'El decodificador tiene una sola salida y el MUX varias: el primero comprime un código binario y el segundo lo expande a una línea por valor.',ok:false,why:'Al revés: el MUX tiene UNA salida (Y) y varias entradas de datos; el decodificador tiene una entrada (de n bits) y 2ⁿ salidas.'},
+        {t:'El MUX solo funciona con señales analógicas que conmuta una a una, mientras que el decodificador es el equivalente puramente digital del mismo bloque.',ok:false,why:'Aquí se trata el MUX digital (selecciona bits). Existen MUX analógicos, pero la lógica de selección Y=D[sel] es la misma idea.'},
       ],
     },
     aplica:{
       pregunta:'¿Por qué un MUX 2ⁿ:1 puede realizar cualquier función de n variables sin compuertas adicionales?',
       opciones:[
-        {t:'Porque al poner las n variables en la selección, la salida en cada combinación es justo el dato cableado en esa posición: basta fijar D_i = f(i) y el MUX reproduce la tabla de verdad completa.',ok:true,why:'Correcto: la selección recorre las 2ⁿ filas de la tabla; si cada dato D_i vale f(i), la salida coincide con la función en todas las filas. El MUX "es" la tabla de verdad cableada.'},
-        {t:'Porque el MUX simplifica automáticamente la función a su forma mínima.',ok:false,why:'El MUX no simplifica: reproduce la tabla tal cual. La minimización (Karnaugh/Q-M) es otro proceso; el MUX no la necesita para realizar la función.'},
-        {t:'Porque cualquier función tiene a lo sumo 2 mintérminos.',ok:false,why:'Falso: una función de n variables puede tener hasta 2ⁿ mintérminos. El MUX los cubre todos porque tiene 2ⁿ entradas de datos, una por fila.'},
-        {t:'Sólo puede realizar funciones AND y OR, no otras.',ok:false,why:'Puede realizar CUALQUIER función booleana de n variables (las 2^(2ⁿ) posibles), incluidas XOR, mayoría, etc., sólo cambiando los datos.'},
+        {t:'Porque con las n variables en la selección, la salida de cada fila es el dato cableado ahí: con D_i = f(i), el MUX reproduce la tabla de verdad.',ok:true,why:'Correcto: la selección recorre las 2ⁿ filas de la tabla; si cada dato D_i vale f(i), la salida coincide con la función en todas las filas. El MUX "es" la tabla de verdad cableada.'},
+        {t:'Porque el MUX simplifica por sí mismo la función a su forma mínima, de modo que no necesita más compuertas para realizarla a partir de los datos.',ok:false,why:'El MUX no simplifica: reproduce la tabla tal cual. La minimización (Karnaugh/Q-M) es otro proceso; el MUX no la necesita para realizar la función.'},
+        {t:'Porque cualquier función de n variables tiene a lo sumo dos mintérminos, y el MUX tiene siempre entradas de datos de sobra para cubrirlos.',ok:false,why:'Falso: una función de n variables puede tener hasta 2ⁿ mintérminos. El MUX los cubre todos porque tiene 2ⁿ entradas de datos, una por fila.'},
+        {t:'Porque el MUX solo puede realizar funciones AND y OR, y toda función booleana de n variables se reduce siempre a una combinación de ambas.',ok:false,why:'Puede realizar CUALQUIER función booleana de n variables (las 2^(2ⁿ) posibles), incluidas XOR, mayoría, etc., sólo cambiando los datos.'},
       ],
     },
     reto:{
       pregunta:'Configuraste bien los datos pero la salida es siempre 0. ¿Qué revisas primero?',
       opciones:[
-        {t:'La señal de habilitación (EN): si EN=0, el MUX fuerza Y=0 sin importar la selección ni los datos. Debe estar en 1 para que Y=D[sel].',ok:true,why:'Correcto: la habilitación es una compuerta maestra. Con EN=0 la salida queda inhibida (0 o alta impedancia). Es el error clásico "todo bien pero no sale nada".'},
-        {t:'Cambio todos los datos a 1 para forzar salida.',ok:false,why:'Eso altera la función y no arregla la causa: si EN=0, la salida sigue en 0. Primero habilita el dispositivo (EN=1).'},
-        {t:'Aumento el tamaño del MUX a 8:1.',ok:false,why:'El tamaño no tiene que ver con que la salida esté inhibida. El síntoma "siempre 0 con datos correctos" apunta a la habilitación.'},
-        {t:'Es imposible; si los datos están bien, la salida no puede ser 0.',ok:false,why:'Sí puede: la habilitación manda sobre la salida. Con EN=0, ni los datos correctos ni la selección producen salida.'},
+        {t:'La habilitación (EN): con EN=0 el MUX fuerza Y=0 sin importar la selección ni los datos, así que debe estar en 1 para que Y=D[sel].',ok:true,why:'Correcto: la habilitación es una compuerta maestra. Con EN=0 la salida queda inhibida (0 o alta impedancia). Es el error clásico "todo bien pero no sale nada".'},
+        {t:'Pongo todos los datos en 1 para forzar la salida, ya que si hay algún 1 en las entradas el MUX tiene que entregarlo en Y.',ok:false,why:'Eso altera la función y no arregla la causa: si EN=0, la salida sigue en 0. Primero habilita el dispositivo (EN=1).'},
+        {t:'Aumento el tamaño del MUX a 8:1, porque con más entradas de datos disponibles la salida deja de quedarse atascada en cero.',ok:false,why:'El tamaño no tiene que ver con que la salida esté inhibida. El síntoma "siempre 0 con datos correctos" apunta a la habilitación.'},
+        {t:'Nada: si los datos están bien configurados la salida no puede ser siempre 0, así que el fallo debe estar en el cableado externo y no en el propio MUX.',ok:false,why:'Sí puede: la habilitación manda sobre la salida. Con EN=0, ni los datos correctos ni la selección producen salida.'},
       ],
     },
   };
@@ -828,6 +849,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  // DEMOSTRACIÓN: guarda el estado del alumno y lo restituye (el recorrido jamás deja el reto resuelto)
+  const prev={mode,expKind,muxN,muxData:muxData.slice(),muxSel,muxEn,decN,decIn,decEn,segDigit,apTopic,apFnIdx,apProbe,apSeg,retoIdx,retoData:retoData.slice(),retoEn,retoChecked,retoOkData,retoOkEnable,retoSolved,retoMsg,intentos,solved};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -855,21 +878,28 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('reto');
+    // DEMOSTRACIÓN: no se pulsa «Comprobar»; el reto del alumno queda como estaba
     seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Primero dejamos EN=0 a propósito…');
-    retoEn=0;afterEdit();await sleep(3400);
-    // configura los datos correctos
+    showToast('🎯 Demostración con '+RETO_POOL[retoIdx].ctx+'. Primero dejamos EN=0 a propósito…');
+    retoEn=0;demoShow=true;afterEdit();await sleep(3400);
     (function solveReto(){const f=RETO_POOL[retoIdx],N=1<<f.n;retoData=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);})();
     afterEdit();
     showToast('…datos = f(i) puestos, pero con EN=0 la salida sigue en 0. Activamos EN.');
     await sleep(3400);
     retoEn=1;afterEdit();
-    showToast('✔ EN=1 y D_i = f(i): el MUX realiza la función. Comprobamos.');
-    await sleep(2600);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('✔ EN=1 y D_i = f(i): el MUX realiza la función. Esto es solo una demostración: tu reto sigue intacto.');
+    await sleep(3200);
+    demoShow=false;
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2400);
   }finally{
+    demoShow=false;
+    expKind=prev.expKind;muxN=prev.muxN;muxData=prev.muxData;muxSel=prev.muxSel;muxEn=prev.muxEn;decN=prev.decN;decIn=prev.decIn;decEn=prev.decEn;segDigit=prev.segDigit;
+    apTopic=prev.apTopic;apFnIdx=prev.apFnIdx;apProbe=prev.apProbe;apSeg=prev.apSeg;
+    retoIdx=prev.retoIdx;retoData=prev.retoData;retoEn=prev.retoEn;retoChecked=prev.retoChecked;retoOkData=prev.retoOkData;retoOkEnable=prev.retoOkEnable;
+    retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    setMode(prev.mode);
+    solved=(prev.mode==='reto')?retoSolved:false;
   }
 }
 
@@ -918,11 +948,11 @@ window.__labDebug={
   retoIdx:()=>retoIdx, retoFn:()=>({...RETO_POOL[retoIdx]}),
   retoData:()=>[...retoData], retoEn:()=>retoEn,
   retoTarget:()=>{const f=RETO_POOL[retoIdx],N=1<<f.n;return Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);},
-  retoSetData:arr=>{if(mode==='reto'){retoData=arr.slice();retoChecked=false;afterEdit();}},
-  retoSetEn:e=>{if(mode==='reto'){retoEn=e?1:0;retoChecked=false;afterEdit();}},
-  retoToggle:i=>{if(mode==='reto'){retoData[i]=retoData[i]?0:1;retoChecked=false;afterEdit();}},
+  retoSetData:arr=>{if(mode==='reto'){retoData=arr.slice();retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
+  retoSetEn:e=>{if(mode==='reto'){retoEn=e?1:0;retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
+  retoToggle:i=>{if(mode==='reto'){retoData[i]=retoData[i]?0:1;retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
   retoSolveMux:()=>{if(mode==='reto'){const f=RETO_POOL[retoIdx],N=1<<f.n;retoData=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);retoEn=1;afterEdit();}},
-  checkReto:()=>checkReto(),
+  checkReto:()=>checkReto(), intentos:()=>intentos,
   retoChecked:()=>retoChecked, retoOkData:()=>retoOkData, retoOkEnable:()=>retoOkEnable, retoSolved:()=>retoSolved,
   seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
   newSignal:()=>newSignal(),

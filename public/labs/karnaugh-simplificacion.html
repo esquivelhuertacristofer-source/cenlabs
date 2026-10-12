@@ -533,11 +533,14 @@ const RETO_POOL=[
   {n:3, mts:[0,1,2,5],                        ctx:'Lógica de un semáforo de prioridad'},
   {n:3, mts:[1,2,3,4,5],                      ctx:'Control de acceso de 3 sensores'},
   {n:3, mts:[2,3,4,5,7],                      ctx:'Selector de modo de operación'},
-  {n:4, mts:[0,4,5,7,8,12,13,15],            ctx:'Enclavamiento de seguridad (4 señales)'},
+  {n:4, mts:[2,3,5,7,8,9,10,11,13],          ctx:'Enclavamiento de seguridad (4 señales)'},
   {n:4, mts:[0,1,2,5,8,9,10],                ctx:'Decodificador parcial de dirección'},
-  {n:4, mts:[0,1,2,3,5,7,8,10,14,15],        ctx:'Lógica de habilitación de 4 entradas'},
+  {n:4, mts:[0,1,2,5,6,7,8,9,10,14],         ctx:'Lógica de habilitación de 4 entradas'},
+  {n:3, mts:[0,1,3,7],                        ctx:'Demostración del recorrido guiado'},   // SOLO la usa el recorrido: nunca se sortea
 ];
+const RETO_N=RETO_POOL.length-1, RETO_DEMO=RETO_POOL.length-1;   // los retos reales son los primeros RETO_N
 let retoIdx=0, retoPIs=[], retoSel=new Set(), retoChecked=false, retoOkCover=false, retoOkMin=false, retoSolved=false, retoMsg='';
+let intentos=0, demoShow=false;      // intentos fallidos con el caso actual (3 → caso nuevo) · demoShow: veredicto de DEMOSTRACIÓN sin tocar el reto
 let solved=false, autoRunning=false, QUIZ={};
 // entrenador 3D — cicla las entradas y enciende el LED de salida
 let hwInput=0, hwT=0;
@@ -548,10 +551,19 @@ function curFn(){                              // función activa según el modo
   return{n:expN,mts:[...expSet].sort((a,b)=>a-b)};
 }
 function seedReto(idx){
-  retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
+  retoIdx=(idx==null)?pickIdx(RETO_N,retoIdx):idx;
   const f=RETO_POOL[retoIdx];
   retoPIs=primeImplicants(f.mts,[]);
-  retoSel=new Set(); retoChecked=false; retoOkCover=false; retoOkMin=false; retoSolved=false; retoMsg='';
+  retoSel=new Set(); retoChecked=false; retoOkCover=false; retoOkMin=false; retoSolved=false; retoMsg=''; intentos=0;
+}
+// El reto «cubre esta Σm» no puede resolverse tecleando la misma función en Explora (la telemetría da la forma mínima):
+// si Explora coincide con el caso del reto sin resolver, el reto se resiembra con otro caso.
+function guardaReto(){
+  if(mode==='reto'||retoSolved||retoIdx===RETO_DEMO||autoRunning)return;
+  const f=RETO_POOL[retoIdx];
+  if(f.n!==expN||f.mts.length!==expSet.size||!f.mts.every(m=>expSet.has(m)))return;
+  seedReto();updateRetoSpec();
+  showToast('🔀 Esa función era la del reto: se renovó el caso. El reto se resuelve sin la respuesta a la vista.');
 }
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
 function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
@@ -813,33 +825,43 @@ function drawReto(c){
   rpanel(c,PX.x,PX.y,PX.w,150,'TU COBERTURA');
   prow(c,PX.x,PX.y+58,PX.w,'Implicantes elegidos',String(retoSel.size));
   prow(c,PX.x,PX.y+90,PX.w,'Unos cubiertos',covered.size+' / '+fn.mts.length, allCov?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+122,PX.w,'Literales (tú → mín.)',selCost+' → '+res.cost, (allCov&&selCost===res.cost)?OK_HEX:WARN_HEX);
-  // veredicto
+  prow(c,PX.x,PX.y+122,PX.w,'Literales elegidos',String(selCost));   // sin «→ mín.»: el veredicto llega con «Comprobar»
+  // veredicto (solo tras comprobar; en la demostración se dibuja sin tocar el estado del reto)
   const by=PX.y+168;
-  if(retoChecked){
+  const vCh=retoChecked||demoShow;
+  const vCov=demoShow?allCov:retoOkCover, vMin=demoShow?(allCov&&selCost===res.cost):retoOkMin, vSol=demoShow?(vCov&&vMin):retoSolved;
+  if(vCh){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,360);
-    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,360);
-    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
-    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.strokeStyle=vSol?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,360);
+    c.fillStyle=vSol?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(vSol?(demoShow?'✔ CORRECTO (demostración)':'✔ CORRECTO'):'✗ REVISA',PX.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkCover?OK_HEX:BAD_HEX;c.fillText((retoOkCover?'✔':'✗')+' Cubre todos los unos',PX.x+14,by+54);
-    c.fillStyle=retoOkMin?OK_HEX:BAD_HEX;c.fillText((retoOkMin?'✔':'✗')+' Coste mínimo ('+res.cost+' literales)',PX.x+14,by+78);
-    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(fn,res,selTerms,allCov,selCost),PX.x+14,by+106,PX.w-28,17);
+    c.fillStyle=vCov?OK_HEX:BAD_HEX;c.fillText((vCov?'✔':'✗')+' Cubre todos los unos',PX.x+14,by+54);
+    c.fillStyle=vMin?OK_HEX:BAD_HEX;c.fillText((vMin?'✔ Coste mínimo ('+res.cost+' literales)':'✗ Coste mínimo'),PX.x+14,by+78);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(fn,res,selTerms,allCov,selCost,vSol),PX.x+14,by+106,PX.w-28,17);
+    if(!demoShow){c.fillStyle='#7a8494';c.fillText('Intentos fallidos con esta función: '+intentos+' / 3',PX.x+14,by+344);}
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,360);
     c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,360);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
     wrapText(c,'Un implicante primo es el mayor grupo posible de unos adyacentes. Elige los que, juntos, tapan todos los 1 con el menor coste. Elegir de más (redundante) o grupos pequeños sube el coste.',PX.x+14,by+26,PX.w-28,18);
     c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Marca implicantes abajo y pulsa "Comprobar".',PX.x+14,by+120,PX.w-28,18);
+    wrapText(c,'Marca implicantes abajo y pulsa "Comprobar". Tras 3 intentos fallidos la función se renueva.',PX.x+14,by+120,PX.w-28,18);
+    c.fillText('Intentos fallidos con esta función: '+intentos+' / 3',PX.x+14,by+344);
   }
 }
-function retoExplain(fn,res,selTerms,allCov,selCost){
-  if(retoSolved) return 'Cobertura mínima: '+sopStr(selTerms,fn.n)+' cubre los '+fn.mts.length+' unos con '+res.cost+' literales, el mínimo posible.';
-  let s='';
-  if(!allCov)s+='Faltan unos por cubrir: añade el implicante que tape los mintérminos sueltos. ';
-  else if(selCost>res.cost)s+='Cubres todo, pero con '+selCost+' literales; hay una cobertura de solo '+res.cost+' ('+sopStr(res.terms,fn.n)+'). Quita implicantes redundantes o usa grupos más grandes. ';
-  return s||'Revisa la cobertura y el coste.';
+function retoExplain(fn,res,selTerms,allCov,selCost,sol){
+  if(sol) return 'Cobertura mínima: '+sopStr(selTerms,fn.n)+' cubre los '+fn.mts.length+' unos con '+res.cost+' literales, el mínimo posible.';
+  // Retroalimentación cualitativa: solo lo que el alumno puede razonar con lo que ve (no la cifra mínima ni los términos)
+  if(!allCov){
+    const cub=new Set();selTerms.forEach(t=>fn.mts.forEach(m=>{if(covers(t,m))cub.add(m);}));
+    const falta=fn.mts.filter(m=>!cub.has(m)).length;
+    return 'Te '+(falta===1?'queda':'quedan')+' '+falta+' uno'+(falta===1?'':'s')+' sin cubrir en el mapa: elige un implicante primo que los tape.';
+  }
+  const redund=selTerms.some((t,i)=>fn.mts.every(m=>!covers(t,m)||selTerms.some((u,j)=>j!==i&&covers(u,m))));
+  return redund
+    ?'Cubres todos los unos, pero alguno de tus implicantes es redundante: todos sus unos ya los tapan los demás. Quita los que sobren.'
+    :'Cubres todos los unos y ningún implicante sobra, pero otra combinación de implicantes primos cuesta menos literales. Compara cuántos unos tapa cada grupo y cuántos literales aporta.';
 }
 
 function drawBoard(){
@@ -1030,7 +1052,8 @@ function updateTele(){
     t.innerHTML=teleRow('Función','Σm('+fn.mts.join(',')+')')+
       teleRow('Implicantes elegidos',String(retoSel.size))+
       teleRow('Unos cubiertos',covered.size+'/'+fn.mts.length,covered.size===fn.mts.length?'good':'warn')+
-      teleRow('Coste (tú→mín)',selCost+' → '+res.cost,(covered.size===fn.mts.length&&selCost===res.cost)?'good':'warn')+
+      teleRow('Literales elegidos',String(selCost))+
+      teleRow('Intentos fallidos',intentos+' / 3',intentos?'warn':'')+
       teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'elige y comprueba',(retoChecked&&retoSolved)?'good':'warn');
     return;
   }
@@ -1045,7 +1068,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   const fn=curFn(),res=minimize(fn.mts,fn.n,[]),cLit=fn.mts.length*fn.n;
   if(mode==='reto'){
-    html+=retoMsg||`<span class="mono">F = Σm(${fn.mts.join(',')}). Elige implicantes primos que cubran los ${fn.mts.length} unos con el mínimo (${res.cost} literales). Ajusta y comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">F = Σm(${fn.mts.join(',')}). Elige implicantes primos que cubran los ${fn.mts.length} unos con el mínimo de literales. Ajusta y comprueba.</span>`;
   }else if(mode==='agrupa'){
     html+=`<span class="mono">${AGRUPA_POOL[agIdx].nm}: F = ${res.special||sopStr(res.terms,fn.n)}. ${res.special?'Función constante.':(res.nterms+' grupo(s), '+res.cost+' literales frente a '+cLit+' de la canónica.')}</span>`;
   }else{
@@ -1053,12 +1076,12 @@ function updateReport(){
   }
   el('report').innerHTML=html;
 }
-function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+function refreshAll(){guardaReto();drawBoard();updateTele();updateReport();updateHW();}
 
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
-  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}). Hay <b>${retoPIs.length}</b> implicantes primos; la solución mínima usa <b>${res.cost}</b> literales en <b>${res.nterms}</b> término(s). Elige los que cubran todo al mínimo. Pulsa "Comprobar".`;
+  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}). Hay <b>${retoPIs.length}</b> implicantes primos. Elige los que cubran todos los unos con el menor número de literales y pulsa "Comprobar" (tras 3 intentos fallidos la función se renueva).`;
 }
 function checkReto(){
   const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
@@ -1069,7 +1092,17 @@ function checkReto(){
   retoOkMin=retoOkCover && (selCost===res.cost);
   retoSolved=retoOkCover&&retoOkMin;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,res,selTerms,retoOkCover,selCost)}</span>`;
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,res,selTerms,retoOkCover,selCost,retoSolved)}</span>`;
+  if(!retoSolved){
+    intentos++;
+    if(intentos>=3){
+      // 3 fallos: caso nuevo (no se aprueba por eliminación) y sin revelar la solución del anterior
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">✗ Revisa</span> — Tres intentos fallidos: la función se renovó. Analiza el mapa con calma antes de comprobar.</span>';
+      showToast('🔀 Tres intentos fallidos: nueva función, '+RETO_POOL[retoIdx].ctx+'.');
+      afterEdit();return;
+    }
+  }
   refreshAll();
 }
 
@@ -1079,28 +1112,28 @@ function buildQuiz(){
     explora:{
       pregunta:'En un mapa de Karnaugh, ¿por qué agrupar 2 celdas adyacentes (que difieren en un solo bit) elimina una variable del término?',
       opciones:[
-        {t:'Porque en esas dos celdas la salida es 1 tanto si esa variable vale 0 como si vale 1: la salida no depende de ella, así que la variable desaparece del producto.',ok:true,why:'Correcto: si F=1 con la variable en 0 y también en 1 (y el resto igual), esa variable es irrelevante en ese grupo y se elimina. Por eso el código Gray coloca vecinos que difieren en un solo bit.'},
-        {t:'Porque el mapa siempre tiene una variable de más que se descarta por convención.',ok:false,why:'No hay variables "de más": todas importan. Lo que ocurre es que dentro del grupo una variable toma ambos valores sin cambiar la salida, y solo por eso se elimina.'},
-        {t:'Porque al agrupar se suman las dos celdas y la suma anula una variable.',ok:false,why:'No se "suman" celdas. La eliminación viene del álgebra de Boole: XY + XY′ = X, es decir, la variable que cambia (Y) se cancela.'},
-        {t:'Porque las celdas adyacentes representan la misma combinación de entrada.',ok:false,why:'Son combinaciones DISTINTAS (difieren en un bit). Precisamente por diferir en una sola variable, esa variable puede eliminarse al agruparlas.'},
+        {t:'Porque en esas dos celdas la salida vale 1 con la variable en 0 y también en 1: no depende de ella y desaparece del producto.',ok:true,why:'Correcto: si F=1 con la variable en 0 y también en 1 (y el resto igual), esa variable es irrelevante en ese grupo y se elimina. Por eso el código Gray coloca vecinos que difieren en un solo bit.'},
+        {t:'Porque el mapa trae siempre una variable de sobra, y al formar el primer grupo de celdas vecinas se descarta por simple convención de lectura.',ok:false,why:'No hay variables "de más": todas importan. Lo que ocurre es que dentro del grupo una variable toma ambos valores sin cambiar la salida, y solo por eso se elimina.'},
+        {t:'Porque al agrupar las dos celdas se suman sus mintérminos, y esa suma anula la variable que las distingue en el producto.',ok:false,why:'No se "suman" celdas. La eliminación viene del álgebra de Boole: XY + XY′ = X, es decir, la variable que cambia (Y) se cancela.'},
+        {t:'Porque las dos celdas vecinas corresponden a la misma combinación de entrada, así que una sobra y se elimina del mapa.',ok:false,why:'Son combinaciones DISTINTAS (difieren en un bit). Precisamente por diferir en una sola variable, esa variable puede eliminarse al agruparlas.'},
       ],
     },
     agrupa:{
       pregunta:'Para minimizar coste, ¿conviene usar los grupos más grandes posibles al cubrir los unos?',
       opciones:[
-        {t:'Sí: un grupo de 2^k celdas elimina k variables, así que a mayor grupo, menos literales por término. Se buscan los implicantes primos (grupos máximos) y se cubren todos los unos con los menos posibles.',ok:true,why:'Correcto: doblar el tamaño del grupo elimina una variable más. Por eso se maximizan los grupos (implicantes primos) y se elige una cobertura mínima.'},
-        {t:'No: conviene usar muchos grupos pequeños para mayor precisión.',ok:false,why:'Al revés: los grupos pequeños dejan más literales por término y encarecen el circuito. Se buscan los grupos más grandes que sean válidos.'},
-        {t:'Da igual el tamaño; solo importa que cada uno quede cubierto una vez.',ok:false,why:'El tamaño es clave: define cuántas variables se eliminan. Cubrir con grupos grandes reduce el coste; con grupos pequeños lo aumenta.'},
-        {t:'Conviene que los grupos no se solapen nunca.',ok:false,why:'El solape está permitido y a menudo ayuda: una celda puede pertenecer a varios grupos si eso hace grupos mayores. Lo que se minimiza es el coste total, no el solape.'},
+        {t:'Sí: un grupo de 2^k celdas elimina k variables, así que cuanto mayor es el grupo, menos literales tiene su término.',ok:true,why:'Correcto: doblar el tamaño del grupo elimina una variable más. Por eso se buscan los grupos máximos (implicantes primos) y se cubren todos los unos con los menos posibles.'},
+        {t:'No: conviene usar muchos grupos pequeños, porque cada uno aporta más precisión al término y deja menos errores de lectura.',ok:false,why:'Al revés: los grupos pequeños dejan más literales por término y encarecen el circuito. Se buscan los grupos más grandes que sean válidos.'},
+        {t:'Da igual el tamaño de los grupos: lo único que importa es que cada uno de los unos quede cubierto exactamente una vez.',ok:false,why:'El tamaño es clave: define cuántas variables se eliminan. Cubrir con grupos grandes reduce el coste; con grupos pequeños lo aumenta.'},
+        {t:'Sí, pero solo mientras los grupos no se solapen: una celda compartida entre dos grupos siempre encarece la expresión final.',ok:false,why:'El solape está permitido y a menudo ayuda: una celda puede pertenecer a varios grupos si eso hace grupos mayores. Lo que se minimiza es el coste total, no el solape.'},
       ],
     },
     reto:{
       pregunta:'¿Qué es un "implicante primo esencial" y por qué siempre debe estar en la solución?',
       opciones:[
-        {t:'Es un implicante primo que es el ÚNICO que cubre a cierto mintérmino: como ningún otro grupo tapa ese 1, la solución mínima obligatoriamente lo incluye.',ok:true,why:'Correcto: si un 1 solo puede cubrirse con un implicante primo, ese implicante es esencial y no puede faltar. Los esenciales se eligen primero; el resto se completa al mínimo coste.'},
-        {t:'Es el implicante más grande del mapa, que por ser el mayor siempre se usa.',ok:false,why:'Ser el mayor no lo hace esencial: puede que sus unos estén cubiertos por otros. Esencial = único que cubre a algún mintérmino.'},
-        {t:'Es cualquier grupo de 4 o más celdas.',ok:false,why:'El tamaño no define lo esencial. Un grupo grande puede ser prescindible si sus unos se cubren de otro modo; uno pequeño puede ser esencial.'},
-        {t:'Es el primer implicante que se encuentra al leer el mapa de izquierda a derecha.',ok:false,why:'El orden de lectura es irrelevante. Lo esencial se define por la cobertura: un mintérmino que solo un implicante puede tapar.'},
+        {t:'Es un implicante primo que es el único que cubre algún mintérmino: como nadie más tapa ese 1, la solución mínima debe incluirlo.',ok:true,why:'Correcto: si un 1 solo puede cubrirse con un implicante primo, ese implicante es esencial y no puede faltar. Los esenciales se eligen primero; el resto se completa al mínimo coste.'},
+        {t:'Es el implicante primo de mayor tamaño del mapa: por ser el más grande, siempre forma parte de la cobertura mínima de la función.',ok:false,why:'Ser el mayor no lo hace esencial: puede que sus unos estén cubiertos por otros. Esencial = único que cubre a algún mintérmino.'},
+        {t:'Es cualquier grupo de 4 o más celdas, porque elimina al menos dos variables y por eso resulta siempre imprescindible.',ok:false,why:'El tamaño no define lo esencial. Un grupo grande puede ser prescindible si sus unos se cubren de otro modo; uno pequeño puede ser esencial.'},
+        {t:'Es el primer implicante primo que aparece al leer el mapa de izquierda a derecha y de arriba abajo, y por eso se elige antes.',ok:false,why:'El orden de lectura es irrelevante. Lo esencial se define por la cobertura: un mintérmino que solo un implicante puede tapar.'},
       ],
     },
   };
@@ -1145,6 +1178,9 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  // Es una DEMOSTRACIÓN: guarda el estado del alumno (Explora, Agrupa y, sobre todo, el reto en curso) y lo restituye al terminar.
+  // El reto de la demostración usa un caso aparte (RETO_DEMO) y jamás toca solved ni el reto real.
+  const prev={mode,expN,expSet:new Set(expSet),agIdx,agSpot,retoIdx,retoPIs,retoSel:new Set(retoSel),retoChecked,retoOkCover,retoOkMin,retoSolved,retoMsg,intentos,solved};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1168,23 +1204,30 @@ async function runAuto(){
     await sleep(4400);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
 
+    // Reto de DEMOSTRACIÓN (caso aparte): primero todos los primos (cubre, pero sobra uno), luego la cobertura mínima
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Elegimos primero implicantes redundantes…');
-    await sleep(3600);
-    // solución mínima: marca los implicantes primos que forman una cobertura mínima
-    (function solveReto(){
-      const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
-      retoSel=new Set();
-      res.terms.forEach(t=>{const idx=retoPIs.findIndex(p=>p.bits===t.bits&&p.mask===t.mask);if(idx>=0)retoSel.add(idx);});
-    })();
-    afterEdit();
-    showToast('✔ …y nos quedamos con la cobertura mínima: '+sopStr(minimize(RETO_POOL[retoIdx].mts,RETO_POOL[retoIdx].n,[]).terms,RETO_POOL[retoIdx].n)+'. Comprobamos.');
-    await sleep(3000);
-    checkReto();await sleep(2600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    seedReto(RETO_DEMO);updateRetoSpec();afterEdit();
+    const fd=RETO_POOL[RETO_DEMO], rd=minimize(fd.mts,fd.n,[]);
+    showToast('🎯 Demostración con otra función, F = Σm('+fd.mts.join(',')+') ('+retoPIs.length+' implicantes primos). Primero marcamos TODOS: cubren los unos, pero alguno sobra.');
+    retoSel=new Set(retoPIs.map((_,k)=>k));afterEdit();
+    await sleep(4200);
+    retoSel=new Set();
+    rd.terms.forEach(t=>{const idx=retoPIs.findIndex(p=>p.bits===t.bits&&p.mask===t.mask);if(idx>=0)retoSel.add(idx);});
+    demoShow=true;afterEdit();
+    showToast('✔ Quitamos el redundante y queda la cobertura mínima: '+sopStr(rd.terms,fd.n)+' ('+rd.cost+' literales). Esto es solo una demostración: tu reto sigue intacto.');
+    await sleep(4200);
+    demoShow=false;
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2400);
   }finally{
+    demoShow=false;
+    // restitución del estado del alumno (el reto vuelve a estar como lo dejó, sin resolver si no lo estaba)
+    expN=prev.expN;expSet=prev.expSet;agIdx=prev.agIdx;agSpot=prev.agSpot;
+    retoIdx=prev.retoIdx;retoPIs=prev.retoPIs;retoSel=prev.retoSel;retoChecked=prev.retoChecked;retoOkCover=prev.retoOkCover;
+    retoOkMin=prev.retoOkMin;retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    setMode(prev.mode);
+    solved=(prev.mode==='reto')?retoSolved:false;
+    if(prev.mode==='reto')updateRetoSpec();
   }
 }
 
@@ -1227,7 +1270,7 @@ window.__labDebug={
   retoSel:()=>[...retoSel], retoSetSel:arr=>{if(mode==='reto'){retoSel=new Set(arr);retoChecked=false;afterEdit();}},
   retoToggle:i=>{if(mode==='reto'){if(retoSel.has(i))retoSel.delete(i);else retoSel.add(i);retoChecked=false;afterEdit();}},
   retoSolveMin:()=>{if(mode==='reto'){const r=minimize(RETO_POOL[retoIdx].mts,RETO_POOL[retoIdx].n,[]);retoSel=new Set();r.terms.forEach(t=>{const i=retoPIs.findIndex(p=>p.bits===t.bits&&p.mask===t.mask);if(i>=0)retoSel.add(i);});afterEdit();}},
-  checkReto:()=>checkReto(),
+  checkReto:()=>checkReto(), intentos:()=>intentos,
   retoChecked:()=>retoChecked, retoOkCover:()=>retoOkCover, retoOkMin:()=>retoOkMin, retoSolved:()=>retoSolved,
   seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
   newSignal:()=>newSignal(),

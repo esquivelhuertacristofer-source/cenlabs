@@ -851,7 +851,7 @@ let expIdx=0,expEnt='externo',expEv=2;
 let apTopic='acond',apIdx=0,apEnt='interno',apT=1,apA=0;
 let retoK=0;
 let retoCh={ent:'flotante',tEst:1000,adq:'lazo'};
-let retoChecked=false,retoOkEnt=false,retoOkTest=false,retoOkAdq=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoOkEnt=false,retoOkTest=false,retoOkAdq=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let solved=false,autoRunning=false,QUIZ={};
 let hwStep=0,hwT=0,framesCache=null;
 
@@ -881,6 +881,12 @@ const curSc=()=>mode==='reto'?retoSc():(mode==='aplica'?POOL[apIdx]:expSc());
 const curCfg=()=>mode==='reto'?retoCfg():(mode==='aplica'?apCfg():expCfg());
 const curPress=()=>mode==='explora'?expPress():I_BAD;
 
+// la estación del reto no se abre en Explora/Aplica mientras no esté resuelto: ahí se muestran el acondicionamiento, el tiempo y la estrategia válidos
+function escLock(i){return i===RETO_POOL[retoK]&&!retoSolved;}
+function fixSc(){
+  if(escLock(expIdx)){expIdx=(expIdx+1)%POOL.length;expEnt=goodEnt(POOL[expIdx]);expEv=2;}
+  if(escLock(apIdx)){apIdx=(apIdx+1)%POOL.length;apEnt=goodEnt(POOL[apIdx]);apT=TESTS.indexOf(goodTest(POOL[apIdx]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[apIdx]));}
+}
 function seedReto(k){
   retoK=(k==null)?pickIdx(RETO_POOL.length,retoK):k;
   const sc=retoSc();
@@ -889,9 +895,9 @@ function seedReto(k){
   const badT=TESTS.find(t=>!okTest(sc,t));
   const badA=ADQS.find(a=>!okAdq(sc,a.k));
   retoCh={ent:badE?badE.k:'flotante',tEst:badT!=null?badT:TESTS[0],adq:badA?badA.k:'lazo'};
-  retoChecked=false;retoOkEnt=false;retoOkTest=false;retoOkAdq=false;retoSolved=false;retoMsg='';
+  retoChecked=false;retoOkEnt=false;retoOkTest=false;retoOkAdq=false;retoSolved=false;retoMsg='';retoAviso='';intentos=0;
 }
-seedReto(0);
+seedReto(1);
 
 // ===================== 4. MATERIALES =====================
 function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
@@ -1319,8 +1325,8 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText('i reposo '+n3(iQuiesc(e))+' mA   ·   Z a 4 kHz '+fmtZ(zNoise(e))+'   ·   V reposo '+(e.rV===null?'sin definir':(vRest(sc,e)<0?'< 0 V':n2(vRest(sc,e))+' V')),30,y+20);
   const we=whyEnt(sc,cfg.ent);
-  c.fillStyle=we.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  wrapText(c,we.txt,30,y+38,640,16);
+  c.fillStyle=retoChecked?(we.ok?OK_HEX:WARN_HEX):'#6b7280';c.font='12px Outfit, sans-serif';
+  wrapText(c,retoChecked?we.txt:'El diagnóstico de este criterio aparece al pulsar «Comprobar».',30,y+38,640,16);
 
   y=278;
   c.fillStyle=kc(retoOkTest);c.font='bold 16px Outfit, sans-serif';
@@ -1328,8 +1334,8 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText('ventana de rebote '+fmtT(sc.tb)+' (suelo '+fmtT(sc.tb/2)+')   ·   pulsación más corta '+fmtT(sc.pulseMin)+'   ·   hueco más corto '+fmtT(sc.gapMin),30,y+20);
   const wt=whyTest(sc,cfg.tEst);
-  c.fillStyle=wt.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  wrapText(c,wt.txt,30,y+38,640,16);
+  c.fillStyle=retoChecked?(wt.ok?OK_HEX:WARN_HEX):'#6b7280';c.font='12px Outfit, sans-serif';
+  wrapText(c,retoChecked?wt.txt:'El diagnóstico de este criterio aparece al pulsar «Comprobar».',30,y+38,640,16);
 
   y=364;
   c.fillStyle=kc(retoOkAdq);c.font='bold 16px Outfit, sans-serif';
@@ -1337,8 +1343,8 @@ function drawReto(c){
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText(sc.nIn+' entrada(s) · '+N_INT+' pines de interrupción · temporizador '+(sc.timerLibre?'libre':'ocupado')+' · '+(sc.sleep?'el nodo duerme':'nodo alimentado'),30,y+20);
   const wa=whyAdq(sc,cfg.adq);
-  c.fillStyle=wa.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
-  wrapText(c,wa.txt,30,y+38,640,16);
+  c.fillStyle=retoChecked?(wa.ok?OK_HEX:WARN_HEX):'#6b7280';c.font='12px Outfit, sans-serif';
+  wrapText(c,retoChecked?wa.txt:'El diagnóstico de este criterio aparece al pulsar «Comprobar».',30,y+38,640,16);
 
   const gx=30,gw=640;
   lane(c,gx,450,gw,44,'Contacto mecánico',fmtT(t1-t0)+' de ventana · peor tren de rebotes');
@@ -1347,8 +1353,8 @@ function drawReto(c){
   sampleTicks(c,gx,514,gw,44,R.T,R.off,t0,t1);
   const nev=evLane(c,gx,514,gw,44,R.ev,t0,t1,OK_HEX);
   timeAxis(c,gx,560,gw,t0,t1);
-  c.fillStyle=nev===1?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
-  c.fillText(nev===1?'✔ 1 evento para 1 maniobra en esta ventana':(nev===0?'✗ 0 eventos en esta ventana':'✗ '+nev+' eventos para UNA maniobra'),gx,630);
+  c.fillStyle='#9fb0cf';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Con tu configuración: '+nev+' evento(s) para UNA maniobra en esta ventana',gx,630);
 
   rpanel(c,PX.x,PX.y,PX.w,430,'Reto · '+sc.name);
   let py=PX.y+56;
@@ -1369,6 +1375,9 @@ function drawReto(c){
   if(retoChecked){
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
     c.fillText(retoSolved?'✔ Entrada correcta: los tres criterios se cumplen':'✗ Todavía no: revisa los criterios marcados',30,700);
+  }else{
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Intentos fallidos: '+intentos+' de 3',30,700);
   }
   c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
   c.fillText('Cada decisión se simula con las otras dos correctas, para que un acierto no tape un error',30,752);
@@ -1550,9 +1559,10 @@ function buildControls(){
     html+=lbl('3 · Estrategia')+optBtns('ra',ADQS.map(a=>[a.k,a.n]),retoCh.adq);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc]').forEach(b=>{if(escLock(parseInt(b.getAttribute('data-sc'),10))){b.disabled=true;b.title='Es la estación de tu Reto';b.style.opacity='0.45';}});
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  wire('data-sc',v=>{const i=parseInt(v,10);if(mode==='explora'){expIdx=i;expEnt=goodEnt(POOL[i]);expEv=2;}else{apIdx=i;apEnt=goodEnt(POOL[i]);apT=TESTS.indexOf(goodTest(POOL[i]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[i]));}});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa estación es la de tu Reto: se abre aquí cuando la resuelvas.');return;}if(mode==='explora'){expIdx=i;expEnt=goodEnt(POOL[i]);expEv=2;}else{apIdx=i;apEnt=goodEnt(POOL[i]);apT=TESTS.indexOf(goodTest(POOL[i]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[i]));}});
   wire('data-ent',v=>{expEnt=v;});
   wire('data-ev',v=>{expEv=parseInt(v,10);});
   wire('data-tp',v=>{apTopic=v;});
@@ -1584,6 +1594,7 @@ function updateScenarioInfo(){
 
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1601,13 +1612,13 @@ function newSignal(){
   else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);apEnt=goodEnt(POOL[apIdx]);
     apT=TESTS.indexOf(goodTest(POOL[apIdx]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[apIdx]));
     showToast('🧩 '+POOL[apIdx].name+' — '+POOL[apIdx].nota);}
-  else{seedReto();updateRetoSpec();
+  else{seedReto();fixSc();updateRetoSpec();
     showToast('🎯 Nueva estación: '+retoSc().name+'. La configuración de partida vuelve a estar mal en las tres decisiones.');}
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 11. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto'&&!retoChecked)cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg),e=ENT[cfg.ent];
   let h='';
@@ -1649,8 +1660,9 @@ function updateTele(){
     h+=teleRow('Acondicionamiento',e.n.split(' ')[0],retoChecked?(retoOkEnt?'good':'bad'):'');
     h+=teleRow('Tiempo estable',fmtTest(cfg.tEst),retoChecked?(retoOkTest?'good':'bad'):'');
     h+=teleRow('Estrategia',ADQ[cfg.adq].n.split(' ')[0],retoChecked?(retoOkAdq?'good':'bad'):'');
-    h+=teleRow('Pulsaciones',(NP-r.missed)+' / '+NP,r.missed?'bad':'good');
-    h+=teleRow('Conteos de más',n0(r.dupes+r.spurious),(r.dupes+r.spurious)?'bad':'good');
+    // sin veredicto en vivo: el resultado de la corrida sólo se da al comprobar
+    h+=teleRow('Pulsaciones',retoChecked?(NP-r.missed)+' / '+NP:'—',r.missed?'bad':'good');
+    h+=teleRow('Conteos de más',retoChecked?n0(r.dupes+r.spurious):'—',(r.dupes+r.spurious)?'bad':'good');
   }
   el('tele').innerHTML=h;
 }
@@ -1685,6 +1697,7 @@ function updateReport(){
   }else{
     html+=`Estación: <b>${sc.name}</b> · ${sc.nIn} entrada(s) · latencia máxima ${fmtT(sc.tLatMax)}.<br>`;
     if(retoChecked)html+=retoMsg;
+    else if(retoAviso)html+=retoAviso;
     else html+=`<span class="mono">Elige acondicionamiento, tiempo estable y estrategia, y pulsa Comprobar.</span>`;
   }
   el('report').innerHTML=html;
@@ -1694,7 +1707,7 @@ function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();u
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const sc=retoSc();
-  el('retoSpec').innerHTML=`Pon en marcha la entrada de <b>${sc.name}</b> (${sc.sw}): (1) el <b>acondicionamiento</b>, que debe dar nivel en reposo por encima de ${n1(VCC-VN_MAX)} V, respetar ${sc.iMaxIn>=10?'el consumo del nodo':'un presupuesto de '+n2(sc.iMaxIn)+' mA'}${sc.iMinIn?' y entregar al menos '+n1(sc.iMinIn)+' mA de humectación al contacto':''}; (2) el <b>tiempo estable</b> del antirrebote, por encima de la mitad de la ventana de rebote (${fmtT(sc.tb)}) y por debajo del suceso más corto; y (3) la <b>estrategia de lectura</b>, con ${sc.nIn} entrada(s), ${N_INT} pines de interrupción externa, el temporizador ${sc.timerLibre?'libre':'ocupado por el PWM'}, ${sc.sleep?'el nodo durmiendo entre maniobras':'el nodo alimentado'} y una latencia máxima de ${fmtT(sc.tLatMax)}.`;
+  el('retoSpec').innerHTML=`Pon en marcha la entrada de <b>${sc.name}</b> (${sc.sw}): (1) el <b>acondicionamiento</b>, que debe dar nivel en reposo por encima de ${n1(VCC-VN_MAX)} V, respetar ${sc.iMaxIn>=10?'el consumo del nodo':'un presupuesto de '+n2(sc.iMaxIn)+' mA'}${sc.iMinIn?' y entregar al menos '+n1(sc.iMinIn)+' mA de humectación al contacto':''}; (2) el <b>tiempo estable</b> del antirrebote, por encima de la mitad de la ventana de rebote (${fmtT(sc.tb)}) y por debajo del suceso más corto; y (3) la <b>estrategia de lectura</b>, con ${sc.nIn} entrada(s), ${N_INT} pines de interrupción externa, el temporizador ${sc.timerLibre?'libre':'ocupado por el PWM'}, ${sc.sleep?'el nodo durmiendo entre maniobras':'el nodo alimentado'} y una latencia máxima de ${fmtT(sc.tLatMax)}.<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`;
 }
 function retoExplain(){
   const sc=retoSc(),cfg=retoCfg();
@@ -1705,10 +1718,18 @@ function checkReto(){
   retoOkEnt=okEnt(sc,retoCh.ent);
   retoOkTest=okTest(sc,retoCh.tEst);
   retoOkAdq=okAdq(sc,retoCh.adq);
-  retoSolved=retoOkEnt&&retoOkTest&&retoOkAdq;retoChecked=true;solved=retoSolved;
+  retoSolved=retoOkEnt&&retoOkTest&&retoOkAdq;retoChecked=true;solved=retoSolved;retoAviso='';
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  if(!retoSolved)intentos++;
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
-  refreshAll();
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra estación
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><span class="mono"><span class="dtc">Tres intentos sin acertar.</span> Se te plantea otra estación: razona con sus datos, no por descarte.</span>';
+    showToast('Tres intentos sin acertar: se te plantea otra estación.');
+    buildControls();updateScenarioInfo();
+  }
+  updateRetoSpec();refreshAll();
 }
 
 // ===================== 13. QUIZ =====================
@@ -1717,28 +1738,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué una entrada digital sin resistencia de polarización no vale, aunque en la mesa del taller «parezca que funciona»?',
       opciones:[
-        {t:'Porque con el contacto abierto nadie fija la tensión del pin: la deciden la fuga de la bornera y lo que se acople al cable. Que funcione en la mesa sólo dice que allí no había ni humedad ni un variador cerca.',ok:true,why:'Correcto. Un nodo flotante no tiene nivel: tiene la tensión que le dejen. Y en CMOS, además, un pin parado a media escala hace conducir a la vez los dos transistores de entrada.'},
-        {t:'Porque sin resistencia la corriente por el contacto es infinita y acaba soldando las láminas.',ok:false,why:'Con el contacto abierto no circula corriente, y con el contacto cerrado quien limita la corriente es precisamente el pull-up. Sin pull-up el problema es el contrario: no circula nada y el nodo queda al aire.'},
-        {t:'Porque el microcontrolador no puede leer un 0 lógico si no hay una resistencia hacia Vcc.',ok:false,why:'El 0 lo da el contacto cerrado llevando el pin a masa, y eso funciona con o sin pull-up. Lo que falta sin pull-up es el 1: el estado de reposo.'},
-        {t:'Porque la resistencia de polarización es la que produce el antirrebote y sin ella el contacto rebota más.',ok:false,why:'El pull-up no quita ni un rebote: los rebotes son mecánicos y ocurren igual. El antirrebote es del programa o de un filtro, no de la polarización.'},
+        {t:'Porque con el contacto abierto nadie fija la tensión del pin: la deciden la fuga de la bornera y lo que se acople al cable. Que funcione en la mesa sólo dice que allí no había humedad ni variador.',ok:true,why:'Correcto. Un nodo flotante no tiene nivel: tiene la tensión que le dejen. Y en CMOS, además, un pin parado a media escala hace conducir a la vez los dos transistores de entrada.'},
+        {t:'Porque sin resistencia la corriente por el contacto es prácticamente infinita al cerrarse y acaba soldando las láminas, que no están hechas para soportar ese esfuerzo.',ok:false,why:'Con el contacto abierto no circula corriente, y con el contacto cerrado quien limita la corriente es precisamente el pull-up. Sin pull-up el problema es el contrario: no circula nada y el nodo queda al aire.'},
+        {t:'Porque el microcontrolador no puede leer un 0 lógico si no hay una resistencia hacia Vcc que cierre el circuito con el contacto y le dé corriente de referencia.',ok:false,why:'El 0 lo da el contacto cerrado llevando el pin a masa, y eso funciona con o sin pull-up. Lo que falta sin pull-up es el 1: el estado de reposo.'},
+        {t:'Porque la resistencia de polarización es la que produce el efecto antirrebote, y sin ella el contacto rebota más veces y con más amplitud al cerrar y al abrir.',ok:false,why:'El pull-up no quita ni un rebote: los rebotes son mecánicos y ocurren igual. El antirrebote es del programa o de un filtro, no de la polarización.'},
       ],
     },
     aplica:{
       pregunta:'La regla de dimensionado del antirrebote es t_est &gt; t_reb/2. ¿Por qué la MITAD de la ventana de rebote y no la ventana entera?',
       opciones:[
-        {t:'Porque para colar un conteo de más hacen falta DOS tramos contiguos —un falso reposo y un re-cierre— confirmados por separado, y los dos juntos no pueden pasar de la ventana. El mejor reparto para el rebote es mitad y mitad.',ok:true,why:'Correcto. Si un tramo mide más de la mitad, el contiguo mide menos, y el antirrebote sólo necesita ganar UNO de los dos. Por eso la cota es t_reb/2 y no t_reb.'},
-        {t:'Porque el fabricante del pulsador especifica el rebote como el doble del valor real, por seguridad.',ok:false,why:'Los fabricantes declaran el rebote máximo, no el doble de nada. La mitad sale de la geometría del problema, no de una convención de catálogo.'},
-        {t:'Porque el filtro RC ya se encarga de la primera mitad del tren de rebotes y el programa sólo tiene que cubrir la segunda.',ok:false,why:'La regla vale exista o no filtro. Y un filtro con τ de 1 ms no borra un tren de 60 ms: baja la impedancia y da histéresis, pero el antirrebote sigue siendo del programa.'},
-        {t:'Porque poner t_est igual a la ventana entera haría perder pulsaciones.',ok:false,why:'Eso es cierto pero es el TECHO, y lo pone el suceso más corto —la pulsación o el hueco—, no la ventana de rebote. Son dos límites distintos y por motivos distintos.'},
+        {t:'Porque para colar un conteo de más hacen falta DOS tramos contiguos —un falso reposo y un re-cierre— confirmados por separado, y juntos no pueden pasar de la ventana: el mejor reparto es mitad y mitad.',ok:true,why:'Correcto. Si un tramo mide más de la mitad, el contiguo mide menos, y el antirrebote sólo necesita ganar UNO de los dos. Por eso la cota es t_reb/2 y no t_reb.'},
+        {t:'Porque el fabricante del pulsador especifica el rebote como el doble del valor real, por seguridad, y por eso basta con dimensionar para la mitad de la cifra de catálogo.',ok:false,why:'Los fabricantes declaran el rebote máximo, no el doble de nada. La mitad sale de la geometría del problema, no de una convención de catálogo.'},
+        {t:'Porque el filtro RC ya se encarga de la primera mitad del tren de rebotes y el programa sólo tiene que cubrir la segunda mitad, que es la que llega al pin.',ok:false,why:'La regla vale exista o no filtro. Y un filtro con τ de 1 ms no borra un tren de 60 ms: baja la impedancia y da histéresis, pero el antirrebote sigue siendo del programa.'},
+        {t:'Porque poner t_est igual a la ventana entera haría perder pulsaciones cortas, y con la mitad se llega a un compromiso razonable entre perder y contar de más.',ok:false,why:'Eso es cierto pero es el TECHO, y lo pone el suceso más corto —la pulsación o el hueco—, no la ventana de rebote. Son dos límites distintos y por motivos distintos.'},
       ],
     },
     reto:{
       pregunta:'¿Por qué un contacto de plata puede exigir una corriente MÍNIMA por la entrada, y uno chapado en oro no?',
       opciones:[
-        {t:'Porque sobre la plata se forma una película de óxido y sulfuro que aísla: hace falta algo de corriente —del orden del miliamperio— para romperla. El oro no se sulfura, así que admite circuito seco.',ok:true,why:'Correcto: es la corriente de humectación. Un pull-up de 50 kΩ da 0,1 mA y deja el contacto sin limpiar: el conteo empieza a fallar meses después de la puesta en marcha.'},
-        {t:'Porque la plata tiene más resistencia de contacto y hace falta más corriente para que la caída sea medible por el MCU.',ok:false,why:'La plata es de los mejores conductores que hay y su resistencia de contacto limpio es de miliohmios. El problema no es el metal: es la película que se forma encima.'},
-        {t:'Porque el pull-up interno del microcontrolador no puede entregar más de 0,25 mA y por eso hay que poner uno externo siempre.',ok:false,why:'El pull-up interno sí entrega esa corriente, y en muchas estaciones basta con ella. La corriente mínima la pide el CONTACTO, no el microcontrolador.'},
-        {t:'Porque una corriente mínima por el contacto reduce el tiempo de rebote de las láminas.',ok:false,why:'El rebote es mecánico: depende de la masa, del muelle y del recorrido. La corriente no lo cambia. Lo que la corriente hace es atravesar la película que se forma sobre el metal.'},
+        {t:'Porque sobre la plata se forma una película de óxido y sulfuro que aísla: hace falta una corriente del orden del miliamperio para romperla. El oro no se sulfura y admite circuito seco.',ok:true,why:'Correcto: es la corriente de humectación. Un pull-up de 50 kΩ da 0,1 mA y deja el contacto sin limpiar: el conteo empieza a fallar meses después de la puesta en marcha.'},
+        {t:'Porque la plata tiene más resistencia de contacto que el oro y hace falta más corriente para que la caída de tensión resulte medible por el microcontrolador.',ok:false,why:'La plata es de los mejores conductores que hay y su resistencia de contacto limpio es de miliohmios. El problema no es el metal: es la película que se forma encima.'},
+        {t:'Porque el pull-up interno del microcontrolador no puede entregar más de 0,25 mA, y con contactos de plata hay que poner siempre un pull-up externo de menor valor.',ok:false,why:'El pull-up interno sí entrega esa corriente, y en muchas estaciones basta con ella. La corriente mínima la pide el CONTACTO, no el microcontrolador.'},
+        {t:'Porque una corriente mínima por el contacto reduce el tiempo de rebote de las láminas de plata, que son más pesadas, y acorta la ventana que el programa debe filtrar.',ok:false,why:'El rebote es mecánico: depende de la masa, del muelle y del recorrido. La corriente no lo cambia. Lo que la corriente hace es atravesar la película que se forma sobre el metal.'},
       ],
     },
   };
@@ -1782,7 +1803,10 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,expIdx,expEnt,expEv,apTopic,apIdx,apEnt,apT,apA,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1848,7 +1872,20 @@ async function runAuto(){
     checkReto();await sleep(2600);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    expIdx=prev.expIdx;expEnt=prev.expEnt;expEv=prev.expEv;apTopic=prev.apTopic;apIdx=prev.apIdx;apEnt=prev.apEnt;apT=prev.apT;apA=prev.apA;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkEnt=retoOkTest=retoOkAdq=true;
+    }else if(prev.retoK===0){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkEnt=false;retoOkTest=false;retoOkAdq=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -1908,6 +1945,7 @@ window.__labDebug={
   quizAnswer:i=>answer(i),
   frames:()=>frames(),
   newSignal:()=>newSignal(),
+  intentos:()=>intentos,
   solved:()=>solved,
 };
 </script>

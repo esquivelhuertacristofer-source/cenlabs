@@ -48,7 +48,7 @@ fichaTecnica({
     items: [
       'En Explora, elige el número de variables y enciende salidas en la tabla (o usa un preset). Observa cómo el mapa se llena y cómo la expresión mínima cambia al instante. Compara el coste canónico con el mínimo: verás cuántos literales y compuertas ahorras. Prueba el preset "Paridad" para comprobar la lección honesta: hay funciones que NO simplifican.',
       'En Agrupa, elige una función preparada y estudia sus lazos sobre el mapa. Enfoca cada grupo: el panel te dice qué variables permanecen constantes dentro del lazo (y por tanto sobreviven en el término) y cuántas se eliminan. Comprueba que un grupo de 2 celdas elimina 1 variable, uno de 4 elimina 2, y así sucesivamente.',
-      'En el Reto, lee la función F = Σm(...) y su mapa. Marca en la paleta los implicantes primos que, juntos, cubran TODOS los unos usando el mínimo de literales. Pulsa "Comprobar": el sistema califica por separado si tu cobertura es completa y si alcanza el coste mínimo. Cuidado con dejar unos sin cubrir o con incluir implicantes redundantes o grupos pequeños que suben el coste.',
+      'En el Reto, lee la función F = Σm(...) y su mapa. Marca en la paleta los implicantes primos que, juntos, cubran TODOS los unos usando el mínimo de literales. Pulsa "Comprobar": el sistema califica por separado si tu cobertura es completa y si alcanza el coste mínimo. Cuidado con dejar unos sin cubrir o con incluir implicantes redundantes o grupos pequeños que suben el coste. El veredicto solo llega al comprobar, sin revelar la solución; tras 3 intentos fallidos la función se renueva. Si copias la Σm del reto en Explora, el reto también se renueva.',
     ],
   },
   s5: {

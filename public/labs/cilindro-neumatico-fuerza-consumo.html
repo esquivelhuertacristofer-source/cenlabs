@@ -507,6 +507,15 @@ const POOL = [
   { id: 'transfer', nom: 'Transfer rápido de piezas ligeras',   F: 120,  dir: 'avance',    s: 400, v: 800, Dmax: 63,  pRed: 6, cpm: 40 },
 ];
 
+// El reto tiene SU PROPIO banco de estaciones: ninguna aparece en Fuerza, Velocidad ni
+// Consumo, para que esos modos no ensenen la respuesta de la estacion que se juzga.
+const RPOOL = [
+  { id: 'elevador', nom: 'Elevador de cajas de cartón',        F: 800, dir: 'avance',    s: 300, v: 120, Dmax: 100, pRed: 6, cpm: 8 },
+  { id: 'pinza',    nom: 'Pinza de sujeción en una fresadora', F: 600, dir: 'retroceso', s: 60,  v: 90,  Dmax: 80,  pRed: 5, cpm: 12 },
+  { id: 'cuchilla', nom: 'Cuchilla de corte de film',          F: 180, dir: 'retroceso', s: 150, v: 600, Dmax: 63,  pRed: 6, cpm: 20 },
+  { id: 'empuja',   nom: 'Empujador de botellas',              F: 350, dir: 'avance',    s: 200, v: 300, Dmax: 63,  pRed: 4, cpm: 15 },
+];
+
 const areaEmb = k => Math.PI * CILINDROS[k].D * CILINDROS[k].D / 4 / 100;                        // cm2
 const areaAnu = k => Math.PI * (CILINDROS[k].D * CILINDROS[k].D - CILINDROS[k].d * CILINDROS[k].d) / 4 / 100;
 const areaDir = (k, dir) => dir === 'retroceso' ? areaAnu(k) : areaEmb(k);
@@ -570,18 +579,18 @@ function whyCfg(sc, cfg) {
   if (!e.okD) return 'El ' + CILINDROS[cfg.cil].nom + ' no cabe: el hueco admite hasta Ø' + sc.Dmax + '.';
   if (!e.okP) return 'La red de esta máquina está regulada a ' + sc.pRed + ' bar: no hay ' + e.p + ' bar disponibles.';
   if (!e.okB) return 'Relación de carga ' + f1(e.beta, 2) + ' frente al ' + f1(e.bmax, 2) + ' admisible a ' + sc.v + ' mm/s: el ' + CILINDROS[cfg.cil].nom + ' a ' + e.p + ' bar sólo da ' + f1(e.fu, 0) + ' N útiles para una carga de ' + sc.F + ' N.';
-  if (!e.okQ) return 'La válvula de ' + e.Qn + ' l/min no alcanza: hacen falta ' + f1(e.qnec, 0) + ' × ' + f1(K_VAL, 1) + ' = ' + f1(K_VAL * e.qnec, 0) + ' l/min ANR para ir a ' + sc.v + ' mm/s.';
+  if (!e.okQ) return 'La válvula de ' + e.Qn + ' l/min no alcanza para ir a ' + sc.v + ' mm/s con este cilindro y esta presión: calcula el caudal que pide el lado del émbolo (modo Velocidad) y recuerda el factor K = ' + f1(K_VAL, 1) + '.';
   const g = GOOD(sc), eg = evalua(sc, g);
-  if (e.cons > eg.cons + 1e-12) return 'Funciona, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo cuando hay una combinación válida que gasta ' + f1(eg.cons, 2) + '.';
-  if (e.Qn > VALVULAS[g.val].Qn) return 'Funciona, pero la válvula sobra: con ' + VALVULAS[g.val].Qn + ' l/min ya se llega a los ' + sc.v + ' mm/s.';
+  if (e.cons > eg.cons + 1e-12) return 'Funciona, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo y hay una combinación válida que gasta menos aire.';
+  if (e.Qn > VALVULAS[g.val].Qn) return 'Funciona, pero la válvula sobra: hay una más pequeña que también llega a la velocidad pedida.';
   return '';
 }
 function whyEje(sc, eje, k) {
   const cfg = cfgWith(sc, { [eje]: k }), e = evalua(sc, cfg);
   if (!e.ok) return whyCfg(sc, cfg);
-  if (eje === 'val') { const m = minEje(sc, 'val', VALK, 'Qn'); if (VALVULAS[k].Qn > m) return 'Cumple, pero sobra: con ' + m + ' l/min ya se llega a los ' + sc.v + ' mm/s y el consumo no baja por poner más válvula.'; return ''; }
+  if (eje === 'val') { const m = minEje(sc, 'val', VALK, 'Qn'); if (VALVULAS[k].Qn > m) return 'Cumple, pero sobra: hay una válvula más pequeña que también llega a los ' + sc.v + ' mm/s, y el consumo no baja por poner más válvula.'; return ''; }
   const m = minEje(sc, eje, eje === 'cil' ? CILK : PREK, 'cons');
-  if (e.cons > m + 1e-12) return 'Cumple, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo y hay una opción válida de ' + f1(m, 2) + '.';
+  if (e.cons > m + 1e-12) return 'Cumple, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo y hay una opción válida que gasta menos.';
   return '';
 }
 function curvaVal(sc, cil, pre) {
@@ -633,16 +642,20 @@ let cnIdx=3, cnUnit='anr';
 // reto
 let retoK=0, retoCh={cil:'c32',pre:'p3',val:'v50'};
 let retoChecked=false, retoOkCil=false, retoOkPre=false, retoOkVal=false, retoSolved=false, retoMsg='';
+// intentos: fallos acumulados del alumno; retoFallos: los del caso en curso (a los 3 se resiembra)
+let retoIntentos=0, retoFallos=0;
+const RETO_RESIEMBRA=3;
 let solved=false, autoRunning=false, QUIZ={};
 let animT=0, animP=0;
 
 function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
 function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
-const retoSc=()=>POOL[retoK];
+const retoSc=()=>RPOOL[retoK];
 const retoCfg=()=>({cil:retoCh.cil,pre:retoCh.pre,val:retoCh.val});
 function seedReto(k){
-  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoK=(k==null)?pickIdx(RPOOL.length,retoK):k;
   retoCh=startCfg(retoSc());      // arranca deliberadamente MAL en los tres ejes
+  retoFallos=0;
   retoChecked=false;retoOkCil=false;retoOkPre=false;retoOkVal=false;retoSolved=false;retoMsg='';
 }
 seedReto(0);
@@ -1026,14 +1039,16 @@ function drawReto(c){
     ['Relación de carga','β = '+f1(e.beta,3)+' contra '+f1(e.bmax,2),e.okB],
     ['Caudal de la válvula',e.Qn+' contra '+f1(K_VAL*e.qnec,0)+' l/min',e.okQ],
   ];
-  crit.forEach((r,i)=>trowC(c,30,478+i*28,650,28,[r[0],r[1],r[2]?'cumple':'no cumple'],CW,[null,null,r[2]?OK_HEX:BAD_HEX]));
+  crit.forEach((r,i)=>trowC(c,30,478+i*28,650,28,[r[0],r[1],retoChecked?(r[2]?'cumple':'no cumple'):'—'],CW,[null,null,retoChecked?(r[2]?OK_HEX:BAD_HEX):null]));
 
-  // diagnóstico
-  const w=whyCfg(sc,cfg);
-  c.fillStyle=hexA(w?WARN_HEX:OK_HEX,0.08);c.fillRect(30,606,650,80);
-  c.strokeStyle=hexA(w?WARN_HEX:OK_HEX,0.30);c.lineWidth=1;c.strokeRect(30,606,650,80);
-  c.fillStyle=w?WARN_HEX:OK_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-  wrapText(c,w||'Montaje válido y de consumo mínimo: '+f1(e.cons,3)+' l ANR por ciclo, '+f1(e.consMin,1)+' l/min con la cadencia pedida.',46,630,618,19);
+  // diagnóstico (sólo tras Comprobar: antes no hay veredicto)
+  const w=retoChecked?whyCfg(sc,cfg):'';
+  const colD=!retoChecked?ACC:(w?WARN_HEX:OK_HEX);
+  c.fillStyle=hexA(colD,0.08);c.fillRect(30,606,650,80);
+  c.strokeStyle=hexA(colD,0.30);c.lineWidth=1;c.strokeRect(30,606,650,80);
+  c.fillStyle=colD;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,!retoChecked?'Elige cilindro, presión y válvula y pulsa «Comprobar»: hasta entonces no hay veredicto, sólo las medidas de tu montaje.'
+    :(w||'Montaje válido y de consumo mínimo: '+f1(e.cons,3)+' l ANR por ciclo, '+f1(e.consMin,1)+' l/min con la cadencia pedida.'),46,630,618,19);
 
   nota(c,700,'Sobredimensionar también es un error: un cilindro de más gasta más aire cada ciclo, y una válvula de más no acelera nada porque la velocidad ya la limita la carrera. De las '+
     (CILK.length*PREK.length*VALK.length)+' combinaciones del catálogo, sólo una es válida y mínima a la vez.',VIO);
@@ -1041,24 +1056,19 @@ function drawReto(c){
   rpanel(c,PX.x,PX.y,PX.w,260,'Tu montaje');
   let y=PX.y+58;
   prow(c,PX.x,y,PX.w,'Área que trabaja',f1(e.Ac,2)+' cm²');y+=30;
-  prow(c,PX.x,y,PX.w,'F útil',f1(e.fu,0)+' N contra '+sc.F+' N',e.okB?OK_HEX:BAD_HEX);y+=30;
-  prow(c,PX.x,y,PX.w,'β',f1(e.beta,3)+' / '+f1(e.bmax,2),e.okB?OK_HEX:BAD_HEX);y+=30;
+  const cv=(b)=>retoChecked?(b?OK_HEX:BAD_HEX):undefined;
+  prow(c,PX.x,y,PX.w,'F útil',f1(e.fu,0)+' N contra '+sc.F+' N',cv(e.okB));y+=30;
+  prow(c,PX.x,y,PX.w,'β',f1(e.beta,3)+' / '+f1(e.bmax,2),cv(e.okB));y+=30;
   prow(c,PX.x,y,PX.w,'Q necesario × '+f1(K_VAL,1),f1(K_VAL*e.qnec,0)+' l/min');y+=30;
-  prow(c,PX.x,y,PX.w,'v máx. de la válvula',f1(e.vMax,0)+' mm/s',e.okQ?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'v máx. de la válvula',f1(e.vMax,0)+' mm/s',cv(e.okQ));y+=30;
   prow(c,PX.x,y,PX.w,'Consumo',f1(e.cons,3)+' l ANR/ciclo');y+=30;
-  prow(c,PX.x,y,PX.w,'Consumo mínimo posible',f1(evalua(sc,g).cons,3)+' l ANR/ciclo',OK_HEX);
 
-  rpanel(c,PX.x,350,PX.w,390,'Por qué no otro cilindro');
-  let yy=386;
-  CILK.forEach(k=>{
-    const ee=evalua(sc,cfgWith(sc,{cil:k}));
-    const f=[['okD','hueco'],['okP','red'],['okB','carga'],['okQ','caudal']].filter(([kk])=>!ee[kk]).map(([,n])=>n);
-    const on=k===cfg.cil;
-    prow(c,PX.x,yy,PX.w,CILINDROS[k].nom+(on?' ◂':''),ee.ok?f1(ee.cons,3)+' l/ciclo':'falla '+f.join('+'),ee.ok?(Math.abs(ee.cons-evalua(sc,g).cons)<1e-12?OK_HEX:'#C7D6F5'):BAD_HEX);
-    yy+=28;
-  });
+  rpanel(c,PX.x,350,PX.w,190,'Seguimiento');
+  let yy=392;
+  prow(c,PX.x,yy,PX.w,'Intentos fallidos',String(retoIntentos));yy+=30;
+  prow(c,PX.x,yy,PX.w,'Fallos de esta estación',retoFallos+' de '+RETO_RESIEMBRA);yy+=30;
   c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.textAlign='left';
-  wrapText(c,'Cada fila se evalúa con la presión y la válvula ya correctas, para que el cilindro se juzgue solo.',PX.x+16,yy+14,PX.w-32,16);
+  wrapText(c,'A los '+RETO_RESIEMBRA+' fallos la estación se cambia por otra. No hay veredicto ni respuesta hasta pulsar Comprobar.',PX.x+16,yy+14,PX.w-32,16);
 }
 
 function drawBoard(){
@@ -1171,10 +1181,12 @@ function updateHW(){
   carga.position.x=xPunta+0.26;
   const cs=0.22+Math.cbrt(sc.F/1400)*0.26;
   carga.scale.set(cs/0.34,cs/0.34,cs/0.34);
-  ledD.material.emissiveIntensity=e.okD?1.4:0.10;
-  ledP.material.emissiveIntensity=e.okP?1.4:0.10;
-  ledB.material.emissiveIntensity=e.okB?1.4:0.10;
-  ledQ.material.emissiveIntensity=e.okQ?1.4:0.10;
+  // En el reto los pilotos no dan veredicto hasta Comprobar.
+  const vOK=(mode!=='reto')||retoChecked;
+  ledD.material.emissiveIntensity=vOK?(e.okD?1.4:0.10):0.55;
+  ledP.material.emissiveIntensity=vOK?(e.okP?1.4:0.10):0.55;
+  ledB.material.emissiveIntensity=vOK?(e.okB?1.4:0.10):0.55;
+  ledQ.material.emissiveIntensity=vOK?(e.okQ?1.4:0.10):0.55;
   drawMano(e.p,sc.pRed);
 }
 
@@ -1237,7 +1249,7 @@ const MODE_META={
   fuerza:{nombre:'Fuerza',cam:[[5.2,3.0,7.4],[0.6,1.05,0.4]],mision:'Compara el área del émbolo con la anular, mira cuánta fuerza se queda en las juntas y comprueba dónde cae la relación de carga en cada sentido.'},
   caudal:{nombre:'Velocidad',cam:[[5.0,2.9,7.2],[0.7,1.00,0.5]],mision:'Calcula el caudal que exige la velocidad pedida y busca la válvula más pequeña que llega. Comprueba que ninguna de ellas cambia el consumo por ciclo.'},
   consumo:{nombre:'Consumo',cam:[[5.0,3.1,7.0],[0.6,1.05,0.4]],mision:'Recorre la curva de consumo contra presión y descubre dónde bajar el regulador ahorra aire y dónde lo encarece. Convierte entre litros ANR y litros normales.'},
-  reto:{nombre:'Reto',cam:[[5.1,2.9,7.3],[0.6,1.00,0.5]],mision:'Elige cilindro, presión y válvula para la estación propuesta. Cada decisión se califica por separado y sobredimensionar cuenta como error.'},
+  reto:{nombre:'Reto',cam:[[5.1,2.9,7.3],[0.6,1.00,0.5]],mision:'Elige cilindro, presión y válvula para la estación propuesta. Cada decisión se califica por separado al pulsar Comprobar y sobredimensionar cuenta como error.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
@@ -1385,9 +1397,19 @@ function checkReto(){
   retoOkCil=okCil(sc,retoCh.cil);
   retoOkPre=okPre(sc,retoCh.pre);
   retoOkVal=okVal(sc,retoCh.val);
-  retoSolved=retoOkCil&&retoOkPre&&retoOkVal;retoChecked=true;solved=retoSolved;
+  retoSolved=retoOkCil&&retoOkPre&&retoOkVal;retoChecked=true;
+  // El recorrido guiado enseña el acierto pero NO resuelve el reto del alumno.
+  solved=autoRunning?false:retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  if(!retoSolved&&!autoRunning){
+    retoIntentos++;retoFallos++;
+    if(retoFallos>=RETO_RESIEMBRA){
+      seedReto();updateRetoSpec();afterEdit();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">🔁 Caso nuevo</span> — tres fallos en la misma estación: el reto pasa a otra. Repasa qué criterio te tumbó antes de volver a probar.</span>';
+      showToast('🔁 <b>Estación nueva:</b> '+retoSc().nom+'. Tres fallos en la anterior: el reto se resiembra.');
+    }
+  }
   refreshAll();
 }
 
@@ -1397,37 +1419,37 @@ function buildQuiz(){
     fuerza:{
       pregunta:'¿Por qué el mismo cilindro da menos fuerza al retroceder que al avanzar?',
       opciones:[
-        {t:'Porque el vástago ocupa parte de la cara del émbolo por ese lado: la presión es la misma, pero el área sobre la que actúa es menor (A_anular = π(D²−d²)/4).',ok:true,why:'Correcto. Es puramente geométrico. Por eso una carga que se vence tirando puede obligar a un escalón más de presión —o a un diámetro más— que la misma carga empujando.'},
-        {t:'Porque al retroceder el aire tiene que vencer además el peso del vástago.',ok:false,why:'El peso del vástago es despreciable frente a las fuerzas en juego y además no depende del sentido en un montaje horizontal. La diferencia es de área, no de peso.'},
-        {t:'Porque la presión de red cae al invertir la válvula.',ok:false,why:'La presión de regulación es la misma en los dos sentidos: la fija el regulador, no la válvula direccional. Lo que cambia es el área.'},
-        {t:'Porque el rendimiento de las juntas es peor en el retroceso.',ok:false,why:'En este modelo η = 0,85 es el mismo en los dos sentidos, y los catálogos tampoco declaran rendimientos distintos por sentido. La asimetría es geométrica.'},
+        {t:'Porque el vástago ocupa parte de la cara del émbolo por ese lado: la presión es la misma pero el área es menor, A_anular = π(D²−d²)/4.',ok:true,why:'Correcto. Es puramente geométrico. Por eso una carga que se vence tirando puede obligar a un escalón más de presión —o a un diámetro más— que la misma carga empujando.'},
+        {t:'Porque al retroceder el aire tiene que vencer además el peso del vástago y del émbolo, que se suma a la carga que hay que mover.',ok:false,why:'El peso del vástago es despreciable frente a las fuerzas en juego y además no depende del sentido en un montaje horizontal. La diferencia es de área, no de peso.'},
+        {t:'Porque la presión de red cae al invertir la válvula direccional, así que el lado anular recibe menos presión que el del émbolo.',ok:false,why:'La presión de regulación es la misma en los dos sentidos: la fija el regulador, no la válvula direccional. Lo que cambia es el área.'},
+        {t:'Porque el rendimiento de las juntas es peor en el retroceso, ya que el vástago roza más con la guía y con el casquillo del cilindro.',ok:false,why:'En este modelo η = 0,85 es el mismo en los dos sentidos, y los catálogos tampoco declaran rendimientos distintos por sentido. La asimetría es geométrica.'},
       ],
     },
     caudal:{
       pregunta:'Al elegir la válvula de un cilindro de doble efecto, ¿con qué caudal hay que dimensionarla?',
       opciones:[
-        {t:'Con el del lado del émbolo, que es siempre el mayor de los dos, aunque el movimiento útil sea el retroceso: ese aire tiene que pasar por la válvula como admisión o como escape.',ok:true,why:'Correcto. En la compuerta de la tolva la fuerza la da el lado anular, pero el caudal que atraviesa la válvula lo manda el del émbolo. Dimensionar con el anular deja la válvula corta.'},
-        {t:'Con el del lado que empuja la carga, porque es el que hace el trabajo.',ok:false,why:'El trabajo lo hace un lado, pero la válvula tiene que pasar el aire de los dos: el que entra y el que sale. El que manda es el mayor, que es siempre el del émbolo.'},
-        {t:'Con la media aritmética de los dos lados.',ok:false,why:'La válvula no promedia nada: en cada instante tiene que pasar el caudal real de cada vía. Dimensionar con la media deja la vía del émbolo por debajo.'},
-        {t:'Con el caudal nominal del compresor dividido entre el número de cilindros.',ok:false,why:'Eso sirve para dimensionar el compresor y el depósito, no la válvula. La válvula se elige por la velocidad que se le pide a ESE cilindro.'},
+        {t:'Con el del lado del émbolo, que es el mayor de los dos aunque el trabajo útil sea el retroceso: por la válvula pasa el aire de ambos lados.',ok:true,why:'Correcto. En la compuerta de la tolva la fuerza la da el lado anular, pero el caudal que atraviesa la válvula lo manda el del émbolo. Dimensionar con el anular deja la válvula corta.'},
+        {t:'Con el del lado que empuja la carga, porque es el que hace el trabajo y el que fija la velocidad de todo el movimiento del cilindro.',ok:false,why:'El trabajo lo hace un lado, pero la válvula tiene que pasar el aire de los dos: el que entra y el que sale. El que manda es el mayor, que es siempre el del émbolo.'},
+        {t:'Con la media aritmética de los dos lados, ya que la válvula alimenta una cámara y vacía la otra al mismo tiempo en cada carrera.',ok:false,why:'La válvula no promedia nada: en cada instante tiene que pasar el caudal real de cada vía. Dimensionar con la media deja la vía del émbolo por debajo.'},
+        {t:'Con el caudal nominal del compresor dividido entre el número de cilindros de la planta que comparten la red de aire comprimido.',ok:false,why:'Eso sirve para dimensionar el compresor y el depósito, no la válvula. La válvula se elige por la velocidad que se le pide a ESE cilindro.'},
       ],
     },
     consumo:{
       pregunta:'Bajar el regulador de 6 a 5 bar, ¿siempre ahorra aire?',
       opciones:[
-        {t:'No: si a 5 bar el cilindro pequeño ya no da la fuerza, hay que subir de diámetro y el consumo por ciclo puede acabar SUBIENDO, porque el volumen barrido crece más de lo que baja la compresión.',ok:true,why:'Correcto. En el transfer, pasar de 6 a 5 bar obliga a saltar del Ø32 al Ø40 y el consumo sube un 32,6 %. La curva consumo-presión ni siquiera es monótona.'},
-        {t:'Sí: el consumo es proporcional a la presión absoluta, así que menos presión es siempre menos aire.',ok:false,why:'Sería cierto con el diámetro congelado. Pero el diámetro no es libre: lo fija la fuerza, y la fuerza depende de la presión. Al bajar la presión, a veces hay que subir de área.'},
-        {t:'Sí, y además la máquina va más rápido porque hay menos contrapresión.',ok:false,why:'Al revés: menos presión es menos caudal másico y menos velocidad alcanzable con la misma válvula. Y el consumo puede subir igualmente.'},
-        {t:'Da igual: el consumo sólo depende de la carrera y de la cadencia.',ok:false,why:'La carrera y la cadencia fijan el volumen geométrico y la frecuencia, pero el aire se paga expandido: el factor (p + 1,013)/1,000 está en todas las cuentas.'},
+        {t:'No: si a 5 bar el cilindro pequeño ya no da la fuerza, hay que subir de diámetro y el consumo por ciclo puede subir en vez de bajar.',ok:true,why:'Correcto. En el transfer, pasar de 6 a 5 bar obliga a saltar del Ø32 al Ø40 y el consumo sube un 32,6 %. La curva consumo-presión ni siquiera es monótona.'},
+        {t:'Sí: el consumo es proporcional a la presión absoluta, así que menos presión es siempre menos aire gastado por ciclo en cualquier montaje.',ok:false,why:'Sería cierto con el diámetro congelado. Pero el diámetro no es libre: lo fija la fuerza, y la fuerza depende de la presión. Al bajar la presión, a veces hay que subir de área.'},
+        {t:'Sí, y además la máquina va más rápido porque hay menos contrapresión en la cámara de escape del cilindro durante la carrera.',ok:false,why:'Al revés: menos presión es menos caudal másico y menos velocidad alcanzable con la misma válvula. Y el consumo puede subir igualmente.'},
+        {t:'Da igual: el consumo sólo depende de la carrera y de la cadencia, no del diámetro ni de la presión del regulador.',ok:false,why:'La carrera y la cadencia fijan el volumen geométrico y la frecuencia, pero el aire se paga expandido: el factor (p + 1,013)/1,000 está en todas las cuentas.'},
       ],
     },
     reto:{
       pregunta:'¿Poner una válvula mayor de la necesaria reduce el consumo de aire por ciclo?',
       opciones:[
-        {t:'No: el consumo por ciclo depende sólo del volumen barrido y de la presión. La válvula decide en cuánto tiempo entra ese aire, es decir, la velocidad alcanzable, no cuánto aire se gasta.',ok:true,why:'Correcto. Con el mismo montaje, las cinco válvulas del catálogo dan velocidades muy distintas y exactamente el mismo consumo por ciclo. Sobredimensionarla sólo cuesta dinero.'},
-        {t:'Sí: al ofrecer menos resistencia, la válvula grande deja pasar menos aire para el mismo movimiento.',ok:false,why:'Menos resistencia significa que el mismo aire pasa más deprisa, no que haga falta menos aire. El volumen que hay que llenar es el de las cámaras, y no cambia.'},
-        {t:'Sí, porque una válvula mayor permite bajar la presión de trabajo.',ok:false,why:'La presión la fija la fuerza que hay que vencer, no la válvula. Una válvula mayor no aporta ni un newton.'},
-        {t:'Depende: sólo la reduce si el cilindro es de simple efecto.',ok:false,why:'Tampoco: en simple efecto el retorno lo hace un muelle y se consume menos aire, pero eso es cosa del cilindro, no del tamaño de la válvula.'},
+        {t:'No: el consumo por ciclo depende del volumen barrido y de la presión; la válvula sólo decide en cuánto tiempo entra ese aire.',ok:true,why:'Correcto. Con el mismo montaje, las cinco válvulas del catálogo dan velocidades muy distintas y exactamente el mismo consumo por ciclo. Sobredimensionarla sólo cuesta dinero.'},
+        {t:'Sí: al ofrecer menos resistencia, la válvula grande deja pasar menos aire para el mismo movimiento del cilindro y del vástago.',ok:false,why:'Menos resistencia significa que el mismo aire pasa más deprisa, no que haga falta menos aire. El volumen que hay que llenar es el de las cámaras, y no cambia.'},
+        {t:'Sí, porque una válvula mayor permite bajar la presión de trabajo del regulador y con ella el aire que se consume en cada ciclo.',ok:false,why:'La presión la fija la fuerza que hay que vencer, no la válvula. Una válvula mayor no aporta ni un newton.'},
+        {t:'Depende: sólo la reduce si el cilindro es de simple efecto, porque entonces el muelle hace el retorno sin consumir aire.',ok:false,why:'Tampoco: en simple efecto el retorno lo hace un muelle y se consume menos aire, pero eso es cosa del cilindro, no del tamaño de la válvula.'},
       ],
     },
   };
@@ -1470,7 +1492,11 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
-  if(autoRunning)return;autoRunning=true;
+  if(autoRunning)return;
+  // DEMOSTRACION: se guarda el estado del alumno y se devuelve al terminar.
+  const snap={mode,fxIdx,fxCil,fxPre,cdIdx,cdCil,cdPre,cdVal,cnIdx,cnUnit,solved,
+    retoK,retoCh:{...retoCh},retoChecked,retoOkCil,retoOkPre,retoOkVal,retoSolved,retoMsg,retoIntentos,retoFallos};
+  autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
@@ -1526,6 +1552,14 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    fxIdx=snap.fxIdx;fxCil=snap.fxCil;fxPre=snap.fxPre;cdIdx=snap.cdIdx;cdCil=snap.cdCil;cdPre=snap.cdPre;cdVal=snap.cdVal;
+    cnIdx=snap.cnIdx;cnUnit=snap.cnUnit;
+    retoK=snap.retoK;retoCh=snap.retoCh;retoChecked=snap.retoChecked;retoOkCil=snap.retoOkCil;retoOkPre=snap.retoOkPre;
+    retoOkVal=snap.retoOkVal;retoSolved=snap.retoSolved;retoMsg=snap.retoMsg;retoIntentos=snap.retoIntentos;retoFallos=snap.retoFallos;
+    // La demostración enseñó la solución de la primera estación del banco: si era la del alumno y aún no la resolvió, se cambia.
+    if(!snap.retoSolved&&snap.retoK===0){seedReto();retoMsg='';}
+    solved=snap.solved;
+    setMode(snap.mode);
   }
 }
 
@@ -1579,7 +1613,7 @@ window.__labDebug={
   cnIdx:()=>cnIdx, setCnIdx:i=>{cnIdx=i;afterEdit();},
   cnUnit:()=>cnUnit, setCnUnit:u=>{cnUnit=u;afterEdit();},
   // reto
-  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoK:()=>retoK, retoIntentos:()=>retoIntentos, intentos:()=>retoIntentos, retoFallos:()=>retoFallos, RPOOL, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
   retoName:()=>retoSc().nom, retoGet:()=>retoCfg(),
   retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
   retoSolveBuild:()=>{const g=GOOD(retoSc());retoCh={cil:g.cil,pre:g.pre,val:g.val};retoChecked=false;retoSolved=false;afterEdit();},

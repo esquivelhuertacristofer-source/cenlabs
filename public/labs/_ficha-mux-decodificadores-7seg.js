@@ -11,7 +11,7 @@ fichaTecnica({
       'El SOP mínimo de cada segmento del display, obtenido por Quine-McCluskey con los códigos 10-15 como "don\'t care" (coincide con Mano & Ciletti)',
       'La función que realiza un patrón de datos arbitrario del MUX, calculada y minimizada en vivo',
       'Un entrenador 3D con display de 7 segmentos físico y LEDs de salida que recorre las entradas y muestra el bloque activo respondiendo combinación a combinación',
-      'Reto de configuración: fijar los datos del MUX (y la habilitación) para realizar una función objetivo dada, con calificación separada de datos correctos y de habilitación',
+      'Reto de configuración: fijar los datos del MUX (y la habilitación) para realizar una función objetivo dada, comprobado por separado en función reproducida y habilitación, sin revelar qué datos fallan',
     ],
     omitidos: [
       'Los tiempos de propagación, los glitches por transiciones de la selección o la entrada, y todo el comportamiento dinámico (aquí el modelo es puramente lógico/estacionario)',
@@ -41,14 +41,14 @@ fichaTecnica({
     'Galería de funciones objetivo (XOR, OR, mayoría 2-de-3, paridad impar) para comprobar la realización',
     'Lista de los SOP mínimos de los 7 segmentos con su número de literales, resaltando el segmento enfocado',
     'Entrenador 3D con display de 7 segmentos físico, LEDs de salida y carátula del bloque activo',
-    'Reto de configuración del MUX con calificación separada (datos correctos y habilitación), recorrido guiado y pregunta de ingeniería por modo',
+    'Reto de configuración del MUX con contador de intentos fallidos y objetivo nuevo tras 3 fallos, recorrido guiado y pregunta de ingeniería por modo',
   ],
   s4: {
     intro: 'Procedimiento para entender, aplicar y configurar los tres bloques combinacionales:',
     items: [
       'En Explora, elige un bloque. Con el MUX, cambia la selección y observa que la salida sigue al dato elegido (Y=D[sel]); apaga EN y comprueba que la salida cae a 0 pase lo que pase. Con el decodificador, mueve la entrada y ve cómo salta la única salida activa (one-hot). Con el display, recorre los dígitos 0-9 y observa qué segmentos encienden.',
       'En Aplica, en el tema "MUX universal" elige una función y comprueba, entrada por entrada, que un MUX con D_i=f(i) reproduce su tabla de verdad completa sin compuertas extra. En "Decod.+OR" ve cómo la OR de las salidas de los mintérminos reconstruye la función. En "7seg SOP" enfoca cada segmento y estudia su SOP mínimo: los códigos 10-15 son don\'t-care y permiten simplificar más.',
-      'En el Reto, lee la función objetivo F = Σm(...) y su tabla. Copia la columna F en los datos del MUX (regla de oro: D_i = f(i)) y no olvides activar EN. Pulsa "Comprobar": el sistema califica por separado si todos los datos coinciden con f(i) y si la habilitación está activa. El error clásico —datos correctos pero EN=0— deja la salida siempre en 0.',
+      'En el Reto, lee la función objetivo F = Σm(...) y su tabla. Configura los datos del MUX aplicando lo que viste en Aplica y no olvides la habilitación EN. Pulsa "Comprobar": el sistema indica si el MUX reproduce la función y si está habilitado, pero no cuántos ni cuáles datos fallan; tras 3 intentos fallidos el objetivo se renueva. El error clásico —datos correctos pero EN=0— deja la salida siempre en 0.',
     ],
   },
   s5: {

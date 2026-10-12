@@ -11,7 +11,7 @@ fichaTecnica({
       'El comparador de magnitud A>B / A=B / A<B por cascada desde el MSB: el primer bit que difiere decide, con exactamente una salida activa',
       'La igualdad como AND de los XNOR bit a bit, y la relación de mutua exclusión gt+eq+lt = 1',
       'Un entrenador 3D con LEDs de suma, de la cadena de acarreo y de comparación (gt/eq/lt) que recorre las combinaciones y muestra el bloque activo respondiendo',
-      'Reto de diseño de un restador: configurar la operación sobre B (¬B) y el acarreo inicial (Cin=1), con calificación separada de los datos y de la habilitación del acarreo',
+      'Reto de diseño de un restador: configurar la fila B′ que entra al sumador y el acarreo inicial Cin; el sumador calcula y se compara con A − B al comprobar (se aceptan los dos esquemas válidos: ¬B con Cin=1, o −B precalculado con Cin=0)',
     ],
     omitidos: [
       'Los tiempos de propagación del acarreo, el camino crítico y el retardo real de la cadena ripple-carry (aquí el modelo es puramente lógico/estacionario)',
@@ -24,7 +24,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Elementos del laboratorio',
-    warn: 'En Explora conduces cada bloque en vivo: el sumador completo (las 8 filas de su tabla), el sumador de n bits (cambias A, B y Cin y ves la cadena de acarreo y el resultado sin signo y con signo) o el comparador (cambias A y B y ves cuál de gt/eq/lt se enciende). En Aplica compruebas las ideas potentes: que la resta A−B = A+¬B+1, que el desbordamiento con signo lo detectan por igual el método de signos y el del acarreo, y que la igualdad es el AND de los XNOR. En el Reto conviertes el sumador en restador configurando ¬B y Cin=1. No hay valor oculto que adivinar: el reto es de diseño, y tanto la operación sobre B como el acarreo inicial se verifican con el modelo lógico.',
+    warn: 'En Explora conduces cada bloque en vivo: el sumador completo (las 8 filas de su tabla), el sumador de n bits (cambias A, B y Cin y ves la cadena de acarreo y el resultado sin signo y con signo) o el comparador (cambias A y B y ves cuál de gt/eq/lt se enciende). En Aplica compruebas las ideas potentes: que la resta A−B = A+¬B+1, que el desbordamiento con signo lo detectan por igual el método de signos y el del acarreo, y que la igualdad es el AND de los XNOR. En el Reto conviertes el sumador en restador decidiendo qué entra por el puerto B y con qué acarreo inicial; la suma no se muestra hasta comprobar y, tras 3 intentos fallidos, el objetivo se renueva. No hay valor oculto que adivinar: el reto es de diseño y se verifica con el modelo lógico.',
     rows: [
       ['Sumador completo', 'Suma dos bits y un acarreo de entrada', 'S=A⊕B⊕Cin; Cout=may(A,B,Cin)', 'Cout es 1 cuando al menos dos entradas son 1 (mayoría)'],
       ['Sumador n bits (ripple)', 'Encadena n sumadores completos; el acarreo propaga', 'Cadena Cin→Cout', 'La suma sin signo puede dar acarreo final; con signo, desbordamiento'],
@@ -41,14 +41,14 @@ fichaTecnica({
     'Modo Aplica con tres temas: la resta como A+¬B+1, el desbordamiento por los dos métodos y la igualdad como AND de XNOR',
     'Comparación de magnitud bit a bit con la salida gt/eq/lt resaltada y la verificación de mutua exclusión',
     'Entrenador 3D con LEDs de suma, cadena de acarreo y comparación y carátula del bloque activo',
-    'Reto de diseño del restador con calificación separada (operación ¬B correcta y acarreo inicial Cin=1), recorrido guiado y pregunta de ingeniería por modo',
+    'Reto de diseño del restador con contador de intentos fallidos y objetivo nuevo tras 3 fallos, recorrido guiado y pregunta de ingeniería por modo',
   ],
   s4: {
     intro: 'Procedimiento para entender, aplicar y diseñar la aritmética binaria:',
     items: [
       'En Explora, empieza por el sumador completo y recorre sus 8 filas: observa que la suma es la paridad (XOR) de las tres entradas y que el acarreo aparece cuando al menos dos entradas son 1 (mayoría). Pasa al sumador de n bits y cambia A, B y Cin: sigue la cadena de acarreo etapa por etapa y compara el resultado sin signo con el resultado con signo (complemento a 2). Con el comparador, cambia A y B y observa cómo el primer bit que difiere desde el MSB decide gt/eq/lt.',
       'En Aplica, en el tema "Resta" comprueba, ejemplo a ejemplo, que A−B = A+¬B+1 da el mismo resultado que restar directamente. En "Overflow" verifica que los dos métodos —signos de los operandos y acarreo Cin_MSB⊕Cout_MSB— coinciden siempre, y observa qué combinaciones desbordan. En "Igualdad" ve cómo el AND de los XNOR bit a bit vale 1 solo cuando A y B son idénticos.',
-      'En el Reto, lee la resta objetivo A − B. Convierte el sumador en restador: configura la operación sobre B para que sea ¬B (invierte cada bit de B) y activa el acarreo inicial Cin=1 (la regla de oro del complemento a 2). Pulsa "Comprobar": el sistema califica por separado si la operación sobre B es correcta y si el acarreo inicial está activo. El error clásico —invertir B pero olvidar Cin=1— produce un resultado con un error de una unidad.',
+      'En el Reto, lee la resta objetivo A − B. Convierte el sumador en restador: decide con el razonamiento de complemento a 2 qué bits entran por el puerto B (fila B′) y qué acarreo inicial usar. Pulsa "Comprobar": el sumador calcula con tu configuración y se compara con A − B; el aviso describe lo que hizo tu suma (p. ej. una unidad de menos) sin darte los bits. El error clásico —invertir B pero olvidar el +1— produce un resultado con un error de una unidad.',
     ],
   },
   s5: {

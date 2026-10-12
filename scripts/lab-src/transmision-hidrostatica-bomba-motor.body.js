@@ -410,9 +410,38 @@ const ST={
   aceite:   { est:'cargadora',   vg:46,  nb:1800 },
   reto:     { est:'cargadora' },
 };
-const RETO={ cfg:{db:45,dm:45,vg:46,nb:1800}, sol:null, ejes:{}, resuelto:false, msg:'', nval:0 };
+// Política de reto: el veredicto NO se ve en vivo, sólo al pulsar Comprobar.
+// «vista» recuerda sobre qué conjunto se comprobó; si el alumno toca un mando,
+// esa vista caduca y el reto deja de estar resuelto (se reevalúa). Las pistas
+// son dos como máximo, graduadas y registradas; tras TRES fallos se resiembra
+// con otra estación. Dos conjuntos del mismo precio que consumen menos de un
+// 1 % de diferencia son un EMPATE TÉCNICO: valen los dos (el modelo no es tan
+// fino como para decidir un 0,085 % de energía).
+const MAX_INT=3, MAX_PISTAS=2, TOL_E=0.01;
+const RETO={ cfg:{db:45,dm:45,vg:46,nb:1800}, sol:null, resuelto:false, msg:'', nval:0,
+  vista:null, intentos:0, fallos:0, pistas:[], resiembras:0 };
 let CUR=null; let hw={}; let animT=0; let giroB=0, giroM=0, giroV=0;
 let autoRunning=false; let solved=false;
+const cfgKey=c=>[c.db,c.dm,c.vg,c.nb].join('|');
+function retoVer(){ return mode!=='reto' || autoRunning || (RETO.vista!==null && RETO.vista===ST.reto.est+'|'+cfgKey(RETO.cfg)); }
+// Los modos de estudio montan «el conjunto que gana» su estación para que se vea
+// el efecto del fluido y no el del hierro. En la estación DEL RETO eso sería
+// regalar la respuesta: ahí se monta otro conjunto válido que no coincide con el
+// ganador en ningún eje.
+function guardaReto(estK){ return estK===ST.reto.est && !autoRunning; }
+function modeloEst(estK){
+  const s=solucion(estK); if(!s) return null;
+  if(!guardaReto(estK)) return s;
+  const alt=validas(estK).filter(r=>r.db!==s.db&&r.dm!==s.dm&&r.nb!==s.nb)
+    .sort((a,b)=>b.coste-a.coste||b.kwh-a.kwh)[0];
+  return alt||null;
+}
+function nbSeguro(estK,nb){
+  if(!guardaReto(estK)) return nb;
+  const s=solucion(estK); if(!s||nb!==s.nb) return nb;
+  const o=modeloEst(estK);
+  return (o&&o.nb!==nb)?o.nb:(NB.find(x=>x!==nb));
+}
 
 // En el modo del aceite se monta el conjunto que gana esa estación y sólo se
 // cambia el bidón: así el efecto que se ve es el del fluido y no el del hierro.
@@ -420,10 +449,10 @@ function cfgDe(m){
   const s=ST[m];
   if(m==='par')      return {est:s.est, db:BASE.db, dm:s.dm,    vg:BASE.vg, nb:BASE.nb};
   if(m==='relacion') return {est:s.est, db:s.db,    dm:BASE.dm, vg:BASE.vg, nb:s.nb};
-  if(m==='rend')     return {est:s.est, db:BASE.db, dm:s.dm,    vg:BASE.vg, nb:s.nb};
+  if(m==='rend')     return {est:s.est, db:BASE.db, dm:s.dm,    vg:BASE.vg, nb:nbSeguro(s.est,s.nb)};
   if(m==='aceite'){
-    const o=solucion(s.est);
-    return {est:s.est, db:o?o.db:BASE.db, dm:o?o.dm:BASE.dm, vg:s.vg, nb:s.nb};
+    const o=modeloEst(s.est);
+    return {est:s.est, db:o?o.db:BASE.db, dm:o?o.dm:BASE.dm, vg:s.vg, nb:nbSeguro(s.est,s.nb)};
   }
   return {est:ST.reto.est, db:RETO.cfg.db, dm:RETO.cfg.dm, vg:RETO.cfg.vg, nb:RETO.cfg.nb};
 }
@@ -836,13 +865,13 @@ function drawAceite(){
 // ---- 6.5 Reto ----
 function drawReto(){
   const c=cfgDe('reto'), E=ESTACIONES[c.est], r=CUR;
-  const sol=RETO.sol;
+  const sol=RETO.sol, ver=retoVer();
   title2('Reto · el conjunto más barato que aguante la máquina',
-    'Siete criterios a la vez; a igualdad de precio manda la factura de gasóleo');
+    'Siete criterios a la vez; el veredicto sólo aparece al pulsar Comprobar');
   texto(E.nombre+' · '+E.detalle,44,116,'#c8d3e2',15,'left','700');
   texto(f1(E.tReq,0)+' N·m a '+f1(E.nReq,0)+' rpm  ·  p_lím '+f1(E.pLim,0)+' bar  ·  '+
         f1(E.tAmb,0)+' °C de ambiente  ·  '+f1(E.horas,0)+' h/año',44,138,'#8f9bb0',14);
-  // tabla de criterios
+  // tabla de criterios: lo medido se ve siempre; el cumple/no cumple sólo tras comprobar
   const med={
     okTerm: r.equil?f1(r.T,1)+' °C':'sin equilibrio',
     okVel:  f1(r.alfa,3),
@@ -858,46 +887,49 @@ function drawReto(){
   texto('MEDIDO',470,y,'#7f8b9c',12,'left','700');
   y+=8; linea(44,y,660,y,'#243043',1); y+=22;
   CRIT.forEach(k=>{
-    marca(56,y-5,r[k]);
-    texto(CRIT_ROT[k],72,y,r[k]?'#c8d3e2':BAD_HEX,14,'left','600');
+    if(ver) marca(56,y-5,r[k]);
+    texto(CRIT_ROT[k],72,y,(!ver||r[k])?'#c8d3e2':BAD_HEX,14,'left','600');
     texto(CRIT_POR[k],250,y,'#7f8b9c',13,'left','500');
-    texto(med[k],470,y,colOk(r[k]),13.5,'left','700');
+    texto(med[k],470,y,ver?colOk(r[k]):'#c8d3e2',13.5,'left','700');
     y+=27;
   });
   y+=8;
   const coste=COSTE_DB[c.db]+COSTE_DM[c.dm];
-  texto('Precio del conjunto  '+f1(coste,0)+' k$',44,y,r.valida?OK_HEX:'#8f9bb0',16,'left','800');
+  texto('Precio del conjunto  '+f1(coste,0)+' k$',44,y,(ver&&r.valida)?OK_HEX:'#8f9bb0',16,'left','800');
   texto('Energía  '+f1(r.kwh,0)+' kWh/año',300,y,'#8f9bb0',15,'left','700'); y+=26;
-  if(sol) texto(RETO.resuelto
+  texto(RETO.resuelto&&sol&&!autoRunning
       ? 'Resuelto: '+f1(sol.db,0)+' / '+f1(sol.dm,0)+' cm³/rev · VG'+f1(sol.vg,0)+' · '+f1(sol.nb,0)+' rpm'
-      : 'Objetivo declarado: precio mínimo entre las '+f1(RETO.nval,0)+' combinaciones que cumplen las siete.',
+      : 'Objetivo: el precio mínimo entre las combinaciones que cumplen las siete.',
     44,y,RETO.resuelto?OK_HEX:'#8f9bb0',14,'left','700');
   y+=28;
-  if(RETO.msg) wrapText(RETO.msg,44,y,620,19,RETO.resuelto?OK_HEX:WARN_HEX,14);
+  if(RETO.msg) y=wrapText(RETO.msg,44,y,620,19,RETO.resuelto?OK_HEX:WARN_HEX,14)+24;
+  // intentos y pistas registradas
+  texto('Intentos '+RETO.intentos+'  ·  fallos '+RETO.fallos+' de '+MAX_INT+'  ·  pistas '+RETO.pistas.length+' de '+MAX_PISTAS,
+    44,Math.max(y,560),'#c8d3e2',14,'left','700');
+  y=Math.max(y,560)+22;
+  if(!RETO.pistas.length) texto('Pulsa «Pista» en el panel: son dos, graduadas, y no dicen el valor de ningún eje.',44,y,'#5d6878',13,'left','500');
+  RETO.pistas.forEach((t,i)=>{ y=wrapText('Pista '+(i+1)+' · '+t,44,y,620,18,AZUL,13)+22; });
 
   rpanel(392);
   texto('Tu conjunto',PX.x+14,PX.y+26,'#eaf1fb',16,'left','800');
   let py=PX.y+58;
-  const ejeRow=(rot,val,eje)=>{
-    const bien=RETO.resuelto||RETO.ejes[eje];
+  const ejeRow=(rot,val)=>{
     texto(rot,PX.x+14,py,'#8f9bb0',14,'left','500');
-    texto(val,PX.x+PX.w-30,py,bien?OK_HEX:'#dbe4f0',15,'right','700');
-    if(bien) marca(PX.x+PX.w-14,py-5,true);
+    texto(val,PX.x+PX.w-14,py,'#dbe4f0',15,'right','700');
     py+=28;
   };
-  ejeRow('Bomba',f1(c.db,0)+' cm³/rev','db');
-  ejeRow('Motor',f1(c.dm,0)+' cm³/rev','dm');
-  ejeRow('Aceite','VG '+f1(c.vg,0),'vg');
-  ejeRow('Diésel',f1(c.nb,0)+' rpm','nb');
+  ejeRow('Bomba',f1(c.db,0)+' cm³/rev');
+  ejeRow('Motor',f1(c.dm,0)+' cm³/rev');
+  ejeRow('Aceite','VG '+f1(c.vg,0));
+  ejeRow('Diésel',f1(c.nb,0)+' rpm');
   py+=6;
   prow(py,'Precio bomba',f1(COSTE_DB[c.db],0)+' k$'); py+=26;
   prow(py,'Precio motor',f1(COSTE_DM[c.dm],0)+' k$'); py+=26;
   prow(py,'Precio total',f1(coste,0)+' k$',AZUL); py+=32;
-  prow(py,'Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' de '+f1(CRIT.length,0),colOk(r.valida)); py+=26;
+  prow(py,'Criterios cumplidos',ver?f1(CRIT.length-r.fallos.length,0)+' de '+f1(CRIT.length,0):'sin comprobar',ver?colOk(r.valida):'#8f9bb0'); py+=26;
   prow(py,'Rendimiento',pc1(r.etaTot,2)); py+=26;
   prow(py,'Energía anual',f1(r.kwh,0)+' kWh'); py+=32;
-  prow(py,'Combinaciones válidas',f1(RETO.nval,0)+' de '+f1(DB.length*DM.length*GRADOS.length*NB.length,0)); py+=26;
-  prow(py,'Precio mínimo posible',sol?f1(sol.coste,0)+' k$':'—',VIO);
+  if(RETO.resuelto&&sol&&!autoRunning) prow(py,'Precio mínimo',f1(sol.coste,0)+' k$',VIO);
 }
 
 function drawBoard(){
@@ -1462,22 +1494,40 @@ function buildControls(){
   wire('data-de',v=>{ST.aceite.est=v;});
   wire('data-dv',v=>{ST.aceite.vg=Number(v);});
   wire('data-dn',v=>{ST.aceite.nb=Number(v);});
-  wire('data-xb',v=>{RETO.cfg={...RETO.cfg,db:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xm',v=>{RETO.cfg={...RETO.cfg,dm:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xv',v=>{RETO.cfg={...RETO.cfg,vg:Number(v)};RETO.msg='';RETO.resuelto=false;});
-  wire('data-xn',v=>{RETO.cfg={...RETO.cfg,nb:Number(v)};RETO.msg='';RETO.resuelto=false;});
+  wire('data-xb',v=>retoEdita({db:Number(v)}));
+  wire('data-xm',v=>retoEdita({dm:Number(v)}));
+  wire('data-xv',v=>retoEdita({vg:Number(v)}));
+  wire('data-xn',v=>retoEdita({nb:Number(v)}));
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
 }
-// Una pista destapa UN eje: dice que valores de ese eje aparecen en alguna
-// configuracion optima. No resuelve el reto, porque los cuatro ejes se juzgan
-// juntos y acertar uno no garantiza que la combinacion valga.
+// Tocar un mando del reto invalida lo comprobado: el reto deja de estar
+// resuelto hasta que se vuelva a pulsar Comprobar (no queda «latcheado»).
+function retoEdita(patch){
+  RETO.cfg={...RETO.cfg,...patch};
+  RETO.msg='';RETO.resuelto=false;solved=false;
+}
+// Dos pistas como máximo, graduadas y por estación: la primera señala qué mirar,
+// la segunda qué comparar. Ninguna nombra el valor de un eje. Quedan registradas
+// en el pizarrón y en __labDebug.pistas().
+const PISTAS={
+  cargadora:['Mucho par a pocas vueltas: el par sale de Δp·D/2π. Mira cuánta presión pide cada cilindrada de motor y cuáles dejan de caber en el límite de la estación.',
+             'Vigila el mando α de la bomba: topa en 0,95. Y compara cómo cambia el calor y la energía anual al cambiar el grado del aceite con el hierro ya decidido.'],
+  cosechadora:['Poco par a muchas vueltas: mira el régimen máximo admisible de cada motor frente a las revoluciones que pide la propulsión.',
+               'Con tan poco par la presión sobra. Pregúntate qué te cuesta más: la cilindrada que no necesitas o la presión que te ahorra.'],
+  cabrestante:['Par muy alto a muy pocas vueltas: casi todo el trabajo lo hace la presión. Mira cuánta Δp pide cada cilindrada de motor frente al límite de la estación.',
+               'Con 12 °C de ambiente el aceite se calienta poco: compara en la telemetría dónde queda la viscosidad con cada grado y cuánto cambia la energía anual.'],
+  ventilador:['El ambiente es de 50 °C y el radiador evacúa poco: aquí decide la temperatura de equilibrio, no la presión. Mira cuánto calor genera cada conjunto.',
+              'Casi todas las combinaciones del catálogo se rompen por algún criterio: busca primero cuál se rompe más a menudo (mando, régimen admisible o temperatura).'],
+  hormigonera:['Son 2 200 horas al año: la factura de gasóleo pesa. Cuando varios conjuntos cuestan lo mismo, manda la energía anual.',
+               'Con el hierro ya fijado, compara cómo cambia la energía al cambiar el grado del aceite y el régimen del diésel; recuerda que menos de un 1 % es un empate técnico.'],
+};
 function pista(){
-  const eje=EJES.find(e=>!RETO.ejes[e]);
-  if(!eje){showToast('💡 Ya has destapado los cuatro ejes. La combinación la tienes que cerrar tú.');return;}
-  RETO.ejes[eje]=true;beep();
-  const vals=ejeSolC(ST.reto.est,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
-  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el conjunto más barato aparece: '+(vals||'ningún valor: esta estación no tiene solución'));
+  if(mode!=='reto')return;
+  if(RETO.pistas.length>=MAX_PISTAS){showToast('💡 Ya has usado las dos pistas de este caso. Quedan registradas en el pizarrón.');return;}
+  const t=PISTAS[ST.reto.est][RETO.pistas.length];
+  RETO.pistas.push(t);beep();
+  showToast('💡 <b>Pista '+RETO.pistas.length+' de '+MAX_PISTAS+'.</b> '+t);
   afterEdit();
 }
 
@@ -1505,6 +1555,8 @@ function setMode(k){
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'':'none';
   el('retoBox').style.display=k==='reto'?'':'none';
+  // en el reto el pizarrón de criterios es lo que hay que leer: el panel izquierdo (HUD) lo tapaba a 1600×900
+  { const hud=el('hud'); if(hud) hud.style.display=(k==='reto')?'none':''; }
   computa();
   buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
@@ -1524,19 +1576,18 @@ function newSignal(){
     if(i+1>=DB.length){const j=NB.indexOf(ST.relacion.nb);ST.relacion.nb=NB[(j+1)%NB.length];}
   }else if(mode==='rend'){
     const i=EST_KEYS.indexOf(ST.rend.est);ST.rend.est=EST_KEYS[(i+1)%EST_KEYS.length];
-    const o=solucion(ST.rend.est);
+    const o=modeloEst(ST.rend.est);
     if(o){ST.rend.dm=o.dm;ST.rend.nb=o.nb;}
   }else if(mode==='aceite'){
     const i=GRADOS.indexOf(ST.aceite.vg);ST.aceite.vg=GRADOS[(i+1)%GRADOS.length];
     if(i+1>=GRADOS.length){
       const j=EST_KEYS.indexOf(ST.aceite.est);ST.aceite.est=EST_KEYS[(j+1)%EST_KEYS.length];
-      const o=solucion(ST.aceite.est); if(o)ST.aceite.nb=o.nb;
+      const o=modeloEst(ST.aceite.est); if(o)ST.aceite.nb=o.nb;
     }
   }else{
     const i=EST_KEYS.indexOf(ST.reto.est);ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
-    retoSolveBuild(true);
+    retoSolveBuild(true);RETO.resiembras++;
   }
-  RETO.resuelto=false;solved=false;RETO.msg='';
   computa();buildControls();updateScenarioInfo();
   clearDx();buildQuiz();refreshQuestion();
   if(mode==='reto')updateRetoSpec();
@@ -1548,7 +1599,8 @@ function newSignal(){
 function teleRow(l,v,cls){
   return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
 }
-const cls2=b=>b?'ok':'bad';
+// en el reto los colores de cumple/no cumple son un veredicto: sólo tras Comprobar
+const cls2=b=>retoVer()?(b?'ok':'bad'):'';
 
 function updateTele(){
   const c=cfgDe(mode), E=ESTACIONES[c.est], r=CUR;
@@ -1612,7 +1664,7 @@ function updateTele(){
     h+=teleRow('Estación',E.nombre);
     h+=teleRow('Conjunto montado',f1(c.db,0)+' / '+f1(c.dm,0)+' cm³ · VG '+c.vg+' · '+f1(c.nb,0)+' rpm');
     h+=teleRow('Precio del conjunto',f1(r.coste,0)+' k€');
-    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),
+    h+=teleRow('Criterios cumplidos',retoVer()?f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0):'sin comprobar',
       cls2(r.valida));
     h+=teleRow('Temperatura',tOK?f1(r.T,1)+' °C':'no cierra',cls2(r.okTerm));
     h+=teleRow('Mando α',f1(r.alfa,3),cls2(r.okVel));
@@ -1621,7 +1673,8 @@ function updateTele(){
     h+=teleRow('Viscosidad',f1(r.nu,1)+' mm²/s',cls2(r.okVisc));
     h+=teleRow('Régimen admisible',f1(NMAX_DB[c.db],0)+' / '+f1(NMAX_DM[c.dm],0)+' rpm',cls2(r.okRpm));
     h+=teleRow('Bomba de carga',f1(r.qCarga,1)+' ≥ '+f1(r.qCargaReq,1)+' L/min',cls2(r.okCarga));
-    h+=teleRow('Precio mínimo posible',s?f1(s.coste,0)+' k€':'sin solución');
+    if(RETO.resuelto&&s&&!autoRunning) h+=teleRow('Precio mínimo',f1(s.coste,0)+' k€');
+    h+=teleRow('Intentos · fallos',RETO.intentos+' · '+RETO.fallos+' de '+MAX_INT);
   }
   el('tele').innerHTML=h;
 }
@@ -1675,9 +1728,10 @@ function updateReport(){
        f1(E.UA,2)+' kW/°C.\n';
     t+='> Montado: bomba '+f1(c.db,0)+', motor '+f1(c.dm,0)+' cm³, '+VG_ROT(c.vg)+', '+f1(c.nb,0)+' rpm → '+
        f1(r.coste,0)+' k€.\n';
-    t+=r.valida?'> Cumple los siete criterios.\n':'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    if(retoVer()) t+=r.valida?'> Cumple los siete criterios.\n':'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    else t+='> Sin veredicto: monta el conjunto, mira la telemetría y pulsa Comprobar.\n';
     t+=RETO.msg?'> '+RETO.msg+'\n':'';
-    t+='> De '+f1(RETO.nval,0)+' conjuntos válidos, el más barato cuesta '+(s?f1(s.coste,0)+' k€':'—')+'.';
+    t+='> Sólo Comprobar dice si este conjunto es el más barato.';
   }
   el('report').textContent=t;
 }
@@ -1700,9 +1754,9 @@ function retoSolveBuild(reset){
   RETO.nval=validas(est).length;
   if(reset){
     RETO.cfg=startCfg(est);
-    RETO.ejes={};
-    RETO.resuelto=false;
+    RETO.resuelto=false; solved=false;
     RETO.msg='';
+    RETO.vista=null; RETO.intentos=0; RETO.fallos=0; RETO.pistas=[];
   }
 }
 function updateRetoSpec(){
@@ -1714,7 +1768,10 @@ function updateRetoSpec(){
   CRIT.forEach(k=>{ h+='<li>'+CRIT_ROT[k]+' — '+CRIT_POR[k]+'</li>'; });
   h+='</ul>';
   h+='<div style="margin-top:6px;color:var(--muted)">Empate de precio: gana el que menos energía consume al año ('+
-     f1(E.horas,0)+' h de servicio).</div>';
+     f1(E.horas,0)+' h de servicio); una diferencia menor del '+f1(TOL_E*100,0)+' % es un empate técnico y valen los dos.</div>';
+  h+='<div style="margin-top:6px">El veredicto no se ve en vivo: sólo aparece al pulsar <b>Comprobar</b>. <b>Intentos: '+RETO.intentos+
+     ' · fallos '+RETO.fallos+' de '+MAX_INT+'</b> · pistas: '+RETO.pistas.length+' de '+MAX_PISTAS+
+     '<span style="color:var(--muted)"> · tras '+MAX_INT+' fallos se te da un caso nuevo.</span></div>';
   el('retoSpec').innerHTML=h;
 }
 // Explica por que la configuracion puesta no vale, mirando eje por eje.
@@ -1741,67 +1798,104 @@ function retoExplain(r,c,est){
 function checkReto(){
   const est=ST.reto.est, c=RETO.cfg, s=RETO.sol;
   const r=evalua(est,c.db,c.dm,c.vg,c.nb);
+  RETO.vista=est+'|'+cfgKey(c);
+  RETO.intentos++;
+  let tono='warn';
   if(!s){
     RETO.msg='Esta estación no tiene ningún conjunto válido en el catálogo.';
-    RETO.resuelto=false;
-  }else if(r.valida && r.coste===s.coste && Math.abs(r.kwh-s.kwh)<1e-9){
-    RETO.resuelto=true; solved=true;
-    RETO.msg='Correcto: '+f1(r.coste,0)+' k€ y '+f1(r.kwh,0)+' kWh al año, el mínimo del catálogo.';
+    RETO.resuelto=false; solved=false;
+  }else if(r.valida && r.coste===s.coste && r.kwh<=s.kwh*(1+TOL_E)){
+    RETO.resuelto=true; solved=true; tono='ok';
+    RETO.msg='Correcto: '+f1(r.coste,0)+' k€ y '+f1(r.kwh,0)+' kWh al año, el mínimo del catálogo (o un empate técnico con él).';
     synth.beep(880,0.10,0.06);
-    showToast('✅ <b>Conjunto óptimo.</b> '+f1(r.coste,0)+' k€ · '+pc1(r.etaTot,2)+' de rendimiento · '+
-      f1(r.T,1)+' °C de aceite.');
   }else if(r.valida){
-    RETO.resuelto=false;
+    RETO.fallos++; RETO.resuelto=false; solved=false; tono='mid';
     RETO.msg=(r.coste===s.coste)
-      ? 'Válido y al precio mínimo, pero gasta '+f1(r.kwh,0)+' kWh al año y hay otro conjunto igual de barato con '+f1(s.kwh,0)+'.'
-      : 'Válido, pero no es el más barato: '+f1(r.coste,0)+' k€ frente a '+f1(s.coste,0)+' k€.';
+      ? 'Cumple los siete criterios y está al precio mínimo, pero hay un conjunto del mismo precio que gasta claramente menos energía al año (más de un '+f1(TOL_E*100,0)+' % menos).'
+      : 'Cumple los siete criterios, pero hay un conjunto válido más barato.';
     synth.beep(520,0.09,0.05);
-    showToast('🟡 <b>Cumple, pero no es el óptimo.</b> '+RETO.msg);
   }else{
-    RETO.resuelto=false;
+    RETO.fallos++; RETO.resuelto=false; solved=false; tono='bad';
     RETO.msg=retoExplain(r,c,est);
     synth.beep(240,0.12,0.05);
-    showToast('❌ <b>No cumple.</b> '+RETO.msg);
   }
+  let aviso='';
+  if(!RETO.resuelto && RETO.fallos>=MAX_INT){
+    // tres fallos: no se puede aprobar por eliminación, se resiembra otro caso
+    const i=EST_KEYS.indexOf(est); ST.reto.est=EST_KEYS[(i+1)%EST_KEYS.length];
+    const previo=RETO.msg;
+    retoSolveBuild(true); RETO.resiembras++;
+    RETO.msg=previo+' Tres fallos: se te da un caso nuevo, <b>'+ESTACIONES[ST.reto.est].nombre+'</b>.';
+    aviso='nuevo';
+  }else if(!RETO.resuelto){
+    RETO.msg+=' (fallo '+RETO.fallos+' de '+MAX_INT+')';
+  }
+  showToast((tono==='ok'?'✅ <b>Conjunto óptimo.</b> ':tono==='mid'?'🟡 <b>Cumple, pero no es el óptimo.</b> ':'❌ <b>No es el óptimo.</b> ')+RETO.msg);
   computa();
+  if(aviso&&!autoRunning){ buildControls(); clearDx(); buildQuiz(); refreshQuestion(); }
+  if(mode==='reto')updateRetoSpec();
   refreshAll();
 }
 
 // ===================== 14. CUESTIONARIO =====================
-const QUIZ={
-  par:{pregunta:'El motor de la cargadora tiene que entregar 280 N·m. Con una cilindrada de 45 cm³/rev el lazo se equilibra en 413 bar; al montar uno de 28 cm³/rev la presión se dispara a 655 bar y revienta el límite de 420 bar de la estación. ¿Por qué sube tanto?',
+// Cada pregunta nombra su caso y todas sus cifras salen del motor en el momento
+// de construirla (nada escrito a mano). Las cuatro opciones miden parecido, la
+// correcta no es sistemáticamente la más larga y se barajan con Fisher-Yates.
+let QUIZ={};
+function mkQuiz(){
+  const ev=(e,db,dm,vg,nb)=>evalua(e,db,dm,vg,nb);
+  const Ec=ESTACIONES.cargadora;
+  // ---- par: cargadora, bomba 45, VG 46, 1800 rpm ----
+  const p45=ev('cargadora',45,45,46,1800), p28=ev('cargadora',45,28,46,1800);
+  const rD=28/45;
+  // ---- relación: cargadora, motor 45, VG 46, 1800 rpm ----
+  const r28=ev('cargadora',28,45,46,1800), r125=ev('cargadora',125,45,46,1800);
+  // ---- rendimiento: pérdidas de la bomba en el catálogo de la cargadora ----
+  const fis=barrido('cargadora').filter(r=>r.fisico);
+  const eTbMin=Math.min(...fis.map(r=>r.etaTb)), eTbMax=Math.max(...fis.map(r=>r.etaTb));
+  const rr=ev('cosechadora',45,45,46,1800);
+  // ---- aceite: viscosidad óptima de cada máquina en dos estaciones ----
+  const nuOpt=estK=>{
+    const s=solucion(estK), r=ev(estK,s.db,s.dm,46,s.nb);
+    return {r, b:nuDeMu(muOptBomba(r.dp,r.wb),r.rho), m:nuDeMu(muOptMotor(r.dp,r.wm),r.rho)};
+  };
+  const oC=nuOpt('cabrestante'), oV=nuOpt('cosechadora');
+  QUIZ={
+  par:{pregunta:'El motor de la cargadora tiene que entregar '+f1(Ec.tReq,0)+' N·m. Con una cilindrada de 45 cm³/rev el lazo se equilibra en '+f1(p45.dp,0)+' bar; al montar uno de 28 cm³/rev la presión se dispara a '+f1(p28.dp,0)+' bar y revienta el límite de '+f1(Ec.pLim,0)+' bar de la estación. ¿Por qué sube tanto?',
     opciones:[
-      {t:'Porque el par sale de Δp·D/2π: si recortas D a 0,62 de su valor, Δp tiene que crecer en esa misma proporción para dar el mismo par',ok:true,why:'413 / 0,62 = 663 bar, y el modelo da 655 porque de paso mejora un poco el rendimiento mecánico. La cilindrada del motor no es un detalle de catálogo: es el brazo de palanca con el que la presión hace par.'},
-      {t:'Porque un motor más pequeño necesita más caudal y el caudal empuja la presión',ok:false,why:'Al revés: con 28 cm³/rev el caudal del lazo baja de 43 a 29 L/min. Y el caudal no fija la presión, fija la velocidad.'},
-      {t:'Porque cae el rendimiento volumétrico del motor y hay que compensarlo con presión',ok:false,why:'El volumétrico sí cae (0,934 → 0,871), pero eso se paga en revoluciones, no en par. Un 7 % de fuga no explica un 59 % de presión.'},
-      {t:'Porque la bomba de 45 cm³ no puede llenar un motor tan pequeño y estrangula',ok:false,why:'Sobra caudal, no falta: la bomba se limita bajando el mando α. Aquí no hay ninguna estrangulación.'}]},
-  relacion:{pregunta:'Con el motor de 45 cm³ y el diésel a 1800 rpm, cambiar la bomba de 28 a 125 cm³/rev mueve el mando de α = 0,889 a α = 0,203, pero la presión se queda en 412 bar y la relación cinemática en 0,500 clavada. ¿Por qué no se mueven?',
+      {t:'Porque T = Δp·D/2π: si D baja a '+f1(rD,2)+' de su valor, Δp tiene que subir en esa proporción',ok:true,why:f1(p45.dp,0)+' / '+f1(rD,2)+' = '+f1(p45.dp/rD,0)+' bar, y el modelo da '+f1(p28.dp,0)+' porque de paso mejora un poco el rendimiento mecánico ('+f1(p45.etaTm,3)+' → '+f1(p28.etaTm,3)+'). La cilindrada del motor no es un detalle de catálogo: es el brazo de palanca con el que la presión hace par.'},
+      {t:'Porque un motor más pequeño necesita más caudal y es ese caudal el que empuja la presión',ok:false,why:'Al revés: con 28 cm³/rev el caudal del lazo baja de '+f1(p45.qLazo,0)+' a '+f1(p28.qLazo,0)+' L/min. Y el caudal no fija la presión, fija la velocidad.'},
+      {t:'Porque cae el rendimiento volumétrico del motor y hay que compensarlo subiendo la presión',ok:false,why:'El volumétrico sí cae ('+f1(p45.etaVm,3)+' → '+f1(p28.etaVm,3)+'), pero eso se paga en revoluciones, no en par. Un '+f1(100*(1-p28.etaVm/p45.etaVm),0)+' % de fuga no explica un '+f1(100*(p28.dp/p45.dp-1),0)+' % más de presión.'},
+      {t:'Porque la bomba de 45 cm³ no puede llenar un motor tan pequeño y acaba estrangulando el lazo',ok:false,why:'Sobra caudal, no falta: la bomba se limita bajando el mando α (de '+f1(p45.alfa,3)+' a '+f1(p28.alfa,3)+'). Aquí no hay ninguna estrangulación.'}]},
+  relacion:{pregunta:'Con el motor de 45 cm³ y el diésel a 1800 rpm, cambiar la bomba de 28 a 125 cm³/rev mueve el mando de α = '+f1(r28.alfa,3)+' a α = '+f1(r125.alfa,3)+', pero la presión se queda en torno a '+f1((r28.dp+r125.dp)/2,0)+' bar y la relación cinemática en '+f1(r28.relCin,3)+' clavada. ¿Por qué no se mueven?',
     opciones:[
-      {t:'Porque el trabajo lo fija la máquina, no la bomba: la carga pide 280 N·m (y eso fija Δp) y 900 rpm (y eso fija la relación). La bomba grande sólo hace lo mismo con menos mando',ok:true,why:'Ésta es la idea que más cuesta: en una transmisión hidrostática el punto de trabajo lo impone el consumidor. Elegir la bomba no cambia la faena, cambia dónde queda el mando y cuánto cuesta el hierro.'},
-      {t:'Porque el caudal se conserva y es el caudal quien fija la presión',ok:false,why:'El caudal sí se conserva (43,3 → 43,8 L/min), pero el caudal fija la velocidad. La presión la fija el par.'},
-      {t:'Porque el modelo mantiene Δp constante por construcción',ok:false,why:'No: en cuanto tocas la cilindrada del motor, Δp se mueve de 178 a 655 bar. Aquí se queda quieta porque no has tocado el motor.'},
-      {t:'Porque la bomba grande tiene menos fugas relativas y compensa el resto',ok:false,why:'Tiene más: el deslizamiento sube de 9,60 % a 11,26 % y el aceite se calienta de 50,0 a 54,4 °C. La bomba sobredimensionada trabaja peor, sólo que no se nota en la relación.'}]},
-  rend:{pregunta:'En todos los puntos de este laboratorio σ·τ vale exactamente 0,0016 —en la bomba y en el motor, con cualquier aceite, presión o velocidad—. ¿Qué te está diciendo ese número que no cambia nunca?',
+      {t:'Porque la máquina fija la faena (su par fija Δp, su régimen la relación) y la bomba mueve el mando',ok:true,why:'Ésta es la idea que más cuesta: en una transmisión hidrostática el punto de trabajo lo impone el consumidor. Elegir la bomba no cambia la faena, cambia dónde queda el mando y cuánto cuesta el hierro.'},
+      {t:'Porque el caudal se conserva y es el caudal quien fija la presión del lazo en cada punto de trabajo',ok:false,why:'El caudal sí se conserva ('+f1(r28.qLazo,1)+' → '+f1(r125.qLazo,1)+' L/min), pero el caudal fija la velocidad. La presión la fija el par.'},
+      {t:'Porque el modelo mantiene Δp constante por construcción y no deja que la cilindrada la modifique',ok:false,why:'No: en cuanto tocas la cilindrada del motor, Δp se mueve de '+f1(ev('cargadora',45,107,46,1800).dp,0)+' a '+f1(p28.dp,0)+' bar. Aquí se queda quieta porque no has tocado el motor.'},
+      {t:'Porque la bomba grande tiene menos fugas relativas y compensa el resto del conjunto sin que se note',ok:false,why:'Tiene más: el deslizamiento sube de '+f1(100*r28.desliz,2)+' % a '+f1(100*r125.desliz,2)+' % y el aceite se calienta de '+f1(r28.T,1)+' a '+f1(r125.T,1)+' °C. La bomba sobredimensionada trabaja peor, sólo que no se nota en la relación.'}]},
+  rend:{pregunta:'En todos los puntos de este laboratorio σ·τ vale exactamente '+f1(K_S*K_V,4)+' —en la bomba y en el motor, con cualquier aceite, presión o velocidad—. ¿Qué te está diciendo ese número que no cambia nunca?',
     opciones:[
-      {t:'Que fuga y arrastre son las dos caras de la misma moneda: σ = K_S·Δp/(μω) y τ = K_V·μω/Δp, y al multiplicarlas μ, ω y Δp se cancelan y sólo queda K_S·K_V',ok:true,why:'Por eso bajar una sube la otra y existe una viscosidad óptima. Un aceite fino apenas roza pero se escapa; uno espeso sella pero hay que arrastrarlo.'},
-      {t:'Que las pérdidas totales del conjunto son constantes',ok:false,why:'No lo son: en este barrido el rendimiento mecánico de la bomba va de 0,938 a 0,894. Lo constante es el producto, no la suma.'},
-      {t:'Que el modelo está mal calibrado: dos pérdidas independientes no pueden dar un producto constante',ok:false,why:'Es que no son independientes. Wilson (1946) las escribió así a propósito, y esa estructura es la que predice el óptimo de viscosidad que se mide en banco.'},
-      {t:'Que 0,0016 es el rendimiento mínimo garantizado por la norma',ok:false,why:'σ y τ son coeficientes adimensionales de pérdida, no un rendimiento. Ninguna norma garantiza un producto de coeficientes.'}]},
-  aceite:{pregunta:'En el cabrestante la bomba pide un aceite de 31 cSt y el motor uno de 207. En la cosechadora la bomba pide 21 y el motor 14. ¿Qué regla explica los dos casos a la vez?',
+      {t:'Que fuga y arrastre son las dos caras de una moneda: al multiplicarlas sólo queda K_S·K_V',ok:true,why:'Por eso bajar una sube la otra y existe una viscosidad óptima. Un aceite fino apenas roza pero se escapa; uno espeso sella pero hay que arrastrarlo. Aquí σ·τ vale '+f1(rr.sb*rr.tb,4)+' en la bomba y '+f1(rr.sm*rr.tm,4)+' en el motor.'},
+      {t:'Que las pérdidas totales del conjunto son constantes en cualquier punto de trabajo, aceite o régimen',ok:false,why:'No lo son: en el catálogo de la cargadora el rendimiento mecánico de la bomba va de '+f1(eTbMin,3)+' a '+f1(eTbMax,3)+'. Lo constante es el producto, no la suma.'},
+      {t:'Que el modelo está mal calibrado, porque dos pérdidas independientes no darían un producto constante',ok:false,why:'Es que no son independientes. Wilson (1946) las escribió así a propósito, y esa estructura es la que predice el óptimo de viscosidad que se mide en banco.'},
+      {t:'Que '+f1(K_S*K_V,4)+' es el rendimiento mínimo que garantiza la norma ISO para este tipo de máquinas',ok:false,why:'σ y τ son coeficientes adimensionales de pérdida, no un rendimiento. Ninguna norma garantiza un producto de coeficientes.'}]},
+  aceite:{pregunta:'Con el conjunto de referencia, en el cabrestante la bomba pide un aceite de '+f1(oC.b,0)+' cSt y el motor uno de '+f1(oC.m,0)+'. En la cosechadora la bomba pide '+f1(oV.b,0)+' y el motor '+f1(oV.m,0)+'. ¿Qué regla explica los dos casos a la vez?',
     opciones:[
-      {t:'La máquina que gira más deprisa pide el aceite más fino, porque ν* es proporcional a Δp/ω',ok:true,why:'En el cabrestante el motor va a 21 rad/s frente a 157 de la bomba, y por eso pide aceite espeso; en la cosechadora va a 251 frente a 189 y pide el más fino de los dos. El depósito es uno solo, así que el óptimo del conjunto cae siempre entre los dos.'},
+      {t:'La máquina que gira más deprisa pide el aceite más fino, porque ν* es proporcional a Δp/ω',ok:true,why:'En el cabrestante el motor va a '+f1(oC.r.wm,0)+' rad/s frente a '+f1(oC.r.wb,0)+' de la bomba, y por eso pide aceite espeso; en la cosechadora va a '+f1(oV.r.wm,0)+' frente a '+f1(oV.r.wb,0)+' y pide el más fino de los dos. El depósito es uno solo, así que el óptimo del conjunto cae siempre entre los dos.'},
       {t:'Los motores piden siempre aceite más espeso que las bombas, porque trabajan a menos vueltas',ok:false,why:'La cosechadora lo desmiente: allí el motor gira más que la bomba y pide aceite más fino. La regla es la velocidad, no la etiqueta de la máquina.'},
-      {t:'Depende del ambiente: el cabrestante trabaja a 12 °C y necesita aceite más espeso para no adelgazar',ok:false,why:'El ambiente decide qué viscosidad tendrás, no cuál te conviene. ν* sale del punto de trabajo (Δp y ω) y no cambia si mueves la temperatura.'},
-      {t:'Depende de la cilindrada: el motor de 80 cm³ tiene más superficie por donde fugar',ok:false,why:'La cilindrada se cancela en el cociente: entra igual en la fuga y en el arrastre. Dos máquinas de tamaños distintos al mismo Δp y ω piden el mismo aceite.'}]},
-  reto:{pregunta:'La cargadora admite 43 conjuntos válidos y cinco empatan en el precio mínimo de 17 k€, con consumos de 46 991 a 48 362 kWh al año. ¿Cuál gana con el orden declarado en este laboratorio?',
+      {t:'Depende del ambiente: con '+f1(ESTACIONES.cabrestante.tAmb,0)+' °C hace falta un aceite espeso para no adelgazar',ok:false,why:'El ambiente decide qué viscosidad tendrás, no cuál te conviene. ν* sale del punto de trabajo (Δp y ω) y no cambia si mueves la temperatura.'},
+      {t:'Depende de la cilindrada: un motor más grande tiene más superficie por donde fugar',ok:false,why:'La cilindrada se cancela en el cociente: entra igual en la fuga y en el arrastre. Dos máquinas de tamaños distintos al mismo Δp y ω piden el mismo aceite.'}]},
+  reto:{pregunta:'Dos conjuntos válidos de una misma estación cuestan lo mismo y uno gasta un 0,3 % menos energía al año que el otro. Con el criterio declarado en este laboratorio, ¿cuál se da por bueno?',
     opciones:[
-      {t:'El de 46 991 kWh: primero el precio del conjunto y, sólo a igualdad de precio, la energía del año',ok:true,why:'El orden es lexicográfico y está escrito en la ficha del reto. Sin un orden total declarado no existe "el óptimo": existen preferencias, y cada quien defiende la suya.'},
-      {t:'Cualquiera de los cinco: si empatan en precio son equivalentes',ok:false,why:'Empatan en el primer criterio, y para eso está el segundo. 1 371 kWh al año es dinero real que se paga en gasóleo.'},
-      {t:'El de menor consumo de los 43, aunque cueste más caro',ok:false,why:'Es un criterio defendible, pero no es el declarado aquí. Cambiar el orden a mitad de un estudio es exactamente cómo se cuelan las decisiones arbitrarias.'},
-      {t:'El que quede más frío, porque el calor es lo que mata las transmisiones',ok:false,why:'La temperatura ya está filtrada antes, en el criterio de equilibrio térmico: los 43 conjuntos que llegan a esta comparación ya son térmicamente sanos.'}]},
-};
+      {t:'Los dos: una diferencia menor del '+f1(TOL_E*100,0)+' % es un empate técnico y ambos valen como solución',ok:true,why:'El orden es primero el precio y, a igualdad de precio, la energía del año; pero el modelo no tiene precisión para decidir un 0,3 %. Más allá del '+f1(TOL_E*100,0)+' % sí es dinero real que se paga en gasóleo, y entonces gana el que menos gasta.'},
+      {t:'Sólo el de menor consumo: por pequeña que sea la diferencia, el segundo criterio manda siempre',ok:false,why:'Sería creerse una precisión que el modelo no tiene: los coeficientes de pérdida son representativos de la familia de máquinas, no medidos en un banco. Un 0,3 % cae dentro de ese margen.'},
+      {t:'Ninguno de los dos: si empatan en precio, el reto exige que se desempate por la temperatura',ok:false,why:'La temperatura ya está filtrada antes, en el criterio de equilibrio térmico: los conjuntos que llegan a esta comparación ya son térmicamente sanos. No es un criterio de desempate.'},
+      {t:'El de menor cilindrada de motor: da más margen de presión y el consumo es secundario',ok:false,why:'Menos cilindrada de motor sube la presión que hace falta y se acerca al límite, no da más margen. Y el orden declarado no mira la cilindrada, sólo precio y energía.'}]},
+  };
+}
 let QORD=[], answered=false;
 function buildQuiz(){
+  mkQuiz();
   const q=QUIZ[mode];
   QORD=q.opciones.map((o,i)=>i);
   for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
@@ -1838,7 +1932,7 @@ const PICK_INFO={
     return ['Motor diésel','Gira a '+f1(c.nb,0)+' rpm y puede dar '+f1(E.pDies[c.nb],0)+
       ' kW en ese régimen. Ahora la bomba principal le pide '+f1(CUR.pIn,2)+
       ' kW y la de carga otros '+f1(CUR.pCarga,2)+' kW'+
-      (CUR.okPot?'.':', más de lo que tiene: se cala.')];},
+      ((!retoVer()||CUR.okPot)?'.':', más de lo que tiene: se cala.')];},
   bomba:()=>{const c=cfgDe(mode);
     return ['Bomba de cilindrada variable',f1(c.db,0)+' cm³/rev con el plato al '+f1(100*CUR.alfa,1)+
       ' % de su carrera (el tope de trabajo es '+f1(100*ALFA_MAX,0)+' %). Manda '+f1(CUR.qLazo,1)+
@@ -1861,7 +1955,7 @@ const PICK_INFO={
     return ['Bomba de carga','Cilindrada fija de '+f1(CUR.dCarga,1)+' cm³/rev ('+f1(100*FR_CARGA,0)+
       ' % de la principal) a '+f1(P_CARGA,0)+' bar. Repone '+f1(CUR.qCarga,2)+' L/min y el lazo pierde '+
       f1(CUR.qCargaReq,2)+' L/min entre fugas y barrido'+
-      (CUR.okCarga?'. Sobra caudal: el lazo se mantiene lleno.':'. Falta caudal: el lazo cavita y la máquina no rueda.')];},
+      (!retoVer()?'.':(CUR.okCarga?'. Sobra caudal: el lazo se mantiene lleno.':'. Falta caudal: el lazo cavita y la máquina no rueda.'))];},
   radiador:()=>{const E=ESTACIONES[estAct()];
     return ['Radiador de aceite','Evacúa UA·(T − T_amb) con UA = '+f1(E.UA,2)+' kW/K sobre un ambiente de '+
       f1(E.tAmb,0)+' °C. Ahora se generan '+f1(CUR.calor,2)+' kW, así que la temperatura se para donde generación y evacuación se igualan: '+
@@ -1875,9 +1969,9 @@ const PICK_INFO={
     ' que circulan. El depósito de un lazo cerrado es diez veces más pequeño que el de un circuito abierto.'],
   bar_dp:()=>{const E=ESTACIONES[estAct()];
     return ['Barra de presión',f1(CUR.dp,0)+' bar frente al límite de '+f1(E.pLim,0)+' bar de la estación. '+
-      (CUR.okPres?'Queda margen.':'Estás por encima: la válvula de máxima abriría y toda la potencia se iría en calor.')];},
+      (!retoVer()?'':(CUR.okPres?'Queda margen.':'Estás por encima: la válvula de máxima abriría y toda la potencia se iría en calor.'))];},
   bar_t:()=>['Barra de temperatura',f1(CUR.T,1)+' °C de equilibrio frente a los '+f1(T_MAX,0)+
-    ' °C de servicio continuo. '+(CUR.okTerm?'El aceite aguanta.':'Por encima de 80 °C el aceite se oxida y las juntas envejecen al doble por cada diez grados.')],
+    ' °C de servicio continuo. '+(!retoVer()?'':(CUR.okTerm?'El aceite aguanta.':'Por encima de 80 °C el aceite se oxida y las juntas envejecen al doble por cada diez grados.'))],
 };
 function boardClick(){
   showToast('<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision);
@@ -1931,6 +2025,11 @@ async function runAuto(){
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
   synth.init(); synth.resume(); clearDx();
+  // El recorrido es una DEMOSTRACIÓN: no resuelve ni puntúa tu reto. Se guarda
+  // el estado del alumno y se restaura entero al terminar (o si algo falla).
+  const snap={mode, ST:JSON.parse(JSON.stringify(ST)), solved,
+    reto:{cfg:{...RETO.cfg}, resuelto:RETO.resuelto, msg:RETO.msg, vista:RETO.vista,
+      intentos:RETO.intentos, fallos:RETO.fallos, pistas:[...RETO.pistas], resiembras:RETO.resiembras}};
   try{
     // --- 1. par y caudal ---
     setMode('par'); ST.par.est='cargadora'; ST.par.dm=45; afterEdit();
@@ -1998,27 +2097,34 @@ async function runAuto(){
       f1(T_MAX,0)+' °C. La temperatura no se ajusta: sale de igualar el calor generado con el que el radiador puede sacar.');
     await sleep(5400);
 
-    // --- 5. reto ---
-    setMode('reto'); ST.reto.est='cargadora'; retoSolveBuild(true); afterEdit();
-    showToast('Reto: de las '+f1(DB.length*DM.length*GRADOS.length*NB.length,0)+
-      ' combinaciones del catálogo, '+f1(RETO.nval,0)+' cumplen los siete criterios a la vez en esta cargadora. Sólo una es la más barata.');
+    // --- 5. reto: se demuestra sobre OTRA estación distinta de la tuya y no se
+    // comprueba: ni resuelve, ni gasta intentos, ni toca tu conjunto ---
+    setMode('reto');
+    ST.reto.est=EST_KEYS.find(k=>k!==snap.ST.reto.est)||'cargadora';
+    retoSolveBuild(true); afterEdit();
+    showToast('Reto (demostración sobre '+ESTACIONES[ST.reto.est].nombre+'; no puntúa ni toca tu reto): de las '+
+      f1(DB.length*DM.length*GRADOS.length*NB.length,0)+
+      ' combinaciones del catálogo, '+f1(RETO.nval,0)+' cumplen los siete criterios a la vez. Hay que montar la más barata.');
     await sleep(4800);
-    checkReto();
-    await sleep(3200);
     const s=RETO.sol;
     if(s){
       RETO.cfg={db:s.db,dm:s.dm,vg:s.vg,nb:s.nb}; afterEdit();
-      checkReto();
       await sleep(1400);
-      showToast('Ahí está: bomba de '+f1(s.db,0)+' cm³, motor de '+f1(s.dm,0)+' cm³, ISO VG '+
+      showToast('Montaje de la demostración: bomba de '+f1(s.db,0)+' cm³, motor de '+f1(s.dm,0)+' cm³, ISO VG '+
         f1(s.vg,0)+' y diésel a '+f1(s.nb,0)+' rpm. '+f1(CUR.coste,0)+' k€ y '+f1(CUR.kwh,0)+
-        ' kWh al año. Ni un eje se puede mover sin romper algo.');
+        ' kWh al año, con los siete criterios en verde.');
       await sleep(5000);
     }
-    answer(quizCorrectIndex());
   } finally {
     autoRunning=false;
     el('btnAuto').textContent=rot;
+    // devolver al alumno exactamente lo que tenía
+    ST.par=snap.ST.par; ST.relacion=snap.ST.relacion; ST.rend=snap.ST.rend; ST.aceite=snap.ST.aceite; ST.reto=snap.ST.reto;
+    retoSolveBuild(false);
+    Object.assign(RETO,{cfg:snap.reto.cfg, resuelto:snap.reto.resuelto, msg:snap.reto.msg, vista:snap.reto.vista,
+      intentos:snap.reto.intentos, fallos:snap.reto.fallos, pistas:snap.reto.pistas, resiembras:snap.reto.resiembras});
+    solved=snap.solved;
+    setMode(snap.mode);
   }
 }
 
@@ -2120,14 +2226,15 @@ window.__labDebug={
   // --- reto ---
   retoGet:()=>({est:ST.reto.est, ...RETO.cfg, resuelto:RETO.resuelto, msg:RETO.msg,
     nval:RETO.nval, sol:RETO.sol?{db:RETO.sol.db,dm:RETO.sol.dm,vg:RETO.sol.vg,
-    nb:RETO.sol.nb,coste:RETO.sol.coste,kwh:RETO.sol.kwh}:null,
-    ejes:{...RETO.ejes}}),
+    nb:RETO.sol.nb,coste:RETO.sol.coste,kwh:RETO.sol.kwh}:null}),
+  intentos:()=>RETO.intentos, fallos:()=>RETO.fallos, resiembras:()=>RETO.resiembras,
+  pistas:()=>[...RETO.pistas], retoVer, MAX_INT:()=>MAX_INT, MAX_PISTAS:()=>MAX_PISTAS, TOL_E:()=>TOL_E,
   retoSet:(db,dm,vg,nb)=>{
     if(db)RETO.cfg.db=Number(db); if(dm)RETO.cfg.dm=Number(dm);
     if(vg)RETO.cfg.vg=Number(vg); if(nb)RETO.cfg.nb=Number(nb);
-    RETO.msg=''; RETO.resuelto=false; afterEdit();
+    RETO.msg=''; RETO.resuelto=false; solved=false; afterEdit();
   },
-  retoEst:e=>{ ST.reto.est=e; retoSolveBuild(true); afterEdit(); },
+  retoEst:e=>{ ST.reto.est=e; retoSolveBuild(true); if(mode==='reto'){buildQuiz();refreshQuestion();} afterEdit(); },
   check:()=>checkReto(),
   pista:()=>pista(),
   newSignal,

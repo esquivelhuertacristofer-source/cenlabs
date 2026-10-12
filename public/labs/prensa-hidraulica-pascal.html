@@ -1263,32 +1263,80 @@ function startCfg(sc){
            bom: BOMK.find(k=>!okBom(sc,k))||BOMK[0],
            man: MANK.find(k=>!okMan(sc,k))||MANK[0] };
 }
-const QUIZ={
-  eje:{q:'El cilindro Ø100 también cumple los seis criterios en este trabajo. ¿Por qué la solución correcta es el Ø80?',
-    o:[{t:'Porque cumplir no basta: el Ø100 sale a 29 u.c. y el Ø80 hace el mismo trabajo por 24 u.c.',ok:true},
-       {t:'Porque el Ø100 exige más presión en el circuito que el Ø80.'},
-       {t:'Porque el Ø100 no cabe: el hueco de este trabajo admite Ø125 mm.'},
-       {t:'Porque con el Ø100 la mano tendría que dar más de 400 N en la palanca.'}]},
-  roda:{q:'Con el Ø80 la mano baja a 149 N y la presión a 26,53 MPa. ¿Por qué queda descartado en este trabajo?',
-    o:[{t:'Porque no cabe (el extractor deja Ø63 mm) y además saldrían 50 bombeos frente a los 35 admitidos.',ok:true},
-       {t:'Porque 26,53 MPa dispara la limitadora de la bomba, que corta en 70 MPa.'},
-       {t:'Porque su carrera máxima de 125 mm no llega a los 25 mm del trabajo.'},
-       {t:'Porque el latiguillo de 700 bar no aguanta 26,53 MPa de trabajo.'}]},
-  casq:{q:'¿Por qué queda descartado el cilindro Ø80, si cuesta menos que el Ø100?',
-    o:[{t:'Porque su carrera se queda en 125 mm de los 130 que hay que recorrer, y encima pediría 473 N en la palanca.',ok:true},
-       {t:'Porque los 9,95 MPa que pide disparan la limitadora de 16 MPa de la bomba.'},
-       {t:'Porque saldrían 169 bombeos y el trabajo sólo admite 120.'},
-       {t:'Porque el Ø80 no cabe en el hueco de Ø125 mm de la prensa de columna.'}]},
-  bus:{q:'Con el Ø100 la mano se queda en 280 N, la limitadora no corta y salen 47 bombeos de los 80 admitidos. ¿Qué falla entonces?',
-    o:[{t:'El latiguillo: el circuito pediría 49,51 MPa y la clase de 350 bar trabaja a 35 MPa.',ok:true},
-       {t:'La limitadora de la bomba, que corta en 70 MPa.'},
-       {t:'La cadencia: 47 bombeos superan los 80 admitidos.'},
-       {t:'El hueco: el Ø100 no cabe en los Ø125 mm disponibles.'}]},
-};
+/* El cuestionario acompaña al trabajo del reto, así que NO puede nombrar la
+   terna correcta (antes decía «¿por qué la solución es el Ø80?»). Cada pregunta
+   plantea un compromiso de proyecto con cifras que salen del motor, y las cuatro
+   opciones miden parecido para que la correcta no se delate por la longitud. */
+function mkQuiz(id){
+  const sc=POOL.find(s=>s.id===id);
+  const E=(cil,bom,man)=>evalua(sc,{cil,bom,man});
+  if(id==='eje'){
+    const a=E('c63','b2','h700'), b=E('c125','b2','h700');
+    const sa=avanceBombeo('c63','b2'), sb=avanceBombeo('c125','b2');
+    return {q:'Con la bomba 10:1 (Ø16), pasar del cilindro Ø63 al Ø125 baja la presión que pide el trabajo de '+f1(a.p,2)+' a '+f1(b.p,2)+' MPa, pero los bombeos suben de '+a.N+' a '+b.N+'. ¿Por qué?',
+      o:[{t:'Porque el mismo volumen por golpe mueve menos el émbolo grande: salen más golpes',ok:true,
+          why:'Eso es: V = A₁·s₁ = A₂·s₂. Cada bombeo mete '+f1(volBombeo('b2')/1000,2)+' cm³; con el Ø63 el vástago avanza '+f1(sa,2)+' mm y con el Ø125 sólo '+f1(sb,3)+' mm, así que para los '+sc.s+' mm del trabajo salen '+a.N+' y '+b.N+' bombeos.'},
+         {t:'Porque el cilindro grande tiene más rozamiento y hay que bombear más para vencerlo',ok:false,
+          why:'No: el rendimiento del cilindro es el mismo (η = '+f1(ETA_CIL,2)+') en todos los diámetros. Lo que cambia es el avance por golpe, '+f1(sa,2)+' mm frente a '+f1(sb,3)+' mm.'},
+         {t:'Porque la bomba entrega menos aceite por golpe cuando la presión del circuito baja',ok:false,
+          why:'No: el aceite es incompresible y cada golpe entrega siempre '+f1(volBombeo('b2')/1000,2)+' cm³, a la presión que sea. Lo que cambia es el área que ese volumen tiene que llenar.'},
+         {t:'Porque la manguera se dilata a menor presión y se traga parte del aceite bombeado',ok:false,
+          why:'No: este modelo no dilata la manguera ni comprime el aceite. Los bombeos salen sólo de dividir la carrera pedida entre el avance por golpe.'}]};
+  }
+  if(id==='roda'){
+    const a=E('c50','b4','h700'), b=E('c80','b4','h700');
+    return {q:'El extractor deja sitio para Ø'+sc.dmax+' mm como máximo. Con la bomba 14:1 (Ø10), a '+sc.F/1000+' kN el Ø50 pide '+f1(a.p,2)+' MPa y '+f1(a.fMano,0)+' N en la palanca, y el Ø80 pediría '+f1(b.p,2)+' MPa y '+f1(b.fMano,0)+' N. ¿Qué impide usar el cilindro mayor?',
+      o:[{t:'El espacio: un cilindro mayor bajaría la presión y la fuerza de mano, pero no cabe',ok:true,
+          why:'Eso es. El Ø80 mejoraría la presión ('+f1(b.p,2)+' MPa) y la mano ('+f1(b.fMano,0)+' N), pero el hueco del trabajo sólo admite Ø'+sc.dmax+' mm: un criterio geométrico que ningún número de presión compensa.'},
+         {t:'La carrera: los cilindros grandes tienen menos carrera máxima y no llegarían',ok:false,
+          why:'No: el Ø80 tiene '+CILINDROS.c80.smax+' mm de carrera y el trabajo sólo pide '+sc.s+' mm. Los cilindros mayores tienen más carrera, no menos.'},
+         {t:'La limitadora: un cilindro mayor necesita más presión y la bomba no la da',ok:false,
+          why:'Al revés: a más área, menos presión ('+f1(a.p,2)+' MPa con el Ø50 frente a '+f1(b.p,2)+' con el Ø80). La limitadora de esa bomba corta en '+BOMBAS.b4.pmax+' MPa.'},
+         {t:'El latiguillo: con menos presión de trabajo la manguera pierde clase y hay que subir',ok:false,
+          why:'No: la clase del latiguillo se elige por la presión que pide el circuito, y a menos presión hace falta menos clase, no más.'}]};
+  }
+  if(id==='casq'){
+    const a=E('c80','b1','h700'), b=E('c100','b1','h700');
+    return {q:'Con '+sc.F/1000+' kN, pasar de un cilindro Ø80 a uno Ø100 baja la presión de '+f1(a.p,2)+' a '+f1(b.p,2)+' MPa y la fuerza en la palanca (bomba 8:1, Ø22) de '+f1(a.fMano,0)+' a '+f1(b.fMano,0)+' N. ¿Qué se paga a cambio?',
+      o:[{t:'Cada bombeo mueve menos el vástago grande: hacen falta más golpes y más palanca',ok:true,
+          why:'Eso es. Con la bomba Ø22 el vástago del Ø80 avanza '+f1(avanceBombeo('c80','b1'),2)+' mm por golpe y el del Ø100 '+f1(avanceBombeo('c100','b1'),2)+' mm: '+a.N+' bombeos frente a '+b.N+' (el trabajo admite '+sc.Nmax+').'},
+         {t:'La presión: el cilindro grande exige más presión para mover la misma carga',ok:false,
+          why:'Al revés: p = F/(η·A₂), así que a más área, menos presión ('+f1(a.p,2)+' → '+f1(b.p,2)+' MPa).'},
+         {t:'El calor: el rendimiento del cilindro cae al aumentar su diámetro y se pierde más',ok:false,
+          why:'No: η = '+f1(ETA_CIL,2)+' en todos los cilindros del catálogo, y el 10 % de pérdida es una fracción del trabajo, no depende del diámetro.'},
+         {t:'La carrera: un cilindro de mayor diámetro tiene siempre menos carrera útil',ok:false,
+          why:'No: en el catálogo el Ø80 tiene '+CILINDROS.c80.smax+' mm de carrera y el Ø100 '+CILINDROS.c100.smax+' mm. La carrera no baja al subir el diámetro.'}]};
+  }
+  const a=E('c100','b5','h350');
+  return {q:'A '+sc.F/1000+' kN, con el cilindro Ø100 el circuito pide '+f1(a.p,2)+' MPa. Un latiguillo de 350 bar tiene una presión de rotura de '+f1(pRotura('h350'),0)+' MPa, muy por encima. ¿Por qué no se acepta?',
+    o:[{t:'Porque se elige por presión de TRABAJO ('+MANGUERAS.h350.pTrab+' MPa); la rotura es sólo el margen 4:1',ok:true,
+        why:'Eso es. La clase de 350 bar trabaja a '+MANGUERAS.h350.pTrab+' MPa y el circuito pediría '+f1(a.p,2)+': la rotura ('+f1(pRotura('h350'),0)+' MPa) existe para dar un factor de seguridad '+SF_MAN+', no para trabajar cerca de ella.'},
+       {t:'Porque su presión de rotura es menor que la presión que pide el circuito a esa carga',ok:false,
+          why:'No: la rotura de esa clase son '+f1(pRotura('h350'),0)+' MPa, bastante más que los '+f1(a.p,2)+' MPa del circuito. El criterio es la presión de trabajo, no la de rotura.'},
+       {t:'Porque la limitadora de la bomba cortaría antes de que el circuito llegue a esa presión',ok:false,
+          why:'No: la limitadora de la bomba Ø12 corta en '+BOMBAS.b5.pmax+' MPa, por encima de los '+f1(a.p,2)+' MPa que pide el circuito. Es el latiguillo quien se queda corto.'},
+       {t:'Porque a esa presión el aceite se comprime y la manguera se hincha más de lo admisible',ok:false,
+          why:'No: este modelo no comprime el aceite ni hincha la manguera. El latiguillo se califica sólo por su presión de trabajo.'}]};
+}
 let retoK=0;
 let RET={cil:'c50',bom:'b1',man:'h100'};
 let retoChecked=false, retoSolved=false;
-let retoOk={cil:false,bom:false,man:false};
+/* Política de reto: el veredicto sólo aparece al pulsar Comprobar; tocar un
+   mando lo invalida (el reto deja de estar resuelto y hay que volver a
+   comprobar); tras TRES fallos se asigna otro trabajo y el fallo no revela la
+   terna correcta: sólo qué criterio incumple LA TERNA QUE HAS MONTADO. */
+let retoIntentos=0, retoFallos=0, retoResiembras=0, retoMsg='';
+const MAX_INT=3;
+const retoVista=()=>retoChecked||autoRunning;
+function retoEdita(patch){ Object.assign(RET,patch); retoChecked=false; retoSolved=false; retoMsg=''; }
+/* En Explora no se puede estudiar el trabajo del reto mientras esté sin resolver:
+   la curva de decisión listaría los cilindros que caben, o sea, la respuesta. */
+function apartaExplora(){
+  if(retoSolved) return;
+  const n=POOL.length;
+  if(PRO.k===retoK) PRO.k=(retoK+1)%n;
+  if(VOL.k===retoK){ VOL.k=(retoK+1)%n; VOL.golpes=0; if(typeof syncRam==='function') syncRam(); }
+}
 let quizOrder=[0,1,2,3], quizPick=-1, quizOkFlag=false;
 
 function shuffleQuiz(){
@@ -1296,12 +1344,14 @@ function shuffleQuiz(){
   for(let i=quizOrder.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=quizOrder[i]; quizOrder[i]=quizOrder[j]; quizOrder[j]=t; }
   quizPick=-1; quizOkFlag=false;
 }
-function quizDef(){ return QUIZ[POOL[retoK].id]; }
+function quizDef(){ return mkQuiz(POOL[retoK].id); }
 function quizOpts(){ const d=quizDef(); return quizOrder.map(i=>d.o[i]); }
 
 function drawReto(){
   const sc=POOL[retoK];
   const e=evalua(sc,RET), g=GOOD(sc), eg=evalua(sc,g);
+  const vista=retoVista();
+  const okVista=autoRunning?(e.ok&&e.coste===eg.coste):retoSolved;
   bg();
   labelAt(40,46,'Reto — dimensiona la prensa para el trabajo','#8fd1ff',26);
   labelAt(40,84,sc.nom,'#dfe7ee',23);
@@ -1312,18 +1362,16 @@ function drawReto(){
   labelAt(40,188,`Hueco disponible: Ø${sc.dmax} mm como máximo`,'#f4c95d',20);
   labelAt(40,236,'Tu selección','#8fd1ff',20);
   const rows=[
-    ['Cilindro',CILINDROS[RET.cil].nom,CILINDROS[RET.cil].coste,retoOk.cil,'cil',RET.cil],
-    ['Bomba',BOMBAS[RET.bom].nom,BOMBAS[RET.bom].coste,retoOk.bom,'bom',RET.bom],
-    ['Latiguillo',MANGUERAS[RET.man].nom,MANGUERAS[RET.man].coste,retoOk.man,'man',RET.man],
+    ['Cilindro',CILINDROS[RET.cil].nom,CILINDROS[RET.cil].coste],
+    ['Bomba',BOMBAS[RET.bom].nom,BOMBAS[RET.bom].coste],
+    ['Latiguillo',MANGUERAS[RET.man].nom,MANGUERAS[RET.man].coste],
   ];
   let y=274;
   rows.forEach(r=>{
     labelAt(40,y,r[0],'#7a8a96',17);
     labelAt(180,y,r[1],'#dfe7ee',18);
     labelAt(600,y,`${r[2]} u.c.`,'#8A94A0',16);
-    if(retoChecked){ labelAt(690,y,r[3]?'✔':'✗',r[3]?'#43D9AD':'#d64545',22);
-      if(!r[3]) wrapText(720,y-4,whyEje(sc,r[4],r[5]),'#f4c95d',14,280,17); }
-    y+=r[3]||!retoChecked?42:Math.max(42,20+17*2);
+    y+=42;
   });
   y+=6;
   labelAt(40,y,`Coste del sistema: ${e.coste} u.c.`,'#dfe7ee',19);
@@ -1331,20 +1379,22 @@ function drawReto(){
   labelAt(500,y,`mano ${f1(e.fMano,0)} N`,'#8A94A0',18);
   labelAt(690,y,`${e.N} bombeos`,'#8A94A0',18);
   y+=44;
-  if(retoChecked){
-    labelAt(40,y,retoSolved?'✔ Prensa correctamente dimensionada':'✗ Todavía no',retoSolved?'#43D9AD':'#d64545',25);
+  if(vista){
+    labelAt(40,y,okVista?'✔ Prensa correctamente dimensionada':'✗ Todavía no',okVista?'#43D9AD':'#d64545',25);
     y+=36;
-    if(retoSolved) wrapText(40,y,`Terna válida y de coste mínimo: ${CILINDROS[g.cil].nom} + ${BOMBAS[g.bom].nom} + ${MANGUERAS[g.man].nom} = ${eg.coste} u.c. Multiplicación de fuerza ×${f1(multiplicacion(g.cil,g.bom),0)} y ${f1(evalua(sc,g).sPalTot,1)} m de recorrido de palanca.`,'#43D9AD',17,940);
-    else wrapText(40,y,'Cada elemento se juzga suponiendo los otros dos correctos: acertar dos de tres sigue siendo una prensa que no vale.','#8A94A0',16,940);
+    if(okVista) wrapText(40,y,`Terna válida y de coste mínimo: ${CILINDROS[g.cil].nom} + ${BOMBAS[g.bom].nom} + ${MANGUERAS[g.man].nom} = ${eg.coste} u.c. Multiplicación de fuerza ×${f1(multiplicacion(g.cil,g.bom),0)} y ${f1(evalua(sc,g).sPalTot,1)} m de recorrido de palanca.`,'#43D9AD',17,940);
+    else wrapText(40,y,retoMsg||'Todavía no cumple.','#f4c95d',17,940);
   } else {
-    wrapText(40,y,'Elige cilindro, bomba y latiguillo. Los tres se califican por separado, y cada uno tiene que ser válido Y el más barato que cumple: sobredimensionar también es un error de proyecto.','#8A94A0',17,940);
+    if(retoMsg) wrapText(40,y,retoMsg,'#f4c95d',17,940);
+    else wrapText(40,y,'Elige cilindro, bomba y latiguillo y pulsa Comprobar: el veredicto no se ve en vivo. La terna tiene que ser válida Y la más barata que cumple: sobredimensionar también es un error de proyecto.','#8A94A0',17,940);
   }
+  labelAt(40,720,`Intentos ${retoIntentos}  ·  fallos ${retoFallos} de ${MAX_INT}  ·  tras ${MAX_INT} fallos se asigna otro trabajo`,'#8fd1ff',16);
   labelAt(40,754,'⚠ Latiguillo por presión de TRABAJO (rotura = 4× trabajo, ISO 1436). El límite de 400 N en la palanca es criterio de proyecto del taller.','#f4c95d',14);
   bTex.needsUpdate=true;
 
   const rt=el('retoText');
   if(rt) rt.textContent=`${sc.nom} — ${sc.F/1000} kN, carrera ${sc.s} mm, máx ${sc.Nmax} bombeos, hueco Ø${sc.dmax} mm. Selección: ${CILINDROS[RET.cil].nom} + ${BOMBAS[RET.bom].nom} + ${MANGUERAS[RET.man].nom} = ${e.coste} u.c., p=${f1(e.p,2)} MPa, mano ${f1(e.fMano,0)} N, ${e.N} bombeos.`
-    +(retoChecked?` ${retoSolved?'✔ Correcto.':'✗ Cilindro '+(retoOk.cil?'✔':'✗')+' · Bomba '+(retoOk.bom?'✔':'✗')+' · Latiguillo '+(retoOk.man?'✔':'✗')+'.'}`:'');
+    +(retoChecked?(retoSolved?' ✔ Correcto.':' ✗ Todavía no.'):'')+` Intentos ${retoIntentos} · fallos ${retoFallos} de ${MAX_INT}.`;
   renderQuiz();
 }
 function renderQuiz(){
@@ -1362,25 +1412,48 @@ function answerQuiz(i){
   if(quizPick>=0) return;
   quizPick=i; quizOkFlag=!!quizOpts()[i].ok;
   synth.beep(quizOkFlag?1046:200,0.12,0.06);
-  showToast(quizOkFlag?'<span style="color:var(--good)">✔ Correcta.</span>':'<span style="color:var(--bad)">✗ Incorrecta.</span> La respuesta buena queda marcada en verde.');
+  const w=quizOpts()[i].why||'';
+  showToast((quizOkFlag?'<span style="color:var(--good)">✔ Correcta.</span> ':'<span style="color:var(--bad)">✗ Incorrecta.</span> ')+w,6200);
   renderQuiz();
 }
-function newReto(){
-  retoK=Math.floor(Math.random()*POOL.length);
+function nuevoTrabajo(){
+  let k; do{ k=Math.floor(Math.random()*POOL.length); }while(k===retoK&&POOL.length>1);
+  retoK=k;
   RET=startCfg(POOL[retoK]);
-  retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false};
+  retoChecked=false; retoSolved=false; retoMsg='';
+  retoIntentos=0; retoFallos=0;
+  apartaExplora();
   shuffleQuiz();
+}
+function newReto(){
+  nuevoTrabajo(); retoResiembras++;
   syncRetoBtns(); drawReto();
   showToast('🎲 Nuevo trabajo asignado.');
   synth.beep(520,0.08,0.05);
 }
 function checkReto(){
   const sc=POOL[retoK];
-  retoChecked=true;
-  retoOk={cil:okCil(sc,RET.cil), bom:okBom(sc,RET.bom), man:okMan(sc,RET.man)};
-  retoSolved=retoOk.cil&&retoOk.bom&&retoOk.man;
-  if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: válida y de coste mínimo en los tres elementos.</span>'); synth.beep(1046,0.12,0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ Revisa el elemento marcado en el pizarrón.</span>'); synth.beep(180,0.14,0.06); }
+  const e=evalua(sc,RET), g=GOOD(sc), eg=evalua(sc,g);
+  retoChecked=true; retoIntentos++;
+  retoSolved=e.ok&&e.coste===eg.coste;
+  if(retoSolved){
+    retoMsg='';
+    showToast('<span style="color:var(--good)">✔ Correcto: terna válida y de coste mínimo.</span>'); synth.beep(1046,0.12,0.06);
+  } else {
+    retoFallos++;
+    // sólo se explica la terna que el alumno ha montado: nunca se dice qué elemento es el bueno
+    retoMsg=e.ok?'Cumple los seis criterios, pero hay una terna válida más barata.':whyCfg(sc,RET);
+    if(retoFallos>=MAX_INT){
+      const previo=retoMsg;
+      nuevoTrabajo(); retoResiembras++;
+      retoMsg=previo+' Tres fallos: se te asigna otro trabajo, «'+POOL[retoK].nom+'».';
+      showToast('<span style="color:var(--bad)">✗ '+retoMsg+'</span>',5200); synth.beep(180,0.14,0.06);
+      syncRetoBtns(); drawReto(); updateTele();
+      return;
+    }
+    retoMsg+=' (fallo '+retoFallos+' de '+MAX_INT+')';
+    showToast('<span style="color:var(--bad)">✗ '+retoMsg+'</span>',5200); synth.beep(180,0.14,0.06);
+  }
   drawReto(); updateTele();
 }
 
@@ -1436,7 +1509,7 @@ function updateTele(){
     el('re_p').textContent=`${f1(e.p,2)} MPa`;
     el('re_mano').textContent=`${f1(e.fMano,0)} N`;
     el('re_N').textContent=`${e.N} (máx ${sc.Nmax})`;
-    el('re_verd').textContent=retoChecked?(retoSolved?'✔ correcta':`✗ ${[retoOk.cil?'':'cilindro',retoOk.bom?'':'bomba',retoOk.man?'':'latiguillo'].filter(Boolean).join(', ')}`):'sin comprobar';
+    el('re_verd').textContent=retoChecked?(retoSolved?'✔ correcta':'✗ todavía no'):'sin comprobar';
     el('re_verd').className=retoChecked?(retoSolved?'good':'bad'):'';
   }
 }
@@ -1471,8 +1544,16 @@ function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensa
 /* ---------- sincronización de botones ---------- */
 const onOff=(sel,attr,val)=>document.querySelectorAll(sel).forEach(b=>b.classList.toggle('on',b.dataset[attr]===String(val)));
 function syncPasBtns(){ onOff('#paCil [data-k]','k',PAS.cil); onOff('#paBom [data-k]','k',PAS.bom); onOff('#paF [data-k]','k',PAS.F); onOff('#paMano [data-k]','k',PAS.f); }
-function syncVolBtns(){ onOff('#voTrab [data-k]','k',VOL.k); onOff('#voCil [data-k]','k',VOL.cil); onOff('#voBom [data-k]','k',VOL.bom); onOff('#voAire [data-k]','k',VOL.aire); }
-function syncProBtns(){ onOff('#prTrab [data-k]','k',PRO.k); onOff('#prBom [data-k]','k',PRO.bom); }
+function trabajoLibre(k){
+  if(k===retoK&&!retoSolved){
+    showToast('<span style="color:var(--bad)">🔒 Ése es el trabajo de tu reto: estudiarlo aquí daría la respuesta. Se libera cuando lo resuelvas.</span>');
+    synth.beep(220,0.08,0.05); return false;
+  }
+  return true;
+}
+function marcaReto(sel){ document.querySelectorAll(sel+' [data-k]').forEach(b=>{ const bloq=(+b.dataset.k===retoK&&!retoSolved); b.disabled=bloq; b.title=bloq?'Es el trabajo de tu reto: se libera al resolverlo':''; }); }
+function syncVolBtns(){ marcaReto('#voTrab'); onOff('#voTrab [data-k]','k',VOL.k); onOff('#voCil [data-k]','k',VOL.cil); onOff('#voBom [data-k]','k',VOL.bom); onOff('#voAire [data-k]','k',VOL.aire); }
+function syncProBtns(){ marcaReto('#prTrab'); onOff('#prTrab [data-k]','k',PRO.k); onOff('#prBom [data-k]','k',PRO.bom); }
 function syncRetoBtns(){ onOff('#reCil [data-k]','k',RET.cil); onOff('#reBom [data-k]','k',RET.bom); onOff('#reMan [data-k]','k',RET.man); }
 
 /* ---------- animación del vástago ---------- */
@@ -1501,6 +1582,13 @@ async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const btn=el('btnTour'); if(btn) btn.disabled=true;
   const bA=el('btnAuto'); if(bA) bA.disabled=true;
+  /* El recorrido es una DEMOSTRACIÓN: no resuelve ni puntúa tu reto y no te
+     enseña el trabajo que tienes asignado (usa otros). Se guarda el estado del
+     alumno y se restaura entero al terminar o si algo falla. */
+  const snap={mode, PAS:{...PAS}, VOL:{...VOL}, PRO:{...PRO}, retoK, RET:{...RET}, retoChecked, retoSolved, retoMsg,
+    retoIntentos, retoFallos, retoResiembras, quizOrder:[...quizOrder], quizPick, quizOkFlag};
+  const libres=[0,3,1,2].filter(k=>k!==snap.retoK);   // trabajos que no son el del alumno
+  const J=k=>POOL[k];
   try{
     if(!simUnlocked){
       showToast('🎬 Recorrido guiado: primero montamos el circuito.');
@@ -1510,55 +1598,65 @@ async function runAuto(){
     /* --- ley de Pascal --- */
     setMode('pascal'); await sleep(900);
     PAS.cil='c80'; PAS.bom='b2'; PAS.F=60000; PAS.f=300; refreshAll();
-    showToast('② Ley de Pascal. Ø80 y bomba 10:1. El eje flector pide 60 kN: el circuito sube a 13,26 MPa, ni un pascal más.',4200); await sleep(4300);
-    PAS.f=100; refreshAll();
-    showToast('Con sólo 100 N en la palanca la mano llega a 4,97 MPa y la carga exige 13,26: el vástago no se mueve.',4200); await sleep(4300);
-    PAS.f=400; refreshAll();
-    showToast('A 400 N la mano podría dar 19,89 MPa, pero la presión se queda en 13,26: la carga manda, no la mano.',4400); await sleep(4500);
-    PAS.bom='b1'; refreshAll();
-    showToast('Ojo con el catálogo: esta bomba dice 16 MPa, pero con 400 N y émbolo Ø22 la mano sólo llega a 8,42 MPa. La limitadora nunca abre.',4600); await sleep(4700);
-    PAS.bom='b4'; refreshAll();
-    showToast('Con la Ø10 a 14:1 pasa lo contrario: la mano daría 71,30 MPa y la limitadora corta antes, en 70 MPa.',4400); await sleep(4500);
+    let b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    showToast('② Ley de Pascal. Ø80 y bomba 10:1. Una carga de 60 kN pide '+f1(b.pNec,2)+' MPa en el circuito, ni un pascal más.',4200); await sleep(4300);
+    PAS.f=100; refreshAll(); b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    showToast('Con sólo 100 N en la palanca la mano llega a '+f1(b.pMano,2)+' MPa y la carga exige '+f1(b.pNec,2)+': el vástago no se mueve.',4200); await sleep(4300);
+    PAS.f=400; refreshAll(); b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    showToast('A 400 N la mano podría dar '+f1(b.pMano,2)+' MPa, pero la presión se queda en '+f1(b.p,2)+': la carga manda, no la mano.',4400); await sleep(4500);
+    PAS.bom='b1'; refreshAll(); b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    showToast('Ojo con el catálogo: esta bomba dice '+BOMBAS.b1.pmax+' MPa, pero con 400 N y émbolo Ø22 la mano sólo llega a '+f1(b.pMano,2)+' MPa. La limitadora nunca abre.',4600); await sleep(4700);
+    PAS.bom='b4'; refreshAll(); b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    showToast('Con la Ø10 a 14:1 pasa lo contrario: la mano daría '+f1(b.pMano,2)+' MPa y la limitadora corta antes, en '+BOMBAS.b4.pmax+' MPa.',4400); await sleep(4500);
     PAS.bom='b2'; PAS.F=350000; PAS.cil='c125'; refreshAll();
-    showToast('Multiplicación ×549 con el Ø125: la fuerza sale del banco (palanca × áreas), no de cuánto aprietes.',4200); await sleep(4300);
-    /* --- volumen --- */
+    showToast('Multiplicación ×'+f1(multiplicacion(PAS.cil,PAS.bom),0)+' con el Ø125: la fuerza sale del banco (palanca × áreas), no de cuánto aprietes.',4200); await sleep(4300);
+    /* --- volumen: un trabajo que no es el tuyo --- */
     setMode('volumen'); await sleep(900);
-    VOL.k=3; VOL.cil='c125'; VOL.bom='b5'; VOL.aire=0; VOL.golpes=0; syncRam(); refreshAll();
-    showToast('③ El precio del volumen. Buje de camión, Ø125 con bomba Ø12: cada golpe mete 5,09 cm³ y el vástago avanza 0,415 mm.',4600); await sleep(4700);
+    const kv=libres[0], scv=J(kv);
+    VOL.k=kv; VOL.cil='c125'; VOL.bom='b5'; VOL.aire=0; VOL.golpes=0; syncRam(); refreshAll();
+    const Vb=volBombeo('b5'), s2v=avanceBombeo('c125','b5'), Nv=bombeos(scv.s,'c125','b5'), pv=presionReq(scv.F,'c125');
+    showToast('③ El precio del volumen. '+scv.nom+', Ø125 con bomba Ø12: cada golpe mete '+f1(Vb/1000,2)+' cm³ y el vástago avanza '+f1(s2v,3)+' mm.',4600); await sleep(4700);
     for(let i=0;i<6;i++){ bombear(12); await sleep(320); }
-    showToast('73 bombeos para 30 mm, con 65,7 m de recorrido de palanca. El trabajo no se regala: se cambia recorrido por fuerza.',4600); await sleep(4700);
-    showToast('Y encima se pierde el 10 %: de cada 161,3 J que mete la mano por golpe, 16,1 J se van en calor de sellos y rozamiento.',4600); await sleep(4700);
-    VOL.aire=47120; refreshAll();
-    showToast('Aire atrapado: 47,12 cm³ a 1 atm se quedan en 0,150 cm³ a 31,69 MPa. Son 10 bombeos que no mueven nada. Por eso se purga.',4800); await sleep(4900);
+    showToast(Nv+' bombeos para '+scv.s+' mm, con '+f1(Nv*BOMBAS.b5.R*BOMBAS.b5.s1/1000,1)+' m de recorrido de palanca. El trabajo no se regala: se cambia recorrido por fuerza.',4600); await sleep(4700);
+    showToast('Y encima se pierde el '+f1((1-ETA_CIL)*100,0)+' %: de cada '+f1(pv*Vb/1000,1)+' J que mete la mano por golpe, '+f1((1-ETA_CIL)*pv*Vb/1000,1)+' J se van en calor de sellos y rozamiento.',4600); await sleep(4700);
+    VOL.aire=47120; refreshAll(); const ar=aire(VOL.aire,pv,'b5');
+    showToast('Aire atrapado: '+f1(VOL.aire/1000,2)+' cm³ a 1 atm se quedan en '+f1(ar.vFin/1000,3)+' cm³ a '+f1(pv,2)+' MPa. Son '+ar.bombeos+' bombeos que no mueven nada. Por eso se purga.',4800); await sleep(4900);
     VOL.aire=0; VOL.golpes=0; syncRam(); refreshAll(); await sleep(600);
     /* --- curva de decisión --- */
     setMode('proyecto'); await sleep(900);
-    PRO.k=0; PRO.bom='b2'; refreshAll();
+    const k0=libres[0], k1=libres[1], k2=libres[2];
+    PRO.k=k0; PRO.bom='b2'; refreshAll();
     showToast('④ Curva de decisión. Al subir el diámetro la presión cae con el cuadrado… y los bombeos suben con el cuadrado.',4400); await sleep(4500);
-    showToast('Para el eje flector con la bomba 10:1, sólo el Ø80 y el Ø100 caen dentro de la ventana. El Ø125 se va a 77 bombeos.',4600); await sleep(4700);
-    PRO.k=3; PRO.bom='b5'; refreshAll();
-    showToast('En el buje de camión la ventana se estrecha: el Ø50 pediría 198,06 MPa y 1120 N en la palanca. Ni de lejos.',4600); await sleep(4700);
-    PRO.k=1; PRO.bom='b4'; refreshAll();
-    showToast('En el extractor portátil manda el espacio: pasado el Ø63 no hay dónde meter el cilindro, por buenos que sean los números.',4600); await sleep(4700);
-    /* --- reto --- */
+    { const cu=curvaCil(J(k0),'b2'), ok=cu.filter(r=>r.ok).map(r=>'Ø'+r.d);
+      showToast('Para «'+J(k0).nom+'» con la bomba 10:1, '+(ok.length?'sólo caben dentro de la ventana: '+ok.join(' · '):'ningún cilindro cae dentro de la ventana')+'. El Ø125 pide '+f1(cu[4].p,2)+' MPa pero '+cu[4].N+' bombeos (máximo '+J(k0).Nmax+').',4600); await sleep(4700); }
+    PRO.k=k1; PRO.bom='b5'; refreshAll();
+    { const cu=curvaCil(J(k1),'b5');
+      showToast('En «'+J(k1).nom+'» con la bomba Ø12 el Ø50 pediría '+f1(cu[0].p,2)+' MPa y '+f1(cu[0].fMano,0)+' N en la palanca, y el Ø125 '+cu[4].N+' bombeos (máximo '+J(k1).Nmax+'). La ventana se estrecha.',4600); await sleep(4700); }
+    PRO.k=k2; PRO.bom='b4'; refreshAll();
+    showToast('En «'+J(k2).nom+'» manda el espacio: pasado el Ø'+J(k2).dmax+' no hay dónde meter el cilindro, por buenos que sean los números.',4600); await sleep(4700);
+    /* --- reto: demostración sobre otro trabajo, sin comprobar ni puntuar --- */
     setMode('reto'); await sleep(900);
-    retoK=3; RET=startCfg(POOL[3]); retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false}; shuffleQuiz(); refreshAll();
-    showToast('⑤ Reto: el buje de camión, 350 kN. La configuración de partida está mal en los tres elementos, a propósito.',4400); await sleep(4500);
-    const g=GOOD(POOL[3]);
-    RET={cil:g.cil,bom:RET.bom,man:RET.man}; retoChecked=false; refreshAll(); await sleep(700);
-    checkReto(); await sleep(1600);
-    showToast('Sólo el cilindro correcto no basta: la calificación es por elementos, y cada uno se juzga con los otros dos ya bien.',4400); await sleep(4500);
-    RET={cil:g.cil,bom:g.bom,man:g.man}; retoChecked=false; refreshAll(); await sleep(700);
-    checkReto(); await sleep(1700);
-    showToast('Ø125 + bomba 20:1 + latiguillo de 350 bar: 45 u.c. De las 100 combinaciones posibles, sólo 3 son válidas.',4600); await sleep(4700);
-    showToast('Y el cilindro más caro abarata el sistema: con el Ø100 haría falta latiguillo de 700 bar y saldría más caro.',4600); await sleep(4700);
-    const qi=quizOpts().findIndex(o=>o.ok);
-    answerQuiz(qi); await sleep(2200);
+    const kr=libres[0], scr=J(kr);
+    retoK=kr; RET=startCfg(scr); retoChecked=false; retoSolved=false; retoMsg=''; shuffleQuiz(); refreshAll();
+    showToast('⑤ Reto (demostración sobre «'+scr.nom+'»; no puntúa ni toca tu reto): la configuración de partida está mal a propósito.',4400); await sleep(4500);
+    const g=GOOD(scr), eg=evalua(scr,g);
+    let nv=0, mejorCon=null;
+    for(const c of CILK) for(const bb of BOMK) for(const m of MANK){ const e=evalua(scr,{cil:c,bom:bb,man:m}); if(e.ok){ nv++; if(c!==g.cil&&(!mejorCon||e.coste<mejorCon.coste)) mejorCon={cil:c,coste:e.coste}; } }
+    RET={...g}; refreshAll(); await sleep(900);
+    showToast('Montaje de la demostración: '+CILINDROS[g.cil].nom+' + '+BOMBAS[g.bom].nom+' + latiguillo de '+MANGUERAS[g.man].nom+': '+eg.coste+' u.c. De las '+(CILK.length*BOMK.length*MANK.length)+' combinaciones posibles, sólo '+nv+' son válidas.',4600); await sleep(4700);
+    if(mejorCon){ showToast('Y el cilindro más caro puede abaratar el sistema: la mejor terna válida con otro cilindro cuesta '+mejorCon.coste+' u.c. frente a '+eg.coste+'.',4600); await sleep(4700); }
     showToast('Fin del recorrido. Prueba tú: cambia el trabajo con 🎲 y dimensiona la prensa desde cero.',4200); await sleep(3000);
   } finally {
     if(btn) btn.disabled=false;
     if(bA) bA.disabled=false;
     autoRunning=false;
+    // devolver al alumno exactamente lo que tenía
+    Object.assign(PAS,snap.PAS); Object.assign(VOL,snap.VOL); Object.assign(PRO,snap.PRO);
+    retoK=snap.retoK; RET=snap.RET; retoChecked=snap.retoChecked; retoSolved=snap.retoSolved; retoMsg=snap.retoMsg;
+    retoIntentos=snap.retoIntentos; retoFallos=snap.retoFallos; retoResiembras=snap.retoResiembras;
+    quizOrder=snap.quizOrder; quizPick=snap.quizPick; quizOkFlag=snap.quizOkFlag;
+    VOL.golpes=snap.VOL.golpes; syncRam();
+    setMode(snap.mode);
   }
 }
 
@@ -1723,8 +1821,8 @@ el('panel').innerHTML=`
 
 /* ---------- wiring ---------- */
 modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
-  if(mode==='reto'&&!retoSolved&&m!=='reto'){
-    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (cilindro, bomba y latiguillo correctos) antes de salir a otro modo.</span>');
+  if(mode==='reto'&&!retoSolved&&retoIntentos===0&&m!=='reto'){
+    showToast('<span style="color:var(--bad)">🔒 Haz al menos un intento (Comprobar) antes de salir a otro modo.</span>');
     synth.beep(220,0.1,0.05);
     return;
   }
@@ -1742,19 +1840,20 @@ document.querySelectorAll('#paCil [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.ci
 document.querySelectorAll('#paBom [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.bom=b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#paF [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.F=+b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#paMano [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.f=+b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#voTrab [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.k=+b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
+document.querySelectorAll('#voTrab [data-k]').forEach(b=>{ b.onclick=()=>{ if(!trabajoLibre(+b.dataset.k)) return; VOL.k=+b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
 document.querySelectorAll('#voCil [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.cil=b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
 document.querySelectorAll('#voBom [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.bom=b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
 document.querySelectorAll('#voAire [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.aire=+b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#prTrab [data-k]').forEach(b=>{ b.onclick=()=>{ PRO.k=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#prTrab [data-k]').forEach(b=>{ b.onclick=()=>{ if(!trabajoLibre(+b.dataset.k)) return; PRO.k=+b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#prBom [data-k]').forEach(b=>{ b.onclick=()=>{ PRO.bom=b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#reCil [data-k]').forEach(b=>{ b.onclick=()=>{ RET.cil=b.dataset.k; retoChecked=false; refreshAll(); }; });
-document.querySelectorAll('#reBom [data-k]').forEach(b=>{ b.onclick=()=>{ RET.bom=b.dataset.k; retoChecked=false; refreshAll(); }; });
-document.querySelectorAll('#reMan [data-k]').forEach(b=>{ b.onclick=()=>{ RET.man=b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reCil [data-k]').forEach(b=>{ b.onclick=()=>{ retoEdita({cil:b.dataset.k}); refreshAll(); }; });
+document.querySelectorAll('#reBom [data-k]').forEach(b=>{ b.onclick=()=>{ retoEdita({bom:b.dataset.k}); refreshAll(); }; });
+document.querySelectorAll('#reMan [data-k]').forEach(b=>{ b.onclick=()=>{ retoEdita({man:b.dataset.k}); refreshAll(); }; });
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 
 RET=startCfg(POOL[retoK]);
+apartaExplora();
 shuffleQuiz();
 initAssembly();
 syncCtrlbar();
@@ -1776,14 +1875,16 @@ window.__labDebug={
   retoK:()=>retoK,
   retoCfg:()=>({...RET}),
   reto:()=>({k:retoK, sc:POOL[retoK].id, cfg:{...RET}, eval:evalua(POOL[retoK],RET), good:GOOD(POOL[retoK]),
-    checked:retoChecked, solved:retoSolved, ok:{...retoOk}}),
+    checked:retoChecked, solved:retoSolved, intentos:retoIntentos, fallos:retoFallos, resiembras:retoResiembras, msg:retoMsg}),
+  intentos:()=>retoIntentos, fallos:()=>retoFallos, resiembras:()=>retoResiembras, MAX_INT:()=>MAX_INT,
+  solved:()=>retoSolved, autoRunning:()=>autoRunning,
   quiz:()=>({q:quizDef().q, opts:quizOpts().map(o=>({t:o.t,ok:!!o.ok})), pick:quizPick, ok:quizOkFlag}),
   quizAnswer:(i)=>answerQuiz(i),
   setPascal:(o)=>{ Object.assign(PAS,o); refreshAll(); },
   setVolumen:(o)=>{ Object.assign(VOL,o); syncRam(); refreshAll(); },
   setProyecto:(o)=>{ Object.assign(PRO,o); refreshAll(); },
-  setReto:(k)=>{ retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false}; shuffleQuiz(); refreshAll(); },
-  setRetoCfg:(o)=>{ Object.assign(RET,o); retoChecked=false; refreshAll(); },
+  setReto:(k)=>{ retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoSolved=false; retoMsg=''; retoIntentos=0; retoFallos=0; apartaExplora(); shuffleQuiz(); refreshAll(); },
+  setRetoCfg:(o)=>{ retoEdita(o); refreshAll(); },
   bombear, retraer, setMode, checkReto, newReto, runAuto,
 };
 </script>

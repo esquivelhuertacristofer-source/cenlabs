@@ -62,6 +62,8 @@ const RETO_POOL=[
 ];
 let retoIdx=0, retoDir='right', retoClocks=1, retoChecked=false, retoOkDir=false, retoOkClocks=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+// política de fallos: intentos totales (visible), fallos del caso en curso (a los 3 se resiembra) y pistas graduadas (máx. 2)
+let intentos=0, fallosCaso=0, hintLevel=0, pistas=0;
 let hwStep=0, hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -70,6 +72,7 @@ function seedReto(idx){
   retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
   retoDir='right'; retoClocks=1;
   retoChecked=false; retoOkDir=false; retoOkClocks=false; retoSolved=false; retoMsg='';
+  fallosCaso=0; hintLevel=0;
 }
 seedReto(0);
 
@@ -83,6 +86,7 @@ function curBits(){
 }
 // secuencia de estados que recorre el entrenador 3D
 function curSeq(){
+  if(mode==='reto'&&!retoChecked)return [0];   // sin veredicto en vivo: el resultado de tu configuración aparece al comprobar
   if(mode==='reto'){const f=RETO_POOL[retoIdx];const bits=bitsOf(f.w,f.n);const st=[0];let s=0;for(let k=0;k<retoClocks;k++){const b=bits[k]||0;s=(retoDir==='left')?shiftL(s,f.n,b):shiftR(s,f.n,b);st.push(s);}return st;}
   if(mode==='aplica'){
     if(apTopic==='sipo')return sipoStates(WORD_POOL[apWordIdx].w,WORD_POOL[apWordIdx].n).st;
@@ -356,41 +360,42 @@ function drawReto(c){
   c.fillStyle=OK_HEX;c.font='bold 15px Outfit, sans-serif';c.fillText(binStr(W,n)+'  →  serie: '+bitsOf(W,n).join(' '),150,150);
   // receptor
   c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.fillText('Receptor SIPO reconstruye:',30,220);
-  drawRegister(c,220,240,n,recv,retoChecked?(retoSolved?OK_HEX:BAD_HEX):WARN_HEX,52,retoDir==='left'?'left':'right',null,null);
-  c.fillStyle=recv===W?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
-  c.fillText('Recuperada: '+binStr(recv,n)+(recv===W?'  ✓ = enviada':'  ✗ ≠ enviada'),150,360);
-  // pista de errores
+  drawRegister(c,220,240,n,retoChecked?recv:0,retoChecked?(retoSolved?OK_HEX:BAD_HEX):'#6b7280',52,retoDir==='left'?'left':'right',null,null);
+  c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+  if(retoChecked){c.fillStyle=recv===W?OK_HEX:BAD_HEX;c.fillText('Recuperada: '+binStr(recv,n)+(recv===W?'  ✓ = enviada':'  ✗ ≠ enviada'),150,360);}
+  else{c.fillStyle='#9fb0cf';c.fillText('Resultado oculto hasta pulsar «Comprobar».',150,360);}
+  // configuración elegida
   c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
   c.fillText('Dirección: '+(retoDir==='left'?'← izquierda':'derecha →')+'    ·    Flancos: '+retoClocks+' (palabra = '+n+' bits)',150,392);
   rpanel(c,PX.x,PX.y,PX.w,150,'TU CONFIGURACIÓN');
-  prow(c,PX.x,PX.y+52,PX.w,'Dirección',retoDir==='left'?'izquierda':'derecha',retoDir==='left'?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+86,PX.w,'Flancos',retoClocks+'  (objetivo '+n+')',retoClocks===n?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+116,PX.w,'Recuperada',binStr(recv,n),recv===W?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+52,PX.w,'Dirección',retoDir==='left'?'izquierda':'derecha','#C9D3E2');
+  prow(c,PX.x,PX.y+86,PX.w,'Flancos',String(retoClocks),'#C9D3E2');
+  prow(c,PX.x,PX.y+116,PX.w,'Recuperada',retoChecked?binStr(recv,n):'—',retoChecked?(recv===W?OK_HEX:BAD_HEX):'#C9D3E2');
   const by=PX.y+170;
   if(retoChecked){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
     c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkDir?OK_HEX:BAD_HEX;c.fillText((retoOkDir?'✔':'✗')+' Dirección a la izquierda (MSB primero)',PX.x+14,by+54);
-    c.fillStyle=retoOkClocks?OK_HEX:BAD_HEX;c.fillText((retoOkClocks?'✔':'✗')+' Exactamente n = '+n+' flancos',PX.x+14,by+78);
+    c.fillStyle=retoOkDir?OK_HEX:BAD_HEX;c.fillText((retoOkDir?'✔':'✗')+' Dirección de desplazamiento',PX.x+14,by+54);
+    c.fillStyle=retoOkClocks?OK_HEX:BAD_HEX;c.fillText((retoOkClocks?'✔':'✗')+' Número de flancos',PX.x+14,by+78);
     c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f),PX.x+14,by+106,PX.w-28,17);
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Regla: el emisor manda MSB primero. Para conservar el orden, el receptor debe desplazar a la IZQUIERDA; y para cargar toda la palabra hacen falta EXACTAMENTE n = '+n+' flancos.',PX.x+14,by+26,PX.w-28,18);
-    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Errores clásicos: desplazar a la derecha invierte los bits; menos de n flancos truncan la palabra; más de n la desbordan.',PX.x+14,by+108,PX.w-28,18);
+    wrapText(c,'El emisor manda la palabra MSB primero. Razona dónde debe acabar cada bit y cuántos flancos hacen falta; nada se muestra ni se califica hasta que pulses «Comprobar». Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,retoHintText(),PX.x+14,by+130,PX.w-28,18);
   }
 }
 function retoExplain(f){
   const W=f.w,n=f.n,recv=receive(W,n,retoDir,retoClocks);
   if(retoSolved)return 'Desplazando a la izquierda durante n = '+n+' flancos, cada bit enviado MSB primero cae en su posición: se recupera '+binStr(W,n)+' intacta. Así funciona un enlace serie (UART/SPI): PISO emisor + SIPO receptor con la misma dirección y el número justo de flancos.';
   let s='';
-  if(!retoOkDir)s+='Con desplazamiento a la derecha el primer bit enviado acaba en el LSB, invirtiendo el orden ('+binStr(recv,n)+' en vez de '+binStr(W,n)+'). Usa desplazamiento a la izquierda. ';
+  if(!retoOkDir)s+='Con ese sentido de desplazamiento el primer bit enviado acaba en el extremo contrario al que le corresponde, y el orden de la palabra queda invertido ('+binStr(recv,n)+' en vez de '+binStr(W,n)+'). ';
   if(!retoOkClocks){
-    if(retoClocks<n)s+='Con sólo '+retoClocks+' flancos la palabra queda truncada; faltan bits por entrar. Necesitas n = '+n+'. ';
-    else s+='Con '+retoClocks+' flancos (más de n = '+n+') los primeros bits ya se salieron por el otro extremo. Usa exactamente n. ';
+    if(retoClocks<n)s+='Con sólo '+retoClocks+(retoClocks===1?' flanco':' flancos')+' la palabra queda incompleta: aún faltan bits por entrar. ';
+    else s+='Con '+retoClocks+' flancos sobran desplazamientos: los primeros bits ya se salieron por el otro extremo. ';
   }
   return s||'Revisa la dirección y el número de flancos.';
 }
@@ -402,7 +407,7 @@ function drawBoard(){
 }
 function boardClick(){
   if(mode==='aplica')showToast('🧩 SIPO convierte serie→paralelo (recibe por un cable); PISO convierte paralelo→serie (transmite por un cable). Realimentados dan contadores de anillo (periodo n) y Johnson (periodo 2n).');
-  else if(mode==='reto')showToast('🎯 El emisor manda MSB primero: desplaza a la IZQUIERDA y usa exactamente n flancos. A la derecha se invierten los bits; con menos flancos se trunca la palabra.');
+  else if(mode==='reto')showToast('🎯 El emisor manda la palabra MSB primero. Razona dónde debe acabar cada bit y cuántos flancos hacen falta; el resultado se ve al comprobar.');
   else showToast('🔧 Conduce el registro: cambia la dirección, la entrada serie (SIN) y pulsa el flanco de reloj. En anillo/Johnson observa cómo la realimentación crea un contador.');
 }
 
@@ -493,7 +498,7 @@ document.getElementById('panel').innerHTML=`
   <h4 class="sec" id="retoTitle" style="display:none">Reto del enlace serie</h4>
   <div id="retoBox" style="display:none">
     <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
-    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button><button class="b" id="btnHint">💡 Pista</button></div>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
@@ -605,10 +610,12 @@ function updateTele(){
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx],recv=receive(f.w,f.n,retoDir,retoClocks);
     t.innerHTML=teleRow('Palabra enviada',binStr(f.w,f.n))+
-      teleRow('Dirección',retoDir==='left'?'izquierda':'derecha',retoDir==='left'?'good':'warn')+
-      teleRow('Flancos',retoClocks+' / '+f.n,retoClocks===f.n?'good':'warn')+
-      teleRow('Recuperada',binStr(recv,f.n),recv===f.w?'good':'warn')+
-      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn');
+      teleRow('Dirección',retoDir==='left'?'izquierda':'derecha')+
+      teleRow('Flancos',String(retoClocks))+
+      teleRow('Recuperada',retoChecked?binStr(recv,f.n):'—',retoChecked?(recv===f.w?'good':'warn'):'')+
+      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn')+
+      teleRow('Intentos',intentos+' (fallos de este caso: '+fallosCaso+'/3)','warn')+
+      teleRow('Pistas',pistas+'/2','warn');
     return;
   }
   if(mode==='aplica'){
@@ -633,7 +640,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx];
-    html+=retoMsg||`<span class="mono">Enlace serie: el emisor manda ${binStr(f.w,f.n)} MSB primero. Elige desplazar a la izquierda y ${f.n} flancos para recuperarla. Comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">Enlace serie: el emisor manda ${binStr(f.w,f.n)} MSB primero. Elige la dirección y el número de flancos con los que el receptor la reconstruya intacta. Comprueba cuando estés seguro.</span>`;
   }else if(mode==='aplica'){
     if(apTopic==='sipo'){const W=WORD_POOL[apWordIdx].w,n=WORD_POOL[apWordIdx].n;html+=`<span class="mono">SIPO: los ${n} bits de ${binStr(W,n)} entran en serie (MSB primero); tras ${n} flancos el registro los tiene en paralelo. Es la recepción serie (UART/SPI) y la expansión de salidas.</span>`;}
     else if(apTopic==='piso'){const W=WORD_POOL[apWordIdx].w,n=WORD_POOL[apWordIdx].n;html+=`<span class="mono">PISO: se carga ${binStr(W,n)} en paralelo y ${n} flancos la sacan por un cable (MSB primero). Es la transmisión serie y la lectura de muchas entradas con pocos pines.</span>`;}
@@ -652,6 +659,17 @@ function updateRetoSpec(){
   const f=RETO_POOL[retoIdx];
   el('retoSpec').innerHTML=`Recupera la palabra <b>${binStr(f.w,f.n)}</b> (${f.n} bits), enviada MSB primero por un enlace serie. Elige la <b>dirección</b> de desplazamiento y el <b>número de flancos</b>, y pulsa "Comprobar".`;
 }
+function retoHintText(){
+  if(hintLevel<=0)return 'Si te atascas, pide una pista (máximo 2). Orientan sin darte la respuesta.';
+  const h=['Piensa en el PRIMER bit que llega: ¿debe acabar junto a la entrada del registro o en el extremo opuesto, tras recorrerlo entero?',
+    'Cuenta los bits de la palabra: ¿cuántos desplazamientos hacen falta para que el primero llegue a su sitio sin que se pierda ninguno?'];
+  return h.slice(0,hintLevel).map((t,i)=>(i+1)+') '+t).join('  ');
+}
+function pedirPista(){
+  if(autoRunning||mode!=='reto')return;
+  if(hintLevel>=2){showToast('💡 Ya usaste las 2 pistas de este caso.');return;}
+  hintLevel++;pistas++;refreshAll();
+}
 function checkReto(){
   const f=RETO_POOL[retoIdx];
   retoOkDir=(retoDir==='left');
@@ -659,6 +677,20 @@ function checkReto(){
   retoSolved=retoOkDir&&retoOkClocks;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f)}</span>`;
+  // La demostración automática no cuenta como intento del alumno.
+  if(!autoRunning){
+    intentos++;
+    if(!retoSolved){
+      fallosCaso++;
+      if(fallosCaso>=3){
+        // tres fallos: el caso se resiembra (no se aprueba por eliminación)
+        const msg=retoMsg;
+        seedReto();updateRetoSpec();buildControls();updateScenarioInfo();
+        retoMsg=msg+`<br><span class="mono dtc">Tres intentos fallidos: se te asigna otra palabra (${binStr(RETO_POOL[retoIdx].w,RETO_POOL[retoIdx].n)}). Razona de nuevo desde el orden de llegada de los bits.</span>`;
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 
@@ -668,28 +700,28 @@ function buildQuiz(){
     explora:{
       pregunta:'En un registro que desplaza a la DERECHA, ¿qué ocurre con el bit de entrada y con el valor?',
       opciones:[
-        {t:'El bit de entrada entra por el MSB (Q_{n-1}) y el que estaba en el LSB (Q0) sale; con serial-in = 0 el valor se DIVIDE entre 2.',ok:true,why:'Correcto: desplazar a la derecha es Q_i←Q_{i+1}. El hueco del MSB lo llena el serial-in y el LSB se pierde por el serial-out; con SIN=0 equivale a ÷2 (descartando el resto).'},
-        {t:'El bit entra por el LSB (Q0) y el valor se multiplica por 2.',ok:false,why:'Eso describe el desplazamiento a la IZQUIERDA (×2). A la derecha se entra por el MSB y se divide entre 2.'},
-        {t:'Todos los bits se copian a sí mismos; el registro no cambia.',ok:false,why:'No: desplazar mueve cada bit una posición. Lo que no cambia el estado es el modo "hold" (sin flanco de desplazamiento).'},
-        {t:'El bit que sale por el LSB vuelve a entrar por el MSB (rotación).',ok:false,why:'Eso sería una ROTACIÓN. En un registro de desplazamiento simple el bit que sale se pierde y entra el serial-in; la rotación es un caso especial con realimentación.'},
+        {t:'El bit de entrada entra por el MSB y sale el que estaba en el LSB; con serial-in = 0 el valor se DIVIDE entre 2.',ok:true,why:'Correcto: desplazar a la derecha es Q_i←Q_{i+1}. El hueco del MSB lo llena el serial-in y el LSB se pierde por el serial-out; con SIN=0 equivale a ÷2 (descartando el resto).'},
+        {t:'El bit de entrada entra por el LSB y sale el que estaba en el MSB; con serial-in = 0 el valor se MULTIPLICA por 2.',ok:false,why:'Eso describe el desplazamiento a la IZQUIERDA (×2). A la derecha se entra por el MSB y se divide entre 2.'},
+        {t:'Todos los bits conservan su posición y sólo cambia el LSB, que toma el valor del serial-in en cada flanco de reloj.',ok:false,why:'No: desplazar mueve cada bit una posición. Lo que no cambia el estado es el modo "hold" (sin flanco de desplazamiento).'},
+        {t:'El bit que sale por el LSB vuelve a entrar por el MSB, de modo que el valor del registro se conserva siempre intacto.',ok:false,why:'Eso sería una ROTACIÓN. En un registro de desplazamiento simple el bit que sale se pierde y entra el serial-in; la rotación es un caso especial con realimentación.'},
       ],
     },
     aplica:{
       pregunta:'¿Cuál es la diferencia esencial entre un registro SIPO y uno PISO?',
       opciones:[
-        {t:'SIPO recibe los bits en serie (por un cable) y los presenta en paralelo; PISO carga la palabra en paralelo y la transmite en serie. Son inversos.',ok:true,why:'Correcto: SIPO = serie-in/paralelo-out (recepción), PISO = paralelo-in/serie-out (transmisión). Un PISO emisor y un SIPO receptor forman un enlace serie completo.'},
-        {t:'SIPO cuenta hacia arriba y PISO cuenta hacia abajo.',ok:false,why:'Ninguno es un contador por sí mismo. Son conversores serie/paralelo; se vuelven contadores sólo si se realimenta la salida (anillo/Johnson).'},
-        {t:'SIPO desplaza a la izquierda y PISO siempre a la derecha, sin más diferencia.',ok:false,why:'La dirección es una convención, no la diferencia esencial. Lo que los distingue es por dónde entran y salen los datos: serie vs paralelo.'},
-        {t:'PISO necesita reloj y SIPO no.',ok:false,why:'Ambos son secuenciales y necesitan reloj: desplazan un bit por flanco. El PISO además tiene una carga paralela inicial.'},
+        {t:'SIPO recibe los bits en serie y los presenta en paralelo; PISO carga la palabra en paralelo y la transmite en serie.',ok:true,why:'Correcto: SIPO = serie-in/paralelo-out (recepción), PISO = paralelo-in/serie-out (transmisión). Un PISO emisor y un SIPO receptor forman un enlace serie completo.'},
+        {t:'SIPO cuenta hacia arriba y PISO cuenta hacia abajo, por lo que cada uno recorre la secuencia de estados en sentido contrario.',ok:false,why:'Ninguno es un contador por sí mismo. Son conversores serie/paralelo; se vuelven contadores sólo si se realimenta la salida (anillo/Johnson).'},
+        {t:'SIPO desplaza siempre a la izquierda y PISO siempre a la derecha, y esa dirección es lo único que los distingue.',ok:false,why:'La dirección es una convención, no la diferencia esencial. Lo que los distingue es por dónde entran y salen los datos: serie vs paralelo.'},
+        {t:'PISO necesita señal de reloj para avanzar y SIPO no, porque el SIPO captura cada bit en cuanto llega por la línea.',ok:false,why:'Ambos son secuenciales y necesitan reloj: desplazan un bit por flanco. El PISO además tiene una carga paralela inicial.'},
       ],
     },
     reto:{
       pregunta:'Un contador de anillo y uno Johnson usan los mismos n flip-flops. ¿En qué se diferencian sus periodos?',
       opciones:[
-        {t:'El anillo realimenta el serial-out tal cual y tiene periodo n (one-hot); el Johnson lo realimenta NEGADO y tiene periodo 2n.',ok:true,why:'Correcto: la inversión en la realimentación del Johnson hace que el registro se llene y se vacíe, duplicando la secuencia a 2n estados con el mismo hardware.'},
-        {t:'Ambos tienen periodo 2ⁿ, como un contador binario.',ok:false,why:'No: un contador binario de n bits tiene 2ⁿ estados, pero necesita lógica para decodificarlos. El anillo tiene n y el Johnson 2n.'},
-        {t:'El Johnson tiene periodo n y el anillo 2n.',ok:false,why:'Es al revés: el anillo (sin inversión) tiene periodo n; el Johnson (con inversión) lo duplica a 2n.'},
-        {t:'Ambos tienen periodo n; la inversión no cambia el número de estados.',ok:false,why:'Sí lo cambia: invertir la realimentación hace que el patrón tarde 2n flancos en repetirse, no n.'},
+        {t:'El anillo realimenta el serial-out tal cual y tiene periodo n; el Johnson lo realimenta NEGADO y tiene periodo 2n.',ok:true,why:'Correcto: la inversión en la realimentación del Johnson hace que el registro se llene y se vacíe, duplicando la secuencia a 2n estados con el mismo hardware.'},
+        {t:'Ambos tienen periodo 2ⁿ, igual que un contador binario, porque recorren todas las combinaciones posibles de n bits.',ok:false,why:'No: un contador binario de n bits tiene 2ⁿ estados, pero necesita lógica para decodificarlos. El anillo tiene n y el Johnson 2n.'},
+        {t:'El Johnson realimenta el serial-out tal cual y tiene periodo n; el anillo lo realimenta NEGADO y tiene periodo 2n.',ok:false,why:'Es al revés: el anillo (sin inversión) tiene periodo n; el Johnson (con inversión) lo duplica a 2n.'},
+        {t:'Ambos tienen periodo n, porque la inversión de la realimentación no cambia cuántos estados distintos recorre el registro.',ok:false,why:'Sí lo cambia: invertir la realimentación hace que el patrón tarde 2n flancos en repetirse, no n.'},
       ],
     },
   };
@@ -731,11 +763,28 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// El recorrido es una DEMOSTRACIÓN: no puntúa, no marca el reto como resuelto y al terminar (o fallar)
+// devuelve el laboratorio al estado exacto en que lo dejó el alumno.
+function snapState(){
+  return {mode,expKind,shN,shState,shDir,shSin,shLastOut,ringN,ringState,johnN,johnState,apTopic,apWordIdx,apCntN,
+    retoIdx,retoDir,retoClocks,retoChecked,retoOkDir,retoOkClocks,retoSolved,retoMsg,intentos,fallosCaso,hintLevel,pistas};
+}
+function restoreState(z){
+  expKind=z.expKind;shN=z.shN;shState=z.shState;shDir=z.shDir;shSin=z.shSin;shLastOut=z.shLastOut;
+  ringN=z.ringN;ringState=z.ringState;johnN=z.johnN;johnState=z.johnState;
+  apTopic=z.apTopic;apWordIdx=z.apWordIdx;apCntN=z.apCntN;
+  retoIdx=z.retoIdx;retoDir=z.retoDir;retoClocks=z.retoClocks;retoChecked=z.retoChecked;retoOkDir=z.retoOkDir;retoOkClocks=z.retoOkClocks;
+  retoSolved=z.retoSolved;retoMsg=z.retoMsg;intentos=z.intentos;fallosCaso=z.fallosCaso;hintLevel=z.hintLevel;pistas=z.pistas;
+  setMode(z.mode);refreshAll();
+}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Demostrando…';
+  const snap=snapState();
   try{
     synth.init();synth.resume();clearDx();
+    showToast('👁 Demostración: no puntúa ni toca tu reto; al terminar todo vuelve a como lo dejaste.');
+    await sleep(2400);
     setMode('explora');
     expKind='shift';shN=4;shState=0b0110;shDir='right';shSin=1;shLastOut='—';afterEdit();
     showToast('🔧 Registro de 4 bits. Desplazando a la derecha, entra SIN=1 por el MSB y sale el LSB. Con SIN=0 sería ÷2.');
@@ -748,7 +797,6 @@ async function runAuto(){
     expKind='johnson';johnN=4;johnState=0;afterEdit();
     showToast('🔄 Contador Johnson: realimenta la salida NEGADA. Periodo 2n = 8, el doble con el mismo hardware.');
     await sleep(4000);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('aplica');
     apTopic='sipo';apWordIdx=0;afterEdit();
@@ -760,23 +808,26 @@ async function runAuto(){
     apTopic='counters';apCntN=4;afterEdit();
     showToast('⚖️ Anillo (periodo 4) vs Johnson (periodo 8): la inversión en la realimentación duplica los estados.');
     await sleep(4200);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
+    // Reto de demostración: una palabra distinta de la del alumno (se descarta al terminar)
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
+    seedReto((snap.retoIdx+1)%RETO_POOL.length);updateRetoSpec();afterEdit();
     const f0=RETO_POOL[retoIdx];
-    showToast('🎯 Reto: recuperar '+binStr(f0.w,f0.n)+'. Primero el error clásico: pocos flancos y dirección equivocada…');
+    showToast('🎯 Palabra de demostración: '+binStr(f0.w,f0.n)+'. Primero el error clásico: pocos flancos y dirección equivocada…');
     retoDir='right';retoClocks=Math.max(1,f0.n-1);afterEdit();await sleep(3400);
     checkReto();
     showToast('…a la derecha se invierten los bits y con '+(f0.n-1)+' flancos la palabra queda truncada. Corregimos.');
     await sleep(3800);
-    retoDir='left';retoClocks=f0.n;afterEdit();
-    showToast('✔ Izquierda y '+f0.n+' flancos: se recupera '+binStr(f0.w,f0.n)+' intacta. Comprobamos.');
+    retoDir='left';retoClocks=f0.n;retoChecked=false;afterEdit();
+    showToast('✔ Izquierda y '+f0.n+' flancos: se recupera '+binStr(f0.w,f0.n)+' intacta. Comprobamos (en demostración).');
     await sleep(2400);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    checkReto();await sleep(3200);
   }finally{
+    restoreState(snap);
+    solved=(mode==='reto')?retoSolved:false;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    refreshAll();
+    showToast('↩ Demostración terminada: tu estado y tu reto quedaron como estaban.');
   }
 }
 
@@ -789,6 +840,7 @@ S.setAnimate((dt,time)=>{
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
 el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
 el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+el('btnHint').onclick=()=>pedirPista();
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
@@ -820,16 +872,17 @@ window.__labDebug={
   setApCntN:n=>{apCntN=n;afterEdit();},
   countersResult:()=>({n:apCntN,ringPeriod:ringSeq(apCntN).length,johnsonPeriod:johnsonSeq(apCntN).length}),
   // reto
-  retoWord:()=>RETO_POOL[retoIdx].w, retoN:()=>RETO_POOL[retoIdx].n, retoIdx:()=>retoIdx, seedReto:i=>{seedReto(i);afterEdit();},
+  retoWord:()=>RETO_POOL[retoIdx].w, retoN:()=>RETO_POOL[retoIdx].n, retoIdx:()=>retoIdx, seedReto:i=>{seedReto(i);updateRetoSpec();afterEdit();},
   retoDir:()=>retoDir, retoSetDir:v=>{retoDir=v;retoChecked=false;retoSolved=false;afterEdit();},
   retoClocks:()=>retoClocks, retoSetClocks:v=>{retoClocks=Math.max(1,Math.min(2*RETO_POOL[retoIdx].n,v));retoChecked=false;retoSolved=false;afterEdit();},
   retoSolveBuild:()=>{const f=RETO_POOL[retoIdx];retoDir='left';retoClocks=f.n;retoChecked=false;retoSolved=false;afterEdit();},
   checkReto:()=>checkReto(),
   retoReceived:()=>{const f=RETO_POOL[retoIdx];return receive(f.w,f.n,retoDir,retoClocks);},
-  retoChecked:()=>retoChecked, retoOkDir:()=>retoOkDir, retoOkClocks:()=>retoOkClocks, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkDir:()=>retoOkDir, retoOkClocks:()=>retoOkClocks, retoSolved:()=>autoRunning?false:retoSolved,
+  intentos:()=>intentos, fallosCaso:()=>fallosCaso, pistas:()=>pistas, pedirPista:()=>pedirPista(), autoRunning:()=>autoRunning, runAuto:()=>runAuto(),
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
   newSignal:()=>newSignal(),
-  solved:()=>solved,
+  solved:()=>autoRunning?false:solved,
 };

@@ -585,6 +585,8 @@ let retoIdx=0;
 let retoCh={ty:OPT_TY[0],tw:0,lock:'none'};
 let retoChecked=false,retoOkY=false,retoOkW=false,retoOkL=false,retoSolved=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+// política de fallos: intentos totales (visible), fallos del caso en curso (a los 3 se resiembra) y pistas graduadas (máx. 2)
+let intentos=0,fallosCaso=0,hintLevel=0,pistas=0;
 let hwStep=0,hwT=0,motorSpin=0,rotAng=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -599,6 +601,7 @@ function seedReto(idx){
   const badY=OPT_TY.find(v=>!okY(v,sc));
   retoCh={ty:badY==null?OPT_TY[0]:badY,tw:0,lock:'none'};
   retoChecked=false;retoOkY=false;retoOkW=false;retoOkL=false;retoSolved=false;retoMsg='';
+  fallosCaso=0;hintLevel=0;
 }
 seedReto(0);
 // el primer registro es el REPOSO (orden 0, contacto abierto): sin él, el flanco de la primera
@@ -1053,11 +1056,9 @@ function drawReto(c){
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,370);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,370);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Para el tiempo en estrella, lee en la curva cuándo el deslizamiento cruza el máximo admisible y quédate con la opción más corta que ya esté por debajo.',PX.x+14,by+26,PX.w-28,18);
-    c.fillStyle='#C9D3E2';
-    wrapText(c,'Para el tiempo muerto, calcula la ventana de peligro: t_apertura − t_cierre = '+fmtMs(sc.tOff-sc.tOn)+'. Y elige el mínimo que la cubra, porque el pico de reconexión crece con el tiempo muerto en todo el rango ajustable.',PX.x+14,by+140,PX.w-28,18);
-    c.fillStyle='#7a8494';
-    wrapText(c,'Para el enclavamiento, pregúntate cuál de los tres se entera de que un contacto principal NO abrió.',PX.x+14,by+270,PX.w-28,18);
+    wrapText(c,'Nada se simula ni se califica hasta que pulses «Comprobar». Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,retoHintText(),PX.x+14,by+110,PX.w-28,18);
   }
 }
 
@@ -1071,16 +1072,16 @@ function retoExplain(){
   if(!retoOkY){
     const s1=slipAt(retoCh.ty,sc);
     if(s1>sc.sMax)s+='Tiempo en estrella: a los '+fmtS(retoCh.ty)+' el deslizamiento aún es '+pct(s1)+', por encima del máximo de '+pct(sc.sMax)+'; el motor no ha acelerado lo suficiente y conmutar ahí da un tirón de corriente. ';
-    else{const mn=OPT_TY.filter(v=>okY(v,sc))[0];s+='Tiempo en estrella: a los '+fmtS(retoCh.ty)+' el deslizamiento ya es '+pct(s1)+', pero con '+fmtS(mn)+' ya estaba por debajo de '+pct(sc.sMax)+'; alargar la estrella no da más par y sí calienta el bobinado. ';}
+    else{s+='Tiempo en estrella: a los '+fmtS(retoCh.ty)+' el deslizamiento ya es '+pct(s1)+' (cumple), pero hay una opción más corta que también cumplía; alargar la estrella no da más par y sí calienta el bobinado. ';}
   }
   if(!retoOkW){
     const ov=runStar(sc,3000,retoCh.tw,'none',null).overlapMs;
-    if(ov>0)s+='Tiempo muerto: con '+fmtMs(retoCh.tw)+' quedan '+fmtMs(ov)+' en los que KMY y KMΔ están cerrados a la vez (cortocircuito entre fases); hace falta cubrir '+fmtMs(sc.tOff-sc.tOn)+'. ';
-    else{const mn=OPT_TW.filter(w=>okW(w,sc))[0];s+='Tiempo muerto: '+fmtMs(retoCh.tw)+' evita el solape, pero '+fmtMs(mn)+' ya bastaba; cada milisegundo de más aumenta el pico de reconexión (el pico pasa de '+peakIdx(mn,sYref(sc),sc).toFixed(2)+'× a '+peakIdx(retoCh.tw,sYref(sc),sc).toFixed(2)+'×). ';}
+    if(ov>0)s+='Tiempo muerto: con '+fmtMs(retoCh.tw)+' quedan '+fmtMs(ov)+' en los que KMY y KMΔ están cerrados a la vez (cortocircuito entre fases). ';
+    else{s+='Tiempo muerto: '+fmtMs(retoCh.tw)+' evita el solape, pero existe una opción más corta que también lo evitaba; cada milisegundo de más aumenta el pico de reconexión (con tu ajuste, '+peakIdx(retoCh.tw,sYref(sc),sc).toFixed(2)+'× la corriente de arranque directo). ';}
   }
   if(!retoOkL){
     const r=runStar(sc,3000,retoCh.tw,retoCh.lock,'kmy');
-    s+='Enclavamiento: en el ensayo con KMY soldado, "'+LOCK_NAME[retoCh.lock]+'" deja '+fmtMs(r.overlapMs)+' de solape, porque '+(retoCh.lock==='soft'?'sólo lee una variable interna del PLC, no el contacto real':'nada impide que la orden de KMΔ salga')+'. ';
+    s+='Enclavamiento: en el ensayo con KMY soldado, "'+LOCK_NAME[retoCh.lock]+'" deja '+fmtMs(r.overlapMs)+' de solape, porque '+(retoCh.lock==='soft'?'la orden de KMΔ sigue saliendo aunque el contacto de KMY continúe cerrado':'nada impide que la orden de KMΔ salga')+'. ';
   }
   return s||'Revisa el ajuste.';
 }
@@ -1157,7 +1158,11 @@ function seqFrames(sc,tY,tW,lock,fault){
   return fr;
 }
 function hwFrames(){
-  if(mode==='reto')return seqFrames(POOL[retoIdx],retoCh.ty,retoCh.tw,retoCh.lock,null);
+  if(mode==='reto'){
+    // sin veredicto en vivo: el gabinete sólo ejecuta tu ajuste tras «Comprobar»
+    if(!retoChecked)return [{label:'EN REPOSO',acts:[0,0,0,0],accept:false,spin:0}];
+    return seqFrames(POOL[retoIdx],retoCh.ty,retoCh.tw,retoCh.lock,null);
+  }
   if(mode==='aplica')return seqFrames(POOL[apIdx],apTopic==='transicion'?apTY:3000,apTW,apLock,apTopic==='falla'?'kmy':null);
   if(!expHist.length)return [{label:'EN REPOSO',acts:[0,0,0,0],accept:false,spin:0}];
   return expHist.map(h=>({label:h.closed?'CERRADO':(h.cmd?'CERRANDO':'ABIERTO'),acts:[h.cmd?1:0,h.closed?1:0,0,(h.cmd!==h.closed)?1:0],accept:h.closed,spin:0}));
@@ -1214,7 +1219,7 @@ document.getElementById('panel').innerHTML=`
   <h4 class="sec" id="retoTitle" style="display:none">Ajuste del arrancador</h4>
   <div id="retoBox" style="display:none">
     <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
-    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button><button class="b" id="btnHint">💡 Pista</button></div>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
@@ -1292,14 +1297,14 @@ function updateScenarioInfo(){
   const p=POOL[expIdx];box.style.display='block';
   box.innerHTML=`Contactor de: <b>${p.name}</b> — t_cierre <b>${fmtMs(p.tOn)}</b> (${p.tOn/DT} scans), t_apertura <b>${fmtMs(p.tOff)}</b> (${p.tOff/DT} scans).`;
 }
-function setMode(k){
+function setMode(k,keep){
   mode=k;hwStep=0;
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
   if(k==='reto')updateRetoSpec();
-  if(k==='explora')expReset();
+  if(k==='explora'&&!keep)expReset();
   buildControls();updateScenarioInfo();
   solved=(k==='reto')?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
@@ -1328,7 +1333,9 @@ function updateTele(){
       teleRow('t estrella',fmtS(retoCh.ty))+
       teleRow('t muerto',fmtMs(retoCh.tw))+
       teleRow('Enclavamiento',LOCK_SHORT[retoCh.lock])+
-      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn');
+      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn')+
+      teleRow('Intentos',intentos+' (fallos de este caso: '+fallosCaso+'/3)','warn')+
+      teleRow('Pistas',pistas+'/2','warn');
     return;
   }
   if(mode==='aplica'){
@@ -1365,7 +1372,7 @@ function updateTele(){
 function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
-    html+=retoMsg||`<span class="mono">${POOL[retoIdx].name}: elige las tres cosas y pulsa "Comprobar". Pista: el tiempo en estrella se lee en la curva de deslizamiento; el tiempo muerto sale de la resta t_apertura − t_cierre; y el enclavamiento se decide pensando en qué pasa si un contacto se suelda.</span>`;
+    html+=retoMsg||`<span class="mono">${POOL[retoIdx].name}: elige las tres cosas y pulsa "Comprobar" cuando estés seguro. Dispones de la curva de deslizamiento y de los tiempos de catálogo del contactor.</span>`;
   }else if(mode==='aplica'){
     const sc=POOL[apIdx];
     if(apTopic==='transicion')html+=`<span class="mono">Prueba con t muerto = 0: la orden de KMΔ sale mientras KMY todavía está cerrado. La ventana de peligro de este equipo dura ${fmtMs(sc.tOff-sc.tOn)}. Cambia también el enclavamiento y comprueba que apenas mueve nada.</span>`;
@@ -1384,6 +1391,17 @@ function updateRetoSpec(){
   const p=POOL[retoIdx];
   el('retoSpec').innerHTML=`Ajusta el arrancador de <b>${p.name}</b>: (1) el tiempo en estrella para conmutar con deslizamiento ≤ <b>${pct(p.sMax)}</b> sin alargar de más; (2) el tiempo muerto más corto que evite el solape por sí solo; y (3) el enclavamiento que siga protegiendo con un contactor soldado.`;
 }
+function retoHintText(){
+  if(hintLevel<=0)return 'Si te atascas, pide una pista (máximo 2). Orientan sin darte la respuesta.';
+  const h=['Cada decisión tiene su propia evidencia: la curva para la estrella, los tiempos del contactor para el tiempo muerto y el ensayo del contacto soldado para el enclavamiento. En las dos primeras se pide el valor más corto que cumple.',
+    'Pregúntate qué se entera de lo que hace el metal del contactor y qué sólo conoce lo que el programa le ordenó; y compara el tiempo que tarda en abrir un contacto con el que tarda en cerrar el otro.'];
+  return h.slice(0,hintLevel).map((t,i)=>(i+1)+') '+t).join('  ');
+}
+function pedirPista(){
+  if(autoRunning||mode!=='reto')return;
+  if(hintLevel>=2){showToast('💡 Ya usaste las 2 pistas de este caso.');return;}
+  hintLevel++;pistas++;refreshAll();
+}
 function checkReto(){
   const sc=POOL[retoIdx];
   retoOkY=okY(retoCh.ty,sc);
@@ -1392,6 +1410,20 @@ function checkReto(){
   retoSolved=retoOkY&&retoOkW&&retoOkL;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  // La demostración automática no cuenta como intento del alumno.
+  if(!autoRunning){
+    intentos++;
+    if(!retoSolved){
+      fallosCaso++;
+      if(fallosCaso>=3){
+        // tres fallos: el caso se resiembra (no se aprueba por eliminación)
+        const msg=retoMsg;
+        seedReto();updateRetoSpec();buildControls();updateScenarioInfo();
+        retoMsg=msg+`<br><span class="mono dtc">Tres intentos fallidos: se te asigna otra máquina (${POOL[retoIdx].name}). Vuelve a leer la evidencia de cada decisión.</span>`;
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 
@@ -1401,28 +1433,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Por qué hay que programar un tiempo muerto entre quitar la orden a KMY y darle la orden a KMΔ?',
       opciones:[
-        {t:'Porque el contacto de KMY sigue cerrado t_apertura después de que la bobina se desenergiza, y si KMΔ cierra antes (en t_cierre) los dos coinciden y cortocircuitan dos fases.',ok:true,why:'Correcto. La ventana de peligro dura exactamente t_apertura − t_cierre, y el tiempo muerto es lo que la cubre.'},
-        {t:'Para que el motor tenga tiempo de acelerar antes de pasar a delta.',ok:false,why:'De eso se encarga el TIEMPO EN ESTRELLA, que dura segundos. El tiempo muerto son decenas de milisegundos: en ese lapso el motor apenas cambia de velocidad, sólo se desenergiza.'},
-        {t:'Porque el PLC necesita varios ciclos de scan para escribir dos salidas distintas.',ok:false,why:'No: el PLC escribe todas las salidas en el mismo scan sin problema. El retraso no está en el programa, está en la mecánica del contactor.'},
-        {t:'Para que el relé térmico tenga tiempo de reponerse entre las dos conexiones.',ok:false,why:'El relé térmico no interviene en la conmutación; su constante de tiempo es de segundos o minutos y vigila la sobrecarga sostenida, no la maniobra.'},
+        {t:'Porque el contacto de KMY sigue cerrado t_apertura tras quitarle la orden, y si KMΔ cierra antes coinciden y cortocircuitan dos fases.',ok:true,why:'Correcto. La ventana de peligro dura exactamente t_apertura − t_cierre, y el tiempo muerto es lo que la cubre.'},
+        {t:'Para que el motor tenga tiempo de acelerar hasta casi su velocidad nominal antes de que el arrancador pase a la conexión en delta.',ok:false,why:'De eso se encarga el TIEMPO EN ESTRELLA, que dura segundos. El tiempo muerto son decenas de milisegundos: en ese lapso el motor apenas cambia de velocidad, sólo se desenergiza.'},
+        {t:'Porque el PLC necesita varios ciclos de scan para escribir dos salidas distintas y no puede cambiar ambas dentro del mismo ciclo.',ok:false,why:'No: el PLC escribe todas las salidas en el mismo scan sin problema. El retraso no está en el programa, está en la mecánica del contactor.'},
+        {t:'Para que el relé térmico tenga tiempo de reponerse entre las dos conexiones y no dispare por la corriente de la maniobra.',ok:false,why:'El relé térmico no interviene en la conmutación; su constante de tiempo es de segundos o minutos y vigila la sobrecarga sostenida, no la maniobra.'},
       ],
     },
     aplica:{
       pregunta:'Si el tiempo muerto evita el solape, ¿por qué no se pone directamente muy largo (por ejemplo 200 ms) y así se está sobrado?',
       opciones:[
-        {t:'Porque durante el tiempo muerto el motor queda desenergizado: su fem residual decae y se desfasa respecto de la red, de modo que el pico de corriente al reconectar en delta CRECE con el tiempo muerto.',ok:true,why:'Correcto. Es el defecto de la transición abierta. Por eso el tiempo muerto de diseño es el más corto que ya evita el solape.'},
-        {t:'Porque los temporizadores TON de un PLC no admiten preselecciones tan pequeñas como 200 ms.',ok:false,why:'Sí las admiten: la resolución práctica es el tiempo de scan, de unos pocos milisegundos. La limitación no es el temporizador.'},
-        {t:'Porque un tiempo muerto largo dispara el enclavamiento por software.',ok:false,why:'El enclavamiento no es un temporizador ni "se dispara" por el tiempo: sólo condiciona una bobina al estado de la otra.'},
-        {t:'Porque el motor se pararía por completo en esos 200 ms.',ok:false,why:'No se para: la inercia es mucho mayor que eso. Lo que sí ocurre es que su fem residual se desfasa de la red, y ése es el problema real.'},
+        {t:'Porque la fem residual se desfasa de la red mientras el motor está sin energía, y el pico al reconectar en delta CRECE con el tiempo muerto.',ok:true,why:'Correcto. Es el defecto de la transición abierta. Por eso el tiempo muerto de diseño es el más corto que ya evita el solape.'},
+        {t:'Porque los temporizadores TON de un PLC no admiten preselecciones tan largas como 200 ms con la resolución de scan que usa este arrancador.',ok:false,why:'Sí las admiten: la resolución práctica es el tiempo de scan, de unos pocos milisegundos. La limitación no es el temporizador.'},
+        {t:'Porque un tiempo muerto tan largo termina disparando el enclavamiento por software y bloqueando la maniobra de paso a delta.',ok:false,why:'El enclavamiento no es un temporizador ni "se dispara" por el tiempo: sólo condiciona una bobina al estado de la otra.'},
+        {t:'Porque el motor se detendría por completo durante esos 200 ms y tendría que volver a arrancar desde cero en delta.',ok:false,why:'No se para: la inercia es mucho mayor que eso. Lo que sí ocurre es que su fem residual se desfasa de la red, y ése es el problema real.'},
       ],
     },
     reto:{
-      pregunta:'Ensayo de aceptación: se suelda el contacto principal de KMY. ¿Qué protección impide el cortocircuito entre fases?',
+      pregunta:'Comparado con el arranque directo en delta, ¿qué ocurre con la corriente de línea y con el par de arranque al arrancar en estrella?',
       opciones:[
-        {t:'Los contactos espejo (IEC 60947-4-1, Anexo F): un auxiliar NC que por construcción no puede estar cerrado a la vez que el principal NA, así que la bobina de KMΔ nunca se energiza.',ok:true,why:'Correcto. Es la única de las tres que se entera de lo que hace el metal, porque la garantía está en el aparato y no en el programa.'},
-        {t:'El enclavamiento por software, que impide que el programa mande las dos bobinas a la vez.',ok:false,why:'Ese enclavamiento sólo lee variables internas del PLC. Con KMY soldado, la orden de KMY ya está en 0 y el software da permiso a KMΔ… mientras el contacto sigue cerrado.'},
-        {t:'Un tiempo muerto suficientemente largo.',ok:false,why:'El tiempo muerto cubre el tiempo de apertura NORMAL. Un contacto soldado no abre nunca, así que ningún tiempo lo arregla.'},
-        {t:'El relé térmico, que detecta la sobrecorriente del cortocircuito y desconecta.',ok:false,why:'El térmico actúa DESPUÉS y con retardo; no impide el cortocircuito, y para un corto franco la protección adecuada es el fusible o el magnético. Aquí buscamos evitar que ocurra, no despejarlo.'},
+        {t:'Ambos bajan a un tercio de los del arranque directo en delta: la tensión de cada devanado cae a 1/√3 y el par depende de su cuadrado.',ok:true,why:'Correcto. En estrella cada devanado ve V/√3: la corriente de línea cae a 1/3 y el par, proporcional al cuadrado de la tensión, también. Por eso sólo conviene arrancar así cargas con poco par resistente.'},
+        {t:'La corriente de línea baja a un tercio, pero el par de arranque se mantiene igual porque depende únicamente del número de polos del motor.',ok:false,why:'No: el par de arranque es proporcional al cuadrado de la tensión aplicada a cada devanado, así que también cae a un tercio. Ésa es la limitación del método.'},
+        {t:'Ambos bajan a 1/√3 de los valores en delta, porque ése es el factor por el que se reduce la tensión aplicada a cada devanado.',ok:false,why:'1/√3 es el factor de la tensión. La corriente de línea depende de la tensión y de la conexión (otro factor 1/√3 de la corriente de fase), y el par del cuadrado de la tensión: ambos caen a 1/3.'},
+        {t:'La corriente de línea baja a un tercio y el par de arranque aumenta, porque el motor tarda más en acelerar y desarrolla más par.',ok:false,why:'No: el tiempo de aceleración no aumenta el par instantáneo. Con menos tensión el par disponible es menor, y por eso la carga debe ser ligera.'},
       ],
     },
   };
@@ -1464,11 +1496,28 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// El recorrido es una DEMOSTRACIÓN: no puntúa, no marca el reto como resuelto y al terminar (o fallar)
+// devuelve el laboratorio al estado exacto en que lo dejó el alumno.
+function snapState(){
+  return {mode,expIdx,expCmd,expC:JSON.parse(JSON.stringify(expC)),expHist:JSON.parse(JSON.stringify(expHist)),expT,
+    apTopic,apIdx,apTY,apTW,apLock,retoIdx,retoCh:{...retoCh},
+    retoChecked,retoOkY,retoOkW,retoOkL,retoSolved,retoMsg,intentos,fallosCaso,hintLevel,pistas};
+}
+function restoreState(z){
+  expIdx=z.expIdx;expCmd=z.expCmd;expC=z.expC;expHist=z.expHist;expT=z.expT;
+  apTopic=z.apTopic;apIdx=z.apIdx;apTY=z.apTY;apTW=z.apTW;apLock=z.apLock;
+  retoIdx=z.retoIdx;retoCh=z.retoCh;retoChecked=z.retoChecked;retoOkY=z.retoOkY;retoOkW=z.retoOkW;retoOkL=z.retoOkL;
+  retoSolved=z.retoSolved;retoMsg=z.retoMsg;intentos=z.intentos;fallosCaso=z.fallosCaso;hintLevel=z.hintLevel;pistas=z.pistas;
+  setMode(z.mode,true);refreshAll();
+}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Demostrando…';
+  const snap=snapState();
   try{
     synth.init();synth.resume();clearDx();
+    showToast('👁 Demostración: no puntúa ni toca tu reto; al terminar todo vuelve a como lo dejaste.');
+    await sleep(2400);
     setMode('explora');
     expIdx=1;expReset();afterEdit();
     showToast('🔧 Contactor del compresor: t_cierre = 20 ms (4 scans de movimiento), t_apertura = 55 ms (11 scans).');
@@ -1479,7 +1528,6 @@ async function runAuto(){
     for(let k=0;k<12;k++){expScan(false);afterEdit();await sleep(260);}
     showToast('⏹ Al quitar la orden tardaron 11 scans (55 ms) en abrir. La diferencia —35 ms— es la ventana de cortocircuito.');
     await sleep(3600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('aplica');
     apIdx=1;apTopic='transicion';apTY=3000;apTW=0;apLock='none';afterEdit();
@@ -1497,11 +1545,11 @@ async function runAuto(){
     apTopic='falla';apTW=60;afterEdit();
     showToast('⚠ Ahora KMY soldado. Ni el tiempo muerto ni el software salvan la instalación: sólo el contacto espejo.');
     await sleep(4800);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
+    // Reto de demostración: una máquina distinta de la del alumno (se descarta al terminar)
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: la bomba centrífuga. Comprobamos primero el ajuste de partida, que está mal a propósito…');
+    seedReto((snap.retoIdx+1)%POOL.length);updateRetoSpec();afterEdit();
+    showToast('🎯 Máquina de demostración: '+POOL[retoIdx].name+'. Comprobamos primero el ajuste de partida, que está mal a propósito…');
     await sleep(3400);
     checkReto();
     showToast('…estrella demasiado larga, sin tiempo muerto y sin enclavamiento. Lo corregimos.');
@@ -1509,12 +1557,15 @@ async function runAuto(){
     const sc=POOL[retoIdx];
     retoCh={ty:OPT_TY.filter(v=>okY(v,sc))[0],tw:OPT_TW.filter(w=>okW(w,sc))[0],lock:'aux'};
     retoChecked=false;retoSolved=false;afterEdit();
-    showToast('✔ El tiempo de estrella más corto que ya cumple el deslizamiento, el tiempo muerto mínimo y contactos espejo.');
+    showToast('✔ El tiempo de estrella más corto que ya cumple el deslizamiento, el tiempo muerto mínimo y contactos espejo. Comprobamos (en demostración).');
     await sleep(3000);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    checkReto();await sleep(3200);
   }finally{
+    restoreState(snap);
+    solved=(mode==='reto')?retoSolved:false;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    refreshAll();
+    showToast('↩ Demostración terminada: tu estado y tu reto quedaron como estaban.');
   }
 }
 
@@ -1529,6 +1580,7 @@ S.setAnimate((dt,time)=>{
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
 el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
 el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+el('btnHint').onclick=()=>pedirPista();
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
@@ -1564,12 +1616,13 @@ window.__labDebug={
   retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
   retoSolveBuild:()=>{const sc=POOL[retoIdx];retoCh={ty:OPT_TY.filter(v=>okY(v,sc))[0],tw:OPT_TW.filter(w=>okW(w,sc))[0],lock:'aux'};retoChecked=false;retoSolved=false;afterEdit();},
   checkReto:()=>checkReto(),
-  retoChecked:()=>retoChecked, retoOkY:()=>retoOkY, retoOkW:()=>retoOkW, retoOkL:()=>retoOkL, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkY:()=>retoOkY, retoOkW:()=>retoOkW, retoOkL:()=>retoOkL, retoSolved:()=>autoRunning?false:retoSolved,
+  intentos:()=>intentos, fallosCaso:()=>fallosCaso, pistas:()=>pistas, pedirPista:()=>pedirPista(), autoRunning:()=>autoRunning, runAuto:()=>runAuto(),
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
   newSignal:()=>newSignal(),
-  solved:()=>solved,
+  solved:()=>autoRunning?false:solved,
 };
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

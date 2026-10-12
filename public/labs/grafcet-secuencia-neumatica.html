@@ -723,6 +723,8 @@ let retoK=0;
 let retoCh={rec:['a0','a0','a0','a0'],des:'ninguna',sal:'sensor'};
 let retoChecked=false,retoOkRec=false,retoOkDes=false,retoOkSal=false,retoSolved=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+// política de fallos: intentos totales (visible), fallos del caso en curso (a los 3 se resiembra) y pistas graduadas (máx. 2)
+let intentos=0,fallosCaso=0,hintLevel=0,pistas=0;
 let hwStep=0,hwT=0,framesCache=null;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -739,6 +741,7 @@ function seedReto(k){
   // programa de partida deliberadamente MAL en las TRES decisiones
   retoCh={rec:sc.seq.map(badRec),des:'ninguna',sal:'sensor'};
   retoChecked=false;retoOkRec=false;retoOkDes=false;retoOkSal=false;retoSolved=false;retoMsg='';
+  fallosCaso=0;hintLevel=0;
 }
 seedReto(0);
 
@@ -881,7 +884,7 @@ function trow(c,x,y,w,h,cols,widths,cols_col,head){
 // ---- cadena GRAFCET horizontal ----
 function actStage(X){for(let i=X.length-1;i>=0;i--)if(X[i])return i;return 0;}
 function stageLabel(X){const a=[];X.forEach((v,i)=>{if(v)a.push('X'+i);});return a.length?a.join('+'):'—';}
-function drawGrafcet(c,x,y,w,sc,cfg,X){
+function drawGrafcet(c,x,y,w,sc,cfg,X,neutral){
   const n=sc.seq.length,N=n+1,bw=86,bh=46,gap=(w-N*bw)/(N-1);
   const bx=i=>x+i*(bw+gap);
   const ry=y+bh+50;
@@ -902,7 +905,7 @@ function drawGrafcet(c,x,y,w,sc,cfg,X){
       const tx=bx(i)+bw+gap/2,ty=y+bh/2;
       c.strokeStyle='rgba(255,255,255,0.30)';c.lineWidth=1.5;
       c.beginPath();c.moveTo(bx(i)+bw,ty);c.lineTo(bx(i+1),ty);c.stroke();
-      const good=(i===0)||(cfg.des==='tiempo')||(cfg.rec[i-1]===recOf(sc.seq[i-1]));
+      const good=neutral||(i===0)||(cfg.des==='tiempo')||(cfg.rec[i-1]===recOf(sc.seq[i-1]));
       c.strokeStyle=good?ACC:BAD_HEX;c.lineWidth=3;
       c.beginPath();c.moveTo(tx,ty-11);c.lineTo(tx,ty+11);c.stroke();
       const lab=cfg.des==='tiempo'?('t ≥ '+fmtS(cfg.pt)):(i===0?'Marcha·a0·b0':cfg.rec[i-1]);
@@ -1252,7 +1255,7 @@ function drawReto(c){
 
   const rw=640,rh=104;
   drawRetoRow(c,30,104,rw,rh,'1','Receptividades t1…t4',
-    'Qué sensor franquea cada transición. Recuerda que la receptividad debe CONFIRMAR que el movimiento de la etapa terminó, no que va a empezar.',
+    'Qué sensor franquea cada transición, de entre a0, a1, b0 y b1.',
     retoCh.rec.join('·'),retoOkRec,retoChecked);
   drawRetoRow(c,30,220,rw,rh,'2','Regla de desactivación',
     'Qué se hace con la etapa que acaba de ceder el paso. Se prueba en banco nominal y con el regulador de A casi cerrado.',
@@ -1262,8 +1265,8 @@ function drawReto(c){
     SAL_SHORT[retoCh.sal],retoOkSal,retoChecked);
 
   c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
-  c.fillText('Tu GRAFCET (en rojo, las receptividades que no confirman el movimiento de su etapa)',30,470);
-  drawGrafcet(c,30,486,640,sc,retoCfg(),null);
+  c.fillText('Tu GRAFCET',30,470);
+  drawGrafcet(c,30,486,640,sc,retoCfg(),null,true);
 
   rpanel(c,PX.x,PX.y,PX.w,160,'CALIFICACIÓN');
   prow(c,PX.x,PX.y+52,PX.w,'Receptividades',retoChecked?(retoOkRec?'✓':'✗'):'—',retoChecked?(retoOkRec?OK_HEX:BAD_HEX):'#6b7280');
@@ -1279,11 +1282,9 @@ function drawReto(c){
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,370);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,370);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Para las receptividades: si la etapa X2 manda '+sc.seq[1]+', ¿qué sensor te dice que ese movimiento YA terminó? Ése es el que franquea t2.',PX.x+14,by+26,PX.w-28,18);
-    c.fillStyle='#C9D3E2';
-    wrapText(c,'Para la desactivación: piensa qué ocurre si X1 se queda activa cuando X2 ya lo está — las dos etapas mandan bobinas a la vez.',PX.x+14,by+140,PX.w-28,18);
-    c.fillStyle='#7a8494';
-    wrapText(c,'Para las salidas: la acción de una etapa es incondicional mientras la etapa está activa. Condicionarla al sensor de destino la deja sin arrancar nunca.',PX.x+14,by+250,PX.w-28,18);
+    wrapText(c,'Nada se simula ni se califica hasta que pulses «Comprobar». Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,retoHintText(),PX.x+14,by+110,PX.w-28,18);
   }
 }
 
@@ -1295,21 +1296,19 @@ function retoExplain(){
   }
   let s='';
   if(!retoOkRec){
-    const bad=[];
-    sc.seq.forEach((mv,i)=>{if(retoCh.rec[i]!==recOf(mv))bad.push('t'+(i+1)+' (etapa '+mv+') debería esperar '+recOf(mv)+', no '+retoCh.rec[i]);});
     const r=runC(sc,cfgWith(sc,{rec:retoCh.rec.slice()}),{maxMs:20000});
-    s+='Receptividades: '+(bad.length?bad.join('; ')+'. ':'')+'Con las tuyas la secuencia medida es «'+(r.seq.slice(0,4).join(' ')||'no se mueve nada')+'» en vez de «'+sc.seq.join(' ')+'». Una receptividad que ya vale 1 al ENTRAR en la etapa la franquea en el mismo scan: la etapa no llega a producir su movimiento. ';
+    s+='Receptividades: con las tuyas (y las otras dos decisiones correctas) la secuencia medida es «'+(r.seq.slice(0,4).join(' ')||'no se mueve nada')+'» en vez de «'+sc.seq.join(' ')+'». Pregúntate qué valen tus sensores justo al ENTRAR en cada etapa. ';
   }
   if(!retoOkDes){
     if(retoCh.des==='ninguna')s+='Desactivación: si sólo activas la etapa siguiente, la anterior sigue activa y sus dos acciones conviven; en cuanto las dos etapas de un mismo cilindro coinciden, las dos bobinas quedan energizadas y el carrete se bloquea. ';
     else if(retoCh.des==='tiempo'){
       const rl=runC(sc,cfgWith(sc,{des:'tiempo'}),{maxMs:40000,slow:SLOW});
-      s+='Desactivación: el temporizador de 1,5 s aguanta en el banco nominal, pero con el regulador de A casi cerrado la etapa avanza con el vástago a medio camino y el ciclo '+(rl.done?'apenas se sostiene':'ya no se completa')+'. El GRAFCET tiene que avanzar con la CONFIRMACIÓN del sensor. ';
+      s+='Desactivación: el temporizador de 1,5 s aguanta en el banco nominal, pero con el regulador de A casi cerrado la etapa avanza con el vástago a medio camino y el ciclo '+(rl.done?'apenas se sostiene':'ya no se completa')+'. ';
     }
   }
   if(!retoOkSal){
     if(retoCh.sal==='sensor')s+='Salidas: mandar la bobina con el sensor del movimiento anterior es el método combinacional; en esta célula produce señales opuestas (o arranque espontáneo) y por eso se estudió en Aplica. ';
-    else if(retoCh.sal==='destino')s+='Salidas: condicionar la bobina al sensor de DESTINO deja el cilindro sin arrancar, porque ese sensor sólo se activa cuando el movimiento ya terminó. La acción de una etapa es incondicional mientras la etapa está activa. ';
+    else if(retoCh.sal==='destino')s+='Salidas: condicionar la bobina al sensor de DESTINO deja el cilindro sin arrancar, porque ese sensor sólo se activa cuando el movimiento ya terminó. ';
   }
   return s||'Revisa el programa.';
 }
@@ -1321,7 +1320,7 @@ function drawBoard(){
 }
 function boardClick(){
   if(mode==='aplica')showToast('🧩 La etapa del GRAFCET es el bit que recuerda en qué paso va la secuencia. Sin ella, dos pasos distintos que ven los mismos sensores son indistinguibles.');
-  else if(mode==='reto')showToast('🎯 Tres decisiones: qué sensor franquea cada transición, qué pasa con la etapa que cede el paso y quién manda la bobina.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones: qué sensor franquea cada transición, qué pasa con la etapa que cede el paso y quién manda la bobina. Se califican al pulsar «Comprobar».');
   else showToast('🔧 Cada pulsación es un ciclo de scan de '+DT+' ms. La válvula biestable recuerda: un impulso basta.');
 }
 
@@ -1398,7 +1397,11 @@ function hwFrames(){
     return expHist.map(h=>({label:h.both?'AMBAS':(h.cExt?'Y1 salida':(h.cRet?'Y2 retorno':(h.ext?'carrete fuera':'carrete dentro'))),
       acts:[h.cExt?1:0,h.cRet?1:0,0,0],alarm:h.both,bad:h.both,accept:h.s1,pA:h.p,pB:0}));
   }
-  if(mode==='reto')return framesFromRun(retoSc(),retoCfg(),null);
+  if(mode==='reto'){
+    // sin veredicto en vivo: el banco sólo se mueve con tu programa tras «Comprobar»
+    if(!retoChecked)return [{label:'REPOSO',acts:[0,0,0,0],pA:0,pB:0}];
+    return framesFromRun(retoSc(),retoCfg(),null);
+  }
   return framesFromRun(POOL[apIdx],aplicaCfg(),apTopic!=='directo'&&apBank==='lento'?SLOW:null);
 }
 function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
@@ -1457,7 +1460,7 @@ document.getElementById('panel').innerHTML=`
   <h4 class="sec" id="retoTitle" style="display:none">Programa del GRAFCET</h4>
   <div id="retoBox" style="display:none">
     <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
-    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button><button class="b" id="btnHint">💡 Pista</button></div>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
@@ -1538,14 +1541,14 @@ function updateScenarioInfo(){
   const p=POOL[expIdx];
   box.innerHTML=`Cilindro A de <b>${p.name}</b> — carrera <b>${p.A.stroke} mm</b>, salida <b>${p.A.tExt} ms</b> (${p.A.tExt/DT} scans), banda del reed <b>${p.A.band} mm</b>.`;
 }
-function setMode(k){
+function setMode(k,keep){
   mode=k;hwStep=0;
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
   if(k==='reto')updateRetoSpec();
-  if(k==='explora')expReset();
+  if(k==='explora'&&!keep)expReset();
   buildControls();updateScenarioInfo();
   solved=(k==='reto')?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
@@ -1575,7 +1578,9 @@ function updateTele(){
       teleRow('Receptividades',retoCh.rec.join(' '))+
       teleRow('Desactivación',DES_SHORT[retoCh.des])+
       teleRow('Salidas',SAL_SHORT[retoCh.sal])+
-      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn');
+      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn')+
+      teleRow('Intentos',intentos+' (fallos de este caso: '+fallosCaso+'/3)','warn')+
+      teleRow('Pistas',pistas+'/2','warn');
     return;
   }
   if(mode==='aplica'){
@@ -1617,7 +1622,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const sc=retoSc();
-    html+=retoMsg||`<span class="mono">${sc.name}: la secuencia pedida es ${sc.seq.join(' ')}. Empieza por las receptividades —cada transición espera al sensor que confirma el movimiento de SU etapa—, luego decide qué hacer con la etapa que cede el paso y por último de quién cuelga la bobina. Pulsa "Comprobar".</span>`;
+    html+=retoMsg||`<span class="mono">${sc.name}: la secuencia pedida es ${sc.seq.join(' ')}. Decide la receptividad de cada transición, qué hacer con la etapa que cede el paso y de quién cuelga la bobina. Pulsa "Comprobar" cuando estés seguro.</span>`;
   }else if(mode==='aplica'){
     const sc=POOL[apIdx];
     if(apTopic==='directo'){
@@ -1643,6 +1648,17 @@ function updateRetoSpec(){
   const sc=retoSc();
   el('retoSpec').innerHTML=`Programa el GRAFCET de <b>${sc.name}</b> para la secuencia <b>${sc.seq.join(' ')}</b>: (1) la receptividad de cada una de las cuatro transiciones; (2) qué se hace con la etapa que acaba de ceder el paso; y (3) de quién cuelga la bobina de cada electroválvula.`;
 }
+function retoHintText(){
+  if(hintLevel<=0)return 'Si te atascas, pide una pista (máximo 2). Orientan sin darte la respuesta.';
+  const h=['Para cada transición pregúntate cuándo ha terminado DE VERDAD el movimiento de la etapa que la precede, y qué sensor lo notifica.',
+    'Piensa qué ocurre cuando dos etapas consecutivas de un mismo cilindro están activas a la vez, y de qué debe depender la orden a la bobina.'];
+  return h.slice(0,hintLevel).map((t,i)=>(i+1)+') '+t).join('  ');
+}
+function pedirPista(){
+  if(autoRunning||mode!=='reto')return;
+  if(hintLevel>=2){showToast('💡 Ya usaste las 2 pistas de este caso.');return;}
+  hintLevel++;pistas++;refreshAll();
+}
 function checkReto(){
   const sc=retoSc();
   retoOkRec=okRec(sc,retoCh.rec.slice());
@@ -1651,6 +1667,20 @@ function checkReto(){
   retoSolved=retoOkRec&&retoOkDes&&retoOkSal;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  // La demostración automática no cuenta como intento del alumno.
+  if(!autoRunning){
+    intentos++;
+    if(!retoSolved){
+      fallosCaso++;
+      if(fallosCaso>=3){
+        // tres fallos: el caso se resiembra (no se aprueba por eliminación)
+        const msg=retoMsg;
+        seedReto();updateRetoSpec();buildControls();updateScenarioInfo();
+        retoMsg=msg+`<br><span class="mono dtc">Tres intentos fallidos: se te asigna otra célula (${retoSc().name}, secuencia ${retoSc().seq.join(' ')}). Razona de nuevo cada decisión.</span>`;
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 
@@ -1660,28 +1690,28 @@ function buildQuiz(){
     explora:{
       pregunta:'Con los dos solenoides de una electroválvula 5/2 biestable energizados a la vez, ¿qué hace el carrete?',
       opciones:[
-        {t:'Se queda donde estaba: el fabricante no garantiza posición con las dos bobinas activas. Por eso dos órdenes opuestas no producen un movimiento nuevo, sino un BLOQUEO del actuador.',ok:true,why:'Correcto. La posición del carrete es la memoria de la válvula, y con las dos bobinas energizadas deja de obedecer. Ése es el fallo que hace inviable el método combinacional en muchas secuencias.'},
-        {t:'Se centra y cierra todas las vías, dejando el cilindro bloqueado hidráulicamente.',ok:false,why:'Eso describe una válvula de tres posiciones con centro cerrado (5/3), que sí tiene muelles de centrado. Una 5/2 biestable sólo tiene dos posiciones: no hay centro al que ir.'},
-        {t:'Conmuta a la posición de salida, porque el solenoide Y1 tiene prioridad por diseño.',ok:false,why:'No hay prioridad entre solenoides en una 5/2 biestable estándar. Si la hubiera, el fabricante la declararía; lo que se declara es justamente que no se garantiza la posición.'},
-        {t:'Vibra conmutando a la frecuencia del ciclo de scan del PLC.',ok:false,why:'El carrete no oscila: las dos fuerzas magnéticas actúan a la vez y se equilibran. Lo que ocurre es que deja de responder, no que responda muy deprisa.'},
+        {t:'Se queda donde estaba: el fabricante no garantiza posición con las dos bobinas activas, y dos órdenes opuestas producen un BLOQUEO del actuador.',ok:true,why:'Correcto. La posición del carrete es la memoria de la válvula, y con las dos bobinas energizadas deja de obedecer. Ése es el fallo que hace inviable el método combinacional en muchas secuencias.'},
+        {t:'Se centra y cierra todas las vías, dejando el cilindro bloqueado hidráulicamente, igual que una 5/3 de centro cerrado con sus muelles de centrado.',ok:false,why:'Eso describe una válvula de tres posiciones con centro cerrado (5/3), que sí tiene muelles de centrado. Una 5/2 biestable sólo tiene dos posiciones: no hay centro al que ir.'},
+        {t:'Conmuta a la posición de salida, porque el solenoide Y1 tiene prioridad por diseño sobre el de retorno en cualquier 5/2 biestable estándar.',ok:false,why:'No hay prioridad entre solenoides en una 5/2 biestable estándar. Si la hubiera, el fabricante la declararía; lo que se declara es justamente que no se garantiza la posición.'},
+        {t:'Vibra conmutando a la frecuencia del ciclo de scan del PLC, porque cada solenoide gana alternativamente en cada ciclo de ejecución.',ok:false,why:'El carrete no oscila: las dos fuerzas magnéticas actúan a la vez y se equilibran. Lo que ocurre es que deja de responder, no que responda muy deprisa.'},
       ],
     },
     aplica:{
       pregunta:'¿Por qué la secuencia A+ B+ B− A− no se puede resolver disparando cada movimiento con el sensor que confirma el anterior?',
       opciones:[
-        {t:'Porque b0 —que confirma B−— también vale 1 en reposo, justo cuando se ordena A+: las bobinas A+ y A− quedan energizadas a la vez y el carrete de la válvula de A se bloquea.',ok:true,why:'Correcto. Ésa es la señal opuesta: una misma entrada es condición de un movimiento y de su contrario. Se resuelve con memoria de programa, es decir, con etapas.'},
-        {t:'Porque los cilindros son de doble efecto y necesitan dos bobinas por válvula.',ok:false,why:'Tener dos bobinas no es el problema: el problema es energizarlas a la vez. La misma célula funciona perfectamente con GRAFCET usando exactamente las mismas válvulas.'},
-        {t:'Porque el sensor a1 se activa antes del final mecánico de la carrera.',ok:false,why:'Eso es cierto —la banda magnética adelanta la confirmación— y explica que el ciclo medido sea algo más corto que la suma de catálogos, pero no provoca ningún conflicto de señales.'},
-        {t:'Porque un PLC no puede leer las cuatro entradas de los reed en un solo ciclo de scan.',ok:false,why:'Sí puede: la imagen de entradas se lee entera al principio del scan. El conflicto no es de lectura, es lógico.'},
+        {t:'Porque b0 —que confirma B−— también vale 1 en reposo, al ordenar A+: las dos bobinas de A quedan energizadas y su carrete se bloquea.',ok:true,why:'Correcto. Ésa es la señal opuesta: una misma entrada es condición de un movimiento y de su contrario. Se resuelve con memoria de programa, es decir, con etapas.'},
+        {t:'Porque los cilindros son de doble efecto y necesitan dos bobinas por válvula, y ninguna secuencia con dos cilindros admite ese montaje.',ok:false,why:'Tener dos bobinas no es el problema: el problema es energizarlas a la vez. La misma célula funciona perfectamente con GRAFCET usando exactamente las mismas válvulas.'},
+        {t:'Porque el sensor a1 se activa antes del final mecánico de la carrera y dispara el movimiento siguiente con el vástago aún a medio camino.',ok:false,why:'La banda magnética sí adelanta la confirmación y acorta algo el ciclo medido, pero el vástago ya está prácticamente en el tope y no se provoca ningún conflicto de señales.'},
+        {t:'Porque un PLC no puede leer las cuatro entradas de los reed en un solo ciclo de scan y acabaría perdiendo alguna de las confirmaciones.',ok:false,why:'Sí puede: la imagen de entradas se lee entera al principio del scan. El conflicto no es de lectura, es lógico.'},
       ],
     },
     reto:{
-      pregunta:'¿Por qué avanzar de etapa con un temporizador fijo es un mal criterio, aunque el ciclo salga bien en el banco?',
+      pregunta:'Un PLC lee los sensores al inicio del scan y escribe las salidas al final. ¿Qué garantiza esa imagen congelada de las entradas?',
       opciones:[
-        {t:'Porque el tiempo de carrera lo fijan el regulador de caudal y la carga: si el vástago tarda más de lo previsto, la etapa avanza con el movimiento a medias y la secuencia se descoloca. El GRAFCET debe avanzar con el sensor que CONFIRMA el fin de carrera.',ok:true,why:'Correcto. Por eso la práctica prueba cada regla en dos bancos: el nominal y uno con el regulador de A casi cerrado. Un programa que sólo se prueba en condiciones nominales no está probado.'},
-        {t:'Porque IEC 60848 prohíbe que las receptividades contengan condiciones de tiempo.',ok:false,why:'No lo prohíbe: las receptividades temporizadas son parte del lenguaje y se usan mucho (por ejemplo para una espera de proceso). Lo que no vale es sustituir la CONFIRMACIÓN de un movimiento por un reloj.'},
-        {t:'Porque los temporizadores TON de un PLC no tienen resolución suficiente para carreras de medio segundo.',ok:false,why:'La resolución práctica es el tiempo de scan, de pocos milisegundos: de sobra. La limitación no es del temporizador, es del criterio.'},
-        {t:'Porque cada temporizador consume una salida física del PLC.',ok:false,why:'Un temporizador es un bloque de programa, no ocupa salidas. El coste de la opción no es de hardware, es de fiabilidad.'},
+        {t:'Que durante todo el scan la lógica ve valores coherentes de los sensores, aunque alguno cambie físicamente en pleno ciclo.',ok:true,why:'Correcto. La lógica trabaja sobre una foto de las entradas; por eso un GRAFCET franquea todas las transiciones válidas a la vez, con la misma situación, y no unas antes que otras.'},
+        {t:'Que el PLC detecte los cambios de un sensor más deprisa que el tiempo de scan, porque la lectura se hace por interrupción.',ok:false,why:'No: lo que cambie durante el scan no se ve hasta el scan siguiente. La resolución temporal de la lectura es, como mínimo, el tiempo de scan.'},
+        {t:'Que cada salida se actualice en cuanto se calcula su bobina, sin esperar al final del scan para escribirla en la tarjeta.',ok:false,why:'Al revés: las salidas se escriben juntas al final del scan. Si cada bobina saliera al calcularse, la lógica no vería una situación única.'},
+        {t:'Que cada sensor se lea varias veces dentro del scan para filtrar el rebote del reed y quedarse con el valor más repetido.',ok:false,why:'No: la lectura es una sola por scan. El filtrado de rebotes, cuando hace falta, es otra función aparte y no lo da la imagen de entradas.'},
       ],
     },
   };
@@ -1723,11 +1753,28 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 15. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// El recorrido es una DEMOSTRACIÓN: no puntúa, no marca el reto como resuelto y al terminar (o fallar)
+// devuelve el laboratorio al estado exacto en que lo dejó el alumno.
+function snapState(){
+  return {mode,expIdx,expOrd,expV:JSON.parse(JSON.stringify(expV)),expC:JSON.parse(JSON.stringify(expC)),expHist:JSON.parse(JSON.stringify(expHist)),expT,
+    apTopic,apIdx,apBank,apRule,retoK,retoCh:{rec:retoCh.rec.slice(),des:retoCh.des,sal:retoCh.sal},
+    retoChecked,retoOkRec,retoOkDes,retoOkSal,retoSolved,retoMsg,intentos,fallosCaso,hintLevel,pistas};
+}
+function restoreState(z){
+  expIdx=z.expIdx;expOrd=z.expOrd;expV=z.expV;expC=z.expC;expHist=z.expHist;expT=z.expT;
+  apTopic=z.apTopic;apIdx=z.apIdx;apBank=z.apBank;apRule=z.apRule;
+  retoK=z.retoK;retoCh=z.retoCh;retoChecked=z.retoChecked;retoOkRec=z.retoOkRec;retoOkDes=z.retoOkDes;retoOkSal=z.retoOkSal;
+  retoSolved=z.retoSolved;retoMsg=z.retoMsg;intentos=z.intentos;fallosCaso=z.fallosCaso;hintLevel=z.hintLevel;pistas=z.pistas;
+  setMode(z.mode,true);refreshAll();
+}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Demostrando…';
+  const snap=snapState();
   try{
     synth.init();synth.resume();clearDx();
+    showToast('👁 Demostración: no puntúa ni toca tu reto; al terminar todo vuelve a como lo dejaste.');
+    await sleep(2400);
     setMode('explora');
     expIdx=0;expReset();afterEdit();
     showToast('🔧 Cilindro A de la estación de marcado: 200 mm de carrera, 600 ms de salida, banda del reed 5 mm.');
@@ -1745,7 +1792,6 @@ async function runAuto(){
     for(let k=0;k<6;k++){expScan('both');afterEdit();await sleep(160);}
     showToast('⚠ Con Y1 e Y2 energizados a la vez el carrete deja de obedecer: no es "dos órdenes", es un BLOQUEO.');
     await sleep(4400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('aplica');
     apTopic='directo';apIdx=0;afterEdit();
@@ -1763,23 +1809,26 @@ async function runAuto(){
     apTopic='reglas';apBank='nom';apRule='tiempo';afterEdit();
     showToast('⏱ Con temporizador fijo el ciclo sale bien en nominal y falla en degradado. Sólo una regla sobrevive a los dos bancos.');
     await sleep(5000);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
+    // Reto de demostración: una célula distinta de la del alumno (se descarta al terminar)
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: el programa de partida está mal en las tres decisiones. Lo comprobamos primero tal cual…');
+    seedReto((snap.retoK+1)%RETO_POOL.length);updateRetoSpec();afterEdit();
+    showToast('🎯 Célula de demostración: '+retoSc().name+'. El programa de partida está mal en las tres decisiones. Lo comprobamos primero tal cual…');
     await sleep(3600);
     checkReto();
     await sleep(4200);
     const sc=retoSc();
     retoCh={rec:sc.seq.map(recOf),des:'siguiente',sal:'etapa'};
     retoChecked=false;retoSolved=false;afterEdit();
-    showToast('✔ Receptividades = el sensor que CONFIRMA cada movimiento, SET+RESET al franquear, y la acción colgada de la etapa.');
+    showToast('✔ Receptividades = el sensor que CONFIRMA cada movimiento, SET+RESET al franquear, y la acción colgada de la etapa. Comprobamos (en demostración).');
     await sleep(3400);
-    checkReto();await sleep(2600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    checkReto();await sleep(3200);
   }finally{
+    restoreState(snap);
+    solved=(mode==='reto')?retoSolved:false;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    refreshAll();
+    showToast('↩ Demostración terminada: tu estado y tu reto quedaron como estaban.');
   }
 }
 
@@ -1792,6 +1841,7 @@ S.setAnimate((dt,time)=>{
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
 el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
 el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+el('btnHint').onclick=()=>pedirPista();
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
@@ -1828,13 +1878,14 @@ window.__labDebug={
   retoSetRec:(i,v)=>{retoSetRec(i,v);afterEdit();},
   retoSolveBuild:()=>{const sc=retoSc();retoCh={rec:sc.seq.map(recOf),des:'siguiente',sal:'etapa'};retoChecked=false;retoSolved=false;afterEdit();},
   checkReto:()=>checkReto(),
-  retoChecked:()=>retoChecked, retoOkRec:()=>retoOkRec, retoOkDes:()=>retoOkDes, retoOkSal:()=>retoOkSal, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkRec:()=>retoOkRec, retoOkDes:()=>retoOkDes, retoOkSal:()=>retoOkSal, retoSolved:()=>autoRunning?false:retoSolved,
+  intentos:()=>intentos, fallosCaso:()=>fallosCaso, pistas:()=>pistas, pedirPista:()=>pedirPista(), autoRunning:()=>autoRunning, runAuto:()=>runAuto(),
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
   frames:()=>frames(),
   newSignal:()=>newSignal(),
-  solved:()=>solved,
+  solved:()=>autoRunning?false:solved,
 };
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

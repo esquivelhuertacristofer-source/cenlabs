@@ -106,6 +106,7 @@ let retoOutSel=[0,0,0,0];                 // por stage-id: actuador elegido (ín
 let retoChecked=false, retoOkNext=false, retoOkOut=false, retoSolved=false, retoMsg='';
 let editRow=0;                            // fila del reto que se está editando
 let solved=false, autoRunning=false, QUIZ={};
+let intentos=0, demoShow=false, actOrd=[0,1,2,3];   // intentos fallidos con el caso (3 → caso nuevo) · demostración sin tocar el reto · orden barajado de los actuadores
 let hwStep=0, hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -116,14 +117,15 @@ function seedReto(idx){
   retoOrder=shuffle([0,1,2,3]);
   // arranca en un estado inicial NO resuelto (todos apuntan a Espera=0, actuador 0): fuerza al alumno a diseñar
   retoNextSel=[0,0,0,0]; retoOutSel=[0,0,0,0];
-  editRow=0;
+  editRow=0; intentos=0;
+  actOrd=shuffle([0,1,2,3]);              // el orden de los botones de actuador no delata la etapa a la que pertenecen
   retoChecked=false; retoOkNext=false; retoOkOut=false; retoSolved=false; retoMsg='';
 }
 seedReto(0);
 
 // contexto activo (para el entrenador 3D): devuelve fotogramas {label, acts:[4], accept}
 function hwFrames(){
-  if(mode==='reto'){const p=RETO_POOL[retoIdx];return [0,1,2,3].map(s=>({label:p.stages[s],acts:oneHot(p.out[s]),accept:false}));}
+  if(mode==='reto'){const p=RETO_POOL[retoIdx];return retoOrder.map(s=>({label:p.stages[s],acts:oneHot(retoOutSel[s]),accept:false}));}   // TU diseño, en el orden de la tabla: no delata ciclo ni salidas
   if(mode==='aplica'){
     if(apTopic==='proceso')return [0,1,2,3].map(s=>({label:TANK_LBL[s],acts:tankOut(s),accept:false}));
     // compara: recorre los estados del detector Moore sobre el flujo demo
@@ -358,40 +360,67 @@ function drawReto(c){
       c.strokeStyle=hexA(WARN_HEX,0.5);c.strokeRect(tx,rowY,cw.reduce((a,b)=>a+b,0),48);}
     cx=tx;
     c.fillStyle=ACC;c.font='bold 14px Outfit, sans-serif';c.fillText(p.stages[s],cx+8,ry);cx+=cw[0];
-    const nextOk=retoChecked&&retoNextSel[s]===((s+1)%4),nextBad=retoChecked&&!nextOk;
-    c.fillStyle=nextOk?OK_HEX:(nextBad?BAD_HEX:'#F4EFEA');c.font='14px Outfit, sans-serif';
-    c.fillText(p.stages[retoNextSel[s]]+(nextOk?' ✓':nextBad?' ✗':''),cx+8,ry);cx+=cw[1];
-    const outOk=retoChecked&&retoOutSel[s]===p.out[s],outBad=retoChecked&&!outOk;
-    c.fillStyle=outOk?OK_HEX:(outBad?BAD_HEX:'#F4EFEA');c.font='12px Outfit, sans-serif';
-    wrapText(c,p.acts[retoOutSel[s]]+(outOk?' ✓':outBad?' ✗':''),cx+8,ry,cw[2]-12,13);
+    // sin ✓/✗ por celda: marcar la celda mala sería revelar la respuesta por eliminación
+    c.fillStyle='#F4EFEA';c.font='14px Outfit, sans-serif';
+    c.fillText(p.stages[retoNextSel[s]],cx+8,ry);cx+=cw[1];
+    c.fillStyle='#F4EFEA';c.font='12px Outfit, sans-serif';
+    wrapText(c,p.acts[retoOutSel[s]],cx+8,ry,cw[2]-12,13);
   }
   c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='left';
   c.fillText('Edita la fila resaltada con los botones del panel. La etapa que sigue a la última vuelve a la primera (ciclo).',tx,ty+40+4*54+8);
-  rpanel(c,PX.x,PX.y,PX.w,140,'CALIFICACIÓN');
-  prow(c,PX.x,PX.y+48,PX.w,'Tabla de transición',retoChecked?(retoOkNext?'✓ correcta':'✗ revisa'):'—',retoChecked?(retoOkNext?OK_HEX:BAD_HEX):'#6b7280');
-  prow(c,PX.x,PX.y+80,PX.w,'Salidas Moore',retoChecked?(retoOkOut?'✓ correctas':'✗ revisa'):'—',retoChecked?(retoOkOut?OK_HEX:BAD_HEX):'#6b7280');
-  prow(c,PX.x,PX.y+112,PX.w,'Resultado',retoChecked?(retoSolved?'✔ RESUELTO':'incompleto'):'configura',retoSolved?OK_HEX:'#F4EFEA');
+  // veredicto SOLO tras «Comprobar» (o en la demostración, que no toca el reto)
+  const vCh=retoChecked||demoShow, ev=demoShow?retoEval():{okNext:retoOkNext,okOut:retoOkOut,solved:retoSolved};
+  rpanel(c,PX.x,PX.y,PX.w,140,'COMPROBACIÓN');
+  prow(c,PX.x,PX.y+48,PX.w,'Tabla de transición',vCh?(ev.okNext?'✓ correcta':'✗ revisa'):'—',vCh?(ev.okNext?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+80,PX.w,'Salidas Moore',vCh?(ev.okOut?'✓ correctas':'✗ revisa'):'—',vCh?(ev.okOut?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+112,PX.w,'Resultado',vCh?(ev.solved?(demoShow?'✔ demostración':'✔ RESUELTO'):'incompleto'):'configura',(vCh&&ev.solved)?OK_HEX:'#F4EFEA');
   const by=PX.y+160;
-  if(retoChecked){
+  if(vCh){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
-    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
-    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
-    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX.x+14,by+52,PX.w-28,17);
+    c.strokeStyle=ev.solved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=ev.solved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(ev.solved?(demoShow?'✔ CORRECTO (demostración)':'✔ CORRECTO'):'✗ REVISA',PX.x+14,by+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(ev.solved),PX.x+14,by+52,PX.w-28,17);
+    if(!demoShow){c.fillStyle='#7a8494';c.fillText('Intentos fallidos con este caso: '+intentos+' / 3',PX.x+14,by+300);}
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
     wrapText(c,'Un proceso cíclico avanza etapa por etapa y vuelve al inicio: la tabla de transición debe recorrer las 4 etapas en el orden correcto sin saltarse ninguna. Y cada etapa acciona su propio actuador (Moore: la salida depende sólo del estado).',PX.x+14,by+26,PX.w-28,18);
     c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Errores clásicos: saltarse una etapa (el proceso no la ejecuta), dejar un estado estancado (nunca vuelve a empezar) o encender el actuador equivocado.',PX.x+14,by+120,PX.w-28,18);
+    wrapText(c,'Errores clásicos: saltarse una etapa (el proceso no la ejecuta), dejar un estado estancado (nunca vuelve a empezar) o encender el actuador equivocado. Tras 3 intentos fallidos el proceso se renueva.',PX.x+14,by+120,PX.w-28,18);
+    c.fillText('Intentos fallidos con este caso: '+intentos+' / 3',PX.x+14,by+300);
   }
 }
-function retoExplain(){
+// evaluación pura de la selección actual (la usan «Comprobar» y la demostración)
+function retoEval(){
   const p=RETO_POOL[retoIdx];
-  if(retoSolved)return 'La FSM recorre '+p.stages.join(' → ')+' → '+p.stages[0]+', y cada etapa acciona su actuador. Así se diseña cualquier secuenciador industrial: define los estados (etapas), las condiciones de avance y las salidas de cada estado.';
-  let s='';
-  if(!retoOkNext)s+='La tabla de transición no forma el ciclo correcto: debe avanzar '+p.stages.join('→')+' y volver al inicio, sin saltar ni estancar etapas. ';
-  if(!retoOkOut)s+='Algún actuador está mal: cada etapa debe encender su propio actuador (Moore = salida por estado). ';
-  return s||'Revisa la tabla.';
+  const okNext=[0,1,2,3].every(s=>retoNextSel[s]===((s+1)%4));
+  const okOut=[0,1,2,3].every(s=>retoOutSel[s]===p.out[s]);
+  return {okNext,okOut,solved:okNext&&okOut};
+}
+// Síntomas de la selección actual, sin nombrar la etapa o actuador correctos
+function retoSintomas(){
+  const out=[];
+  const img=[0,1,2,3].map(s=>retoNextSel[s]);
+  const perm=new Set(img).size===4;
+  if(!perm)out.push('en tu tabla hay etapas a las que nunca se llega (o a las que llegan dos etapas distintas): no forma un ciclo ordenado');
+  else{
+    let k=0,x=0;do{x=img[x];k++;}while(x!==0&&k<8);
+    if(k<4)out.push('tu tabla se parte en ciclos más cortos: el proceso nunca recorre las 4 etapas seguidas');
+    else if(!retoEval().okNext)out.push('tu tabla recorre las 4 etapas y vuelve al inicio, pero el orden no es el que sigue el proceso real');
+  }
+  const distintos=new Set([0,1,2,3].map(s=>retoOutSel[s])).size;
+  if(!retoEval().okOut){
+    if(distintos<4)out.push('hay actuadores repetidos o sin usar: cada etapa debe encender el suyo');
+    else out.push('cada actuador se usa una sola vez, pero alguno está en una etapa que no le corresponde');
+  }
+  return out;
+}
+function retoExplain(sol){
+  const p=RETO_POOL[retoIdx];
+  if(sol===undefined)sol=retoSolved;
+  if(sol)return 'La FSM recorre '+p.stages.join(' → ')+' → '+p.stages[0]+', y cada etapa acciona su actuador. Así se diseña cualquier secuenciador industrial: define los estados (etapas), las condiciones de avance y las salidas de cada estado.';
+  const l=retoSintomas();
+  return l.length?('Al simular tu tabla: '+l.join('; ')+'. Razona el orden real del proceso y qué hace cada etapa.'):'Revisa la tabla.';
 }
 
 function drawBoard(){
@@ -535,12 +564,12 @@ function buildControls(){
   }else{
     const p=RETO_POOL[retoIdx],s=retoOrder[editRow];
     html+=lbl('Fila:')+retoOrder.map((sid,r)=>`<button class="b sm ${r===editRow?'on':''}" data-er="${r}">${p.stages[sid]}</button>`).join('');
-    html+=lbl('Siguiente:')+p.stages.map((nm,i)=>`<button class="b sm ${retoNextSel[s]===i?'on':''}" data-rn="${i}">${nm}</button>`).join('');
-    html+=lbl('Actuador:')+p.acts.map((nm,i)=>`<button class="b sm ${retoOutSel[s]===i?'on':''}" data-ro="${i}">${nm}</button>`).join('');
+    html+=lbl('Siguiente:')+retoOrder.map(i=>`<button class="b sm ${retoNextSel[s]===i?'on':''}" data-rn="${i}">${p.stages[i]}</button>`).join('');
+    html+=lbl('Actuador:')+actOrd.map(i=>`<button class="b sm ${retoOutSel[s]===i?'on':''}" data-ro="${i}">${p.acts[i]}</button>`).join('');
     bar.innerHTML=html;
     bar.querySelectorAll('[data-er]').forEach(b=>b.onclick=()=>{if(autoRunning)return;editRow=parseInt(b.dataset.er,10);synth.beep(640,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoNextSel[s]=parseInt(b.dataset.rn,10);retoChecked=false;retoSolved=false;synth.beep(720,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-ro]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoOutSel[s]=parseInt(b.dataset.ro,10);retoChecked=false;retoSolved=false;synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoNextSel[s]=parseInt(b.dataset.rn,10);retoChecked=false;retoSolved=false;solved=false;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ro]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoOutSel[s]=parseInt(b.dataset.ro,10);retoChecked=false;retoSolved=false;solved=false;synth.beep(760,0.05,0.04);afterEdit();});
   }
 }
 function updateScenarioInfo(){
@@ -586,7 +615,8 @@ function updateTele(){
       teleRow('Etapas',String(4))+
       teleRow('Editando',p.stages[retoOrder[editRow]],'good')+
       teleRow('Transición',retoChecked?(retoOkNext?'✓':'✗'):'—',retoChecked&&retoOkNext?'good':'warn')+
-      teleRow('Salidas',retoChecked?(retoOkOut?'✓':'✗'):'—',retoChecked&&retoOkOut?'good':'warn');
+      teleRow('Salidas',retoChecked?(retoOkOut?'✓':'✗'):'—',retoChecked&&retoOkOut?'good':'warn')+
+      teleRow('Intentos fallidos',intentos+' / 3',intentos?'warn':'');
     return;
   }
   if(mode==='aplica'){
@@ -626,7 +656,7 @@ function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const p=RETO_POOL[retoIdx];
-  el('retoSpec').innerHTML=`Diseña la FSM de <b>${p.name}</b>. Para cada etapa, elige a qué etapa <b>avanza</b> (al llegar el ${p.trig}) y qué <b>actuador</b> enciende. Pulsa "Comprobar".`;
+  el('retoSpec').innerHTML=`Diseña la FSM de <b>${p.name}</b>. Para cada etapa, elige a qué etapa <b>avanza</b> (al llegar el ${p.trig}) y qué <b>actuador</b> enciende. Pulsa "Comprobar" (tras 3 intentos fallidos el proceso se renueva).`;
 }
 function checkReto(){
   const p=RETO_POOL[retoIdx];
@@ -634,7 +664,17 @@ function checkReto(){
   retoOkOut =[0,1,2,3].every(s=>retoOutSel[s]===p.out[s]);
   retoSolved=retoOkNext&&retoOkOut;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(retoSolved)}</span>`;
+  if(!retoSolved){
+    intentos++;
+    if(intentos>=3){
+      // 3 fallos: proceso nuevo (no se aprueba por eliminación) y sin revelar la solución
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">✗ Revisa</span> — Tres intentos fallidos: el proceso se renovó ('+RETO_POOL[retoIdx].name+'). Razona el orden real de las etapas antes de comprobar.</span>';
+      showToast('🔀 Tres intentos fallidos: nuevo proceso, '+RETO_POOL[retoIdx].name+'.');
+      afterEdit();return;
+    }
+  }
   refreshAll();
 }
 
@@ -644,28 +684,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Qué distingue a una máquina de Moore de una de Mealy?',
       opciones:[
-        {t:'En Moore la salida depende SÓLO del estado; en Mealy depende del estado Y de la entrada actual.',ok:true,why:'Correcto. Por eso Moore da una salida estable/registrada (y suele necesitar un estado más) y Mealy reacciona en el mismo ciclo con menos estados, pero puede glitchear con la entrada.'},
-        {t:'Moore es combinacional y Mealy es secuencial.',ok:false,why:'No: ambas son secuenciales (tienen estado y reloj). La diferencia está en de qué depende la SALIDA, no en si tienen memoria.'},
-        {t:'Mealy no tiene estados; sólo Moore los tiene.',ok:false,why:'Ambas tienen estados. Mealy suele necesitar menos (para un detector: len frente a len+1 de Moore), pero no cero.'},
-        {t:'Moore sólo sirve para contadores y Mealy sólo para detectores.',ok:false,why:'Las dos formas sirven para cualquier FSM; de hecho son equivalentes (reconocen el mismo lenguaje). La elección es por tiempos y robustez, no por aplicación.'},
+        {t:'En Moore la salida depende solo del estado; en Mealy depende del estado y de la entrada que llega en ese momento.',ok:true,why:'Correcto. Por eso Moore da una salida estable/registrada (y suele necesitar un estado más) y Mealy reacciona en el mismo ciclo con menos estados, pero puede glitchear con la entrada.'},
+        {t:'Moore es una máquina combinacional que no guarda memoria; Mealy es secuencial y usa flip-flops para recordar el estado.',ok:false,why:'No: ambas son secuenciales (tienen estado y reloj). La diferencia está en de qué depende la SALIDA, no en si tienen memoria.'},
+        {t:'Mealy no necesita estados internos porque responde solo a la entrada, mientras que Moore sí los necesita.',ok:false,why:'Ambas tienen estados. Mealy suele necesitar menos (para un detector: len frente a len+1 de Moore), pero no cero.'},
+        {t:'Moore se usa únicamente en contadores y secuenciadores, y Mealy se reserva para los detectores de secuencia.',ok:false,why:'Las dos formas sirven para cualquier FSM; de hecho son equivalentes (reconocen el mismo lenguaje). La elección es por tiempos y robustez, no por aplicación.'},
       ],
     },
     aplica:{
       pregunta:'Un detector Moore y uno Mealy reconocen el mismo patrón. ¿Cómo difieren sus salidas en el tiempo?',
       opciones:[
-        {t:'Mealy se activa en el ciclo del bit que completa el patrón; la salida Moore, al depender del estado, aparece registrada un ciclo después.',ok:true,why:'Correcto: es la relación clásica salida_Moore[i]=salida_Mealy[i−1]. Mealy minimiza latencia; Moore da una salida limpia y sincronizada.'},
-        {t:'La salida Moore aparece un ciclo antes que la de Mealy.',ok:false,why:'Es al revés: Mealy reacciona antes (combinacional); Moore la registra y sale un ciclo después.'},
-        {t:'Ambas salidas son idénticas ciclo a ciclo, sin diferencia de tiempo.',ok:false,why:'Detectan las mismas posiciones, pero no en el mismo ciclo: la Moore está desplazada un ciclo por ser registrada.'},
-        {t:'Mealy detecta más ocurrencias que Moore.',ok:false,why:'No: reconocen el mismo lenguaje (las mismas ocurrencias, incluso con solape). Sólo cambian el número de estados y el instante de la salida.'},
+        {t:'Mealy se activa en el ciclo del bit que completa el patrón; la salida Moore, ligada al estado, sale un ciclo después.',ok:true,why:'Correcto: es la relación clásica salida_Moore[i]=salida_Mealy[i−1]. Mealy minimiza latencia; Moore da una salida limpia y sincronizada.'},
+        {t:'La salida Moore aparece un ciclo antes que la de Mealy, porque el estado ya se conoce antes de que llegue el último bit.',ok:false,why:'Es al revés: Mealy reacciona antes (combinacional); Moore la registra y sale un ciclo después.'},
+        {t:'Ambas salidas coinciden ciclo a ciclo: la diferencia entre las dos máquinas está solo en el número de flip-flops.',ok:false,why:'Detectan las mismas posiciones, pero no en el mismo ciclo: la Moore está desplazada un ciclo por ser registrada.'},
+        {t:'Mealy detecta más ocurrencias del patrón que Moore, porque reacciona a la entrada sin esperar al cambio de estado.',ok:false,why:'No: reconocen el mismo lenguaje (las mismas ocurrencias, incluso con solape). Sólo cambian el número de estados y el instante de la salida.'},
       ],
     },
     reto:{
       pregunta:'Al diseñar la FSM de un proceso cíclico industrial, ¿qué garantiza que funcione y sea seguro?',
       opciones:[
-        {t:'Que la tabla de transición recorra todas las etapas en orden y vuelva al inicio, y que cada etapa (estado) accione sólo su actuador (Moore).',ok:true,why:'Correcto: un ciclo completo sin etapas saltadas ni estancadas, con salidas atadas al estado, es un secuenciador robusto. Cada avance espera la señal de su sensor (self-loop hasta entonces).'},
-        {t:'Que cada actuador dependa de las entradas instantáneas para reaccionar lo más rápido posible.',ok:false,why:'Eso (estilo Mealy puro sobre entradas ruidosas) puede hacer parpadear los actuadores con glitches. En control de proceso se prefiere Moore: salida por estado, estable.'},
-        {t:'Que la máquina cambie de etapa en cada flanco de reloj sin esperar señales.',ok:false,why:'No: cada etapa debe RETENERSE (self-loop) hasta que su sensor confirme que puede avanzar; avanzar a ciegas es inseguro.'},
-        {t:'Que use el mayor número posible de estados para tener margen.',ok:false,why:'Más estados no es mejor: se usan los estados necesarios (las etapas del proceso). Estados de más complican la lógica y la depuración.'},
+        {t:'Que la tabla de transición recorra todas las etapas en orden y vuelva al inicio, y que cada etapa accione su actuador.',ok:true,why:'Correcto: un ciclo completo sin etapas saltadas ni estancadas, con salidas atadas al estado, es un secuenciador robusto. Cada avance espera la señal de su sensor (self-loop hasta entonces).'},
+        {t:'Que cada actuador dependa de las entradas instantáneas del proceso, para reaccionar lo más rápido posible a cada cambio.',ok:false,why:'Eso (estilo Mealy puro sobre entradas ruidosas) puede hacer parpadear los actuadores con glitches. En control de proceso se prefiere Moore: salida por estado, estable.'},
+        {t:'Que la máquina cambie de etapa en cada flanco de reloj sin esperar ninguna señal, para que el ciclo no se detenga nunca.',ok:false,why:'No: cada etapa debe RETENERSE (self-loop) hasta que su sensor confirme que puede avanzar; avanzar a ciegas es inseguro.'},
+        {t:'Que el diseño use el mayor número posible de estados, para dejar margen a futuras ampliaciones del proceso.',ok:false,why:'Más estados no es mejor: se usan los estados necesarios (las etapas del proceso). Estados de más complican la lógica y la depuración.'},
       ],
     },
   };
@@ -710,6 +750,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  // DEMOSTRACIÓN: guarda el estado del alumno y lo restituye (el recorrido jamás deja el reto resuelto)
+  const prev={mode,expKind,detType,detPatIdx,detStream:detStream.slice(),tankState,apTopic,apPatIdx,retoIdx,retoOrder:retoOrder.slice(),retoNextSel:retoNextSel.slice(),retoOutSel:retoOutSel.slice(),editRow,retoChecked,retoOkNext,retoOkOut,retoSolved,retoMsg,intentos,actOrd:actOrd.slice(),solved};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -738,19 +780,26 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('reto');
+    // DEMOSTRACIÓN: no se pulsa «Comprobar»; el reto del alumno queda como estaba
     seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: diseñar la FSM de una embotilladora. Primero, un intento incompleto…');
-    await sleep(3000);
-    checkReto();
-    showToast('…con la tabla sin completar, ni el ciclo ni las salidas son correctos. Lo diseñamos bien.');
+    showToast('🎯 Demostración con una embotelladora. Primero un intento incompleto: tabla sin completar.');
+    demoShow=true;afterEdit();
     await sleep(3400);
+    showToast('…'+retoSintomas().join('; ')+'. Lo diseñamos bien.');
+    await sleep(3800);
     retoNextSel=[1,2,3,0];retoOutSel=[...RETO_POOL[retoIdx].out];afterEdit();
-    showToast('✔ Ciclo completo Espera→Llenado→Tapado→Etiquetado→Espera, y un actuador por etapa. Comprobamos.');
-    await sleep(2600);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('✔ Ciclo completo Espera→Llenado→Tapado→Etiquetado→Espera, y un actuador por etapa. Esto es solo una demostración: tu reto sigue intacto.');
+    await sleep(3400);
+    demoShow=false;
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2400);
   }finally{
+    demoShow=false;
+    expKind=prev.expKind;detType=prev.detType;detPatIdx=prev.detPatIdx;detStream=prev.detStream;tankState=prev.tankState;apTopic=prev.apTopic;apPatIdx=prev.apPatIdx;
+    retoIdx=prev.retoIdx;retoOrder=prev.retoOrder;retoNextSel=prev.retoNextSel;retoOutSel=prev.retoOutSel;editRow=prev.editRow;
+    retoChecked=prev.retoChecked;retoOkNext=prev.retoOkNext;retoOkOut=prev.retoOkOut;retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;actOrd=prev.actOrd;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    setMode(prev.mode);
+    solved=(prev.mode==='reto')?retoSolved:false;
   }
 }
 
@@ -799,7 +848,7 @@ window.__labDebug={
   retoSetOut:(s,v)=>{retoOutSel[s]=v;retoChecked=false;retoSolved=false;afterEdit();},
   retoNextSel:()=>retoNextSel.slice(), retoOutSel:()=>retoOutSel.slice(),
   retoSolveBuild:()=>{retoNextSel=[1,2,3,0];retoOutSel=[...RETO_POOL[retoIdx].out];retoChecked=false;retoSolved=false;afterEdit();},
-  checkReto:()=>checkReto(),
+  checkReto:()=>checkReto(), intentos:()=>intentos, retoSintomas:()=>retoSintomas(),
   retoChecked:()=>retoChecked, retoOkNext:()=>retoOkNext, retoOkOut:()=>retoOkOut, retoSolved:()=>retoSolved,
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},

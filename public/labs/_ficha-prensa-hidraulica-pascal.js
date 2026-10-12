@@ -14,7 +14,7 @@ fichaTecnica({
       'Presión de la columna de aceite ρ·g·h (ρ = 900 kg/m³): 0,0088 MPa por metro, que frente a los 31,69 MPa del buje es el 0,028 % — se calcula para demostrar que es despreciable, no se ignora en silencio',
       'Fuerza techo de cada pareja cilindro-bomba: η·p_max·A₂, la fuerza máxima antes de que abra la limitadora (de 113,1 kN a 773,1 kN en el catálogo)',
       'Proyecto con seis criterios simultáneos (diámetro, carrera, presión de bomba, fuerza de mano ≤ 400 N, número de bombeos, presión de trabajo del latiguillo) y calificación por «válida Y más barata»: sobredimensionar cuenta como error',
-      'Reto de calificación triple ortogonal: cilindro, bomba y latiguillo se califican por separado, y el barrido completo de 5×5×4 = 100 combinaciones confirma que en cada trabajo hay exactamente UNA terna correcta',
+      'Reto de selección triple: cilindro, bomba y latiguillo se califican JUNTOS al pulsar Comprobar (sin veredicto en vivo), y el barrido completo de 5×5×4 = 100 combinaciones confirma que en cada trabajo hay exactamente UNA terna correcta; el informe dice qué criterio falla, nunca qué elemento es el bueno, y tras tres fallos se asigna otro trabajo',
     ],
     omitidos: [
       'Pérdidas de carga por fricción en tuberías y latiguillos (Darcy–Weisbach): en una prensa de mano el caudal es tan bajo que son despreciables frente a la presión de trabajo, pero existen y no se calculan aquí',
@@ -29,7 +29,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Catálogo del banco de prensa (todas las cifras son las que usa el motor de cálculo)',
-    warn: 'La fuerza máxima de mano de 400 N es un CRITERIO DE PROYECTO DEL TALLER inspirado en las recomendaciones ergonómicas de ISO 11228-2 y EN 1005-3, NO una cifra normativa de la prensa. Las unidades de coste (u.c.) son relativas y sirven solo para ordenar las opciones: no son precios de mercado. En el Reto no hay ningún número sellado que adivinar; se califica el CRITERIO de selección, eje por eje.',
+    warn: 'La fuerza máxima de mano de 400 N es un CRITERIO DE PROYECTO DEL TALLER inspirado en las recomendaciones ergonómicas de ISO 11228-2 y EN 1005-3, NO una cifra normativa de la prensa. Las unidades de coste (u.c.) son relativas y sirven solo para ordenar las opciones: no son precios de mercado. En el Reto no hay ningún número sellado que adivinar; se califica el CRITERIO de selección sobre la terna completa.',
     rows: [
       ['Cilindro Ø50 (c50)', 'Émbolo pequeño, poca fuerza pero mucho avance por bombeo', 'A₂ = 1963,50 mm² · carrera máx. 50 mm', '5 u.c.'],
       ['Cilindro Ø63 (c63)', 'Intermedio; el único que entra en huecos estrechos junto al Ø50', 'A₂ = 3117,25 mm² · carrera máx. 80 mm', '7 u.c.'],
@@ -54,9 +54,9 @@ fichaTecnica({
     'Modo Pascal: selectores de cilindro, bomba, fuerza de mano (100/200/300/400 N) y carga (45/60/120/350 kN), con el tubo en U a escala real, la barra de presión y el veredicto (avanza / corta la limitadora / falta fuerza en la mano)',
     'Modo Volumen: bombeo manual de 1 en 1 o de 10 en 10, selector de aire atrapado (0 a 47,12 cm³) y lectura del avance por bombeo, los bombeos totales, el recorrido total de palanca y el reparto trabajo útil / calor',
     'Modo Proyecto: curva de decisión sobre los cinco cilindros para una bomba dada, con las líneas límite de la limitadora y del número máximo de bombeos, y el veredicto por cilindro con el criterio que falla',
-    'Modo Reto: cuatro trabajos de taller sorteados; se eligen cilindro, bomba y latiguillo, y cada eje se califica por separado con su diagnóstico',
-    'Cuestionario de 4 opciones barajadas por trabajo, con los distractores verificados falsos contra el motor de cálculo',
-    'Recorrido guiado automático de 22 pasos que recorre el ensamble y los cuatro modos con las cifras en pantalla',
+    'Modo Reto: cuatro trabajos de taller sorteados; se eligen cilindro, bomba y latiguillo y se pulsa Comprobar. No hay veredicto en vivo: ni los pilotos ni el pizarrón dicen si la terna vale hasta comprobarla, y cambiar cualquier mando anula la comprobación. El diagnóstico nombra el criterio que se incumple, no el elemento que hay que cambiar. Hay contador de intentos y fallos; tras TRES fallos se asigna otro trabajo. El trabajo del reto no se puede abrir en Volumen ni en Proyecto mientras esté sin resolver, porque la curva de decisión listaría los cilindros que caben',
+    'Cuestionario de 4 opciones barajadas (Fisher-Yates) por trabajo, con las cifras calculadas por el motor y los distractores comprobados falsos contra él',
+    'Recorrido guiado automático que recorre el ensamble y los cuatro modos con las cifras en pantalla. En el reto es una DEMOSTRACIÓN sobre un trabajo distinto del tuyo: no resuelve ni puntúa tu reto, no gasta tus intentos y al terminar devuelve todos los mandos y el cuestionario a como los tenías (el circuito queda ensamblado)',
     'Telemetría en vivo: presión del circuito, fuerza de mano, fuerza en el vástago, avance por bombeo, bombeos totales, recorrido de palanca, multiplicación de fuerza, fuerza techo y coste del sistema',
   ],
   s4: {
@@ -66,7 +66,7 @@ fichaTecnica({
       'PASCAL. Con Ø80 y la bomba b2 para una carga de 60 kN, la presión que exige la carga es 13,26 MPa. Sube la fuerza de mano de 100 a 400 N y observa que la presión que ALCANZA la mano cambia, pero la que PIDE la carga no: quien impone la presión es la pieza, no el operario. Cambia ahora a la bomba b3 y verás que a 400 N la mano daría 31,83 MPa pero la limitadora corta antes, en 25 MPa: hay dos topes distintos y conviene saber cuál actúa primero.',
       'VOLUMEN. Elige el trabajo del buje (350 kN) con Ø125 y la bomba b5. Cada bombeo mete 5,09 cm³ y hace avanzar el vástago 0,4147 mm: hacen falta 73 bombeos y 65,7 m de recorrido de palanca para 30 mm de avance. Comprueba en el balance que el trabajo que sale es exactamente el 90 % del que entra. Añade después 47,12 cm³ de aire atrapado (el 30 % de un latiguillo DN10 de 2 m) y verás que los 10 primeros bombeos no mueven la carga: solo comprimen aire.',
       'PROYECTO. Con la curva de decisión, mira el trabajo del eje con la bomba b2: el Ø50 pide 33,95 MPa (imposible para esa bomba), el Ø125 pide solo 5,43 MPa pero exige 77 bombeos (más de los 60 admitidos), y en medio quedan el Ø80 y el Ø100, ambos válidos. Ahí es donde entra el coste: 24 u.c. contra 29.',
-      'RETO. Se sortea un trabajo con su fuerza, su carrera, su límite de bombeos y el hueco disponible. Elige cilindro, bomba y latiguillo, y pulsa Comprobar: cada eje se califica por separado y te dice qué criterio incumple. Recuerda que cumplir no basta: la respuesta correcta es la que cumple Y cuesta menos. Termina respondiendo la pregunta del cuestionario.',
+      'RETO. Se sortea un trabajo con su fuerza, su carrera, su límite de bombeos y el hueco disponible. Elige cilindro, bomba y latiguillo, y pulsa Comprobar: te dice qué criterio incumple la terna, pero no qué elemento cambiar. Tienes tres fallos antes de que te asignen otro trabajo. Recuerda que cumplir no basta: la respuesta correcta es la que cumple Y cuesta menos. Termina respondiendo la pregunta del cuestionario.',
     ],
   },
   s5: {

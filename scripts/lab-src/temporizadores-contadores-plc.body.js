@@ -47,9 +47,12 @@ function stepTOF(s,IN,pt,dt){
   s.prev=IN;return s.q;
 }
 function stepTP(s,IN,pt,dt){
-  if(s.st==='PULSE'){if(s.et<pt)s.et=Math.min(pt,s.et+dt);}
-  else if(s.st==='IDLE'&&IN&&!s.prev){s.st='PULSE';s.et=0;}   // no redisparable
-  if(s.st==='PULSE'&&s.et>=pt)s.st=IN?'HOLD':'IDLE';
+  const flanco=IN&&!s.prev;
+  if(s.st==='PULSE'){if(s.et<pt)s.et=Math.min(pt,s.et+dt);}   // no redisparable: durante el pulso se ignoran los flancos
+  // Al expirar: si IN ya venía alto pasa a HOLD; si el flanco llega JUSTO en este scan no se pierde: el pulso
+  // terminó, así que vuelve a IDLE y el disparo de la línea siguiente lo recoge.
+  if(s.st==='PULSE'&&s.et>=pt)s.st=(IN&&!flanco)?'HOLD':'IDLE';
+  if(s.st==='IDLE'&&flanco){s.st='PULSE';s.et=0;}
   if(s.st==='HOLD'&&!IN)s.st='IDLE';
   if(s.st==='IDLE')s.et=0;
   if(s.st==='HOLD')s.et=pt;
@@ -179,6 +182,8 @@ let retoCh={arrT:'TP',arrP:1000,parT:'TON',parP:1000,cntT:'TON',cntP:3000};  // 
 let retoField='arr';
 let retoChecked=false,retoOkArr=false,retoOkPar=false,retoOkCnt=false,retoSolved=false,retoMsg='';
 let solved=false,autoRunning=false,QUIZ={};
+// política de fallos: intentos totales (visible), fallos del caso en curso (a los 3 se resiembra) y pistas graduadas (máx. 2)
+let intentos=0,fallosCaso=0,hintLevel=0,pistas=0;
 let hwStep=0,hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -189,8 +194,16 @@ function seedReto(idx){
   retoCh={arrT:'TP',arrP:1000,parT:'TON',parP:1000,cntT:'TON',cntP:3000};
   retoField='arr';
   retoChecked=false;retoOkArr=false;retoOkPar=false;retoOkCnt=false;retoSolved=false;retoMsg='';
+  fallosCaso=0;hintLevel=0;
 }
 seedReto(0);
+// Scans que tarda cada bloque en reaccionar, MEDIDOS ejecutando el motor (nunca escritos a mano en la prosa).
+function scansReaccion(kind,pt){
+  const s=newT(kind,pt);let n=0;
+  if(kind==='TON'){while(!stepT(s,true,pt,DT)&&n<500)n++;return n+1;}               // scans con IN=1 hasta Q=1
+  if(kind==='TOF'){stepT(s,true,pt,DT);while(stepT(s,false,pt,DT)&&n<500)n++;return n+1;} // scans con IN=0 hasta Q=0
+  stepT(s,true,pt,DT);while(stepT(s,true,pt,DT)&&n<500)n++;return n+1;              // TP: scans con Q=1
+}
 function expReset(){
   expS=isCnt(expKind)?newC(expKind):newT(expKind,expPT);
   expIN=false;expHist=[];
@@ -511,9 +524,9 @@ function drawReto(c){
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,300);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,300);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Pregúntate qué hay que retrasar en cada caso: ¿el encendido, el apagado, o hace falta un pulso de anchura fija? Y para contar unidades que no llegan a intervalos regulares, ningún temporizador sirve: hace falta un contador de flancos.',PX.x+14,by+26,PX.w-28,18);
-    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Errores clásicos: usar TP para un retardo (el pulso llega de inmediato y se acaba solo), usar TON para la purga (cae en el mismo instante del paro), y usar CTD sin cargarlo con LD (marca lote completo desde la unidad cero).',PX.x+14,by+150,PX.w-28,18);
+    wrapText(c,'Compara cada traza de Q con lo que pide la especificación. Nada se califica hasta que pulses «Comprobar». Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,retoHintText(),PX.x+14,by+100,PX.w-28,18);
   }
 }
 function retoExplain(){
@@ -522,15 +535,21 @@ function retoExplain(){
   let s='';
   if(!retoOkArr){
     const r=behArr(retoCh.arrT,retoCh.arrP,DT);
-    s+='Retardo: con '+retoCh.arrT+'/'+fmtS(retoCh.arrP)+' '+(r.first<0?'la salida nunca enciende':'enciende a los '+fmtS(r.first*DT)+(r.hold?'':' pero no se mantiene (se apaga sola)'))+'; hace falta que encienda a los '+fmtS(p.tDelay)+' y siga. ';
+    s+='Retardo: con '+retoCh.arrT+'/'+fmtS(retoCh.arrP)+' '+(r.first<0?'la salida nunca enciende':'enciende a los '+fmtS(r.first*DT)+(r.hold?'':' pero no se mantiene (se apaga sola)'))+'; compáralo con lo que pide la especificación. ';
   }
   if(!retoOkPar){
     const r=behPar(retoCh.parT,retoCh.parP,DT);
-    s+='Sobre-marcha: con '+retoCh.parT+'/'+fmtS(retoCh.parP)+' '+(!r.atStop?'la salida ya estaba apagada en el instante del paro (no hay nada que purgar)':'sigue '+fmtS(r.offIdx*DT)+' tras el paro')+'; se necesitan '+fmtS(p.tPurge)+'. ';
+    s+='Sobre-marcha: con '+retoCh.parT+'/'+fmtS(retoCh.parP)+' '+(!r.atStop?'la salida ya estaba apagada en el instante del paro (no hay nada que purgar)':(r.offIdx<0?'no se apaga nunca tras el paro':'sigue '+fmtS(r.offIdx*DT)+' tras el paro'))+'; compáralo con la sobre-marcha pedida. ';
   }
   if(!retoOkCnt){
     const r=behCnt(retoCh.cntT,retoCh.cntP,DT);
-    s+='Conteo: con '+retoCh.cntT+'/'+(retoCh.cntT==='TON'?fmtS(retoCh.cntP):retoCh.cntP)+' la señal salta '+(r.first<0?'nunca':'con '+r.piecesAt+' unidad(es) contadas')+'; debe saltar exactamente con la unidad '+p.N+'. ';
+    const cfg=retoCh.cntT+'/'+(retoCh.cntT==='TON'?fmtS(retoCh.cntP):retoCh.cntP);
+    let obs;
+    if(r.first<0)obs='la señal LOTE COMPLETO no se activa nunca con el desfile de unidades';
+    else if(r.piecesAt===0)obs='la señal ya está activa antes de que pase ninguna unidad';
+    else if(r.piecesAt===p.N)obs='se activa tras haber pasado '+p.N+' unidades, pero no en el instante en que pasa la última: depende del tiempo transcurrido y no de la unidad misma';
+    else obs='se activa cuando han pasado '+r.piecesAt+' unidad(es), no '+p.N;
+    s+='Conteo: con '+cfg+' '+obs+'. ';
   }
   return s||'Revisa el programa.';
 }
@@ -656,7 +675,7 @@ document.getElementById('panel').innerHTML=`
   <h4 class="sec" id="retoTitle" style="display:none">Programa de la máquina</h4>
   <div id="retoBox" style="display:none">
     <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
-    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button><button class="b" id="btnHint">💡 Pista</button></div>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
@@ -737,14 +756,14 @@ function updateScenarioInfo(){
   const p=RETO_POOL[retoIdx];box.style.display='block';
   box.innerHTML=`Máquina: <b>${p.name}</b> — ${p.ctx}.`;
 }
-function setMode(k){
+function setMode(k,keep){
   mode=k;hwStep=0;
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
   if(k==='reto')updateRetoSpec();
-  if(k==='explora')expReset();
+  if(k==='explora'&&!keep)expReset();
   buildControls();updateScenarioInfo();
   solved=(k==='reto')?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
@@ -773,7 +792,9 @@ function updateTele(){
       teleRow('Editando',retoField==='arr'?'Retardo':retoField==='par'?'Sobre-marcha':'Conteo','good')+
       teleRow('Retardo',retoChecked?(retoOkArr?'✓':'✗'):'—',retoChecked&&retoOkArr?'good':'warn')+
       teleRow('Sobre-marcha',retoChecked?(retoOkPar?'✓':'✗'):'—',retoChecked&&retoOkPar?'good':'warn')+
-      teleRow('Conteo',retoChecked?(retoOkCnt?'✓':'✗'):'—',retoChecked&&retoOkCnt?'good':'warn');
+      teleRow('Conteo',retoChecked?(retoOkCnt?'✓':'✗'):'—',retoChecked&&retoOkCnt?'good':'warn')+
+      teleRow('Intentos',String(intentos)+' (fallos de este caso: '+fallosCaso+'/3)','warn')+
+      teleRow('Pistas',pistas+'/2','warn');
     return;
   }
   if(mode==='aplica'){
@@ -801,7 +822,12 @@ function updateReport(){
     else html+=`<span class="mono">Cada etapa es un TON que, al cumplir su PT, salta a la siguiente y re-arma el temporizador: por eso el ciclo dura exactamente la suma de los PT. El CTU cuenta los ciclos y cierra el lote en PV.</span>`;
   }else{
     if(isCnt(expKind))html+=`<span class="mono">Pulsa "${expKind==='CTU'?'CU':'CD'} ▲ ▸" y luego "▼ ▸" para generar un flanco completo. Dos "▲" seguidos cuentan UNA sola vez: los contadores cuentan flancos, no niveles.</span>`;
-    else html+=`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Con "IN = 1 ▸" mantienes la entrada activa; observa ET crecer y Q dispararse al llegar a PT (${fmtS(expPT)} = ${expPT/DT} scans).</span>`;
+    else{
+      const n=scansReaccion(expKind,expPT);
+      html+=expKind==='TON'?`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Con "IN = 1 ▸" mantienes la entrada activa: el primer scan sólo arma el temporizador (ET = 0) y Q sube en el scan ${n} (PT = ${fmtS(expPT)} = ${expPT/DT} scans de ET).</span>`
+      :expKind==='TOF'?`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Con "IN = 1 ▸" Q sube de inmediato; al pasar a "IN = 0 ▸" Q sigue activa mientras ET cuenta y cae en el scan ${n} con IN = 0 (PT = ${fmtS(expPT)}).</span>`
+      :`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Con "IN = 1 ▸" se dispara un pulso: Q permanece activa ${n} scans (PT = ${fmtS(expPT)}) aunque sueltes IN, y mantener IN no lo repite.</span>`;
+    }
   }
   el('report').innerHTML=html;
 }
@@ -812,6 +838,17 @@ function updateRetoSpec(){
   const p=RETO_POOL[retoIdx];
   el('retoSpec').innerHTML=`Programa <b>${p.name}</b>: retardo de arranque de <b>${fmtS(p.tDelay)}</b>, sobre-marcha de <b>${fmtS(p.tPurge)}</b> tras el paro y lote de <b>${p.N}</b> unidades. Elige bloque y preselección de cada función y pulsa "Comprobar".`;
 }
+function retoHintText(){
+  if(hintLevel<=0)return 'Si te atascas, pide una pista (máximo 2). Orientan sin darte la respuesta.';
+  const h=['Pregúntate, en cada función, QUÉ cambio de la señal hay que retrasar: el encendido, el apagado, o ninguno. Y qué hace el bloque cuando IN se mantiene.',
+    'En la tercera función mira el espaciado entre unidades en la traza: ¿es regular? Decide si lo que debes medir es tiempo o es el número de sucesos.'];
+  return h.slice(0,hintLevel).map((t,i)=>(i+1)+') '+t).join('  ');
+}
+function pedirPista(){
+  if(autoRunning||mode!=='reto')return;
+  if(hintLevel>=2){showToast('💡 Ya usaste las 2 pistas de este caso.');return;}
+  hintLevel++;pistas++;refreshAll();
+}
 function checkReto(){
   const sc=RETO_POOL[retoIdx];
   retoOkArr=okArr(retoCh.arrT,retoCh.arrP,sc,DT);
@@ -820,6 +857,20 @@ function checkReto(){
   retoSolved=retoOkArr&&retoOkPar&&retoOkCnt;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  // La demostración automática no cuenta como intento del alumno.
+  if(!autoRunning){
+    intentos++;
+    if(!retoSolved){
+      fallosCaso++;
+      if(fallosCaso>=3){
+        // tres fallos: el caso se resiembra (no se aprueba por eliminación)
+        const msg=retoMsg;
+        seedReto();updateRetoSpec();buildControls();updateScenarioInfo();
+        retoMsg=msg+`<br><span class="mono dtc">Tres intentos fallidos: se te asigna otra máquina (${RETO_POOL[retoIdx].name}). Vuelve a razonar cada función desde su especificación.</span>`;
+        solved=false;
+      }
+    }
+  }
   refreshAll();
 }
 
@@ -829,28 +880,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿En qué se diferencian exactamente un TON y un TOF con el mismo PT?',
       opciones:[
-        {t:'El TON retrasa la SUBIDA de Q (arranca a contar cuando IN se pone a 1) y el TOF retrasa la BAJADA (arranca a contar cuando IN se pone a 0).',ok:true,why:'Correcto. TON = on-delay: Q sube PT después del flanco de subida y cae a la vez que IN. TOF = off-delay: Q sube con IN y sigue PT más tras la caída.'},
-        {t:'El TON cuenta hacia arriba y el TOF hacia abajo, pero ambos activan Q en el mismo instante.',ok:false,why:'No. Ninguno de los dos "cuenta hacia abajo": ambos acumulan ET desde 0 hasta PT. Lo que cambia es QUÉ flanco de IN los pone en marcha y, por tanto, cuándo cambia Q.'},
-        {t:'El TOF es más preciso porque no depende del ciclo de scan.',ok:false,why:'Los dos dependen igual del scan: ET sólo se actualiza una vez por ciclo, así que la resolución de ambos es el tiempo de scan. La diferencia es funcional, no de precisión.'},
-        {t:'El TON se usa con entradas digitales y el TOF con analógicas.',ok:false,why:'Ambos trabajan con una entrada booleana IN. Las señales analógicas se tratan con bloques de escalado y comparación, no con temporizadores.'},
+        {t:'El TON retrasa la SUBIDA de Q (empieza a contar cuando IN pasa a 1) y el TOF retrasa su BAJADA (empieza a contar cuando IN pasa a 0).',ok:true,why:'Correcto. TON = on-delay: Q sube PT después del flanco de subida y cae a la vez que IN. TOF = off-delay: Q sube con IN y sigue PT más tras la caída.'},
+        {t:'El TON retrasa la BAJADA de Q (cuenta desde que IN pasa a 0) y el TOF retrasa su SUBIDA (cuenta desde que IN pasa a 1), al revés de lo que sugiere el nombre.',ok:false,why:'No: están al revés. El TON (on-delay) retrasa el encendido y el TOF (off-delay) retrasa el apagado; el nombre sí describe qué flanco se retrasa.'},
+        {t:'El TON cuenta hacia arriba y el TOF hacia abajo, de modo que ambos activan Q en el mismo instante pero la apagan en momentos distintos.',ok:false,why:'No. Ninguno cuenta hacia abajo: ambos acumulan ET desde 0 hasta PT. Cambia QUÉ flanco de IN los pone en marcha y, por tanto, cuándo cambia Q.'},
+        {t:'El TOF es más preciso porque su ET se actualiza fuera del ciclo de scan, mientras que el TON sólo avanza una vez por ciclo completo.',ok:false,why:'Los dos dependen igual del scan: ET sólo se actualiza una vez por ciclo, así que la resolución de ambos es el tiempo de scan. La diferencia es funcional, no de precisión.'},
       ],
     },
     aplica:{
-      pregunta:'Las piezas llegan al sensor con separaciones desiguales. ¿Por qué hay que usar un CTU y no un TON para avisar "lote de 10 completo"?',
+      pregunta:'Las piezas llegan al sensor con separaciones desiguales. ¿Por qué hay que usar un CTU y no un TON para avisar "lote completo"?',
       opciones:[
-        {t:'Porque el contador cuenta FLANCOS (un evento por pieza) mientras que el temporizador sólo mide tiempo: con cadencia irregular no existe un PT que caiga siempre en la pieza 10.',ok:true,why:'Correcto. Contar sucesos y medir tiempo son cosas distintas. Sólo si la cadencia fuera perfectamente regular podría un tiempo equivaler a una cuenta, y aun así fallaría al primer atasco.'},
-        {t:'Porque los temporizadores del PLC no pueden pasar de 10 segundos.',ok:false,why:'No hay tal límite: el tipo TIME de IEC 61131-3 llega a días. El problema no es el alcance del temporizador sino que mide la magnitud equivocada.'},
-        {t:'Porque el CTU es más rápido que el TON y no pierde piezas.',ok:false,why:'La velocidad es la misma: ambos se actualizan una vez por scan (y por eso un pulso más corto que el scan sí se puede perder, con contador o sin él). La razón es qué magnitud mide cada bloque.'},
-        {t:'Porque el TON no tiene salida Q y no podría avisar.',ok:false,why:'El TON sí tiene Q (y ET). Podría avisar… pero avisaría a los PT milisegundos, no a la décima pieza.'},
+        {t:'Porque el CTU cuenta FLANCOS (uno por pieza) y el TON sólo mide tiempo: con cadencia irregular ningún PT coincide con la última pieza del lote.',ok:true,why:'Correcto. Contar sucesos y medir tiempo son cosas distintas. Sólo si la cadencia fuera perfectamente regular podría un tiempo equivaler a una cuenta, y aun así fallaría al primer atasco.'},
+        {t:'Porque la preselección de un TON está limitada a unos pocos segundos y un lote de piezas tarda siempre más que ese máximo en completarse.',ok:false,why:'No hay tal límite: el tipo TIME de IEC 61131-3 llega a días. El problema no es el alcance del temporizador sino que mide la magnitud equivocada.'},
+        {t:'Porque el CTU se actualiza varias veces por scan y por eso no pierde ninguna pieza, mientras que el TON sólo lee el sensor una vez por ciclo de scan.',ok:false,why:'Ambos se actualizan una vez por scan (y por eso un pulso más corto que el scan se puede perder, con contador o sin él). La razón es qué magnitud mide cada bloque.'},
+        {t:'Porque el TON carece de salida Q y sólo entrega ET, de modo que no podría activar el aviso de lote completo aunque llegase a su tiempo PT.',ok:false,why:'El TON sí tiene Q (y ET). Podría avisar… pero avisaría a los PT milisegundos, no a la pieza que cierra el lote.'},
       ],
     },
     reto:{
-      pregunta:'Un ventilador debe seguir girando 2 s DESPUÉS de que se pulse el paro, para purgar el calor. ¿Qué bloque lo resuelve?',
+      pregunta:'El aviso acústico de una grúa lo da un TP con PT = 2 s. Si el operario aprieta el botón tres veces seguidas durante el primer segundo, ¿cuánto suena?',
       opciones:[
-        {t:'Un TOF con PT = 2 s gobernado por la señal de marcha: Q sigue activa 2 s tras la caída de IN y luego se apaga sola.',ok:true,why:'Correcto. Eso es exactamente un retardo a la desconexión. Además, si la marcha vuelve dentro de esos 2 s, el TOF se redispara y el ventilador no llega a pararse.'},
-        {t:'Un TON con PT = 2 s: cuando se pulsa el paro empieza a contar y a los 2 s apaga el ventilador.',ok:false,why:'No: el Q de un TON cae en el MISMO scan en que cae IN, sin retardo alguno a la desconexión. El ventilador se pararía de inmediato.'},
-        {t:'Un TP con PT = 2 s disparado por la marcha.',ok:false,why:'El TP entrega su pulso al ARRANCAR y de duración fija; cuando llega el paro ese pulso hace rato que terminó. No hay nada que prolongar.'},
-        {t:'Un CTU con PV = 20 contando ciclos de scan de 100 ms.',ok:false,why:'Contar scans para medir tiempo es un apaño frágil: depende de que el scan sea exactamente 100 ms y desaparece al cambiar de CPU o al crecer el programa. Para tiempo se usan temporizadores.'},
+        {t:'Suena 2 s en total: los flancos que llegan mientras el pulso está en curso se ignoran, porque el TP no es redisparable.',ok:true,why:'Correcto. El TP entrega un pulso de anchura fija y no se redispara: aporrear el botón no lo alarga ni lo multiplica. Por eso es el bloque cuando la duración de la acción debe estar garantizada.'},
+        {t:'Suena unos 3 s: cada pulsación reinicia ET a cero, así que el pulso termina 2 s después de la última (1 s + 2 s aproximadamente).',ok:false,why:'No: eso es lo que haría un TOF, que sí es redisparable. El TP ignora los flancos durante el pulso, así que ET no se reinicia.'},
+        {t:'Suena 6 s: cada una de las tres pulsaciones lanza su propio pulso de 2 s y los tres se van encadenando uno detrás de otro.',ok:false,why:'No: los pulsos no se acumulan ni se encolan. Mientras el primero está en curso, las otras dos pulsaciones no producen ningún efecto.'},
+        {t:'Suena mientras se mantiene el botón y 2 s más tras soltarlo, porque el TP combina el efecto de un TON y el de un TOF.',ok:false,why:'No: el TP no depende de cuánto tiempo se mantenga IN; la duración del pulso la fija sólo PT, tras el flanco de subida.'},
       ],
     },
   };
@@ -892,18 +943,37 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 // ===================== 16. RECORRIDO AUTOMÁTICO =====================
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// El recorrido es una DEMOSTRACIÓN: no puntúa, no marca el reto como resuelto y al terminar (o fallar)
+// devuelve el laboratorio al estado exacto en que lo dejó el alumno.
+function snapState(){
+  return {mode,expKind,expPT,expPV,expS:JSON.parse(JSON.stringify(expS)),expIN,expHist:JSON.parse(JSON.stringify(expHist)),
+    apTopic,apRecipe,retoIdx,retoCh:{...retoCh},retoField,retoChecked,retoOkArr,retoOkPar,retoOkCnt,retoSolved,retoMsg,
+    intentos,fallosCaso,hintLevel,pistas};
+}
+function restoreState(z){
+  expKind=z.expKind;expPT=z.expPT;expPV=z.expPV;expS=z.expS;expIN=z.expIN;expHist=z.expHist;
+  apTopic=z.apTopic;apRecipe=z.apRecipe;
+  retoIdx=z.retoIdx;retoCh=z.retoCh;retoField=z.retoField;retoChecked=z.retoChecked;retoOkArr=z.retoOkArr;retoOkPar=z.retoOkPar;
+  retoOkCnt=z.retoOkCnt;retoSolved=z.retoSolved;retoMsg=z.retoMsg;
+  intentos=z.intentos;fallosCaso=z.fallosCaso;hintLevel=z.hintLevel;pistas=z.pistas;
+  setMode(z.mode,true);refreshAll();
+}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Demostrando…';
+  const snap=snapState();
   try{
     synth.init();synth.resume();clearDx();
+    showToast('👁 Demostración: no puntúa ni toca tu reto; al terminar todo vuelve a como lo dejaste.');
+    await sleep(2400);
     setMode('explora');
     expKind='TON';expPT=500;expReset();afterEdit();
-    showToast('🔧 TON con PT = 0,5 s (5 scans). Mantenemos IN = 1 y vemos crecer ET.');
+    showToast('🔧 TON con PT = 0,5 s. Mantenemos IN = 1 y vemos crecer ET.');
     await sleep(3200);
-    for(let k=0;k<5;k++){expScan(true,false);afterEdit();await sleep(360);}
-    showToast('▶ Q sube justo al quinto scan: ET ha alcanzado PT. Ahora soltamos IN.');
-    await sleep(3000);
+    let n=0;
+    while(!expS.q&&n<40){expScan(true,false);afterEdit();n++;await sleep(360);}
+    showToast('▶ Q sube en el scan '+n+' con IN = 1: el primero sólo arma el temporizador (ET = 0) y los '+(expPT/DT)+' siguientes hacen crecer ET hasta PT. Ahora soltamos IN.');
+    await sleep(3400);
     expScan(false,false);afterEdit();
     showToast('⏹ Al caer IN, Q cae en el MISMO scan y ET se borra: el TON no retrasa el apagado.');
     await sleep(3200);
@@ -911,16 +981,16 @@ async function runAuto(){
     showToast('🔁 Ahora el TOF, mismo PT. Subimos IN dos scans y lo soltamos.');
     await sleep(2800);
     expScan(true,false);afterEdit();await sleep(500);expScan(true,false);afterEdit();await sleep(700);
-    for(let k=0;k<6;k++){expScan(false,false);afterEdit();await sleep(360);}
-    showToast('✔ Q siguió 5 scans DESPUÉS de soltar IN y luego cayó sola: retardo a la desconexión.');
+    let m=0;
+    while(m<40){expScan(false,false);afterEdit();m++;await sleep(360);if(!expS.q)break;}
+    showToast('✔ Con IN = 0, Q siguió activa hasta que ET completó PT = '+fmtS(expPT)+' (cayó en el scan '+m+' con IN = 0): retardo a la desconexión.');
     await sleep(3200);
     expKind='CTU';expPV=3;expReset();afterEdit();
     showToast('🔢 Contador CTU con PV = 3: cada flanco de CU suma uno; mantenerlo alto no cuenta más.');
     await sleep(3000);
     for(let k=0;k<3;k++){expScan(true,false);afterEdit();await sleep(320);expScan(true,false);afterEdit();await sleep(320);expScan(false,false);afterEdit();await sleep(320);}
-    showToast('✔ Tres flancos → CV = 3 = PV, Q se activa. Los dos scans altos seguidos contaron UNA vez.');
+    showToast('✔ Tres flancos → CV = '+expS.cv+' = PV, Q = '+(expS.q?1:0)+'. Los dos scans altos seguidos contaron UNA vez.');
     await sleep(3400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('aplica');
     apTopic='comparar';afterEdit();
@@ -929,24 +999,27 @@ async function runAuto(){
     apTopic='secuencia';apRecipe=0;afterEdit();
     showToast('⛓ Secuencia de tres etapas en cascada y contador de lote: cada etapa dura exactamente su PT.');
     await sleep(4600);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
+    // Reto de demostración: una máquina distinta de la del alumno (se descarta al terminar)
     setMode('reto');
-    seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: la cinta de embalaje. Primero comprobamos el programa de partida, que está mal a propósito…');
+    seedReto((snap.retoIdx+1)%RETO_POOL.length);updateRetoSpec();afterEdit();
+    showToast('🎯 Máquina de demostración: '+RETO_POOL[retoIdx].name+'. Primero un programa de partida que está mal a propósito…');
     await sleep(3400);
     checkReto();
-    showToast('…TP no sirve de retardo, TON no purga nada tras el paro y un temporizador no cuenta piezas. Lo arreglamos.');
+    showToast('…se ve en las trazas por qué fallan: el bloque elegido no reacciona como pide la especificación. Cambiamos de bloque.');
     await sleep(4000);
     const sc=RETO_POOL[retoIdx];
     retoCh={arrT:'TON',arrP:sc.tDelay,parT:'TOF',parP:sc.tPurge,cntT:'CTU',cntP:sc.N};
     retoChecked=false;retoSolved=false;afterEdit();
-    showToast('✔ TON para el retardo, TOF para la sobre-marcha y CTU para el lote. Comprobamos.');
+    showToast('✔ TON para el retardo, TOF para la sobre-marcha y CTU para el lote. Comprobamos (en demostración).');
     await sleep(2800);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    checkReto();await sleep(3200);
   }finally{
+    restoreState(snap);
+    solved=(mode==='reto')?retoSolved:false;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    refreshAll();
+    showToast('↩ Demostración terminada: tu estado y tu reto quedaron como estaban.');
   }
 }
 
@@ -959,6 +1032,7 @@ S.setAnimate((dt,time)=>{
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
 el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
 el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+el('btnHint').onclick=()=>pedirPista();
 const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
 document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
 
@@ -996,10 +1070,11 @@ window.__labDebug={
   retoSet:(field,tipo,preset)=>{retoField=field;retoSetType(tipo);retoSetPreset(preset);afterEdit();},
   retoSolveBuild:()=>{const p=RETO_POOL[retoIdx];retoCh={arrT:'TON',arrP:p.tDelay,parT:'TOF',parP:p.tPurge,cntT:'CTU',cntP:p.N};retoChecked=false;retoSolved=false;afterEdit();},
   checkReto:()=>checkReto(),
-  retoChecked:()=>retoChecked, retoOkArr:()=>retoOkArr, retoOkPar:()=>retoOkPar, retoOkCnt:()=>retoOkCnt, retoSolved:()=>retoSolved,
+  retoChecked:()=>retoChecked, retoOkArr:()=>retoOkArr, retoOkPar:()=>retoOkPar, retoOkCnt:()=>retoOkCnt, retoSolved:()=>autoRunning?false:retoSolved,
+  intentos:()=>intentos, fallosCaso:()=>fallosCaso, pistas:()=>pistas, pedirPista:()=>pedirPista(), autoRunning:()=>autoRunning, runAuto:()=>runAuto(),
   // quiz / general
   quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
   quizAnswer:i=>answer(i),
   newSignal:()=>newSignal(),
-  solved:()=>solved,
+  solved:()=>autoRunning?false:solved,
 };

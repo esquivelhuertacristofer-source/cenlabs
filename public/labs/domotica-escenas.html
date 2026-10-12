@@ -793,6 +793,12 @@ function partesDevs(sc,bid){
   const rep={x:orden[mitad-1].x,ul:1,rep:true};
   return [orden.slice(0,mitad).concat([rep]),[rep].concat(orden.slice(mitad))];
 }
+// la instalación del reto no se abre en Explora/Aplica mientras no esté resuelto: ahí se muestra el bus, la escena y el canal válidos
+function escLock(i){return i===retoK&&!retoSolved;}
+function fixSc(){
+  if(escLock(expIdx)){expIdx=(expIdx+1)%POOL.length;expBus='b1';}
+  if(escLock(apIdx)){apIdx=(apIdx+1)%POOL.length;setApDefaults();}
+}
 function perfil(sc,bid){
   const B=BUSES[bid];
   return partesDevs(sc,bid).map(devs=>{
@@ -807,7 +813,7 @@ function uMinPerfil(sc,bid){
   let u=U_PS;perfil(sc,bid).forEach(p=>p.pts.forEach(q=>{u=Math.min(u,q.u);}));return u;
 }
 
-function whyBus(sc,bid){
+function whyBus(sc,bid,oculta){
   const e=busEval(sc,bid);
   if(okBus(sc,bid))return{ok:true,txt:'el bus cumple los cinco criterios y es la solución más barata que lo hace ('+fmtC(e.coste)+')'};
   const m=[];
@@ -816,7 +822,7 @@ function whyBus(sc,bid){
   if(!e.uOk)m.push('el dispositivo más lejano se queda en '+fmtU(e.uMin)+', por debajo de '+fmtU(U_MIN));
   if(!e.psOk)m.push(fmtL(e.dPs)+' entre la fuente y un dispositivo, por encima de '+L_PS_MAX+' m');
   if(!e.ddOk)m.push(fmtL(e.dDd)+' entre dos dispositivos, por encima de '+L_DD_MAX+' m');
-  if(e.ok)m.push('cumple, pero hay una solución de bus más barata ('+fmtC(busCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
+  if(e.ok)m.push(oculta?'cumple, pero hay una solución de bus más barata que también cumple':'cumple, pero hay una solución de bus más barata ('+fmtC(busCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
   return{ok:false,txt:m.join('; ')};
 }
 function whyLog(sc,lid){
@@ -824,7 +830,7 @@ function whyLog(sc,lid){
   if(e.ok)return{ok:true,txt:'la lógica de escena cumple los tres requisitos de la instalación'};
   return{ok:false,txt:e.req.filter(r=>!r.ok).map(r=>'incumple «'+r.n.toLowerCase()+'»').join('; ')};
 }
-function whyCan(sc,cid){
+function whyCan(sc,cid,oculta){
   const e=canEval(sc,cid),C=CANALES[cid];
   if(okCan(sc,cid))return{ok:true,txt:'el canal es del tipo correcto, aguanta corriente y pico, y es el más barato que lo hace ('+fmtC(e.coste)+')'};
   const m=[];
@@ -832,7 +838,7 @@ function whyCan(sc,cid){
   if(!e.iOk)m.push(fmtIc(sc.carga.i)+' de carga sobre '+fmtIc(C.inom)+' nominales');
   if(!e.picoOk)m.push(fmtIp(sc.carga.ipico)+' de pico sobre '+fmtIp(C.ipico)+' admisibles');
   if(!e.pOk)m.push(n0(sc.carga.p)+' W sobre los 250 W del regulador');
-  if(e.ok)m.push('cumple, pero hay un canal más barato ('+fmtC(canCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
+  if(e.ok)m.push(oculta?'cumple, pero hay un canal más barato que también cumple':'cumple, pero hay un canal más barato ('+fmtC(canCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
   return{ok:false,txt:m.join('; ')};
 }
 
@@ -842,7 +848,7 @@ let expIdx=0,expBus='b1';
 let apTopic='caida',apIdx=0,apF='f320',apLog='l_dir',apBus='b1';
 let retoK=0;
 let retoCh={bus:'b1',log:'l_dir',can:'c10'};
-let retoChecked=false,retoOkBus=false,retoOkLog=false,retoOkCan=false,retoSolved=false,retoMsg='';
+let retoChecked=false,retoOkBus=false,retoOkLog=false,retoOkCan=false,retoSolved=false,retoMsg='',retoAviso='',intentos=0;
 let solved=false,autoRunning=false,QUIZ={};
 let hwStep=0,hwT=0,busStep=0,busT=0;
 
@@ -874,9 +880,9 @@ function seedReto(k){
     log:mal(PROGK,k2=>okLog(sc,k2),1),
     can:mal(CANK,k2=>okCan(sc,k2),2),
   };
-  retoChecked=false;retoOkBus=false;retoOkLog=false;retoOkCan=false;retoSolved=false;retoMsg='';
+  retoChecked=false;retoOkBus=false;retoOkLog=false;retoOkCan=false;retoSolved=false;retoMsg='';retoAviso='';intentos=0;
 }
-seedReto(0);
+seedReto(1);
 
 // ===================== 4. MATERIALES =====================
 function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
@@ -1320,9 +1326,9 @@ function drawReto(c){
 
   const gx=30,gw=640;
   const ejes=[
-    ['1 · Solución de bus',BUSES[cfg.bus].n,retoOkBus,whyBus(sc,cfg.bus).txt],
+    ['1 · Solución de bus',BUSES[cfg.bus].n,retoOkBus,whyBus(sc,cfg.bus,true).txt],
     ['2 · Lógica de la escena',PROGS[cfg.log].n,retoOkLog,whyLog(sc,cfg.log).txt],
-    ['3 · Canal del actuador',CANALES[cfg.can].n,retoOkCan,whyCan(sc,cfg.can).txt],
+    ['3 · Canal del actuador',CANALES[cfg.can].n,retoOkCan,whyCan(sc,cfg.can,true).txt],
   ];
   ejes.forEach((e2,i)=>{
     const y=150+i*128;
@@ -1579,12 +1585,13 @@ function buildControls(){
     html+=lbl('3 · Canal del actuador')+optBtns('rc',CANK.map(k=>[k,CSHORT[k]]),retoCh.can);
   }
   bar.innerHTML=html;
+  bar.querySelectorAll('[data-sc],[data-ap]').forEach(b=>{const i=parseInt(b.getAttribute('data-sc')!==null?b.getAttribute('data-sc'):b.getAttribute('data-ap'),10);if(escLock(i)){b.disabled=true;b.title='Es la instalación de tu Reto';b.style.opacity='0.45';}});
   const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
     if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
-  wire('data-sc',v=>{expIdx=parseInt(v,10);expBus='b1';hwStep=0;});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa instalación es la de tu Reto: se abre aquí cuando la resuelvas.');return;}expIdx=i;expBus='b1';hwStep=0;});
   wire('data-bus',v=>{expBus=v;});
   wire('data-tp',v=>{apTopic=v;setApDefaults();});
-  wire('data-ap',v=>{apIdx=parseInt(v,10);setApDefaults();hwStep=0;});
+  wire('data-ap',v=>{const i=parseInt(v,10);if(escLock(i)){showToast('Esa instalación es la de tu Reto: se abre aquí cuando la resuelvas.');return;}apIdx=i;setApDefaults();hwStep=0;});
   wire('data-f',v=>{apF=v;});
   wire('data-lg',v=>{apLog=v;hwStep=0;});
   wire('data-cb',v=>{apBus=v;});
@@ -1616,6 +1623,7 @@ function updateScenarioInfo(){
 
 function setMode(k){
   mode=k;hwStep=0;
+  if(k!=='reto')fixSc();
   ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('retoTitle').style.display=k==='reto'?'block':'none';
@@ -1632,13 +1640,13 @@ function newSignal(){
     showToast('🏠 '+expSc().nom+' — '+expSc().devs.length+' dispositivos en '+fmtL(Lmax(expSc()))+' de bus. Empieza por la fuente más barata y sube sólo lo necesario.');}
   else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);setApDefaults();
     showToast('🧩 '+apSc().nom+' — el mismo estudio sobre otra instalación.');}
-  else{seedReto(null);updateRetoSpec();
+  else{seedReto(null);fixSc();updateRetoSpec();
     showToast('🎯 Nueva puesta en marcha: '+retoSc().nom+'. Las tres decisiones de partida están mal.');}
   synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
 }
 
 // ===================== 11. TELEMETRÍA Y REPORTE =====================
-function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function teleRow(l,v,cls){if(mode==='reto'&&(cls==='good'||cls==='bad'))cls='';return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
 function updateTele(){
   const sc=curSc(),cfg=curCfg();
   const e=busEval(sc,cfg.bus),cn=consumo(sc,cfg.bus),ec=canEval(sc,cfg.can),elg=logEval(sc,cfg.log);
@@ -1690,6 +1698,7 @@ function updateReport(){
     }
   }else{
     if(retoChecked)html+=retoMsg;
+    else if(retoAviso)html+=retoAviso;
     else html+=`<span class="mono">Elige la solución de bus, la lógica de escena y el canal, y pulsa Comprobar.</span>`;
   }
   el('report').innerHTML=html;
@@ -1699,21 +1708,29 @@ function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const sc=retoSc();
-  el('retoSpec').innerHTML=`Pon en marcha <b>${sc.nom.toLowerCase()}</b>: (1) la <b>solución de bus</b> más barata que cumple los cinco criterios con ${sc.devs.length} dispositivos en ${fmtL(Lmax(sc))}; (2) la <b>lógica de escena</b> que cumple los tres requisitos de la instalación; y (3) el <b>canal</b> más barato que aguanta ${fmtIc(sc.carga.i)} de ${TIPON[sc.carga.tipo]} con ${fmtIp(sc.carga.ipico)} de pico.`;
+  el('retoSpec').innerHTML=`Pon en marcha <b>${sc.nom.toLowerCase()}</b>: (1) la <b>solución de bus</b> más barata que cumple los cinco criterios con ${sc.devs.length} dispositivos en ${fmtL(Lmax(sc))}; (2) la <b>lógica de escena</b> que cumple los tres requisitos de la instalación; y (3) el <b>canal</b> más barato que aguanta ${fmtIc(sc.carga.i)} de ${TIPON[sc.carga.tipo]} con ${fmtIp(sc.carga.ipico)} de pico.<br><span class="mono">Intentos fallidos: <b id="intentos">${intentos}</b> de 3</span>`;
 }
 function retoExplain(){
   const sc=retoSc(),cfg=retoCfg();
-  return [whyBus(sc,cfg.bus).txt,whyLog(sc,cfg.log).txt,whyCan(sc,cfg.can).txt].join(' · ');
+  return [whyBus(sc,cfg.bus,true).txt,whyLog(sc,cfg.log).txt,whyCan(sc,cfg.can,true).txt].join(' · ');
 }
 function checkReto(){
   const sc=retoSc();
   retoOkBus=okBus(sc,retoCh.bus);
   retoOkLog=okLog(sc,retoCh.log);
   retoOkCan=okCan(sc,retoCh.can);
-  retoSolved=retoOkBus&&retoOkLog&&retoOkCan;retoChecked=true;solved=retoSolved;
+  retoSolved=retoOkBus&&retoOkLog&&retoOkCan;retoChecked=true;solved=retoSolved;retoAviso='';
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  if(!retoSolved)intentos++;
   retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
-  refreshAll();
+  if(!retoSolved&&intentos>=3){
+    // tres fallos: no se aprueba por eliminación, se plantea otra instalación
+    seedReto();fixSc();
+    retoAviso=retoMsg+'<br><span class="mono"><span class="dtc">Tres intentos sin acertar.</span> Se te plantea otra instalación: razona con sus datos, no por descarte.</span>';
+    showToast('Tres intentos sin acertar: se te plantea otra instalación.');
+    buildControls();updateScenarioInfo();
+  }
+  updateRetoSpec();refreshAll();
 }
 
 // ===================== 13. QUIZ =====================
@@ -1722,28 +1739,28 @@ function buildQuiz(){
     explora:{
       pregunta:'Mover la fuente de bus del cuadro general al centro del grupo arregla la tensión del dispositivo más lejano. ¿Por qué no arregla nada más?',
       opciones:[
-        {t:'Porque cambiar la fuente de sitio sólo cambia el CAMINO que recorre la corriente por el cobre: la distancia al más lejano se parte por dos y la caída baja mucho más que a la mitad. Pero ni el número de dispositivos ni la corriente que piden cambian un miliamperio.',ok:true,why:'Correcto. La posición actúa sobre dos de los cinco criterios —tensión y distancia fuente→dispositivo— y sobre ningún otro. Si lo que sobra son unidades de carga, hay que cambiar de fuente o partir el bus.'},
-        {t:'Porque al centrar la fuente el bus queda dividido en dos segmentos independientes y cada uno admite 64 dispositivos.',ok:false,why:'Eso lo hace un REPETIDOR, no la posición. Una fuente en el centro alimenta un único segmento eléctrico: los 64 dispositivos se siguen contando de una sola vez.'},
-        {t:'Porque la fuente en el centro entrega el doble de corriente al repartirla en dos direcciones.',ok:false,why:'La corriente máxima la fija el modelo de la fuente, no dónde se atornilla. Una fuente de 320 mA da 320 mA esté donde esté.'},
-        {t:'Porque el consumo de cada dispositivo depende de lo lejos que esté de la fuente.',ok:false,why:'La unidad de carga es constante: 10 mA por dispositivo, esté a 5 o a 600 metros. Lo que depende de la distancia es la caída de tensión, no el consumo.'},
+        {t:'Porque cambiar la fuente de sitio sólo cambia el CAMINO de la corriente por el cobre: la distancia al más lejano se reduce y la caída baja, pero ni el número de dispositivos ni la corriente que piden cambian.',ok:true,why:'Correcto. La posición actúa sobre dos de los cinco criterios —tensión y distancia fuente→dispositivo— y sobre ningún otro. Si lo que sobra son unidades de carga, hay que cambiar de fuente o partir el bus.'},
+        {t:'Porque al centrar la fuente el bus queda dividido en dos segmentos eléctricos independientes y cada uno de ellos admite hasta 64 dispositivos por separado.',ok:false,why:'Eso lo hace un REPETIDOR, no la posición. Una fuente en el centro alimenta un único segmento eléctrico: los 64 dispositivos se siguen contando de una sola vez.'},
+        {t:'Porque la fuente colocada en el centro entrega el doble de corriente al repartirla en dos direcciones, y con eso alcanza para más dispositivos en el mismo bus.',ok:false,why:'La corriente máxima la fija el modelo de la fuente, no dónde se atornilla. Una fuente de 320 mA da 320 mA esté donde esté.'},
+        {t:'Porque el consumo de cada dispositivo depende de lo lejos que esté de la fuente: los más lejanos piden más corriente y por eso el problema persiste.',ok:false,why:'La unidad de carga es constante: 10 mA por dispositivo, esté a 5 o a 600 metros. Lo que depende de la distancia es la caída de tensión, no el consumo.'},
       ],
     },
     aplica:{
       pregunta:'En la escena «examen» el pulsador de la pared no debe poder apagar la luz. ¿Por qué no basta con que la escena escriba «encendido» en el canal?',
       opciones:[
-        {t:'Porque una escritura directa deja el canal libre: en cuanto llega otro telegrama —del pulsador o del detector— el canal obedece al último que habló. Para que el pulsador no mande hay que quitarle la autoridad al canal, bloqueándolo, no repetirle el valor.',ok:true,why:'Correcto. Escribir un valor y retener el mando son mecanismos distintos. El bloqueo, la posición forzada y la inhibición del detector se eligen por lo que deben impedir, no por lo que deben escribir.'},
-        {t:'Porque el telegrama de la escena tarda en propagarse por el bus y el del pulsador llega antes.',ok:false,why:'A 9600 bit/s un telegrama tarda milisegundos y el orden lo fija quién pulsa, no la velocidad. El problema no es de tiempos: es de autoridad sobre el canal.'},
-        {t:'Porque el pulsador y la escena usan direcciones de grupo distintas y hay que unificarlas.',ok:false,why:'Justamente escriben en el MISMO objeto de grupo: por eso compiten. Si usaran direcciones distintas el pulsador no afectaría al canal en absoluto.'},
-        {t:'Porque quien deshace la escena es el detector de presencia, y basta con inhibirlo.',ok:false,why:'Inhibir el detector resuelve el caso de la vivienda, donde el que estropea la escena es el detector. En el aula el que manda de más es el PULSADOR, y para ése la inhibición del detector no sirve de nada.'},
+        {t:'Porque una escritura directa deja el canal libre: llega otro telegrama del pulsador y el canal obedece al último que habló. Para que el pulsador no mande hay que quitarle la autoridad al canal, es decir, bloquearlo.',ok:true,why:'Correcto. Escribir un valor y retener el mando son mecanismos distintos. El bloqueo, la posición forzada y la inhibición del detector se eligen por lo que deben impedir, no por lo que deben escribir.'},
+        {t:'Porque el telegrama de la escena tarda más en propagarse por el bus que el del pulsador, que llega primero y deja la luz en el estado que él pide.',ok:false,why:'A 9600 bit/s un telegrama tarda milisegundos y el orden lo fija quién pulsa, no la velocidad. El problema no es de tiempos: es de autoridad sobre el canal.'},
+        {t:'Porque el pulsador y la escena usan direcciones de grupo distintas, y mientras no se unifiquen en una sola el canal seguirá recibiendo órdenes contradictorias.',ok:false,why:'Justamente escriben en el MISMO objeto de grupo: por eso compiten. Si usaran direcciones distintas el pulsador no afectaría al canal en absoluto.'},
+        {t:'Porque quien deshace la escena es el detector de presencia, que reenvía su último estado, y basta con inhibir el detector para que el pulsador deje de mandar.',ok:false,why:'Inhibir el detector resuelve el caso de la vivienda, donde el que estropea la escena es el detector. En el aula el que manda de más es el PULSADOR, y para ése la inhibición del detector no sirve de nada.'},
       ],
     },
     reto:{
       pregunta:'El anexo remoto consume 164,8 kWh al año en el sistema de bus y ahorra 42,3 kWh de alumbrado. ¿Qué se hace con ese resultado?',
       opciones:[
-        {t:'Escribirlo en la memoria del proyecto tal cual. Cuarenta y cuatro dispositivos permanentemente alimentados no se pagan con dos luminarias estancas: el anexo se automatiza por control y seguridad, y esa es la justificación honesta.',ok:true,why:'Correcto. El balance depende de cuánta carga gobierna la instalación. En el edificio de aulas sale +586,9 kWh al año y en el anexo sale −122,4: la misma tecnología, dos conclusiones opuestas.'},
-        {t:'Se rehace la cuenta con la fuente de 160 mA, que consume mucho menos en vacío.',ok:false,why:'La de 160 mA no vale ahí: 44 dispositivos piden 440 mA. Elegir una fuente que no cumple para mejorar un balance no mejora nada, sólo deja el bus sin alimentar.'},
-        {t:'Se reparte el consumo del sistema entre los quince años de vida útil del equipo.',ok:false,why:'El consumo es de 164,8 kWh CADA año, no una vez. Repartirlo entre quince años sería contarlo quince veces menos de lo que ocurre.'},
-        {t:'Se ignora: el consumo del bus es despreciable frente al de la carga que gobierna.',ok:false,why:'165 kWh al año no son despreciables frente a un alumbrado de 116 W. Que en otras instalaciones sí lo sean es exactamente lo que hace obligatorio calcularlo caso por caso.'},
+        {t:'Escribirlo en la memoria del proyecto tal cual: cuarenta y cuatro dispositivos permanentemente alimentados no se pagan con dos luminarias estancas, y el anexo se automatiza por control y seguridad.',ok:true,why:'Correcto. El balance depende de cuánta carga gobierna la instalación. En el edificio de aulas sale +586,9 kWh al año y en el anexo sale −122,4: la misma tecnología, dos conclusiones opuestas.'},
+        {t:'Se rehace la cuenta con la fuente de 160 mA, que consume mucho menos en vacío, hasta que el balance anual del anexo salga positivo y se pueda defender.',ok:false,why:'La de 160 mA no vale ahí: 44 dispositivos piden 440 mA. Elegir una fuente que no cumple para mejorar un balance no mejora nada, sólo deja el bus sin alimentar.'},
+        {t:'Se reparte el consumo del sistema entre los quince años de vida útil del equipo, de modo que el gasto anual quede por debajo del ahorro estimado.',ok:false,why:'El consumo es de 164,8 kWh CADA año, no una vez. Repartirlo entre quince años sería contarlo quince veces menos de lo que ocurre.'},
+        {t:'Se ignora el resultado: el consumo del bus es despreciable frente al de la carga que gobierna, y el balance de energía no es un criterio de proyecto.',ok:false,why:'165 kWh al año no son despreciables frente a un alumbrado de 116 W. Que en otras instalaciones sí lo sean es exactamente lo que hace obligatorio calcularlo caso por caso.'},
       ],
     },
   };
@@ -1787,7 +1804,10 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
-  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  const btn=el('btnAuto'),label=btn.textContent;
+  // el recorrido es una DEMOSTRACIÓN: se guarda el estado del alumno y se restituye al terminar
+  const prev={mode,expIdx,expBus,apTopic,apIdx,apF,apLog,apBus,retoK,retoCh:{...retoCh},intentos,retoSolved,retoChecked,retoMsg,retoAviso};
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -1870,7 +1890,20 @@ async function runAuto(){
     checkReto();await sleep(2800);
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
-    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    expIdx=prev.expIdx;expBus=prev.expBus;apTopic=prev.apTopic;apIdx=prev.apIdx;apF=prev.apF;apLog=prev.apLog;apBus=prev.apBus;
+    if(prev.retoSolved){
+      retoK=prev.retoK;retoCh=prev.retoCh;retoSolved=true;retoChecked=prev.retoChecked;retoMsg=prev.retoMsg;retoAviso=prev.retoAviso;intentos=prev.intentos;
+      retoOkBus=retoOkLog=retoOkCan=true;
+    }else if(prev.retoK===3){
+      seedReto();   // la demostración mostró la solución de ESTE caso: se plantea otro
+    }else{
+      retoK=prev.retoK;retoCh=prev.retoCh;retoChecked=false;retoSolved=false;retoMsg='';retoAviso='';intentos=prev.intentos;
+      retoOkBus=false;retoOkLog=false;retoOkCan=false;
+    }
+    solved=false;
+    autoRunning=false;
+    setMode(prev.mode);
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;
   }
 }
 
@@ -1927,6 +1960,7 @@ window.__labDebug={
   quizAnswer:i=>answer(i),
   hwStep:()=>hwStep, hwCount:()=>hwCount(),
   newSignal:()=>newSignal(),
+  intentos:()=>intentos,
   solved:()=>solved,
 };
 </script>

@@ -71,6 +71,7 @@ const RETO_POOL=[
 ];
 let retoIdx=0, retoOpB=[], retoCin=0, retoChecked=false, retoOkData=false, retoOkEnable=false, retoSolved=false, retoMsg='';
 let solved=false, autoRunning=false, QUIZ={};
+let intentos=0, demoShow=false;      // intentos fallidos con el objetivo (3 → objetivo nuevo) · demostración sin tocar el reto
 let hwStep=0, hwT=0;
 
 function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
@@ -78,14 +79,14 @@ function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&25
 function seedReto(idx){
   retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
   const f=RETO_POOL[retoIdx],n=f.n;
-  retoOpB=new Array(n).fill(0); retoCin=0;
+  retoOpB=new Array(n).fill(0); retoCin=0; intentos=0;
   retoChecked=false; retoOkData=false; retoOkEnable=false; retoSolved=false; retoMsg='';
 }
 seedReto(0);
 
 // dispositivo activo (según el modo) que refleja el entrenador 3D
 function curDevice(){
-  if(mode==='reto'){const f=RETO_POOL[retoIdx];const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0);return{kind:'add',n:f.n,A:f.A,B:opBval,cin:retoCin};}
+  if(mode==='reto'){const f=RETO_POOL[retoIdx];const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0);return{kind:'add',n:f.n,A:f.A,B:opBval,cin:retoCin,hide:!(retoChecked||demoShow)};}
   if(mode==='aplica'){
     if(apTopic==='eq'){const f=APLICA_POOL[apFnIdx];return{kind:'cmp',n:f.n,A:f.A,B:f.B};}
     if(apTopic==='ovf'){const f=OVF_POOL[apOvfIdx];return{kind:'add',n:f.n,A:f.A,B:f.B,cin:0};}
@@ -363,55 +364,73 @@ function drawAplica(c){
   }
 }
 
-function drawReto(c){
-  const f=RETO_POOL[retoIdx],n=f.n,target=invBits(f.B,n);
+// evaluación pura de la configuración actual (la usan «Comprobar» y la demostración)
+function retoEval(){
+  const f=RETO_POOL[retoIdx],n=f.n,mask=(1<<n)-1,target=invBits(f.B,n);
   const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0);
+  const okData=(opBval===target), okEn=(retoCin===1);
+  // A + B' + Cin ≡ A − B (mod 2^n) tiene exactamente dos soluciones: (¬B, Cin=1) y (−B precalculado, Cin=0). Ambas restan.
+  const okAlt=(opBval===((-f.B)&mask))&&retoCin===0;
   const r=rippleAdd(f.A,opBval,retoCin,n);
+  return {okData,okEn,okAlt,solved:(okData&&okEn)||okAlt,opBval,r};
+}
+function drawReto(c){
+  const f=RETO_POOL[retoIdx],n=f.n;
+  const ev=retoEval(), r=ev.r;
+  const vCh=retoChecked||demoShow, vSol=demoShow?ev.solved:retoSolved;
   c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';c.fillText('RETO · Construye un restador',30,42);
   c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
-  wrapText(c,'Calcula '+f.A+' − '+f.B+' con un SUMADOR: invierte B (¬B, complemento a 1) en los bits de abajo y activa Cin=1 (el +1). '+f.ctx+'.',30,64,660,18);
+  wrapText(c,'Calcula '+f.A+' − '+f.B+' con un SUMADOR: decide qué bits entran por el puerto B (fila B′) y qué acarreo inicial Cin usar para que la suma sea la resta pedida. '+f.ctx+'.',30,64,660,18);
   drawNumRow(c,170,130,'A = '+f.A,f.A,n,ACC,42);
   drawNumRow(c,170,180,'B = '+f.B,f.B,n,'#C08CF8',42);
-  // fila que el usuario configura (¬B)
-  c.fillStyle='#9fb0cf';c.font='bold 14px Outfit, sans-serif';c.textAlign='right';c.fillText('tu ¬B',158,254);
-  for(let k=0;k<n;k++){const i=n-1-k;const bx=170+k*42;const b=retoOpB[i]?1:0;const good=(b===((target>>i)&1));
-    c.strokeStyle=retoChecked?(good?OK_HEX:BAD_HEX):hexA(WARN_HEX,0.6);c.lineWidth=2;rr(c,bx,240,37,29,4);c.stroke();
+  // fila que el usuario configura (B′): sin marcar qué bit está bien
+  c.fillStyle='#9fb0cf';c.font='bold 14px Outfit, sans-serif';c.textAlign='right';c.fillText('tu B′',158,254);
+  for(let k=0;k<n;k++){const i=n-1-k;const bx=170+k*42;const b=retoOpB[i]?1:0;
+    c.strokeStyle=hexA(WARN_HEX,0.6);c.lineWidth=2;rr(c,bx,240,37,29,4);c.stroke();
     c.fillStyle=b?WARN_HEX:'#4a525e';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';c.fillText(b,bx+18,262);}
-  c.fillStyle=retoCin?WARN_HEX:BAD_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('+ Cin = '+retoCin,170,308);
+  c.fillStyle=retoCin?WARN_HEX:'#9fb0cf';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('+ Cin = '+retoCin,170,308);
   c.strokeStyle=hexA('#9fb0cf',0.4);c.lineWidth=1;c.beginPath();c.moveTo(170,320);c.lineTo(170+n*42,320);c.stroke();
-  drawNumRow(c,170,332,'Suma =',r.val,n,OK_HEX,42);
-  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText('con signo: '+toSigned(r.val,n)+'   (objetivo: '+(f.A-f.B)+')',170,400);
+  // la suma solo se muestra al comprobar: verla en vivo permitiría ajustar bits hasta que cuadre sin razonar
+  if(vCh){
+    drawNumRow(c,170,332,'Suma =',r.val,n,OK_HEX,42);
+    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText('con signo: '+toSigned(r.val,n)+'   (objetivo: '+(f.A-f.B)+')',170,400);
+  }else{
+    c.fillStyle='#5a6472';c.font='bold 17px Outfit, sans-serif';c.textAlign='left';c.fillText('Suma = ?',170,360);
+    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.fillText('El sumador entrega su resultado al comprobar.',170,400);
+  }
   rpanel(c,PX.x,PX.y,PX.w,150,'TU CONFIGURACIÓN');
-  const nGood=retoOpB.reduce((a,b,i)=>a+(((b?1:0)===((target>>i)&1))?1:0),0);
-  prow(c,PX.x,PX.y+56,PX.w,'Bits de ¬B correctos',nGood+' / '+n,nGood===n?OK_HEX:WARN_HEX);
-  prow(c,PX.x,PX.y+86,PX.w,'Acarreo inicial (Cin)',String(retoCin),retoCin?OK_HEX:BAD_HEX);
-  prow(c,PX.x,PX.y+116,PX.w,'Tu resultado (con signo)',String(toSigned(r.val,n)),(toSigned(r.val,n)===(f.A-f.B))?OK_HEX:'#C9D3E2');
+  prow(c,PX.x,PX.y+56,PX.w,'Fila B′ (puerto B)',binStr(ev.opBval,n),'#C9D3E2');
+  prow(c,PX.x,PX.y+86,PX.w,'Acarreo inicial (Cin)',String(retoCin),'#C9D3E2');
+  prow(c,PX.x,PX.y+116,PX.w,'Tu resultado (con signo)',vCh?String(toSigned(r.val,n)):'—','#C9D3E2');
   const by=PX.y+170;
-  if(retoChecked){
+  if(vCh){
     c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
-    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
-    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.strokeStyle=vSol?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=vSol?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';c.fillText(vSol?(demoShow?'✔ CORRECTO (demostración)':'✔ CORRECTO'):'✗ REVISA',PX.x+14,by+26);
     c.font='bold 13px Outfit, sans-serif';
-    c.fillStyle=retoOkData?OK_HEX:BAD_HEX;c.fillText((retoOkData?'✔':'✗')+' B invertido bit a bit (¬B)',PX.x+14,by+54);
-    c.fillStyle=retoOkEnable?OK_HEX:BAD_HEX;c.fillText((retoOkEnable?'✔':'✗')+' Acarreo inicial Cin = 1',PX.x+14,by+78);
-    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,n),PX.x+14,by+106,PX.w-28,17);
+    c.fillStyle=vSol?OK_HEX:BAD_HEX;c.fillText((vSol?'✔':'✗')+' La suma coincide con A − B',PX.x+14,by+54);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,n,vSol),PX.x+14,by+82,PX.w-28,17);
+    if(!demoShow){c.fillStyle='#7a8494';c.fillText('Intentos fallidos con este objetivo: '+intentos+' / 3',PX.x+14,by+300);}
   }else{
     c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
     c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
-    wrapText(c,'Regla: A − B = A + ¬B + 1. Paso 1: invierte CADA bit de B (0→1, 1→0) en la fila ¬B. Paso 2: activa Cin=1 para inyectar el "+1". El sumador hará el resto.',PX.x+14,by+26,PX.w-28,18);
+    wrapText(c,'Un sumador solo suma: para restar, lo que entra por el puerto B debe representar −B. Razona en complemento a 2 qué bits poner en B′ y qué acarreo inicial usar.',PX.x+14,by+26,PX.w-28,18);
     c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
-    wrapText(c,'Cuidado con el error clásico: si inviertes B pero olvidas Cin=1, obtienes A − B − 1 (una unidad de menos). Ajusta abajo y pulsa "Comprobar".',PX.x+14,by+96,PX.w-28,18);
+    wrapText(c,'Al pulsar "Comprobar" el sumador calcula con tu configuración y se compara con A − B. Tras 3 intentos fallidos el objetivo se renueva.',PX.x+14,by+110,PX.w-28,18);
+    c.fillText('Intentos fallidos con este objetivo: '+intentos+' / 3',PX.x+14,by+300);
   }
 }
-function retoExplain(f,n){
-  const target=invBits(f.B,n);
-  const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0);
-  const r=rippleAdd(f.A,opBval,retoCin,n);
-  if(retoSolved)return 'A + ¬B + 1 = '+f.A+' + '+target+' + 1 = '+f.A+' − '+f.B+' = '+toSigned(r.val,n)+'. Un restador es un sumador con B invertido y acarreo inicial 1: el mismo hardware suma y resta.';
-  let s='';
-  if(!retoOkData){let bad=0;for(let i=0;i<n;i++)if((( opBval>>i)&1)!==((target>>i)&1))bad++;s+='Hay '+bad+' bit(s) de ¬B mal: cada bit de la fila ¬B debe ser el opuesto del bit de B ('+binStr(f.B,n)+' → '+binStr(target,n)+'). ';}
-  if(!retoOkEnable)s+='Falta el acarreo inicial: con Cin=0 el sumador da A + ¬B = A − B − 1 = '+toSigned(r.val,n)+' (te falta el +1). Activa Cin=1. ';
-  return s||'Revisa ¬B y el acarreo inicial.';
+function retoExplain(f,n,sol){
+  const mask=(1<<n)-1,ev=retoEval(),r=ev.r;
+  if(sol){
+    const target=invBits(f.B,n);
+    if(ev.okAlt&&!(ev.okData&&ev.okEn))return 'Precalculaste −B = '+binStr(ev.opBval,n)+' (complemento a 2) y lo sumaste con Cin=0: '+f.A+' + '+ev.opBval+' = '+toSigned(r.val,n)+'. Correcto; el hardware estándar lo hace con ¬B y Cin=1, sin calcular −B a mano.';
+    return 'A + ¬B + 1 = '+f.A+' + '+target+' + 1 = '+f.A+' − '+f.B+' = '+toSigned(r.val,n)+'. Un restador es un sumador con B invertido y acarreo inicial 1: el mismo hardware suma y resta.';
+  }
+  // Cualitativo: lo que HACE tu configuración, sin decir qué bits ni qué Cin son los correctos
+  const diff=(r.val-((f.A-f.B)&mask))&mask;
+  if(diff===mask)return 'Tu suma da '+toSigned(r.val,n)+' en vez de '+(f.A-f.B)+': una unidad de menos. Piensa en qué diferencia hay entre invertir los bits de B y obtener −B en complemento a 2.';
+  return 'Tu suma da '+toSigned(r.val,n)+', no '+(f.A-f.B)+'. Piensa qué valor debe entrar por el puerto B del sumador (y con qué acarreo inicial) para que la suma equivalga a restar B.';
 }
 
 function drawBoard(){
@@ -421,7 +440,7 @@ function drawBoard(){
 }
 function boardClick(){
   if(mode==='aplica')showToast('🧮 La resta es una suma disfrazada: A − B = A + ¬B + 1. El desbordamiento (con signo) no es lo mismo que el acarreo (sin signo). La igualdad es la AND de los XNOR bit a bit.');
-  else if(mode==='reto')showToast('🎯 Invierte cada bit de B en la fila ¬B y activa Cin=1. El sumador calculará A − B. Si olvidas Cin, te faltará 1.');
+  else if(mode==='reto')showToast('🎯 Configura la fila B′ y el acarreo inicial para que el sumador calcule A − B. El resultado se ve al comprobar.');
   else showToast('🔧 Conduce el bloque: cambia las entradas del sumador o los números a comparar y observa el acarreo, la suma y el veredicto.');
 }
 
@@ -465,8 +484,10 @@ function drawChip3D(dev,step){
   }else{const N=dev.n,r=rippleAdd(dev.A,dev.B,dev.cin,N);
     c.fillText('SUMADOR '+N+' bit',90,28);
     c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText(dev.A+' + '+dev.B+(dev.cin?' + 1':''),90,58);
-    c.font='bold 30px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('= '+r.val,90,108);
-    c.font='12px Outfit, sans-serif';c.fillStyle=r.cout?WARN_HEX:'#9fb0cf';c.fillText('Cout = '+r.cout,90,148);
+    if(dev.hide){c.font='bold 30px Outfit, sans-serif';c.fillStyle='#5a6472';c.fillText('= ?',90,108);
+      c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('se calcula al comprobar',90,148);}
+    else{c.font='bold 30px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('= '+r.val,90,108);
+    c.font='12px Outfit, sans-serif';c.fillStyle=r.cout?WARN_HEX:'#9fb0cf';c.fillText('Cout = '+r.cout,90,148);}
   }
   chTex.needsUpdate=true;
 }
@@ -487,6 +508,7 @@ function updateHW(){
       l.material.emissiveIntensity=active?1.5:(s?0.7:0.12);l.material.color.setHex(s?(active?0x7CD992:0x3a5a44):(active?0x8AB4F8:0x2a3550));}
     for(let i=0;i<=N;i++){const l=carryLEDs[i];l.visible=true;const cv=r.carries[i],active=(i===step||i===step+1);
       l.material.emissiveIntensity=(cv&&active)?1.5:(cv?0.6:0.1);l.material.color.setHex(cv?0xE9C46A:0x2a2a20);}
+    if(dev.hide){bitLEDs.forEach(l=>l.visible=false);carryLEDs.forEach(l=>l.visible=false);}   // reto: la suma se ve al comprobar
   }
   drawChip3D(dev,step);
 }
@@ -549,7 +571,7 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 const MODE_META={
   explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Elige un bloque (sumador completo, sumador de N bits o comparador) y condúcelo: cambia las entradas y observa el acarreo, la suma o el veredicto.'},
   aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Comprueba que restar es sumar el complemento a 2 (A−B=A+¬B+1), cómo se detecta el desbordamiento con signo, y que la igualdad es la AND de los XNOR.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Construye un restador: invierte B (¬B) y activa Cin=1 para que el sumador calcule A − B. D_i = ¬B_i.'},
+  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Construye un restador: configura lo que entra por el puerto B del sumador y su acarreo inicial para que el sumador calcule A − B.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){
@@ -593,17 +615,17 @@ function buildControls(){
   }else{
     const f=RETO_POOL[retoIdx],n=f.n;
     html+=lbl('Cin:')+`<button class="b sm ${retoCin?'on':''}" data-rcin="t">${retoCin}</button>`;
-    html+=lbl('¬B (clic=0/1):')+Array.from({length:n},(_,k)=>{const i=n-1-k;return `<button class="b sm ${retoOpB[i]?'on':''}" data-rb="${i}" style="min-width:42px">b${i}:${retoOpB[i]?1:0}</button>`;}).join('');
+    html+=lbl('B′ (clic=0/1):')+Array.from({length:n},(_,k)=>{const i=n-1-k;return `<button class="b sm ${retoOpB[i]?'on':''}" data-rb="${i}" style="min-width:42px">b${i}:${retoOpB[i]?1:0}</button>`;}).join('');
     bar.innerHTML=html;
-    bar.querySelectorAll('[data-rcin]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCin=retoCin?0:1;retoChecked=false;retoSolved=false;synth.beep(retoCin?820:360,0.05,0.04);afterEdit();});
-    bar.querySelectorAll('[data-rb]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.rb,10);retoOpB[i]=retoOpB[i]?0:1;retoChecked=false;retoSolved=false;synth.beep(retoOpB[i]?900:420,0.04,0.035);afterEdit();});
+    bar.querySelectorAll('[data-rcin]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCin=retoCin?0:1;retoChecked=false;retoSolved=false;solved=false;synth.beep(retoCin?820:360,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rb]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.rb,10);retoOpB[i]=retoOpB[i]?0:1;retoChecked=false;retoSolved=false;solved=false;synth.beep(retoOpB[i]?900:420,0.04,0.035);afterEdit();});
   }
 }
 function updateScenarioInfo(){
   const box=el('scenarioInfo');
   if(mode!=='reto'){box.style.display='none';return;}
   const f=RETO_POOL[retoIdx];box.style.display='block';
-  box.innerHTML=`Objetivo: <b>${f.A} − ${f.B} = ${f.A-f.B}</b>. Método: A + ¬B + 1 (complemento a 2). Invierte cada bit de B (B=${binStr(f.B,f.n)}) y activa Cin=1.`;
+  box.innerHTML=`Objetivo: <b>${f.A} − ${f.B} = ${f.A-f.B}</b> con un sumador de ${f.n} bits. Configura B′ (lo que entra por el puerto B) y Cin.`;
 }
 function setMode(k){
   mode=k;hwStep=0;
@@ -640,11 +662,12 @@ function updateTele(){
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx],n=f.n,target=invBits(f.B,n);
     const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0),r=rippleAdd(f.A,opBval,retoCin,n);
-    const nGood=retoOpB.reduce((a,b,i)=>a+(((b?1:0)===((target>>i)&1))?1:0),0);
+    const vCh=retoChecked||demoShow;
     t.innerHTML=teleRow('Objetivo',f.A+' − '+f.B+' = '+(f.A-f.B))+
-      teleRow('¬B correctos',nGood+'/'+n,nGood===n?'good':'warn')+
-      teleRow('Cin',String(retoCin),retoCin?'good':'warn')+
-      teleRow('Tu resultado',String(toSigned(r.val,n)),(toSigned(r.val,n)===(f.A-f.B))?'good':'warn')+
+      teleRow('Fila B′',binStr(opBval,n))+
+      teleRow('Cin',String(retoCin))+
+      teleRow('Tu resultado',vCh?String(toSigned(r.val,n)):'— (al comprobar)')+
+      teleRow('Intentos fallidos',intentos+' / 3',intentos?'warn':'')+
       teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn');
     return;
   }
@@ -670,7 +693,7 @@ function updateReport(){
   let html=`<b>${MODE_META[mode].mision}</b><br>`;
   if(mode==='reto'){
     const f=RETO_POOL[retoIdx];
-    html+=retoMsg||`<span class="mono">Calcula ${f.A} − ${f.B}: invierte B (¬B) y pon Cin=1 para que el sumador dé A + ¬B + 1 = A − B. Comprueba.</span>`;
+    html+=retoMsg||`<span class="mono">Calcula ${f.A} − ${f.B} con el sumador: configura B′ y Cin y comprueba. Tras 3 intentos fallidos el objetivo se renueva.</span>`;
   }else if(mode==='aplica'){
     if(apTopic==='sub'){const f=APLICA_POOL[apFnIdx],n=f.n;html+=`<span class="mono">${f.A} − ${f.B} = ${f.A} + ¬${f.B} + 1 = ${f.A} + ${invBits(f.B,n)} + 1. El mismo sumador resta con sólo invertir B y Cin=1.</span>`;}
     else if(apTopic==='ovf'){const f=OVF_POOL[apOvfIdx],n=f.n,r=rippleAdd(f.A,f.B,0,n);const ov=r.carries[n-1]^r.carries[n];html+=`<span class="mono">${toSigned(f.A,n)} + ${toSigned(f.B,n)} ${ov?'DESBORDA':'cabe'}: los métodos de signos y de acarreos (Cin_MSB⊕Cout_MSB) coinciden.</span>`;}
@@ -687,16 +710,26 @@ function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
 // ===================== 12. RETO =====================
 function updateRetoSpec(){
   const f=RETO_POOL[retoIdx],n=f.n;
-  el('retoSpec').innerHTML=`Calcula <b>${f.A} − ${f.B}</b> con un sumador de ${n} bits. Un restador = sumador con <b>B invertido</b> (¬B, complemento a 1) y <b>Cin=1</b> (que aporta el +1). Configura cada bit de ¬B y activa Cin. Pulsa "Comprobar".`;
+  el('retoSpec').innerHTML=`Calcula <b>${f.A} − ${f.B}</b> con un sumador de ${n} bits. Configura la fila <b>B′</b> (lo que entra por el puerto B del sumador) y el acarreo inicial <b>Cin</b> para que el resultado sea la resta. Pulsa "Comprobar" (tras 3 intentos fallidos el objetivo se renueva).`;
 }
 function checkReto(){
-  const f=RETO_POOL[retoIdx],n=f.n,target=invBits(f.B,n);
-  const opBval=retoOpB.reduce((a,b,i)=>a+((b?1:0)<<i),0);
-  retoOkData=(opBval===target);
-  retoOkEnable=(retoCin===1);
-  retoSolved=retoOkData&&retoOkEnable;retoChecked=true;solved=retoSolved;
+  const f=RETO_POOL[retoIdx],n=f.n;
+  const ev=retoEval();
+  retoOkData=ev.okData;
+  retoOkEnable=ev.okEn;
+  retoSolved=ev.solved;retoChecked=true;solved=retoSolved;
   synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
-  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,n)}</span>`;
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,n,retoSolved)}</span>`;
+  if(!retoSolved){
+    intentos++;
+    if(intentos>=3){
+      // 3 fallos: objetivo nuevo (no se aprueba por eliminación) y sin revelar la solución
+      seedReto();updateRetoSpec();solved=false;
+      retoMsg='<span class="mono"><span class="dtc">✗ Revisa</span> — Tres intentos fallidos: el objetivo se renovó ('+RETO_POOL[retoIdx].ctx+'). Razona en complemento a 2 antes de comprobar.</span>';
+      showToast('🔀 Tres intentos fallidos: nuevo objetivo, '+RETO_POOL[retoIdx].ctx+'.');
+      afterEdit();return;
+    }
+  }
   refreshAll();
 }
 
@@ -706,28 +739,28 @@ function buildQuiz(){
     explora:{
       pregunta:'¿Qué produce el acarreo de salida (Cout) de un sumador completo?',
       opciones:[
-        {t:'Cout = 1 cuando al menos DOS de las tres entradas (a, b, cin) valen 1: es la función mayoría, Cout = a·b + cin·(a⊕b). Representa el acarreo que se lleva al bit siguiente.',ok:true,why:'Correcto: sumar tres bits puede dar hasta 3 (=11 binario); el bit alto es el acarreo. Aparece justo cuando hay dos o tres unos entre a, b y cin.'},
-        {t:'Cout = a ⊕ b ⊕ cin, igual que la suma S.',ok:false,why:'Esa es la SUMA S, no el acarreo. Cout es la mayoría de las entradas (a·b + cin·(a⊕b)), que es distinta de la paridad.'},
-        {t:'Cout siempre vale lo mismo que cin.',ok:false,why:'No: con a=b=1 y cin=0, Cout=1 aunque cin=0. El acarreo de salida depende de las tres entradas, no sólo del de entrada.'},
-        {t:'Cout es 1 sólo cuando las tres entradas valen 1.',ok:false,why:'Eso lo cumple la AND, pero Cout también es 1 con exactamente dos unos (p. ej. a=1, b=1, cin=0). Es la mayoría, no la AND.'},
+        {t:'Cout = 1 cuando al menos dos de las tres entradas valen 1 (mayoría, Cout = a·b + cin·(a⊕b)): es el acarreo que se lleva al bit siguiente.',ok:true,why:'Correcto: sumar tres bits puede dar hasta 3 (=11 binario); el bit alto es el acarreo. Aparece justo cuando hay dos o tres unos entre a, b y cin.'},
+        {t:'Cout = a ⊕ b ⊕ cin, la misma función que la suma S, porque ambas salidas cambian exactamente con las mismas combinaciones de entrada del bloque.',ok:false,why:'Esa es la SUMA S, no el acarreo. Cout es la mayoría de las entradas (a·b + cin·(a⊕b)), que es distinta de la paridad.'},
+        {t:'Cout siempre vale lo mismo que cin, porque el sumador completo solo se limita a propagar el acarreo de entrada al bit siguiente.',ok:false,why:'No: con a=b=1 y cin=0, Cout=1 aunque cin=0. El acarreo de salida depende de las tres entradas, no sólo del de entrada.'},
+        {t:'Cout vale 1 solo cuando las tres entradas valen 1, que es el único caso en que la suma de los tres bits no cabe en uno solo.',ok:false,why:'Eso lo cumple la AND, pero Cout también es 1 con exactamente dos unos (p. ej. a=1, b=1, cin=0). Es la mayoría, no la AND.'},
       ],
     },
     aplica:{
       pregunta:'¿Por qué A − B se calcula como A + ¬B + 1 con un sumador?',
       opciones:[
-        {t:'Porque en complemento a 2 el negativo de B es ¬B + 1; sumar ese negativo equivale a restar B. El "+1" se inyecta gratis como acarreo inicial Cin = 1, así el mismo sumador resta.',ok:true,why:'Correcto: −B = ¬B + 1 (complemento a 2). Entonces A − B = A + (−B) = A + ¬B + 1. Invertir B y poner Cin=1 convierte el sumador en restador sin hardware extra.'},
-        {t:'Porque invertir los bits de B ya es, por sí solo, el negativo de B.',ok:false,why:'Casi: ¬B es el complemento a UNO, que da −B − 1. Falta sumar 1 (el Cin=1) para obtener el complemento a DOS, el verdadero −B.'},
-        {t:'Porque restar y sumar son la misma operación para cualquier representación.',ok:false,why:'No en general: en signo-magnitud o BCD no basta invertir y sumar 1. El truco A+¬B+1 es específico del complemento a 2.'},
-        {t:'Porque el acarreo de salida (Cout) siempre corrige la resta.',ok:false,why:'El Cout se descarta en esta resta; lo que hace la magia es el acarreo de ENTRADA (Cin=1), no el de salida.'},
+        {t:'Porque en complemento a 2 el negativo de B es ¬B + 1; sumar ese negativo equivale a restar B, y el +1 entra gratis como acarreo inicial.',ok:true,why:'Correcto: −B = ¬B + 1 (complemento a 2). Entonces A − B = A + (−B) = A + ¬B + 1. Invertir B y poner Cin=1 convierte el sumador en restador sin hardware extra.'},
+        {t:'Porque invertir los bits de B ya es, por sí solo, el negativo de B, y el +1 final solo sirve para evitar un desbordamiento al sumar.',ok:false,why:'Casi: ¬B es el complemento a UNO, que da −B − 1. Falta sumar 1 (el Cin=1) para obtener el complemento a DOS, el verdadero −B.'},
+        {t:'Porque restar y sumar son la misma operación en cualquier representación numérica, incluidas signo-magnitud y BCD, sin ajustes adicionales de ningún tipo.',ok:false,why:'No en general: en signo-magnitud o BCD no basta invertir y sumar 1. El truco A+¬B+1 es específico del complemento a 2.'},
+        {t:'Porque el acarreo de salida (Cout) siempre corrige la resta, sumando uno al resultado cuando el sumador termina de propagar.',ok:false,why:'El Cout se descarta en esta resta; lo que hace la magia es el acarreo de ENTRADA (Cin=1), no el de salida.'},
       ],
     },
     reto:{
-      pregunta:'Invertiste B correctamente pero el resultado sale una unidad de menos. ¿Qué falta?',
+      pregunta:'Al restar números SIN signo con A + ¬B + 1 en N bits, ¿qué indica que el acarreo de salida (Cout) valga 0?',
       opciones:[
-        {t:'El acarreo inicial Cin = 1. Sin él calculas A + ¬B = A − B − 1 (complemento a 1). El +1 que convierte ¬B en el verdadero −B lo aporta Cin = 1.',ok:true,why:'Correcto: ¬B es el complemento a uno (−B − 1). Para llegar al complemento a dos (−B) hay que sumar 1, y ese 1 entra por el acarreo inicial. Es el error clásico "off-by-one".'},
-        {t:'Hay que invertir también los bits de A.',ok:false,why:'No: A no se toca. Sólo B se invierte, y el ajuste es el Cin=1. Invertir A cambiaría la operación por completo.'},
-        {t:'Falta descartar el acarreo de salida (Cout).',ok:false,why:'El Cout no cambia el valor de los N bits del resultado; el problema es el +1 que falta, aportado por Cin=1.',},
-        {t:'El sumador está mal; hay que usar un restador dedicado.',ok:false,why:'No hace falta: el sumador resta perfectamente con B invertido y Cin=1. El fallo es sólo que Cin quedó en 0.'},
+        {t:'Que A es menor que B: la resta sin signo "pidió prestado" y el resultado correcto es negativo, no representable sin signo.',ok:true,why:'Correcto: Cout=1 significa A ≥ B (no hubo préstamo); Cout=0 significa A < B. Por ejemplo, 3 − 7 en 4 bits: 3 + 8 + 1 = 12 < 16, sin acarreo, y 12 = −4 en complemento a 2.'},
+        {t:'Que el sumador falló: en una resta bien hecha el acarreo de salida debe valer siempre 1 al terminar la operación completa en el último bit.',ok:false,why:'No: el acarreo de salida es información, no un error. Vale 1 cuando A ≥ B y 0 cuando A < B.'},
+        {t:'Que A es mayor que B, porque un acarreo nulo indica que no hubo nada que restar en el bit más significativo del resultado.',ok:false,why:'Es al revés: con A + ¬B + 1, un acarreo de salida 1 indica A ≥ B; el 0 indica que A es menor que B.'},
+        {t:'Que hubo desbordamiento con signo, ya que Cout=0 es la condición de overflow en cualquier suma o resta de N bits.',ok:false,why:'El desbordamiento con signo se detecta con Cin_MSB ⊕ Cout_MSB, no con el valor de Cout por sí solo; son conceptos distintos.'},
       ],
     },
   };
@@ -772,6 +805,8 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  // DEMOSTRACIÓN: guarda el estado del alumno y lo restituye (el recorrido jamás deja el reto resuelto)
+  const prev={mode,expKind,faA,faB,faCin,addN,addA,addB,addCin,cmpN,cmpA,cmpB,apTopic,apFnIdx,apOvfIdx,retoIdx,retoOpB:retoOpB.slice(),retoCin,retoChecked,retoOkData,retoOkEnable,retoSolved,retoMsg,intentos,solved};
   try{
     synth.init();synth.resume();clearDx();
     setMode('explora');
@@ -799,20 +834,27 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
 
     setMode('reto');
+    // DEMOSTRACIÓN: no se pulsa «Comprobar»; el reto del alumno queda como estaba
     seedReto(0);updateRetoSpec();afterEdit();
-    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Primero invertimos B pero dejamos Cin=0 a propósito…');
+    showToast('🎯 Demostración con '+RETO_POOL[retoIdx].ctx+'. Primero invertimos B pero dejamos Cin=0 a propósito…');
     (function(){const f=RETO_POOL[retoIdx],n=f.n,t=invBits(f.B,n);retoOpB=Array.from({length:n},(_,i)=>(t>>i)&1);retoCin=0;})();
-    afterEdit();await sleep(3400);
-    checkReto();
-    showToast('…¬B correcto pero con Cin=0 da A − B − 1 (una unidad de menos). Activamos Cin.');
+    demoShow=true;afterEdit();await sleep(3400);
+    showToast('…¬B con Cin=0 da A − B − 1 (una unidad de menos). Activamos Cin.');
     await sleep(3600);
     retoCin=1;afterEdit();
-    showToast('✔ ¬B + Cin=1: el sumador calcula A − B. Comprobamos.');
-    await sleep(2400);
-    checkReto();await sleep(2400);
-    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    showToast('✔ ¬B + Cin=1: el sumador calcula A − B. Esto es solo una demostración: tu reto sigue intacto.');
+    await sleep(3200);
+    demoShow=false;
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2400);
   }finally{
+    demoShow=false;
+    expKind=prev.expKind;faA=prev.faA;faB=prev.faB;faCin=prev.faCin;addN=prev.addN;addA=prev.addA;addB=prev.addB;addCin=prev.addCin;cmpN=prev.cmpN;cmpA=prev.cmpA;cmpB=prev.cmpB;
+    apTopic=prev.apTopic;apFnIdx=prev.apFnIdx;apOvfIdx=prev.apOvfIdx;
+    retoIdx=prev.retoIdx;retoOpB=prev.retoOpB;retoCin=prev.retoCin;retoChecked=prev.retoChecked;retoOkData=prev.retoOkData;retoOkEnable=prev.retoOkEnable;
+    retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    setMode(prev.mode);
+    solved=(prev.mode==='reto')?retoSolved:false;
   }
 }
 
@@ -862,11 +904,11 @@ window.__labDebug={
   retoIdx:()=>retoIdx, retoFn:()=>({...RETO_POOL[retoIdx]}),
   retoOpB:()=>retoOpB.slice(), retoCin:()=>retoCin,
   retoTarget:()=>{const f=RETO_POOL[retoIdx],n=f.n,t=invBits(f.B,n);return Array.from({length:n},(_,i)=>(t>>i)&1);},
-  retoSetOpB:arr=>{if(mode==='reto'){retoOpB=arr.slice();retoChecked=false;afterEdit();}},
-  retoSetCin:e=>{if(mode==='reto'){retoCin=e?1:0;retoChecked=false;afterEdit();}},
-  retoToggle:i=>{if(mode==='reto'){retoOpB[i]=retoOpB[i]?0:1;retoChecked=false;afterEdit();}},
+  retoSetOpB:arr=>{if(mode==='reto'){retoOpB=arr.slice();retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
+  retoSetCin:e=>{if(mode==='reto'){retoCin=e?1:0;retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
+  retoToggle:i=>{if(mode==='reto'){retoOpB[i]=retoOpB[i]?0:1;retoChecked=false;retoSolved=false;solved=false;afterEdit();}},
   retoSolveSub:()=>{if(mode==='reto'){const f=RETO_POOL[retoIdx],n=f.n,t=invBits(f.B,n);retoOpB=Array.from({length:n},(_,i)=>(t>>i)&1);retoCin=1;afterEdit();}},
-  checkReto:()=>checkReto(),
+  checkReto:()=>checkReto(), intentos:()=>intentos,
   retoChecked:()=>retoChecked, retoOkData:()=>retoOkData, retoOkEnable:()=>retoOkEnable, retoSolved:()=>retoSolved,
   seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
   newSignal:()=>newSignal(),

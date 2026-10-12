@@ -133,6 +133,33 @@ const POOL=[
    nota:'La pieza se coloca a mano bajo la herramienta: la prensa no puede bajar sola nunca.'},
 ];
 
+// El reto tiene SU PROPIO banco de estaciones: ninguna se ensena en los modos de
+// estudio (Valvula, Mando, Cierre), para que esos modos no den la respuesta de la
+// estacion que se juzga. Cada una se comprobo contra el motor: tiene solucion de
+// coste minimo y la propuesta de partida falla en los tres ejes.
+const RPOOL=[
+  {id:'cizalla',nom:'Cizalla de chapa',efecto:'doble',falla:'retrae',auto:false,manual:true,
+   ritmo:0,xTope:1,carrera:60,tOut:350,tIn:300,tOutMin:320,tOutMax:430,pausa:0,vert:false,
+   pide:'retirarse si falta la tensión y que el retroceso lo decida el operario',
+   proc:'el operario coloca la chapa y acciona la cuchilla; la cizalla no puede bajar sola nunca',
+   nota:'Carrera corta de 60 mm y trabajo manual: el retorno lo da una persona, no el circuito.'},
+  {id:'cinta',nom:'Desviador de cinta',efecto:'doble',falla:'retrae',auto:true,manual:false,
+   ritmo:1800,xTope:1,carrera:80,tOut:300,tIn:260,tOutMin:270,tOutMax:360,pausa:1.1,vert:false,
+   pide:'retirarse si falta la tensión y volver solo, al ritmo de la cinta',
+   proc:'una caja cada 2,0 s se desvía hacia la línea de paletizado y el desviador no puede frenar la cinta',
+   nota:'Carrera de 80 mm y posición final repetible: el final de carrera es fiable.'},
+  {id:'palet',nom:'Elevador de palés',efecto:'doble',falla:'congela',auto:false,manual:true,
+   ritmo:0,xTope:1,carrera:600,tOut:1100,tIn:900,tOutMin:1000,tOutMax:1300,pausa:0,vert:true,
+   pide:'quedarse donde esté si falta la tensión y moverse sólo con orden del operario',
+   proc:'el operario sube el palé hasta la altura de trabajo y lo mantiene mientras carga',
+   nota:'Carga vertical con 600 mm de carrera: si el actuador se suelta, el palé baja con la carga encima.'},
+  {id:'sellado',nom:'Mordaza de sellado de bolsas',efecto:'simple',falla:'retrae',auto:true,manual:false,
+   ritmo:600,xTope:0.85,carrera:50,tOut:260,tIn:220,tOutMin:230,tOutMax:320,pausa:3.2,vert:false,
+   pide:'retirarse si falta la tensión y volver sola, sin que haga falta un final de carrera',
+   proc:'una bolsa cada 6,0 s: la mordaza presiona, sella y se retira',
+   nota:'Cilindro de simple efecto: el muelle devuelve el vástago. La mordaza se detiene contra la bolsa y su posición final varía (se simula un 85 % representativo).'},
+];
+
 // -------------------- utilidades --------------------
 function f1(x,d){
   if(!isFinite(x))return '—';
@@ -346,7 +373,7 @@ function porQue(sc,eje,v){
   const e=evalCfg(sc,cfg);
   const m=motivo(sc,e,rotVal(eje,v));
   if(m)return m;
-  if(coste(cfg)>costeMin(sc))return rotVal(eje,v)+': funciona, pero cuesta '+coste(cfg)+' aparatos frente a los '+costeMin(sc)+' de la solución mínima.';
+  if(coste(cfg)>costeMin(sc))return rotVal(eje,v)+': funciona, pero hay una solución con menos aparatos.';
   return '';
 }
 function startCfg(sc){
@@ -412,17 +439,21 @@ let mnIdx=1, mnMan='momentaneo';
 let ciIdx=1, ciCie='operario';
 let retoK=0, retoCh=null;
 let retoChecked=false, retoOkValvula=false, retoOkMando=false, retoOkCierre=false, retoSolved=false, retoMsg='';
+// retoIntentos: fallos acumulados del alumno; retoFallos: los de la estacion en curso (a los 3 se resiembra)
+let retoIntentos=0, retoFallos=0;
+const RETO_RESIEMBRA=3;
 let solved=false, autoRunning=false, QUIZ={};
 let animT=0;
 
 function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
 function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
 
-const retoSc=()=>POOL[retoK];
+const retoSc=()=>RPOOL[retoK];
 const retoCfg=()=>({valvula:retoCh.valvula,mando:retoCh.mando,cierre:retoCh.cierre});
 function seedReto(k){
-  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoK=(k==null)?pickIdx(RPOOL.length,retoK):k;
   retoCh=startCfg(retoSc());
+  retoFallos=0;
   retoChecked=false;retoOkValvula=false;retoOkMando=false;retoOkCierre=false;retoSolved=false;retoMsg='';
 }
 seedReto(0);
@@ -925,13 +956,14 @@ function panelCriterios(c,e,mostrar){
   rpanel(c,PX.x,532,PX.w,210,'Criterios de aceptación');
   CRIT.forEach((cr,i)=>dotCrit(c,PX.x+18,576+i*26,e[cr.k],cr.rot,mostrar!==false));
 }
-function panelCoste(c,y,cfg,sc){
+function panelCoste(c,y,cfg,sc,verMin){
   const d=costeDet(cfg), k=coste(cfg), m=costeMin(sc);
   rpanel(c,PX.x,y,PX.w,144,'Aparatos');
   prow(c,PX.x,y+52,PX.w,'Bobinas de electroválvula',f1(d.sols,0));
   prow(c,PX.x,y+78,PX.w,'Relevadores',f1(d.reles,0));
   prow(c,PX.x,y+104,PX.w,'Sensores',f1(d.sensores,0));
-  prow(c,PX.x,y+130,PX.w,'Total / mínimo posible',f1(k,0)+' / '+f1(m,0),k===m?OK_HEX:WARN_HEX);
+  if(verMin===false) prow(c,PX.x,y+130,PX.w,'Total',f1(k,0));
+  else prow(c,PX.x,y+130,PX.w,'Total / mínimo posible',f1(k,0)+' / '+f1(m,0),k===m?OK_HEX:WARN_HEX);
 }
 function chip(c,x,y,w,h,rot,val,estado){
   const col=estado==null?AZUL:(estado?OK_HEX:BAD_HEX);
@@ -1126,11 +1158,12 @@ function drawReto(c){
   prow(c,PX.x,174,PX.w,'Modo',sc.auto?'automático':'manual');
   prow(c,PX.x,200,PX.w,'Cadencia',sc.ritmo>0?f1(sc.ritmo,0)+' ciclos/h':'—');
   rpanel(c,PX.x,224,PX.w,144,'Tu propuesta, medida');
-  prow(c,PX.x,276,PX.w,'Llega al final',e.salio?'sí':'no ('+f1(100*e.maxX,0)+' %)',colOk(e.salio));
-  prow(c,PX.x,302,PX.w,'Vuelve al reposo',e.enReposoFinal?(e.volvioSolo?'sola':'con orden'):'no',colOk(e.enReposoFinal));
-  prow(c,PX.x,328,PX.w,'Se mueve al volver',f1(100*Math.max(e.movTras1,e.movTras2),1)+' %',e.okArranque?OK_HEX:BAD_HEX);
-  prow(c,PX.x,354,PX.w,'Cadencia',sc.ritmo>0?f1(e.ciclosH,0)+' ciclos/h':'—',e.okRitmo?OK_HEX:BAD_HEX);
-  panelCoste(c,378,cfg,sc);
+  const cv=b=>retoChecked?(b?OK_HEX:BAD_HEX):undefined;   // sin Comprobar no hay colores de veredicto
+  prow(c,PX.x,276,PX.w,'Llega al final',e.salio?'sí':'no ('+f1(100*e.maxX,0)+' %)',cv(e.salio));
+  prow(c,PX.x,302,PX.w,'Vuelve al reposo',e.enReposoFinal?(e.volvioSolo?'sola':'con orden'):'no',cv(e.enReposoFinal));
+  prow(c,PX.x,328,PX.w,'Se mueve al volver',f1(100*Math.max(e.movTras1,e.movTras2),1)+' %',cv(e.okArranque));
+  prow(c,PX.x,354,PX.w,'Cadencia',sc.ritmo>0?f1(e.ciclosH,0)+' ciclos/h':'—',cv(e.okRitmo));
+  panelCoste(c,378,cfg,sc,retoChecked&&retoSolved);
   panelCriterios(c,e,retoChecked);
 }
 
@@ -1277,10 +1310,11 @@ const pCv=document.createElement('canvas');pCv.width=256;pCv.height=160;
 const pTex=new THREE.CanvasTexture(pCv);
 const placa=new THREE.Mesh(new THREE.PlaneGeometry(0.66,0.41),new THREE.MeshBasicMaterial({map:pTex}));
 placa.position.set(3.26,2.30,0.45);placa.lookAt(6.4,2.8,5.2);scene.add(placa);
-function drawPlaca(sc,cfg,e){
+function drawPlaca(sc,cfg,e,ver){
+  ver=ver!==false;   // en el reto, sin Comprobar la placa no da veredicto ni el minimo
   const c=pCv.getContext('2d');
   c.fillStyle='#0c1016';c.fillRect(0,0,256,160);
-  c.strokeStyle=e.vale?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(1.5,1.5,253,157);
+  c.strokeStyle=ver?(e.vale?OK_HEX:BAD_HEX):'#5d6675';c.lineWidth=3;c.strokeRect(1.5,1.5,253,157);
   c.fillStyle='#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
   c.fillText(sc.nom.length>22?sc.nom.slice(0,22)+'…':sc.nom,12,24);
   c.font='11px Outfit, sans-serif';c.fillStyle=GRIS;
@@ -1289,7 +1323,7 @@ function drawPlaca(sc,cfg,e){
     ['Válvula',VALV[cfg.valvula].abr],
     ['Mando',MANDO[cfg.mando].abr],
     ['Cierre',CIERRE[cfg.cierre].abr],
-    ['Aparatos',f1(e.coste,0)+' (mín '+f1(costeMin(sc),0)+')'],
+    ['Aparatos',ver?f1(e.coste,0)+' (mín '+f1(costeMin(sc),0)+')':f1(e.coste,0)],
     ['Ciclo',isFinite(e.tCiclo)?f1(e.tCiclo,0)+' ms':'no cierra'],
     ['Cadencia',sc.ritmo>0?f1(e.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h':'manual'],
   ];
@@ -1298,8 +1332,8 @@ function drawPlaca(sc,cfg,e){
     c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(r[0],12,y);
     c.fillStyle='#F4EFEA';c.font='bold 12px Outfit, sans-serif';c.textAlign='right';c.fillText(r[1],244,y);
   });
-  c.fillStyle=e.vale?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
-  c.fillText(e.vale?'cumple los siete criterios':'falla: '+CRITCORTO[primerFallo(e)],244,152);
+  c.fillStyle=ver?(e.vale?OK_HEX:BAD_HEX):GRIS;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(ver?(e.vale?'cumple los siete criterios':'falla: '+CRITCORTO[primerFallo(e)]):'sin comprobar',244,152);
   pTex.needsUpdate=true;
 }
 
@@ -1358,8 +1392,10 @@ function updateHW(){
   ledCol(Q1.cab,fr.U,0x7CD992,0xff6b6b,0.7);
   Q1.cab.material.emissive.set(fr.U?0x7CD992:0xff6b6b);
   Q1.cab.material.emissiveIntensity=fr.U?0.7:0.9;
+  const vOK=(mode!=='reto')||retoChecked;   // en el reto los pilotos no dan veredicto hasta Comprobar
   CRIT.forEach((cr,i)=>{
     const ok=e[cr.k], L=LEDS[i];
+    if(!vOK){L.material.color.set(0x8f97a5);L.material.emissive.set(0x000000);L.material.emissiveIntensity=0.1;return;}
     L.material.color.set(ok?0x7CD992:0xff6b6b);
     L.material.emissive.set(ok?0x7CD992:0xff6b6b);
     L.material.emissiveIntensity=ok?1.3:0.5;
@@ -1368,7 +1404,7 @@ function updateHW(){
   setTuboAB(tubB,[0.14,0.72,ZC-0.14],[X1,YC,ZC-0.14],0.018);
   tubA.material=fr.spool==='A'?MAT.tuboA:MAT.tuboP;
   tubB.material=fr.spool==='B'?MAT.tuboB:MAT.tuboP;
-  drawPlaca(sc,cfg,e);
+  drawPlaca(sc,cfg,e,vOK);
 }
 
 // ===================== 13. HUD Y PANEL =====================
@@ -1551,11 +1587,12 @@ function updateTele(){
     h+=teleRow('Válvula',VALV[cfg.valvula].abr,retoChecked?(retoOkValvula?'ok':'bad'):'');
     h+=teleRow('Mando',MANDO[cfg.mando].abr,retoChecked?(retoOkMando?'ok':'bad'):'');
     h+=teleRow('Cierre del ciclo',CIERRE[cfg.cierre].abr,retoChecked?(retoOkCierre?'ok':'bad'):'');
-    h+=teleRow('Aparatos',f1(e.coste,0)+' (mín '+f1(costeMin(sc),0)+')',e.coste===costeMin(sc)?'ok':'warn');
-    h+=teleRow('Sale y vuelve',e.salio?(e.enReposoFinal?'sí':'sale y no vuelve'):'no sale',e.okCiclo?'ok':'bad');
-    h+=teleRow('Cadencia',sc.ritmo>0?f1(e.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h':'manual',e.okRitmo?'ok':'bad');
-    h+=teleRow('Criterios cumplidos',CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length,e.vale?'ok':'bad');
+    h+=teleRow('Aparatos',f1(e.coste,0));
+    h+=teleRow('Sale y vuelve',e.salio?(e.enReposoFinal?'sí':'sale y no vuelve'):'no sale',retoChecked?(e.okCiclo?'ok':'bad'):'');
+    h+=teleRow('Cadencia',sc.ritmo>0?f1(e.ciclosH,0)+' / '+f1(sc.ritmo,0)+' /h':'manual',retoChecked?(e.okRitmo?'ok':'bad'):'');
+    h+=teleRow('Criterios cumplidos',retoChecked?CRIT.filter(cr=>e[cr.k]).length+' de '+CRIT.length:'sin comprobar',retoChecked?(e.vale?'ok':'bad'):'');
     h+=teleRow('Estado',retoChecked?(retoSolved?'aceptado':'rechazado'):'sin comprobar',retoChecked?(retoSolved?'ok':'bad'):'');
+    h+=teleRow('Intentos · fallos del caso',f1(retoIntentos,0)+' · '+f1(retoFallos,0)+' de '+f1(RETO_RESIEMBRA,0));
   }
   el('tele').innerHTML=h;
 }
@@ -1609,15 +1646,24 @@ function checkReto(){
   retoOkCierre=okEje(sc,'cierre',cfg.cierre);
   retoChecked=true;
   retoSolved=retoOkValvula&&retoOkMando&&retoOkCierre;
-  solved=retoSolved;
+  // El recorrido guiado ensena el acierto pero NO resuelve el reto del alumno.
+  solved=autoRunning?false:retoSolved;
   retoMsg=retoSolved
     ?'Válvula, mando y cierre correctos, y con el mínimo de aparatos.'
     :(retoExplain()||'La propuesta funciona, pero hay otra que cumple lo mismo con menos aparatos.');
   synth.beep(retoSolved?880:200,0.10,0.05);
-  refreshAll();
   if(!autoRunning){
     showToast((retoSolved?'✅ <b>Propuesta aceptada.</b> ':'❌ <b>Propuesta rechazada.</b> ')+retoMsg);
+    if(!retoSolved){
+      retoIntentos++;retoFallos++;
+      if(retoFallos>=RETO_RESIEMBRA){
+        seedReto(null);solved=false;animT=0;afterEdit();
+        retoMsg='Tres propuestas rechazadas en la misma estación: el reto pasa a otra. Repasa qué criterio te tumbó antes de volver a probar.';
+        showToast('🔁 <b>Estación nueva:</b> '+retoSc().nom+'. '+retoMsg);
+      }
+    }
   }
+  refreshAll();
   return retoSolved;
 }
 function retoSolveBuild(){
@@ -1632,13 +1678,13 @@ function buildQuiz(){
     valvula:{
       pregunta:'Una válvula 5/2 biestable se describe como «segura ante fallo de tensión». ¿Qué congela realmente cuando se corta la alimentación?',
       opciones:[
-        {t:'La ORDEN, no el actuador: el carrete se queda donde estaba y sigue enviando aire al mismo lado',ok:true,
+        {t:'La ORDEN, no el actuador: el carrete se queda donde estaba y sigue mandando aire al mismo lado',ok:true,
          why:'Exacto. La biestable es una memoria: sin tensión conserva la última orden y el aire sigue empujando. Si lo que se necesita es que el actuador se pare donde está, hace falta una 5/3 de centros cerrados, que corta las dos vías.'},
-        {t:'El actuador: sin tensión el vástago queda bloqueado en la posición en que estaba',ok:false,
+        {t:'El actuador: sin tensión el vástago queda frenado y bloqueado en la posición exacta en que estaba',ok:false,
          why:'No. Es el error más caro de esta práctica: la biestable mantiene la orden, así que el actuador TERMINA su carrera aunque nadie lo mande. En la mesa elevadora del banco eso significa que la mesa sigue subiendo o bajando sin tensión de mando.'},
-        {t:'Las dos cosas a la vez, porque el aire también se corta',ok:false,
+        {t:'Las dos cosas a la vez, porque al cortar la tensión de mando también se corta el aire de la red',ok:false,
          why:'El aire de red no se corta al faltar la tensión de mando: son dos energías distintas. Ésa es justamente la razón de que el actuador siga moviéndose.'},
-        {t:'Nada: al faltar la tensión todas las válvulas vuelven a su posición de reposo',ok:false,
+        {t:'Nada: al faltar la tensión todas las válvulas, sean mono o biestables, vuelven a su posición de reposo',ok:false,
          why:'Vuelven las monoestables, que tienen muelle. La biestable no tiene posición de reposo, y por eso no vuelve.'},
       ],
     },
@@ -1647,37 +1693,37 @@ function buildQuiz(){
       opciones:[
         {t:'El vástago se queda contra el tope conmutando el carrete sin parar: ni cicla ni vuelve al reposo',ok:true,
          why:'Correcto, y se mide en el banco: el final de carrera pide retroceso, el selector vuelve a pedir avance en cuanto el reed se abre, y así 160 a 185 veces en 8 s. Donde la ventana del reed pesa mucho —la pinza, 4 mm en 25 mm de carrera— ese temblor impide incluso completar la carrera.'},
-        {t:'Cicla indefinidamente, que es justo para lo que sirve un selector mantenido',ok:false,
+        {t:'Cicla indefinidamente, que es justo para lo que sirve un selector mantenido junto con el final de carrera',ok:false,
          why:'No. Para ciclar de verdad hace falta que el final de carrera desenganche la orden y algo la vuelva a dar; un selector no la suelta nunca, así que el circuito se pelea consigo mismo contra el tope.'},
-        {t:'Hace una sola carrera y se para fuera, exactamente igual que con un pulsador',ok:false,
+        {t:'Hace una sola carrera y se para fuera, exactamente igual que haría con un pulsador momentáneo normal',ok:false,
          why:'Con un pulsador momentáneo la orden desaparece al soltarlo. Con el selector la orden sigue puesta, y el resultado no es «lo mismo»: es un vástago temblando.'},
-        {t:'No arranca, porque el final de carrera de reposo lo impide',ok:false,
+        {t:'No arranca, porque el final de carrera de reposo impide que se dé la orden de avance al vástago',ok:false,
          why:'Arranca: el vástago está dentro y la orden está dada. El problema aparece al final de la carrera, no al principio.'},
       ],
     },
     cierre:{
       pregunta:'¿Por qué un temporizador ajustado al peor caso da menos ciclos por hora que un final de carrera?',
       opciones:[
-        {t:'Porque espera siempre el tiempo del peor caso, aunque la carrera real termine antes: el margen se tira en cada ciclo',ok:true,
-         why:'Exacto. En el expulsor la carrera típica son 320 ms y el peor caso 380; el temporizador se ajusta a 440 ms y regala más de 100 ms en cada ciclo. Con 2 250 ciclos/h exigidos, ese margen es la diferencia entre cumplir y no cumplir.'},
-        {t:'Porque el relé temporizado es más lento que un reed al conmutar',ok:false,
+        {t:'Porque espera siempre el peor caso aunque la carrera real termine antes: el margen se tira en cada ciclo',ok:true,
+         why:'Exacto. En el expulsor la carrera típica son 320 ms y el peor caso 400; el temporizador se ajusta a 440 ms y regala más de 100 ms en cada ciclo. Con 2 250 ciclos/h exigidos, ese margen es la diferencia entre cumplir y no cumplir.'},
+        {t:'Porque el relé temporizado es más lento que un detector reed al conmutar sus contactos de salida',ok:false,
          why:'Los tiempos de conmutación de ambos son de milisegundos y muy parecidos. Lo que pesa no es el aparato, es el criterio: reloj contra posición.'},
-        {t:'Porque un temporizador no puede ajustarse con precisión',ok:false,
+        {t:'Porque un temporizador no puede ajustarse con precisión suficiente y obliga a dejar un margen enorme',ok:false,
          why:'Se ajusta con toda la precisión que se quiera, y aun así hay que ajustarlo al caso más lento. El problema no es la precisión del ajuste sino la dispersión de la carrera.'},
-        {t:'No da menos: el temporizador siempre es más rápido porque no espera confirmación',ok:false,
+        {t:'No da menos: el temporizador siempre es más rápido porque no espera ninguna confirmación de posición',ok:false,
          why:'Al revés. Precisamente por no esperar confirmación tiene que esperar el peor caso; el reed cierra el ciclo en cuanto el vástago llega de verdad. Sólo gana el reloj cuando el reed no es alcanzable.'},
       ],
     },
     reto:{
       pregunta:'Al volver la tensión tras un corte, el vástago completa solo la carrera que había dejado a medias. ¿Se acepta el mando?',
       opciones:[
-        {t:'No: IEC 60204-1 §7.5 exige que el restablecimiento de la tensión no ponga la máquina en marcha; hace falta una orden nueva',ok:true,
+        {t:'No: la IEC 60204-1 §7.5 exige que al volver la tensión la máquina no arranque sola; hace falta una orden nueva',ok:true,
          why:'Correcto. El arranque automático al reponer la energía es un fallo de proyecto, no una comodidad: quien esté con las manos dentro no tiene forma de saber que la máquina va a moverse. Un mando con sello se cae al faltar la tensión y no rearranca solo.'},
-        {t:'Sí, siempre que el movimiento que completa sea el mismo que estaba haciendo',ok:false,
+        {t:'Sí, siempre que el movimiento que completa sea el mismo que la máquina estaba haciendo antes del corte',ok:false,
          why:'La norma no distingue si el movimiento es el mismo: prohíbe la puesta en marcha automática al restablecer la alimentación. Lo que estaba a medias se reanuda con una orden del operario, no sola.'},
-        {t:'Sí, si el corte duró menos de un segundo',ok:false,
+        {t:'Sí, si el corte de tensión duró menos de un segundo, porque entonces la máquina apenas se ha detenido',ok:false,
          why:'No hay ninguna duración de corte que autorice el rearranque automático. En el ensayo del banco el corte dura 600 ms y ya basta para revelar el defecto.'},
-        {t:'No, pero sólo si el actuador mueve una carga vertical',ok:false,
+        {t:'No, pero sólo si el actuador mueve una carga vertical, porque entonces la caída supone un riesgo',ok:false,
          why:'La carga vertical agrava el riesgo, no lo crea. El requisito de no rearranque vale para toda la máquina, no sólo para los ejes con carga suspendida.'},
       ],
     },
@@ -1737,6 +1783,9 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
   if(autoRunning)return;
+  // DEMOSTRACION: guarda el estado del alumno y lo devuelve al terminar; no puntua.
+  const snap={mode,vlIdx,vlVal,mnIdx,mnMan,ciIdx,ciCie,solved,
+    retoK,retoCh:{...retoCh},retoChecked,retoOkValvula,retoOkMando,retoOkCierre,retoSolved,retoMsg,retoIntentos,retoFallos};
   autoRunning=true;
   const btn=el('btnAuto'),label=btn.textContent;
   btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
@@ -1817,6 +1866,15 @@ async function runAuto(){
     answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
   }finally{
     btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+    vlIdx=snap.vlIdx;vlVal=snap.vlVal;mnIdx=snap.mnIdx;mnMan=snap.mnMan;ciIdx=snap.ciIdx;ciCie=snap.ciCie;
+    retoK=snap.retoK;retoCh=snap.retoCh;retoChecked=snap.retoChecked;retoOkValvula=snap.retoOkValvula;
+    retoOkMando=snap.retoOkMando;retoOkCierre=snap.retoOkCierre;retoSolved=snap.retoSolved;retoMsg=snap.retoMsg;
+    retoIntentos=snap.retoIntentos;retoFallos=snap.retoFallos;
+    // La demostración enseñó la solución de la estación 3 del banco: si era la del alumno y aún no la resolvió, se cambia.
+    if(!snap.retoSolved&&snap.retoK===3){seedReto(null);retoMsg='';}
+    solved=snap.solved;
+    animT=0;
+    setMode(snap.mode);
   }
 }
 
@@ -1867,7 +1925,7 @@ window.__labDebug={
   ciGet:()=>({idx:ciIdx,cierre:ciCie}),
   ciSet:(o)=>{if(o.idx!==undefined)ciIdx=o.idx;if(o.cierre)ciCie=o.cierre;animT=0;afterEdit();},
   // reto
-  retoK:()=>retoK,seedReto:(k)=>{seedReto(k);afterEdit();},retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
+  retoK:()=>retoK,intentos:()=>retoIntentos,retoIntentos:()=>retoIntentos,retoFallos:()=>retoFallos,RPOOL:()=>RPOOL,seedReto:(k)=>{seedReto(k);afterEdit();},retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
   retoGet:()=>retoCfg(),retoSet,retoSolveBuild:()=>{retoSolveBuild();afterEdit();},checkReto,retoExplain,
   retoChecked:()=>retoChecked,retoOkValvula:()=>retoOkValvula,retoOkMando:()=>retoOkMando,retoOkCierre:()=>retoOkCierre,
   retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoGood:()=>GOOD(retoSc()),retoStart:()=>startCfg(retoSc()),

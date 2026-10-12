@@ -948,8 +948,20 @@ function drawCircuito(){
 }
 
 /* =================== ④ PROYECTO =================== */
+// La malla de decisión de la estación que el alumno tiene en el reto ES la respuesta del reto:
+// mientras esté sin resolver, esa estación queda bloqueada en el modo Proyecto.
+const proyBloqueado=()=>PR.k===retoK && !retoSolved;
 function drawProyecto(){
   const sc=POOL[PR.k];
+  if(proyBloqueado()){
+    bg();
+    labelAt(40,42,'Proyecto: la malla de decisión de esta estación','#8fd1ff',25);
+    labelAt(40,72,sc.nom,'#dfe7ee',18);
+    labelAt(40,150,'🔒 Esta es la estación de tu reto.','#f4c95d',24);
+    wrapText(40,196,'Su malla de combinaciones válidas es justo lo que el reto te pide encontrar, así que se abre cuando lo resuelvas. Elige otra estación en el panel para explorar su malla.','#8A94A0',18,940,24);
+    bTex.needsUpdate=true;
+    return;
+  }
   const g=GOOD(sc), cm=costeMin(sc), opt=OPT(sc);
   bg();
   labelAt(40,42,'Proyecto: la malla de decisión de esta estación','#8fd1ff',25);
@@ -985,6 +997,25 @@ function drawProyecto(){
 }
 
 /* =================== ⑤ RETO =================== */
+// Retroalimentación CUALITATIVA de un eje fallido: dice qué criterio cae o que sobra dimensión,
+// pero ni da cifras de la combinación óptima ni nombra el valor correcto.
+function whyEjeCual(sc,eje,valor){
+  const base=OPT(sc);
+  if(!base) return 'En este banco no hay ninguna combinación válida para esta estación.';
+  const cfg=Object.assign({},base,{[eje]:valor});
+  const r=evalua(sc,cfg);
+  if(!r.valido){
+    const m={okSuperficie:'no encaja con la geometría o la superficie de la pieza',
+      okFuerza:'no consigue el vacío que pide la maniobra',
+      okMarca:'el vacío de pico marca o deforma la pieza',
+      okTiempo:'agarra más despacio de lo que deja el ciclo',
+      okFalla:'no retiene la pieza si falta la energía',
+      okConsumo:'gasta más energía por ciclo de la que permite el contrato'};
+    const k=Object.keys(m).find(x=>r[x]===false);
+    return 'Con lo demás bien resuelto, esta elección '+(k?m[k]:'no cumple')+'.';
+  }
+  return 'Cumple los seis criterios, pero existe una opción válida más barata en este eje: sobredimensionar también es un error.';
+}
 function startCfg(sc){
   const nn=NUMS.filter(x=>!okEje(sc,'numero',x));
   return { ventosa: VENTK.find(k=>!okEje(sc,'ventosa',k))||VENTK[0],
@@ -994,34 +1025,39 @@ function startCfg(sc){
 const QUIZ={
   vidrio:{q:'El eyector básico y el de ahorro de aire dan exactamente el mismo vacío (622 mbar) y el mismo tiempo de agarre (93,5 ms). ¿Por qué sólo vale el de ahorro de aire?',
     o:[{t:'Porque el panel viaja por encima del puesto de trabajo: sin antirretorno el vacío se pierde en 0,15 s al faltar la energía, y esta estación pide 2 s.',ok:true},
-       {t:'Porque el de ahorro de aire alcanza más vacío y por eso sujeta con más fuerza.'},
-       {t:'Porque el eyector básico no cabe en la viga del pórtico junto a la válvula.'},
-       {t:'Porque el vidrio es poroso y sólo el de ahorro de aire compensa la fuga.'}]},
+       {t:'Porque el de ahorro de aire alcanza un vacío final mayor, y esa diferencia es la que le permite sujetar el panel con bastante más fuerza que el eyector básico.'},
+       {t:'Porque el eyector básico no cabe en la viga del pórtico junto a la válvula, y el de ahorro de aire es más compacto porque lleva el sensor integrado en el mismo cuerpo.'},
+       {t:'Porque el vidrio es poroso y sólo el de ahorro de aire compensa la fuga de la interfaz, manteniendo el vacío requerido durante todo el ciclo.'}]},
   carton:{q:'Con 6 ventosas en vez de 2 el vacío que se alcanza cae de 378 a 255 mbar. ¿Por qué la caja se sostiene igual?',
     o:[{t:'Porque al repartir la carga entre más ventosas cada una necesita menos vacío, y la fuerza total apenas cambia: 70,8 N con 2 y 71,5 N con 6.',ok:true},
-       {t:'Porque con 6 ventosas el eyector bombea seis veces más caudal.'},
-       {t:'Porque el cartón deja de tener fuga en cuanto se reparte el peso.'},
-       {t:'Porque a menos vacío el labio de la ventosa se pega mejor al corrugado.'}]},
+       {t:'Porque con 6 ventosas el eyector bombea seis veces más caudal, y ese caudal extra compensa por completo la caída del vacío que se alcanza en la caja.'},
+       {t:'Porque la fuga del cartón desaparece en cuanto se reparte el peso entre más ventosas, y con menos fuga la fuerza total se conserva intacta.'},
+       {t:'Porque a menos vacío el labio del fuelle se adapta mejor al corrugado y gana área efectiva de sellado, lo que repone la fuerza que se pierde por el menor vacío.'}]},
   chapa:{q:'La chapa pesa 8 kg y el panel de vidrio 12 kg, pero la chapa exige 477,68 N y el vidrio sólo 259,36 N. ¿Por qué?',
     o:[{t:'Porque la chapa se traslada en horizontal y la sujeta el rozamiento: con μ = 0,10 los 3 m/s² de aceleración se pagan multiplicados por 10.',ok:true},
-       {t:'Porque el acero es más denso que el vidrio y por eso pide más fuerza.'},
-       {t:'Porque el factor de seguridad de la chapa es mayor que el del vidrio.'},
-       {t:'Porque el aceite reduce el área efectiva de la ventosa a la décima parte.'}]},
+       {t:'Porque el acero es mucho más denso que el vidrio, y la fuerza de sujeción crece con la densidad del material y no sólo con su masa, de modo que 8 kg de acero piden más que 12 kg de vidrio.'},
+       {t:'Porque el factor de seguridad de la chapa es mayor que el del vidrio, y ese factor multiplica la fuerza hasta superar con holgura la que exige el panel de vidrio de 12 kg.'},
+       {t:'Porque el aceite reduce el área efectiva de la ventosa a la décima parte, de modo que hace falta diez veces más vacío para la misma fuerza.'}]},
   plastico:{q:'Al nivel del mar esta pieza se resuelve con el eyector de ahorro de aire y en Toluca con el de alto caudal. ¿Por qué no vale ninguno de los dos en la Ciudad de México?',
     o:[{t:'Porque a 2 240 m el pequeño ya tarda 62 ms y el ciclo sólo deja 50, y el grande todavía llega a 656 mbar, por encima de los 650 que aguanta la pared.',ok:true},
-       {t:'Porque a esa altitud dejan de caber las ventosas en la isla plana de 35 × 35 mm.'},
-       {t:'Porque a 2 240 m aumenta la fuerza que la pieza requiere.'},
-       {t:'Porque en la Ciudad de México la única fuente válida es la bomba de paletas.'}]},
+       {t:'Porque a esa altitud dejan de caber las ventosas en la isla plana de 35 × 35 mm, ya que el fuelle se ensancha bastante al bajar la presión atmosférica.'},
+       {t:'Porque a 2 240 m aumenta la fuerza que la pieza requiere, y ni el eyector de alto caudal ni el de ahorro de aire llegan a sostenerla.'},
+       {t:'Porque a 2 240 m el eyector de ahorro de aire pierde su antirretorno, y el de alto caudal agota el aire comprimido antes de acabar el ciclo de trabajo.'}]},
   bidon:{q:'El bidón pesa la mitad que el panel de vidrio y aun así es la única estación que necesita la bomba de paletas. ¿Por qué?',
     o:[{t:'Porque se toma por la pared lateral: el peso lo aguanta el rozamiento, hacen falta 639 mbar y un eyector se queda en el 85 % de la atmósfera local, 622 mbar.',ok:true},
-       {t:'Porque el polietileno es poroso y sólo la bomba compensa la fuga.'},
-       {t:'Porque la bomba de paletas es la única fuente del catálogo con antirretorno.'},
-       {t:'Porque el polietileno se marca con vacío alto y la bomba da menos vacío.'}]},
+       {t:'Porque el polietileno es poroso y sólo la bomba compensa la fuga de la interfaz, ya que ningún eyector del banco aguanta una pieza con tantos poros.'},
+       {t:'Porque la bomba de paletas es la única fuente del catálogo con antirretorno, y el bidón lleno exige 2 s de retención si falta la energía.'},
+       {t:'Porque el polietileno se marca con vacío alto, y como la bomba da menos vacío que un eyector no deja ninguna huella en la pared curva del bidón de polietileno.'}]},
 };
 let retoK=0;
 let RET={ventosa:'plana30',numero:1,fuente:'eyector'};
 let retoChecked=false, retoSolved=false;
 let retoOk={ventosa:false,numero:false,fuente:false};
+// Política de fallos: el reto no revela la respuesta; tras MAX_INTENTOS comprobaciones fallidas
+// la estación se renueva (el alumno no puede aprobar por eliminación). `intentos` cuenta los
+// fallos de la estación en curso y viaja en __labDebug.
+const MAX_INTENTOS=3;
+let intentos=0, casoAgotado=false;
 let quizOrder=[0,1,2,3], quizPick=-1, quizOkFlag=false;
 
 function shuffleQuiz(){
@@ -1042,6 +1078,7 @@ function drawReto(){
   labelAt(40,146,`m = ${f1(sc.m,1)} kg · μ = ${f1(sc.mu,2)} · a = ${f1(sc.a,1)} m/s² · S = ${f1(sc.sf,1)} · ${CASO[sc.caso]}`,'#f4c95d',16);
   labelAt(40,172,`Zona útil ${sc.util[0]} × ${sc.util[1]} mm · máx ${f1(sc.dpMax,0)}${MB} sin marcar · agarre ≤ ${f1(sc.tMax*1000,0)} ms · ≤ ${f1(sc.eMax,2)} Wh/ciclo`+(sc.exigeFalla?` · aguantar ${f1(sc.tFalla,1)} s sin energía`:''),'#f4c95d',15);
   labelAt(40,204,`Banco a ${f1(H_BANCO,0)} m: atmósfera ${f1(P_ATM,1)}${MB}`,'#8A94A0',15);
+  labelAt(640,204,`Fallos de esta estación: ${intentos} / ${MAX_INTENTOS}`,intentos?'#f4c95d':'#8A94A0',15);
 
   labelAt(40,246,'Tu selección','#8fd1ff',20);
   const rows=[
@@ -1055,7 +1092,7 @@ function drawReto(){
     labelAt(170,y,r[1],'#dfe7ee',17);
     if(r[2]) labelAt(600,y,`${r[2]} u.c.`,'#8A94A0',15);
     if(retoChecked){ labelAt(676,y,r[3]?'✔':'✗',r[3]?'#43D9AD':'#d64545',22);
-      if(!r[3]){ const yy=wrapText(706,y-4,whyEje(sc,r[4],r[5]),'#f4c95d',14,290,17); y=Math.max(y,yy-24); } }
+      if(!r[3]){ const yy=wrapText(706,y-4,whyEjeCual(sc,r[4],r[5]),'#f4c95d',14,290,17); y=Math.max(y,yy-24); } }
     y+=46;
   });
   y+=4;
@@ -1069,7 +1106,7 @@ function drawReto(){
     y+=34;
     if(retoSolved && opt){ const ro=evalua(sc,opt);
       wrapText(40,y,`Terna válida y de coste mínimo: ${VENTOSAS[opt.ventosa].nom} × ${opt.numero} + ${FUENTES[opt.fuente].nom} = ${ro.coste} u.c. Agarra en ${f1(ro.tAgarre*1000,1)} ms, gasta ${f1(ro.energia,4)} Wh por ciclo y aguanta ${f1(ro.tRet,2)} s sin energía.`,'#43D9AD',17,940,22); }
-    else wrapText(40,y,'Cada eje se juzga suponiendo los otros dos correctos: acertar dos de tres sigue siendo un cabezal que no vale.','#8A94A0',16,940,21);
+    else wrapText(40,y,casoAgotado?'Tres comprobaciones fallidas: al tocar cualquier botón o pulsar Comprobar, la estación se renueva con un caso nuevo.':'Cada eje se juzga suponiendo los otros dos correctos: acertar dos de tres sigue siendo un cabezal que no vale.','#8A94A0',16,940,21);
   } else {
     wrapText(40,y,'Elige ventosa, número de ventosas y generador. Los tres se califican por separado, y cada uno tiene que ser válido Y el más barato que cumple: sobredimensionar también es un error de proyecto.','#8A94A0',17,940,22);
   }
@@ -1078,11 +1115,18 @@ function drawReto(){
 
   const rt=el('retoText');
   if(rt) rt.textContent=`${sc.nom} — ${f1(sc.m,1)} kg, ${CASO[sc.caso].split(' ')[0].toLowerCase()}, a=${f1(sc.a,1)} m/s², S=${f1(sc.sf,1)}. Selección: ${VCORTO[RET.ventosa]} × ${RET.numero} + ${FUENTES[RET.fuente].nom} = ${e.coste} u.c., Δp req ${f1(e.pvReq,0)} mbar, alcanza ${f1(e.pvEq,0)} mbar.`
-    +(retoChecked?` ${retoSolved?'✔ Correcto.':'✗ Ventosa '+(retoOk.ventosa?'✔':'✗')+' · Número '+(retoOk.numero?'✔':'✗')+' · Generador '+(retoOk.fuente?'✔':'✗')+'.'}`:'');
+    +(retoChecked?` ${retoSolved?'✔ Correcto.':'✗ Ventosa '+(retoOk.ventosa?'✔':'✗')+' · Número '+(retoOk.numero?'✔':'✗')+' · Generador '+(retoOk.fuente?'✔':'✗')+'. Fallos: '+intentos+' de '+MAX_INTENTOS+'.'}`:'');
   renderQuiz();
 }
 function renderQuiz(){
   const d=quizDef(), opts=quizOpts();
+  if(!retoSolved){
+    // El enunciado del diagnóstico explica POR QUÉ vale la solución: hasta resolver el reto lo oculta.
+    el('quizQ').textContent='El diagnóstico de esta estación se abre cuando el reto está resuelto.';
+    el('dxbtns').innerHTML='';
+    el('quizVerd').textContent='Bloqueado'; el('quizVerd').className='';
+    return;
+  }
   el('quizQ').textContent=d.q;
   el('dxbtns').innerHTML=opts.map((o,i)=>{
     const cls=quizPick<0?'b':(i===quizPick?(o.ok?'b ok':'b bad'):(o.ok&&quizPick>=0?'b ok':'b'));
@@ -1093,30 +1137,50 @@ function renderQuiz(){
   el('quizVerd').className = quizPick<0?'' : (quizOkFlag?'good':'bad');
 }
 function answerQuiz(i){
-  if(quizPick>=0) return;
+  if(!retoSolved || quizPick>=0) return;
   quizPick=i; quizOkFlag=!!quizOpts()[i].ok;
   synth.beep(quizOkFlag?1046:200,0.12,0.06);
   showToast(quizOkFlag?'<span style="color:var(--good)">✔ Correcta.</span>':'<span style="color:var(--bad)">✗ Incorrecta.</span> La respuesta buena queda marcada en verde.');
   renderQuiz();
 }
-function newReto(){
+// Sortea una estación NUEVA (distinta de la actual) y deja el reto en su estado inicial.
+function nuevoCaso(){
   ALT='toluca'; aplicaAlt();
-  retoK=Math.floor(Math.random()*POOL.length);
+  let k; do{ k=Math.floor(Math.random()*POOL.length); }while(POOL.length>1 && k===retoK);
+  retoK=k;
   RET=startCfg(POOL[retoK]);
   retoChecked=false; retoSolved=false; retoOk={ventosa:false,numero:false,fuente:false};
+  intentos=0; casoAgotado=false;
   shuffleQuiz();
-  syncRetoBtns(); drawReto(); updateTele();
+}
+function newReto(){
+  nuevoCaso();
+  syncRetoBtns(); refreshAll();
   showToast('🎲 Nueva estación asignada.');
   synth.beep(520,0.08,0.05);
 }
+// Cualquier cambio de selección invalida la comprobación anterior Y el `solved` latcheado:
+// el reto sólo está resuelto para la terna que se comprobó. Con el caso agotado, el toque renueva la estación.
+function tocaReto(fn){
+  if(casoAgotado){ newReto(); showToast('🎲 Tres comprobaciones fallidas: la estación se renovó con un caso nuevo.',4200); return; }
+  fn();
+  retoChecked=false; retoSolved=false; retoOk={ventosa:false,numero:false,fuente:false};
+  refreshAll();
+}
 function checkReto(){
+  if(casoAgotado){ newReto(); showToast('🎲 Tres comprobaciones fallidas: la estación se renovó con un caso nuevo.',4200); return; }
   ALT='toluca'; aplicaAlt();
   const sc=POOL[retoK];
   retoChecked=true;
   retoOk={ventosa:okEje(sc,'ventosa',RET.ventosa), numero:okEje(sc,'numero',RET.numero), fuente:okEje(sc,'fuente',RET.fuente)};
   retoSolved=retoOk.ventosa&&retoOk.numero&&retoOk.fuente;
   if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: válido y de coste mínimo en los tres ejes.</span>'); synth.beep(1046,0.12,0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ Revisa el eje marcado en el pizarrón.</span>'); synth.beep(180,0.14,0.06); }
+  else {
+    intentos++;
+    if(intentos>=MAX_INTENTOS) casoAgotado=true;
+    showToast('<span style="color:var(--bad)">✗ Revisa el eje marcado en el pizarrón.</span> Fallo '+intentos+' de '+MAX_INTENTOS+(casoAgotado?': la próxima vez se renueva la estación.':'.'));
+    synth.beep(180,0.14,0.06);
+  }
   drawReto(); updateTele();
 }
 
@@ -1152,7 +1216,14 @@ function updateTele(){
     set('ci_verd',r.valido?'✔ Válida ('+r.coste+' u.c.)':'✗ '+CRIT.filter(c=>c.k===r.primerFallo).map(c=>c.nom)[0],r.valido?'good':'bad');
   }
   if(mode==='proyecto'){
-    const sc=POOL[PR.k], g=GOOD(sc), cm=costeMin(sc), opt=OPT(sc);
+    const sc=POOL[PR.k];
+    if(proyBloqueado()){
+      set('pr_est',sc.nom.split(' ').slice(0,3).join(' '));
+      set('pr_F',f1(fuerzaReq(sc),1)+' N');
+      ['pr_val','pr_tot','pr_coste','pr_opt'].forEach(i=>set(i,'🔒 reto'));
+      return;
+    }
+    const g=GOOD(sc), cm=costeMin(sc), opt=OPT(sc);
     const conF=VENTK.flatMap(kv=>NUMS.map(n=>evalua(sc,{ventosa:kv,numero:n,fuente:PR.fuente}))).filter(r=>r.valido).length;
     set('pr_est',sc.nom.split(' ').slice(0,3).join(' '));
     set('pr_F',f1(fuerzaReq(sc),1)+' N');
@@ -1167,7 +1238,7 @@ function updateTele(){
     set('re_pvreq',f1(e.pvReq,0)+MB);
     set('re_pveq',f1(e.pvEq,0)+MB);
     set('re_tag',isFinite(e.tAgarre)?f1(e.tAgarre*1000,0)+' ms':'—');
-    set('re_verd',retoChecked?(retoSolved?'✔ Correcto':'✗ Revisa'):'Sin comprobar',retoChecked?(retoSolved?'good':'bad'):'');
+    set('re_verd',(retoChecked?(retoSolved?'✔ Correcto':'✗ Revisa'):'Sin comprobar')+' · fallos '+intentos+'/'+MAX_INTENTOS,retoChecked?(retoSolved?'good':'bad'):'');
   }
 }
 function syncRetoBtns(){
@@ -1325,6 +1396,16 @@ async function autoAssemble(){
 async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const bt=el('btnTour'), ba=el('btnAuto'); if(bt)bt.disabled=true; if(ba)ba.disabled=true;
+  // Es una DEMOSTRACIÓN: guarda el estado de exploración del alumno y lo devuelve al terminar, y no
+  // resuelve ni comprueba el reto. La narración da la solución de las estaciones 0, 1 y 4 (vidrio,
+  // cartón y bidón): si el reto sin resolver es una de ellas, se cambia ANTES por otra estación.
+  const snap={FZ:{...FZ}, CI:{...CI}, PR:{...PR}};
+  if(!retoSolved && [0,1,4].indexOf(retoK)>=0){
+    const k=[2,3][Math.floor(Math.random()*2)];
+    retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoOk={ventosa:false,numero:false,fuente:false};
+    intentos=0; casoAgotado=false; shuffleQuiz();
+    showToast('ℹ La demostración resuelve otras estaciones: tu reto pasó a una estación que no se explica en ella.',4200);
+  }
   try{
     if(!simUnlocked){
       showToast('🎬 Montamos el cabezal de vacío…',2600);
@@ -1350,9 +1431,11 @@ async function runAuto(){
     showToast('④ El bidón se toma por la pared lateral: ningún eyector le vale, hace falta la bomba de paletas.',4600); await sleep(4800);
     PR.fuente='bomba'; refreshAll();
     showToast('Con la bomba aparece UNA sola combinación válida de las 64: fuelle Ø40 × 6, y sale a 30 u.c.',4600); await sleep(4800);
+    Object.assign(FZ,snap.FZ); Object.assign(CI,snap.CI); Object.assign(PR,snap.PR);
     setMode('reto');
     showToast('⑤ Ahora tú: ventosa, número y generador, válidos y de coste mínimo. Y luego el diagnóstico.',4600);
   } finally {
+    Object.assign(FZ,snap.FZ); Object.assign(CI,snap.CI); Object.assign(PR,snap.PR);
     if(bt)bt.disabled=false; if(ba)ba.disabled=false; autoRunning=false;
   }
 }
@@ -1511,9 +1594,9 @@ document.querySelectorAll('#ciNum [data-k]').forEach(b=>{ b.onclick=()=>{ CI.num
 document.querySelectorAll('#ciFue [data-k]').forEach(b=>{ b.onclick=()=>{ CI.fuente=b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#prEst [data-k]').forEach(b=>{ b.onclick=()=>{ PR.k=+b.dataset.k; refreshAll(); }; });
 document.querySelectorAll('#prFue [data-k]').forEach(b=>{ b.onclick=()=>{ PR.fuente=b.dataset.k; refreshAll(); }; });
-document.querySelectorAll('#reVen [data-k]').forEach(b=>{ b.onclick=()=>{ RET.ventosa=b.dataset.k; retoChecked=false; refreshAll(); }; });
-document.querySelectorAll('#reNum [data-k]').forEach(b=>{ b.onclick=()=>{ RET.numero=+b.dataset.k; retoChecked=false; refreshAll(); }; });
-document.querySelectorAll('#reFue [data-k]').forEach(b=>{ b.onclick=()=>{ RET.fuente=b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reVen [data-k]').forEach(b=>{ b.onclick=()=>tocaReto(()=>{ RET.ventosa=b.dataset.k; }); });
+document.querySelectorAll('#reNum [data-k]').forEach(b=>{ b.onclick=()=>tocaReto(()=>{ RET.numero=+b.dataset.k; }); });
+document.querySelectorAll('#reFue [data-k]').forEach(b=>{ b.onclick=()=>tocaReto(()=>{ RET.fuente=b.dataset.k; }); });
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 
@@ -1545,7 +1628,8 @@ window.__labDebug={
   retoCfg:()=>({...RET}),
   reto:()=>({k:retoK, est:POOL[retoK].k, cfg:{...RET}, eval:evalua(POOL[retoK],RET),
     ejes:{ventosa:ejeSol(POOL[retoK],'ventosa'), numero:ejeSol(POOL[retoK],'numero'), fuente:ejeSol(POOL[retoK],'fuente')},
-    checked:retoChecked, solved:retoSolved, ok:{...retoOk}}),
+    checked:retoChecked, solved:retoSolved, ok:{...retoOk}, intentos, maxIntentos:MAX_INTENTOS, agotado:casoAgotado}),
+  intentos:()=>intentos,
   quiz:()=>({q:quizDef().q, opts:quizOpts().map(o=>({t:o.t,ok:!!o.ok})), pick:quizPick, ok:quizOkFlag}),
   quizAnswer:(i)=>answerQuiz(i),
   ciclo:()=>({on:cicloOn, fase:FASES[cFase].k, ciclos, armDrop, headZ, pieceHeld, pvNow}),
@@ -1554,7 +1638,7 @@ window.__labDebug={
   setCircuito:(o)=>{ Object.assign(CI,o); refreshAll(); },
   setProyecto:(o)=>{ Object.assign(PR,o); refreshAll(); },
   setReto:(k)=>{ ALT='toluca'; aplicaAlt(); retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoSolved=false;
-    retoOk={ventosa:false,numero:false,fuente:false}; shuffleQuiz(); refreshAll(); },
-  setRetoCfg:(o)=>{ Object.assign(RET,o); retoChecked=false; refreshAll(); },
+    retoOk={ventosa:false,numero:false,fuente:false}; intentos=0; casoAgotado=false; shuffleQuiz(); refreshAll(); },
+  setRetoCfg:(o)=>{ Object.assign(RET,o); retoChecked=false; retoSolved=false; retoOk={ventosa:false,numero:false,fuente:false}; refreshAll(); },
   setMode, checkReto, newReto, runAuto, autoAssemble,
 };
