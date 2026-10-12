@@ -1,5 +1,5 @@
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.0,3.2,6.0],target:[0,0.85,0.1],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[3.0,2.6,5.0],target:[0.45,0.9,0.05],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:2.6,maxD:16});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
@@ -14,8 +14,8 @@ const MAT={
   trigLed: std({color:0x0a1210, emissive:0x3ad9c2, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
   srcBody: std({...alu, color:0x3a4048, metalness:0.5, roughness:0.6}),
   post: std({...brush, color:0xd8b24a, metalness:0.9, roughness:0.3}),
-  wireCh1: std({...rub, color:0xe0b23c, roughness:0.85, metalness:0.0}),
-  wireCh2: std({...rub, color:0x3fb8c9, roughness:0.85, metalness:0.0}),
+  wireCh1: std({...rub, color:0xa8801c, roughness:0.85, metalness:0.0}),
+  wireCh2: std({...rub, color:0x2a8a99, roughness:0.85, metalness:0.0}),
 };
 
 const PARTS=[];
@@ -39,33 +39,10 @@ function showToast(html){
 }
 
 /* ---------- 1) BANCO ---------- */
-const bench=roundedBox(6.6,0.28,3.7,MAT.bench,0.05);
+const bench=roundedBox(5.4,0.28,3.0,MAT.bench,0.05);
 bench.position.set(0,-0.02,0);
 scene.add(bench);
-
-/* ---------- 2) OSCILOSCOPIO ---------- */
-const scopeGroup=new THREE.Group();
-scopeGroup.position.set(-1.4,0.77,-0.1);
-scene.add(scopeGroup);
-
-const scopeBody=roundedBox(1.9,1.30,1.15,MAT.scopeBody,0.09);
-scopeGroup.add(scopeBody);
-registerPart(scopeBody,'Osciloscopio','Instrumento que dibuja el voltaje contra el tiempo en una pantalla cuadriculada — te permite VER la forma de la onda, no solo un número.','#5eead4');
-
-const scrCanvas=document.createElement('canvas');
-scrCanvas.width=300; scrCanvas.height=240;
-const scrTex=new THREE.CanvasTexture(scrCanvas);
-scrTex.colorSpace=THREE.SRGBColorSpace;
-scrTex.minFilter=THREE.LinearFilter;
-scrTex.generateMipmaps=false;
-/* LA PANTALLA va a la IZQUIERDA del frente y los mandos a la derecha, que es
-   como esta repartido el panel de cualquier osciloscopio de banco: el operador
-   mira la traza y gira las perillas sin taparsela con la mano. Antes ocupaba el
-   centro y con 0,88 de alto se salia por arriba de la caja. */
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.90,0.72),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screenMesh.position.set(-0.40,0.20,0.585);
-scopeGroup.add(screenMesh);
-registerPart(screenMesh,'Pantalla','Cuadrícula de 10×8 divisiones. Cada división vale lo que definan los controles de base de tiempo (horizontal) y volts/división (vertical).','#5eead4');
+const YB=0.12;                                   // cara superior del banco
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -77,99 +54,106 @@ const MATP={
   blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* EL BNC no es un cilindro de color: lleva los DOS TETONES de la bayoneta —se
-   mete y se gira un cuarto de vuelta—, el aislante y el pin central. Los tetones
-   son lo que hace que el cable no se salga solo de un tiron, que es justo por lo
-   que un osciloscopio no lleva bananas; el anillo de color dice el canal. */
-const jackCh1=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh1.color.getHex()});
-jackCh1.position.set(-0.62,-0.44,0.575);
-scopeGroup.add(jackCh1);
-registerPart(jackCh1,'Entrada CH1 (BNC)','Conector del canal 1 (amarillo). Aquí se conecta la punta de prueba que trae la señal de referencia.','#ffd166');
+const metalBNC=new THREE.MeshStandardMaterial({color:0xc4c9cf,roughness:0.30,metalness:0.88});
+const MATB={...MATP,cromo:metalBNC,acero:metalBNC,aluminio:metalBNC};
 
-const jackCh2=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh2.color.getHex()});
-jackCh2.position.set(-0.34,-0.44,0.575);
-scopeGroup.add(jackCh2);
+/* ---------- 2) OSCILOSCOPIO ---------- */
+/* Un osciloscopio de banco de verdad: la pantalla grande a la IZQUIERDA del
+   frente y los mandos a la derecha, agrupados y rotulados; abajo, las teclas de
+   menú y los dos BNC con el anillo del color de su canal; arriba, el asa. */
+const scopeGroup=P3.osciloscopioBanco(MATB,{
+  mandos:[{id:'tiempo',x:0.40,y:0.36,r:0.078,rotulo:'BASE T.'},{id:'nivel',x:0.72,y:0.36,r:0.078,rotulo:'NIVEL'},
+          {id:'v1',x:0.40,y:0.02,r:0.078,rotulo:'V/DIV 1'},{id:'v2',x:0.72,y:0.02,r:0.078,rotulo:'V/DIV 2'}],
+  botones:[{id:'a',x:0.30,y:-0.24},{id:'b',x:0.50,y:-0.24},{id:'c',x:0.70,y:-0.24},{id:'d',x:0.90,y:-0.24}].map(b=>({...b,ancho:0.13,alto:0.06})),
+  bnc:[{x:-0.62,color:MAT.jackCh1.color.getHex()},{x:-0.34,color:MAT.jackCh2.color.getHex()}],
+  led:{x:0.56,y:0.56}});
+scopeGroup.position.set(-1.15,YB+scopeGroup.userData.apoyo,-0.15);
+scene.add(scopeGroup);
+const scopeBody=scopeGroup;
+registerPart(scopeBody,'Osciloscopio','Instrumento que dibuja el voltaje contra el tiempo en una pantalla cuadriculada — te permite VER la forma de la onda, no solo un número.','#5eead4');
+
+const scrCanvas=document.createElement('canvas');
+scrCanvas.width=300; scrCanvas.height=240;
+const scrTex=new THREE.CanvasTexture(scrCanvas);
+scrTex.colorSpace=THREE.SRGBColorSpace;
+scrTex.minFilter=THREE.LinearFilter;
+scrTex.generateMipmaps=false;
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.90,0.72),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+scopeGroup.userData.pantalla.add(screenMesh);
+registerPart(screenMesh,'Pantalla','Cuadrícula de 10×8 divisiones. Cada división vale lo que definan los controles de base de tiempo (horizontal) y volts/división (vertical).','#5eead4');
+
+const jackCh1=scopeGroup.userData.bnc[0];
+registerPart(jackCh1,'Entrada CH1 (BNC)','Conector del canal 1 (amarillo). Aquí se conecta la punta de prueba que trae la señal de referencia.','#ffd166');
+const jackCh2=scopeGroup.userData.bnc[1];
 registerPart(jackCh2,'Entrada CH2 (BNC)','Conector del canal 2 (cian). Se usa para comparar una segunda señal contra la del canal 1 — por ejemplo, para medir un desfase.','#4fd1c5');
 
-function makeKnob(x,y,label,desc){
-  const g=new THREE.Group();
-  g.position.set(x,y,0.585);
-  g.rotation.x=Math.PI/2;
-  scopeGroup.add(g);
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.08,0.04,18),MAT.knobBase);
-  g.add(base);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.07,18),MAT.knobRub);
-  grip.position.y=0.045;
-  g.add(grip);
-  const tick=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.05,0.012),MAT.knobTick);
-  tick.position.set(0,0.02,0.058);
-  grip.add(tick);
-  registerPart(g,label,desc,'#ffd166');
-  return grip;
-}
-const knobTimeGrip=makeKnob(0.40,0.36,'Perilla Base de Tiempo','Controla cuántos microsegundos o milisegundos representa cada división horizontal de la pantalla.');
-const knobV1Grip=makeKnob(0.40,0.02,'Perilla Volts/Div · CH1','Controla cuántos volts representa cada división vertical para el canal 1.');
-const knobV2Grip=makeKnob(0.72,0.02,'Perilla Volts/Div · CH2','Controla cuántos volts representa cada división vertical para el canal 2 (no se ejercita en estos 4 casos).');
-const knobLevelGrip=makeKnob(0.72,0.36,'Perilla Nivel de Disparo','Define el voltaje al que debe cruzar la señal para que el osciloscopio "dispare" y congele una imagen estable.');
+const M=scopeGroup.userData.mandos;
+const knobTimeGrip=M.tiempo.grip, knobV1Grip=M.v1.grip, knobV2Grip=M.v2.grip, knobLevelGrip=M.nivel.grip;
+registerPart(M.tiempo.grupo,'Perilla Base de Tiempo','Controla cuántos microsegundos o milisegundos representa cada división horizontal de la pantalla.','#ffd166');
+registerPart(M.v1.grupo,'Perilla Volts/Div · CH1','Controla cuántos volts representa cada división vertical para el canal 1.','#ffd166');
+registerPart(M.v2.grupo,'Perilla Volts/Div · CH2','Controla cuántos volts representa cada división vertical para el canal 2 (no se ejercita en estos 4 casos).','#ffd166');
+registerPart(M.nivel.grupo,'Perilla Nivel de Disparo','Define el voltaje al que debe cruzar la señal para que el osciloscopio "dispare" y congele una imagen estable.','#ffd166');
 
-/* EL VESTIDO DEL INSTRUMENTO: MARCO de la pantalla, ASA de transporte, PATAS y
-   REJILLA de ventilacion. Sin ellos la caja no se distingue de un cajon: son las
-   cuatro cosas por las que un aparato de banco se reconoce como aparato. */
-{
-  const marco=new THREE.Mesh(P3.extruido(
-    [[-0.49,-0.40],[0.49,-0.40],[0.49,0.40],[-0.49,0.40]],
-    {huecos:[[[-0.45,-0.36],[0.45,-0.36],[0.45,0.36],[-0.45,0.36]]],
-     espesor:0.035,bisel:0.006}),MAT.knobBase);
-  marco.position.set(-0.40,0.20,0.585-0.030);scopeGroup.add(marco);
-  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.98,0.30,0),new THREE.Vector3(-0.98,0.72,0),
-    new THREE.Vector3(0,0.86,0),
-    new THREE.Vector3(0.98,0.72,0),new THREE.Vector3(0.98,0.30,0)],false),
-    26,0.032,8,false),MAT.knobRub);
-  asa.castShadow=true;scopeGroup.add(asa);
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
-    const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.062,0.05,12),MAT.knobRub);
-    pa.position.set(sx*0.80,-0.68,sz*0.46);scopeGroup.add(pa);
-  });
-  for(let i=0;i<7;i++){
-    const r=new THREE.Mesh(new THREE.BoxGeometry(1.10,0.014,0.035),MAT.knobRub);
-    r.position.set(0,0.652,-0.42+i*0.06);scopeGroup.add(r);
-  }
-}
-const trigLed=new THREE.Mesh(new THREE.SphereGeometry(0.035,12,12),MAT.trigLed);
-trigLed.position.set(0.56,0.56,0.585);
-scopeGroup.add(trigLed);
+const trigLed=scopeGroup.userData.led;
 registerPart(trigLed,"Indicador de disparo (TRIG'D)","Se enciende cuando el osciloscopio logra sincronizar (disparar) con la señal y la traza queda estable.",'#3ad9c2');
 
 /* ---------- 3) GENERADOR DE SEÑALES ---------- */
-const srcGroup=new THREE.Group();
-srcGroup.position.set(1.6,0.40,0.3);
+/* Un generador de funciones de banco: visor, tres mandos y sus dos salidas BNC,
+   girado hacia el osciloscopio para que se le vea el frente. */
+const srcGroup=P3.instrumentoBanco(MATB,{ancho:1.0,alto:0.56,fondo:0.55,color:0x3a4048,mandos:3,bnc:2,
+  bncColores:[MAT.jackCh1.color.getHex(),MAT.jackCh2.color.getHex()],visor:0.46,visorAlto:0.42});
+srcGroup.position.set(1.35,YB+0.56/2+0.56*0.055+0.03,0.15);
+srcGroup.rotation.y=-0.45;
 scene.add(srcGroup);
-const srcBody=roundedBox(0.85,0.55,0.62,MAT.srcBody,0.08);
-srcGroup.add(srcBody);
+const srcBody=srcGroup;
 registerPart(srcBody,'Generador de señales','Fuente de la señal de prueba (onda senoidal) que el osciloscopio va a medir. En un banco real sería un generador de funciones de laboratorio.','#ffb454');
-
-const termA=P3.bnc(MATP,{d:0.095,largo:0.09,color:MAT.jackCh1.color.getHex()});
-termA.position.set(-0.16,0.16,0.31);
-srcGroup.add(termA);
+{ // el visor del generador: una cifra de frecuencia y el icono de la forma de onda
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=128;
+  const c=cv.getContext('2d'); c.fillStyle='#06120f'; c.fillRect(0,0,256,128);
+  c.strokeStyle='#5eead4'; c.lineWidth=5; c.beginPath();
+  for(let i=0;i<=120;i++){ const x=18+i*1.6, y=44+Math.sin(i/120*Math.PI*4)*22; if(i===0)c.moveTo(x,y); else c.lineTo(x,y); } c.stroke();
+  c.fillStyle='#8fb3ac'; c.font='bold 30px monospace'; c.textAlign='center'; c.fillText('FUNC GEN',128,108);
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace;
+  const v=srcGroup.userData.visor;
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(v.ancho*0.98,v.alto*0.98),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  srcGroup.userData.pantalla.add(p);
+}
+const termA=srcGroup.userData.bnc[0];
 registerPart(termA,'Terminal de salida (CH1)','Punto de conexión de la señal senoidal de prueba hacia el canal 1.','#ffd166');
-
-const termB=P3.bnc(MATP,{d:0.095,largo:0.09,color:MAT.jackCh2.color.getHex()});
-termB.position.set(0.16,0.16,0.31);
-srcGroup.add(termB);
+const termB=srcGroup.userData.bnc[1];
 registerPart(termB,'Terminal de salida (CH2)','Punto de conexión de la misma señal (desfasada por un circuito bajo prueba) hacia el canal 2.','#4fd1c5');
 
 /* ---------- 4) CABLEADO ---------- */
-function cableTube(points,radius,mat){
-  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
-  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,40,radius,8,false),mat);
-  scene.add(m);
-  return m;
+/* Cable coaxial con su ENCHUFE BNC en cada punta: el enchufe tapa el jack y de él
+   sale el cable. */
+function enchufeBNC(jack,color){
+  const p=jack.parent, g=new THREE.Group();
+  const cil=new THREE.Mesh(new THREE.CylinderGeometry(0.060,0.060,0.13,18),metalBNC);
+  cil.rotation.x=Math.PI/2; cil.position.z=0.075; cil.castShadow=true; g.add(cil);
+  const an=new THREE.Mesh(new THREE.TorusGeometry(0.064,0.012,8,18),new THREE.MeshStandardMaterial({color,roughness:0.5,metalness:0.2}));
+  an.position.z=0.125; g.add(an);
+  const col=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.040,0.07,14),MAT.knobRub);
+  col.rotation.x=Math.PI/2; col.position.z=0.175; g.add(col);
+  g.position.copy(jack.position); p.add(g);
+  return g;
 }
-const cableCh1=cableTube([[-2.02,0.33,0.485],[-0.35,0.85,0.9],[1.45,0.72,0.50]],0.028,MAT.wireCh1);
+function coax(jackA,jackB,color,mat,sag){
+  scene.updateMatrixWorld(true);
+  const pa=jackA.parent.localToWorld(jackA.position.clone().add(new THREE.Vector3(0,0,0.21)));
+  const pb=jackB.parent.localToWorld(jackB.position.clone().add(new THREE.Vector3(0,0,0.21)));
+  const da=new THREE.Vector3(0,0,1).transformDirection(jackA.parent.matrixWorld);
+  const db=new THREE.Vector3(0,0,1).transformDirection(jackB.parent.matrixWorld);
+  const mid=pa.clone().lerp(pb,0.5); mid.y=YB+sag; mid.z=Math.max(pa.z,pb.z)+0.45+sag;
+  const curve=new THREE.CatmullRomCurve3([pa,pa.clone().addScaledVector(da,0.30).setY(pa.y-0.05),mid,pb.clone().addScaledVector(db,0.30).setY(pb.y-0.05),pb]);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,48,0.028,8,false),mat);
+  m.castShadow=true; scene.add(m); return m;
+}
+enchufeBNC(jackCh1,MAT.jackCh1.color.getHex()); enchufeBNC(termA,MAT.jackCh1.color.getHex());
+enchufeBNC(jackCh2,MAT.jackCh2.color.getHex()); enchufeBNC(termB,MAT.jackCh2.color.getHex());
+const cableCh1=coax(jackCh1,termA,0,MAT.wireCh1,0.10);
 registerPart(cableCh1,'Punta de prueba CH1','Cable coaxial que lleva la señal de referencia desde el generador hasta la entrada CH1.','#ffd166');
 
-const cableCh2=cableTube([[-1.74,0.33,0.485],[-0.10,0.80,1.05],[1.75,0.72,0.50]],0.028,MAT.wireCh2);
+const cableCh2=coax(jackCh2,termB,0,MAT.wireCh2,0.00);
 registerPart(cableCh2,'Punta de prueba CH2','Cable coaxial que lleva la señal del canal 2 desde el generador hasta la entrada CH2.','#4fd1c5');
 
 /* ---------- 5) RENDERIZADO DE PANTALLA ---------- */
@@ -750,7 +734,7 @@ el('btnEnergize').onclick=(e)=>{
   e.target.classList.toggle('on',energized);
   e.target.textContent=energized?'⏻ Desconectar generador':'🔌 Conectar generador';
   if(energized){
-    S.moveTo([2.6,2.0,4.2],[-1.2,0.75,0.2],1.3);
+    S.moveTo([2.8,2.1,4.4],[-0.8,0.75,0.2],1.3);
     S.setCinematicIdle(true);
     synth.beep(660,0.1,0.06);
   } else {

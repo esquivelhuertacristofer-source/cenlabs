@@ -493,7 +493,7 @@ function makeSynth(opts={}){
        de inclusión obligatoria por defecto en ISO/IEC 17025 §7.8.4.3).
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[0.5,3.2,6.0],target:[-0.2,0.9,0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[-1.2,2.1,3.0],target:[-2.4,0.75,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:1.6,maxD:18});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const sh=m=>{m.castShadow=true;m.receiveShadow=true;return m;};
@@ -510,7 +510,7 @@ const MAT={
   pedCenam: std({...alu, color:0xC9A227, metalness:0.4, roughness:0.4}),
   pedLab:   std({...alu, color:0x4FD1C5, metalness:0.35, roughness:0.45}),
   pedTaller:std({...alu, color:0x8a949c, metalness:0.35, roughness:0.5}),
-  link:     std({color:0x2f6b63, emissive:0x1a5c54, emissiveIntensity:0.6, roughness:0.5}),
+  link:     std({color:0x2f6b63, emissive:0x1a5c54, emissiveIntensity:0.3, roughness:0.5}),
 };
 
 /* ---------- estado ---------- */
@@ -635,7 +635,7 @@ const CASE_CAM={
     expandida:  [[-2.4,2.9,4.0],[-2.4,0.9,0]],
   },
   traz:{
-    cadena:      [[2.6,2.6,4.6],[2.6,0.8,0]],
+    cadena:      [[2.6,2.5,6.4],[2.6,0.85,0]],
     certificado: [[2.6,1.9,1.5],[2.6,1.45,-0.5]],
   },
 };
@@ -758,6 +758,11 @@ function currentQuiz(){
 /* ============================================================
    ESCENA 3D — 1) ESTACIÓN DE MEDICIÓN (comparador + bloque patrón)
    ============================================================ */
+/* Los nombres con los que trabaja la biblioteca de piezas (P3), traducidos una
+   vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.steelDk, acero:MAT.steel, cromo:MAT.steel, chapa:MAT.steelDk,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}), negro:MAT.bezel, goma:MAT.bezel,
+  blanco:std({color:0xd7dee6,roughness:0.4,metalness:0.2}), ceramica:std({color:0xd7dee6,roughness:0.6,metalness:0.05})};
 const stationG=new THREE.Group(); stationG.position.set(-2.4,0,0); scene.add(stationG);
 
 const plate=roundedBox(1.7,0.09,1.05,MAT.granite,0.03); plate.position.set(0,0.045,0); stationG.add(plate);
@@ -785,11 +790,19 @@ blkMarca.userData={title:'Grabado del bloque patrón',info:'La dimensión nomina
 gaugeBlk.userData={title:'Bloque patrón (pieza bajo prueba)',info:'Dimensión nominal 10 mm. Se mide 5 veces con el comparador para estimar la repetibilidad (Tipo A) — la misma pieza, sin desmontarla entre lecturas.'};
 const lbBlk=labelSprite('Bloque patrón · Ø nominal 10 mm','#C9A227'); lbBlk.position.set(0.20,0.42,0.30); lbBlk.visible=false; lbBlk.raycast=()=>{}; stationG.add(lbBlk); HOVER_LABELS.set(gaugeBlk,lbBlk);
 
-const compBase=roundedBox(0.30,0.09,0.30,MAT.base,0.05); compBase.position.set(-0.15,0.075,-0.10); stationG.add(compBase);
+/* LA BASE MAGNETICA: un taco de acero escalonado con su ranura en V —que es lo
+   que le permite agarrar también un cilindro— y la palanca que conecta el iman. */
+const compBase=new THREE.Group(); compBase.position.set(-0.15,0.09,-0.10); stationG.add(compBase);
+{
+  const b1=sh(roundedBox(0.30,0.045,0.30,MAT.base,0.015)); b1.position.y=0.0225; compBase.add(b1);
+  const b2=sh(roundedBox(0.20,0.07,0.20,MAT.steelDk,0.012)); b2.position.y=0.045+0.035; compBase.add(b2);
+  const v=new THREE.Mesh(new THREE.BoxGeometry(0.205,0.012,0.030),MAT.bezel); v.position.set(0,0.116,0.07); compBase.add(v);
+  for(const sx of [-1,1]){ const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.012,8),MAT.steel); tr.position.set(sx*0.12,0.051,0.12); compBase.add(tr); }
+}
 /* LA PALANCA de la base magnetica: es lo que la enciende y la apaga, y lo que
    la distingue de un taco de acero cualquiera. */
 const compPalanca=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.11,10),MAT.bezel));
-compPalanca.rotation.x=Math.PI/2; compPalanca.position.set(-0.04,0.075,0.02); stationG.add(compPalanca);
+compPalanca.rotation.x=Math.PI/2; compPalanca.position.set(-0.04,0.11,0.06); stationG.add(compPalanca);
 compPalanca.userData={title:'Palanca de la base magnética',info:'Conecta y desconecta el imán permanente. Sin ella la base no agarra, y un comparador que se mueve entre lecturas mete en la repetibilidad un error que no es del operador ni del instrumento.'};
 compBase.userData={title:'Base magnética',info:'Fija el comparador de forma rígida sobre la placa de referencia.'};
 const compPost=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.85,12),MAT.steelDk));
@@ -799,12 +812,17 @@ compArmH.rotation.z=Math.PI/2; compArmH.position.set(0.1,0.90,-0.10); stationG.a
 const compArmV=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.22,12),MAT.steelDk));
 compArmV.position.set(0.35,0.79,-0.10); stationG.add(compArmV);
 
-const dialBezel=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.08,32),MAT.bezel));
-dialBezel.rotation.x=Math.PI/2; dialBezel.position.set(0.35,0.66,0.02); stationG.add(dialBezel);
+/* El COMPARADOR de verdad: caja con su bisel moleteado, la orejeta trasera por
+   donde lo sujeta el brazo, y el casquillo por donde sale el palpador. */
+const dialBezel=P3.comparadorCaratula(MATP,{R:0.26,fondo:0.08}); dialBezel.position.set(0.35,0.66,0.02); stationG.add(dialBezel);
+for(const [cx,cy,cz] of [[0.35,0.855,-0.075],[-0.15,0.90,-0.10],[0.35,0.90,-0.10]]){   // las mordazas cruzadas del soporte
+  const cc=sh(roundedBox(0.09,0.09,0.09,MAT.steelDk,0.012)); cc.position.set(cx,cy,cz); stationG.add(cc);
+}
+const stubDial=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.10,10),MAT.steel)); stubDial.rotation.x=Math.PI/2; stubDial.position.set(0.35,0.80,-0.08); stationG.add(stubDial);
 const dialCanvas=document.createElement('canvas'); dialCanvas.width=384; dialCanvas.height=384;
 const dialTex=new THREE.CanvasTexture(dialCanvas); dialTex.colorSpace=THREE.SRGBColorSpace; dialTex.minFilter=THREE.LinearFilter; dialTex.generateMipmaps=false;
-const dialFace=new THREE.Mesh(new THREE.PlaneGeometry(0.47,0.47), new THREE.MeshBasicMaterial({map:dialTex,toneMapped:false}));
-dialFace.position.set(0.35,0.66,0.062); stationG.add(dialFace);
+const dialFace=new THREE.Mesh(new THREE.CircleGeometry(0.228,56), new THREE.MeshBasicMaterial({map:dialTex,toneMapped:false}));
+dialFace.position.set(0.35,0.66,0.050); stationG.add(dialFace);
 dialFace.userData={title:'Carátula del comparador',info:'Nota de fidelidad: la deflexión de la aguja está EXAGERADA a propósito para que sea visible — las desviaciones reales de este ejercicio son de unas pocas décimas de micra. El valor autoritativo es siempre el número, no el ángulo de la aguja.'};
 const plunger=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.24,14),MAT.steel));
 plunger.position.set(0.35,0.42,0.06); stationG.add(plunger);
@@ -844,29 +862,75 @@ const lbCert=labelSprite('Certificado del bloque patrón','#C9A227'); lbCert.pos
 const chainG=new THREE.Group(); scene.add(chainG);
 const NODE_X={cenam:1.2, lab:2.6, taller:4.0};
 
-function makeNode(x,mat,title,info,label,color){
-  const ped=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,0.55,8),mat));
-  ped.position.set(x,0.275,0); chainG.add(ped);
-  ped.userData={title,info};
-  const lb=labelSprite(label,color); lb.position.set(x,0.95,0); chainG.add(lb); // siempre visible
-  return ped;
+function makeNode(x,mat,title,info,label,color,objeto){
+  const g=new THREE.Group(); g.position.set(x,0,0); chainG.add(g);
+  const ped=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.40,0.55,10),mat));
+  ped.position.set(0,0.275,0); g.add(ped);
+  const top=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.40,0.40,0.03,10),MAT.base)); top.position.set(0,0.565,0); g.add(top);
+  const obj=objeto(); obj.position.y=0.58; g.add(obj);
+  g.userData={title,info};
+  const lb=labelSprite(label,color); lb.position.set(x,1.30,0); lb.scale.multiplyScalar(0.62); chainG.add(lb); // siempre visible
+  return g;
+}
+/* CENAM: el patrón primario. Un interferometro laser —la longitud se define con la
+   longitud de onda de la luz— con su cabezal, su divisor de haz y los dos espejos. */
+function interferometro(){
+  const g=new THREE.Group();
+  const base=sh(roundedBox(0.66,0.03,0.46,MAT.steelDk,0.01)); base.position.set(0,0.015,0); g.add(base);
+  const cab=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.34,22),MAT.base)); cab.rotation.z=Math.PI/2; cab.position.set(-0.19,0.13,0); g.add(cab);
+  const col=new THREE.Mesh(new THREE.CylinderGeometry(0.076,0.076,0.04,22),MAT.steel); col.rotation.z=Math.PI/2; col.position.set(-0.03,0.13,0); g.add(col);
+  for(const sx of [-0.30,-0.08]){ const so=sh(new THREE.Mesh(new THREE.BoxGeometry(0.05,0.07,0.10),MAT.steelDk)); so.position.set(sx,0.065,0); g.add(so); }
+  const haz=std({color:0x300000,emissive:0xff2a1a,emissiveIntensity:0.55,roughness:0.5});
+  const h1=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.25,6),haz); h1.rotation.z=Math.PI/2; h1.position.set(0.155,0.13,0); g.add(h1);
+  const h2=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.17,6),haz); h2.rotation.x=Math.PI/2; h2.position.set(0.14,0.13,-0.085); g.add(h2);
+  const div=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.075,0.075),std({color:0x9fd6e0,roughness:0.08,metalness:0.2,transparent:true,opacity:0.55}));
+  div.position.set(0.14,0.13,0); g.add(div);
+  const esp1=sh(new THREE.Mesh(new THREE.BoxGeometry(0.11,0.10,0.014),MAT.steel)); esp1.position.set(0.14,0.13,-0.185); g.add(esp1);
+  const esp2=sh(new THREE.Mesh(new THREE.BoxGeometry(0.014,0.10,0.11),MAT.steel)); esp2.position.set(0.27,0.13,0); g.add(esp2);
+  const car=sh(roundedBox(0.07,0.04,0.15,MAT.steelDk,0.01)); car.position.set(0.27,0.045,0); g.add(car);
+  const det=sh(roundedBox(0.09,0.07,0.07,MAT.base,0.01)); det.position.set(0.14,0.065,0.19); g.add(det);
+  return g;
+}
+/* El laboratorio acreditado: el estuche de bloques patron, que es de lo que vive
+   —los bloques se comparan contra el patron nacional y de ahi calibran los
+   instrumentos de taller—. Abierto, con sus bloques por filas en su espuma. */
+function estucheBloques(){
+  const g=new THREE.Group();
+  const cs=std({color:0x1b2128,roughness:0.55,metalness:0.2});
+  const caja=sh(roundedBox(0.66,0.07,0.42,cs,0.02)); caja.position.set(0,0.035,0); g.add(caja);
+  const esp=new THREE.Mesh(new THREE.BoxGeometry(0.60,0.012,0.36),std({color:0x0b0e12,roughness:0.95})); esp.position.set(0,0.07,0); g.add(esp);
+  const tapa=sh(roundedBox(0.66,0.04,0.42,cs,0.02)); tapa.position.set(0,0.20,-0.25); tapa.rotation.x=-1.25; g.add(tapa);
+  const largos=[0.06,0.075,0.09,0.105,0.12,0.14];
+  for(let r=0;r<2;r++) for(let i=0;i<6;i++){
+    const bl=sh(new THREE.Mesh(new THREE.BoxGeometry(0.05,0.012+i*0.002,largos[i]),MAT.gaugeBlk));
+    bl.position.set(-0.23+i*0.092,0.078+0.006,-0.08+r*0.17); g.add(bl);
+  }
+  return g;
+}
+/* El instrumento de taller: un micrometro de exteriores, lo que tiene en la mano
+   el operador de verdad. */
+function micrometroNodo(){
+  const g=new THREE.Group();
+  const m=P3.micrometro(MATP,{R:0.30,brazo:0.20,apertura:0.16}); m.scale.setScalar(0.80);
+  m.position.set(-0.28,0.30*0.80+0.02,0); m.rotation.y=0.35; g.add(m);
+  return g;
 }
 const nodeCenam=makeNode(NODE_X.cenam, MAT.pedCenam,
   'CENAM — Centro Nacional de Metrología',
   'Instituto Nacional de Metrología de México (Ley de Infraestructura de la Calidad, vigente desde el 1 de julio de 2020). Mantiene los patrones nacionales de medición y es, por definición legal, el origen de la trazabilidad en el país — el eslabón más alto de la cadena.',
-  'CENAM','#C9A227');
+  'CENAM','#C9A227',interferometro);
 const nodeLab=makeNode(NODE_X.lab, MAT.pedLab,
   'Laboratorio de calibración acreditado (EMA)',
   'Acreditado por la EMA (Entidad Mexicana de Acreditación, A.C.) bajo la norma NMX-EC-17025-IMNC-2018 (idéntica a ISO/IEC 17025:2017). Calibra instrumentos de taller usando patrones con trazabilidad documentada a CENAM, y emite certificados de calibración con incertidumbre y trazabilidad declaradas.',
-  'Lab. acreditado (EMA/ISO 17025)','#4FD1C5');
+  'Lab. acreditado (EMA/ISO 17025)','#4FD1C5',estucheBloques);
 const nodeTaller=makeNode(NODE_X.taller, MAT.pedTaller,
   'Instrumento de taller',
   'El comparador o micrómetro que usa el operador día a día. Su trazabilidad depende de que exista una cadena ININTERRUMPIDA y documentada hasta CENAM — tener "un papel" no basta si la cadena está rota o el certificado no declara incertidumbre (VIM 2.41, nota 5).',
-  'Instrumento de taller','#8a949c');
+  'Instrumento de taller','#8a949c',micrometroNodo);
 
 function makeLink(x1,x2){
   const len=x2-x1;
-  const link=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,len,10),MAT.link));
+  const link=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,len,10),MAT.link));
   link.rotation.z=Math.PI/2; link.position.set((x1+x2)/2,0.32,0); chainG.add(link);
   link.userData={title:'Eslabón de la cadena de trazabilidad',info:'Cada eslabón es una calibración DOCUMENTADA, con su propia incertidumbre declarada — una cadena rota o sin incertidumbre reportada no es trazabilidad, aunque exista "un papel".'};
   return link;
@@ -880,6 +944,10 @@ const boardCanvas=document.createElement('canvas'); boardCanvas.width=560; board
 const boardTex=new THREE.CanvasTexture(boardCanvas); boardTex.colorSpace=THREE.SRGBColorSpace; boardTex.minFilter=THREE.LinearFilter; boardTex.generateMipmaps=false;
 const boardMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.3,0.98), new THREE.MeshBasicMaterial({map:boardTex,toneMapped:false}));
 boardMesh.position.set(NODE_X.lab,1.55,-0.55); chainG.add(boardMesh);
+const boardMarco=sh(new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.70,-0.53],[0.70,-0.53],[0.70,0.53],[-0.70,0.53]],0.03,3),
+  {huecos:[[[-0.65,-0.49],[0.65,-0.49],[0.65,0.49],[-0.65,0.49]]],espesor:0.06,bisel:0.01}),MAT.base));
+boardMarco.position.set(NODE_X.lab,1.55,-0.57); chainG.add(boardMarco);
+const boardTras=sh(new THREE.Mesh(new THREE.BoxGeometry(1.40,1.06,0.02),MAT.base)); boardTras.position.set(NODE_X.lab,1.55,-0.585); chainG.add(boardTras);
 boardMesh.userData={title:'Certificado de calibración (laboratorio acreditado)',info:'Certificado ilustrativo: incluye incertidumbre, condiciones y declaración de trazabilidad (ISO/IEC 17025 §7.8) — y OMITE a propósito la "próxima fecha de calibración", que la norma no exige por defecto (§7.8.4.3).'};
 const lbBoard=labelSprite('Certificado de calibración','#EAF4F1'); lbBoard.position.set(NODE_X.lab,2.10,-0.55); lbBoard.visible=false; lbBoard.raycast=()=>{}; chainG.add(lbBoard); HOVER_LABELS.set(boardMesh,lbBoard);
 

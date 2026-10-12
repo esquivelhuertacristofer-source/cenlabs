@@ -435,7 +435,7 @@ function makeSynth(opts={}){
 
 // ===== 1) Escenario base =====
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.0,3.2,6.0],target:[0,0.85,0.1],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[3.0,2.6,5.0],target:[0.45,0.9,0.05],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:2.4,maxD:16});
 const {scene}=S;
 
 const std=o=>new THREE.MeshStandardMaterial(o);
@@ -458,7 +458,7 @@ const MAT={
   switchSlide: std({color:0xffd166, metalness:0.3, roughness:0.5}),
   tip: std({...brush, color:0xd8d8e0, metalness:0.85, roughness:0.25}),
   gclip: std({color:0x2a2f38, metalness:0.4, roughness:0.6}),
-  wireProbe: std({...rub, color:0xc77dff, roughness:0.85, metalness:0.0}),
+  wireProbe: std({...rub, color:0x7f52b8, roughness:0.85, metalness:0.0}),
 };
 
 const PARTS=[];
@@ -483,29 +483,10 @@ function showToast(html){
 }
 
 // ===== 2) Banco =====
-const bench=roundedBox(6.6,0.28,3.7,MAT.bench,0.05);
-bench.position.set(0,0,0);
+const bench=roundedBox(5.4,0.28,3.0,MAT.bench,0.05);
+bench.position.set(0,-0.02,0);
 scene.add(bench);
-
-// ===== 3) Osciloscopio (cuerpo, pantalla, jack, terminal de comp, perillas cosméticas, botones) =====
-const scopeGroup=new THREE.Group();
-scopeGroup.position.set(-1.4,0.77,-0.1);
-scene.add(scopeGroup);
-
-const scopeBody=roundedBox(1.9,1.30,1.15,MAT.scopeBody,0.09);
-scopeGroup.add(scopeBody);
-registerPart(scopeBody,'Osciloscopio digital','Un solo canal activo (CH1) para esta práctica: sonda, compensación, cursores y análisis FFT.','#ffd166');
-
-const scrCanvas=document.createElement('canvas');
-scrCanvas.width=300; scrCanvas.height=240;
-const scrTex=new THREE.CanvasTexture(scrCanvas);
-/* LA PANTALLA a la izquierda y los mandos a la derecha, el reparto real del
-   frente de un osciloscopio de banco. Ademas 0,88 de alto se salia por encima
-   de la tapa de la caja, que esta en 0,65. */
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.90,0.72),new THREE.MeshBasicMaterial({map:scrTex}));
-screenMesh.position.set(-0.40,0.20,0.586);
-scopeGroup.add(screenMesh);
-registerPart(screenMesh,'Pantalla','Traza, cursores y espectro FFT se dibujan aquí según el caso activo.','#ffd166');
+const YB=0.12;                                   // cara superior del banco
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -517,143 +498,100 @@ const MATP={
   blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* EL BNC no es un cilindro de color: lleva los DOS TETONES de la bayoneta —se
-   mete y se gira un cuarto de vuelta—, el aislante y el pin central. Los tetones
-   son lo que hace que el cable no se salga solo de un tiron, que es justo por lo
-   que un osciloscopio no lleva bananas; el anillo de color dice el canal. */
-const jackCh1=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh1.color.getHex()});
-jackCh1.position.set(-0.62,-0.44,0.575);
-scopeGroup.add(jackCh1);
+const metalBNC=new THREE.MeshStandardMaterial({color:0xc4c9cf,roughness:0.30,metalness:0.88});
+const MATB={...MATP,cromo:metalBNC,acero:metalBNC,aluminio:metalBNC};
+
+// ===== 3) Osciloscopio de banco: pantalla a la izquierda, mandos y teclas a la derecha =====
+const scopeGroup=P3.osciloscopioBanco(MATB,{
+  mandos:[{id:'volts',x:0.36,y:0.38,r:0.078,rotulo:'V/DIV'},{id:'tiempo',x:0.36,y:0.04,r:0.078,rotulo:'BASE T.'}],
+  botones:[{id:'fft',x:0.72,y:0.45,luz:true},{id:'cursor',x:0.72,y:0.19,luz:true},{id:'a',x:0.72,y:-0.07},{id:'b',x:0.72,y:-0.23}].map(b=>({...b,ancho:0.13,alto:0.06})),
+  bnc:[{x:-0.62,color:MAT.jackCh1.color.getHex()}],
+  terminales:[{x:-0.30,color:0xc77dff}]});
+scopeGroup.position.set(-1.15,YB+scopeGroup.userData.apoyo,-0.15);
+scene.add(scopeGroup);
+const scopeBody=scopeGroup;
+registerPart(scopeBody,'Osciloscopio digital','Un solo canal activo (CH1) para esta práctica: sonda, compensación, cursores y análisis FFT.','#ffd166');
+
+const scrCanvas=document.createElement('canvas');
+scrCanvas.width=300; scrCanvas.height=240;
+const scrTex=new THREE.CanvasTexture(scrCanvas);
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.90,0.72),new THREE.MeshBasicMaterial({map:scrTex}));
+scopeGroup.userData.pantalla.add(screenMesh);
+registerPart(screenMesh,'Pantalla','Traza, cursores y espectro FFT se dibujan aquí según el caso activo.','#ffd166');
+
+const jackCh1=scopeGroup.userData.bnc[0];
 registerPart(jackCh1,'Entrada CH1 (BNC)','Único canal de entrada usado en esta práctica. Aquí se conecta el cable de la sonda.','#ffd166');
 
-const probeCompTerm=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.05,10),MAT.compTerm);
-probeCompTerm.rotation.x=Math.PI/2;
-probeCompTerm.position.set(-0.30,-0.44,0.585);
-scopeGroup.add(probeCompTerm);
+const probeCompTerm=scopeGroup.userData.terminales[0];
 registerPart(probeCompTerm,'Terminal de compensación de sonda','Salida de calibración propia del osciloscopio: onda cuadrada de referencia (típicamente ≈1 kHz, unos pocos volts) usada para ajustar el trimmer de una sonda 10X. En esta práctica el generador de señales cumple ese mismo papel, para no tener que mover la sonda de sitio.','#c77dff');
 
-/* EL VESTIDO DEL INSTRUMENTO: MARCO de la pantalla, ASA de transporte, PATAS y
-   REJILLA de ventilacion. Sin ellos la caja no se distingue de un cajon: son las
-   cuatro cosas por las que un aparato de banco se reconoce como aparato. */
-{
-  const marco=new THREE.Mesh(P3.extruido(
-    [[-0.49,-0.40],[0.49,-0.40],[0.49,0.40],[-0.49,0.40]],
-    {huecos:[[[-0.45,-0.36],[0.45,-0.36],[0.45,0.36],[-0.45,0.36]]],
-     espesor:0.035,bisel:0.006}),MAT.knobBase);
-  marco.position.set(-0.40,0.20,0.586-0.030);scopeGroup.add(marco);
-  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.98,0.30,0),new THREE.Vector3(-0.98,0.72,0),
-    new THREE.Vector3(0,0.86,0),
-    new THREE.Vector3(0.98,0.72,0),new THREE.Vector3(0.98,0.30,0)],false),
-    26,0.032,8,false),MAT.knobRub);
-  asa.castShadow=true;scopeGroup.add(asa);
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
-    const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.062,0.05,12),MAT.knobRub);
-    pa.position.set(sx*0.80,-0.68,sz*0.46);scopeGroup.add(pa);
-  });
-  for(let i=0;i<7;i++){
-    const r=new THREE.Mesh(new THREE.BoxGeometry(1.10,0.014,0.035),MAT.knobRub);
-    r.position.set(0,0.652,-0.42+i*0.06);scopeGroup.add(r);
-  }
-}
-function makeCosmeticKnob(x,y,name,desc){
-  const g=new THREE.Group();
-  g.position.set(x,y,0.585);
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.08,0.05,20),MAT.knobBase);
-  base.rotation.x=Math.PI/2;
-  g.add(base);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.055,20),MAT.knobRub);
-  grip.rotation.x=Math.PI/2;
-  grip.position.z=0.03;
-  g.add(grip);
-  const tick=new THREE.Mesh(new THREE.BoxGeometry(0.01,0.045,0.01),MAT.knobTick);
-  tick.position.set(0,0.045,0.06);
-  grip.add(tick);
-  scopeGroup.add(g);
-  registerPart(grip,name,desc,'#8aa0b8');
-  return g;
-}
-makeCosmeticKnob(0.36,0.38,'Volts/división','Fija en esta práctica para que la lectura dependa únicamente de la sonda y del ajuste de canal, no de la escala vertical.');
-makeCosmeticKnob(0.36,0.04,'Base de tiempo','Fija en esta práctica; el foco está en la sonda, la compensación, los cursores y la FFT, no en el barrido horizontal.');
+const SM=scopeGroup.userData.mandos;
+registerPart(SM.volts.grip,'Volts/división','Fija en esta práctica para que la lectura dependa únicamente de la sonda y del ajuste de canal, no de la escala vertical.','#8aa0b8');
+registerPart(SM.tiempo.grip,'Base de tiempo','Fija en esta práctica; el foco está en la sonda, la compensación, los cursores y la FFT, no en el barrido horizontal.','#8aa0b8');
 
-const btnFFT=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.06,0.02),MAT.btnLit);
-btnFFT.position.set(0.72,0.45,0.586);
-scopeGroup.add(btnFFT);
+const btnFFT=scopeGroup.userData.botones.fft;
 registerPart(btnFFT,'Botón FFT / Math','Activa el cálculo de espectro (FFT) del osciloscopio. Se ilumina cuando el Caso 4 está activo.','#5eead4');
-
-const btnCursor=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.06,0.02),MAT.btnLit);
-btnCursor.position.set(0.72,0.19,0.586);
-scopeGroup.add(btnCursor);
+const btnCursor=scopeGroup.userData.botones.cursor;
 registerPart(btnCursor,'Botón Cursores','Abre el menú de cursores manuales de voltaje/tiempo. Se ilumina cuando el Caso 3 está activo.','#5eead4');
 
 // ===== 4) Generador de señales =====
-const srcGroup=new THREE.Group();
-srcGroup.position.set(1.6,0.40,0.3);
+const srcGroup=P3.instrumentoBanco(MATB,{ancho:1.0,alto:0.56,fondo:0.55,color:0x3a4048,mandos:3,bnc:1,
+  bncColores:[MAT.jackCh1.color.getHex()],visor:0.46,visorAlto:0.42});
+srcGroup.position.set(1.35,YB+0.56/2+0.56*0.055+0.03,0.05);
+srcGroup.rotation.y=-0.45;
 scene.add(srcGroup);
-
-const srcBody=roundedBox(0.85,0.55,0.62,MAT.srcBody,0.08);
-srcGroup.add(srcBody);
+const srcBody=srcGroup;
 registerPart(srcBody,'Generador de señales','Produce la onda senoidal o cuadrada de prueba para cada caso.','#8aa0b8');
-
-const termOut=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.10,12),MAT.post);
-termOut.rotation.x=Math.PI/2;
-termOut.position.set(-0.15,0.32,0.20);
-srcGroup.add(termOut);
+{ // el visor del generador: icono de forma de onda
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=128;
+  const c=cv.getContext('2d'); c.fillStyle='#06120f'; c.fillRect(0,0,256,128);
+  c.strokeStyle='#5eead4'; c.lineWidth=5; c.beginPath();
+  for(let i=0;i<=120;i++){ const x=18+i*1.6, y=44+Math.sin(i/120*Math.PI*4)*22; if(i===0)c.moveTo(x,y); else c.lineTo(x,y); } c.stroke();
+  c.fillStyle='#8fb3ac'; c.font='bold 30px monospace'; c.textAlign='center'; c.fillText('FUNC GEN',128,108);
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace;
+  const v=srcGroup.userData.visor;
+  srcGroup.userData.pantalla.add(new THREE.Mesh(new THREE.PlaneGeometry(v.ancho*0.98,v.alto*0.98),new THREE.MeshBasicMaterial({map:tx,toneMapped:false})));
+}
+const termOut=srcGroup.userData.bnc[0];
 registerPart(termOut,'Salida de señal','Punto de prueba: aquí se apoya la punta de la sonda para tomar la medición.','#8aa0b8');
 
-// ===== 5) Sonda (grupo nuevo) =====
-const probeGroup=new THREE.Group();
-probeGroup.position.set(0.992,0.60,0.230);
-probeGroup.rotation.y=-0.55;
-scene.add(probeGroup);
-
-const compBox=roundedBox(0.22,0.16,0.16,MAT.probeComp,0.03);
-compBox.position.set(-0.55,0,0);
-probeGroup.add(compBox);
-registerPart(compBox,'Caja de compensación','Aloja el trimmer que ajusta la sonda 10X para que reproduzca fielmente flancos rápidos.','#c77dff');
-
-const trimmerScrew=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.02,10),MAT.trimmer);
-trimmerScrew.position.set(0,0.09,0.03);
-compBox.add(trimmerScrew);
-registerPart(trimmerScrew,'Trimmer de compensación','Pequeño capacitor variable ajustable con un destornillador no metálico. Muy poca capacitancia → esquinas redondeadas (sub-compensada). Demasiada → pico de sobrepaso (sobre-compensada).','#c77dff');
-
-const probeBody=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.05,0.75,14),MAT.probeBody);
-probeBody.rotation.z=Math.PI/2;
-probeBody.position.set(-0.05,0,0);
-probeGroup.add(probeBody);
-registerPart(probeBody,'Cuerpo de la sonda','Empuñadura aislada. La atenuación real (1X o 10X) depende de la posición del selector deslizante, no del cuerpo.','#c77dff');
-
-const switchTrack=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.02,0.05),MAT.knobBase);
-switchTrack.position.set(-0.10,0.055,0);
-probeGroup.add(switchTrack);
-const SWITCH_X={'1x':-0.145,'10x':-0.055};
-const switchSlide=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.03,0.06),MAT.switchSlide);
-switchSlide.position.set(SWITCH_X['10x'],0.055,0);
-probeGroup.add(switchSlide);
+// ===== 5) Sonda: cabeza en la mano, cable largo y caja de compensación en el BNC del osciloscopio =====
+/* La CABEZA (empuñadura, selector 1X/10X, punta y pinza de masa) apoya su punta en
+   la salida del generador; el cable corre hasta el BNC del osciloscopio, donde
+   está el enchufe con la CAJA DE COMPENSACIÓN y su trimmer, que es donde de
+   verdad vive el ajuste. */
+const probeGroup=P3.sondaOsciloscopio(MATP,{largo:0.78,d:0.10});
+probeGroup.rotation.y=Math.PI/2;                 // la punta mira hacia el jack, que está en −Z local del generador
+{ const tip=termOut.position.clone().add(new THREE.Vector3(0,0.0,0.105));
+  probeGroup.position.copy(tip).add(new THREE.Vector3(0,0,probeGroup.userData.punta.x)); }
+srcGroup.add(probeGroup);
+const SWITCH_X=probeGroup.userData.posSelector;
+const switchSlide=probeGroup.userData.deslizador;
 registerPart(switchSlide,'Selector de atenuación 1X/10X','Interruptor deslizante en el cuerpo de la sonda. Debe coincidir con el ajuste de canal en el osciloscopio o la lectura de voltaje será incorrecta por un factor de 10.','#ffd166');
-
-const probeTip=new THREE.Mesh(new THREE.ConeGeometry(0.02,0.14,10),MAT.tip);
-probeTip.rotation.z=-Math.PI/2;
-probeTip.position.set(0.42,0,0);
-probeGroup.add(probeTip);
-registerPart(probeTip,'Punta de prueba','Contacto que toca el punto bajo medición. Toda la atenuación de la sonda ocurre entre esta punta y el conector BNC.','#ffd166');
-
-const gwire=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.10,6),MAT.gclip);
-gwire.rotation.z=Math.PI/2.6;
-gwire.position.set(0.34,-0.05,0.03);
-probeGroup.add(gwire);
-const probeGroundClip=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.02,0.03),MAT.gclip);
-probeGroundClip.position.set(0.30,-0.09,0.05);
-probeGroup.add(probeGroundClip);
+const probeBody=probeGroup.userData.cuerpo;
+registerPart(probeBody,'Cuerpo de la sonda','Empuñadura aislada. La atenuación real (1X o 10X) depende de la posición del selector deslizante, no del cuerpo.','#c77dff');
+const probeTip=probeGroup.children.find(o=>o.isMesh&&o.geometry&&o.geometry.type==='LatheGeometry'&&Math.abs(o.position.x-0.78*0.33)<1e-6);
+if(probeTip) registerPart(probeTip,'Punta de prueba','Contacto que toca el punto bajo medición. Toda la atenuación de la sonda ocurre entre esta punta y el conector BNC.','#ffd166');
+const probeGroundClip=probeGroup.userData.pinza;
 registerPart(probeGroundClip,'Pinza de tierra (GND)','Referencia de tierra de la sonda. Debe conectarse cerca del punto de prueba para minimizar ruido — aquí se representa de forma simplificada.','#94a3b8');
 
+const compBoxPiece=P3.bncCompensacion(MATB,{});
+compBoxPiece.position.copy(jackCh1.position).add(new THREE.Vector3(0,0,0));
+scopeGroup.add(compBoxPiece);
+const compBox=compBoxPiece.userData.caja;
+registerPart(compBox,'Caja de compensación','Aloja el trimmer que ajusta la sonda 10X para que reproduzca fielmente flancos rápidos.','#c77dff');
+const trimmerScrew=compBoxPiece.userData.trimmer;
+registerPart(trimmerScrew,'Trimmer de compensación','Pequeño capacitor variable ajustable con un destornillador no metálico. Muy poca capacitancia → esquinas redondeadas (sub-compensada). Demasiada → pico de sobrepaso (sobre-compensada).','#c77dff');
+
 // ===== 6) Cableado =====
-function cableTube(points,radius,mat){
-  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
-  const geo=new THREE.TubeGeometry(curve,24,radius,8,false);
-  return new THREE.Mesh(geo,mat);
-}
-const cableProbe=cableTube([[-2.02,0.33,0.485],[-0.8,0.65,0.20],[0.523,0.60,-0.057]],0.026,MAT.wireProbe);
+scene.updateMatrixWorld(true);
+const cA=compBoxPiece.localToWorld(compBoxPiece.userData.salida.clone());
+const cB=probeGroup.localToWorld(probeGroup.userData.salida.clone());
+const cableProbe=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+  cA,cA.clone().add(new THREE.Vector3(0.05,-0.15,0.30)),
+  new THREE.Vector3((cA.x+cB.x)/2,YB+0.06,Math.max(cA.z,cB.z)+0.35),
+  cB.clone().add(new THREE.Vector3(-0.25,-0.10,0.20)),cB]),48,0.026,8,false),MAT.wireProbe);
+cableProbe.castShadow=true;
 scene.add(cableProbe);
 
 // ===== 7) Pantalla: dibujo =====
@@ -966,7 +904,7 @@ S.setAnimate((dt,time)=>{
 
   const TRIMMER_ROT={sub:-0.7,ok:0,over:0.7};
   const targetTrim=TRIMMER_ROT[compKey];
-  trimmerScrew.rotation.z+=(targetTrim-trimmerScrew.rotation.z)*Math.min(1,dt*5);
+  trimmerScrew.rotation.y+=(targetTrim-trimmerScrew.rotation.y)*Math.min(1,dt*5);
 
   const pulse=0.5+0.5*Math.sin(time*3.2);
   btnFFT.material.emissiveIntensity=(energized&&scenarioKey==='fft')?(0.5+0.3*pulse):0.05;
@@ -1255,7 +1193,7 @@ btnEnergize.onclick=()=>{
   btnEnergize.classList.toggle('on',energized);
   btnEnergize.textContent=energized?'🔌 Desconectar generador':'🔌 Conectar generador';
   if(energized){
-    S.moveTo([2.6,2.0,4.2],[-1.2,0.75,0.2],1.3);
+    S.moveTo([2.8,2.1,4.4],[-0.8,0.75,0.2],1.3);
     S.setCinematicIdle(true);
     synth.beep(660,0.08,0.04);
   } else {

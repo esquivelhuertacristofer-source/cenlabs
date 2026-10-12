@@ -480,7 +480,7 @@ const V_pack = PACK.Vcell*PACK.cellsSeries;
 const Ah_pack = (PACK.capacity_kWh*1000)/V_pack;
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[6.0,3.8,6.6],target:[0,1.2,0],bgTop:'#0e1a1c',bgBot:'#04060a',bloom:0.42});
+const S=createStage(mount,{cam:[2.1,3.7,5.2],target:[0.1,0.55,0.1],minD:2.6,bgTop:'#0e1a1c',bgBot:'#04060a',bloom:0.42});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
@@ -490,16 +490,16 @@ const MAT={
   bms:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
   contactor:std({color:0xd6432f,roughness:0.4,metalness:0.5}),
   plastic:std({color:0x14181c,roughness:0.5,metalness:0.4}),
-  niquel:std({color:0xc8ced6,roughness:0.28,metalness:1}),
+  niquel:std({color:0x9ea6af,roughness:0.42,metalness:0.85}),
   cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
-  ceramica:std({color:0xd9d2c4,roughness:0.85,metalness:0.05}),
+  ceramica:std({color:0x7f7766,roughness:0.95,metalness:0.02}),
   aislante:std({color:0x1b2026,roughness:0.72,metalness:0.10}),
 };
 const MATP={aluminio:MAT.case, acero:MAT.niquel, cromo:MAT.niquel, hierro:MAT.case,
   negro:MAT.plastic, cobre:MAT.cobre, verde:MAT.bms, blanco:MAT.ceramica,
   goma:MAT.aislante, ceramica:MAT.ceramica, chapa:MAT.niquel};
 
-const group=new THREE.Group(); group.position.set(0,1.0,0); scene.add(group);
+const group=new THREE.Group(); group.position.set(0,0.22,0); scene.add(group);
 /* ---- LA BANDEJA DEL PAQUETE ------------------------------------------
    Una plancha plana no es la carcasa de una batería de tracción. Una carcasa
    es una BANDEJA: fondo, paredes y una pestaña con su junta y sus tornillos,
@@ -528,10 +528,34 @@ for(let k=0;k<14;k++){
   tor.position.set(Math.cos(t)*1.54,0.72,Math.sin(t)*1.04); caseGrp.add(tor);
 }
 const caseBox=fondo;
+/* Dos PATINES de acero bajo la bandeja: así se apoya un paquete en el banco y
+   así lo coge la carretilla. Sin ellos la carcasa flotaba a un metro del suelo. */
+for(const sz of [-0.62,0.62]){
+  const pat=new THREE.Mesh(new THREE.BoxGeometry(3.3,0.13,0.22),MAT.plastic);
+  pat.position.set(0,-0.14,sz); pat.castShadow=pat.receiveShadow=true; group.add(pat);
+}
+/* Soportes laterales de la pestaña: ahí se atornillan el fusible y el contactor. */
+for(const sx of [-1,1]){
+  const mn=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.34,-0.34],[0.34,-0.34],[0.34,0.34],[-0.34,0.34]],0.03,3),{espesor:0.05,bisel:0.008}),MAT.case);
+  mn.rotation.x=-Math.PI/2; mn.position.set(sx*1.9,0.70,-0.7); mn.castShadow=true; group.add(mn);
+  const ala=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.05,0.34),MAT.case);
+  ala.position.set(sx*1.66,0.66,-0.7); group.add(ala);
+}
 // 4 módulos de celdas (visual: cada módulo = grid de celdas cilíndricas)
 const modules=[]; const cellMeshes=[];
 for(let m=0;m<4;m++){
   const modGrp=new THREE.Group(); modGrp.position.set(-1.05+m*0.7,0.35,0); group.add(modGrp); modules.push(modGrp);
+  // El portaceldas superior e inferior: lo que hace de doce celdas un MÓDULO.
+  for(const yh of [0.25+0.10,0.25+0.40]){
+    const ph=P3.portaCeldas(MATP,{cols:3,filas:4,pasoX:0.15,pasoZ:0.20,rHueco:0.0625});
+    ph.position.y=yh; modGrp.add(ph);
+  }
+  // Barra de cobre que une este módulo con el siguiente (conexión en serie).
+  if(m<3){
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(0.40,0.016,0.075),MAT.cobre);
+    bar.position.set(0.35,0.25+0.558,(m%2?0.3:-0.3)); bar.castShadow=true; modGrp.add(bar);
+  }
   /* Una celda cilíndrica no es un tubo: tiene el reborde ENGARZADO donde se
      cierra la lata, el botón positivo saliente y el anillo negativo alrededor
      —separados por la junta de plástico—. Ese botón y ese anillo son justo lo
@@ -594,7 +618,7 @@ conBms.position.set(1.10,0.07,0); bms.add(conBms);
    ES el concepto, porque explica que un hilo de señal gobierne un cable de
    dedo. Y lleva su testigo de estado, que es lo que se mira para saber si el
    paquete está vivo.                                                          */
-const contactor=new THREE.Group(); contactor.position.set(1.6,0.75,-0.7); group.add(contactor);
+const contactor=new THREE.Group(); contactor.position.set(1.9,0.725,-0.7); group.add(contactor);
 const cuerpoCon=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
   [[-0.17,-0.15],[0.17,-0.15],[0.17,0.15],[-0.17,0.15]],0.05,4),
   {espesor:0.30,bisel:0.014}),2),MAT.contactor);
@@ -612,7 +636,7 @@ conMando.position.set(0,0.10,0.18); conMando.rotation.x=-Math.PI/2; contactor.ad
    cuchillas taladradas y su banda de características. La cerámica y el tamaño
    de las cuchillas es lo que distingue un fusible de 400 V de uno de coche, y
    por eso un cubito negro no valía.                                           */
-const fuse=new THREE.Group(); fuse.position.set(-1.6,0.75,-0.7); group.add(fuse);
+const fuse=new THREE.Group(); fuse.position.set(-1.9,0.725,-0.7); group.add(fuse);
 const cuerpoFus=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
   [[-0.09,-0.09],[0.09,-0.09],[0.09,0.09],[-0.09,0.09]],0.02,3),
   {espesor:0.30,bisel:0.010}),2),MAT.ceramica);
@@ -627,6 +651,22 @@ for(const sx of [-1,1]){
   cuchilla.rotation.y=Math.PI/2; cuchilla.rotation.z=sx>0?0:Math.PI;
   cuchilla.position.set(sx*0.215,0.14,0); fuse.add(cuchilla);
 }
+
+/* ---- EL CABLEADO DE ALTA TENSIÓN ---------------------------------------
+   Los cables de potencia de un coche eléctrico son NARANJA por norma, y salen
+   del paquete por un conector estanco; lo naranja es lo que dice «aquí hay
+   400 V» sin leer nada.                                                       */
+const MAT_HV=std({color:0xe8710a,roughness:0.7,metalness:0.0});
+function cableHV(pts){
+  const cv=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
+  const c=new THREE.Mesh(new THREE.TubeGeometry(cv,28,0.032,10,false),MAT_HV); c.castShadow=true; group.add(c); return c;
+}
+cableHV([[1.8,1.16,-0.7],[1.72,1.36,-0.55],[1.40,1.34,0.05],[1.27,1.17,0.3]]);
+cableHV([[-1.69,0.94,-0.7],[-1.62,1.34,-0.55],[-1.42,1.34,0.05],[-1.27,1.17,0.3]]);
+cableHV([[2.0,1.16,-0.7],[2.12,1.30,-0.6],[2.30,1.0,-0.3],[2.36,0.62,-0.1]]);
+{ const cx=P3.conector(MATP,{ancho:0.20,alto:0.14,fondo:0.16,pines:2});
+  cx.traverse(o=>{ if(o.isMesh&&o.material===MATP.negro) o.material=MAT_HV; });
+  cx.position.set(2.38,0.55,-0.08); cx.rotation.y=-Math.PI/2; group.add(cx); }
 
 /* ---- inspección por clic ---- */
 const parts=[
@@ -701,7 +741,7 @@ document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.
 document.getElementById('btnRun').onclick=(e)=>{
   synth.init(); synth.resume();
   running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular carga con balanceo';
-  if(running){ S.moveTo([4.6,3.0,5.0],[0,0.5,0],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
+  if(running){ S.moveTo([3.3,3.4,4.6],[0.1,0.45,0.1],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
 };
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));

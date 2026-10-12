@@ -479,18 +479,19 @@ function makeSynth(opts={}){
 const SEQ=['A+','B+','A-','B-'];
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.6,3.6,6.4],target:[0,1.2,0],bgTop:'#12181a',bgBot:'#04060a',bloom:0.4});
+const S=createStage(mount,{cam:[1.5,3.5,7.6],target:[-0.65,1.0,0],minD:2.2,bgTop:'#12181a',bgBot:'#04060a',bloom:0.4});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
   plc:std({color:0x14181c,roughness:0.5,metalness:0.4}),
-  cylBody:std({color:0x8893a0,roughness:0.35,metalness:0.9}),
-  rod:std({color:0xd6dce2,roughness:0.15,metalness:1}),
+  cylBody:std({color:0x66707c,roughness:0.46,metalness:0.78}),
+  rod:std({color:0xa9b1ba,roughness:0.30,metalness:0.92}),
   valve:std({color:0x2a3038,roughness:0.4,metalness:0.6}),
   led:std({color:0x222,emissive:0x000000}),
   aluminio:std({color:0x9aa4b0,roughness:0.44,metalness:0.80}),
   negro:std({color:0x15181c,roughness:0.66,metalness:0.14}),
   cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  anodizado:std({color:0x2c3540,roughness:0.55,metalness:0.55}),
   bronce:std({color:0xc0a25e,roughness:0.38,metalness:0.9}),
 };
 const MATP={aluminio:MAT.aluminio, acero:MAT.rod, cromo:MAT.rod, hierro:MAT.cylBody,
@@ -642,8 +643,40 @@ function buildCylinder(x,color){
   led.position.set(-0.06,0.045,0.068); valveGrp.add(led);
   return {grp,rod,piston,valve,led,sensores};
 }
+
+/* ---- EL TABLERO DE MONTAJE --------------------------------------------
+   Nada de esto flota: una máquina neumática de laboratorio se monta sobre una
+   plancha de aluminio con perfiles en T, y cada cilindro va a ella por dos
+   PIES DE FIJACIÓN bajo las tapas. Sin tablero ni pies el conjunto parecía un
+   despiece colgado sobre el suelo del estudio.                              */
+const YT=-0.50;                      // cara superior del tablero, relativa al grupo
+const tablero=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-3.05,-0.80],[2.45,-0.80],[2.45,0.80],[-3.05,0.80]],0.05,3),
+  {espesor:0.06,bisel:0.006}),2),MAT.anodizado);
+tablero.rotation.x=-Math.PI/2; tablero.position.set(0,YT-0.03,0);
+tablero.castShadow=true; tablero.receiveShadow=true; group.add(tablero);
+for(const z of [-0.55,0,0.55]){
+  const perfil=new THREE.Mesh(new THREE.BoxGeometry(5.3,0.03,0.09),MAT.cylBody);
+  perfil.position.set(-0.3,YT+0.015,z); perfil.castShadow=true; group.add(perfil);
+  const ranura=new THREE.Mesh(new THREE.BoxGeometry(5.3,0.004,0.032),MAT.negro);
+  ranura.position.set(-0.3,YT+0.031,z); group.add(ranura);
+}
+const basePlc=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.10,0.34),MAT.cylBody);
+basePlc.position.set(-2.3,YT+0.05,0.02); basePlc.castShadow=true; group.add(basePlc);
+function pieCilindro(grp,x){
+  const alto=(-0.135)-YT;            // de la cara baja de la tapa al tablero
+  const pie=new THREE.Mesh(new THREE.BoxGeometry(0.07,alto,0.27),MAT.aluminio);
+  pie.position.set(x,-0.135-alto/2,0); pie.castShadow=true; grp.add(pie);
+  const brida=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.022,0.32),MAT.aluminio);
+  brida.position.set(x,YT+0.011,0); brida.castShadow=true; grp.add(brida);
+  for(const sz of [-1,1]){
+    const tor=new THREE.Mesh(P3.revolucion([[0,0],[0.020,0],[0.020,0.012],[0,0.012]],{seg:6}),MAT.negro);
+    tor.position.set(x,YT+0.022,sz*0.125); grp.add(tor);
+  }
+}
 const cylA=buildCylinder(-0.6,0x37e0c7);
 const cylB=buildCylinder(1.0,0xff8a3a);
+for(const c of [cylA,cylB]) for(const sx of [-1,1]) pieCilindro(c.grp,sx*(LCIL+0.045));
 
 /* ---- inspección por clic ---- */
 const parts=[

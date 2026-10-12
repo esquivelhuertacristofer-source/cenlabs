@@ -1,5 +1,5 @@
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.4,3.3,6.4],target:[0,1.0,0],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.4,minD:3.4,maxD:17});
+const S=createStage(mount,{cam:[2.6,3.0,5.7],target:[0.2,0.9,0.05],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.4,minD:2.6,maxD:17});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
@@ -12,7 +12,7 @@ const MAT={
   post: std({...brush, color:0xd8b24a, metalness:0.9, roughness:0.3}),
   wireHot: std({...rub, color:0xb8342f, roughness:0.9, metalness:0.0}),
   wireReturn: std({...rub, color:0x23262c, roughness:0.9, metalness:0.0}),
-  wireNeutral: std({...rub, color:0xcfd0c8, roughness:0.85, metalness:0.0}),
+  wireNeutral: std({...rub, color:0x7d8079, roughness:0.95, metalness:0.0}),
   jumper: std({...rub, color:0xffd166, roughness:0.8, metalness:0.05}),
   shuntBody: std({color:0xece7dc, roughness:0.55, metalness:0.1}),
   shuntCap: std({...brush, color:0xc9c9c9, metalness:0.9, roughness:0.25}),
@@ -35,158 +35,184 @@ function registerPart(mesh,name,desc,color){
 }
 
 /* ---------- 1) BANCO ---------- */
-const bench=roundedBox(6.6,0.28,3.7,MAT.bench,0.05);
-bench.position.set(0,-0.02,0);
+const YB=0.40;                                   // cara superior del banco
+const MATP={aluminio:MAT.motor, acero:MAT.jaw, cromo:MAT.jaw, chapa:MAT.jaw,
+  cobre:MAT.post, negro:MAT.toolGrip, goma:MAT.toolGrip, blanco:MAT.shuntBody, ceramica:MAT.shuntBody};
+const bench=roundedBox(5.4,0.28,2.8,MAT.bench,0.05);
+bench.position.set(0,YB-0.14,0);
 scene.add(bench);
+const steel=std({color:0x2b3138,roughness:0.55,metalness:0.65});
 
 /* ---------- 2) FUENTE ---------- */
-const srcGroup=new THREE.Group();
-srcGroup.position.set(-2.3,0.86,0);
+/* La fuente es un instrumento de banco con su visor y sus dos bornas de 4 mm
+   —roja, la salida; negra, el retorno—: de ahí nace el cable, no de un costado
+   de una caja. El visor dice qué fuente es en cada caso: la batería a 12 V o la
+   toma de 127 V de CA. */
+const srcGroup=P3.instrumentoConPantalla(MATP,{ancho:1.05,alto:0.62,fondo:0.58,mandos:2,
+  bornas:[0xd64545,0x14181e],visor:0.74,visorAlto:0.50});
+srcGroup.position.set(-1.9,YB+srcGroup.userData.apoyo,0.05);
 scene.add(srcGroup);
-const srcBody=roundedBox(0.95,0.78,0.78,MAT.block,0.10);
-srcGroup.add(srcBody);
-registerPart(srcBody,'Fuente','Fuente de alimentación del circuito bajo prueba (batería CD o toma de corriente CA, según el escenario).','#4fd1c5');
+registerPart(srcGroup,'Fuente','Fuente de alimentación del circuito bajo prueba (batería CD o toma de corriente CA, según el escenario).','#4fd1c5');
+function pintaFuente(){
+  const u=srcGroup.userData, c=u.cx, w=u.cv.width, h=u.cv.height;
+  const ac=scenarioKey!=='arranque';
+  c.fillStyle='#06120f'; c.fillRect(0,0,w,h);
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillStyle='#5eead4'; c.font='bold '+Math.round(h*0.46)+'px monospace';
+  c.fillText(ac?'127 V':'12 V',w/2,h*0.42);
+  c.fillStyle='#8fb3ac'; c.font='bold '+Math.round(h*0.20)+'px monospace';
+  c.fillText(ac?'TOMA · CA':'BATERÍA · CD',w/2,h*0.80);
+  u.tex.needsUpdate=true;
+}
+let fuentePintada=null;
 
 /* ---------- 3) CARGA ---------- */
+/* Una tarima de carga con sus dos bornes de potencia al frente, y sobre ella lo
+   que consume la corriente en cada caso: un motor de arranque con su solenoide
+   y su piñón, un calefactor de aletas o una lámpara piloto. */
 const loadGroup=new THREE.Group();
-loadGroup.position.set(1.9,0.86,0);
+loadGroup.position.set(1.70,YB,0);
 scene.add(loadGroup);
-const loadBody=roundedBox(0.95,0.78,0.78,MAT.block,0.10);
-loadGroup.add(loadBody);
-registerPart(loadBody,'Carga','Elemento que consume la corriente: motor de arranque, calefactor resistivo o bobina de relevador, según el escenario.','#4fd1c5');
+const tarima=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.62,-0.45],[0.62,-0.45],[0.62,0.45],[-0.62,0.45]],0.04,3),{espesor:0.08,bisel:0.01}),2),steel);
+tarima.rotation.x=-Math.PI/2; tarima.position.y=0.04; tarima.castShadow=tarima.receiveShadow=true; loadGroup.add(tarima);
+const loadBody=tarima;
+registerPart(loadGroup,'Carga','Elemento que consume la corriente: motor de arranque, calefactor resistivo o bobina de relevador, según el escenario.','#4fd1c5');
+const YT=0.08;                                   // cara de la tarima, relativa al grupo
+const bornesCarga=[0.27,-0.27].map(z=>{
+  const b=P3.borne(MATP,{d:0.075,alto:0.11}); b.position.set(-0.50,YT,z); loadGroup.add(b); return b;
+});
 
-const motorShaft=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.55,16),MAT.motor);
-motorShaft.rotation.x=Math.PI/2;
-motorShaft.position.set(0,0,0.62);
-loadGroup.add(motorShaft);
+/* El motor de arranque: carcasa de acero con su tapa trasera, la nariz de
+   aluminio donde va el piñón Bendix y el SOLENOIDE encima, con su borne. */
+const motorGrp=new THREE.Group(); motorGrp.position.set(0.02,YT+0.17,0); loadGroup.add(motorGrp);
+{
+  const cuerpo=new THREE.Mesh(P3.revolucion([[0,-0.26],[0.150,-0.26],[0.156,-0.24],[0.156,0.10],[0.140,0.12],[0,0.12]],{seg:32}),std({color:0x2b3138,roughness:0.5,metalness:0.7}));
+  cuerpo.rotation.z=-Math.PI/2; cuerpo.castShadow=true; motorGrp.add(cuerpo);
+  const nariz=new THREE.Mesh(P3.revolucion([[0,0.10],[0.130,0.10],[0.118,0.17],[0.088,0.25],[0.070,0.31],[0,0.31]],{seg:28}),MATP.aluminio);
+  nariz.rotation.z=-Math.PI/2; nariz.castShadow=true; motorGrp.add(nariz);
+  const solen=new THREE.Mesh(P3.revolucion([[0,-0.12],[0.072,-0.12],[0.078,-0.10],[0.078,0.12],[0.070,0.14],[0,0.14]],{seg:24}),std({color:0x14181e,roughness:0.55,metalness:0.5}));
+  solen.rotation.z=-Math.PI/2; solen.position.set(-0.02,0.20,0); solen.castShadow=true; motorGrp.add(solen);
+  const bs=P3.borne(MATP,{d:0.05,alto:0.08}); bs.position.set(-0.12,0.27,0); motorGrp.add(bs);
+  for(const sx of [-0.16,0.06]){
+    const pie=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.05,0.34),MATP.aluminio);
+    pie.position.set(sx,-0.155,0); pie.castShadow=true; motorGrp.add(pie);
+  }
+}
+/* El piñón: lo único que gira. Se cuelga de un grupo para que el laboratorio lo
+   haga rodar sobre su eje (X) mientras el motor está energizado. */
+const motorShaft=new THREE.Group(); motorShaft.position.set(0.37,0,0); motorGrp.add(motorShaft);
+{
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.14,14),MATP.acero);
+  eje.rotation.z=Math.PI/2; eje.position.x=-0.03; motorShaft.add(eje);
+  const pn=P3.engrane({z:9,m:0.030,ancho:0.07});
+  const gm=new THREE.Mesh(pn.geo,MATP.acero); gm.rotation.y=Math.PI/2; gm.position.x=0.06; gm.castShadow=true; motorShaft.add(gm);
+}
 
+/* El calefactor: un tubo de resistencia con sus ALETAS de chapa. Las aletas son
+   lo que se pone al rojo en el laboratorio cuando pasan los 9 A de la carga. */
 const finMat=MAT.fin.clone();
 finMat.emissive=new THREE.Color(0xff5a3c);
 finMat.emissiveIntensity=0;
-const finMeshes=[-0.3,-0.1,0.1,0.3].map(zi=>{
-  const f=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.52,0.09),finMat);
-  f.position.set(0.02,0,zi);
-  loadGroup.add(f);
-  return f;
-});
+const heaterGrp=new THREE.Group(); heaterGrp.position.set(0.02,YT,0); loadGroup.add(heaterGrp);
+const finMeshes=[];
+{
+  const tubo=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.60,16),std({color:0x30353b,roughness:0.5,metalness:0.7}));
+  tubo.rotation.z=Math.PI/2; tubo.position.y=0.19; tubo.castShadow=true; heaterGrp.add(tubo);
+  for(let i=0;i<9;i++){
+    const f=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.13,-0.15],[0.13,-0.15],[0.13,0.15],[-0.13,0.15]],0.02,3),{espesor:0.012,bisel:0.002}),finMat);
+    f.rotation.y=Math.PI/2; f.position.set(-0.20+i*0.05,0.19,0); f.castShadow=true; heaterGrp.add(f); finMeshes.push(f);
+  }
+  for(const sx of [-0.14,0.14]){
+    const pie=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.30),steel); pie.position.set(sx,0.025,0); heaterGrp.add(pie);
+    const sop=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.12,0.04),steel); sop.position.set(sx,0.09,0); heaterGrp.add(sop);
+  }
+}
 
-const pilotLamp=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,16),MAT.lamp);
-pilotLamp.position.set(0,0.52,0);
+/* La lámpara piloto: base de panel, aro biselado y la lente que se enciende. */
+const pilotGrp=new THREE.Group(); pilotGrp.position.set(0.02,YT,0); loadGroup.add(pilotGrp);
+{
+  const base=new THREE.Mesh(P3.revolucion([[0,0],[0.15,0],[0.15,0.05],[0.095,0.08],[0.095,0.20],[0,0.20]],{seg:30}),MATP.aluminio);
+  base.castShadow=true; pilotGrp.add(base);
+  const aro=new THREE.Mesh(new THREE.TorusGeometry(0.095,0.016,8,26),MATP.cromo); aro.rotation.x=Math.PI/2; aro.position.y=0.20; pilotGrp.add(aro);
+}
+const pilotLamp=new THREE.Mesh(new THREE.SphereGeometry(0.088,22,14,0,Math.PI*2,0,Math.PI/2),MAT.lamp);
+pilotLamp.position.set(0.02,YT+0.20,0);
 loadGroup.add(pilotLamp);
 
 /* ---------- 4) CABLEADO ---------- */
+const YP=0.20;                                   // altura de los postes de prueba
 function cableTube(points,radius,mat){
-  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
-  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,40,radius,8,false),mat);
+  const curve=new THREE.CatmullRomCurve3(points.map(p=>p.isVector3?p.clone():new THREE.Vector3(...p)));
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,48,radius,8,false),mat);
+  m.castShadow=true;
   scene.add(m);
   return m;
 }
-const gapPostA=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.16,14),MAT.post);
-gapPostA.position.set(-0.35,0.94,0.45);
-scene.add(gapPostA);
+const poste=(x)=>{
+  const g=new THREE.Group(); g.position.set(x,YB,0.45);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.11,0.03,22),MAT.toolGrip); base.position.y=0.015; g.add(base);
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,YP-0.03,16),MAT.post); p.position.y=0.03+(YP-0.03)/2; p.castShadow=true; g.add(p);
+  const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.04,6),MAT.post); cab.position.y=YP+0.005; g.add(cab);
+  scene.add(g); return g;
+};
+const gapPostA=poste(-0.30);
 registerPart(gapPostA,'Terminal A','Poste de conexión donde se inserta el shunt o el puente directo.','#d8b24a');
+const gapPostB=poste(0.30);
 
-const gapPostB=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.16,14),MAT.post);
-gapPostB.position.set(0.35,0.94,0.45);
-scene.add(gapPostB);
-
-const cableHotFeedA=cableTube([[-1.85,0.86,0.05],[-1.0,0.86,0.45],[-0.35,0.94,0.45]],0.035,MAT.wireHot);
-const cableHotFeedB=cableTube([[0.35,0.94,0.45],[1.0,0.86,0.45],[1.45,0.86,0.05]],0.035,MAT.wireHot);
-const cableHotReturn=cableTube([[1.45,0.86,-0.05],[0,0.86,-0.55],[-1.85,0.86,-0.05]],0.035,MAT.wireReturn);
-const cableNeutralReturn=cableTube([[1.45,0.86,-0.20],[0,0.86,-0.41],[-1.85,0.86,-0.20]],0.032,MAT.wireNeutral);
+scene.updateMatrixWorld(true);
+const bocaSrc=i=>srcGroup.localToWorld(srcGroup.userData.bocas[i].clone());
+const bocaCarga=i=>bornesCarga[i].localToWorld(new THREE.Vector3(0,0.10,0));
+const S0=bocaSrc(0), S1=bocaSrc(1), L0=bocaCarga(0), L1=bocaCarga(1);
+const YW=1.00;                                   // altura de los conductores en el tramo de la pinza
+const cableHotFeedA=cableTube([S0,[S0.x+0.15,S0.y+0.10,S0.z+0.35],[-1.0,YB+0.45,0.52],[-0.30,YB+YP+0.03,0.45]],0.035,MAT.wireHot);
+const cableHotFeedB=cableTube([[0.30,YB+YP+0.03,0.45],[1.0,YB+0.45,0.52],[L0.x-0.10,L0.y+0.10,L0.z+0.10],L0],0.035,MAT.wireHot);
+const cableHotReturn=cableTube([L1,[1.15,YB+0.55,-0.45],[0.7,YW-0.05,-0.55],[0,YW,-0.55],[-0.7,YW-0.05,-0.55],[-1.30,YB+0.55,-0.40],[S1.x-0.05,S1.y+0.20,S1.z+0.05],S1],0.035,MAT.wireReturn);
+const cableNeutralReturn=cableTube([[L1.x,L1.y+0.02,L1.z-0.05],[1.10,YB+0.55,-0.32],[0.7,YW-0.05,-0.41],[0,YW,-0.41],[-0.7,YW-0.05,-0.41],[-1.26,YB+0.50,-0.26],[S1.x+0.02,S1.y+0.16,S1.z+0.02],[S1.x+0.02,S1.y+0.02,S1.z]],0.032,MAT.wireNeutral);
 registerPart(cableNeutralReturn,'Neutro','Conductor de retorno del cordón dúplex de CA. Solo presente en el escenario del calefactor.','#cfd0c8');
 
 /* ---------- 5) EMPALME / SHUNT ---------- */
-const jumperWire=cableTube([[-0.35,0.95,0.45],[0,0.99,0.45],[0.35,0.95,0.45]],0.025,MAT.jumper);
+const jumperWire=cableTube([[-0.30,YB+YP+0.05,0.45],[0,YB+YP+0.13,0.45],[0.30,YB+YP+0.05,0.45]],0.025,MAT.jumper);
 registerPart(jumperWire,'Puente','Puente directo que cierra el lazo cuando el shunt está fuera de servicio: la corriente no pasa por el shunt.','#ffd166');
 
-const shuntModule=new THREE.Group();
-shuntModule.position.set(0,0.94,0.45);
+/* EL SHUNT, con la forma que tiene en la mano: dos TACOS DE COBRE con su perno
+   de potencia —por donde entra y sale TODA la corriente del circuito— unidos por
+   varias LAMINAS DE MANGANINA, y además sus dos TORNILLOS FINOS DE MEDIDA, desde
+   los que se lee la caída de tensión sin que pase corriente por ellos (Kelvin).
+   Las laminas van en paralelo y son de manganina porque su resistencia casi no
+   cambia con la temperatura: la caida sigue siendo proporcional a la corriente
+   aunque el shunt se caliente. */
+const shuntModule=P3.shuntKelvin(MATP,{largo:0.78,ancho:0.22,alto:0.12,rotulo:'75 mV'});
+shuntModule.position.set(0,YB+YP+0.02,0.45);
 shuntModule.visible=false;
 scene.add(shuntModule);
-/* EL SHUNT, con la forma que tiene en la mano: dos BLOQUES DE COBRE con sus
-   tornillos —por donde entra y sale TODA la corriente del circuito— unidos por
-   varias LAMINAS DE MANGANINA sobre una base aislante. Las laminas son la
-   resistencia patron: van en paralelo y son de manganina justamente porque su
-   resistencia casi no cambia con la temperatura, que es lo que permite que la
-   caida de tension siga siendo proporcional a la corriente aunque el shunt se
-   caliente. Un taco liso con dos tapas no dejaba ver nada de eso. */
-const shuntBodyMesh=roundedBox(0.52,0.06,0.24,MAT.shuntBody,0.02);
-shuntBodyMesh.position.set(0,-0.10,0);
-shuntModule.add(shuntBodyMesh);
-[-1,1].forEach(sx=>{
-  const blq=roundedBox(0.16,0.17,0.22,MAT.shuntCap,0.015);
-  blq.position.set(sx*0.25,0.02,0);shuntModule.add(blq);
-  [-0.06,0.06].forEach(dz=>{
-    const tor=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.05,6),MAT.post);
-    tor.position.set(sx*0.25,0.12,dz);shuntModule.add(tor);
-  });
-});
-[-0.075,-0.025,0.025,0.075].forEach(dz=>{
-  const lam=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.018,0.030),MAT.post);
-  lam.position.set(0,0.055,dz);shuntModule.add(lam);
-});
-const shuntPlaca=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.09,0.006),
-  new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.5,metalness:0.2}));
-shuntPlaca.position.set(0,-0.03,0.121);shuntModule.add(shuntPlaca);
+const shuntBodyMesh=shuntModule;
 registerPart(shuntBodyMesh,'Shunt','Resistencia patrón de muy bajo valor (miliohms). Se inserta EN SERIE: toda la corriente la atraviesa y genera una caída de tensión proporcional (ley de Ohm) que el instrumento convierte en lectura de corriente.','#ffd166');
 
 /* ---------- 6) PINZA AMPERIMÉTRICA ---------- */
 const clampGroup=new THREE.Group();
-clampGroup.position.set(0,0.86,-0.55);
+clampGroup.position.set(0,YW,-0.55);
 scene.add(clampGroup);
 
-const jawRingMat=MAT.jaw.clone();
+/* La pinza se baja sobre el cable con la mordaza HACIA ABAJO —es como se pinza un
+   conductor que cuelga entre dos puntos—, de modo que el aparato queda boca
+   abajo y su visor, que se gira solo, se lee derecho. El eje del aro es el del
+   conductor (X) y el visor mira al observador. */
+/* Se pinza con un poco de ángulo respecto al conductor, como se hace en la
+   práctica, y así el visor da la cara al observador y no el canto. */
+const clampOuter=new THREE.Group(); clampOuter.rotation.y=-Math.PI/2-0.75; clampOuter.scale.setScalar(1.25); clampGroup.add(clampOuter);
+const clampPiece=P3.pinzaAmperimetrica(MATP,{color:0xe08a1a});
+clampPiece.rotation.x=Math.PI; clampOuter.add(clampPiece);
+const clampCase=clampPiece.userData.cuerpo;
+const jawRing=clampPiece.userData.anillo;           // las dos mitades de la mordaza, que se agrandan para abrazar dos conductores
+const jawRingMat=clampPiece.userData.fija.material;
 jawRingMat.emissive=new THREE.Color(0x4fd1c5);
 jawRingMat.emissiveIntensity=0.05;
-/* LA MORDAZA, que es lo que hace que una pinza sea una pinza: DOS MITADES de
-   nucleo que se abren por una BISAGRA y se cierran alrededor del conductor sin
-   tocarlo. Ese es el motivo de que la pinza no altere el circuito que mide, y
-   un aro cerrado —por el que ningun cable podria entrar— decia lo contrario. La
-   mitad movil se abre con el GATILLO del costado. */
-function mediaMordaza(a0,a1){
-  const ri=0.105, ro=0.158;
-  const c=[...P3.arco(0,0,ro,a0,a1,22),...P3.arco(0,0,ri,a1,a0,22)];
-  const m=new THREE.Mesh(P3.extruido(c,{espesor:0.085,bisel:0.006}),jawRingMat);
-  m.rotation.y=Math.PI/2; m.castShadow=true; return m;
-}
-const jawRing=mediaMordaza(-0.30*Math.PI,1.22*Math.PI);   // la mitad fija
-clampGroup.add(jawRing);
-const jawMovil=mediaMordaza(1.22*Math.PI,1.70*Math.PI);   // la que abre el gatillo
-clampGroup.add(jawMovil);
-const jawPivote=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.11,12),MAT.post);
-jawPivote.rotation.z=Math.PI/2;
-jawPivote.position.set(0,Math.sin(1.22*Math.PI)*0.132,Math.cos(1.22*Math.PI)*0.132);
-clampGroup.add(jawPivote);
+const clampGatillo=clampPiece.userData.gatillo;
 
-const clampCase=roundedBox(0.42,0.62,0.28,MAT.toolBody,0.14);
-clampCase.position.set(0,0.5,0.05);
-clampGroup.add(clampCase);
-/* EL GATILLO: el dedo lo empuja y la mitad movil se abre. */
-const clampGatillo=roundedBox(0.07,0.24,0.09,MAT.toolGrip,0.03);
-clampGatillo.position.set(-0.22,0.34,0.02);
-clampGatillo.rotation.z=-0.16;
-clampGroup.add(clampGatillo);
-/* EL SELECTOR y los dos botones: es un instrumento, no un mango. */
-const clampDial=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.11,0.05,24),MAT.toolGrip);
-clampDial.rotation.x=Math.PI/2;
-clampDial.position.set(0,0.30,0.17);
-clampGroup.add(clampDial);
-const clampMarca=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.06,0.02),MAT.post);
-clampMarca.position.set(0,0.36,0.19);
-clampGroup.add(clampMarca);
-[-0.10,0.10].forEach(dx=>{
-  const b=roundedBox(0.10,0.05,0.03,MAT.toolGrip,0.01);
-  b.position.set(dx,0.79,0.16);clampGroup.add(b);
-});
-
-const clampGrip=roundedBox(0.20,0.32,0.20,MAT.toolGrip,0.20);
-clampGrip.position.set(0,0.86,0.08);
-clampGroup.add(clampGrip);
-
-const statusLed=new THREE.Mesh(new THREE.SphereGeometry(0.025,10,10),MAT.statusLed);
-statusLed.position.set(0.15,0.75,0.16);
-clampGroup.add(statusLed);
+const statusLed=new THREE.Mesh(new THREE.SphereGeometry(0.02,12,12),MAT.statusLed);
+statusLed.position.set(0.15,-0.115,0.087);
+clampPiece.add(statusLed);
 
 const scrCanvas=document.createElement('canvas');
 scrCanvas.width=220; scrCanvas.height=260;
@@ -194,12 +220,14 @@ const scrTex=new THREE.CanvasTexture(scrCanvas);
 scrTex.colorSpace=THREE.SRGBColorSpace;
 scrTex.minFilter=THREE.LinearFilter;
 scrTex.generateMipmaps=false;
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.30,0.355),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screenMesh.position.set(0,0.58,0.20);
-clampGroup.add(screenMesh);
+const vz=clampPiece.userData.visor;
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(vz.ancho*0.98,vz.alto*0.98),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+screenMesh.rotation.z=Math.PI;                       // con el aparato boca abajo el visor se gira para leerse derecho
+clampPiece.userData.pantalla.add(screenMesh);
 
-registerPart(clampCase,'Pinza amperimétrica','Mide la corriente SIN abrir el circuito, detectando el campo magnético que la rodea (efecto Hall o transformador de corriente).','#4fd1c5');
-registerPart(jawRing,'Mordaza','Se abre para rodear el conductor sin desconectarlo — por eso la pinza no altera el circuito que mide.','#4fd1c5');
+registerPart(clampGroup,'Pinza amperimétrica','Mide la corriente SIN abrir el circuito, detectando el campo magnético que la rodea (efecto Hall o transformador de corriente).','#4fd1c5');
+heaterGrp.visible=false; pilotGrp.visible=false; pilotLamp.visible=false;   // el escenario inicial es el motor de arranque
+PARTS.push({mesh:jawRing,name:'Mordaza',desc:'Se abre para rodear el conductor sin desconectarlo — por eso la pinza no altera el circuito que mide.'});
 
 /* ---------- 7) inspección por clic ---------- */
 const toast=document.getElementById('toast');
@@ -380,6 +408,7 @@ S.setAnimate((dt,time)=>{
   targets=computeTargets();
   iLive+=(targets.iReal-iLive)*Math.min(1,dt*3.0);
 
+  if(fuentePintada!==scenarioKey){ fuentePintada=scenarioKey; pintaFuente(); }
   let jawZTarget=-0.55, jawScaleTarget=1.0;
   if(scenarioKey==='calefactor' && clampPos==='ambos'){ jawZTarget=-0.48; jawScaleTarget=1.55; }
   clampGroup.position.z+=(jawZTarget-clampGroup.position.z)*Math.min(1,dt*4.0);
@@ -391,7 +420,7 @@ S.setAnimate((dt,time)=>{
   statusLed.material.emissiveIntensity=energized?(0.5+0.4*pulse):0.15;
   pilotLamp.material.emissiveIntensity=(scenarioKey==='testigo'&&energized)?(0.7+0.5*pulse):0.0;
   finMat.emissiveIntensity=(scenarioKey==='calefactor'&&energized)?(0.35+0.25*pulse):0.0;
-  if(scenarioKey==='arranque'&&energized) motorShaft.rotation.y+=dt*22;
+  if(scenarioKey==='arranque'&&energized) motorShaft.rotation.x+=dt*22;
 
   updateTele(iLive);
   if(time-(updateScreen._t||0)>0.22){ updateScreen(); updateScreen._t=time; }
@@ -568,9 +597,10 @@ function setScenario(key){
   el('cp_vivo').classList.toggle('on',clampPos==='vivo');
   el('cp_ambos').classList.toggle('on',clampPos==='ambos');
   el('posWrap').style.display=scenarioKey==='calefactor'?'':'none';
-  motorShaft.visible=(scenarioKey==='arranque');
+  motorGrp.visible=motorShaft.visible=(scenarioKey==='arranque');
+  heaterGrp.visible=(scenarioKey==='calefactor');
   finMeshes.forEach(f=>f.visible=(scenarioKey==='calefactor'));
-  pilotLamp.visible=(scenarioKey==='testigo');
+  pilotGrp.visible=pilotLamp.visible=(scenarioKey==='testigo');
   cableNeutralReturn.visible=(scenarioKey==='calefactor');
   refreshCaseLabel();
   setConsole();

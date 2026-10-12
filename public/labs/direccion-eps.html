@@ -478,20 +478,21 @@ function makeSynth(opts={}){
 function assistGain(vKmh){ return Math.max(1.5, 6.0 - vKmh/25); }
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.4,3.6,6.2],target:[0,1.3,0],bgTop:'#14161c',bgBot:'#04060a',bloom:0.4});
+const S=createStage(mount,{cam:[1.7,3.3,5.9],target:[0.1,1.0,0.1],minD:2.4,bgTop:'#14161c',bgBot:'#04060a',bloom:0.4});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
   wheel:std({color:0x1a1a1a,roughness:0.6,metalness:0.2}),
-  column:std({color:0x8893a0,roughness:0.35,metalness:0.9}),
+  column:std({color:0x6c7580,roughness:0.42,metalness:0.82}),
   motor:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
-  rack:std({color:0xc7ccd2,roughness:0.3,metalness:0.9}),
+  rack:std({color:0x9aa3ac,roughness:0.36,metalness:0.85}),
   sensor:std({color:0xffd166,roughness:0.4,metalness:0.5}),
   ecu:std({color:0x14181c,roughness:0.5,metalness:0.4}),
   // El fuelle y el puño del volante son de goma, y la goma no reflaja: si se
   // pintan con el metal de la columna, la mitad de la dirección parece maciza.
   goma:std({color:0x15171a,roughness:0.95,metalness:0.03}),
   aluminio:std({color:0x9aa4b0,roughness:0.46,metalness:0.78}),
+  bancada:std({color:0x2a323b,roughness:0.55,metalness:0.55}),
 };
 const MATP={aluminio:MAT.aluminio, acero:MAT.column, cromo:MAT.rack, hierro:MAT.motor,
   chapa:MAT.motor, negro:MAT.wheel, goma:MAT.goma, cobre:MAT.sensor,
@@ -702,6 +703,36 @@ const ecu=P3.cajaMando(MATP,{ancho:0.52,alto:0.28,fondo:0.58,aletas:12,pines:12}
 ecu.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.ecu;});
 ecu.position.set(1.9,0.4,0.4); group.add(ecu);
 
+
+/* ---- LA BANCADA DE ENSAYO ----------------------------------------------
+   Una dirección real va atornillada al coche; en el taller de formación se
+   monta sobre una bancada: plancha de base, un pedestal con abrazadera que
+   sujeta la columna y dos soportes en V bajo la carcasa de la cremallera. Sin
+   ella el conjunto flotaba a un metro del suelo.                            */
+const Y0=-1.06;
+const baseB=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-2.5,-0.75],[2.9,-0.75],[2.9,0.85],[-2.5,0.85]],0.06,3),{espesor:0.07,bisel:0.008}),2),MAT.bancada);
+baseB.rotation.x=-Math.PI/2; baseB.position.set(0,Y0-0.035,0); baseB.castShadow=baseB.receiveShadow=true; group.add(baseB);
+function pedestal(x,yTop,ancho,fondo){
+  const h=yTop-Y0;
+  const p=new THREE.Mesh(new THREE.BoxGeometry(ancho,h,fondo),MAT.bancada);
+  p.position.set(x,Y0+h/2,0); p.castShadow=true; group.add(p);
+  const pie=new THREE.Mesh(new THREE.BoxGeometry(ancho*2.2,0.03,fondo*2.2),MAT.aluminio);
+  pie.position.set(x,Y0+0.015,0); group.add(pie);
+  return p;
+}
+// Pedestal de la columna con su abrazadera (un anillo de aluminio abierto arriba).
+pedestal(-1.3,0.705,0.14,0.14);
+{ const ab=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.022,10,28),MAT.aluminio);
+  const t=P_CODO.clone().sub(P_VOLANTE).normalize();
+  ab.position.copy(P_VOLANTE.clone().lerp(P_CODO,0.52)); ab.quaternion.setFromUnitVectors(V(0,0,1),t); group.add(ab); }
+// Dos cunas bajo la carcasa de la cremallera.
+for(const x of [0.05,0.80]){
+  pedestal(x,-0.12,0.16,0.20);
+  const cuna=new THREE.Mesh(P3.extruido([[-0.20,0],[0.20,0],[0.10,0.07],[-0.10,0.07]],{espesor:0.20,bisel:0.006}),MAT.aluminio);
+  cuna.position.set(x,-0.17,0); cuna.rotation.y=Math.PI/2; cuna.rotation.x=0; group.add(cuna);
+}
+
 /* ---- inspección por clic ---- */
 const parts=[
   {obj:rim,name:'Volante',desc:'El conductor aplica fuerza aquí; el sensor de par la mide.'},
@@ -777,7 +808,7 @@ document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.
 document.getElementById('btnRun').onclick=(e)=>{
   synth.init(); synth.resume();
   running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular giro';
-  if(running){ S.moveTo([4.4,2.6,5.0],[0.1,0.6,0.15],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
+  if(running){ S.moveTo([2.6,2.5,4.7],[0.1,0.7,0.15],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
 };
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
