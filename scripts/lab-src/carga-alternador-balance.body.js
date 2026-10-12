@@ -1003,7 +1003,7 @@ scene.add(board);
 // 420 px de ventana el texto de 13 px llega al ojo a 5 y no se lee. El estándar
 // de la casa es ≥ 480 px en 1600×900, y se COMPRUEBA con
 // `window.__labDebug.anchoTableroPx`.
-const BW3=8.40, BH3=6.06, BY3=3.26;
+const BW3=5.60, BH3=4.04, BY3=4.10;
 // ------------------------------------------------------------- primitivas 2D
 function bg(){
   const g=bx.createLinearGradient(0,0,0,BH);
@@ -1247,11 +1247,29 @@ function dims(v){
   };
 }
 function colocaTablero(d){
-  board.rotation.y=0.70;
-  // El hueco no es decorativo: los rótulos del vano son sprites que sobresalen
-  // de la pieza que nombran, y con menos de un metro se pintan sobre el marco.
-  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
-  board.position.set(d.xIzq-1.00*d.K-medio,0,0.95*d.K);
+  // El pizarrón va DETRÁS del equipo, alto y de cara a la cámara de encuadre: así
+  // equipo y pizarrón se apilan en vertical dentro de la franja entre paneles y
+  // el equipo ocupa su ancho entero, en vez de repartirse el ancho con un
+  // pizarrón de ocho metros a su izquierda. La posición sale de los puntos clave
+  // del equipo (los cuatro primeros son del propio pizarrón).
+  board.rotation.y=CAM_AZ; board.position.set(0,0,0);
+  const E=new THREE.Box3().setFromPoints(puntosClave().slice(4));
+  const zb=E.min.z-GAP_TAB, zc=(E.min.z+E.max.z)/2;
+  // Se corrige la paralaje del acimut: lo que queda más atrás se corre hacia un
+  // lado en pantalla, y sin esto el pizarrón sale descentrado respecto al equipo.
+  board.position.set((E.min.x+E.max.x)/2+(zb-zc)*Math.tan(CAM_AZ),0,zb);
+}
+function esquinasDe(o){
+  // Sólo mallas de tamaño de pieza: los discos de suelo y las manchas miden once
+  // metros y, contadas, aplastarían el encuadre.
+  const b=new THREE.Box3(), c=[], t=new THREE.Box3(), sz=new THREE.Vector3();
+  o.traverse(m=>{ if(!m.isMesh||!m.visible) return;
+    t.setFromObject(m); if(t.isEmpty()) return; t.getSize(sz);
+    if(sz.x>7||sz.z>7) return; b.union(t); });
+  if(b.isEmpty()) return c;
+  for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z])
+    c.push(new THREE.Vector3(x,y,z));
+  return c;
 }
 function puntosClave(){
   const d=dims(VH());
@@ -1271,7 +1289,11 @@ function puntosClave(){
   // sitio con el banco escondido dejaba el vano del motor pequeño en una
   // esquina y media pantalla en negro.
   if(banco&&banco.visible) pts.push([d.xBanco,1.30,d.zBanco]);
-  return pts.map(p=>new THREE.Vector3(...p));
+  const V=pts.map(p=>new THREE.Vector3(...p));
+  // Las esquinas de lo que de verdad hay en escena: un puñado de puntos sueltos
+  // dejaba fuera la mesa entera del banco.
+  for(const o of [vano,(banco&&banco.visible)?banco:null]) if(o) V.push(...esquinasDe(o));
+  return V;
 }
 function zonaUtil(){
   const rM=mount.getBoundingClientRect();
@@ -1295,45 +1317,58 @@ function camTablero(d,off){
   p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
   return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
 }
+// El encuadre ya no ata la cámara al pizarrón: se mira desde un acimut y una
+// elevación FIJOS y sólo se CALCULAN la distancia y el punto de mira, de modo que
+// la nube de puntos clave (equipo + pizarrón) llene la franja que de verdad se ve
+// entre los dos paneles y entre la cabecera y la barra de consejo. Antes el punto
+// de mira quedaba clavado a la altura del pizarrón y la célula se veía diminuta
+// debajo, con media pantalla de losa vacía.
+const CAM_AZ=0.34, CAM_EL=0.30, GAP_TAB=2.4;
 function camConjunto(margen){
-  const d=dims(VH()), Z=zonaUtil();
+  const Z=zonaUtil();
   const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
   const m=(margen===undefined?1:margen);
   const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
-  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m;
+  const nyA=0.80/m, nyB=-0.82/m;                  // arriba / abajo en NDC
   const pts=puntosClave();
-  const mx=1.86*Math.cos(board.rotation.y);
-  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
-  const proy=(dist,o)=>{
-    const c=camTablero(dist,o);
-    const p=new THREE.Vector3(c[0][0],c[0][1],c[0][2]);
-    const q=new THREE.Vector3(c[1][0],c[1][1],c[1][2]);
-    const f=q.clone().sub(p).normalize();
-    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
-    const u=new THREE.Vector3().crossVectors(r,f).normalize();
-    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
-    for(const v0 of pts){
-      const v=v0.clone().sub(p), z=v.dot(f);
-      if(z<=0.2){ malo=true; continue; }
-      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
-      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+  const dirC=new THREE.Vector3(Math.sin(CAM_AZ)*Math.cos(CAM_EL),Math.sin(CAM_EL),
+    Math.cos(CAM_AZ)*Math.cos(CAM_EL));
+  const f=dirC.clone().negate();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+  const u=new THREE.Vector3().crossVectors(r,f).normalize();
+  const T=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const ext=(D)=>{
+    const P=T.clone().addScaledVector(dirC,D);
+    let a=Infinity,b=-Infinity,lo=Infinity,hi=-Infinity,zs=0;
+    for(const p of pts){
+      const v=p.clone().sub(P), z=v.dot(f);
+      if(z<=0.3) return null;
+      const x=v.dot(r)/z/TH, y=v.dot(u)/z/TV;
+      a=Math.min(a,x); b=Math.max(b,x); lo=Math.min(lo,y); hi=Math.max(hi,y); zs+=z;
     }
-    return { a, b, vy, z:n?zs/n:1, malo };
+    return {a,b,lo,hi,z:zs/pts.length};
   };
-  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
-  let dist=26;
-  for(let it=0;it<7;it++){
-    if(cabe(26,off)){
-      let lo=3, hi=26;
-      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
-      dist=hi;
-    }else dist=26;
-    const e=proy(dist,off);
-    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
-    if(Math.abs(dn)<0.012) break;
-    off-=dn*TH*e.z;
+  const cabe=(D)=>{ const e=ext(D); return !!e&&e.a>=nx0&&e.b<=nx1&&e.lo>=nyB&&e.hi<=nyA; };
+  let D=26;
+  for(let it=0;it<14;it++){
+    if(cabe(90)){
+      let lo=2, hi=90;
+      for(let k=0;k<30;k++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+      D=hi;
+    }else D=90;
+    const e=ext(D); if(!e) break;
+    const dx=(e.a+e.b)/2-(nx0+nx1)/2, dy=(e.lo+e.hi)/2-(nyA+nyB)/2;
+    if(Math.abs(dx)<0.008&&Math.abs(dy)<0.008) break;
+    T.addScaledVector(r,dx*TH*e.z).addScaledVector(u,dy*TV*e.z);
+    if(it===13){                                   // último ajuste: se vuelve a resolver D
+      if(cabe(90)){ let lo=2, hi=90;
+        for(let k=0;k<30;k++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+        D=hi; }
+    }
   }
-  return camTablero(dist,off);
+  const P=T.clone().addScaledVector(dirC,D);
+  return [[P.x,P.y,P.z],[T.x,T.y,T.z]];
 }
 {
   const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
@@ -1439,22 +1474,11 @@ const PARTS=ORDEN.map(k=>Object.assign({k:k},PART[k]));
 
 function haceBateria(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
-  const caja=roundedBox(d.wBat,d.hBat,d.dBat,MAT.caja,0.02*K);
-  caja.position.y=d.hBat/2; g.add(caja);
-  const tapa=roundedBox(d.wBat*0.98,0.05*K,d.dBat*0.98,MAT.tapa,0.015*K);
-  tapa.position.y=d.hBat+0.02*K; g.add(tapa);
-  for(let i=0;i<VASOS;i++){
-    const t=cil(0.022*K,0.022*K,0.03*K,MAT.tapa,14);
-    t.position.set((-2.5+i)*d.wBat/6.6, d.hBat+0.05*K, 0); g.add(t);
-  }
-  const pPos=cil(0.040*K,0.046*K,0.10*K,MAT.plomo,18);
-  pPos.position.set(d.wBat*0.34,d.hBat+0.07*K,d.dBat*0.24); g.add(pPos);
-  const pNeg=cil(0.034*K,0.040*K,0.10*K,MAT.plomo,18);
-  pNeg.position.set(-d.wBat*0.34,d.hBat+0.07*K,d.dBat*0.24); g.add(pNeg);
-  const mR=roundedBox(0.05*K,0.014*K,0.05*K,MAT.rojo,0.004*K);
-  mR.position.set(d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mR);
-  const mN=roundedBox(0.05*K,0.014*K,0.05*K,MAT.negro,0.004*K);
-  mN.position.set(-d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mN);
+  // Batería de automoción de verdad: carcasa nervada, asa, tapones de vaso y
+  // postes cónicos con capuchón (el positivo, rojo y más grueso), en el sitio
+  // donde los esperan el borne y el cable.
+  g.add(P3.bateriaAutomocion({plomo:MAT.plomo,aluminio:MAT.acero,acero:MAT.acero},
+    {ancho:d.wBat,alto:d.hBat,fondo:d.dBat,vasos:VASOS,postX:0.34,postZ:0.24}));
   rotulo(g,'batería',d.hBat+0.30*K,'#cfe0ee');
   g.position.set(d.xBat,d.yBat-d.hBat/2,d.zBat);
   return centra(g);
@@ -1689,11 +1713,14 @@ function levantaVano(){
   const piso=new THREE.Mesh(new THREE.PlaneGeometry(22,22),MAT.suelo);
   piso.rotation.x=-Math.PI/2; piso.receiveShadow=true; g.add(piso);
 
-  const bl=roundedBox(d.L,d.H,d.W,MAT.bloque,0.05*K);
+  // El bloque de motor de verdad (cárter, bloque, culata, tapa, bobinas): lo que
+  // antes era una caja con una tapa encima. Sin colector de escape: por esa cara
+  // pasan la masa y los cables del vano.
+  const MATBM={aluminio:MAT.acero, acero:MAT.acero, hierro:MAT.bloque, chapa:MAT.negro,
+    negro:MAT.negro, cobre:MAT.cobre};
+  const bl=P3.bloqueMotor(MATBM,{largo:d.L,alto:d.H,ancho:d.W,cil:VH().cil||4,
+    bobinas:!VH().diesel,escape:false,cuna:d.yBloque-d.H/2});
   bl.position.set(d.xBloque,d.yBloque,d.zBloque); g.add(bl);
-  // La tapa de balancines, para que el bloque se lea como un motor.
-  const tapa=roundedBox(d.L*0.76,0.16*K,d.W*0.54,MAT.bloque,0.03*K);
-  tapa.position.set(d.xBloque,d.yBloque+d.H/2+0.08*K,d.zBloque-d.W*0.10); g.add(tapa);
   // Y la campana del embrague, al fondo.
   const campana=cil(d.H*0.46,d.H*0.46,0.24*K,MAT.bloque,26);
   campana.rotation.z=Math.PI/2;

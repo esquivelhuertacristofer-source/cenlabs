@@ -486,7 +486,7 @@ function addHoverLabel(obj,text,color,pos,scale){
 
 // ===================== 5. PIZARRÓN =====================
 const boardG=new THREE.Group();
-boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+boardG.position.set(-0.20,0,-1.00);boardG.rotation.y=0.2;boardG.scale.setScalar(0.84);scene.add(boardG);
 const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
 [-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
@@ -494,7 +494,7 @@ const bTex=new THREE.CanvasTexture(bCv);
 const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
 board.position.set(0,1.9,0.065);boardG.add(board);
 frame.userData={title:'Pizarrón de entradas digitales',info:'Rebotes, acondicionamiento, antirrebote y estrategia de lectura · toca para inspeccionar'};
-addHoverLabel(frame,'GPIO · antirrebote',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.6);
+addHoverLabel(frame,'GPIO · antirrebote',ACC,new THREE.Vector3(0,3.1,0.1).add(boardG.position),2.6);
 
 function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
 function rpanel(c,x,y,w,h,title){
@@ -960,7 +960,20 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: NODO DE ENTRADA =====================
-const bench=roundedBox(3.9,0.5,1.9,MAT.bench,0.05);bench.position.set(1.95,0.25,0.55);scene.add(bench);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.steel, acero:MAT.steel, cromo:MAT.steel, chapa:MAT.steel,
+  cobre:std(0xb87333,0.35,0.75), negro:MAT.dark,
+  goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
+  ceramica:std(0xd7dee6,0.6,0.05),
+};
+// La mesa de laboratorio: tablero a 0,5 m y cuatro patas. Antes era un bloque
+// macizo de 0,5 m de alto y 3,9 m de largo, sin nada que dijera «mesa».
+const bench=roundedBox(3.9,0.10,1.9,MAT.bench,0.03);bench.position.set(1.95,0.45,0.55);scene.add(bench);
+[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+  const pata=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.40,14),MAT.leg);
+  pata.position.set(1.95+sx*1.78,0.20,0.55+sz*0.80);scene.add(pata);});
 bench.userData={title:'Banco del nodo de entrada',info:'Actuador mecánico, cable hasta la bornera, tarjeta con el microcontrolador y testigos de estado.'};
 
 // --- actuador mecánico ---
@@ -968,7 +981,10 @@ const swG=new THREE.Group();swG.position.set(0.80,0.5,0.95);scene.add(swG);
 const swBase=roundedBox(0.52,0.14,0.42,MAT.plate,0.03);swBase.position.set(0,0.07,0);swG.add(swBase);
 const swBody=roundedBox(0.34,0.30,0.28,MAT.body,0.04);swBody.position.set(0,0.29,0);swG.add(swBody);
 const plunger=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.20,18),MAT.steel);plunger.position.set(0,0.52,0);swG.add(plunger);
-const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,0.06,20),MAT.red);cap.position.set(0,0.63,0);swG.add(cap);
+// Cabeza de HONGO (cúpula sobre faldón), centrada en su origen: la escena la
+// sube y la baja con `cap.position.y`.
+const cap=new THREE.Mesh(P3.revolucion([[0,-0.030],[0.085,-0.030],[0.118,-0.012],[0.122,0.010],
+  [0.108,0.034],[0.070,0.054],[0,0.062]],{seg:28}),MAT.red);cap.position.set(0,0.63,0);swG.add(cap);
 swBody.userData={title:'Contacto mecánico',info:'Al cerrar y al abrir, las láminas rebotan: el circuito se abre y se cierra varias veces en unos milisegundos antes de asentarse. No es un defecto del componente, es cómo funciona el metal.'};
 addHoverLabel(swBody,'Contacto',WARN_HEX,new THREE.Vector3(0.80,1.28,0.95),1.7);
 
@@ -982,38 +998,52 @@ addHoverLabel(cable,'Cable de campo',ACC,new THREE.Vector3(1.55,1.05,0.55),2.0);
 // --- tarjeta del microcontrolador ---
 const pcbG=new THREE.Group();pcbG.position.set(2.75,0.5,0.55);scene.add(pcbG);
 const pcb=roundedBox(1.50,0.05,1.00,MAT.pcb,0.02);pcb.position.set(0,0.03,0);pcbG.add(pcb);
-const term=roundedBox(0.18,0.14,0.44,std(0x2f3a48,0.6,0.2),0.02);term.position.set(-0.65,0.12,0);pcbG.add(term);
-const mcu=roundedBox(0.40,0.09,0.40,MAT.dark,0.02);mcu.position.set(0.16,0.10,-0.05);pcbG.add(mcu);
+// La bornera de tornillo por donde entra el cable de campo.
+const term=P3.bornera(MATP,{vias:3,paso:0.14,alto:0.13,fondo:0.14,patas:0.03});
+term.rotation.y=-Math.PI/2;term.position.set(-0.64,0.055,0);pcbG.add(term);
+// El microcontrolador, en QFP: patillas por los cuatro lados y la marca del pin 1.
+const mcu=P3.chip(MATP,{lado:0.40,alto:0.07,pines:14});mcu.position.set(0.16,0.055,-0.05);pcbG.add(mcu);
 const mcuRing=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.014,10,32),std(0x2a63b8,0.4,0.5));
 mcuRing.rotation.x=Math.PI/2;mcuRing.position.set(0.16,0.07,-0.05);pcbG.add(mcuRing);
 mcuRing.material.emissive=new THREE.Color(0x2a63b8);mcuRing.material.emissiveIntensity=0.1;
 mcu.userData={title:'Microcontrolador',info:'Lee el pin como 0 o 1 comparando con V_IL = 1,5 V y V_IH = 3,0 V. Entre esos dos valores no hay respuesta garantizada: es tierra de nadie.'};
 addHoverLabel(mcu,'MCU · V_IH 3,0 V',VIO,new THREE.Vector3(2.91,1.20,0.50),2.2);
 
-function resistor(x,z,col){
-  const g=new THREE.Group();g.position.set(x,0.10,z);
-  const bodyR=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.20,14),std(0xd9cfa8,0.6,0.1));
-  bodyR.rotation.z=Math.PI/2;g.add(bodyR);
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.03,14),std(col,0.4,0.6));
-  band.rotation.z=Math.PI/2;g.add(band);
+function resistor(x,z,ohm){
+  // Resistor axial con las bandas de SU valor (código de colores): el dibujo
+  // dice lo mismo que el panel.
+  const g=P3.resistorAxial(MATP,{ohm,tol:5,largo:0.20,d:0.07,paso:0.30,patas:0.04});
+  g.position.set(x,0.055+0.035+0.02,z);
   pcbG.add(g);return g;
 }
-const rPull=resistor(-0.30,-0.28,0xb87333);
+const rPull=resistor(-0.30,-0.28,4700);
 rPull.userData={title:'Resistencia de polarización',info:'Fija el nivel en reposo, la corriente que consume el nodo y la impedancia que ve el ruido. Las tres cosas a la vez y en direcciones distintas.'};
 addHoverLabel(rPull,'Pull-up',OK_HEX,new THREE.Vector3(2.45,1.05,0.27),1.6);
-const rSer=resistor(-0.30,0.10,0x4a90d9);
+const rSer=resistor(-0.30,0.10,1000);
 rSer.userData={title:'Resistencia en serie',info:'Junto con el condensador forma el filtro. Al cerrar el contacto la descarga se hace por 10 kΩ ‖ 1 kΩ, por eso el retardo al pulsar es mucho menor que al soltar.'};
-const capF=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.16,18),std(0x2b3d5c,0.5,0.3));
-capF.position.set(-0.30,0.13,0.36);pcbG.add(capF);
+// 100 nF: un condensador CERÁMICO de disco (sin polaridad, que es lo que es un
+// 100 nF), con su gota y sus dos patas, no una lata electrolítica.
+const capF=new THREE.Group();capF.position.set(-0.30,0.055,0.36);pcbG.add(capF);
+{ const disco=new THREE.Mesh(P3.revolucion([[0,0.02],[0.050,0.02],[0.066,0.05],[0.070,0.09],
+    [0.060,0.125],[0.030,0.14],[0,0.14]],{seg:24}),std(0xc9742a,0.5,0.1));
+  disco.rotation.z=0;disco.scale.set(1,1,0.42);capF.add(disco);
+  for(const sx of [-1,1]){const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.07,8),MAT.steel);
+    l.position.set(sx*0.025,0.035,0);capF.add(l);} }
 capF.userData={title:'Condensador del filtro',info:'100 nF. Baja la impedancia del nodo a unos 400 Ω a 4 kHz: el ruido que se acopla al cable deja de mover la tensión del pin.'};
 addHoverLabel(capF,'Filtro RC',ACC,new THREE.Vector3(2.45,1.00,0.91),1.6);
-const schmitt=roundedBox(0.26,0.07,0.16,MAT.dark,0.02);schmitt.position.set(-0.05,0.09,0.36);pcbG.add(schmitt);
+// El 74HC14 en DIP-14: cuerpo con muesca y las patas dobladas por las que se suelda.
+const schmitt=P3.dip(MATP,{pines:14,paso:0.036,ancho:0.13,alto:0.045,patas:0.04});
+schmitt.position.set(0.0,0.055,0.36);pcbG.add(schmitt);
 schmitt.userData={title:'Disparador Schmitt 74HC14',info:'Dos umbrales distintos: sube a 2,9 V y baja a 2,0 V. Una rampa lenta entra y sale un flanco limpio, pero el flanco sale tarde.'};
 
 // --- testigos ---
 function makeLED(x,z,color){
-  const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));
-  m.position.set(x,0.56,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.12;scene.add(m);return m;}
+  // LED de 5 mm con su cúpula, la pestaña con el chaflán del cátodo y la pata
+  // corta. La escena enciende `m.material.emissiveIntensity`, así que el grupo
+  // expone el material de la cúpula con ese nombre.
+  const m=P3.led(MATP,{d:0.10,color,patas:0.06});
+  m.material=m.userData.material;m.material.emissiveIntensity=0.12;
+  m.position.set(x,0.5+0.06,z);scene.add(m);return m;}
 const ledRaw=makeLED(3.62,0.92,0xE9C46A);
 const ledNode=makeLED(3.62,0.62,0x8AB4F8);
 const ledEvt=makeLED(3.62,0.32,0x7CD992);
@@ -1098,6 +1128,83 @@ el('panel').innerHTML=`
 function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
 
 // ===================== 10. MODOS Y CONTROLES =====================
+/* ENCUADRE. La cámara de cada vista ya no es una terna escrita a mano: se mira
+   desde un acimut y una elevación fijos por vista, y la DISTANCIA y el punto de
+   mira se CALCULAN para que las esquinas del pizarrón y del banco llenen la
+   franja que de verdad se ve —entre los dos paneles y entre la cabecera y la
+   barra de consejo—. Con las ternas a mano el banco quedaba pequeño sobre una
+   losa vacía, y cualquier cambio de ventana lo desencuadraba. */
+const CAM_MODO={explora:[0.30,0.32],aplica:[0.26,0.28],predice:[0.26,0.28],barrido:[0.26,0.28],reto:[0.26,0.28]};
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=document.getElementById('hud'), p=document.getElementById('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function esquinasDe(o){
+  // Sólo mallas de tamaño de pieza: un disco de suelo mediría lo que la sala y
+  // aplastaría el encuadre.
+  const b=new THREE.Box3(), c=[], t=new THREE.Box3(), sz=new THREE.Vector3();
+  o.traverse(m=>{ if(!m.isMesh||!m.visible) return;
+    t.setFromObject(m); if(t.isEmpty()) return; t.getSize(sz);
+    if(sz.x>7||sz.z>7) return; b.union(t); });
+  if(b.isEmpty()) return c;
+  for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z])
+    c.push(new THREE.Vector3(x,y,z));
+  return c;
+}
+function camModo(k,margen){
+  const Z=zonaUtil(), m=(margen===undefined?1:margen);
+  const [AZ,EL]=CAM_MODO[k]||CAM_MODO.explora;
+  const asp=Math.min(2.6,Math.max(0.6,Z.W/Math.max(1,Z.H)));
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, nyA=0.80/m, nyB=-0.82/m;
+  const pts=[...esquinasDe(boardG),...esquinasDe(bench),...esquinasDe(swG),...esquinasDe(pcbG)];
+  // Los pies de la mesa (cuatro patas a ras de suelo).
+  for(const sx of [-1,1]) for(const sz of [-1,1]) pts.push(new THREE.Vector3(1.95+sx*1.85,0,0.55+sz*0.85));
+  const dirC=new THREE.Vector3(Math.sin(AZ)*Math.cos(EL),Math.sin(EL),Math.cos(AZ)*Math.cos(EL));
+  const f=dirC.clone().negate();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+  const u=new THREE.Vector3().crossVectors(r,f).normalize();
+  const T=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const ext=(D)=>{
+    const P=T.clone().addScaledVector(dirC,D);
+    let a=Infinity,b=-Infinity,lo=Infinity,hi=-Infinity,zs=0;
+    for(const p of pts){
+      const v=p.clone().sub(P), z=v.dot(f);
+      if(z<=0.3) return null;
+      const x=v.dot(r)/z/TH, y=v.dot(u)/z/TV;
+      a=Math.min(a,x); b=Math.max(b,x); lo=Math.min(lo,y); hi=Math.max(hi,y); zs+=z;
+    }
+    return {a,b,lo,hi,z:zs/pts.length};
+  };
+  const cabe=(D)=>{ const e=ext(D); return !!e&&e.a>=nx0&&e.b<=nx1&&e.lo>=nyB&&e.hi<=nyA; };
+  const resuelve=()=>{
+    if(!cabe(90)) return 90;
+    let lo=2, hi=90;
+    for(let i=0;i<30;i++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+    return hi;
+  };
+  let D=26;
+  for(let it=0;it<14;it++){
+    D=resuelve();
+    const e=ext(D); if(!e) break;
+    const dx=(e.a+e.b)/2-(nx0+nx1)/2, dy=(e.lo+e.hi)/2-(nyA+nyB)/2;
+    if(Math.abs(dx)<0.008&&Math.abs(dy)<0.008) break;
+    T.addScaledVector(r,dx*TH*e.z).addScaledVector(u,dy*TV*e.z);
+    if(it===13) D=resuelve();
+  }
+  const P=T.clone().addScaledVector(dirC,D);
+  return [[P.x,P.y,P.z],[T.x,T.y,T.z]];
+}
+addEventListener('resize',()=>{ S.resize&&S.resize(); const c=camModo(mode); S.moveTo(c[0],c[1],0.4); });
+
 const MODE_META={
   explora:{nombre:'Explora',cam:[[5.0,3.0,7.2],[0.7,1.05,0.4]],mision:'Mira el tren de rebotes de cada estación y qué le hace al pin cada acondicionamiento.'},
   aplica:{nombre:'Aplica',cam:[[4.8,2.9,7.0],[0.8,1.00,0.5]],mision:'Cuatro estudios: el pull-up y sus tres efectos, el filtro RC con Schmitt, la ventana de t_est y las estrategias de lectura.'},
@@ -1168,7 +1275,7 @@ function setMode(k){
   buildControls();updateScenarioInfo();
   solved=(k==='reto')?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
-  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+  const cam=camModo(k);S.moveTo(cam[0],cam[1]);refreshAll();
 }
 function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
 function newSignal(){

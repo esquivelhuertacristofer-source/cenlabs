@@ -670,17 +670,19 @@ scene.add(board);
 // pizarrón sale a 420 px de ventana el texto de 13 px llega al ojo a 5 y no se
 // lee. Aquí el banco es una línea de escape sobre un elevador —más estrecha que
 // el coche entero del laboratorio anterior—, así que el pizarrón puede crecer.
-const BW3=8.40, BH3=6.06, BY3=3.26;
+const BW3=4.60, BH3=3.32, BY3=3.70;
 function colocaTablero(d){
-  board.rotation.y=0.70;
-  // Se pega al borde IZQUIERDO real del banco, descontando su propio medio ancho
-  // proyectado sobre el eje X. Partir de un «ancho total» inventado deja un metro
-  // de hueco entre los dos y echa el banco fuera del cuadro.
-  // El hueco entre el borde del pizarrón y el banco no es decorativo: los
-  // rótulos del banco son sprites que sobresalen de la pieza que nombran, y con
-  // menos de un metro la chapa de «sonda anterior» se pinta encima del marco.
-  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
-  board.position.set(d.xIzq-1.05-medio,0,0.95);
+  // El pizarrón va DETRÁS del equipo, alto y de cara a la cámara de encuadre: así
+  // equipo y pizarrón se apilan en vertical dentro de la franja entre paneles y
+  // el equipo ocupa su ancho entero, en vez de repartirse el ancho con un
+  // pizarrón de ocho metros a su izquierda. La posición sale de los puntos clave
+  // del equipo (los cuatro primeros son del propio pizarrón).
+  board.rotation.y=CAM_AZ; board.position.set(0,0,0);
+  const E=new THREE.Box3().setFromPoints(puntosClave().slice(4));
+  const zb=E.min.z-GAP_TAB, zc=(E.min.z+E.max.z)/2;
+  // Se corrige la paralaje del acimut: lo que queda más atrás se corre hacia un
+  // lado en pantalla, y sin esto el pizarrón sale descentrado respecto al equipo.
+  board.position.set((E.min.x+E.max.x)/2+(zb-zc)*Math.tan(CAM_AZ),0,zb);
 }
 function puntosClave(){
   const d=dims(MQ());
@@ -718,48 +720,58 @@ function zonaUtil(){
   if(x1-x0<W*0.34){ x0=0; x1=W; }
   return { W, H, x0, x1 };
 }
+// El encuadre ya no ata la cámara al pizarrón: se mira desde un acimut y una
+// elevación FIJOS y sólo se CALCULAN la distancia y el punto de mira, de modo que
+// la nube de puntos clave (equipo + pizarrón) llene la franja que de verdad se ve
+// entre los dos paneles y entre la cabecera y la barra de consejo. Antes el punto
+// de mira quedaba clavado a la altura del pizarrón y la célula se veía diminuta
+// debajo, con media pantalla de losa vacía.
+const CAM_AZ=0.34, CAM_EL=0.30, GAP_TAB=1.6;
 function camConjunto(margen){
-  const d=dims(MQ()), Z=zonaUtil();
+  const Z=zonaUtil();
   const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
   const m=(margen===undefined?1:margen);
   const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
-  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m;
+  const nyA=0.80/m, nyB=-0.82/m;                  // arriba / abajo en NDC
   const pts=puntosClave();
-  const mx=1.86*Math.cos(board.rotation.y);
-  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
-  const proy=(dist,o)=>{
-    const c=camTablero(dist,o);
-    const p=new THREE.Vector3(c[0][0],c[0][1],c[0][2]);
-    const q=new THREE.Vector3(c[1][0],c[1][1],c[1][2]);
-    const f=q.clone().sub(p).normalize();
-    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
-    const u=new THREE.Vector3().crossVectors(r,f).normalize();
-    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
-    for(const v0 of pts){
-      const v=v0.clone().sub(p), z=v.dot(f);
-      if(z<=0.2){ malo=true; continue; }
-      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
-      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+  const dirC=new THREE.Vector3(Math.sin(CAM_AZ)*Math.cos(CAM_EL),Math.sin(CAM_EL),
+    Math.cos(CAM_AZ)*Math.cos(CAM_EL));
+  const f=dirC.clone().negate();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+  const u=new THREE.Vector3().crossVectors(r,f).normalize();
+  const T=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const ext=(D)=>{
+    const P=T.clone().addScaledVector(dirC,D);
+    let a=Infinity,b=-Infinity,lo=Infinity,hi=-Infinity,zs=0;
+    for(const p of pts){
+      const v=p.clone().sub(P), z=v.dot(f);
+      if(z<=0.3) return null;
+      const x=v.dot(r)/z/TH, y=v.dot(u)/z/TV;
+      a=Math.min(a,x); b=Math.max(b,x); lo=Math.min(lo,y); hi=Math.max(hi,y); zs+=z;
     }
-    return { a, b, vy, z:n?zs/n:1, malo };
+    return {a,b,lo,hi,z:zs/pts.length};
   };
-  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
-  let dist=26;
-  for(let it=0;it<7;it++){
-    // Menor distancia que mete todos los puntos clave dentro de la franja útil.
-    if(cabe(26,off)){
-      let lo=3, hi=26;
-      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
-      dist=hi;
-    }else dist=26;
-    // Y después se centra el contenido DENTRO de esa franja, no dentro del
-    // lienzo: si no, el banco queda pegado al panel de mandos.
-    const e=proy(dist,off);
-    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
-    if(Math.abs(dn)<0.012) break;
-    off-=dn*TH*e.z;
+  const cabe=(D)=>{ const e=ext(D); return !!e&&e.a>=nx0&&e.b<=nx1&&e.lo>=nyB&&e.hi<=nyA; };
+  let D=26;
+  for(let it=0;it<14;it++){
+    if(cabe(90)){
+      let lo=2, hi=90;
+      for(let k=0;k<30;k++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+      D=hi;
+    }else D=90;
+    const e=ext(D); if(!e) break;
+    const dx=(e.a+e.b)/2-(nx0+nx1)/2, dy=(e.lo+e.hi)/2-(nyA+nyB)/2;
+    if(Math.abs(dx)<0.008&&Math.abs(dy)<0.008) break;
+    T.addScaledVector(r,dx*TH*e.z).addScaledVector(u,dy*TV*e.z);
+    if(it===13){                                   // último ajuste: se vuelve a resolver D
+      if(cabe(90)){ let lo=2, hi=90;
+        for(let k=0;k<30;k++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+        D=hi; }
+    }
   }
-  return camTablero(dist,off);
+  const P=T.clone().addScaledVector(dirC,D);
+  return [[P.x,P.y,P.z],[T.x,T.y,T.z]];
 }
 function camTablero(d,off){
   const c=board.position.clone(); c.y=BY3;
@@ -774,7 +786,7 @@ function camTablero(d,off){
   return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
 }
 {
-  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,color:0x2a3442,metalness:0.30,roughness:0.62}),0.05);
   marco.position.y=BY3; board.add(marco);
   const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
     new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
@@ -1456,7 +1468,7 @@ const pon=(o,p)=>{ o.position.set(p[0],p[1],p[2]); return o; };
 // una textura no se lee texto, así que ésta es la única forma de comprobar desde
 // fuera lo que las chapas del banco DICEN — y de que el 3D no regale la
 // respuesta del reto.
-const ESC_ROT=0.88;
+const ESC_ROT=0.66;
 let ROTULOS=[];
 const rot3=(t,c,p)=>{ ROTULOS.push(t); const s=pon(labelSprite(t,c),p);
   s.scale.multiplyScalar(ESC_ROT); return s; };
@@ -1510,8 +1522,11 @@ function construyeBanco(){
       std({color:0x161b22,roughness:0.96,metalness:0.02}));
     suelo.rotation.x=-Math.PI/2; suelo.position.y=-0.01; suelo.receiveShadow=true;
     banco.add(suelo);
+    // Las columnas, en acero pintado liso: con el acero cepillado del resto se
+    // rayaban de arriba abajo como una pila de monedas.
+    const colM=std({color:0x5d6876,roughness:0.55,metalness:0.50});
     for(const sx of [-1,1]) for(const sz of [-1,1]){
-      const c=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,d.yElev,14),MAT.acero);
+      const c=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,d.yElev,14),colM);
       c.position.set(d.centro+sx*(d.largo*0.42),d.yElev/2,sz*0.86);
       c.castShadow=true; banco.add(c);
     }

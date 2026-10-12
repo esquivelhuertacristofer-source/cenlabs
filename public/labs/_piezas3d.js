@@ -7433,3 +7433,177 @@ export function cableCoaxial(mat, A, dirA, B, dirB, opts = {}) {
   g.userData = { curva: cur };
   return g;
 }
+
+/* ==========================================================================
+   §18 · BLOQUE DE MOTOR Y BATERÍA DE AUTOMOCIÓN (mec3d · motor de combustión)
+   Lo que antes eran una caja con cuatro discos encima y un ladrillo con dos
+   postes: el bloque con su cárter, su culata y su tapa de balancines, y la
+   batería con su carcasa nervada, su asa y su tira de tapones de vaso.
+   ========================================================================== */
+
+/**
+ * BLOQUE DE MOTOR de combustión en línea, entero y de un vistazo: el CÁRTER de
+ * chapa abajo (más estrecho que el bloque, con su brida atornillada y el tapón
+ * de vaciado), el BLOQUE fundido con los tapones de expansión de la camisa de
+ * agua y los nervios en la cara delantera, la JUNTA oscura, la CULATA con sus
+ * costillas, la TAPA DE BALANCINES con su costilla central, el TAPÓN DE ACEITE
+ * y, de cada cilindro, la BOBINA que asoma por el pozo de la bujía. Por la cara
+ * de atrás sale el COLECTOR DE ESCAPE: un tubo corto por cilindro y el de reunión.
+ *
+ * Eje largo en X (el cigüeñal), arriba en +Y, la cara delantera en +Z. El origen
+ * es el centro de la caja `largo × alto × ancho`; todo cabe dentro de ella salvo
+ * el colector, que sobresale por -Z. No lleva campana ni polea: cada laboratorio
+ * pone la suya donde le toca.
+ *   cil       número de cilindros (de 2 a 8; tapones y bobinas se reparten en X)
+ *   bobinas   true: una bobina por cilindro sobre la tapa (gasolina);
+ *             false: nada (diésel: la tapa va lisa)
+ *   escape    true: colector de escape por la cara de atrás
+ *   cuna      si > 0, dos apoyos de esa altura bajo el cárter, para que el motor
+ *             no flote cuando se ha puesto más alto que el suelo
+ */
+export function bloqueMotor(mat, opts = {}) {
+  const { largo = 1.8, alto = 1.2, ancho = 1.2, cil = 4, bobinas = true, escape = true, cuna = 0 } = opts;
+  const g = new THREE.Group();
+  const Al = mat.aluminio || mat.acero, Fe = mat.hierro || mat.acero || Al;
+  const Ne = mat.negro || Fe, Ch = mat.chapa || Al;
+  const mk = (pts, r, esp, bis, m) => {
+    const geo = normalizaUV(extruido(contornoRedondeado(pts, r, 4), { espesor: esp, bisel: bis }), 2);
+    const me = new THREE.Mesh(geo, m); me.castShadow = me.receiveShadow = true; return me;
+  };
+  const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const y0 = -alto / 2;
+  const hPan = alto * 0.25, hBlq = alto * 0.38, hJun = alto * 0.014, hCul = alto * 0.20, hTap = alto * 0.13;
+  const yPan = y0, yBlq = yPan + hPan, yJun = yBlq + hBlq, yCul = yJun + hJun, yTap = yCul + hCul;
+  // El cárter: perfil de cubeta, más hondo hacia un extremo (donde está el sumidero).
+  g.add(mk([[-largo * 0.40, yPan + hPan], [largo * 0.42, yPan + hPan], [largo * 0.42, yPan + hPan * 0.35],
+    [largo * 0.30, yPan], [-largo * 0.22, yPan], [-largo * 0.30, yPan + hPan * 0.35],
+    [-largo * 0.40, yPan + hPan * 0.35]], 0.02 * alto, ancho * 0.74, alto * 0.012, Ch));
+  g.add(mk(rect(-largo * 0.455, yPan + hPan * 0.90, largo * 0.455, yPan + hPan * 1.04), 0.01 * alto,
+    ancho * 0.92, alto * 0.006, Fe));
+  // El bloque: cuerpo fundido, un poco más ancho que la culata.
+  g.add(mk(rect(-largo / 2, yBlq, largo / 2, yBlq + hBlq), 0.03 * alto, ancho, alto * 0.012, Fe));
+  // Tapones de expansión de la camisa de agua y nervios, en la cara delantera.
+  const paso = largo * 0.78 / Math.max(1, cil - 1);
+  const x0 = cil > 1 ? -largo * 0.39 : 0;
+  for (let i = 0; i < cil; i++) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.045, alto * 0.045, alto * 0.02, 18), Ch);
+    t.rotation.x = Math.PI / 2; t.position.set(x0 + i * paso, yBlq + hBlq * 0.60, ancho / 2 + alto * 0.008);
+    t.castShadow = true; g.add(t);
+  }
+  for (let i = 0; i <= cil; i++) {
+    const xn = cil > 1 ? x0 - paso / 2 + i * paso : (i ? largo * 0.46 : -largo * 0.46);
+    if (Math.abs(xn) > largo * 0.49) continue;
+    const n = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.012, hBlq * 0.86, alto * 0.025), Fe);
+    n.position.set(xn, yBlq + hBlq * 0.50, ancho / 2 + alto * 0.006); g.add(n);
+  }
+  // La junta de culata, oscura, y la culata con sus tres costillas de refrigeración.
+  g.add(mk(rect(-largo * 0.495, yJun, largo * 0.495, yJun + hJun), 0.004 * alto, ancho * 0.96, alto * 0.004, Ne));
+  g.add(mk(rect(-largo * 0.485, yCul, largo * 0.485, yCul + hCul), 0.025 * alto, ancho * 0.92, alto * 0.010, Al));
+  for (let k = 0; k < 3; k++) {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.94, alto * 0.016, alto * 0.016), Al);
+    a.position.set(0, yCul + hCul * (0.28 + k * 0.27), ancho * 0.46 + alto * 0.004); g.add(a);
+  }
+  // La tapa de balancines (trapecio: más ancha abajo), con su costilla central.
+  g.add(mk([[-largo * 0.40, yTap], [largo * 0.40, yTap], [largo * 0.38, yTap + hTap], [-largo * 0.38, yTap + hTap]],
+    0.03 * alto, ancho * 0.60, alto * 0.012, Al));
+  const cos = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.70, hTap * 0.20, ancho * 0.10), Al);
+  cos.position.set(0, yTap + hTap + hTap * 0.08, 0); g.add(cos);
+  // El tapón del aceite, en el extremo, con su asa.
+  const tp = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.060, alto * 0.066, alto * 0.034, 18), Ne);
+  tp.position.set(-largo * 0.32, yTap + hTap + alto * 0.012, ancho * 0.12); tp.castShadow = true; g.add(tp);
+  const as = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.11, alto * 0.020, alto * 0.028), Ne);
+  as.position.set(-largo * 0.32, yTap + hTap + alto * 0.034, ancho * 0.12); g.add(as);
+  // Las bobinas sobre el pozo de cada bujía.
+  if (bobinas) {
+    for (let i = 0; i < cil; i++) {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.038, alto * 0.044, alto * 0.14, 14), Ne);
+      b.position.set(x0 + i * paso, yTap + hTap + alto * 0.05, -ancho * 0.12); b.castShadow = true; g.add(b);
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.050, alto * 0.050, alto * 0.016, 14), Ne);
+      c.position.set(x0 + i * paso, yTap + hTap + alto * 0.005, -ancho * 0.12); g.add(c);
+    }
+  }
+  // El colector de escape por la cara de atrás: un tubo por cilindro y el de reunión.
+  if (escape) {
+    const zT = -ancho * 0.46, zR = -ancho * 0.70, yE = yCul + hCul * 0.46;
+    for (let i = 0; i < cil; i++) {
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.036, alto * 0.036, zT - zR, 12), Fe);
+      t.rotation.x = Math.PI / 2; t.position.set(x0 + i * paso, yE, (zT + zR) / 2); t.castShadow = true; g.add(t);
+    }
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.050, alto * 0.050, largo * 0.86, 16), Fe);
+    col.rotation.z = Math.PI / 2; col.position.set(0, yE, zR); col.castShadow = true; g.add(col);
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.060, alto * 0.060, alto * 0.025, 18), Fe);
+    br.rotation.z = Math.PI / 2; br.position.set(largo * 0.43 + alto * 0.012, yE, zR); g.add(br);
+  }
+  // El tapón de vaciado del cárter y la varilla del aceite.
+  const dr = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.030, alto * 0.030, alto * 0.025, 6), Fe);
+  dr.rotation.z = Math.PI / 2; dr.position.set(-largo * 0.215, yPan + alto * 0.035, ancho * 0.30); g.add(dr);
+  const va = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.008, alto * 0.008, hBlq * 0.9, 8), mat.cobre || Fe);
+  va.position.set(largo * 0.18, yBlq + hBlq * 0.62, ancho / 2 + alto * 0.030); g.add(va);
+  if (cuna > 0) {
+    for (const sx of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.08, cuna, ancho * 0.60), Ne);
+      p.position.set(sx * largo * 0.36, y0 - cuna / 2, 0); p.castShadow = true; g.add(p);
+    }
+  }
+  g.userData = { largo, alto, ancho, cil, yBloque: yBlq, yCulata: yCul, yTapa: yTap + hTap,
+    puertos: Array.from({ length: cil }, (_, i) => x0 + i * paso) };
+  return g;
+}
+
+/**
+ * BATERÍA DE AUTOMOCIÓN 12 V de plomo-ácido: carcasa con NERVIOS de refuerzo en
+ * las caras largas, el escalón de la tapa, el ASA, la TIRA DE TAPONES de los seis
+ * vasos y los DOS POSTES cónicos con su capuchón —el positivo, rojo y más
+ * grueso—. Los postes quedan en el borde delantero, a `postX` del centro
+ * (fracción del ancho) y a `postZ` (fracción del fondo, desde el centro).
+ * Origen en el centro de la base; la tapa queda en y = `alto`.
+ *   ancho, alto, fondo   cota de la carcasa
+ *   vasos                número de tapones (6 en una de 12 V)
+ *   caja, tapa           colores de la carcasa y de la tapa
+ * `userData.positivo` y `userData.negativo` son los postes (mallas).
+ */
+export function bateriaAutomocion(mat, opts = {}) {
+  const { ancho = 0.52, alto = 0.44, fondo = 0.34, vasos = 6, postX = 0.34, postZ = 0.24,
+          caja = 0x1c2430, tapa = 0x2c3846 } = opts;
+  const g = new THREE.Group();
+  const mC = new THREE.MeshStandardMaterial({ color: caja, roughness: 0.62, metalness: 0.06 });
+  const mT = new THREE.MeshStandardMaterial({ color: tapa, roughness: 0.58, metalness: 0.06 });
+  const Pb = mat.plomo || mat.aluminio || mat.acero;
+  const cuerpo = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-ancho / 2, 0], [ancho / 2, 0], [ancho / 2, alto * 0.90], [-ancho / 2, alto * 0.90]], alto * 0.03, 3),
+    { espesor: fondo, bisel: alto * 0.012 }), 2), mC);
+  cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
+  // El escalón de la tapa: una plancha más baja, un poco hacia dentro.
+  const tp = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-ancho * 0.48, alto * 0.88], [ancho * 0.48, alto * 0.88], [ancho * 0.48, alto], [-ancho * 0.48, alto]], alto * 0.02, 3),
+    { espesor: fondo * 0.94, bisel: alto * 0.008 }), 2), mT);
+  tp.castShadow = true; g.add(tp);
+  // Nervios verticales en las dos caras largas.
+  for (const sz of [-1, 1]) for (let i = 0; i < 6; i++) {
+    const n = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.030, alto * 0.62, fondo * 0.020), mC);
+    n.position.set(-ancho * 0.40 + i * ancho * 0.16, alto * 0.46, sz * (fondo / 2 + fondo * 0.008)); g.add(n);
+  }
+  // El asa: un arco bajo, a lo ancho, detrás de los tapones.
+  const asa = new THREE.Mesh(new THREE.TorusGeometry(ancho * 0.30, alto * 0.016, 8, 22, Math.PI), mT);
+  asa.scale.set(1, 0.30, 1); asa.position.set(0, alto, -fondo * 0.22); g.add(asa);
+  // La tira de tapones de vaso.
+  for (let i = 0; i < vasos; i++) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.040, alto * 0.044, alto * 0.030, 14), mC);
+    t.position.set((i - (vasos - 1) / 2) * ancho * 0.12, alto + alto * 0.012, -fondo * 0.04); g.add(t);
+    const r = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.062, alto * 0.012, alto * 0.010), mT);
+    r.position.set(t.position.x, alto + alto * 0.030, t.position.z); g.add(r);
+  }
+  // Los postes cónicos y sus capuchones: positivo rojo y más grueso.
+  const poste = (sx, rb, rt, col) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, alto * 0.16, 16), Pb);
+    p.position.set(sx * ancho * postX, alto + alto * 0.08, fondo * postZ); p.castShadow = true; g.add(p);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(rb * 1.18, rb * 1.18, alto * 0.026, 16),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, metalness: 0.05 }));
+    c.position.set(p.position.x, alto + alto * 0.012, p.position.z); g.add(c);
+    return p;
+  };
+  g.userData = { alto, ancho, fondo,
+    positivo: poste(1, alto * 0.046, alto * 0.036, 0xc23b3b),
+    negativo: poste(-1, alto * 0.040, alto * 0.031, 0x20242a) };
+  return g;
+}

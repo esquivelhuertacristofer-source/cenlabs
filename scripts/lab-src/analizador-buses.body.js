@@ -482,7 +482,7 @@ function emis(colHex){
 
 // ===================== 5. PIZARRÓN =====================
 const boardG=new THREE.Group();
-boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+boardG.position.set(-1.05,0,-1.00);boardG.rotation.y=0.2;boardG.scale.setScalar(0.84);scene.add(boardG);
 const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
 [-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
@@ -490,7 +490,7 @@ const bTex=new THREE.CanvasTexture(bCv);
 const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
 board.position.set(0,1.9,0.065);boardG.add(board);
 frame.userData={title:'Pizarrón del analizador lógico',info:'Trazas, captura y decodificación · toca para cambiar de vista'};
-addHoverLabel(frame,'Buses · UART/I²C/SPI',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.9);
+addHoverLabel(frame,'Buses · UART/I²C/SPI',ACC,new THREE.Vector3(0,3.1,0.1).add(boardG.position),2.9);
 
 function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
 function rpanel(c,x,y,w,h,title){
@@ -1107,7 +1107,7 @@ for(let i=0;i<4;i++){
 }
 
 // -- panel de instrumentos (molde S+P)
-const panelG=new THREE.Group();panelG.position.set(3.05,0.5,0.05);panelG.rotation.y=-0.24;scene.add(panelG);
+const panelG=new THREE.Group();panelG.position.set(2.55,0.5,-0.55);panelG.rotation.y=-0.34;scene.add(panelG);
 const pBody=roundedBox(1.50,1.00,0.14,MAT.body,0.04);pBody.position.set(0,0.62,0);panelG.add(pBody);
 const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
 const pTex=new THREE.CanvasTexture(pCv);
@@ -1252,6 +1252,81 @@ el('panel').innerHTML=`
 function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
 
 // ===================== 11. MODOS Y CONTROLES =====================
+/* ENCUADRE. La cámara de cada vista ya no es una terna escrita a mano: se mira
+   desde un acimut y una elevación fijos por vista, y la DISTANCIA y el punto de
+   mira se CALCULAN para que las esquinas del pizarrón y del banco llenen la
+   franja que de verdad se ve —entre los dos paneles y entre la cabecera y la
+   barra de consejo—. Con las ternas a mano el banco quedaba pequeño sobre una
+   losa vacía, y cualquier cambio de ventana lo desencuadraba. */
+const CAM_MODO={explora:[0.30,0.32],aplica:[0.26,0.28],predice:[0.26,0.28],barrido:[0.26,0.28],reto:[0.26,0.28]};
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=document.getElementById('hud'), p=document.getElementById('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function esquinasDe(o){
+  // Sólo mallas de tamaño de pieza: un disco de suelo mediría lo que la sala y
+  // aplastaría el encuadre.
+  const b=new THREE.Box3(), c=[], t=new THREE.Box3(), sz=new THREE.Vector3();
+  o.traverse(m=>{ if(!m.isMesh||!m.visible) return;
+    t.setFromObject(m); if(t.isEmpty()) return; t.getSize(sz);
+    if(sz.x>7||sz.z>7) return; b.union(t); });
+  if(b.isEmpty()) return c;
+  for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z])
+    c.push(new THREE.Vector3(x,y,z));
+  return c;
+}
+function camModo(k,margen){
+  const Z=zonaUtil(), m=(margen===undefined?1:margen);
+  const [AZ,EL]=CAM_MODO[k]||CAM_MODO.explora;
+  const asp=Math.min(2.6,Math.max(0.6,Z.W/Math.max(1,Z.H)));
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, nyA=0.80/m, nyB=-0.82/m;
+  const pts=[...esquinasDe(boardG),...esquinasDe(benchG),...esquinasDe(panelG)];
+  const dirC=new THREE.Vector3(Math.sin(AZ)*Math.cos(EL),Math.sin(EL),Math.cos(AZ)*Math.cos(EL));
+  const f=dirC.clone().negate();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+  const u=new THREE.Vector3().crossVectors(r,f).normalize();
+  const T=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const ext=(D)=>{
+    const P=T.clone().addScaledVector(dirC,D);
+    let a=Infinity,b=-Infinity,lo=Infinity,hi=-Infinity,zs=0;
+    for(const p of pts){
+      const v=p.clone().sub(P), z=v.dot(f);
+      if(z<=0.3) return null;
+      const x=v.dot(r)/z/TH, y=v.dot(u)/z/TV;
+      a=Math.min(a,x); b=Math.max(b,x); lo=Math.min(lo,y); hi=Math.max(hi,y); zs+=z;
+    }
+    return {a,b,lo,hi,z:zs/pts.length};
+  };
+  const cabe=(D)=>{ const e=ext(D); return !!e&&e.a>=nx0&&e.b<=nx1&&e.lo>=nyB&&e.hi<=nyA; };
+  const resuelve=()=>{
+    if(!cabe(90)) return 90;
+    let lo=2, hi=90;
+    for(let i=0;i<30;i++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+    return hi;
+  };
+  let D=26;
+  for(let it=0;it<14;it++){
+    D=resuelve();
+    const e=ext(D); if(!e) break;
+    const dx=(e.a+e.b)/2-(nx0+nx1)/2, dy=(e.lo+e.hi)/2-(nyA+nyB)/2;
+    if(Math.abs(dx)<0.008&&Math.abs(dy)<0.008) break;
+    T.addScaledVector(r,dx*TH*e.z).addScaledVector(u,dy*TV*e.z);
+    if(it===13) D=resuelve();
+  }
+  const P=T.clone().addScaledVector(dirC,D);
+  return [[P.x,P.y,P.z],[T.x,T.y,T.z]];
+}
+addEventListener('resize',()=>{ S.resize&&S.resize(); const c=camModo(mode); S.moveTo(c[0],c[1],0.4); });
+
 const MODE_META={
   explora:{nombre:'Explora',cam:[[5.8,3.4,7.9],[0.8,1.05,0.3]],
     mision:'Cambia de analizador y de ampliación: mira cómo la misma señal se convierte en una escalera de muestras.'},
@@ -1314,7 +1389,7 @@ function setMode(k){
   buildControls();updateScenarioInfo();
   solved=(k==='reto')?retoSolved:false;
   clearDx();buildQuiz();refreshQuestion();
-  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  const cam=camModo(k);S.moveTo(cam[0],cam[1]);
   refreshAll();
 }
 function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}

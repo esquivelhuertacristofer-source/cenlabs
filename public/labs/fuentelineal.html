@@ -885,12 +885,21 @@ boardPlane.userData.title='Esquema y osciloscopios';
 const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
 boardFrame.position.z=-0.03;
 boardG.add(boardFrame,boardPlane);
-boardG.position.set(-1.05,1.75,-0.85);
+// El pizarrón se APOYA en la mesa (su borde inferior a ras de tablero): antes
+// flotaba a 1,75 m sobre una mesa que estaba hundida en el suelo.
+boardG.position.set(-0.55,0.76+1.015,-0.80);
 boardG.rotation.y=0.16;
 S.scene.add(boardG);
 
 const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.22,2.2),MAT.bench); mesa.position.y=-0.11; benchG.add(mesa);
+// La mesa de laboratorio: tablero a 0,72 m y cuatro patas. Cubre la placa
+// entera (antes el tablero medía 2,2 m de fondo y la placa sobresalía 0,75 m).
+benchG.position.y=0.72;
+const mesa=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.12,3.05),MAT.bench); mesa.position.set(-0.05,-0.06,0.42); benchG.add(mesa);
+for(const sx of [-1,1]) for(const sz of [-1,1]){
+  const pata=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.66,14),MAT.lead);
+  pata.position.set(-0.05+sx*1.85,-0.12-0.33,0.42+sz*1.38); benchG.add(pata);
+}
 const pcb=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.02,1.7),MAT.pcb); pcb.position.set(0.1,0.01,1.0); benchG.add(pcb);
 
 const fuenteBox=makeDisplayBox(0.62,0.42,0.14,256,180);
@@ -1197,6 +1206,81 @@ let toastT=null;
 function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),4200); }
 
 /* ---------- modos ---------- */
+/* ENCUADRE. La cámara de cada vista ya no es una terna escrita a mano: se mira
+   desde un acimut y una elevación fijos por vista, y la DISTANCIA y el punto de
+   mira se CALCULAN para que las esquinas del pizarrón y del banco llenen la
+   franja que de verdad se ve —entre los dos paneles y entre la cabecera y la
+   barra de consejo—. Con las ternas a mano el banco quedaba pequeño sobre una
+   losa vacía, y cualquier cambio de ventana lo desencuadraba. */
+const CAM_MODO={explora:[0.30,0.32],aplica:[0.26,0.28],predice:[0.26,0.28],barrido:[0.26,0.28],reto:[0.26,0.28]};
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=document.getElementById('hud'), p=document.getElementById('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function esquinasDe(o){
+  // Sólo mallas de tamaño de pieza: un disco de suelo mediría lo que la sala y
+  // aplastaría el encuadre.
+  const b=new THREE.Box3(), c=[], t=new THREE.Box3(), sz=new THREE.Vector3();
+  o.traverse(m=>{ if(!m.isMesh||!m.visible) return;
+    t.setFromObject(m); if(t.isEmpty()) return; t.getSize(sz);
+    if(sz.x>7||sz.z>7) return; b.union(t); });
+  if(b.isEmpty()) return c;
+  for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z])
+    c.push(new THREE.Vector3(x,y,z));
+  return c;
+}
+function camModo(k,margen){
+  const Z=zonaUtil(), m=(margen===undefined?1:margen);
+  const [AZ,EL]=CAM_MODO[k]||CAM_MODO.explora;
+  const asp=Math.min(2.6,Math.max(0.6,Z.W/Math.max(1,Z.H)));
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, nyA=0.80/m, nyB=-0.82/m;
+  const pts=[...esquinasDe(boardG),...esquinasDe(benchG)];
+  const dirC=new THREE.Vector3(Math.sin(AZ)*Math.cos(EL),Math.sin(EL),Math.cos(AZ)*Math.cos(EL));
+  const f=dirC.clone().negate();
+  const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+  const u=new THREE.Vector3().crossVectors(r,f).normalize();
+  const T=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const ext=(D)=>{
+    const P=T.clone().addScaledVector(dirC,D);
+    let a=Infinity,b=-Infinity,lo=Infinity,hi=-Infinity,zs=0;
+    for(const p of pts){
+      const v=p.clone().sub(P), z=v.dot(f);
+      if(z<=0.3) return null;
+      const x=v.dot(r)/z/TH, y=v.dot(u)/z/TV;
+      a=Math.min(a,x); b=Math.max(b,x); lo=Math.min(lo,y); hi=Math.max(hi,y); zs+=z;
+    }
+    return {a,b,lo,hi,z:zs/pts.length};
+  };
+  const cabe=(D)=>{ const e=ext(D); return !!e&&e.a>=nx0&&e.b<=nx1&&e.lo>=nyB&&e.hi<=nyA; };
+  const resuelve=()=>{
+    if(!cabe(90)) return 90;
+    let lo=2, hi=90;
+    for(let i=0;i<30;i++){ const mid=(lo+hi)/2; if(cabe(mid)) hi=mid; else lo=mid; }
+    return hi;
+  };
+  let D=26;
+  for(let it=0;it<14;it++){
+    D=resuelve();
+    const e=ext(D); if(!e) break;
+    const dx=(e.a+e.b)/2-(nx0+nx1)/2, dy=(e.lo+e.hi)/2-(nyA+nyB)/2;
+    if(Math.abs(dx)<0.008&&Math.abs(dy)<0.008) break;
+    T.addScaledVector(r,dx*TH*e.z).addScaledVector(u,dy*TV*e.z);
+    if(it===13) D=resuelve();
+  }
+  const P=T.clone().addScaledVector(dirC,D);
+  return [[P.x,P.y,P.z],[T.x,T.y,T.z]];
+}
+addEventListener('resize',()=>{ S.resize&&S.resize(); const c=camModo(mode); S.moveTo(c[0],c[1],0.4); });
+
 const MODE_META={
   explora:{ nombre:'Explora', cam:[[3.2,2.4,7.4],[0.4,1.25,0.05]],
     mision:'Toca el capacitor y el regulador en el esquema para revelar cada etapa. Cambia transformador, capacitor, disipador, Vlínea e Iout y observa cómo se comporta la cadena completa.' },
@@ -1252,7 +1336,7 @@ function setMode(k){
   }
   syncCtrlBtns();
   clearDx(); refreshQuestion(); refreshBenchSel(); refreshAll();
-  S.moveTo(meta.cam[0],meta.cam[1],1.3);
+  { const cam=camModo(k); S.moveTo(cam[0],cam[1],1.3); }
 }
 
 function syncCtrlBtns(){
