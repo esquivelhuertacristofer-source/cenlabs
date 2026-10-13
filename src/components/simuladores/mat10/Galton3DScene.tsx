@@ -1,264 +1,381 @@
 "use client";
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Galton3DScene — tablero de Galton sobre el pizarrón: embudo, 10 filas de clavos
-   de acero, tabiques de acrílico y repisa numerada (k = desvíos a la derecha).
+   Galton3DScene — una máquina de Galton de sobremesa en un estudio, a escala real
+   (1 u = 1 cm): tablero de nogal con frente de vidrio, 55 clavos de latón, tabiques
+   de aluminio, bolitas de acero de 6 mm que se APILAN de verdad en los canales, y un
+   nivel de burbuja en el travesaño. El tablero gira α en su plano sobre su eje: así
+   se fija p (galton.ts, modelo de impacto: tan α = (2p − 1)·w/h).
 
-   Las bolitas caen con la física de siempre (cada clavo las manda a la derecha
-   con probabilidad p) y, al llegar a la pila de su contenedor, se cuentan en el
-   store. La pila de cada contenedor es una columna cuya altura es proporcional a
-   su cuenta (escala relativa al contenedor más lleno); sobre ella se dibuja, en
-   esa misma escala, la curva normal N(np, np(1−p)) de De Moivre–Laplace y la
-   marca de lo esperado por la binomial. La repisa rotula las cuentas (con una
-   pequeña demora para no re-dibujar el texto en cada bolita).
+   RELOJ ÚNICO. `MaquinaBolas` avanza la física en cada cuadro (prioridad −1), cuenta
+   en el store cada bolita en el cuadro en que se posa y publica en el banco la α que
+   se está viendo; el giro del tablero, la burbuja, el dock y la barra leen eso mismo.
 
-   La escena NO escribe μ ni σ teóricas: el alumno las calcula.
+   NO REGALAR. La escena no escribe nada: ni μ ni σ ni curva alguna. Sólo la escala
+   grabada del propio instrumento (k = 0…10) y la del nivel.
 ──────────────────────────────────────────────────────────────────────────── */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Environment, Lightformer } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useShallow } from 'zustand/react/shallow';
-import { useSimuladorStore } from '@/store/simuladorStore';
-import { pmfBinomialM10 } from '@/domain/matematicas';
-import { LabCanvas } from '../_kit';
-import { Trazo, EncuadreSuave } from '../mat_comun_1a5/trazos';
-import { Clavos, MarcoGalton, FILAS, COLS, SEP, Y_BASE } from './piezas';
+import { KitContexto, ControlesBanco, calidadPorDefecto, type Calidad } from '../_kit';
+import { useBancoGalton, type Vista } from './banco';
+import { MaquinaBolas, type DiagBolas } from './bolas';
+import {
+  Tablero, NivelBurbuja, Lengueta, Soporte, Estudio, useMaterialesGalton,
+  X_EXT, Y_SUP_EXT, Y_INF_EXT, Y_PIVOTE, Y_TECHO, ALTO_PEANA,
+} from './piezas';
+import { X_PARED, Y_FONDO, Y_TABIQUE, Y_ULTIMA } from './galton';
 
-interface Galton3DSceneProps {
-  probabilidad: number;
-  contenedores: number[];
-}
+const DEV = process.env.NODE_ENV !== 'production';
+const FONDO = '#07090d';
+/** Altura del eje de giro sobre la mesa (la peana mide ALTO_PEANA y el eje queda 1,6 cm por encima). */
+export const Y_EJE_MUNDO = ALTO_PEANA + 1.6;
+/** Del tablero al mundo (con α = 0). */
+const aMundo = (x: number, y: number, z = 0) => new THREE.Vector3(x, Y_EJE_MUNDO + (y - Y_PIVOTE), z);
 
-const BALL_R = 0.28;
-const MAX_BALLS = 200;
-const HIST_MAX_H = 3.3;
-const BIN_COLORS = [
-  '#7c3aed', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4',
-  '#14b8a6', '#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444',
-];
-
-/* ── Bolitas: física por referencias, sin re-renders ───────────────────────── */
-function BallSystem({ probabilidad, alturas }: { probabilidad: number; alturas: React.MutableRefObject<number[]> }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const { bolitasPendientes, contenedores, contarBolitaM10, setGalton10 } = useSimuladorStore(useShallow((s) => ({
-    bolitasPendientes: s.galton10.bolitasPendientes, contenedores: s.galton10.contenedores,
-    contarBolitaM10: s.contarBolitaM10, setGalton10: s.setGalton10,
-  })));
-
-  const pool = useRef({
-    x: new Float32Array(MAX_BALLS),
-    y: new Float32Array(MAX_BALLS),
-    vy: new Float32Array(MAX_BALLS),
-    bounces: new Int32Array(MAX_BALLS),
-    active: new Uint8Array(MAX_BALLS),
-    hue: new Float32Array(MAX_BALLS),
-  });
-  const spawnTimer = useRef(0);
-  const pendingToSpawn = useRef(0);
-  const colorObj = useMemo(() => new THREE.Color(), []);
-
-  // Consumidor: toma del store las bolitas pendientes y las suelta localmente.
+export function useMovimientoReducido(): boolean {
+  const [r, setR] = useState(false);
   useEffect(() => {
-    if (bolitasPendientes > 0) {
-      pendingToSpawn.current += bolitasPendientes;
-      setGalton10({ bolitasPendientes: 0 });
-    }
-  }, [bolitasPendientes, setGalton10]);
-
-  // Vaciado: `vaciarGaltonM10`, `setProbabilidadM10` y los reinicios crean un
-  // arreglo de contenedores NUEVO y vacío. Sólo entonces se descarta la cola y
-  // las bolitas en vuelo (lanzar no cambia la referencia de `contenedores`).
-  useEffect(() => {
-    if (contenedores.some((c) => c > 0)) return;
-    pendingToSpawn.current = 0;
-    const p = pool.current;
-    for (let i = 0; i < MAX_BALLS; i++) p.active[i] = 0;
-  }, [contenedores]);
-
-  const spawnBall = useCallback((): boolean => {
-    const p = pool.current;
-    for (let i = 0; i < MAX_BALLS; i++) {
-      if (!p.active[i]) {
-        p.x[i] = (Math.random() - 0.5) * 0.1;
-        p.y[i] = FILAS * SEP + 2.5;
-        p.vy[i] = -0.5;
-        p.bounces[i] = FILAS;
-        p.active[i] = 1;
-        p.hue[i] = 0.05 + Math.random() * 0.12;
-        return true;
-      }
-    }
-    return false; // reserva llena: se reintenta en el siguiente turno
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const f = () => setR(mq.matches);
+    f();
+    mq.addEventListener?.('change', f);
+    return () => mq.removeEventListener?.('change', f);
   }, []);
+  return r;
+}
 
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-    const dt = Math.min(delta, 0.033);
-    const G = 28;
-    const p = pool.current;
+// ───────────────────────────── encuadre ─────────────────────────────
 
-    spawnTimer.current += delta;
-    if (spawnTimer.current >= 0.1 && pendingToSpawn.current > 0) {
-      spawnTimer.current = 0;
-      if (spawnBall()) pendingToSpawn.current--;
+/**
+ * Distancia y objetivo para que `puntos` quepan centrados en ±mx, ±my (NDC) mirando
+ * desde `dir`. Búsqueda binaria de la distancia + recentrado en dos pasadas.
+ */
+function encuadrar(dir: THREE.Vector3, puntos: THREE.Vector3[], fov: number, aspecto: number, mx: number, my: number) {
+  const cam = new THREE.PerspectiveCamera(fov, aspecto, 0.1, 4000);
+  const tgt = puntos.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / puntos.length);
+  const caja = (d: number) => {
+    cam.position.copy(tgt).addScaledVector(dir, d);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(tgt);
+    cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    const v = new THREE.Vector3();
+    for (const p of puntos) {
+      v.copy(p).project(cam);
+      x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
     }
-
-    for (let i = 0; i < MAX_BALLS; i++) {
-      if (!p.active[i]) {
-        dummy.position.set(0, -999, 0);
-        dummy.scale.setScalar(0.001);
-        dummy.updateMatrix();
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-        continue;
-      }
-
-      p.vy[i] -= G * dt;
-      p.y[i] += p.vy[i] * dt;
-
-      // choque con el clavo de cada nivel
-      if (p.bounces[i] > 0) {
-        const row = FILAS - p.bounces[i];            // 0..9
-        const pegY = (FILAS - row) * SEP;            // arriba = FILAS, abajo = 1
-        const dy = p.y[i] - pegY;
-        if (dy < BALL_R + 0.1 && dy > -(BALL_R + 0.1) && p.vy[i] < 0) {
-          p.bounces[i]--;
-          p.x[i] += (Math.random() < probabilidad ? SEP * 0.5 : -SEP * 0.5);
-          p.vy[i] = 2.5 + Math.random() * 2.0;
-          p.y[i] = pegY + BALL_R + 0.12;
-        }
-      }
-
-      // Tras 10 rebotes de ±SEP/2, x = (D − 5)·SEP con D = nº de desvíos a la
-      // derecha (0…10): el contenedor ES D = round(x/SEP + 5).
-      if (p.bounces[i] <= 0) {
-        const bi = Math.max(0, Math.min(COLS - 1, Math.round(p.x[i] / SEP + (COLS - 1) / 2)));
-        // la bolita se cuenta al tocar la pila de su contenedor
-        const techoPila = Y_BASE + (alturas.current[bi] ?? 0) + BALL_R;
-        if (p.y[i] < techoPila) {
-          p.active[i] = 0;
-          contarBolitaM10(bi);
-          dummy.position.set(0, -999, 0);
-          dummy.scale.setScalar(0.001);
-          dummy.updateMatrix();
-          meshRef.current.setMatrixAt(i, dummy.matrix);
-          continue;
-        }
-      }
-
-      if (p.y[i] < -15) { p.active[i] = 0; continue; }
-
-      dummy.position.set(p.x[i], p.y[i], 0);
-      dummy.scale.setScalar(1);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
-      colorObj.setHSL(p.hue[i], 0.8, 0.5);
-      meshRef.current.setColorAt(i, colorObj);
+    return { x0, x1, y0, y1 };
+  };
+  let d = 100;
+  for (let pasada = 0; pasada < 3; pasada++) {
+    let lo = 5, hi = 2000;
+    for (let i = 0; i < 44; i++) {
+      const mid = (lo + hi) / 2;
+      const b = caja(mid);
+      if ((b.x1 - b.x0) / 2 <= mx && (b.y1 - b.y0) / 2 <= my) hi = mid; else lo = mid;
     }
+    d = hi;
+    const b = caja(d);
+    const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const medioAlto = d * Math.tan(THREE.MathUtils.degToRad(fov) / 2), medioAncho = medioAlto * aspecto;
+    const derecha = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+    const arriba = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+    tgt.addScaledVector(derecha, cx * medioAncho).addScaledVector(arriba, cy * medioAlto);
+  }
+  return { pos: tgt.clone().addScaledVector(dir, d), objetivo: tgt };
+}
 
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  });
+const direccion = (azimut: number, elevacion: number) => {
+  const az = THREE.MathUtils.degToRad(azimut), el = THREE.MathUtils.degToRad(elevacion);
+  return new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).normalize();
+};
+const DIR_TABLERO = direccion(17, 6);
+const DIR_DETALLE = direccion(12, 3);
 
-  // Búfer de color creado una vez al montar (ninguna bolita sale transparente).
+function rect(x0: number, x1: number, y0: number, y1: number, z0 = -1.2, z1 = 1.2) {
+  const out: THREE.Vector3[] = [];
+  for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) out.push(aMundo(x, y, z));
+  return out;
+}
+
+function presetVista(vista: Vista, aspecto: number, fov: number) {
+  if (vista === 'clavos') {
+    // la tolva y las diez filas, de cerca: las bolitas se ven de 6 mm
+    return encuadrar(DIR_DETALLE, rect(-11.4, 11.4, Y_ULTIMA - 1.6, Y_TECHO + 0.4), fov, aspecto, 0.94, 0.9);
+  }
+  if (vista === 'pilas') {
+    return encuadrar(DIR_DETALLE, rect(-X_PARED - 0.6, X_PARED + 0.6, Y_INF_EXT, Y_TABIQUE + 1.2), fov, aspecto, 0.94, 0.9);
+  }
+  // tablero entero y peana: el tablero ocupa ~70 % del alto del lienzo
+  const pts = [...rect(-X_EXT, X_EXT, Y_INF_EXT, Y_SUP_EXT), ...rect(-18, 18, Y_PIVOTE - 1.6 - ALTO_PEANA, Y_PIVOTE - 1.6, -6.6, 6.4)];
+  return encuadrar(DIR_TABLERO, pts, fov, aspecto, 0.86, 0.79);
+}
+
+const facil = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/** Vistas con transición suave; re-encuadra al cambiar el tamaño si el alumno no ha movido la cámara. */
+function CamaraVistas({ vista, pulso, reducido }: { vista: Vista; pulso: number; reducido: boolean }) {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const controls = useThree((s) => s.controls) as unknown as OrbitControlsImpl | null;
+  const size = useThree((s) => s.size);
+  const usuario = useRef(false);
+  const anim = useRef<{ p0: THREE.Vector3; p1: THREE.Vector3; o0: THREE.Vector3; o1: THREE.Vector3; t: number; dur: number } | null>(null);
+  const primera = useRef(true);
   useEffect(() => {
-    if (!meshRef.current || meshRef.current.instanceColor) return;
-    const colors = new Float32Array(MAX_BALLS * 3);
-    colorObj.setHSL(0.08, 0.8, 0.5);
-    for (let i = 0; i < MAX_BALLS; i++) { colors[i * 3] = colorObj.r; colors[i * 3 + 1] = colorObj.g; colors[i * 3 + 2] = colorObj.b; }
-    meshRef.current.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
-  }, [colorObj]);
-
-  const geo = useMemo(() => new THREE.SphereGeometry(BALL_R, 18, 14), []);
-  const mat = useMemo(() => new THREE.MeshStandardMaterial({ metalness: 0.55, roughness: 0.22 }), []);
-  useEffect(() => () => { geo.dispose(); mat.dispose(); }, [geo, mat]);
-  return <instancedMesh ref={meshRef} args={[geo, mat, MAX_BALLS]} frustumCulled={false} castShadow />;
-}
-
-/* ── Pilas de cada contenedor (columnas con transición suave) ──────────────── */
-function Pilas({ contenedores, alturas }: { contenedores: number[]; alturas: React.MutableRefObject<number[]> }) {
-  const maxC = Math.max(1, ...contenedores);
-  const refs = useRef<(THREE.Mesh | null)[]>([]);
-  const mats = useMemo(() => BIN_COLORS.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.15 })), []);
-  const geo = useMemo(() => new THREE.BoxGeometry(SEP * 0.84, 1, 0.55), []);
-  useEffect(() => () => { mats.forEach((m) => m.dispose()); geo.dispose(); }, [mats, geo]);
-  useFrame(() => {
-    for (let i = 0; i < COLS; i++) {
-      const objetivo = Math.max(0.02, ((contenedores[i] ?? 0) / maxC) * HIST_MAX_H);
-      alturas.current[i] += (objetivo - alturas.current[i]) * 0.1;
-      const m = refs.current[i];
-      if (m) { m.scale.y = alturas.current[i]; m.position.y = Y_BASE + alturas.current[i] / 2; }
+    if (!controls) return;
+    const f = () => { usuario.current = true; anim.current = null; };
+    controls.addEventListener('start', f);
+    return () => controls.removeEventListener('start', f);
+  }, [controls]);
+  const aspecto = size.width / Math.max(1, size.height);
+  useLayoutEffect(() => {
+    if (!controls) return;
+    usuario.current = false;
+    const p = presetVista(vista, aspecto, camera.fov);
+    if (primera.current || reducido) {
+      primera.current = false;
+      camera.position.copy(p.pos); controls.target.copy(p.objetivo); controls.update();
+      return;
     }
+    anim.current = { p0: camera.position.clone(), p1: p.pos, o0: controls.target.clone(), o1: p.objetivo, t: 0, dur: 1.0 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pulso, vista, controls]);
+  useLayoutEffect(() => {
+    if (!controls || primera.current || usuario.current) return;
+    const p = presetVista(vista, aspecto, camera.fov);
+    if (anim.current) { anim.current.p1 = p.pos; anim.current.o1 = p.objetivo; }
+    else { camera.position.copy(p.pos); controls.target.copy(p.objetivo); controls.update(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size.width, size.height]);
+  useFrame((_, dt) => {
+    const a = anim.current;
+    if (!a || !controls) return;
+    a.t = Math.min(1, a.t + dt / a.dur);
+    const e = facil(a.t);
+    camera.position.lerpVectors(a.p0, a.p1, e);
+    controls.target.lerpVectors(a.o0, a.o1, e);
+    controls.update();
+    if (a.t >= 1) anim.current = null;
   });
-  return (
-    <group>
-      {Array.from({ length: COLS }, (_, i) => (
-        <mesh key={i} ref={(el) => { refs.current[i] = el; }} geometry={geo} material={mats[i]} position={[(i - (COLS - 1) / 2) * SEP, Y_BASE, 0]} />
-      ))}
-    </group>
-  );
+  return null;
 }
 
-/* ── Curva esperada y marcas de la binomial, en la misma escala que las pilas ── */
-function Esperado({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
-  const total = contenedores.reduce((a, b) => a + b, 0);
-  const maxC = Math.max(1, ...contenedores);
-  const curva = useMemo<[number, number][]>(() => {
-    if (total < 10) return [];
-    const mu = FILAS * probabilidad, sigma = Math.sqrt(FILAS * probabilidad * (1 - probabilidad));
-    const pts: [number, number][] = [];
-    for (let t = 0; t <= 80; t++) {
-      const k = -0.5 + (t / 80) * COLS;
-      const g = Math.exp(-0.5 * ((k - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
-      pts.push([(k - (COLS - 1) / 2) * SEP, Y_BASE + Math.min(HIST_MAX_H * 1.2, ((total * g) / maxC) * HIST_MAX_H)]);
-    }
-    return pts;
-  }, [total, maxC, probabilidad]);
-  const marcas = useMemo(() => (total < 10 ? [] : Array.from({ length: COLS }, (_, k) => ({
-    x: (k - (COLS - 1) / 2) * SEP, y: Y_BASE + Math.min(HIST_MAX_H * 1.2, ((total * pmfBinomialM10(k, probabilidad)) / maxC) * HIST_MAX_H),
-  }))), [total, maxC, probabilidad]);
-  if (!curva.length) return null;
-  return (
-    <group>
-      <Trazo pts={curva} color="#ff5d73" radio={0.04} z={0.5} />
-      {marcas.map((m, k) => <Trazo key={k} pts={[[m.x - SEP * 0.42, m.y], [m.x + SEP * 0.42, m.y]]} color="#ffe08a" radio={0.03} z={0.42} />)}
-    </group>
-  );
+// ───────────────────────────── ambiente ─────────────────────────────
+
+function Ajustes() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useLayoutEffect(() => {
+    gl.toneMapping = THREE.NeutralToneMapping;
+    gl.toneMappingExposure = 1.12;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    scene.background = new THREE.Color(FONDO);
+  }, [gl, scene]);
+  return null;
 }
 
-function Contenido({ probabilidad, contenedores }: Galton3DSceneProps) {
-  const alturas = useRef<number[]>(new Array(COLS).fill(0.02));
-  // instantánea con demora: curva y rótulos no se regeneran con cada bolita
-  const [foto, setFoto] = useState(contenedores);
-  const ultima = useRef(contenedores);
-  ultima.current = contenedores;
-  useEffect(() => {
-    const vacio = !contenedores.some((c) => c > 0);
-    if (vacio) { setFoto(contenedores); return; }
-    const id = setTimeout(() => setFoto(ultima.current), 280);
-    return () => clearTimeout(id);
-  }, [contenedores]);
-  const hay = foto.some((c) => c > 0);
+const CENTRO = aMundo(0, (Y_SUP_EXT + Y_INF_EXT) / 2);
+
+function Luces({ calidad }: { calidad: Calidad }) {
+  const clave = useRef<THREE.SpotLight>(null);
+  const mapa = calidad === 'alta' ? 2048 : 1024;
+  useLayoutEffect(() => {
+    const l = clave.current; if (!l) return;
+    l.shadow.bias = -0.00015; l.shadow.normalBias = 0.02; l.shadow.radius = 5;
+    l.shadow.camera.near = 60; l.shadow.camera.far = 260; l.shadow.camera.updateProjectionMatrix();
+    l.target.position.copy(CENTRO).setY(CENTRO.y - 4); l.target.updateMatrixWorld();
+  }, []);
   return (
     <>
-      <EncuadreSuave caja={[[-7.4, -6.9, 0], [7.4, 15.4, 0]]} margen={1.03} />
-      <MarcoGalton cuentas={hay ? foto : null} />
-      <Clavos />
-      <Pilas contenedores={contenedores} alturas={alturas} />
-      <Esperado contenedores={foto} probabilidad={probabilidad} />
-      <BallSystem probabilidad={probabilidad} alturas={alturas} />
+      <hemisphereLight args={['#aebdd2', '#07080b', 0.32]} />
+      {/* clave: foco de estudio cálido, arriba a la izquierda y por delante → sombras de las bolitas sobre el fondo */}
+      <spotLight ref={clave} position={[-62, 112, 96]} angle={0.21} penumbra={0.95} decay={0} intensity={3.6} color="#fff1e0" castShadow
+        shadow-mapSize-width={mapa} shadow-mapSize-height={mapa} />
+      {/* contraluz fría: recorta el canto del marco y los clavos */}
+      <directionalLight position={[48, 60, -70]} intensity={0.9} color="#cfe0ff" />
+      {/* relleno bajo por la derecha */}
+      <directionalLight position={[70, 22, 60]} intensity={0.35} color="#ffe9d2" />
     </>
   );
 }
 
-export default function Galton3DScene(props: Galton3DSceneProps) {
+/**
+ * Estudio de reflejos procedural (sin red): tiras verticales a los lados (los brillos
+ * de cada bolita y de los clavos), un techo suave y una tira baja delante a la
+ * izquierda que el vidrio devuelve como un velo diagonal muy tenue.
+ */
+function Reflejos({ calidad }: { calidad: Calidad }) {
   return (
-    <div className="absolute inset-0">
-      <LabCanvas fondo="pizarron" camara={{ posicion: [0, 4, 30], objetivo: [0, 4.5, 0], fov: 35 }}
-        controles={{ minDistancia: 10, maxDistancia: 60, maxPolar: Math.PI * 0.62, minPolar: Math.PI * 0.3 }}>
-        <Contenido {...props} />
-      </LabCanvas>
+    <Environment resolution={calidad === 'alta' ? 256 : 128} frames={1} environmentIntensity={1}>
+      <color attach="background" args={['#040507']} />
+      {/* tiras verticales a los lados: el brillo de cada bolita y el canto de los clavos */}
+      <Lightformer form="rect" intensity={3.4} color="#f3f6fa" position={[-70, 40, 40]} scale={[10, 80, 1]} target={[0, 28, 0]} />
+      <Lightformer form="rect" intensity={2.4} color="#dfe8ff" position={[75, 40, 20]} scale={[7, 80, 1]} target={[0, 28, 0]} />
+      {/* techo suave */}
+      <Lightformer form="rect" intensity={2.2} color="#fff2e2" position={[0, 120, 30]} scale={[110, 50, 1]} target={[0, 28, 0]} />
+      {/* frente amplio y tenue: lo que ven los metales de cara al alumno (tabiques, placa, latón);
+          el vidrio, a incidencia normal, sólo devuelve un 4 % */}
+      <Lightformer form="rect" intensity={0.85} color="#f1ece4" position={[10, 34, 160]} scale={[150, 70, 1]} target={[0, 28, 0]} />
+      {/* tira baja delante a la izquierda: su reflejo en el vidrio es la banda que delata el cristal */}
+      <Lightformer form="rect" intensity={1.1} color="#ffffff" position={[-52, 14, 150]} scale={[9, 80, 1]} target={[0, 28, 0]} />
+      <Lightformer form="rect" intensity={0.8} color="#ffe6c8" position={[0, 20, -90]} scale={[120, 30, 1]} target={[0, 28, 0]} />
+    </Environment>
+  );
+}
+
+// ───────────────────────────── diagnóstico (desarrollo) ─────────────────────────────
+
+function DiagnosticoDev({ diag }: { diag: React.MutableRefObject<DiagBolas> }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+  const medida = useRef({ llamadas: 0, triangulos: 0, fps: 0, n: 0, t0: 0 });
+  useEffect(() => {
+    if (!DEV) return;
+    const antes = gl.info.autoReset;
+    gl.info.autoReset = false;
+    return () => { gl.info.autoReset = antes; };
+  }, [gl]);
+  useFrame(() => {
+    if (!DEV) return;
+    const r = gl.info.render, m = medida.current;
+    m.llamadas = r.calls; m.triangulos = r.triangles;
+    gl.info.reset();
+    const ahora = performance.now();
+    m.n++;
+    if (!m.t0) m.t0 = ahora;
+    if (ahora - m.t0 >= 1000) { m.fps = (m.n * 1000) / (ahora - m.t0); m.n = 0; m.t0 = ahora; }
+  }, -20);
+  useEffect(() => {
+    if (!DEV || typeof window === 'undefined') return;
+    const w = window as unknown as { __mat10?: unknown };
+    w.__mat10 = {
+      salud() {
+        let normalesCero = 0, mallas = 0;
+        scene.traverse((o) => {
+          const g = (o as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+          if (!g || !(o as THREE.Mesh).isMesh) return;
+          mallas++;
+          const n = g.getAttribute('normal');
+          if (!n) return;
+          for (let i = 0; i < n.count; i++) if (!(Math.hypot(n.getX(i), n.getY(i), n.getZ(i)) > 1e-6)) normalesCero++;
+        });
+        const m = medida.current;
+        return { llamadas: m.llamadas, triangulos: m.triangulos, mallas, normalesCero, fps: Math.round(m.fps * 10) / 10 };
+      },
+      escena: scene,
+      renderer: gl,
+      camara: camera,
+      estado: () => ({ ...diag.current }),
+    };
+    return () => { delete w.__mat10; };
+  }, [gl, scene, camera, diag]);
+  return null;
+}
+
+// ───────────────────────────── rótulo al pasar el ratón (DOM) ─────────────────────────────
+
+type DatoRotulo = { texto: string; x: number; y: number } | null;
+function RotuloDom({ fijar }: { fijar: React.MutableRefObject<(d: DatoRotulo) => void> }) {
+  const [d, setD] = useState<DatoRotulo>(null);
+  useEffect(() => { fijar.current = setD; return () => { fijar.current = () => undefined; }; }, [fijar]);
+  if (!d) return null;
+  return (
+    <div className="pointer-events-none absolute z-10 max-w-[260px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+      style={{ left: d.x + 14, top: d.y + 12 }}>
+      {d.texto}
+    </div>
+  );
+}
+
+const NOMBRES: Record<string, string> = {
+  clavo: 'Clavo de latón Ø 3,4 mm · cada uno, una decisión',
+  bola: 'Bolita de acero Ø 6 mm',
+  reserva: 'Reserva de bolitas en la tolva',
+  tolva: 'Tolva · suelta las bolitas de una en una',
+  tabique: 'Tabique de aluminio · canal de 21 mm',
+  placa: 'Placa grabada · k = desvíos a la derecha',
+  nivel: 'Nivel de burbuja · 0,87 cm por grado',
+  marco: 'Marco de nogal',
+  fondo: 'Fondo lacado',
+  eje: 'Eje de giro · inclina el tablero',
+  peana: 'Peana de nogal',
+};
+
+// ───────────────────────────── la máquina ─────────────────────────────
+
+function Maquina({ calidad, reducido, rotulo, diag }: {
+  calidad: Calidad; reducido: boolean;
+  rotulo: React.MutableRefObject<(d: DatoRotulo) => void>; diag: React.MutableRefObject<DiagBolas>;
+}) {
+  const { vista, vistaPulso } = useBancoGalton(useShallow((s) => ({ vista: s.vista, vistaPulso: s.vistaPulso })));
+  const m = useMaterialesGalton(calidad);
+  const alfa = useRef(0);
+  const giro = useRef<THREE.Group>(null);
+  // después del reloj (prioridad −1): el tablero muestra la α de este cuadro
+  useFrame(() => { if (giro.current) giro.current.rotation.z = -alfa.current; });
+
+  const alMover = (e: ThreeEvent<PointerEvent>) => {
+    // sólo cuenta lo más cercano: sin esto, la mesa y el fondo (detrás) borran el rótulo
+    e.stopPropagation();
+    let o: THREE.Object3D | null = e.object;
+    while (o && !o.userData?.pieza) o = o.parent;
+    const pieza = o?.userData?.pieza as string | undefined;
+    rotulo.current(pieza && NOMBRES[pieza] ? { texto: NOMBRES[pieza], x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY } : null);
+  };
+
+  return (
+    <group onPointerMove={alMover} onPointerOut={() => rotulo.current(null)}>
+      <CamaraVistas vista={vista} pulso={vistaPulso} reducido={reducido} />
+      <Estudio m={m} calidad={calidad} />
+      <group position={[0, Y_EJE_MUNDO, 0]}>
+        <Soporte m={m} calidad={calidad} />
+        <group ref={giro}>
+          <group position={[0, -Y_PIVOTE, 0]}>
+            <Tablero m={m} calidad={calidad} />
+            <Lengueta m={m} />
+            <NivelBurbuja m={m} alfa={alfa} calidad={calidad} />
+            <MaquinaBolas m={m} calidad={calidad} reducido={reducido} alfaRef={alfa} diag={diag} />
+          </group>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+export default function Galton3DScene() {
+  const [calidad] = useState<Calidad>(calidadPorDefecto);
+  const reducido = useMovimientoReducido();
+  const ctx = useMemo(() => ({ calidad }), [calidad]);
+  const rotulo = useRef<(d: DatoRotulo) => void>(() => undefined);
+  const diag = useRef<DiagBolas>({ t: 0, alfa: 0, alfaObjetivo: 0, enVuelo: 0, cola: 0, soltadas: 0, posadas: 0, semilla: 0, lleno: false, estaticas: 0 });
+  const alta = calidad === 'alta';
+  return (
+    <div className="absolute inset-0" data-calidad={calidad}>
+      <Canvas
+        style={{ width: '100%', height: '100%' }}
+        shadows="percentage"
+        dpr={alta ? [1, 1.75] : [1, 1.25]}
+        gl={{ antialias: true, powerPreference: 'high-performance', alpha: false, stencil: false }}
+        camera={{ position: [20, 30, 120], fov: 28, near: 1, far: 1200 }}
+      >
+        <KitContexto.Provider value={ctx}>
+          <Ajustes />
+          <Luces calidad={calidad} />
+          <Reflejos calidad={calidad} />
+          <ControlesBanco objetivo={[CENTRO.x, CENTRO.y, CENTRO.z]} fondo="laboratorio"
+            limites={{ minDistancia: 18, maxDistancia: 260, maxPolar: 1.68, minPolar: 0.7, paneo: true, cajaObjetivo: [[-26, 2, -10], [26, 56, 10]] }} />
+          <Maquina calidad={calidad} reducido={reducido} rotulo={rotulo} diag={diag} />
+          <DiagnosticoDev diag={diag} />
+        </KitContexto.Provider>
+      </Canvas>
+      <RotuloDom fijar={rotulo} />
     </div>
   );
 }
