@@ -31,8 +31,7 @@ export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?
         <div className="relative z-10">
           <h4 className="text-white font-black text-lg leading-tight mb-2">Historia clínica</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            La onda P es la despolarización auricular; el QRS, la ventricular; la T, su repolarización. La contracción
-            (sístole) llega DESPUÉS de cada despolarización. El ritmo sinusal normal va de 60 a 100 lpm.
+            P: despolarización auricular · QRS: ventricular · T: repolarización. La sístole llega después de cada despolarización.
           </p>
           <button onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-800 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95">
@@ -60,7 +59,7 @@ export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?
           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
         </div>
         <textarea value={conclusionText} onChange={(e) => setConclusionText(e.target.value)}
-          placeholder="¿Cómo mediste la FC en el trazo? ¿Por qué elegiste ese fármaco y cómo actúa sobre el nodo SA (simpático, parasimpático, receptores β1 o muscarínicos)?"
+          placeholder="¿Cómo mediste la FC en la tira? ¿Qué fármaco elegiste y cómo actúa sobre el nodo SA (β1 o muscarínicos)?"
           rows={4}
           className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-rose-500 italic" />
       </div>
