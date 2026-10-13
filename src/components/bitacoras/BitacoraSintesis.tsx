@@ -16,7 +16,7 @@ export default function BitacoraSintesis({ onValidate }: { onValidate?: () => vo
   const { fase, proteina, arnMensajero, errores, terminada } = sintesis;
   const [conclusionText, setConclusionText] = useState("");
 
-  const quantumMsg = "Dirige la síntesis de proteínas. Empareja los nucleótidos de ARN con la plantilla de ADN durante la transcripción. Luego, observa cómo el ribosoma traduce el mensaje en aminoácidos. ¡Cuidado con las mutaciones!";
+  const quantumMsg = "Dirige la síntesis de proteínas. Empareja los nucleótidos de ARN con la plantilla de ADN durante la transcripción. Luego, observa cómo el ribosoma traduce el mensaje en aminoácidos. Un nucleótido o un ARNt que no aparea se rechaza y cuenta como error.";
 
   const handleReset = () => {
     resetB3();
@@ -86,7 +86,7 @@ export default function BitacoraSintesis({ onValidate }: { onValidate?: () => vo
                      Fidelidad Genética
                   </span>
                   <span className="text-xs font-bold text-white">
-                     {errores === 0 ? '✓ Sin Mutaciones Detectadas' : `⚠ ${errores} Mutaciones Puntuales`}
+                     {errores === 0 ? '✓ Sin errores de apareamiento' : `⚠ ${errores} ${errores === 1 ? 'apareamiento rechazado' : 'apareamientos rechazados'}`}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${errores === 0 ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}`} />
@@ -109,7 +109,7 @@ export default function BitacoraSintesis({ onValidate }: { onValidate?: () => vo
         <div className="grid grid-cols-2 gap-3">
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Fase Actual</span>
-              <span className="text-sm font-black text-[#023047] uppercase italic">{fase}</span>
+              <span className="text-sm font-black text-[#023047] uppercase italic">{fase === 'transcripcion' ? 'Transcripción' : 'Traducción'}</span>
            </div>
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Proteína</span>
