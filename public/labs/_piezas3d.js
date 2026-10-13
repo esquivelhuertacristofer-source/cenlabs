@@ -8696,3 +8696,553 @@ export function mesaTaller(mat, opts = {}) {
   g.userData = { ancho, fondo, grueso, cara: 0 };
   return g;
 }
+
+
+/* ==========================================================================
+   §21 · EL CORTE: media sección, caras rayadas, cavidades y levas
+   --------------------------------------------------------------------------
+   Lo que hace falta para enseñar una máquina POR DENTRO sin paredes de
+   cristal: se secciona por un plano, como en los motores de corte de los
+   talleres de formación, y se conserva la mitad de atrás. Convenio de toda la
+   sección: el plano de corte es z = 0, se conserva la mitad z ≤ 0 y las caras
+   de sección miran a +Z.
+
+   Tres reglas que no se ven en el código y que deciden si el corte se lee:
+     · Una cara de sección es PLANA y lleva rayado, como en un plano de taller:
+       nunca un hueco. Detrás de cada agujero de la cara tiene que haber una
+       superficie (la camisa, el conducto, el fondo del bolsillo), o por el
+       agujero se ve el fondo del escenario y la pieza parece de papel.
+     · El rayado se ancla al mundo (u, v = x, y), no a la pieza: así todas las
+       caras de un mismo material llevan el mismo paso, y dos piezas vecinas se
+       distinguen porque se rayan en sentidos opuestos (±45°), como manda la
+       norma de dibujo.
+     · Las cavidades se dibujan como sólidos vistos por DENTRO: misma geometría,
+       material con `side: THREE.BackSide`.
+   ========================================================================== */
+
+/** Fusiona geometrías (posición, normal y uv) en una sola: una pieza de
+ *  veinte trozos con el mismo material cuesta así UNA llamada de dibujo. */
+export function fusiona(geos) {
+  const lista = geos.filter(Boolean);
+  let nV = 0, nI = 0;
+  for (const g of lista) { nV += g.attributes.position.count; nI += g.index ? g.index.count : g.attributes.position.count; }
+  const pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), uv = new Float32Array(nV * 2);
+  const idx = nV > 65535 ? new Uint32Array(nI) : new Uint16Array(nI);
+  let oV = 0, oI = 0;
+  for (const g of lista) {
+    const p = g.attributes.position, n = g.attributes.normal, t = g.attributes.uv, c = p.count;
+    for (let i = 0; i < c; i++) {
+      pos[(oV + i) * 3] = p.getX(i); pos[(oV + i) * 3 + 1] = p.getY(i); pos[(oV + i) * 3 + 2] = p.getZ(i);
+      if (n) { nor[(oV + i) * 3] = n.getX(i); nor[(oV + i) * 3 + 1] = n.getY(i); nor[(oV + i) * 3 + 2] = n.getZ(i); }
+      if (t) { uv[(oV + i) * 2] = t.getX(i); uv[(oV + i) * 2 + 1] = t.getY(i); }
+    }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx[oI + i] = g.index.getX(i) + oV;
+    else for (let i = 0; i < c; i++) idx[oI + i] = oV + i;
+    oI += g.index ? g.index.count : c; oV += c;
+  }
+  const r = new THREE.BufferGeometry();
+  r.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  r.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  r.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  r.setIndex(new THREE.BufferAttribute(idx, 1));
+  r.computeBoundingSphere();
+  return r;
+}
+
+/** Aplica una matriz (o posición + giro en z) a una geometría y la devuelve. */
+export function coloca(geo, x = 0, y = 0, z = 0, rz = 0, rx = 0, ry = 0) {
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(1, 1, 1));
+  geo.applyMatrix4(m);
+  return geo;
+}
+
+/**
+ * TEXTURA DE RAYADO de una cara de sección: líneas a ±45° sobre el color del
+ * material, con mipmaps —de lejos el rayado se funde en el tono medio en vez de
+ * hacer moaré—. La tesela se repite sin costuras porque el paso de las líneas
+ * divide el lado. `porUnidad` es cuántas teselas caben en una unidad de mundo.
+ */
+export function texturaRayado(opts = {}) {
+  const { fondo = '#9aa1ab', linea = '#4b525c', sentido = 1, lineas = 4, grueso = 0.13, px = 128,
+          porUnidad = 6, grano = 0.06 } = opts;
+  const c = document.createElement('canvas'); c.width = c.height = px;
+  const x = c.getContext('2d');
+  x.fillStyle = fondo; x.fillRect(0, 0, px, px);
+  // un grano muy suave: una cara mecanizada no es un color plano
+  if (grano > 0) {
+    const im = x.getImageData(0, 0, px, px);
+    let s = 7;
+    for (let i = 0; i < im.data.length; i += 4) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      const d = ((s / 0x7fffffff) - 0.5) * 255 * grano;
+      im.data[i] += d; im.data[i + 1] += d; im.data[i + 2] += d;
+    }
+    x.putImageData(im, 0, 0);
+  }
+  x.strokeStyle = linea; x.lineWidth = px / lineas * grueso; x.lineCap = 'butt';
+  const d = px / lineas;
+  for (let k = -2 * lineas; k <= 2 * lineas; k++) {
+    x.beginPath();
+    if (sentido > 0) { x.moveTo(k * d - px, -px); x.lineTo(k * d + 2 * px, 2 * px); }
+    else { x.moveTo(k * d + px, -px); x.lineTo(k * d - 2 * px, 2 * px); }
+    x.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(porUnidad, porUnidad);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+  t.anisotropy = 8;
+  return t;
+}
+
+/** Cara plana a partir de uno o varios polígonos [[x,y],...] (con huecos
+ *  opcionales), en el plano z = `z`, mirando a +Z y con uv = (x, y). */
+export function caraPlana(contornos, opts = {}) {
+  const { z = 0, huecos = [] } = opts;
+  const geos = [];
+  const lista = Array.isArray(contornos[0][0]) ? contornos : [contornos];
+  for (const c of lista) {
+    const p = _s21Limpia(c); if (p.length < 3) continue;
+    const s = new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y)));
+    for (const h of huecos) { const q = _s21Limpia(h); if (q.length >= 3) s.holes.push(new THREE.Path(q.map(([x, y]) => new THREE.Vector2(x, y)))); }
+    const g = new THREE.ShapeGeometry(s, 2);
+    if (z) g.translate(0, 0, z);
+    geos.push(g);
+  }
+  return geos.length === 1 ? geos[0] : fusiona(geos);
+}
+function _s21Limpia(p) {
+  const r = [];
+  for (const q of p) { const u = r[r.length - 1]; if (!u || Math.hypot(u[0] - q[0], u[1] - q[1]) > 1e-7) r.push([q[0], q[1]]); }
+  while (r.length > 2 && Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 1e-7) r.pop();
+  return r;
+}
+
+/**
+ * MEDIA PIEZA DE REVOLUCIÓN: la mitad de atrás (z ≤ 0) de lo que `revolucion`
+ * haría entera, y la CARA DE SECCIÓN que deja el corte por su eje —el perfil a
+ * un lado y su reflejo al otro—. Es la operación que convierte un pistón, una
+ * válvula o una bujía en el dibujo de un manual. Devuelve { cuerpo, corte }
+ * como geometrías; el corte lleva uv de mundo para el rayado.
+ */
+export function mediaRevolucion(perfil, opts = {}) {
+  const { seg = 32, canto = 35 } = opts;
+  // LatheGeometry pone x = r·sen φ, z = r·cos φ: la mitad z ≤ 0 es φ ∈ [π/2, 3π/2].
+  const cuerpo = revolucion(perfilCerrado(perfil, canto), { seg, fase: Math.PI / 2, arco: Math.PI });
+  return { cuerpo, corte: caraDePerfil(perfil) };
+}
+
+/**
+ * `LatheGeometry` no cierra el perfil: de un anillo [a, b, c, d] hace tres
+ * paredes y se deja la cuarta —la camisa sin su cara interior, que es justo la
+ * que se ve por el corte—. Aquí se cierra (salvo que empiece y acabe en el eje,
+ * donde no hay pared que poner) y se DUPLICA cada vértice donde el perfil
+ * dobla más de `canto` grados, para que las normales no se promedien entre dos
+ * caras a escuadra y una arista viva no salga redondeada por la luz.
+ */
+export function perfilCerrado(perfil, canto = 35) {
+  const P = perfil.map(([r, y]) => [Math.max(0, r), y]);
+  const n = P.length, a0 = P[0], a1 = P[n - 1];
+  const enEje = a0[0] < 1e-9 && a1[0] < 1e-9;
+  if (!enEje && Math.hypot(a0[0] - a1[0], a0[1] - a1[1]) > 1e-9) P.push([a0[0], a0[1]]);
+  const lim = Math.cos(canto * Math.PI / 180), r = [P[0]];
+  for (let i = 1; i < P.length - 1; i++) {
+    const p = P[i - 1], q = P[i], s = P[i + 1];
+    const ux = q[0] - p[0], uy = q[1] - p[1], vx = s[0] - q[0], vy = s[1] - q[1];
+    const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+    r.push(q);
+    if (lu > 1e-9 && lv > 1e-9 && (ux * vx + uy * vy) / (lu * lv) < lim) r.push([q[0], q[1]]);
+  }
+  r.push(P[P.length - 1]);
+  return r;
+}
+/** La cara de sección de una pieza de revolución: el perfil (r, y) en +x y su
+ *  espejo en −x, en z = 0. Si el perfil toca el eje, las dos mitades se tocan. */
+export function caraDePerfil(perfil) {
+  const P = perfil.map(([r, y]) => [Math.max(0, r), y]);
+  const izq = P.map(([r, y]) => [-r, y]).reverse();
+  return caraPlana([P, izq]);
+}
+
+/**
+ * MEDIO TUBO a lo largo de una curva contenida en el plano z = 0: la mitad de
+ * atrás de un conducto cortado por su eje. Con `adentro: true` las normales
+ * miran al eje —es la pared de una CAVIDAD (un conducto de culata, el interior
+ * de un colector)—; si no, miran afuera. `pts` son los puntos [x, y] de la
+ * línea media; se suavizan con una Catmull-Rom.
+ */
+export function medioTubo(pts, r, opts = {}) {
+  const { seg = 48, radial = 12, adentro = false, cerrado = false } = opts;
+  const curva = new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, 0)), cerrado, 'centripetal');
+  const P = curva.getSpacedPoints(seg), pos = [], nor = [], uv = [], idx = [];
+  const L = curva.getLength();
+  for (let i = 0; i <= seg; i++) {
+    const p = P[i], t = curva.getTangentAt(i / seg);
+    const nx = -t.y, ny = t.x;                              // normal en el plano, a la izquierda
+    const ri = typeof r === 'function' ? r(i / seg) : r;
+    for (let j = 0; j <= radial; j++) {
+      const f = Math.PI * j / radial, c = Math.cos(f), s = Math.sin(f);
+      const ox = nx * c, oy = ny * c, oz = -s;              // de +normal a −normal pasando por −z
+      pos.push(p.x + ox * ri, p.y + oy * ri, oz * ri);
+      const k = adentro ? -1 : 1; nor.push(ox * k, oy * k, oz * k);
+      uv.push(L * i / seg, f * ri);
+    }
+  }
+  const w = radial + 1;
+  for (let i = 0; i < seg; i++) for (let j = 0; j < radial; j++) {
+    const a = i * w + j, b = a + w;
+    if (adentro) idx.push(a, a + 1, b, a + 1, b + 1, b); else idx.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.userData.curva = curva;
+  return g;
+}
+/** Desplaza una polilínea a su izquierda (d > 0) o derecha: el borde de una
+ *  banda de ancho constante, como la pared de un tubo vista en sección. */
+export function desplaza(pts, d) {
+  const n = pts.length, r = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    r.push([pts[i][0] - ty * d, pts[i][1] + tx * d]);
+  }
+  return r;
+}
+/** Puntos de una Catmull-Rom plana, para que la cara y el medio tubo de un
+ *  mismo conducto salgan de la MISMA línea media. */
+export function curvaPlana(pts, n = 48) {
+  const c = new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, 0)), false, 'centripetal');
+  return c.getSpacedPoints(n).map((p) => [p.x, p.y]);
+}
+
+/**
+ * TUBO CORTADO POR SU EJE —un colector, un conducto de aceite— con su pared:
+ * medio tubo exterior, medio tubo interior (cavidad) y las dos bandas de la
+ * cara de sección. Devuelve { pared, interior, corte } como geometrías.
+ */
+export function tuboCortado(pts, rIn, rOut, opts = {}) {
+  const { seg = 48, radial = 14 } = opts;
+  const linea = curvaPlana(pts, seg);
+  const pared = medioTubo(linea, rOut, { seg, radial });
+  const interior = medioTubo(linea, rIn, { seg, radial, adentro: true });
+  const banda = (d0, d1) => { const A = desplaza(linea, d0), B = desplaza(linea, d1); return A.concat(B.reverse()); };
+  const corte = caraPlana([banda(rIn, rOut), banda(-rOut, -rIn)]);
+  return { pared, interior, corte, linea };
+}
+
+/**
+ * BOLSILLO detrás de un agujero de la cara de sección: las paredes del contorno
+ * llevadas hasta `fondo` hacia −z y la tapa del fondo. Las normales miran HACIA
+ * DENTRO del bolsillo, que es desde donde se ve. `contornos` son lazos cerrados
+ * orientados con la cavidad a su IZQUIERDA (los que da `seccionSDF` para la
+ * región de la cavidad). `pared(a, b, nx, ny)`, si se da, decide tramo a tramo
+ * si se levanta la pared: un tramo del contorno que linda con OTRA cavidad
+ * —la boca de un pozo que se abre a la cámara de levas— no es una pared, y si
+ * se levantara taparía el hueco vecino. (nx, ny) es la normal hacia la cavidad.
+ */
+export function bolsillo(contornos, fondo, opts = {}) {
+  const { tapa = true, pared = null } = opts;
+  const pos = [], nor = [], uv = [], idx = [];
+  for (const lazo of contornos) {
+    const n = lazo.length; let s = 0;
+    for (let i = 0; i < n; i++) {
+      const a = lazo[i], b = lazo[(i + 1) % n];
+      const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty); if (l < 1e-9) continue;
+      const nx = -ty / l, ny = tx / l;                       // la izquierda: hacia la cavidad
+      if (pared && !pared(a, b, nx, ny)) { s += l; continue; }
+      const o = pos.length / 3;
+      pos.push(a[0], a[1], 0, b[0], b[1], 0, b[0], b[1], -fondo, a[0], a[1], -fondo);
+      for (let k = 0; k < 4; k++) nor.push(nx, ny, 0);
+      uv.push(s, 0, s + l, 0, s + l, fondo, s, fondo); s += l;
+      idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  if (!tapa) return g;
+  return fusiona([g, _s21Triangula(contornos, -fondo)]);
+}
+
+/**
+ * PRISMA A LO LARGO DE Z del contorno exterior de una pieza: las paredes desde
+ * z0 hasta z1 (z0 < z1) con las normales hacia FUERA y, si se pide, la tapa de
+ * atrás. Es el cuerpo «sin cortar» de un bloque o una culata detrás de su cara
+ * de sección. Los contornos van en sentido antihorario.
+ */
+export function prismaZ(contornos, z0, z1, opts = {}) {
+  const { tapaAtras = true, tapaDelante = false } = opts;
+  const pos = [], nor = [], uv = [], idx = [];
+  for (const lazo of contornos) {
+    const n = lazo.length; let s = 0;
+    for (let i = 0; i < n; i++) {
+      const a = lazo[i], b = lazo[(i + 1) % n];
+      const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty); if (l < 1e-9) continue;
+      const nx = ty / l, ny = -tx / l;                       // la derecha: afuera en un lazo antihorario
+      const o = pos.length / 3;
+      pos.push(a[0], a[1], z1, b[0], b[1], z1, b[0], b[1], z0, a[0], a[1], z0);
+      for (let k = 0; k < 4; k++) nor.push(nx, ny, 0);
+      uv.push(s, z1, s + l, z1, s + l, z0, s, z0); s += l;
+      idx.push(o, o + 2, o + 1, o, o + 3, o + 2);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  const partes = [g];
+  if (tapaAtras) { const t = _s21Triangula(contornos, z0); _s21Voltea(t); partes.push(t); }
+  if (tapaDelante) partes.push(_s21Triangula(contornos, z1));
+  return fusiona(partes);
+}
+// Triangula lazos (exteriores antihorarios y huecos horarios) en el plano z,
+// mirando a +Z, con uv = (x, y).
+function _s21Triangula(lazos, z) {
+  const ext = [], hue = [];
+  for (const l of lazos) (_s21Area(l) > 0 ? ext : hue).push(l);
+  const geos = [];
+  for (const e of ext) {
+    const hs = hue.filter((h) => _s21Dentro(h[0], e) && !ext.some((o) => o !== e && _s21Dentro(h[0], o) && _s21Dentro(o[0], e)));
+    const c = e.map(([x, y]) => new THREE.Vector2(x, y)), H = hs.map((h) => h.map(([x, y]) => new THREE.Vector2(x, y)));
+    const tri = THREE.ShapeUtils.triangulateShape(c, H);
+    const todos = c.concat(...H), pos = [], nor = [], uv = [], idx = [];
+    for (const p of todos) { pos.push(p.x, p.y, z); nor.push(0, 0, 1); uv.push(p.x, p.y); }
+    for (const t of tri) idx.push(t[0], t[1], t[2]);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx); geos.push(g);
+  }
+  return geos.length ? fusiona(geos) : new THREE.BufferGeometry();
+}
+function _s21Voltea(g) {
+  const n = g.attributes.normal; if (!n) return;
+  for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
+  const ix = g.index; for (let i = 0; i < ix.count; i += 3) { const a = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, a); }
+}
+function _s21Area(p) { let a = 0; for (let i = 0; i < p.length; i++) { const q = p[i], r = p[(i + 1) % p.length]; a += q[0] * r[1] - r[0] * q[1]; } return a / 2; }
+function _s21Dentro(pt, pol) {
+  let d = false;
+  for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) {
+    const [xi, yi] = pol[i], [xj, yj] = pol[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) d = !d;
+  }
+  return d;
+}
+
+/**
+ * DISTANCIAS CON SIGNO EN EL PLANO (negativas dentro), para describir una
+ * sección complicada —una culata con su cámara, sus conductos, sus guías, sus
+ * pozos y sus camisas de agua— como lo que es: un contorno MENOS sus huecos.
+ *   SDF2.poligono([[x,y],…]) · SDF2.circulo(cx,cy,r) · SDF2.caja(cx,cy,hx,hy,ang)
+ *   SDF2.banda(polilínea, r) (un conducto: distancia a la línea media − r)
+ *   SDF2.union(a,b,…) · SDF2.interseccion(a,b,…) · SDF2.resta(a,b)
+ * Cada una devuelve una función (x, y) → distancia.
+ */
+export const SDF2 = {
+  poligono(pts) {
+    const P = pts.map((p) => [p[0], p[1]]), n = P.length;
+    return (x, y) => {
+      let d = Infinity, s = 1;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const ex = P[j][0] - P[i][0], ey = P[j][1] - P[i][1], wx = x - P[i][0], wy = y - P[i][1];
+        const t = Math.max(0, Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey || 1)));
+        const bx = wx - ex * t, by = wy - ey * t; d = Math.min(d, bx * bx + by * by);
+        const c1 = y >= P[i][1], c2 = y < P[j][1], c3 = ex * wy > ey * wx;
+        if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) s = -s;
+      }
+      return s * Math.sqrt(d);
+    };
+  },
+  circulo(cx, cy, r) { return (x, y) => Math.hypot(x - cx, y - cy) - r; },
+  caja(cx, cy, hx, hy, ang = 0) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    return (x, y) => {
+      const u = (x - cx) * c + (y - cy) * s, v = -(x - cx) * s + (y - cy) * c;
+      const qx = Math.abs(u) - hx, qy = Math.abs(v) - hy;
+      return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0);
+    };
+  },
+  banda(pts, r) {
+    return (x, y) => {
+      let d = Infinity;
+      for (let i = 1; i < pts.length; i++) {
+        const [ax, ay] = pts[i - 1], [bx, by] = pts[i], ex = bx - ax, ey = by - ay;
+        const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1)));
+        d = Math.min(d, Math.hypot(x - ax - ex * t, y - ay - ey * t));
+      }
+      return d - (typeof r === 'number' ? r : 0);
+    };
+  },
+  union(...f) { return (x, y) => { let d = Infinity; for (const g of f) d = Math.min(d, g(x, y)); return d; }; },
+  interseccion(...f) { return (x, y) => { let d = -Infinity; for (const g of f) d = Math.max(d, g(x, y)); return d; }; },
+  resta(a, b) { return (x, y) => Math.max(a(x, y), -b(x, y)); },
+};
+
+/**
+ * CONTORNOS DE UNA SECCIÓN definida por distancias con signo: cuadrados en
+ * marcha sobre una rejilla de paso `h` dentro de la caja [x0, y0, x1, y1], con
+ * interpolación lineal en las aristas, enlazados en lazos cerrados y orientados
+ * con la región (d < 0) a su IZQUIERDA —los exteriores salen antihorarios y los
+ * huecos horarios—. Se simplifican con una tolerancia de h/5.
+ * Devuelve los lazos; `seccionSDF` los triangula.
+ */
+// Tabla ORIENTADA de los cuadrados en marcha: cada tramo va de una arista a otra
+// dejando la región a su izquierda (esquinas a, b, c, d en sentido antihorario
+// desde abajo-izquierda; aristas 0 abajo, 1 derecha, 2 arriba, 3 izquierda).
+const _S21_TABLA = {
+  1: [[0, 3]], 2: [[1, 0]], 3: [[1, 3]], 4: [[2, 1]], 6: [[2, 0]], 7: [[2, 3]], 8: [[3, 2]],
+  9: [[0, 2]], 11: [[1, 2]], 12: [[3, 1]], 13: [[0, 1]], 14: [[3, 0]],
+};
+export function contornosSDF(f, caja, h) {
+  const [x0, y0, x1, y1] = [caja[0] - 2 * h, caja[1] - 2 * h, caja[2] + 2 * h, caja[3] + 2 * h];
+  const nx = Math.ceil((x1 - x0) / h), ny = Math.ceil((y1 - y0) / h);
+  const V = new Float64Array((nx + 1) * (ny + 1));
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+    const borde = i === 0 || j === 0 || i === nx || j === ny;
+    V[j * (nx + 1) + i] = borde ? 1 : f(x0 + i * h, y0 + j * h);
+  }
+  const v = (i, j) => V[j * (nx + 1) + i];
+  // punto en una arista: 'h' horizontal (i,j)-(i+1,j), 'v' vertical (i,j)-(i,j+1)
+  const pt = (k) => {
+    const [t, i, j] = k;
+    if (t === 0) { const a = v(i, j), b = v(i + 1, j), s = a / (a - b); return [x0 + (i + s) * h, y0 + j * h]; }
+    const a = v(i, j), b = v(i, j + 1), s = a / (a - b); return [x0 + i * h, y0 + (j + s) * h];
+  };
+  const clave = (k) => k[0] + ',' + k[1] + ',' + k[2];
+  const sig = new Map();
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const a = v(i, j), b = v(i + 1, j), c = v(i + 1, j + 1), d = v(i, j + 1);
+    const m = (a < 0 ? 1 : 0) | (b < 0 ? 2 : 0) | (c < 0 ? 4 : 0) | (d < 0 ? 8 : 0);
+    if (m === 0 || m === 15) continue;
+    const E = [[0, i, j], [1, i + 1, j], [0, i, j + 1], [1, i, j]];   // abajo, derecha, arriba, izquierda
+    let segs = _S21_TABLA[m];
+    if (m === 5) segs = (a + b + c + d) / 4 < 0 ? [[0, 1], [2, 3]] : [[0, 3], [2, 1]];
+    if (m === 10) segs = (a + b + c + d) / 4 < 0 ? [[3, 0], [1, 2]] : [[1, 0], [3, 2]];
+    for (const [p, q] of segs) sig.set(clave(E[p]), E[q]);
+  }
+  const lazos = [], usado = new Set();
+  for (const [k0] of sig) {
+    if (usado.has(k0)) continue;
+    const lazo = []; let k = k0, guard = 0;
+    while (!usado.has(k) && guard++ < 1e6) {
+      usado.add(k); const s = sig.get(k); if (!s) break;
+      const [t, i, j] = k.split(',').map(Number); lazo.push(pt([t, i, j]));
+      k = clave(s);
+    }
+    if (lazo.length >= 3) lazos.push(_s21Simplifica(lazo, h / 5));
+  }
+  return lazos.filter((l) => l.length >= 3 && Math.abs(_s21Area(l)) > h * h * 0.5);
+}
+function _s21Simplifica(p, tol) {
+  // Ramer-Douglas-Peucker sobre un lazo cerrado: se parte por el punto más lejano del primero
+  const n = p.length; if (n < 8) return p;
+  let k = 0, dm = 0;
+  for (let i = 1; i < n; i++) { const d = Math.hypot(p[i][0] - p[0][0], p[i][1] - p[0][1]); if (d > dm) { dm = d; k = i; } }
+  const rdp = (a) => {
+    if (a.length < 3) return a;
+    const [ax, ay] = a[0], [bx, by] = a[a.length - 1], ex = bx - ax, ey = by - ay, L = Math.hypot(ex, ey) || 1;
+    let im = 0, dm2 = 0;
+    for (let i = 1; i < a.length - 1; i++) { const d = Math.abs((a[i][0] - ax) * ey - (a[i][1] - ay) * ex) / L; if (d > dm2) { dm2 = d; im = i; } }
+    if (dm2 <= tol) return [a[0], a[a.length - 1]];
+    const l = rdp(a.slice(0, im + 1)), r = rdp(a.slice(im));
+    return l.slice(0, -1).concat(r);
+  };
+  const A = rdp(p.slice(0, k + 1)), B = rdp(p.slice(k).concat([p[0]]));
+  return A.slice(0, -1).concat(B.slice(0, -1));
+}
+/** La cara de sección (triangulada, en z, mirando a +Z, uv de mundo) de la
+ *  región d < 0 de una función de distancia. Devuelve { cara, lazos }. */
+export function seccionSDF(f, caja, h, opts = {}) {
+  const { z = 0 } = opts;
+  const lazos = contornosSDF(f, caja, h);
+  return { cara: _s21Triangula(lazos, z), lazos };
+}
+
+/**
+ * MUELLE EN CORTE: la hélice partida por el plano de su eje deja medias espiras
+ * detrás y, en el plano, una fila de circulitos —la sección del hilo—, que es
+ * como lo dibuja cualquier plano de conjunto. La geometría se reescribe en su
+ * sitio cuando el muelle se comprime (`ajusta(largo)`): sin crear nada nuevo
+ * cada cuadro. Eje +Y, base en y = 0.
+ */
+export function muelleCortado(opts = {}) {
+  const { r = 0.1, hilo = 0.015, vueltas = 6, largo = 0.4, seg = 14, radial = 8 } = opts;
+  const nMed = Math.ceil(vueltas);                          // medias espiras de atrás
+  const tubo = new THREE.BufferGeometry(), caras = new THREE.BufferGeometry();
+  const nV = nMed * (seg + 1) * (radial + 1);
+  const pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), idx = [];
+  for (let m = 0; m < nMed; m++) for (let i = 0; i < seg; i++) for (let j = 0; j < radial; j++) {
+    const a = (m * (seg + 1) + i) * (radial + 1) + j, b = a + radial + 1;
+    idx.push(a, a + 1, b, a + 1, b + 1, b);
+  }
+  tubo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  tubo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  tubo.setIndex(idx);
+  // secciones del hilo en el plano: un disco por cada cruce de la hélice con z = 0
+  const nC = 2 * nMed + 1, cs = 10;
+  const cpos = new Float32Array(nC * (cs + 1) * 3), cnor = new Float32Array(nC * (cs + 1) * 3), cuv = new Float32Array(nC * (cs + 1) * 2), cidx = [];
+  for (let k = 0; k < nC; k++) for (let i = 0; i < cs; i++) { const o = k * (cs + 1); cidx.push(o, o + 1 + i, o + 1 + ((i + 1) % cs)); }
+  caras.setAttribute('position', new THREE.BufferAttribute(cpos, 3));
+  caras.setAttribute('normal', new THREE.BufferAttribute(cnor, 3));
+  caras.setAttribute('uv', new THREE.BufferAttribute(cuv, 2));
+  caras.setIndex(cidx);
+  function ajusta(L) {
+    const paso = L / vueltas;
+    let o = 0;
+    for (let m = 0; m < nMed; m++) for (let i = 0; i <= seg; i++) {
+      // media espira de atrás: ángulo de π a 2π (sen ≤ 0 → z ≤ 0)
+      const t = Math.min(vueltas, m + 0.5 + 0.5 * i / seg), a = 2 * Math.PI * t;
+      const cx = Math.cos(a) * r, cz = Math.sin(a) * r, cy = Math.min(L, paso * t);
+      // marco: tangente de la hélice, normal hacia el eje
+      const tx = -Math.sin(a) * 2 * Math.PI * r, ty = paso, tz = Math.cos(a) * 2 * Math.PI * r;
+      const tl = Math.hypot(tx, ty, tz), Tx = tx / tl, Ty = ty / tl, Tz = tz / tl;
+      const Nx = Math.cos(a), Nz = Math.sin(a);           // radial, hacia afuera
+      const Bx = Ty * Nz - Tz * 0, By = Tz * Nx - Tx * Nz, Bz = Tx * 0 - Ty * Nx;
+      for (let j = 0; j <= radial; j++) {
+        const f = 2 * Math.PI * j / radial, c = Math.cos(f), s = Math.sin(f);
+        const ox = Nx * c + Bx * s, oy = By * s, oz = Nz * c + Bz * s;
+        pos[o * 3] = cx + ox * hilo; pos[o * 3 + 1] = cy + oy * hilo; pos[o * 3 + 2] = cz + oz * hilo;
+        nor[o * 3] = ox; nor[o * 3 + 1] = oy; nor[o * 3 + 2] = oz; o++;
+      }
+    }
+    tubo.attributes.position.needsUpdate = true; tubo.attributes.normal.needsUpdate = true;
+    tubo.computeBoundingSphere();
+    let q = 0;
+    for (let k = 0; k < nC; k++) {
+      const t = Math.min(vueltas, k * 0.5), a = 2 * Math.PI * t;
+      const cx = Math.cos(a) * r, cy = Math.min(L, paso * t);
+      const put = (x, y) => { cpos[q * 3] = x; cpos[q * 3 + 1] = y; cpos[q * 3 + 2] = 0.0005;
+        cnor[q * 3] = 0; cnor[q * 3 + 1] = 0; cnor[q * 3 + 2] = 1; cuv[q * 2] = x; cuv[q * 2 + 1] = y; q++; };
+      put(cx, cy);
+      for (let i = 0; i < cs; i++) { const f = 2 * Math.PI * i / cs; put(cx + Math.cos(f) * hilo, cy + Math.sin(f) * hilo * 1.0); }
+    }
+    caras.attributes.position.needsUpdate = true; caras.attributes.uv.needsUpdate = true;
+    caras.computeBoundingSphere();
+  }
+  ajusta(largo);
+  return { tubo, caras, ajusta };
+}
+
+/**
+ * LÓBULO DE LEVA a partir de su perfil 2D (el que sale de sintetizar la ley de
+ * alzado para un taqué plano): media leva extruida hacia −z, de ancho `ancho/2`,
+ * cuya cara delantera ES la sección. Devuelve { cuerpo, corte } en el plano xy
+ * de la leva, con el eje del árbol en z.
+ */
+export function levaCortada(perfil, ancho, opts = {}) {
+  const { bisel = 0 } = opts;
+  const lazo = _s21Area(perfil) < 0 ? perfil.slice().reverse() : perfil;
+  const cuerpo = prismaZ([lazo], -ancho / 2, 0, { tapaAtras: true });
+  const corte = caraPlana(lazo);
+  return { cuerpo, corte };
+}
