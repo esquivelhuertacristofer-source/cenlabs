@@ -7472,9 +7472,12 @@ export function cableCoaxial(mat, A, dirA, B, dirB, opts = {}) {
  *   escape    true: colector de escape por la cara de atrás
  *   cuna      si > 0, dos apoyos de esa altura bajo el cárter, para que el motor
  *             no flote cuando se ha puesto más alto que el suelo
+ *   tapa      false: sin tapa de balancines, tapon ni bobinas (la culata queda a la
+ *             vista y el laboratorio monta la suya); `userData.yCulata` sigue
+ *             dando la cara baja de la culata
  */
 export function bloqueMotor(mat, opts = {}) {
-  const { largo = 1.8, alto = 1.2, ancho = 1.2, cil = 4, bobinas = true, escape = true, cuna = 0 } = opts;
+  const { largo = 1.8, alto = 1.2, ancho = 1.2, cil = 4, bobinas = true, escape = true, cuna = 0, tapa = true } = opts;
   const g = new THREE.Group();
   const Al = mat.aluminio || mat.acero, Fe = mat.hierro || mat.acero || Al;
   const Ne = mat.negro || Fe, Ch = mat.chapa || Al;
@@ -7515,18 +7518,21 @@ export function bloqueMotor(mat, opts = {}) {
     const a = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.94, alto * 0.016, alto * 0.016), Al);
     a.position.set(0, yCul + hCul * (0.28 + k * 0.27), ancho * 0.46 + alto * 0.004); g.add(a);
   }
-  // La tapa de balancines (trapecio: más ancha abajo), con su costilla central.
-  g.add(mk([[-largo * 0.40, yTap], [largo * 0.40, yTap], [largo * 0.38, yTap + hTap], [-largo * 0.38, yTap + hTap]],
-    0.03 * alto, ancho * 0.60, alto * 0.012, Al));
-  const cos = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.70, hTap * 0.20, ancho * 0.10), Al);
-  cos.position.set(0, yTap + hTap + hTap * 0.08, 0); g.add(cos);
-  // El tapón del aceite, en el extremo, con su asa.
-  const tp = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.060, alto * 0.066, alto * 0.034, 18), Ne);
-  tp.position.set(-largo * 0.32, yTap + hTap + alto * 0.012, ancho * 0.12); tp.castShadow = true; g.add(tp);
-  const as = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.11, alto * 0.020, alto * 0.028), Ne);
-  as.position.set(-largo * 0.32, yTap + hTap + alto * 0.034, ancho * 0.12); g.add(as);
+  // `tapa:false` deja la culata a la vista: el laboratorio monta la suya, con sus bobinas.
+  if (tapa) {
+    // La tapa de balancines (trapecio: más ancha abajo), con su costilla central.
+    g.add(mk([[-largo * 0.40, yTap], [largo * 0.40, yTap], [largo * 0.38, yTap + hTap], [-largo * 0.38, yTap + hTap]],
+      0.03 * alto, ancho * 0.60, alto * 0.012, Al));
+    const cos = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.70, hTap * 0.20, ancho * 0.10), Al);
+    cos.position.set(0, yTap + hTap + hTap * 0.08, 0); g.add(cos);
+    // El tapón del aceite, en el extremo, con su asa.
+    const tp = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.060, alto * 0.066, alto * 0.034, 18), Ne);
+    tp.position.set(-largo * 0.32, yTap + hTap + alto * 0.012, ancho * 0.12); tp.castShadow = true; g.add(tp);
+    const as = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.11, alto * 0.020, alto * 0.028), Ne);
+    as.position.set(-largo * 0.32, yTap + hTap + alto * 0.034, ancho * 0.12); g.add(as);
+  }
   // Las bobinas sobre el pozo de cada bujía.
-  if (bobinas) {
+  if (bobinas && tapa) {
     for (let i = 0; i < cil; i++) {
       const b = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.038, alto * 0.044, alto * 0.14, 14), Ne);
       b.position.set(x0 + i * paso, yTap + hTap + alto * 0.05, -ancho * 0.12); b.castShadow = true; g.add(b);
@@ -8412,5 +8418,281 @@ export function encoderOptico(mat, opts = {}) {
   const le = _s19Lente(0xff5a4d, 0.008, 0x4a2220); le.rotation.y = Math.PI / 2; le.position.set(-0.019, 0, 0); le.material.emissiveIntensity = 0.9; hq.add(le);
   g.add(hq);
   g.userData = { disco, horquilla: hq, d };
+  return g;
+}
+
+/* ==========================================================================
+   §20 · ARNÉS, CONECTOR MULTIPIN, ECU DE FUNDICIÓN Y MESA DE TALLER
+        (mec3d · autotrónica: bus CAN, ECU, fallo de encendido, escáner OBD)
+   --------------------------------------------------------------------------
+   Lo que el mecánico ve al abrir el capó y no era ninguna caja: el MAZO de
+   cables con su funda corrugada y sus vueltas de cinta, el CONECTOR sellado de
+   muchos pines con su pestaña de bloqueo, la ECU de aluminio fundido con sus
+   aletas y sus orejas de fijación, y la mesa de trabajo sobre la que se
+   desmonta todo (tapete antiestático con canto de acero, no una losa gris).
+   Convenio: los conectores y la ECU miran a +Z; el mazo se da por los puntos
+   por los que tiene que pasar, igual que `manguera`. Todo a la escala del
+   laboratorio que llame: las cotas son proporciones de las que se piden.
+   ========================================================================== */
+
+const _s20M = (color, rough = 0.6, metal = 0.1, extra = {}) =>
+  new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
+const _s20Rect = (w, h, r) => contornoRedondeado(
+  [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], r, 3);
+
+/**
+ * CONECTOR SELLADO DE MUCHOS PINES (tipo AMP/Deutsch de automoción). Se
+ * reconoce por cuatro cosas: la CAMISA rectangular que abraza al macho, el
+ * FONDO con sus cavidades en rejilla, la PESTAÑA DE BLOQUEO encima y, por detrás,
+ * el SELLO de silicona azul del que salen los cables. Dentro, dos nervios de
+ * polarización asimétricos: es lo que impide enchufarlo del revés.
+ *
+ * La boca mira a +Z y el origen está en el centro de la caja. `pines:true`
+ * pone las espigas doradas dentro de las cavidades; con `false` quedan los
+ * agujeros, para que el laboratorio ponga las suyas (con nombre y color).
+ *   cols, filas   rejilla de cavidades; `paso` = [px, py] si se quiere fija
+ *   cables        cuántos cables salen por detrás (hasta cols·filas)
+ * `userData.cara` es la z del fondo de las cavidades, `cavidad(i, j)` su posición
+ * (i = columna, j = fila contada desde arriba), `salida` donde nacen los cables.
+ */
+export function conectorMultipin(mat, opts = {}) {
+  const { ancho = 0.52, alto = 0.42, fondo = 0.16, cols = 3, filas = 3, paso = null,
+          color = 0x1b2026, sello = 0x3b5b73, llave = 0xd9a21b, palanca = true,
+          pines = false, cables = 0,
+          colores = [0xc0392b, 0x1a1a1a, 0xd9a21b, 0x2e8b57, 0x2f6fb5, 0xe8e8e8, 0x8a5a2b, 0x7b4ea3, 0xe07b39] } = opts;
+  const g = new THREE.Group();
+  const mC = _s20M(color, 0.58, 0.12), mI = _s20M(0x06080a, 0.9, 0.04), mS = _s20M(sello, 0.72, 0.02);
+  const pw = Math.min(ancho, alto) * 0.075;                 // pared de la camisa
+  const zF = fondo / 2, lCam = fondo * 0.60;                // la camisa ocupa la mitad delantera
+  const cam = new THREE.Mesh(extruido(_s20Rect(ancho, alto, alto * 0.09),
+    { huecos: [_s20Rect(ancho - pw * 2, alto - pw * 2, alto * 0.05)], espesor: lCam, bisel: pw * 0.16 }), mC);
+  cam.position.z = zF - lCam / 2; cam.castShadow = cam.receiveShadow = true; g.add(cam);
+  // el cuerpo trasero macizo, un punto más pequeño que la camisa
+  const lTra = fondo - lCam + pw;
+  const tra = new THREE.Mesh(extruido(_s20Rect(ancho * 0.94, alto * 0.90, alto * 0.08), { espesor: lTra, bisel: pw * 0.12 }), mC);
+  tra.position.z = -zF + lTra / 2; tra.castShadow = true; g.add(tra);
+  // el fondo de la camisa, oscuro, donde nacen las cavidades
+  const zI = zF - lCam + pw + 0.003;
+  const ins = new THREE.Mesh(extruido(_s20Rect(ancho - pw * 2 + 0.004, alto - pw * 2 + 0.004, alto * 0.05),
+    { espesor: pw * 0.5, bisel: 0.0015 }), _s20M(0x101418, 0.8, 0.05));
+  ins.position.z = zI - pw * 0.25; g.add(ins);
+  // los dos nervios de polarización, asimétricos a propósito
+  for (const [sx, k] of [[-1, 0.9], [1, 1.5]]) {
+    const n = new THREE.Mesh(new THREE.BoxGeometry(pw * 1.5 * k, pw * 1.1, lCam * 0.72), mC);
+    n.position.set(sx * (ancho / 2 - pw * 1.9), alto / 2 - pw * 1.55, zI + lCam * 0.34); g.add(n);
+  }
+  // la rejilla de cavidades (instanciada: un conector de ECU lleva decenas)
+  const px = paso ? paso[0] : (ancho - pw * 2) * 0.84 / Math.max(1, cols);
+  const py = paso ? paso[1] : (alto - pw * 2) * 0.78 / Math.max(1, filas);
+  const rc = Math.min(px, py) * 0.30;
+  const pos = (i, j) => new THREE.Vector3((i - (cols - 1) / 2) * px, ((filas - 1) / 2 - j) * py, zI);
+  const nCav = cols * filas, M4 = new THREE.Matrix4();
+  const gAro = new THREE.CylinderGeometry(rc * 1.45, rc * 1.45, 0.004, 14); gAro.rotateX(Math.PI / 2);
+  const gHue = new THREE.CylinderGeometry(rc, rc, 0.006, 14); gHue.rotateX(Math.PI / 2);
+  const aros = new THREE.InstancedMesh(gAro, _s20M(0x242b32, 0.6, 0.15), nCav);
+  const hues = new THREE.InstancedMesh(gHue, mI, nCav);
+  for (let j = 0; j < filas; j++) for (let i = 0; i < cols; i++) {
+    const p = pos(i, j), k = j * cols + i;
+    M4.makeTranslation(p.x, p.y, p.z + 0.002); aros.setMatrixAt(k, M4);
+    M4.makeTranslation(p.x, p.y, p.z + 0.004); hues.setMatrixAt(k, M4);
+  }
+  g.add(aros); g.add(hues);
+  if (pines) {
+    const gP = new THREE.CylinderGeometry(rc * 0.42, rc * 0.42, lCam * 0.62, 8); gP.rotateX(Math.PI / 2);
+    const ps = new THREE.InstancedMesh(gP, _s20M(0xc9a227, 0.35, 0.85), nCav);
+    for (let j = 0; j < filas; j++) for (let i = 0; i < cols; i++) {
+      const p = pos(i, j); M4.makeTranslation(p.x, p.y, p.z + lCam * 0.31); ps.setMatrixAt(j * cols + i, M4);
+    }
+    g.add(ps);
+  }
+  // la pestaña de bloqueo: un puente con su uña, y el seguro secundario de color
+  if (palanca) {
+    const lv = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.44, pw * 1.3, lCam * 0.58), mC);
+    lv.position.set(0, alto / 2 + pw * 0.55, zF - lCam * 0.40); lv.castShadow = true; g.add(lv);
+    const un = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.30, pw * 1.9, lCam * 0.10), mC);
+    un.position.set(0, alto / 2 + pw * 0.85, zF - lCam * 0.02); g.add(un);
+    const sg = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.16, pw * 0.8, lCam * 0.16), _s20M(llave, 0.55, 0.05));
+    sg.position.set(ancho * 0.30, alto / 2 + pw * 0.20, zF - lCam * 0.22); g.add(sg);
+  }
+  // el sello de silicona y los cables que salen por detrás
+  const sel = new THREE.Mesh(extruido(_s20Rect(ancho * 0.80, alto * 0.72, alto * 0.06), { espesor: fondo * 0.12, bisel: 0.004 }), mS);
+  sel.position.z = -zF - fondo * 0.05; g.add(sel);
+  const nC = Math.min(cables, nCav), rcab = Math.min(px, py) * 0.17;
+  for (let k = 0; k < nC; k++) {
+    const i = k % cols, j = Math.floor(k / cols);
+    const p = pos(i, j);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(rcab, rcab, 0.14, 8), _s20M(colores[k % colores.length], 0.7, 0.02));
+    c.rotation.x = Math.PI / 2; c.position.set(p.x * 0.80, p.y * 0.80, -zF - fondo * 0.11 - 0.07); g.add(c);
+  }
+  g.userData = { ancho, alto, fondo, cara: zI, cavidad: (i, j) => pos(i, j), paso: [px, py], camisa: cam,
+                 salida: new THREE.Vector3(0, 0, -zF - fondo * 0.11 - 0.14), cols, filas };
+  return g;
+}
+
+/**
+ * ECU / CENTRALITA de fundición: la caja que se ve bajo el capó o detrás de la
+ * guantera. Dos mitades de aluminio fundido —BASE y TAPA— con la JUNTA negra en
+ * la unión, las ALETAS de refrigeración de la tapa (que es por donde evacua el
+ * calor, sin ventilador), las OREJAS de fijación con su tornillo, la ETIQUETA
+ * con su código de barras y, en el frente, uno o dos CONECTORES multipin.
+ * Mira a +Z (el conector); las aletas, arriba.
+ *   conectores   'auto' (dos conectores de 15 y 12 vías), [] (ninguno: el
+ *                laboratorio pone el suyo) o una lista de
+ *                { x, y, ancho, alto, cols, filas, paso, fondo, cables }
+ *   rotulo       texto de la etiqueta (líneas separadas por \n)
+ * `userData.conectores` son los grupos de `conectorMultipin`; `frente` la z de
+ * la cara en la que se enchufan.
+ */
+export function ecuAutomotriz(mat, opts = {}) {
+  const { ancho = 0.85, alto = 0.40, fondo = 0.62, aletas = 9, conectores = 'auto',
+          rotulo = 'ECM-4C · 12 V\n0 281 0XX XXX' } = opts;
+  const g = new THREE.Group();
+  const Al = mat.aluminio || mat.acero, Ne = mat.negro || Al;
+  const y0 = -alto / 2, hB = alto * 0.52, hT = alto - hB;
+  const base = new THREE.Mesh(normalizaUV(extruido(_s20Rect(ancho, hB, alto * 0.07),
+    { espesor: fondo, bisel: alto * 0.03 }), 6), Al);
+  base.position.y = y0 + hB / 2; base.castShadow = base.receiveShadow = true; g.add(base);
+  const tapa = new THREE.Mesh(normalizaUV(extruido(_s20Rect(ancho * 0.975, hT, alto * 0.07),
+    { espesor: fondo * 0.975, bisel: alto * 0.03 }), 6), Al);
+  tapa.position.y = y0 + hB + hT / 2; tapa.castShadow = true; g.add(tapa);
+  // la junta de la unión, que sobresale un pelo por los cuatro lados
+  const jun = new THREE.Mesh(new THREE.BoxGeometry(ancho * 1.004, alto * 0.022, fondo * 1.004), Ne);
+  jun.position.y = y0 + hB; g.add(jun);
+  // las aletas de la tapa, a lo largo del fondo
+  for (let i = 0; i < aletas; i++) {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.030, alto * 0.13, fondo * 0.80), Al);
+    a.position.set((i - (aletas - 1) / 2) * (ancho * 0.84 / Math.max(1, aletas - 1)), alto / 2 + alto * 0.05, 0);
+    a.castShadow = true; g.add(a);
+  }
+  // las orejas de fijación, cuatro, con su tornillo
+  const ear = ancho * 0.10;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const o = new THREE.Group();
+    const pl = new THREE.Mesh(extruido(contornoRedondeado(
+      [[0, -fondo * 0.10], [ear, -fondo * 0.10], [ear, fondo * 0.10], [0, fondo * 0.10]], ear * 0.35, 3),
+      { huecos: [circulo(ear * 0.58, 0, ear * 0.20, 12)], espesor: alto * 0.07, bisel: alto * 0.012 }), Al);
+    pl.rotation.x = -Math.PI / 2; pl.castShadow = true; o.add(pl);
+    const t = tornilloHex(mat, { d: ear * 0.34, largo: alto * 0.10, arandela: true });
+    t.position.set(ear * 0.58, alto * 0.035, 0); o.add(t);
+    o.position.set(sx * ancho / 2, y0 + alto * 0.07, sz * fondo * 0.28);
+    o.rotation.y = sx < 0 ? Math.PI : 0;
+    g.add(o);
+  }
+  // los conectores del frente
+  const lista = conectores === 'auto' ? [
+    { x: -ancho * 0.215, ancho: ancho * 0.40, alto: alto * 0.66, cols: 5, filas: 3, cables: 6 },
+    { x: ancho * 0.265, ancho: ancho * 0.31, alto: alto * 0.66, cols: 4, filas: 3, cables: 5 }] : conectores;
+  const cons = [];
+  for (const c of lista) {
+    const cf = c.fondo || fondo * 0.30;
+    const k = conectorMultipin(mat, { ancho: c.ancho, alto: c.alto, fondo: cf, cols: c.cols, filas: c.filas,
+      paso: c.paso || null, cables: c.cables || 0, pines: c.pines || false });
+    k.position.set(c.x || 0, c.y || 0, fondo / 2 + cf / 2);
+    g.add(k); cons.push(k);
+  }
+  // la etiqueta del fabricante, en el costado derecho, con su código de barras
+  if (rotulo) {
+    const tex = _etiqueta(256, 112, (c, w, h) => {
+      c.fillStyle = '#d9dde0'; c.fillRect(0, 0, w, h);
+      c.fillStyle = '#14181e'; c.textAlign = 'left'; c.textBaseline = 'top'; c.font = 'bold 22px sans-serif';
+      rotulo.split('\n').forEach((l, i) => c.fillText(l, 12, 10 + i * 26));
+      for (let x = 12, i = 0; x < w - 12; i++) { const a = 2 + ((i * 7) % 4); c.fillRect(x, 70, a, 30); x += a + 2 + (i % 3); }
+    });
+    const et = new THREE.Mesh(new THREE.PlaneGeometry(fondo * 0.62, fondo * 0.62 * 112 / 256),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.1 }));
+    et.rotation.y = Math.PI / 2; et.position.set(ancho / 2 + 0.002, y0 + hB + hT * 0.5, fondo * 0.04); g.add(et);
+  }
+  g.userData = { ancho, alto, fondo, conectores: cons, frente: fondo / 2 };
+  return g;
+}
+
+/**
+ * MAZO DE CABLES: un haz de hilos de colores que sigue una curva, con tramos
+ * cubiertos por FUNDA CORRUGADA (anillos que se ven de lado: es lo que distingue
+ * un mazo de «un cable gordo»), VUELTAS DE CINTA y, en los extremos, los hilos
+ * sueltos de colores listos para entrar al conector. Se da por los puntos por
+ * los que pasa, como `manguera`.
+ *   r        radio del haz;   colores   un hilo por color
+ *   funda    tramos cubiertos, en fracción de la longitud: [[u0, u1], ...]
+ *   cinta    posiciones (0…1) de las vueltas de cinta
+ *   torcido  vueltas que da el haz sobre sí mismo en todo el tramo
+ * `userData.curva` es la trayectoria y `punto(u)` / `tangente(u)` la leen.
+ */
+export function arnes(mat, puntos, opts = {}) {
+  const { colores = [0xc0392b, 0x1a1a1a, 0xd9a21b, 0x2e8b57, 0x2f6fb5, 0xe8e8e8], r = 0.05,
+          funda = [[0.16, 0.84]], cinta = [], torcido = 0, seg = 90, colorFunda = 0x14181c } = opts;
+  const g = new THREE.Group();
+  const P = puntos.map(p => p.isVector3 ? p : new THREE.Vector3(p[0], p[1], p[2]));
+  const curva = new THREE.CatmullRomCurve3(P);
+  const N = colores.length, fr = curva.computeFrenetFrames(seg, false);
+  const ro = N > 1 ? r * 0.50 : 0;
+  const rw = N > 1 ? Math.min(r * 0.46, ro * Math.sin(Math.PI / N) * 0.95) : r * 0.8;
+  for (let k = 0; k < N; k++) {
+    const q = [];
+    for (let i = 0; i <= seg; i++) {
+      const t = i / seg, a = (k / N) * Math.PI * 2 + torcido * t * Math.PI * 2;
+      q.push(curva.getPointAt(t).clone()
+        .addScaledVector(fr.normals[i], Math.cos(a) * ro).addScaledVector(fr.binormals[i], Math.sin(a) * ro));
+    }
+    const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), seg, rw, 6, false),
+      _s20M(colores[k], 0.7, 0.02));
+    m.castShadow = true; g.add(m);
+  }
+  const Rf = r * 1.18, mF = _s20M(colorFunda, 0.78, 0.05), Z = new THREE.Vector3(0, 0, 1);
+  const largo = curva.getLength();
+  const trozo = (u0, u1, rad, mm, n = 30) => {
+    const q = []; for (let i = 0; i <= n; i++) q.push(curva.getPointAt(u0 + (u1 - u0) * i / n).clone());
+    const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), n, rad, 12, false), mm);
+    t.castShadow = true; return t;
+  };
+  for (const [u0, u1] of funda) {
+    g.add(trozo(u0, u1, Rf, mF));
+    const sp = Rf * 0.62, nA = Math.max(2, Math.floor(largo * (u1 - u0) / sp));
+    const aro = new THREE.InstancedMesh(new THREE.TorusGeometry(Rf * 1.0, Rf * 0.11, 5, 14), mF, nA + 1);
+    const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion();
+    for (let i = 0; i <= nA; i++) {
+      const u = u0 + (u1 - u0) * i / nA;
+      Q.setFromUnitVectors(Z, curva.getTangentAt(u).normalize());
+      M4.compose(curva.getPointAt(u), Q, new THREE.Vector3(1, 1, 1)); aro.setMatrixAt(i, M4);
+    }
+    g.add(aro);
+  }
+  for (const u of cinta) g.add(trozo(Math.max(0, u - 0.012), Math.min(1, u + 0.012), Rf * 1.12, _s20M(0xb9a15a, 0.8, 0.02), 6));
+  g.userData = { curva, longitud: largo, punto: (u) => curva.getPointAt(u), tangente: (u) => curva.getTangentAt(u) };
+  return g;
+}
+
+/**
+ * MESA DE TALLER (la mesa de trabajo de un laboratorio de diagnóstico): chapa de
+ * acero con su canto, TAPETE ANTIESTÁTICO de goma con el grano de rombos que
+ * llevan todos, y cuatro patas de goma. El origen está en el centro de la cara
+ * del tapete (y = 0); el cuerpo queda por debajo. Sustituye a la losa gris.
+ */
+export function mesaTaller(mat, opts = {}) {
+  const { ancho = 5.2, fondo = 3.0, grueso = 0.14, tapete = 0x24332f, canto = 0x8d96a0 } = opts;
+  const g = new THREE.Group();
+  const ch = new THREE.Mesh(extruido(_s20Rect(ancho, fondo, 0.10), { espesor: grueso, bisel: 0.014 }),
+    _s20M(canto, 0.42, 0.78));
+  ch.rotation.x = -Math.PI / 2; ch.position.y = -grueso / 2 - 0.012; ch.castShadow = ch.receiveShadow = true; g.add(ch);
+  const tex = _etiqueta(128, 128, (c, w, h) => {
+    c.fillStyle = '#e6e6e6'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#c4c4c4';
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      const cx = x * 16 + 8, cy = y * 16 + 8;
+      c.beginPath(); c.moveTo(cx, cy - 6); c.lineTo(cx + 6, cy); c.lineTo(cx, cy + 6); c.lineTo(cx - 6, cy); c.closePath(); c.fill();
+    }
+  });
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(ancho * 4, fondo * 4);
+  const mt = new THREE.Mesh(extruido(_s20Rect(ancho - 0.26, fondo - 0.26, 0.07), { espesor: 0.024, bisel: 0.006 }),
+    new THREE.MeshStandardMaterial({ color: tapete, map: tex, roughness: 0.85, metalness: 0.0 }));
+  mt.rotation.x = -Math.PI / 2; mt.position.y = -0.006; mt.receiveShadow = true; g.add(mt);
+  // la regleta de acero atornillada al canto delantero
+  const rg = new THREE.Mesh(new THREE.BoxGeometry(ancho - 0.5, 0.012, 0.05), _s20M(0xb7bec6, 0.35, 0.85));
+  rg.position.set(0, 0.0, fondo / 2 - 0.10); g.add(rg);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.05, 14), mat.goma || _s20M(0x0f1216, 0.94, 0));
+    p.position.set(sx * (ancho / 2 - 0.34), -grueso - 0.04, sz * (fondo / 2 - 0.34)); g.add(p);
+  }
+  g.userData = { ancho, fondo, grueso, cara: 0 };
   return g;
 }

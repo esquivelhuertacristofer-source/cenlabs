@@ -430,7 +430,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.7);key.position.set(5,9,6);key.c
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
-const rim=new THREE.SpotLight(0x4FD1C5,70,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const rim=new THREE.SpotLight(0x4FD1C5,50,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
 const fill=new THREE.DirectionalLight(0x6fb6ff,0.55);fill.position.set(-4,3,7);scene.add(fill);
 scene.add(new THREE.HemisphereLight(0x9fb4c8,0x0d1218,0.4));
 
@@ -460,7 +460,7 @@ const isMobileEarly=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||inner
   }
   // tinted glass on top to darken + add roughness feel (so reflection isn't a perfect mirror)
   const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),
-    new THREE.MeshStandardMaterial({color:0x080b10,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+    new THREE.MeshStandardMaterial({color:0x080b10,roughness:0.62,metalness:0.3,transparent:true,opacity:0.6,envMapIntensity:0.5}));
   glass.rotation.x=-Math.PI/2; glass.position.y=0.001; glass.receiveShadow=true; scene.add(glass);
   for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x1f3038,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
@@ -475,7 +475,7 @@ platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 const Talu=castAluminum(),Tsteel=brushedMetal(),Tcop=copperWinding();
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  case:std({color:0x8893a0,roughness:0.5,metalness:0.9,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,envMapIntensity:1.15}),
+  case:std({color:0x8893a0,roughness:0.5,metalness:0.9,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.35,0.35),envMapIntensity:0.95}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
   laminate:std({color:0x6b7480,roughness:0.55,metalness:0.85,map:Tsteel.map}),
   copper:std({color:0xc9763a,roughness:0.4,metalness:0.95,map:Tcop.map,roughnessMap:Tcop.roughnessMap,normalMap:Tcop.normalMap,envMapIntensity:1.3}),
@@ -894,6 +894,9 @@ function startPhase2(){
   phase=1;step=0;setPhaseTab(1);
   statorGroup.visible=true;rotorGroup.visible=true;platGlow.material.opacity=0;
   controls.target.set(0,1.6,0);
+  // encuadre: el motor armado llena el área entre paneles (en lugar de quedar pequeño al fondo de la mesa)
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(4.7,2.6,5.4); camCine.toTarget.set(0,1.5,0); camCine.dur=1.6; camCine.active=true; camCine.t=0;
   challenge1();
 }
 /* ---------- datos de los retos: se sortean al abrir el lab y al resembrar ---------- */
@@ -1175,6 +1178,8 @@ function animate(){
   trayRotor.ring.material.opacity  = travel.rotor.installed?0:(travel.stator.installed?(0.22+0.22*Math.sin(t*3)):0.06);
   lblStator.visible=!travel.stator.installed; lblRotor.visible=!travel.rotor.installed;
   trayStator.pad.visible=!travel.stator.installed; trayRotor.pad.visible=!travel.rotor.installed;
+  // el aro de la mesa de piezas se oculta de verdad una vez instalada la pieza: con opacidad 0 seguía escribiendo profundidad y el desenfoque lo pintaba como un aro negro en el suelo
+  trayStator.ring.visible=!travel.stator.installed; trayRotor.ring.visible=!travel.rotor.installed;
 
   // imanes en tránsito: viajan desde fuera del rotor hasta su ranura
   for(let i=magnetTravels.length-1;i>=0;i--){

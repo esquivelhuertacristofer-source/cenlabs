@@ -446,7 +446,7 @@ const lightMode=/[?&]light/.test(location.search);
     const flat=new THREE.Mesh(new THREE.CircleGeometry(44,80),new THREE.MeshStandardMaterial({color:0x081414,roughness:0.2,metalness:0.6}));
     flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);
   }
-  const glass=new THREE.Mesh(new THREE.CircleGeometry(44,80),new THREE.MeshStandardMaterial({color:0x061010,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(44,80),new THREE.MeshStandardMaterial({color:0x061010,roughness:0.62,metalness:0.3,transparent:true,opacity:0.6,envMapIntensity:0.5}));
   glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
   for(let r=2;r<=10;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x123030,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
@@ -456,15 +456,19 @@ const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.5,1.7,64),new THREE.MeshB
 platGlow.rotation.x=-Math.PI/2;platGlow.position.set(-2.2,0.21,0);scene.add(platGlow);
 
 /* ---------- materials ---------- */
-const Talu=castAluminum(),Tsteel=brushedMetal(),Tpaint=carPaint(0.12,0.35,0.85),Tplast=techPlastic(0.08,0.09,0.11);
+const Talu=castAluminum(),Tsteel=brushedMetal(),Tpaint=carPaint(0.52,0.58,0.66),Tplast=techPlastic(0.08,0.09,0.11);
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  cabinet:std({color:0x12161c,roughness:0.5,metalness:0.4,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap}),
+  // chapa pintada en gris perla (los postes de carga rápida son claros: en negro mate no se distinguía ni una arista)
+  cabinet:std({color:0xa2adb8,roughness:0.52,metalness:0.25}),
+  plastico:std({color:0x12161c,roughness:0.5,metalness:0.4,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap,normalScale:new THREE.Vector2(0.25,0.25)}),
   power:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap}),
   screen:std({color:0x000000,emissive:0x002211,emissiveIntensity:0.4}),
   cable:std({color:0x111111,roughness:0.7,metalness:0.05}),
-  car:std({color:0xffffff,roughness:0.25,metalness:0.5,map:Tpaint.map,roughnessMap:Tpaint.roughnessMap,envMapIntensity:1.3}),
+  car:std({color:0xd2d9e1,roughness:0.36,metalness:0.35,map:Tpaint.map,roughnessMap:Tpaint.roughnessMap,envMapIntensity:0.9}),
+  cristal:std({color:0x0d141b,roughness:0.08,metalness:0.6,envMapIntensity:1.3}),
+  lenteRoja:std({color:0xa8121c,roughness:0.35,metalness:0.1}),
   glass:std({color:0x111820,roughness:0.05,metalness:0.4,transparent:true,opacity:0.55,envMapIntensity:1.5}),
   tire:std({color:0x111417,roughness:0.9,metalness:0}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
@@ -487,11 +491,30 @@ const stRoot=new THREE.Group(); stRoot.position.set(-2.2,0.2,0); scene.add(stRoo
 // ---- GABINETE (enclosure) — armazón tipo panel de servicio abierto, no una caja sólida ----
 const cabinetGroup=new THREE.Group(); stRoot.add(cabinetGroup);
 (function(){
-  const back=rbox(0.66,2.0,0.06,MAT.cabinet,0.12); back.position.set(0,1.05,-0.24); cabinetGroup.add(back);
-  const sideL=rbox(0.06,2.0,0.5,MAT.cabinet,0.15); sideL.position.set(-0.32,1.05,0); cabinetGroup.add(sideL);
-  const sideR=rbox(0.06,2.0,0.5,MAT.cabinet,0.15); sideR.position.set(0.32,1.05,0); cabinetGroup.add(sideR);
-  const top=rbox(0.7,0.06,0.55,MAT.cabinet,0.2); top.position.set(0,2.06,0); cabinetGroup.add(top);
+  /* Un gabinete de cargador rápido no es una caja negra: es un poste de chapa
+     pintada, con rejillas de ventilación en los costados y el trasero (por ahí
+     entra el aire que se lleva el calor del módulo), un tejadillo, y un zócalo
+     anclado al piso con sus cuatro tornillos. Aquí va con el frente abierto, en
+     posición de servicio, para que se vea lo que se monta dentro.              */
+  const placa=(w,h,esp,huecos)=>{const m=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+    [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]],0.02,3),{huecos,espesor:esp,bisel:0.006}),1),MAT.cabinet);
+    m.castShadow=m.receiveShadow=true; return m;};
+  const rejilla=(ancho,n,y0,paso)=>{const r=[];for(let i=0;i<n;i++){const y=y0+i*paso;
+    r.push([[-ancho/2,y],[ancho/2,y],[ancho/2,y+0.018],[-ancho/2,y+0.018]]);}return r;};
+  const back=placa(0.66,2.0,0.05,rejilla(0.40,9,-0.85,0.07)); back.position.set(0,1.05,-0.24); cabinetGroup.add(back);
+  for(const sx of [-1,1]){
+    const lado=placa(0.5,2.0,0.05,rejilla(0.30,9,-0.85,0.07)); lado.rotation.y=Math.PI/2; lado.position.set(sx*0.32,1.05,0); cabinetGroup.add(lado);
+    const poste=rbox(0.05,2.0,0.05,MAT.cabinet,0.2); poste.position.set(sx*0.32,1.05,0.235); cabinetGroup.add(poste);
+  }
+  // El tejadillo, con su franja de color de la marca.
+  const top=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.40,-0.32],[0.40,-0.32],[0.40,0.32],[-0.40,0.32]],0.05,4),{espesor:0.09,bisel:0.014}),MAT.cabinet);
+  top.rotation.x=-Math.PI/2; top.position.set(0,2.08,0); top.castShadow=true; cabinetGroup.add(top);
+  const franja=rbox(0.66,0.035,0.012,std({color:0x2a9d8f,roughness:0.45,metalness:0.2}),0.2); franja.position.set(0,1.96,0.262); cabinetGroup.add(franja);
+  // El zócalo y sus anclajes al piso.
   const base=rbox(0.85,0.15,0.7,MAT.steel,0.15); base.position.y=0.075; cabinetGroup.add(base);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const t=P3.tornilloHex(MATP,{d:0.045,largo:0.04}); t.position.set(sx*0.37,0.15,sz*0.29); cabinetGroup.add(t);
+  }
 })();
 
 // ---- MÓDULO DE POTENCIA (rectificador AC-DC + convertidor DC-DC) ----
@@ -530,10 +553,22 @@ const powerGroup=new THREE.Group(); stRoot.add(powerGroup);
 // ---- PROTECCIÓN / TIERRA ----
 const groundGroup=new THREE.Group(); stRoot.add(groundGroup);
 (function(){
-  const box=rbox(0.3,0.24,0.16,std({color:0xffcc33,roughness:0.5,metalness:0.3}),0.15); box.position.set(0.42,0.5,0); groundGroup.add(box);
-  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,10),MAT.steel); rod.position.set(0.42,0.25,0.32); groundGroup.add(rod);
-  const wire=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.4,0.5,0),new THREE.Vector3(0.42,0.4,0.2),new THREE.Vector3(0.42,0.28,0.3)),16,0.015,8),std({color:0xffcc33,roughness:0.6}));
-  groundGroup.add(wire);
+  /* La protección de tierra de un poste son DOS cosas: la barra de tierra del
+     gabinete, con sus bornes y su franja verde-amarilla (el color que manda la
+     norma para el conductor de protección), y la PICA de cobre hincada, sujeta
+     con su abrazadera. El conductor verde las une; sin él no hay tierra.     */
+  const barra=rbox(0.30,0.16,0.10,MAT.blanco,0.12); barra.position.set(0.42,0.52,0.0); groundGroup.add(barra);
+  for(let i=0;i<6;i++){
+    const f=rbox(0.05,0.028,0.104,std({color:i%2?0xf2c94c:0x2f9e44,roughness:0.5,metalness:0.1}),0.1);
+    f.position.set(0.42-0.125+i*0.05,0.465,0); groundGroup.add(f);
+  }
+  for(let i=0;i<3;i++){ const b=P3.borne(MATP,{d:0.04,alto:0.07}); b.position.set(0.42-0.09+i*0.09,0.60,0); groundGroup.add(b); }
+  const pica=P3.picaTierra(MATP,{largo:0.55,sobre:0.10,r:0.026,punta:0.07}); pica.position.set(0.42,0.52,0.32); groundGroup.add(pica);
+  const abr=P3.abrazaderaTierra(MATP,{r:0.026}); abr.position.set(0.42,0.34,0.32); groundGroup.add(abr);
+  const cond=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.42+abr.userData.salida.x,0.34,0.32),new THREE.Vector3(0.58,0.40,0.22),
+    new THREE.Vector3(0.52,0.46,0.08)]),20,0.012,8),std({color:0x2f9e44,roughness:0.55}));
+  cond.castShadow=true; groundGroup.add(cond);
 })();
 
 // ---- PANEL / PANTALLA (HMI) ----
@@ -546,7 +581,7 @@ const panelGroup=new THREE.Group(); stRoot.add(panelGroup);
   const marco=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
     [[-0.28,-0.34],[0.28,-0.34],[0.28,0.34],[-0.28,0.34]],0.04,3),
     {huecos:[P3.contornoRedondeado([[-0.23,-0.29],[0.23,-0.29],[0.23,0.29],[-0.23,0.29]],0.03,3)],
-     espesor:0.05,bisel:0.008}),MAT.cabinet);
+     espesor:0.05,bisel:0.008}),MAT.plastico);
   marco.position.set(0,1.6,0.30); panelGroup.add(marco);
   const scr=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.58,0.02),MAT.screen);
   scr.position.set(0,1.6,0.29); panelGroup.add(scr);
@@ -560,7 +595,7 @@ const panelGroup=new THREE.Group(); stRoot.add(panelGroup);
   const baliza=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.11,24),
     std({color:0xff6b1a,emissive:0xff6b1a,emissiveIntensity:0.6,transparent:true,opacity:0.85}));
   baliza.position.set(0,2.05,0.10); baliza.userData.baliza=true; panelGroup.add(baliza);
-  const tapaBal=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.02,24),MAT.cabinet);
+  const tapaBal=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.02,24),MAT.plastico);
   tapaBal.position.set(0,2.115,0.10); panelGroup.add(tapaBal);
 })();
 
@@ -569,7 +604,11 @@ const cableGroup=new THREE.Group(); stRoot.add(cableGroup);
 let connectorTip=null;
 (function(){
   // cable coiled representation near the base
-  for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(0.22-i*0.01,0.035,8,24),MAT.cable);c.position.set(-0.35,0.32+i*0.01,0.25);c.rotation.x=Math.PI/2;cableGroup.add(c);}
+  for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(0.22-i*0.01,0.035,8,24),MAT.cable);c.position.set(-0.35,0.04+i*0.065,0.25);c.rotation.x=Math.PI/2;c.castShadow=true;cableGroup.add(c);}
+  // El soporte del conector: poste con su base y la placa donde cuelga la pistola.
+  const pBase=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.12,0.03,24),MAT.steel); pBase.position.set(-0.35,0.015,0.10); cableGroup.add(pBase);
+  const poste=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.74,14),MAT.steel); poste.position.set(-0.35,0.38,0.10); poste.castShadow=true; cableGroup.add(poste);
+  const placaS=rbox(0.20,0.40,0.03,MAT.cabinet,0.2); placaS.position.set(-0.35,0.55,0.15); cableGroup.add(placaS);
   /* ---- EL CONECTOR CCS ------------------------------------------------
      Esta era la pieza clave del laboratorio y era un ladrillo. Un conector de
      carga combinado se reconoce a un metro por su forma: arriba la parte de
@@ -619,17 +658,44 @@ let connectorTip=null;
 /* ============================================================
    AUTO (prop fijo — no se ensambla, solo se le conecta el cable)
    ============================================================ */
-const carGroup=new THREE.Group(); carGroup.position.set(2.0,0,0.4); scene.add(carGroup);
+const carGroup=new THREE.Group(); carGroup.position.set(3.0,0,-0.9); scene.add(carGroup);
 (function(){
-  const lower=rbox(3.3,0.68,1.55,MAT.car,0.18); lower.position.y=0.68; carGroup.add(lower);
-  const cabin=rbox(1.95,0.68,1.45,MAT.car,0.22); cabin.position.set(-0.1,1.22,0); carGroup.add(cabin);
-  const glass=rbox(1.8,0.52,1.38,MAT.glass,0.2); glass.position.set(-0.1,1.28,0); carGroup.add(glass);
-  const hood=rbox(1.15,0.34,1.5,MAT.car,0.16); hood.position.set(1.15,0.92,0); carGroup.add(hood);
-  [[-1.0,-0.8],[-1.0,0.8],[1.0,-0.8],[1.0,0.8]].forEach(([x,z])=>{
+  /* La carrocería sale de UN perfil lateral extruido —con sus pasos de rueda
+     recortados, el capó que cae, el techo y el portón trasero—, no de cuatro
+     cajas apiladas: de lado se lee un coche eléctrico de calle (hatchback), y
+     las ruedas entran en sus arcos en vez de quedar pegadas por fuera.       */
+  const rr=0.45, cy=0.37, e=Math.asin(0.07/rr);
+  const perfil=[[-1.88,0.30],
+    ...P3.arco(-1.02,cy,rr,Math.PI+e,-e,9),
+    ...P3.arco(1.02,cy,rr,Math.PI+e,-e,9),
+    [1.88,0.30],[1.91,0.62],[1.86,0.86],[1.32,0.98],[0.70,1.04],[0.12,1.60],
+    [-0.95,1.62],[-1.72,1.12],[-1.86,1.00],[-1.90,0.70]];
+  const carro=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(perfil,0.07,2),
+    {espesor:1.72,bisel:0.035,curvaSeg:6}),2),MAT.car);
+  carro.castShadow=carro.receiveShadow=true; carGroup.add(carro);
+  // Las ventanillas laterales (cristal oscuro, algo más anchas que la caja para que asomen).
+  const vent=(pts)=>{const m=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(pts,0.02,3),{espesor:1.76,bisel:0.006}),MAT.cristal); carGroup.add(m); return m;};
+  vent([[0.52,1.11],[0.08,1.52],[-0.30,1.52],[-0.30,1.11]]);
+  vent([[-0.40,1.11],[-0.40,1.52],[-0.92,1.52],[-1.36,1.11]]);
+  // Parabrisas y luneta, apoyados sobre las pendientes del perfil.
+  const cris=(x0,y0,x1,y1,ancho)=>{const L=Math.hypot(x1-x0,y1-y0), a=Math.atan2(y1-y0,x1-x0);
+    const g=new THREE.Mesh(new THREE.BoxGeometry(L,0.02,ancho),MAT.cristal);
+    const nx=-(y1-y0)/L, ny=(x1-x0)/L; const sg=(ny>0)?1:-1;
+    g.position.set((x0+x1)/2+nx*sg*0.014,(y0+y1)/2+ny*sg*0.014,0); g.rotation.z=a; carGroup.add(g); return g;};
+  cris(0.70,1.04,0.12,1.60,1.50); cris(-0.95,1.62,-1.72,1.12,1.46);
+  // Faros delanteros, pilotos traseros, espejos y manillas.
+  for(const sz of [-1,1]){
+    const faro=rbox(0.05,0.07,0.30,MAT.blanco,0.3); faro.position.set(1.885,0.80,sz*0.58); carGroup.add(faro);
+    const esp=rbox(0.10,0.07,0.15,MAT.car,0.3); esp.position.set(0.60,1.08,sz*0.93); carGroup.add(esp);
+    const man=rbox(0.14,0.022,0.02,MAT.steel,0.3); man.position.set(0.0,0.98,sz*0.862); carGroup.add(man);
+    const man2=man.clone(); man2.position.x=-0.75; carGroup.add(man2);
+  }
+  const piloto=rbox(0.04,0.07,0.80,MAT.lenteRoja,0.3); piloto.position.set(-1.885,0.93,0); carGroup.add(piloto);
+  [[-1.02,-0.74],[-1.02,0.74],[1.02,-0.74],[1.02,0.74]].forEach(([x,z])=>{
     // La rueda, con su dibujo y su llanta: un cilindro liso al lado de un
     // coche lo convierte en un juguete de madera.
-    const rueda=P3.neumatico(MATP,{dExt:0.80,dLlanta:0.46,ancho:0.30,tacos:26,radios:5});
-    rueda.rotation.y=Math.PI/2; rueda.position.set(x,0.4,z); carGroup.add(rueda);
+    const rueda=P3.neumatico(MATP,{dExt:0.74,dLlanta:0.44,ancho:0.26,tacos:26,radios:5});
+    rueda.rotation.y=Math.PI/2; rueda.position.set(x,0.37,z); carGroup.add(rueda);
   });
 })();
 /* La TOMA del coche, que es la otra mitad del concepto: la misma corona de
@@ -637,7 +703,7 @@ const carGroup=new THREE.Group(); carGroup.position.set(2.0,0,0.4); scene.add(ca
    la tapa abatible. Si la toma no se parece al conector, no se ve que encajan
    —y que encajen es justo lo que el alumno tiene que reconocer—.             */
 const chargePort=new THREE.Group();
-chargePort.position.set(0.55,0.58,0.78); carGroup.add(chargePort);
+chargePort.position.set(-1.56,0.72,0.845); carGroup.add(chargePort);   // en el costado trasero, del lado de la estación
 const cazoleta=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
   [[-0.11,-0.15],[0.11,-0.15],[0.11,0.15],[-0.11,0.15]],0.05,4),
   {espesor:0.07,bisel:0.010}),MAT.negro);
@@ -713,11 +779,14 @@ function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=
    MESA DE PIEZAS
    ============================================================ */
 const KIT_POS={
-  cabinet:new THREE.Vector3(-3.6,-0.15,-2.4),
-  power:  new THREE.Vector3( 3.4,-0.15,-2.4),
-  ground: new THREE.Vector3(-3.6,-0.15, 2.6),
-  panel:  new THREE.Vector3( 3.4,-0.15, 2.6),
-  cable:  new THREE.Vector3( 0,  -0.15, 3.8),
+  // Cada pieza está modelada a su altura de ensamble: aquí se apoya en su charola
+  // (cara superior en y = 0,12) en vez de flotar por encima. La mesa se junta a la
+  // izquierda del coche: antes dos charolas quedaban detrás y delante de él.
+  cabinet:new THREE.Vector3(-2.2,-0.07,-1.9),
+  power:  new THREE.Vector3( 1.9,-0.92,-1.9),
+  ground: new THREE.Vector3(-2.2,-0.07, 1.9),
+  panel:  new THREE.Vector3( 1.9,-1.20, 1.9),
+  cable:  new THREE.Vector3( 0,  -0.07, 3.0),
 };
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel5(text,color){
@@ -730,8 +799,10 @@ function smallLabel5(text,color){
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
   sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
 }
-function trayPad5(pos,color){
-  const wx=stRoot.position.x+pos.x, wz=stRoot.position.z+pos.z;
+function trayPad5(pos,color,grp){
+  // la charola se centra en la pieza REAL, no en el origen de su grupo
+  const cc=new THREE.Box3().setFromObject(grp).getCenter(new THREE.Vector3());
+  const wx=cc.x, wz=cc.z;
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.9,0.12,40),new THREE.MeshStandardMaterial({color:0x0e1c1c,roughness:0.55,metalness:0.5}));
   pad.position.set(wx,0.06,wz);pad.receiveShadow=true;scene.add(pad);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.7,0.82,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
@@ -743,13 +814,15 @@ const PIECE_GROUP={cabinet:cabinetGroup,power:powerGroup,ground:groundGroup,pane
 const PIECE_NAME={cabinet:'GABINETE',power:'MÓDULO DE POTENCIA',ground:'PROTECCIÓN/TIERRA',panel:'PANTALLA',cable:'CABLE + CONECTOR'};
 const PIECE_COLOR={cabinet:'#8a99a8',power:'#ff8a3a',ground:'#ffcc33',panel:'#4FD1C5',cable:'#f4475e'};
 const travel={},trays={},lbls={};
+stRoot.updateMatrixWorld(true);
 PIECE_ORDER.forEach(k=>{
   const grp=PIECE_GROUP[k];
   travel[k]={active:false,t:0,dur:1.05,from:KIT_POS[k].clone(),to:new THREE.Vector3(0,0,0),installed:false,bump:0};
   grp.position.copy(KIT_POS[k]); grp.visible=true;
-  trays[k]=trayPad5(KIT_POS[k],PIECE_COLOR[k]);
+  trays[k]=trayPad5(KIT_POS[k],PIECE_COLOR[k],grp);
   const lbl=smallLabel5(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(stRoot.position.x+KIT_POS[k].x,2.0,stRoot.position.z+KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
+  { const cc=new THREE.Box3().setFromObject(grp).getCenter(new THREE.Vector3()); lbl.position.set(cc.x,2.45,cc.z); }
+  labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
@@ -842,7 +915,9 @@ function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
 let phase=0;
 function startPhase1(){
   phase=0;setPhaseTab(0);
-  controls.target.set(-2.2,0.9,0); controls.minDistance=2.5;
+  controls.target.set(-2.3,0.5,0.5); controls.minDistance=2.5;
+  // encuadre de la mesa de piezas: las cinco charolas entran entre los dos paneles
+  camera.position.set(-0.9,5.0,8.7);
   step_cabinet();
 }
 function step_cabinet(){
@@ -901,6 +976,9 @@ function finishPhase1(){
 function startPhase2(){
   phase=1;setPhaseTab(1);
   controls.target.set(-2.2,1.2,0); platGlow.material.opacity=0;
+  // encuadre: estación armada y coche entran juntos entre los paneles
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(2.4,2.9,7.9); camCine.toTarget.set(-0.3,0.95,-0.1); camCine.active=true; camCine.t=0;
   challengeCurrent();
 }
 /* Los dos retos de cálculo se SIEMBRAN: cada alumno (y cada recarga, y cada vez
@@ -972,7 +1050,7 @@ function challengeSession(){
      <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
   running=true;cinematicSpin=true; sessionState=0; soc=0.20;
   camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
-  camCine.to.set(4.6,3.0,6.4); camCine.toTarget.set(-0.4,1.0,0.3);
+  camCine.to.set(2.6,3.0,8.0); camCine.toTarget.set(-0.2,0.95,0.0);
   camCine.active=true; camCine.t=0;
   drawCable(false);
 }
@@ -1208,6 +1286,8 @@ function animate(){
     const installed=tr.installed;
     trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
     lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+    // el aro se oculta de verdad: con opacidad 0 seguía escribiendo profundidad y el desenfoque lo pintaba como un aro negro en el suelo
+    trays[key].ring.visible=!installed;
   });
 
   const allInstalled=PIECE_ORDER.every(k=>travel[k].installed);

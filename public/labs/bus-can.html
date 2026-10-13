@@ -461,7 +461,7 @@ function makeSynth(opts={}){
        una trama sana — ese es el punto didáctico del distractor.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[4.4,3.0,5.6],target:[0,0.85,0.1],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[3.2,2.4,4.1],target:[0,0.5,-0.25],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.38,minD:3.2,maxD:16});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
@@ -469,9 +469,9 @@ const MAT={
   bench: std({...plas, metalness:0.15, roughness:0.75}),
   nodeBody: std({...plas, color:0x1c2230, metalness:0.3, roughness:0.55}),
   termBody: std({color:0xcda876, roughness:0.55, metalness:0.05}),
-  wireH: std({...rub, color:0xe0b23c, roughness:0.85, metalness:0.0}),
-  wireL: std({...rub, color:0x3fb8c9, roughness:0.85, metalness:0.0}),
-  tapBody: std({...plas, color:0x22282f, metalness:0.3, roughness:0.5}),
+  wireH: std({...rub, color:0xb88a14, roughness:0.72, metalness:0.0}),
+  wireL: std({...rub, color:0x1d8394, roughness:0.72, metalness:0.0}),
+  tapBody: std({color:0x20262d, metalness:0.12, roughness:0.52}),
   tapPinH: std({...brush, color:0xe0b23c, metalness:0.85, roughness:0.3}),
   tapPinL: std({...brush, color:0x3fb8c9, metalness:0.85, roughness:0.3}),
   jumper: std({color:0x2a0d0d, emissive:0xff3b30, emissiveIntensity:0.7, roughness:0.4, metalness:0.2}),
@@ -480,12 +480,13 @@ const MAT={
   jackCh2: std({...brush, color:0x3fb8c9, metalness:0.85, roughness:0.3}),
   busLed: std({color:0x0a1210, emissive:0x3ad9c2, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
   knobGrip: std({...rub, color:0x39424b, roughness:0.82, metalness:0.06}),
+  cableSonda: std({...rub, color:0x15181c, roughness:0.85, metalness:0.0}),
 };
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
    ya importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
-  aluminio: std({...alu, color:0x9aa4ad, roughness:0.42, metalness:0.85}),
+  aluminio: std({...alu, color:0x9aa4ad, roughness:0.50, metalness:0.80, normalScale:new THREE.Vector2(0.28,0.28)}),
   acero:    std({...brush, color:0x8d959c, roughness:0.38, metalness:0.80}),
   cromo:    std({...brush, color:0xc9d1d6, roughness:0.22, metalness:0.90}),
   chapa:    std({...brush, color:0x7f878e, roughness:0.45, metalness:0.75}),
@@ -523,21 +524,40 @@ function showToast(html){
   showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);
 }
 
-/* ---------- 1) BANCO ---------- */
-const bench=roundedBox(6.6,0.28,3.6,MAT.bench,0.05);
-bench.position.set(0,-0.02,0);
+/* ---------- 1) MESA DE TALLER ---------- */
+/* La mesa de un laboratorio de diagnóstico: chapa de acero con su canto y un
+   tapete antiestático de rombos, no una losa gris. Es más corta que antes —el
+   bus mide lo que mide— para que el montaje llene el encuadre en vez de
+   perderse en un tablero vacío. La cara del tapete queda en y = 0,12. */
+const MESA_Y=0.12;
+const bench=P3.mesaTaller(MATP,{ancho:5.5,fondo:3.3});
+bench.position.set(0,MESA_Y,-0.1);
 scene.add(bench);
 
+/* Medidas del montaje (una sola vez, para que nodos, terminadores y bus
+   concuerden): los nodos a ±XN, la altura del eje del bus y la ECU. */
+const XN=2.1, YB=0.36, ECU_AN=0.86, ECU_AL=0.48, ECU_FO=0.66, CAN_FO=0.12;
+
 /* ---------- 2) NODO A (extremo izquierdo, terminador fijo) ---------- */
-const nodeAGroup=new THREE.Group(); nodeAGroup.position.set(-2.6,0.5,0); scene.add(nodeAGroup);
-/* LOS NODOS SON ECU, no cajas: carcasa de aluminio con sus aletas, tapa
-   inferior y —lo que de verdad importa en un laboratorio de diagnostico— el
-   CONECTOR DEL MAZO por el que entra el bus, con sus DOS pines, que son los dos
-   hilos que tiene una derivacion CAN. Un taco negro liso no dice por donde se
-   desenchufa nada, y desenchufar es justo lo que se hace para aislar un tramo.
-   El conector se orienta hacia el bus: `rotation.y = +pi/2` manda su boca
-   (local +Z) al +X del mundo. */
-const nodeABody=P3.cajaMando(MATP,{ancho:0.46,alto:0.42,fondo:0.62,aletas:9,pines:2});
+const nodeAGroup=new THREE.Group(); nodeAGroup.position.set(-XN,YB,0); scene.add(nodeAGroup);
+/* LOS NODOS SON ECU, no cajas: carcasa de aluminio fundido con sus aletas, sus
+   orejas de fijación y —lo que de verdad importa en un laboratorio de
+   diagnóstico— los CONECTORES SELLADOS del mazo. Los dos laterales son los de
+   potencia y sensores del módulo; el CENTRAL, el pequeño de dos vías, es por el
+   que entra el bus: CAN_H y CAN_L, que es lo que lleva una derivación CAN. Un
+   taco negro liso no dice por dónde se desenchufa nada, y desenchufar es justo
+   lo que se hace para aislar un tramo. La boca de los conectores mira al bus:
+   `rotation.y = ±pi/2` manda su cara (local +Z) al ±X del mundo. */
+function ecuNodo(){
+  return P3.ecuAutomotriz(MATP,{ancho:ECU_AN,alto:ECU_AL,fondo:ECU_FO,aletas:10,
+    rotulo:'ECM · CAN-HS\n12 V · 0 281 0XX',
+    conectores:[
+      {x:-0.31,ancho:0.25,alto:0.32,cols:3,filas:3,fondo:0.10,cables:5},
+      {x:0,ancho:0.17,alto:0.20,cols:2,filas:1,fondo:CAN_FO,pines:true},
+      {x:0.31,ancho:0.25,alto:0.32,cols:3,filas:3,fondo:0.10,cables:4},
+    ]});
+}
+const nodeABody=ecuNodo();
 nodeABody.rotation.y=Math.PI/2;
 nodeAGroup.add(nodeABody);
 registerPart(nodeABody,'Nodo A (extremo izquierdo)','Un módulo cualquiera del bus (p. ej. una ECU) en el extremo izquierdo. Su terminador de 120 Ω permanece siempre conectado en este laboratorio — es el terminador del extremo B (Caso 2) el que se retira.','#8fb3ac');
@@ -551,28 +571,30 @@ registerPart(nodeABody,'Nodo A (extremo izquierdo)','Un módulo cualquiera del b
    objeto que había que creerse; así se puede comprobar. */
 function terminador(){
   const g=new THREE.Group();
-  const caja=P3.conector(MATP,{ancho:0.22,alto:0.15,fondo:0.16,pines:2});
+  const caja=P3.conectorMultipin(MATP,{ancho:0.24,alto:0.18,fondo:0.20,cols:2,filas:1,pines:false,
+    color:0x2a2f36,llave:0xd9a21b});
   caja.rotation.y=-Math.PI/2;                 // su boca mira al nodo (−X)
   g.add(caja);
-  const res=P3.resistencia(MATP,{largo:0.15,d:0.052,patas:0.055,paso:0.20,
+  const res=P3.resistencia(MATP,{largo:0.17,d:0.058,patas:0.055,paso:0.20,
     bandas:[0x7a4a1e,0xb03a2e,0x7a4a1e,0xc9a227]});
-  res.position.set(0,0.075,0);
+  res.position.set(0,0.125,0);
   g.add(res);
   return g;
 }
+const TERM_X=ECU_FO/2+CAN_FO+0.10+0.012;      // el centro del tapón, a ras del conector del nodo
 const termA=terminador();
-termA.position.set(0.55,0,0);
+termA.position.set(TERM_X,0,0);
 nodeAGroup.add(termA);
 registerPart(termA,'Terminador 120 Ω (extremo A)','Cierra el extremo A del bus en ~120 Ω, la impedancia característica de referencia del par trenzado. Permanece siempre conectado en este laboratorio.','#ffd166');
 
 /* ---------- 3) NODO B (extremo derecho, terminador removible) ---------- */
-const nodeBGroup=new THREE.Group(); nodeBGroup.position.set(2.6,0.5,0); scene.add(nodeBGroup);
-const nodeBBody=P3.cajaMando(MATP,{ancho:0.46,alto:0.42,fondo:0.62,aletas:9,pines:2});
+const nodeBGroup=new THREE.Group(); nodeBGroup.position.set(XN,YB,0); scene.add(nodeBGroup);
+const nodeBBody=ecuNodo();
 nodeBBody.rotation.y=-Math.PI/2;
 nodeBGroup.add(nodeBBody);
 registerPart(nodeBBody,'Nodo B (extremo derecho)','Un segundo módulo en el extremo opuesto del bus. Su terminador de 120 Ω es el que se retira en el Caso 2 para mostrar el efecto de una terminación faltante.','#8fb3ac');
 
-const TERM_SEATED=[-0.55,0,0], TERM_REMOVED=[-0.44,0.28,0.32], TERM_REMOVED_ROTZ=0.6;
+const TERM_SEATED=[-TERM_X,0,0], TERM_REMOVED=[-TERM_X+0.12,0.30,0.40], TERM_REMOVED_ROTZ=0.6;
 const termBGroup=new THREE.Group();
 termBGroup.position.set(TERM_SEATED[0],TERM_SEATED[1],TERM_SEATED[2]);
 nodeBGroup.add(termBGroup);
@@ -620,49 +642,93 @@ function parTrenzado(pts,vueltas,radio,r,matA,matB){
   }
   return hilos;
 }
+const XB=XN-TERM_X-0.10;                        // donde acaba el tapón: de ahí sale el par
 const [busH,busL]=parTrenzado(
-  [[-1.97,0.50,0],[-0.98,0.505,0.03],[0,0.51,0],[0.98,0.505,-0.03],[1.97,0.50,0]],
-  18,0.045,0.022,MAT.wireH,MAT.wireL);
+  [[-XB,YB,0],[-XB/2,YB+0.005,0.03],[0,YB+0.01,0],[XB/2,YB+0.005,-0.03],[XB,YB,0]],
+  14,0.05,0.026,MAT.wireH,MAT.wireL);
 registerPart(busH,'Línea CAN_H (par trenzado)','En reposo (recesivo) está a ≈2.5 V; al transmitir un bit dominante sube a ≈3.5 V. Va trenzada con CAN_L: el trenzado hace que el ruido entre por igual en las dos líneas y desaparezca al restarlas.','#ffd166');
 registerPart(busL,'Línea CAN_L (par trenzado)','En reposo (recesivo) está a ≈2.5 V; al transmitir un bit dominante baja a ≈1.5 V. Va trenzada con CAN_H.','#4fd1c5');
+/* La funda corrugada y las vueltas de cinta con las que el par sale de cada
+   tapón: es como se protege un mazo en un coche, y de paso tapa el punto en el
+   que el trenzado se sujeta al conector. */
+for(const sx of [-1,1]){
+  const funda=P3.arnes(MATP,[[sx*XB,YB,0],[sx*(XB-0.10),YB,0],[sx*(XB-0.20),YB,0]],
+    {colores:[0x1a1a1a],r:0.078,funda:[[0,1]],seg:8});
+  scene.add(funda);
+}
 
-/* ---------- 5) CONECTOR DE DIAGNÓSTICO + PUENTE DE CORTOCIRCUITO ---------- */
+/* ---------- 5) CAJA DE DERIVACIÓN (breakout) + PUENTE DE CORTOCIRCUITO ---------- */
 const tapGroup=new THREE.Group();
-tapGroup.position.set(0,0.58,0.05);
+tapGroup.position.set(0,MESA_Y+0.15,0.02);
 scene.add(tapGroup);
-const tapBody=roundedBox(0.34,0.20,0.20,MAT.tapBody,0.05);
-tapGroup.add(tapBody);
-registerPart(tapBody,'Conector de diagnóstico','Punto de derivación donde se conectan las puntas del osciloscopio sin interrumpir el bus — como una caja de derivación (breakout box) real.','#5eead4');
+/* La caja de derivación del diagnóstico: una carcasa negra de plástico por la
+   que pasa el bus (entra por un lado y sale por el otro, con su prensaestopas)
+   y que saca CAN_H y CAN_L a dos bornas de 4 mm, la amarilla y la cian, donde se
+   pinchan las puntas del osciloscopio sin cortar nada. */
+const tapCaja=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.25,-0.15],[0.25,-0.15],[0.25,0.15],[-0.25,0.15]],0.05,4),{espesor:0.26,bisel:0.02}),MAT.tapBody);
+tapCaja.castShadow=true; tapCaja.receiveShadow=true;
+tapGroup.add(tapCaja);
+for(const sx of [-1,1]){
+  const pe=new THREE.Mesh(P3.revolucion([[0,0],[0.085,0],[0.085,0.07],[0.062,0.09],[0.062,0.14],[0,0.14]],{seg:16}),MATP.goma);
+  pe.rotation.z=-sx*Math.PI/2; pe.position.set(sx*0.25,0.03,0); pe.castShadow=true; tapGroup.add(pe);
+}
+// la placa de serigrafía de la tapa: «CAN H / CAN L»
+{ const tx=document.createElement('canvas'); tx.width=256; tx.height=64;
+  const c=tx.getContext('2d'); c.clearRect(0,0,256,64); c.fillStyle='#e8edf2'; c.font='bold 26px sans-serif';
+  c.textAlign='center'; c.textBaseline='middle'; c.fillText('CAN-H',64,34); c.fillText('CAN-L',192,34);
+  const t=new THREE.CanvasTexture(tx); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.10),new THREE.MeshStandardMaterial({map:t,transparent:true,roughness:0.6,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  pl.rotation.x=-Math.PI/2; pl.position.set(0,0.1515,0.07); tapGroup.add(pl); }
+for(const sx of [-1,1]) for(const sz of [-1,1]){ const t=P3.tornilloHex(MATP,{d:0.03,largo:0.04,arandela:true}); t.position.set(sx*0.19,0.15,sz*0.09); tapGroup.add(t); }
+registerPart(tapCaja,'Conector de diagnóstico','Punto de derivación donde se conectan las puntas del osciloscopio sin interrumpir el bus — como una caja de derivación (breakout box) real.','#5eead4');
 
-const tapPinH=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.05,12),MAT.tapPinH);
-tapPinH.rotation.x=Math.PI/2;
-tapPinH.position.set(-0.07,-0.10,0.10);
+const tapPinH=P3.bornaBanana(MATP,{d:0.12,alto:0.07,color:0xd9a21b});
+tapPinH.position.set(-0.11,0.15,-0.02);
 tapGroup.add(tapPinH);
 registerPart(tapPinH,'Derivación CAN_H','Contacto donde la punta CH1 del osciloscopio toma la línea CAN_H.','#ffd166');
 
-const tapPinL=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.05,12),MAT.tapPinL);
-tapPinL.rotation.x=Math.PI/2;
-tapPinL.position.set(0.07,-0.10,0.10);
+const tapPinL=P3.bornaBanana(MATP,{d:0.12,alto:0.07,color:0x2aa3b5});
+tapPinL.position.set(0.11,0.15,-0.02);
 tapGroup.add(tapPinL);
 registerPart(tapPinL,'Derivación CAN_L','Contacto donde la punta CH2 del osciloscopio toma la línea CAN_L.','#4fd1c5');
 
-const jumperMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.155,8),MAT.jumper);
-jumperMesh.rotation.z=Math.PI/2;
-jumperMesh.position.set(0,-0.10,0.10);
-tapGroup.add(jumperMesh);
+/* EL PUENTE del caso 3: una clavija doble de 4 mm que une las dos bornas. Es un
+   accesorio de prueba, de plástico rojo: no emite luz. Se dibuja sólo para
+   señalar el cortocircuito con claridad. */
+const jumperMesh=new THREE.Group();
+{ const mr=std({color:0xb3261e,roughness:0.5,metalness:0.05});
+  const barra=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.30,10),mr);
+  barra.rotation.z=Math.PI/2; barra.castShadow=true; jumperMesh.add(barra);
+  for(const sx of [-1,1]){
+    const cl=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.05,12),mr);
+    cl.position.set(sx*0.11,-0.035,0); jumperMesh.add(cl);
+    const pu=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.07,8),MATP.cromo);
+    pu.position.set(sx*0.11,-0.085,0); jumperMesh.add(pu); }
+  jumperMesh.position.set(0,0.15+0.07+0.05,-0.02); tapGroup.add(jumperMesh); }
 registerPart(jumperMesh,'Puente de cortocircuito (Caso 3)','Representa un cortocircuito entre CAN_H y CAN_L en algún punto del arnés — en la realidad puede ocurrir en cualquier tramo; se dibuja aquí solo para señalarlo con claridad.','#ff6b6b');
 setInspectable(jumperMesh,false);
 
 /* ---------- 6) OSCILOSCOPIO ---------- */
-const scopeGroup=new THREE.Group();
-/* El instrumento va APOYADO en el banco y AL FONDO, mirando al frente: antes
+/* El instrumento va APOYADO en la mesa y AL FONDO, mirando al frente: antes
    flotaba 8 cm en el aire con un tercio de la caja fuera del tablero, y en
-   primer plano tapaba justo el tramo de bus que la práctica pide mirar. */
-scopeGroup.position.set(0,0.82,-1.15);
-scene.add(scopeGroup);
-
-const scopeBody=roundedBox(1.9,1.30,0.90,MAT.scopeBody,0.09);
+   primer plano tapaba justo el tramo de bus que la práctica pide mirar.
+   Es el osciloscopio de la biblioteca: marco de pantalla rebajado, perillas con
+   su rótulo, conectores BNC con el anillo de color de su canal, asa, patas y
+   rejilla. */
+const scopeBody=P3.osciloscopioBanco(MATP,{ancho:1.9,alto:1.30,fondo:0.90,color:0x232a38,
+  pantallaX:-0.34,pantallaY:0.12,visor:[1.05,0.84],teclas:false,
+  mandos:[
+    {id:'base',x:0.52,y:0.30,r:0.075,rotulo:'s/div'},
+    {id:'trig',x:0.79,y:0.30,r:0.075,rotulo:'nivel'},
+    {id:'v1',x:0.52,y:-0.10,r:0.075,rotulo:'V/div 1'},
+    {id:'v2',x:0.79,y:-0.10,r:0.075,rotulo:'V/div 2'}],
+  bnc:[{x:-0.62,color:0xe0b23c,id:'ch1'},{x:-0.30,color:0x3fb8c9,id:'ch2'}],
+  led:{x:0.86,y:0.50}});
+const scopeGroup=new THREE.Group();
+scopeGroup.position.set(0,MESA_Y+scopeBody.userData.apoyo,-1.0);
 scopeGroup.add(scopeBody);
+scene.add(scopeGroup);
 registerPart(scopeBody,'Osciloscopio','Instrumento que dibuja el voltaje de CAN_H y CAN_L contra el tiempo — la única forma de VER directamente la codificación diferencial de CAN.','#5eead4');
 
 const scrCanvas=document.createElement('canvas');
@@ -672,81 +738,57 @@ scrTex.colorSpace=THREE.SRGBColorSpace;
 scrTex.minFilter=THREE.LinearFilter;
 scrTex.generateMipmaps=false;
 const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.05,0.84),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screenMesh.position.set(-0.34,0.10,0.46);
-scopeGroup.add(screenMesh);
+scopeBody.userData.pantalla.add(screenMesh);
 registerPart(screenMesh,'Pantalla','Cuadrícula de 10×8 divisiones: cada división horizontal equivale a 2 µs (1 bit a 500 kbit/s); cada división vertical equivale a 0.5 V, centrada en 2.5 V.','#5eead4');
 
-/* LAS ENTRADAS SON BNC, no discos: barrilete, los dos tetones de la bayoneta,
-   el aislante y el pin central. Los tetones son la razon de que un osciloscopio
-   no lleve bananas — se mete y se gira un cuarto de vuelta, y no se sale al
-   tirar del cable. El anillo de color dice de qué canal se trata. */
-const jackCh1=P3.bnc(MATP,{d:0.13,largo:0.11,color:0xe0b23c});
-jackCh1.position.set(-0.62,-0.50,0.45);
-scopeGroup.add(jackCh1);
+const jackCh1=scopeBody.userData.bnc[0];
 registerPart(jackCh1,'Entrada CH1 (BNC) · CAN_H','Conector del canal 1. Trae la señal de la línea CAN_H desde el conector de diagnóstico.','#ffd166');
-
-const jackCh2=P3.bnc(MATP,{d:0.13,largo:0.11,color:0x3fb8c9});
-jackCh2.position.set(-0.30,-0.50,0.45);
-scopeGroup.add(jackCh2);
+const jackCh2=scopeBody.userData.bnc[1];
 registerPart(jackCh2,'Entrada CH2 (BNC) · CAN_L','Conector del canal 2. Trae la señal de la línea CAN_L desde el conector de diagnóstico.','#4fd1c5');
 
-const busLedG=P3.led(MATP,{d:0.085,color:0x3ad9c2,patas:0});
-busLedG.rotation.x=Math.PI/2;
-busLedG.position.set(0.86,0.50,0.45);
-scopeGroup.add(busLedG);
-const busLed={material:busLedG.userData.material};   // el bucle sigue tocando .material
+const busLedG=scopeBody.userData.led;
+const busLed={material:busLedG.material};   // el bucle sigue tocando .material
 registerPart(busLedG,'Indicador de actividad del bus','Se enciende cuando la sonda está conectada y el osciloscopio está observando el bus.','#3ad9c2');
 
 /* LOS MANDOS del frontal. No cambian el trazo en esta práctica —lo que se
    estudia aquí es el bus, no el manejo del instrumento—, pero un osciloscopio
    sin base de tiempos ni volts/div no es un osciloscopio; se declara en su
    propia ficha de inspección para no fingir que están vivos. */
-function perilla(x,y,label,desc){
-  const g=new THREE.Group();
-  g.position.set(x,y,0.45); g.rotation.x=Math.PI/2; scopeGroup.add(g);
-  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.084,0.04,20),MATP.negro));
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.066,0.066,0.07,20),MAT.knobGrip);
-  grip.position.y=0.045; grip.castShadow=true; g.add(grip);
-  const tick=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.05,0.012),MATP.blanco);
-  tick.position.set(0,0.021,0.058); grip.add(tick);
-  registerPart(g,label,desc,'#ffd166');
-  return g;
-}
-perilla(0.48, 0.28,'Perilla base de tiempo','Fija cuántos microsegundos representa cada división horizontal. En esta práctica la pantalla está congelada en 2 µs/div (un bit a 500 kbit/s), el ajuste con el que la trama se lee bit a bit.');
-perilla(0.79, 0.28,'Perilla nivel de disparo','Define el voltaje al que la señal debe cruzar para que el instrumento congele una imagen estable en vez de un trazo que corre.');
-perilla(0.48,-0.10,'Perilla volts/div · CH1','Fija cuántos volts representa cada división vertical del canal 1. Aquí, 0.5 V/div centrados en 2.5 V.');
-perilla(0.79,-0.10,'Perilla volts/div · CH2','Lo mismo para el canal 2, que trae CAN_L.');
+const MANDOS=scopeBody.userData.mandos;
+registerPart(MANDOS.base.grupo,'Perilla base de tiempo','Fija cuántos microsegundos representa cada división horizontal. En esta práctica la pantalla está congelada en 2 µs/div (un bit a 500 kbit/s), el ajuste con el que la trama se lee bit a bit.');
+registerPart(MANDOS.trig.grupo,'Perilla nivel de disparo','Define el voltaje al que la señal debe cruzar para que el instrumento congele una imagen estable en vez de un trazo que corre.');
+registerPart(MANDOS.v1.grupo,'Perilla volts/div · CH1','Fija cuántos volts representa cada división vertical del canal 1. Aquí, 0.5 V/div centrados en 2.5 V.');
+registerPart(MANDOS.v2.grupo,'Perilla volts/div · CH2','Lo mismo para el canal 2, que trae CAN_L.');
 
-/* EL VESTIDO DEL INSTRUMENTO: marco de la pantalla, asa, patas y rejilla. Sin
-   ellos la caja no se distingue de un cajón; son las cuatro cosas por las que
-   un aparato de banco se reconoce como aparato. */
-{
-  const marco=new THREE.Mesh(P3.extruido(
-    [[-0.90,-0.38],[0.22,-0.38],[0.22,0.58],[-0.90,0.58]],
-    {huecos:[[[-0.865,-0.32],[0.185,-0.32],[0.185,0.52],[-0.865,0.52]]],
-     espesor:0.035,bisel:0.006}),MATP.negro);
-  marco.position.set(0,0,0.43); scopeGroup.add(marco);
-  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.98,0.30,0),new THREE.Vector3(-0.98,0.74,0),
-    new THREE.Vector3(0,0.88,0),
-    new THREE.Vector3(0.98,0.74,0),new THREE.Vector3(0.98,0.30,0)],false),
-    40,0.030,10,false),MATP.negro);
-  asa.castShadow=true; scopeGroup.add(asa);
-  for(const sx of [-1,1]) for(const sz of [-1,1]){
-    const pt=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.055,0.05,12),MATP.goma);
-    pt.position.set(sx*0.78,-0.675,sz*0.32); scopeGroup.add(pt);
-  }
-  for(let i=0;i<10;i++){
-    const r=new THREE.Mesh(new THREE.BoxGeometry(1.10,0.014,0.035),MATP.negro);
-    r.position.set(0,0.652,-0.31+i*0.06); scopeGroup.add(r);
-  }
+/* ---------- 7) SONDAS DE PRUEBA (osciloscopio → bornas de la caja de derivación) ---------- */
+/* Dos sondas pasivas de verdad: la CABEZA con su empuñadura y su punta de acero
+   apoyada en la borna, y el cable negro que baja a la mesa y vuelve al BNC del
+   instrumento con su enchufe. La cabeza se orienta resolviendo dónde cae la
+   punta, no a ojo: así sigue tocando la borna si se mueve la caja. */
+const Zax=new THREE.Vector3(0,0,1);
+function sonda(sx,colorCuerpo,jack,mat){
+  const cab=P3.sondaOsciloscopio(MATP,{largo:0.78,d:0.085,color:colorCuerpo});
+  cab.scale.setScalar(0.62);
+  cab.rotation.set(0,sx<0?0:Math.PI,-1.12);
+  cab.position.set(0,0,0); cab.updateMatrixWorld(true);
+  const boca=tapGroup.localToWorld(new THREE.Vector3(sx*0.11,0.15+0.07*0.9,-0.02));
+  const punta=cab.localToWorld(cab.userData.punta.clone());
+  cab.position.copy(boca).sub(punta);
+  scene.add(cab);
+  cab.updateMatrixWorld(true);
+  const sal=cab.localToWorld(cab.userData.salida.clone());
+  // el enchufe BNC en el jack del osciloscopio, y el cable hasta la cabeza
+  const J=jack.getWorldPosition(new THREE.Vector3());
+  const plug=P3.plugBNC(MATP,{d:0.11,largo:0.12}); plug.position.copy(J); scene.add(plug);
+  const J1=J.clone().add(new THREE.Vector3(0,0,0.24));
+  const cable=cableTube([[J1.x,J1.y,J1.z],[J1.x+sx*0.05,MESA_Y+0.07,J1.z+0.25],[sal.x+sx*0.45,MESA_Y+0.05,sal.z-0.10],[sal.x+sx*0.12,sal.y*0.55+0.04,sal.z-0.04],[sal.x,sal.y,sal.z]],0.020,mat);
+  cable.castShadow=true;
+  return {cab,cable};
 }
-
-/* ---------- 7) PUNTAS DE PRUEBA (osciloscopio → conector de diagnóstico) ---------- */
-const probeH=cableTube([[-0.62,0.32,-0.59],[-0.66,0.17,-0.25],[-0.60,0.148,0.35],[-0.34,0.26,0.44],[-0.07,0.47,0.21]],0.026,MAT.wireH);
+const sondaH=sonda(-1,0xb8901c,jackCh1,MAT.cableSonda);
+const sondaL=sonda(1,0x1f8a9c,jackCh2,MAT.cableSonda);
+const probeH=sondaH.cable, probeL=sondaL.cable;
 registerPart(probeH,'Punta de prueba CH1','Cable que lleva la señal de CAN_H desde el conector de diagnóstico hasta la entrada CH1.','#ffd166');
-
-const probeL=cableTube([[-0.30,0.32,-0.59],[-0.26,0.17,-0.25],[-0.20,0.148,0.40],[-0.02,0.26,0.48],[0.07,0.47,0.21]],0.026,MAT.wireL);
 registerPart(probeL,'Punta de prueba CH2','Cable que lleva la señal de CAN_L desde el conector de diagnóstico hasta la entrada CH2.','#4fd1c5');
 
 /* ---------- 8) RENDERIZADO DE PANTALLA ---------- */
@@ -1215,7 +1257,7 @@ el('btnEnergize').onclick=(e)=>{
   e.target.classList.toggle('on',energized);
   e.target.textContent=energized?'⏻ Desconectar sonda':'🔌 Conectar sonda al bus';
   if(energized){
-    S.moveTo([3.0,2.4,5.0],[0.05,0.95,1.3],1.3);
+    S.moveTo([2.9,2.3,4.4],[0,0.5,-0.35],1.3);
     S.setCinematicIdle(true);
     synth.beep(660,0.1,0.06);
   } else {

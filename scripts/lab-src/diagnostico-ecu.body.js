@@ -31,7 +31,7 @@
        que se inspecciona resulta estar fallando.
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.8,2.7,5.0],target:[-0.2,0.55,0.35],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.36,minD:3,maxD:15});
+const S=createStage(mount,{cam:[3.1,2.5,4.4],target:[0,0.55,0.1],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.36,minD:3,maxD:15});
 const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
@@ -41,13 +41,13 @@ const MAT={
   tapBody: std({...plas, color:0x22282f, metalness:0.3, roughness:0.5}),
   groundStud: std({...brush, color:0xc7cdd6, metalness:0.9, roughness:0.25}),
   wireBlack: std({...rub, color:0x1a1a1a, roughness:0.85, metalness:0.0}),
-  wireRed: std({...rub, color:0xe0483c, roughness:0.85, metalness:0.0}),
+  wireRed: std({...rub, color:0xb02a24, roughness:0.75, metalness:0.0}),
   meterBody: std({...plas, color:0x1c2230, metalness:0.35, roughness:0.55}),
   jackRed: std({...brush, color:0xe0483c, metalness:0.85, roughness:0.3}),
   jackBlack: std({...brush, color:0x2a2a2a, metalness:0.85, roughness:0.3}),
   busLed: std({color:0x0a1210, emissive:0x3ad9c2, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
   cargaBody: std({...plas, color:0x2a2015, metalness:0.2, roughness:0.6}),
-  cargaGlow: std({color:0x2a1a05, emissive:0xffb703, emissiveIntensity:0.05, roughness:0.4, metalness:0.1}),
+  cargaGlow: std({color:0x5a4620, emissive:0xffb703, emissiveIntensity:0.05, roughness:0.22, metalness:0.1, transparent:true, opacity:0.80}),
   llaveBody: std({...plas, color:0x22282f, metalness:0.3, roughness:0.5}),
   llaveGlow: std({color:0x1a1005, emissive:0xff8c42, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
 };
@@ -56,7 +56,7 @@ const alu=castAluminum();
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
    ya importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
-  aluminio: std({...alu, color:0x8f979f, roughness:0.55, metalness:0.60}),
+  aluminio: std({...alu, color:0x9aa4ad, roughness:0.50, metalness:0.80, normalScale:new THREE.Vector2(0.28,0.28)}),
   acero:    std({...brush, color:0x9aa2a9, roughness:0.34, metalness:0.85}),
   cromo:    std({...brush, color:0xc9d1d6, roughness:0.22, metalness:0.90}),
   chapa:    std({...brush, color:0x828a91, roughness:0.45, metalness:0.75}),
@@ -94,27 +94,34 @@ function showToast(html){
   showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);
 }
 
-/* ---------- 1) BANCO ---------- */
-const bench=roundedBox(5.6,0.28,2.8,MAT.bench,0.05);
-bench.position.set(-0.2,-0.02,0.3);
+/* ---------- 1) MESA DE TALLER ---------- */
+/* La mesa de un laboratorio de diagnóstico: chapa de acero con su canto y un
+   tapete antiestático de rombos, no una losa gris. La cara del tapete queda en
+   y = 0,12 y todo el equipo se apoya en ella. */
+const MESA_Y=0.12;
+const bench=P3.mesaTaller(MATP,{ancho:5.0,fondo:3.0});
+bench.position.set(0,MESA_Y,0.05);
 scene.add(bench);
 
 /* ---------- 2) ECU + CONECTOR DE 9 PINES ---------- */
-const ecuGroup=new THREE.Group(); ecuGroup.position.set(-2.05,0.62,0); scene.add(ecuGroup);
+const ECU_AN=1.40, ECU_AL=0.82, ECU_FO=0.62;
+const ecuGroup=new THREE.Group(); ecuGroup.position.set(-1.05,MESA_Y+ECU_AL/2,-0.45); scene.add(ecuGroup);
 /* UNA ECU ES UNA CAJA DE ALUMINIO CON ALETAS, no un ladrillo negro: se refrigera
    por conducción a través de su propia carcasa, y las aletas son lo que la
-   delata a simple vista bajo el capó. Su conector de biblioteca se oculta
-   porque este laboratorio dibuja el suyo propio, con los pines nombrados. */
-const ecuBody=P3.cajaMando(MATP,{ancho:0.85,alto:0.62,fondo:0.42,aletas:11,pines:0});
-ecuBody.userData.conector.visible=false;
+   delata a simple vista bajo el capó. Es la ECU de la biblioteca: base y tapa
+   de fundición con su junta, orejas de fijación y etiqueta. El conector del
+   frente es el sellado de muchos pines, y ES EL DE ESTA PRÁCTICA: nueve
+   cavidades, una por cada pin que se mide, cada una con su espiga de color. */
+const ecuBody=P3.ecuAutomotriz(MATP,{ancho:ECU_AN,alto:ECU_AL,fondo:ECU_FO,aletas:12,
+  rotulo:'ECM · 12 V\n0 281 0XX XXX',
+  conectores:[{x:0,y:-0.02,ancho:0.94,alto:0.70,cols:3,filas:3,paso:[0.27,0.20],fondo:0.22,cables:0}]});
 ecuGroup.add(ecuBody);
 registerPart(ecuBody,'Módulo de la ECU','La computadora del motor. Aquí llegan alimentaciones, tierras y señales de sensores para procesarse — antes de sospechar de ella, un técnico revisa primero lo que la rodea.','#8fb3ac');
 
-const connBody=roundedBox(0.52,0.42,0.16,MAT.tapBody,0.05);
-connBody.position.set(0,0,0.29);
-ecuGroup.add(connBody);
+const connBody=ecuBody.userData.conectores[0];
 registerPart(connBody,'Conector de la ECU (representativo)','Conector genérico con fines didácticos: agrupa las categorías de pines más comunes de una ECU real, pero no es un clon de ningún conector estandarizado. El conector real de diagnóstico (SAE J1962), por ejemplo, no lleva la referencia de 5 V — esa referencia vive en el conector propio de la ECU, específico de cada fabricante.','#5eead4');
 
+/* Los pines, uno por cavidad: x e y siguen la rejilla de 3×3 del conector. */
 const PINS=[
   {key:'bateria', short:'BATERÍA', label:'Alimentación de batería (constante)', x:-0.16, y:0.14, color:'#ffb703',
    desc:'Alimentación directa de la batería. Debe estar presente con la llave apagada o encendida — es la que mantiene viva la memoria/configuración de la ECU.'},
@@ -138,9 +145,11 @@ const PINS=[
 const PIN_BY_MESH=new Map();
 const pinMat=hex=>std({...brush, color:new THREE.Color(hex), metalness:0.85, roughness:0.3});
 PINS.forEach(p=>{
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.05,12), pinMat(p.color));
+  const i=Math.round(p.x/0.16)+1, j=Math.round((0.14-p.y)/0.14);
+  const c=connBody.userData.cavidad(i,j);
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.034,0.10,14), pinMat(p.color));
   m.rotation.x=Math.PI/2;
-  m.position.set(p.x,p.y,0.37);
+  m.position.set(connBody.position.x+c.x, connBody.position.y+c.y, connBody.position.z+c.z+0.05);
   ecuGroup.add(m);
   p.mesh=m;
   registerPart(m,p.label,p.desc,p.color);
@@ -148,27 +157,53 @@ PINS.forEach(p=>{
 });
 
 /* ---------- 3) PUNTO DE REFERENCIA DE TIERRA ---------- */
+/* El punto de tierra de chasis: un perno soldado a una escuadra de chapa
+   atornillada a la mesa, con su tuerca y su arandela dentada. Ahí engancha la
+   pinza de la punta negra. */
+const groundGroup=new THREE.Group(); groundGroup.position.set(-0.35,MESA_Y,0.62); scene.add(groundGroup);
+{ const esc=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.20,-0.14],[0.20,-0.14],[0.20,0.14],[-0.20,0.14]],0.03,3),
+    {huecos:[P3.circulo(-0.13,0,0.022,10),P3.circulo(0.13,0,0.022,10)],espesor:0.030,bisel:0.006}),MATP.chapa);
+  esc.rotation.x=-Math.PI/2; esc.position.y=0.015; esc.castShadow=true; groundGroup.add(esc);
+  for(const sx of [-1,1]){ const t=P3.tornilloHex(MATP,{d:0.036,largo:0.04,arandela:true}); t.position.set(sx*0.13,0.03,0); groundGroup.add(t); } }
 const groundStud=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.10,16),MAT.groundStud);
-groundStud.position.set(-1.15,0.30,0.65);
-scene.add(groundStud);
+groundStud.position.set(0,0.09,0);
+groundGroup.add(groundStud);
+{ const tu=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.04,6),MATP.acero); tu.position.set(0,0.07,0); groundGroup.add(tu); }
 registerPart(groundStud,'Punto de referencia de tierra (chasis, verificado)','Punto de tierra confiable y ya verificado. La punta negra del multímetro permanece aquí siempre — así se hace una prueba real de caída de tensión: nunca comparando un pin sospechoso contra sí mismo.','#c7cdd6');
+groundGroup.updateMatrixWorld(true);
 
 /* ---------- 4) CONSUMIDOR DE PRUEBA (CARGA, CASO 2) ---------- */
-const cargaGroup=new THREE.Group(); cargaGroup.position.set(-1.55,0.28,0.65); scene.add(cargaGroup);
-const cargaBodyMesh=roundedBox(0.22,0.16,0.16,MAT.cargaBody,0.04);
-cargaGroup.add(cargaBodyMesh);
-const cargaBulb=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),MAT.cargaGlow);
-cargaBulb.position.set(0,0.13,0);
+/* La carga de prueba es una lámpara de 12 V en su portalámparas: es el consumidor
+   que se usa en un taller para hacer circular corriente por una tierra sospechosa.
+   Sólo se enciende cuando la práctica la activa. */
+const cargaGroup=new THREE.Group(); cargaGroup.position.set(0.35,MESA_Y,0.60); scene.add(cargaGroup);
+{ const bs=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.22,-0.17],[0.22,-0.17],[0.22,0.17],[-0.22,0.17]],0.05,3),
+    {espesor:0.07,bisel:0.012}),MAT.cargaBody);
+  bs.rotation.x=-Math.PI/2; bs.position.y=0.035; bs.castShadow=true; cargaGroup.add(bs);
+  const cu=new THREE.Mesh(P3.revolucion([[0,0],[0.085,0],[0.085,0.10],[0.070,0.12],[0.070,0.17],[0,0.17]],{seg:20}),MATP.negro);
+  cu.position.y=0.07; cu.castShadow=true; cargaGroup.add(cu);
+  for(const sx of [-1,1]){ const b=P3.bornaBanana(MATP,{d:0.07,alto:0.045,color:sx<0?0xd64545:0x1a1a1a}); b.position.set(sx*0.15,0.07,0.09); cargaGroup.add(b); } }
+const cargaBodyMesh=cargaGroup.children[0];
+/* La bombilla es una pera de vidrio con su casquillo roscado de latón: el vidrio
+   es el que se enciende (con la carga activa) y el casquillo, no. */
+const cargaBulb=new THREE.Mesh(P3.revolucion([[0,0],[0.026,0],[0.034,0.035],[0.075,0.10],[0.095,0.17],[0.08,0.235],[0.04,0.272],[0,0.28]],{seg:24}),MAT.cargaGlow);
+cargaBulb.position.set(0,0.07+0.17+0.03,0);
 cargaGroup.add(cargaBulb);
+{ const ca=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,0.07,16),new THREE.MeshStandardMaterial({color:0xb08d3c,roughness:0.35,metalness:0.85})); ca.position.set(0,0.07+0.17+0.0,0); cargaGroup.add(ca);
+  for(let k=0;k<3;k++){ const ro=new THREE.Mesh(new THREE.TorusGeometry(0.037,0.004,5,16),new THREE.MeshStandardMaterial({color:0x8a6d2b,roughness:0.4,metalness:0.8})); ro.rotation.x=Math.PI/2; ro.position.set(0,0.07+0.17-0.02+k*0.022,0); cargaGroup.add(ro); } }
 registerPart(cargaBodyMesh,'Consumidor de prueba (carga)','Actívalo para hacer circular corriente real por la tierra de señal. Solo bajo carga se revela una tierra en alta resistencia; en reposo, sin corriente fluyendo, la misma tierra dañada puede parecer sana.','#ffb703');
+registerPart(cargaBulb,'Consumidor de prueba (carga)','Actívalo para hacer circular corriente real por la tierra de señal. Solo bajo carga se revela una tierra en alta resistencia; en reposo, sin corriente fluyendo, la misma tierra dañada puede parecer sana.','#ffb703');
 
 /* ---------- 5) INTERRUPTOR DE CONTACTO (LLAVE, CASO 4) ---------- */
-const llaveGroup=new THREE.Group(); llaveGroup.position.set(-2.05,0.28,0.65); scene.add(llaveGroup);
+const llaveGroup=new THREE.Group(); llaveGroup.position.set(-1.20,MESA_Y+0.215,0.62); scene.add(llaveGroup);
+llaveGroup.scale.setScalar(1.5);
 /* EL INTERRUPTOR DE CONTACTO, con su BOMBÍN y su LLAVE, y la llave GIRA. Que
    gire no es adorno: el caso 4 entero trata de que el pin de alimentación
    conmutada lee 0 V con la llave apagada y 12,6 V con ella en marcha —diseño,
    no avería—, y con un cubo y un aro no había forma de ver en qué posición
    estaba. Ahora se ve. */
+{ const pl=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([[-0.17,-0.17],[0.17,-0.17],[0.17,0.17],[-0.17,0.17]],0.02,3),{huecos:[P3.circulo(-0.135,-0.135,0.014,10),P3.circulo(0.135,-0.135,0.014,10)],espesor:0.02,bisel:0.004}),MATP.chapa);
+  pl.rotation.x=-Math.PI/2; pl.position.set(0,-0.15,0.0); pl.castShadow=true; llaveGroup.add(pl); }
 const llaveBodyMesh=roundedBox(0.20,0.24,0.13,MAT.llaveBody,0.035);
 llaveBodyMesh.position.set(0,-0.02,-0.01); llaveGroup.add(llaveBodyMesh);
 const llaveBombin=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.12,20),MAT.llaveBody);
@@ -186,8 +221,23 @@ const llaveAnilla=new THREE.Mesh(new THREE.TorusGeometry(0.021,0.005,6,16),MAT.g
 llaveAnilla.position.set(0,0.168,0.010); llavePiv.add(llaveAnilla);
 registerPart(llaveBodyMesh,'Interruptor de contacto (llave)','Con la llave apagada, el pin de alimentación conmutada debe leer 0 V — es diseño, no una falla. Solo la alimentación constante debe seguir viva en esa posición.','#ff8c42');
 
+/* ---------- 5b) BATERÍA DE 12 V ---------- */
+/* De ella sale la alimentación constante que la ECU recibe siempre: es la
+   fuente del primer pin de la lista. Sus dos cables van al banco por detrás de
+   la ECU. */
+const bateria=P3.bateriaAutomocion(MATP,{ancho:0.85,alto:0.62,fondo:0.52,vasos:6,postX:0.34,postZ:0.22});
+bateria.position.set(1.95,MESA_Y,-0.80);
+scene.add(bateria);
+registerPart(bateria,'Batería de 12 V','La fuente de la alimentación constante: ≈12.6 V en reposo y ≈14.2 V con el motor en marcha (el alternador la recarga).','#ffb703');
+{ const pos=bateria.userData.positivo.getWorldPosition(new THREE.Vector3()), neg=bateria.userData.negativo.getWorldPosition(new THREE.Vector3());
+  scene.add(P3.manguera({goma:std({color:0xb3261e,roughness:0.8,metalness:0}),negro:MATP.negro,acero:MATP.acero},
+    {puntos:[[pos.x,pos.y+0.02,pos.z],[pos.x-0.1,pos.y+0.12,pos.z-0.1],[pos.x-0.6,MESA_Y+0.04,pos.z-0.5],[ecuGroup.position.x+0.55,MESA_Y+0.05,ecuGroup.position.z-0.40]],r:0.035,abrazaderas:false}));
+  scene.add(P3.manguera({goma:std({color:0x1a1d21,roughness:0.8,metalness:0}),negro:MATP.negro,acero:MATP.acero},
+    {puntos:[[neg.x,neg.y+0.02,neg.z],[neg.x-0.1,neg.y+0.10,neg.z-0.1],[neg.x-0.5,MESA_Y+0.04,neg.z-0.55],[ecuGroup.position.x+0.35,MESA_Y+0.05,ecuGroup.position.z-0.42]],r:0.035,abrazaderas:false})); }
+
 /* ---------- 6) MULTÍMETRO ---------- */
-const meterGroup=new THREE.Group(); meterGroup.position.set(1.7,0.78,0.9); scene.add(meterGroup);
+const meterGroup=new THREE.Group(); meterGroup.position.set(1.45,MESA_Y+0.60,0.55); scene.add(meterGroup);
+meterGroup.rotation.set(-0.42,-0.30,0); meterGroup.scale.setScalar(1.18);
 /* UN MULTÍMETRO SE RECONOCE POR SU SELECTOR. Es lo que lo distingue de una caja
    con pantalla, y es donde está la equivocación que más caro se paga —medir
    corriente con el selector en volts—. Antes era un rectángulo liso con dos
@@ -222,22 +272,56 @@ registerPart(meterLed,'Indicador de actividad de bus (CAN)','Se mantiene en verd
 function cableTube(points,radius,mat){
   const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
   const m=new THREE.Mesh(new THREE.TubeGeometry(curve,40,radius,8,false),mat);
+  m.castShadow=true;
   scene.add(m);
   return m;
 }
 const _v=new THREE.Vector3();
 function worldOf(mesh){ mesh.getWorldPosition(_v); return [_v.x,_v.y,_v.z]; }
+scene.updateMatrixWorld(true);
+
+/* La punta roja es una punta de prueba de verdad: empuñadura roja, collarín y
+   aguja de acero que toca el pin; la negra, una pinza de cocodrilo que muerde
+   el perno de tierra. Las dos cuelgan del jack del multímetro con su cable. */
+const Yax=new THREE.Vector3(0,1,0);
+function puntaPrueba(colorCuerpo){
+  const g=new THREE.Group();
+  const mC=std({color:colorCuerpo,roughness:0.55,metalness:0.05});
+  const cu=new THREE.Mesh(P3.revolucion([[0,0.13],[0.032,0.13],[0.034,0.16],[0.034,0.40],[0.022,0.46],[0,0.46]],{seg:18}),mC);
+  cu.castShadow=true; g.add(cu);
+  const co=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.040,0.025,18),MATP.negro); co.position.y=0.145; g.add(co);
+  const ag=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.014,0.14,10),MATP.cromo); ag.position.y=0.065; g.add(ag);
+  return g;
+}
+function pinzaCocodrilo(){
+  const g=new THREE.Group();
+  const mC=std({color:0x1a1a1a,roughness:0.55,metalness:0.05});
+  const ma=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.06,0.20),mC); ma.position.set(0,0.07,0.05); ma.castShadow=true; g.add(ma);
+  for(const sx of [-1,1]){ const q=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.03,0.12),MATP.cromo); q.position.set(sx*0.02,0.025,-0.075); q.rotation.x=sx*0.0; g.add(q);
+    for(let k=0;k<4;k++){ const d=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.012,0.012),MATP.cromo); d.position.set(sx*0.02,0.045,-0.115+k*0.03); g.add(d); } }
+  return g;
+}
+const puntaRoja=puntaPrueba(0xc0392b); scene.add(puntaRoja);
+const pinzaNegra=pinzaCocodrilo(); scene.add(pinzaNegra);
 
 const jB=worldOf(jackBlack), gS=worldOf(groundStud);
-const probeBlack=cableTube([jB,[(jB[0]+gS[0])/2,Math.max(jB[1],gS[1])+0.22,(jB[2]+gS[2])/2],gS],0.014,MAT.wireBlack);
+{ // la pinza muerde el perno desde el lado del multímetro, mirando a −X
+  pinzaNegra.position.set(gS[0]+0.16,gS[1]-0.06,gS[2]); pinzaNegra.rotation.y=-Math.PI/2; pinzaNegra.updateMatrixWorld(true); }
+const probeBlack=cableTube([jB,[(jB[0]+gS[0])/2+0.15,MESA_Y+0.04,(jB[2]+gS[2])/2+0.25],[gS[0]+0.55,MESA_Y+0.05,gS[2]+0.02],[gS[0]+0.28,gS[1]+0.01,gS[2]]],0.016,MAT.wireBlack);
 registerPart(probeBlack,'Punta negra (COM)','Cable fijo entre el multímetro y el punto de referencia de tierra ya verificado.','#2a2a2a');
 
 let probeRed=null;
 function rebuildProbeRed(targetMesh){
   if(probeRed){ probeRed.geometry.dispose(); scene.remove(probeRed); }
   const j=worldOf(jackRed), t=worldOf(targetMesh);
-  const mid=[(j[0]+t[0])/2,Math.max(j[1],t[1])+0.28,(j[2]+t[2])/2];
-  probeRed=cableTube([j,mid,t],0.014,MAT.wireRed);
+  const tip=new THREE.Vector3(t[0],t[1]+0.0,t[2]+0.055);       // la punta toca el extremo del pin
+  const dir=new THREE.Vector3(0.30,0.80,0.52).normalize();      // la empuñadura mira hacia arriba y hacia la cámara
+  puntaRoja.position.copy(tip);
+  puntaRoja.quaternion.setFromUnitVectors(Yax,dir);
+  puntaRoja.updateMatrixWorld(true);
+  const top=tip.clone().addScaledVector(dir,0.46);
+  const mid=[(j[0]+top.x)/2,Math.max(j[1],top.y)+0.20,(j[2]+top.z)/2+0.2];
+  probeRed=cableTube([j,mid,[top.x,top.y,top.z]],0.016,MAT.wireRed);
 }
 
 /* ---------- 8) MODELO DE DATOS ---------- */
@@ -684,7 +768,7 @@ el('btnEnergize').onclick=(e)=>{
   e.target.classList.toggle('on',energized);
   e.target.textContent=energized?'⏻ Desconectar puntas':'🔌 Conectar puntas';
   if(energized){
-    S.moveTo([2.6,1.9,3.6],[-0.15,0.55,0.5],1.3);
+    S.moveTo([2.3,2.1,4.0],[-0.1,0.5,0.1],1.3);
     S.setCinematicIdle(true);
     synth.beep(660,0.1,0.06);
   } else {

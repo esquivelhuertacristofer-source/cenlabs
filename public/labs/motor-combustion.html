@@ -422,12 +422,12 @@ const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.c
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
-const rim=new THREE.SpotLight(0x4FD1C5,75,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const rim=new THREE.SpotLight(0x4FD1C5,50,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
 const fill=new THREE.DirectionalLight(0xffd9a0,0.7);fill.position.set(-4,3,7);scene.add(fill);
 // La lámpara del corte: entra de frente y baja, que es por donde se mira un
 // motor abierto. Sin ella el interior del bloque queda a oscuras y todo el
 // trabajo de seccionarlo no se ve.
-const corte=new THREE.DirectionalLight(0xdfe9ff,0.85);corte.position.set(0.6,2.4,7);scene.add(corte);
+const corte=new THREE.DirectionalLight(0xdfe9ff,0.6);corte.position.set(0.6,2.4,7);scene.add(corte);
 scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
 
 /* reflective floor */
@@ -452,7 +452,7 @@ scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
     const m=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0806,roughness:0.2,metalness:0.6}));
     m.rotation.x=-Math.PI/2;m.receiveShadow=true;scene.add(m);
   }
-  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0806,roughness:0.34,metalness:0.4,transparent:true,opacity:0.62,envMapIntensity:0.7}));
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0806,roughness:0.62,metalness:0.3,transparent:true,opacity:0.62,envMapIntensity:0.5}));
   glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
   for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x2a1f16,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
@@ -467,8 +467,8 @@ const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
   block:std({color:0x8e97a1,roughness:0.54,metalness:0.55,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.34,0.34),envMapIntensity:1.3}),
   iron:std({color:0x59626b,roughness:0.68,metalness:0.60,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.45,0.45),envMapIntensity:1.2}),
-  steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
-  chrome:std({color:0xeef2f6,roughness:0.06,metalness:1,envMapIntensity:1.7}),
+  steel:std({color:0x969fa9,roughness:0.42,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:0.8}),
+  chrome:std({color:0xc4cbd2,roughness:0.24,metalness:1,envMapIntensity:0.7}),
   cover:std({color:0xffffff,roughness:0.3,metalness:0.25,map:Tpeel.map,normalMap:Tpeel.normalMap,normalScale:new THREE.Vector2(0.5,0.5)}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
   boreGlass:std({color:0x3a4148,roughness:0.35,metalness:0.5,transparent:true,opacity:0.32,side:THREE.DoubleSide}),
@@ -498,7 +498,7 @@ function rbox(w,h,d,m,rf=0.08){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh
    empezando por dónde está el pistón en cada instante. Cambiar uno a mano y no
    los otros despega el pie de la biela del bulón.
    ============================================================ */
-const motor=new THREE.Group(); motor.position.set(0,1.0,0); scene.add(motor);
+const motor=new THREE.Group(); motor.position.set(0,0.65,0); scene.add(motor);   // el cárter apoya en la plataforma (antes flotaba 0,4 por encima)
 const bY=0.0;
 
 const CIL=4;                       // cilindros
@@ -777,7 +777,7 @@ const lightMode=/[?&]light/.test(location.search);   // captura: desactiva pasad
 const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 if(!isMobile&&useGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
-const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.4,0.5,0.9);composer.addPass(bloom);
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.4,0.5,1.15);composer.addPass(bloom);
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
@@ -857,10 +857,10 @@ $('piX').onclick=()=>$('pieceInfo').classList.remove('show');
    instalar = viaje físico real hacia su lugar, nunca aparición mágica.
    ============================================================ */
 const KIT_POS={
-  block:  new THREE.Vector3(-4.3,-0.7,-2.5),
-  crank:  new THREE.Vector3( 4.3,-0.7,-2.5),
-  pistons:new THREE.Vector3(-4.3,-0.7, 2.5),
-  head:   new THREE.Vector3( 4.3,-0.7, 2.5),
+  block:  new THREE.Vector3(-3.5,-0.15,-2.2),
+  crank:  new THREE.Vector3( 3.5,0.05,-2.2),
+  pistons:new THREE.Vector3(-3.5,-0.37, 2.2),
+  head:   new THREE.Vector3( 3.5,-2.11, 2.2),   // la culata está construida a la altura del plano de junta: aquí se apoya en su mesa en vez de flotar 1,8 por encima
 };
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel2(text,color){
@@ -891,7 +891,7 @@ PIECE_ORDER.forEach(k=>{
   grp.position.copy(KIT_POS[k]); grp.visible=true;
   trays[k]=trayPad2(KIT_POS[k],PIECE_COLOR[k]);
   const lbl=smallLabel2(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(KIT_POS[k].x,2.05,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
+  lbl.position.set(KIT_POS[k].x,2.55,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
@@ -984,7 +984,9 @@ let phase=0;
 const asm={block:false,crank:false,pistons:false,head:false,firing:false};
 function startPhase1(){
   phase=0;setPhaseTab(0);
-  controls.target.set(0,0.4,0); controls.minDistance=2.5;
+  controls.target.set(-0.3,0.3,0.2); controls.minDistance=2.5;
+  // encuadre de la mesa de piezas: las cuatro charolas entran entre los dos paneles, vistas desde arriba
+  camera.position.set(2.4,7.6,11.3);
   step_block();
 }
 function onPickGeneric(hit){
@@ -1070,7 +1072,11 @@ function finishPhase1(){
    ============================================================ */
 function startPhase2(){phase=1;setPhaseTab(1);
   blockGroup.visible=crankGroup.visible=pistonGroup.visible=headGroup.visible=true;platGlow.material.opacity=0;
-  controls.target.set(0,1.4,0);challengeEff();}
+  controls.target.set(0,1.05,0);
+  // encuadre: el motor armado llena el área entre paneles
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(5.0,2.65,6.1); camCine.toTarget.set(0,1.45,0); camCine.active=true; camCine.t=0;
+  challengeEff();}
 function challengeEff(){
   showTeach('Fase 2 · Reto 1','Calcula la eficiencia del ciclo Otto',
     `<p>La eficiencia térmica máxima de un motor de gasolina depende de su <b>relación de compresión</b> (r). La fórmula del ciclo Otto es:</p>
@@ -1106,7 +1112,7 @@ function challengeCycle(){
      <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
   running=true;showStrokes=true;cinematicSpin=true;
   camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
-  camCine.to.set(5.8,2.6,6.6); camCine.toTarget.set(0,1.2,0);
+  camCine.to.set(5.8,2.3,6.6); camCine.toTarget.set(0,0.9,0);
   camCine.active=true; camCine.t=0;
   $('thr2').oninput=e=>{trpm=ICE.idle+(+e.target.value/100)*(ICE.redline-ICE.idle);if(rpm>ICE.torque_rpm-200){const b=$('toP3');if(b)b.disabled=false;}};
 }
@@ -1340,6 +1346,8 @@ function animate(){
     const installed=tr.installed;
     trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
     lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+    // el aro se oculta de verdad: con opacidad 0 seguía escribiendo profundidad y el desenfoque lo pintaba como un aro negro en el suelo
+    trays[key].ring.visible=!installed;
   });
 
   // rpm dynamics; knock adds roughness

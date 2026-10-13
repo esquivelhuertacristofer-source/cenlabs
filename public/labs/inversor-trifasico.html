@@ -464,7 +464,7 @@ const lightMode=/[?&]light/.test(location.search);
     const flat=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.2,metalness:0.6}));
     flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);
   }
-  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x080808,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x080808,roughness:0.62,metalness:0.3,transparent:true,opacity:0.6,envMapIntensity:0.5}));
   glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
   for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x1f3038,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
@@ -477,7 +477,8 @@ platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 const Talu=castAluminum(),Tsteel=brushedMetal();
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  heatsink:std({color:0x9aa3ad,roughness:0.4,metalness:0.95,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap}),
+  // perfil de aluminio extruido y anodizado: acabado satinado y liso (el grano de fundición con poros lo hacía parecer una roca)
+  heatsink:std({color:0x949ca6,roughness:0.38,metalness:0.92,envMapIntensity:1.1}),
   igbt:std({color:0x16191d,roughness:0.5,metalness:0.3}),
   cap:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
   board:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
@@ -497,7 +498,7 @@ function rbox(w,h,d,m,rf=0.1){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(
    Orden real de un inversor automotriz: disipador -> capacitores DC ->
    módulos IGBT -> placa de control/gate driver -> busbarras de salida
    ============================================================ */
-const invRoot=new THREE.Group(); invRoot.position.set(0,1.0,0); scene.add(invRoot);
+const invRoot=new THREE.Group(); invRoot.position.set(0,0.67,0); scene.add(invRoot);   // el conjunto apoya sobre la plataforma en patas de goma (antes flotaba 0,45 por encima)
 
 // ---- DISIPADOR (heatsink base) ----
 const heatsinkGroup=new THREE.Group(); invRoot.add(heatsinkGroup);
@@ -518,6 +519,12 @@ const heatsinkGroup=new THREE.Group(); invRoot.add(heatsinkGroup);
       [0.070,0.30],[0,0.30]],{seg:20}),MAT.heatsink);
     racor.rotation.z=Math.PI/2; racor.position.set(s2*1.62,0.09,0.45);
     racor.castShadow=true; heatsinkGroup.add(racor);
+  }
+  // Patas de apoyo de goma en las cuatro esquinas: es lo que deja las aletas
+  // colgando libres por debajo y el conjunto firme sobre la mesa de ensayo.
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const pata=new THREE.Mesh(P3.revolucion([[0,0],[0.115,0],[0.115,0.02],[0.085,0.04],[0.085,0.12],[0,0.12]],{seg:18}),MAT.negro);
+    pata.position.set(sx*1.30,-0.35-0.12,sz*0.62); pata.castShadow=true; heatsinkGroup.add(pata);
   }
   // Y los taladros de fijación, con sus tornillos.
   for(const sx of [-1,1]) for(const sz of [-1,1]){
@@ -647,11 +654,13 @@ function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=
    MESA DE PIEZAS
    ============================================================ */
 const KIT_POS={
-  heatsink:new THREE.Vector3(-4.4,-0.4,-2.4),
-  cap:     new THREE.Vector3( 4.4,-0.4,-2.4),
-  igbt:    new THREE.Vector3(-4.4,-0.4, 2.4),
-  board:   new THREE.Vector3( 4.4,-0.4, 2.4),
-  bus:     new THREE.Vector3( 0,  -0.4, 3.6),
+  // Las piezas están modeladas a su altura de ensamble: cada una se apoya aquí en su
+  // charola (y de la charola = 0,12) en vez de flotar por encima de ella.
+  heatsink:new THREE.Vector3(-3.7,-0.07,-2.3),
+  cap:     new THREE.Vector3( 3.7,-0.72,-2.3),
+  igbt:    new THREE.Vector3(-3.7,-0.72, 2.3),
+  board:   new THREE.Vector3( 3.7,-1.12, 2.3),
+  bus:     new THREE.Vector3( 0,  -0.77, 3.3),
 };
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel4(text,color){
@@ -680,9 +689,12 @@ PIECE_ORDER.forEach(k=>{
   const grp=PIECE_GROUP[k];
   travel[k]={active:false,t:0,dur:1.05,from:KIT_POS[k].clone(),to:new THREE.Vector3(0,0,0),installed:false,bump:0};
   grp.position.copy(KIT_POS[k]); grp.visible=true;
-  trays[k]=trayPad4(KIT_POS[k],PIECE_COLOR[k]);
+  // la charola y la etiqueta se centran en la pieza REAL (algunas se modelaron con el origen
+  // descentrado respecto de su cuerpo: las busbarras quedaban a un lado de su charola)
+  const cb=new THREE.Box3().setFromObject(grp), cc=cb.getCenter(new THREE.Vector3());
+  trays[k]=trayPad4(new THREE.Vector3(cc.x,0,cc.z),PIECE_COLOR[k]);
   const lbl=smallLabel4(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
+  lbl.position.set(cc.x,2.0,cc.z); labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
@@ -760,7 +772,9 @@ function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
 let phase=0;
 function startPhase1(){
   phase=0;setPhaseTab(0);
-  controls.target.set(0,0.5,0); controls.minDistance=2.5;
+  controls.target.set(-0.3,0.3,0.3); controls.minDistance=2.5;
+  // encuadre de la mesa de piezas: las cinco charolas entran entre los dos paneles, vistas desde arriba
+  camera.position.set(2.4,7.6,11.3);
   step_heatsink();
 }
 function step_heatsink(){
@@ -818,7 +832,10 @@ function finishPhase1(){
    ============================================================ */
 function startPhase2(){
   phase=1;setPhaseTab(1);
-  controls.target.set(0,1.4,0); platGlow.material.opacity=0;
+  controls.target.set(0,1.1,0); platGlow.material.opacity=0;
+  // encuadre: el inversor armado llena el área entre paneles
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(4.4,2.9,5.2); camCine.toTarget.set(0.25,0.95,0); camCine.active=true; camCine.t=0;
   challengeVoltage();
 }
 function challengeVoltage(){
@@ -873,7 +890,7 @@ function challengeSwitch(){
      <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
   running=true;cinematicSpin=true;
   camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
-  camCine.to.set(5.4,3.2,6.0); camCine.toTarget.set(0.3,1.0,0);
+  camCine.to.set(5.0,2.9,5.6); camCine.toTarget.set(0.3,0.9,0);
   camCine.active=true; camCine.t=0;
 }
 
@@ -884,11 +901,16 @@ const oscCanvas=document.createElement('canvas'); oscCanvas.width=512; oscCanvas
 const oscCtx=oscCanvas.getContext('2d');
 const oscTex=new THREE.CanvasTexture(oscCanvas); oscTex.colorSpace=THREE.SRGBColorSpace;oscTex.generateMipmaps=false;oscTex.minFilter=THREE.LinearFilter;
 const oscScreen=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.3),new THREE.MeshBasicMaterial({map:oscTex}));
-oscScreen.position.set(0,1.9,-0.75); scene.add(oscScreen);
-const oscFrame=rbox(2.8,1.5,0.08,std({color:0x0a0a0a,metalness:0.5,roughness:0.4})); oscFrame.position.set(0,1.9,-0.79); scene.add(oscFrame);
+oscScreen.position.set(0,1.62,-0.75); scene.add(oscScreen);
+const oscFrame=rbox(2.8,1.5,0.08,std({color:0x0a0a0a,metalness:0.5,roughness:0.4})); oscFrame.position.set(0,1.62,-0.79); scene.add(oscFrame);
+// El osciloscopio deja de ser una lámina flotando: lleva su carcasa trasera y un pie
+// de apoyo sobre el suelo, como un instrumento de banco.
+const oscCuerpo=rbox(2.6,1.3,0.42,std({color:0x14171b,metalness:0.4,roughness:0.55}),0.06); oscCuerpo.position.set(0,1.62,-1.04); scene.add(oscCuerpo);
+const oscPie=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.75,14),std({color:0x232a31,metalness:0.7,roughness:0.4})); oscPie.position.set(0,0.6,-1.04); oscPie.castShadow=true; scene.add(oscPie);
+const oscBase=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.46,0.06,28),std({color:0x232a31,metalness:0.7,roughness:0.4})); oscBase.position.set(0,0.23,-1.04); oscBase.receiveShadow=true; scene.add(oscBase);
 // El loop de animación decide cuándo mostrar el osciloscopio (allInstalled && phase>=1);
 // arrancan ocultos para que no haya un frame suelto antes de la primera pasada.
-oscScreen.visible=false; oscFrame.visible=false;
+oscScreen.visible=false; oscFrame.visible=false; oscCuerpo.visible=oscPie.visible=oscBase.visible=false;
 // Estado inicial "sin señal": rejilla + línea base. Antes el canvas se creaba en
 // blanco y sólo se dibujaba desde la Fase 2·Reto 3 (running=true); pero oscScreen
 // ya era visible en los retos previos (allInstalled && phase>=1), así que la
@@ -1109,11 +1131,13 @@ function animate(){
     const installed=tr.installed;
     trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
     lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+    // el aro se oculta de verdad: con opacidad 0 seguía escribiendo profundidad y el desenfoque lo pintaba como un aro negro en el suelo
+    trays[key].ring.visible=!installed;
   });
 
   const allInstalled=PIECE_ORDER.every(k=>travel[k].installed);
   oscScreen.visible=allInstalled && phase>=1;
-  oscFrame.visible=oscScreen.visible;
+  oscFrame.visible=oscScreen.visible; oscCuerpo.visible=oscPie.visible=oscBase.visible=oscScreen.visible;
   if(allInstalled && running){
     drawOsc(t,fSwChoice,fault);
     // IGBT emissive pulse

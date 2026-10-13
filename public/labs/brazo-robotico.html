@@ -458,7 +458,7 @@ let mirror=null;
     const flat=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x081414,roughness:0.2,metalness:0.6}));
     flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);
   }
-  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x061010,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x061010,roughness:0.62,metalness:0.3,transparent:true,opacity:0.6,envMapIntensity:0.5}));
   glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
   for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x123030,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
@@ -471,12 +471,17 @@ platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 const Talu=castAluminum(),Tsteel=brushedMetal(),Tpaint=carPaint(0.95,0.55,0.08),Tplast=techPlastic(0.08,0.09,0.11);
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  arm:std({color:0xffffff,roughness:0.3,metalness:0.4,map:Tpaint.map,roughnessMap:Tpaint.roughnessMap,envMapIntensity:1.2}),
-  joint:std({color:0x1a1d22,roughness:0.5,metalness:0.6,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap}),
-  steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
-  base:std({color:0x22282c,roughness:0.5,metalness:0.7,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap}),
+  arm:std({color:0xd8d8d8,roughness:0.34,metalness:0.4,map:Tpaint.map,roughnessMap:Tpaint.roughnessMap,envMapIntensity:0.85}),
+  joint:std({color:0x1a1d22,roughness:0.5,metalness:0.6,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap,normalScale:new THREE.Vector2(0.3,0.3)}),
+  steel:std({color:0xaab2bb,roughness:0.34,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.0}),
+  base:std({color:0x2a3136,roughness:0.5,metalness:0.7,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.3,0.3)}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
 };
+// P3.corona() espera el DICCIONARIO de materiales de la biblioteca (usa mat.acero), no un material suelto:
+// con `MAT.steel` el tornillo se quedaba sin material, three le ponía el suyo por defecto (blanco, sin luces)
+// y los tornillos de las articulaciones y de la base salían como manchas de tiza.
+const MAT_TORN=std({color:0x7d858e,roughness:0.42,metalness:0.9,envMapIntensity:0.8});
+const MATP={acero:MAT_TORN,cromo:MAT_TORN,aluminio:MAT.base,negro:MAT.joint};
 function rbox(w,h,d,m,rf=0.15){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 function jointSphere(r,m=MAT.joint){const s=new THREE.Mesh(new THREE.SphereGeometry(r,28,28),m);s.castShadow=true;return s;}
 
@@ -502,7 +507,7 @@ function articulacion(r,ancho,mat=MAT.joint){
     const tapa=new THREE.Mesh(P3.revolucion([
       [0,-ancho*0.030],[r*0.74,-ancho*0.030],[r*0.70,ancho*0.030],[0,ancho*0.030]],{seg:28}),MAT.steel);
     tapa.rotation.x=Math.PI/2; tapa.position.z=s2*ancho*0.52; g.add(tapa);
-    g.add(P3.corona(MAT.steel,{r:r*0.56,n:8,d:r*0.10,largo:ancho*0.10,
+    g.add(P3.corona(MATP,{r:r*0.56,n:8,d:r*0.10,largo:ancho*0.10,
       y:s2*ancho*0.55,eje:'z'}));
   }
   return g;
@@ -549,7 +554,7 @@ const baseGroup=new THREE.Group(); armRoot.add(baseGroup);
   const plate=new THREE.Mesh(P3.normalizaUV(P3.revolucion([
     [0,0],[0.86,0],[0.86,0.07],[0.76,0.13],[0.74,0.22],[0,0.22]],{seg:44}),2),MAT.base);
   plate.castShadow=plate.receiveShadow=true;plate.userData.piece='base';baseGroup.add(plate);
-  baseGroup.add(P3.corona(MAT.steel,{r:0.79,n:6,d:0.075,largo:0.09,y:0.06,eje:'y'}));
+  baseGroup.add(P3.corona(MATP,{r:0.79,n:6,d:0.075,largo:0.09,y:0.06,eje:'y'}));
 
   const collar=new THREE.Mesh(P3.normalizaUV(P3.revolucion([
     [0,0.22],[0.62,0.22],[0.58,0.30],[0.44,0.34],[0.44,0.60],[0.50,0.66],
@@ -604,7 +609,7 @@ const gripFingers=[];
     [0,0],[0.135,0],[0.135,0.030],[0.100,0.046],[0.100,0.075],[0,0.075]],{seg:28}),MAT.steel);
   brida.rotation.z=-Math.PI/2; brida.position.x=0.24; brida.castShadow=true;
   brida.userData.piece='wrist'; wristGroup.add(brida);
-  const coronaBrida=P3.corona(MAT.joint,{r:0.105,n:6,d:0.028,largo:0.03,y:0.255,eje:'x'});
+  const coronaBrida=P3.corona(MATP,{r:0.105,n:6,d:0.028,largo:0.03,y:0.255,eje:'x'});
   coronaBrida.traverse(o=>{o.userData.piece='wrist';}); wristGroup.add(coronaBrida);
   // El cuerpo de la pinza: guía sobre la que corren los dos dedos.
   const guia=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
@@ -671,7 +676,7 @@ const useGtao=/[?&]gtao\b/.test(location.search); // GTAO opt-in: apagado por de
 const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 if(!isMobile&&useGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
-const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,1.15);composer.addPass(bloom);
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
@@ -699,10 +704,13 @@ function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=
    MESA DE PIEZAS — base, hombro, codo, muñeca visibles desde el inicio
    ============================================================ */
 const KIT_POS={
-  base:    new THREE.Vector3(-3.6,-0.15,-2.2),
-  shoulder:new THREE.Vector3( 3.6,-0.15,-2.2),
-  elbow:   new THREE.Vector3(-3.6,-0.15, 2.2),
-  wrist:   new THREE.Vector3( 3.6,-0.15, 2.2),
+  // Las piezas tumbadas del kit (hombro, codo, muñeca) se hundían en el suelo; aquí cada una
+  // se apoya en su charola (cara superior en y = 0,12). Los orígenes no están en el centro
+  // de la pieza (el hombro se extiende 2,4 hacia +x), de ahí las x desiguales.
+  base:    new THREE.Vector3(-3.0,-0.04,-2.0),
+  shoulder:new THREE.Vector3( 1.7, 0.23,-2.0),
+  elbow:   new THREE.Vector3(-3.6, 0.15, 2.4),
+  wrist:   new THREE.Vector3( 2.4, 0.23, 2.4),
 };
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel3(text,color){
@@ -715,7 +723,8 @@ function smallLabel3(text,color){
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
   sp.scale.set(2.0,0.42,1);sp.renderOrder=999;return sp;
 }
-function trayPad3(pos,color){
+function trayPad3(pos,color,grp){
+  if(grp){ const cc=new THREE.Box3().setFromObject(grp).getCenter(new THREE.Vector3()); pos=new THREE.Vector3(cc.x,0,cc.z); }
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.85,0.95,0.12,40),new THREE.MeshStandardMaterial({color:0x0e1c1c,roughness:0.55,metalness:0.5}));
   pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.74,0.86,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
@@ -741,9 +750,10 @@ PIECE_ORDER.forEach(k=>{
     fromPos:KIT_POS[k].clone(),fromQuat:new THREE.Quaternion(),
     toPos:INSTALLED[k].pos.clone(),toQuat:INSTALLED[k].quat.clone()};
   grp.position.copy(KIT_POS[k]); grp.quaternion.identity(); grp.visible=true;
-  trays[k]=trayPad3(KIT_POS[k],PIECE_COLOR[k]);
+  trays[k]=trayPad3(KIT_POS[k],PIECE_COLOR[k],grp);
   const lbl=smallLabel3(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
+  { const cc=new THREE.Box3().setFromObject(grp).getCenter(new THREE.Vector3()); lbl.position.set(cc.x,2.0,cc.z); }
+  labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
@@ -837,7 +847,9 @@ let faultType=null; // 'encoder' | 'gripper' | 'overload'
    ============================================================ */
 function startPhase1(){
   phase=0;setPhaseTab(0);
-  controls.target.set(0,0.5,0); controls.minDistance=2.5;
+  controls.target.set(-0.2,0.3,0.2); controls.minDistance=2.5;
+  // encuadre de la mesa de piezas: las cuatro charolas entran entre los dos paneles
+  camera.position.set(2.0,6.4,8.8);
   step_base();
 }
 function step_base(){
@@ -889,6 +901,9 @@ function finishPhase1(){
 function startPhase2(){
   phase=1;setPhaseTab(1);
   controls.target.set(0,1.2,0); platGlow.material.opacity=0;
+  // encuadre: el brazo armado (de x = -0,9 a 3,6) llena el área entre paneles
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(4.6,3.0,6.4); camCine.toTarget.set(1.35,1.0,0.3); camCine.active=true; camCine.t=0;
   challengeFK();
 }
 /* ---------- datos de los retos: se sortean al abrir el lab y al resembrar ---------- */
@@ -945,7 +960,7 @@ function challengeMove(){
      <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
   running=true;cinematicSpin=true;
   camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
-  camCine.to.set(5.6,3.6,6.2); camCine.toTarget.set(0,1.1,0);
+  camCine.to.set(4.8,3.2,6.0); camCine.toTarget.set(1.1,1.0,0.5);
   camCine.active=true; camCine.t=0;
 }
 function finishPhase2(){
@@ -959,9 +974,11 @@ const sourcePos=new THREE.Vector3(2.6,0.72,0.9);
 const destPos=new THREE.Vector3(-1.0,0.62,2.8);
 const cube=new THREE.Mesh(new RoundedBoxGeometry(0.3,0.3,0.3,3,0.05),std({color:0x4FD1C5,roughness:0.4,metalness:0.3,emissive:0x0a3330,emissiveIntensity:0.4}));
 cube.position.copy(sourcePos); cube.castShadow=true; scene.add(cube);
-const srcPad=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.1,32),MAT.base); srcPad.position.set(sourcePos.x,0.06,sourcePos.z); scene.add(srcPad);
+// La pieza a mover reposa sobre un pedestal (antes flotaba medio metro por encima de un disco en el suelo).
+const srcPad=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.30,0.46,32),MAT.base); srcPad.position.set(sourcePos.x,0.34,sourcePos.z); srcPad.castShadow=srcPad.receiveShadow=true; scene.add(srcPad);
+const dstPost=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.30,0.36,32),MAT.base); dstPost.position.set(destPos.x,0.29,destPos.z); dstPost.castShadow=dstPost.receiveShadow=true; scene.add(dstPost);
 const dstPad=new THREE.Mesh(new THREE.RingGeometry(0.24,0.32,32),new THREE.MeshBasicMaterial({color:0x4FD1C5,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
-dstPad.rotation.x=-Math.PI/2; dstPad.position.set(destPos.x,0.11,destPos.z); scene.add(dstPad);
+dstPad.rotation.x=-Math.PI/2; dstPad.position.set(destPos.x,0.475,destPos.z); scene.add(dstPad);
 
 /* ============================================================
    SECUENCIA PICK & PLACE (fotogramas clave)
@@ -1207,6 +1224,8 @@ function animate(){
     const installed=tr.installed;
     trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
     lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+    // el aro se oculta de verdad: con opacidad 0 seguía escribiendo profundidad y el desenfoque lo pintaba como un aro negro en el suelo
+    trays[key].ring.visible=!installed;
   });
 
   // pose del brazo — solo si todas las piezas están instaladas
