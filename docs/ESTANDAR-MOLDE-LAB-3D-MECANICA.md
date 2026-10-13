@@ -5,6 +5,7 @@
 > **Fecha:** 2026-07-09
 > **Alcance:** los laboratorios 3D *standalone* (`public/labs/*.html`) construidos sobre el motor premium three.js compartido (`createStage`). NO cubre la UI React del simulador (eso vive en [`ESTANDAR_VISUAL_LABS.md`](../ESTANDAR_VISUAL_LABS.md)).
 > **Relacionados:** [`PLAN-ESCALABILIDAD-200-LABS.md`](./PLAN-ESCALABILIDAD-200-LABS.md) · [`MODELO-PEDAGOGICO-SECTOR-MECANICA.md`](./MODELO-PEDAGOGICO-SECTOR-MECANICA.md) · [`PANORAMA-NECESIDADES-SECTOR.md`](./PANORAMA-NECESIDADES-SECTOR.md)
+> **Actualización 2026-10-13:** el [estándar de clase mundial](./ESTANDAR-LABS-CLASE-MUNDIAL.md) manda donde choque con este (nada de pizarrones ni cifras dentro del 3D, ≤ 120 palabras al inicio, bonito desde el segundo cero).
 
 ---
 

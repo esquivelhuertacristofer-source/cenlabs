@@ -1,5 +1,7 @@
 # Estándar Visual y de Implementación: Laboratorios CEN
 
+> **Actualización 2026-10-13:** para la escena 3D, el texto y los datos de cada lab manda el [estándar de clase mundial](docs/ESTANDAR-LABS-CLASE-MUNDIAL.md).
+
 Este documento consolida el trabajo realizado para profesionalizar y estandarizar la arquitectura visual y de usuario (UI/UX) de los Laboratorios Interactivos de Ciencias (iniciando por Química). Funciona como la **Base de Verdad (Single Source of Truth)** para cualquier futura implementación de Física, Biología y Matemáticas.
 
 ---
