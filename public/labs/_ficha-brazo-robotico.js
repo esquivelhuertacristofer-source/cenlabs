@@ -1,53 +1,56 @@
-/* Ficha técnica · Brazo robótico articulado — contenido específico del lab */
+/* Ficha técnica · Brazo robótico de 4 ejes — contenido específico del lab */
 fichaTecnica({
-  title: 'Brazo robótico articulado',
-  intro: 'Este laboratorio representa un <b>robot articulado</b> (manipulador serial): base, articulaciones con actuadores, eslabones y un efector final que se comanda para alcanzar posiciones. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
+  title: 'Brazo robótico de 4 ejes',
+  intro: 'Un <b>manipulador serial de cuatro ejes rotativos</b> de banco (RRRR), con su celda de pick &amp; place. La <b>cinemática es exacta</b> —tabla de Denavit–Hartenberg, inversa analítica, envolvente y trayectorias PTP/LIN se calculan, no se animan—; la mecánica es <b>didáctica</b>: donde el 3D simplifica, aquí se dice.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> base giratoria, hombro, codo, muñeca, eslabones y pinza (efector final), con un cubo para el pick &amp; place. Es un brazo de 4 ejes tipo escritorio (alcance 320 mm, L1 = 190 mm, L2 = 130 mm). Los encoders y el controlador no se dibujan: la falla de «encoder descalibrado» de la Fase 3 es sólo visual.',
+    presentes: '<b>Presentes en el modelo:</b> pedestal fundido con el motor del eje 1 y su piñón de 12 dientes contra la corona de 64 de la torreta (i = 64/12 ≈ 5,33); módulos de articulación en los ejes 2, 3 y 4 (servomotor con encoder, reductor en carcasa torneada y LED de estado); brazo y antebrazo fundidos con aligeramientos y horquillas; brida de herramienta ISO 9409-1 (4 × M5) y pinza paralela de dos dedos; mazo de cables con un bucle de holgura en cada articulación; mesa de ranuras en T, nido, palé, pieza de 30 mm y bandeja de ensamble de espuma. Cotas: d1 = 140 mm, L1 = 190 mm, L2 = 130 mm, herramienta 75 mm.',
     omitidos: [
-      '<b>Reductores</b> de precisión (harmonic drive / cicloidales) y los <b>frenos de eje</b>.',
-      '<b>Cableado y mangueras internas</b> que recorren cada articulación.',
-      '<b>Sensores de par/fuerza</b> y finales de carrera para el <b>homing</b>.',
-      '<b>Vallado / cortina de luz y paro de emergencia</b> del sistema de seguridad.',
-      '<b>Calibración (mastering)</b> de cada eje y la definición del TCP.'
+      'El <b>interior de los reductores</b> (onda de deformación o cicloidal): se dibuja la carcasa; no hay holgura ni rigidez torsional.',
+      'Los <b>frenos de eje</b>: al cortar la potencia, el robot no cae.',
+      'El <b>controlador y su armario</b>: el programa se lee en la consola del dock.',
+      'El <b>vallado y la cortina de luz</b>; la seta de emergencia está, pero no actúa.',
+      'El <b>peso propio</b> de los eslabones en la estática (igual que en los retos).'
     ]
   },
   s2: {
-    title: 'Fijaciones y parámetros',
-    warn: '⚠ Valores <b>representativos</b>. El par de apriete, la carga y el alcance dependen del modelo: consulta el manual del fabricante.',
+    title: 'Parámetros del modelo',
+    warn: '⚠ Robot <b>didáctico</b> (CEN R4-320): cotas, topes y velocidades coherentes entre sí, no los de un fabricante concreto.',
     rows: [
-      ['Elemento', 'Detalle', 'Valor típico'],
-      ['Base ↔ bancada', 'pernos M8–M16 (patrón)', 'decenas–cientos N·m'],
-      ['Efector ↔ brida (ISO 9409-1)', 'tornillos M5–M6', '5–10 N·m'],
-      ['Grados de libertad', 'industrial típico (el modelo: 4 ejes)', '6 DOF'],
-      ['Carga (payload)', 'incluye la herramienta', 'kg según robot'],
-      ['Repetibilidad', 'industrial típico', '±0.02–0.1 mm']
+      ['Elemento', 'Detalle', 'Valor'],
+      ['Tabla DH (θ, d, a, α)', 'convenio clásico', '(q1, 140, 0, 90°) · (q2, 0, 190, 0) · (q3, 0, 130, 0) · (q4, 0, 75, 0)'],
+      ['Topes articulares', 'ejes 1 a 4', '±135° · −25…115° · −145…45° · ±120°'],
+      ['Velocidad máxima', 'ejes 1 a 4', '225 · 150 · 180 · 240 °/s'],
+      ['Velocidad LIN', 'la del pick &amp; place', '100 mm/s'],
+      ['Transmisión del eje 1', 'corona / piñón, módulo 2', '64 / 12 dientes, a 76 mm'],
+      ['Brida de herramienta', 'ISO 9409-1', '4 × M5 sobre Ø 31,5 mm'],
+      ['Pinza', 'sujeción por rozamiento', 'μ = 0,45; 15 N por dedo (en la falla, 0,85 N)'],
+      ['Pieza', 'cubo de aluminio', '30 mm · 73 g']
     ]
   },
   s3: [
-    'Llave dinamométrica y kit de <b>calibración / mastering</b> de ejes.',
-    'Consola de programación (teach pendant) y software de control.',
-    'Nivel/alineador para el montaje de la base.',
-    'Vallado de seguridad, paro de emergencia y candado LOTO.'
+    'Llaves Allen para la tornillería DIN 912 de los módulos y de la brida.',
+    'Consola de programación y software del controlador (PTP, LIN, PINZA, ESPERA).',
+    'Comparador o seguidor láser para verificar el TCP.',
+    'Seta de emergencia y candado LOTO antes de entrar en la celda.'
   ],
   s4: {
     intro: 'El orden del laboratorio es una <b>descomposición pedagógica</b>. Una puesta en marcha real añade:',
     items: [
-      'Montaje mecánico nivelado y anclaje de la base a par.',
-      '<b>Mastering / calibración</b> de cada eje y definición del <b>TCP</b> y la carga.',
-      'Evaluación de riesgos y <b>zonas de seguridad</b> (ISO 10218 / ISO/TS 15066 en cobots).',
-      'Homing y prueba en vacío a <b>velocidad reducida</b> antes de operar.'
+      'Anclaje y nivelación del pedestal, a par.',
+      '<b>Referencia y mastering</b> de cada eje contra su sensor; aquí la búsqueda de referencia sólo lleva cada eje a su reposo, uno detrás de otro.',
+      'Definición del <b>TCP</b> y de la carga de la herramienta.',
+      'Evaluación de riesgos y zonas de seguridad (ISO 10218-2).'
     ]
   },
   s5: {
-    modela: 'la <b>cinemática directa</b> plana del brazo (y = L1·sin θ1 + L2·sin(θ1+θ2)), el par estático para sostener una carga a un alcance dado (τ = m·g·r, con la carga puntual en la punta), una secuencia de pick &amp; place por fotogramas clave y tres fallas cualitativas.',
-    noModela: 'la dinámica real (inercias, aceleraciones, peso propio de los eslabones), la curva par-velocidad del motor, los reductores y holguras, la cinemática inversa, las singularidades ni el control en tiempo real. El payload de 500 g del modelo es un dato didáctico, no el de un fabricante.'
+    modela: 'la <b>cinemática directa</b> con matrices homogéneas DH (⁰T₄ = A₁·A₂·A₃·A₄); la <b>inversa analítica</b> desacoplada (q1 = atan2(y, x), ley del coseno para el codo, codo arriba o abajo, topes articulares); la manipulabilidad |det J| = L1·L2·|sin q3|·|r<sub>w</sub>| y sus dos singularidades; la <b>envolvente exacta</b> del centro de la muñeca (seis tramos de borde, recortada por la mesa y barrida ±135°); la interpolación <b>PTP</b> sincronizada con ley de quinto grado y la <b>LIN</b> con la inversa resuelta en cada instante, estirada si un eje pasaría de su máximo e imposible si la recta sale del alcance; la estática del hombro con carga puntual (τ = m·g·r); la sujeción por rozamiento (m·|a − g| ≤ 2·μ·F) y la caída balística de la pieza; y tres fallas físicas: encoder del eje 1 corrido 9°, pinza sin fuerza y servo del hombro limitado al 80 % del par que pide la pieza.',
+    noModela: 'la <b>dinámica</b> (inercias, pares de aceleración, peso propio de los eslabones), la curva par-velocidad de los motores, las holguras y la elasticidad de los reductores, el lazo de control real (el seguimiento es perfecto salvo en la falla de sobrecarga, que cede con un primer orden de 0,22 s y tiembla a 7,3 Hz por convención visual), las colisiones entre piezas y el giro de la pinza sobre su propio eje (un brazo de 4 ejes no lo tiene: la pieza se orienta con la base). La carga nominal de 0,5 kg es un dato didáctico.'
   },
   s6: [
     '<b>ISO 10218-1/-2</b>: seguridad de robots industriales.',
-    '<b>ISO/TS 15066</b>: robots colaborativos (cobots).',
     '<b>ISO 9409-1</b>: bridas mecánicas de acople del efector.',
-    '<b>ISO 9283</b>: criterios de desempeño y repetibilidad. <b>ANSI/RIA R15.06</b>.',
-    'Manual del fabricante (ABB / KUKA / FANUC / Universal Robots).'
+    '<b>ISO 9283</b>: criterios de desempeño (exactitud, repetibilidad, trayectorias). <b>ISO 9787</b>: sistemas de coordenadas.',
+    'J. Denavit y R. S. Hartenberg (1955), «A kinematic notation for lower-pair mechanisms based on matrices», <i>J. Appl. Mech.</i> 22.',
+    'J. J. Craig, <i>Introduction to Robotics</i>; B. Siciliano et al., <i>Robotics: Modelling, Planning and Control</i>.'
   ]
 });
