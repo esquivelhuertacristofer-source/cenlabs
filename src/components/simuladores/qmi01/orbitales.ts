@@ -495,3 +495,166 @@ export function densidadRadialTotal(orbs: { def: DefOrbital; ocupacion: number; 
   for (const o of orbs) if (o.ocupacion > 0 && o.zEff > 0) s += o.ocupacion * densidadRadial(o.def.n, o.def.l, o.zEff, r);
   return s;
 }
+
+// ───────────────── energía de Slater y fotones (modo «Átomo») ─────────────────
+//
+// Energía de UN electrón de Slater: ε = −Ry·Z_eff²/n². La energía TOTAL del átomo
+// en este modelo es E = Σ ocupación·ε. Al capturar un electrón, el átomo pasa de
+// E(Z, e−1) a E(Z, e) y la diferencia sale como un fotón:
+//     E_γ = E(Z, e−1) − E(Z, e)        λ = h·c / E_γ
+// Es la energía de ionización de Slater del electrón que entra. No es 13,6·Z_eff²/n²
+// del electrón nuevo a secas: ese término ignora que el recién llegado apantalla a
+// los que ya estaban (en el He daría 39 eV frente a los 24,6 eV medidos; la
+// diferencia de energías totales da 24,2 eV). En el H las dos coinciden: 13,6 eV,
+// 91,1 nm. Frente al NIST el error va del 0,1 % (H) al 26 % (Ne).
+
+/** Energía de Rydberg (CODATA 2018), eV. */
+export const RYDBERG_EV = 13.605693;
+/** h·c, eV·nm. */
+export const HC_EV_NM = 1239.84198;
+
+/** ε de Slater de un electrón (eV); 0 si Z_eff ≤ 0 (el modelo no lo liga). */
+export function energiaOrbital(n: number, zEff: number): number {
+  return zEff > 0 ? (-RYDBERG_EV * zEff * zEff) / (n * n) : 0;
+}
+
+/** Energía total de Slater del átomo o ion (Z, e), en eV (≤ 0). */
+export function energiaSlater(Z: number, electrones: number): number {
+  if (!(Z > 0)) return 0;
+  const c = configurar(electrones);
+  let E = 0;
+  for (const o of ORBITALES) {
+    const occ = c[o.id].length;
+    if (occ > 0) E += occ * energiaOrbital(o.n, zEfectiva(Z, c, o.id));
+  }
+  return E;
+}
+
+/**
+ * Energía (eV) del fotón que sale al capturar el electrón número `electrones`
+ * (el átomo pasa de e − 1 a e electrones). ≤ 0: el modelo no libera energía (no
+ * hay fotón: electrón no ligado o anión que Slater no explica).
+ */
+export function energiaCaptura(Z: number, electrones: number): number {
+  const e = Math.round(electrones);
+  if (e < 1 || e > MAX_ELECTRONES) return 0;
+  return energiaSlater(Z, e - 1) - energiaSlater(Z, e);
+}
+
+/** λ = h·c/E (nm). */
+export function longitudOnda(energiaEv: number): number {
+  return energiaEv > 0 ? HC_EV_NM / energiaEv : Infinity;
+}
+
+export type Banda = 'UV' | 'visible' | 'IR';
+/** Límites convencionales del visible: 380–750 nm. */
+export const VISIBLE_NM: readonly [number, number] = [380, 750];
+
+export function bandaEspectral(lambdaNm: number): Banda {
+  if (lambdaNm < VISIBLE_NM[0]) return 'UV';
+  if (lambdaNm > VISIBLE_NM[1]) return 'IR';
+  return 'visible';
+}
+
+/** Colores CONVENCIONALES para lo invisible (el ojo no ve UV ni IR). */
+export const COLOR_UV = '#9b6bff';
+export const COLOR_IR = '#b3361e';
+
+/**
+ * Color (hex sRGB) de una longitud de onda. Visible: aproximación de Bruton (1996)
+ * con caída de intensidad en los bordes; UV → violeta convencional; IR → rojo
+ * oscuro convencional.
+ */
+export function colorLongitudOnda(lambdaNm: number): string {
+  const b = bandaEspectral(lambdaNm);
+  if (b === 'UV') return COLOR_UV;
+  if (b === 'IR') return COLOR_IR;
+  const w = lambdaNm;
+  let r = 0, g = 0, bl = 0;
+  if (w < 440) { r = -(w - 440) / 60; bl = 1; }
+  else if (w < 490) { g = (w - 440) / 50; bl = 1; }
+  else if (w < 510) { g = 1; bl = -(w - 510) / 20; }
+  else if (w < 580) { r = (w - 510) / 70; g = 1; }
+  else if (w < 645) { r = 1; g = -(w - 645) / 65; }
+  else { r = 1; }
+  const f = w < 420 ? 0.3 + (0.7 * (w - 380)) / 40 : w > 700 ? 0.3 + (0.7 * (750 - w)) / 50 : 1;
+  const h = (v: number) => Math.round(255 * Math.pow(Math.max(0, Math.min(1, v * f)), 0.8)).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(bl)}`;
+}
+
+export interface Foton {
+  energiaEv: number;
+  lambdaNm: number;
+  banda: Banda;
+  color: string;
+}
+
+/** Fotón de captura del electrón número `electrones` en el átomo de Z protones (null si no hay). */
+export function fotonCaptura(Z: number, electrones: number): Foton | null {
+  const E = energiaCaptura(Z, electrones);
+  if (!(E > 1e-9)) return null;
+  const l = longitudOnda(E);
+  return { energiaEv: E, lambdaNm: l, banda: bandaEspectral(l), color: colorLongitudOnda(l) };
+}
+
+// ───────────────── tamaños ESQUEMÁTICOS de las capas (modo «Átomo») ─────────────────
+//
+// El radio de cada capa es el de MÁXIMA densidad radial de un orbital de Slater,
+// r = n²/Z_eff (a₀): K → 1/Z_eff, L → 4/Z_eff. Reproduce los radios atómicos
+// calculados (Clementi 1967): H 53, He 31, Li 163 (167), C 65 (67), Ne 36 (38) pm.
+// En la capa L vale igual para 2s y 2p (los orbitales de Slater de una misma n
+// comparten la parte radial), así que un catión siempre sale menor que el neutro.
+// Como del Ne al Li hay un factor 4,5, se COMPRIME con una potencia 1/4 (y un tope
+// suave) para que todo quepa en pantalla: el orden se conserva (catión < neutro <
+// anión, Li el mayor del periodo) pero las proporciones no — se rotula «esquema».
+
+export const ESQUEMA = {
+  /** radio en escena del caso de referencia: la capa L del carbono */
+  rRef: 3.0,
+  /** su radio de Slater (n = 2, Z_eff = 3,25), a₀ */
+  rRefA0: 4 / 3.25,
+  gamma: 0.25,
+  /** a partir de aquí el radio se satura suavemente (tanh) */
+  rSuave: 3.5,
+  ancho: 0.6,
+} as const;
+
+/** Radio de máxima densidad de un orbital de Slater de número cuántico n: n²/Z_eff (a₀). */
+export function radioSlater(n: number, zEff: number): number {
+  return (n * n) / zEff;
+}
+
+/** Radio en escena para un radio rA0 (a₀). Monótono creciente. */
+export function radioEsquematico(rA0: number): number {
+  const R = ESQUEMA.rRef * Math.pow(Math.max(1e-6, rA0) / ESQUEMA.rRefA0, ESQUEMA.gamma);
+  return R <= ESQUEMA.rSuave ? R : ESQUEMA.rSuave + ESQUEMA.ancho * Math.tanh((R - ESQUEMA.rSuave) / ESQUEMA.ancho);
+}
+
+export interface CapaEsquema {
+  /** electrones en la capa */
+  ocupacion: number;
+  /** capacidad (2 u 8) */
+  capacidad: number;
+  /** radio esquemático en escena; null si Z_eff ≤ 0 (el modelo no ligaría ahí un electrón) */
+  radio: number | null;
+  /** Z_eff de la capa (la de un electrón añadido si está vacía) */
+  zEff: number;
+}
+
+/** Capas K y L del esquema para Z protones y e electrones, y el radio exterior ocupado. */
+export function capasEsquema(Z: number, electrones: number): { K: CapaEsquema; L: CapaEsquema; exterior: number | null } {
+  const c = configurar(electrones);
+  const ocK = c['1s'].length;
+  const ocL = c['2s'].length + c['2px'].length + c['2py'].length + c['2pz'].length;
+  const z1 = zEfectiva(Z, c, '1s');
+  // Slater da la misma Z_eff a 2s y 2p; con la capa vacía, la de un electrón añadido
+  const z2 = zEfectiva(Z, c, '2s');
+  const rK = z1 > 0 ? radioEsquematico(radioSlater(1, z1)) : null;
+  const rL = z2 > 0 ? radioEsquematico(radioSlater(2, z2)) : null;
+  const ligK = ocK > 0 && rK !== null, ligL = ocL > 0 && rL !== null;
+  return {
+    K: { ocupacion: ocK, capacidad: 2, radio: rK, zEff: z1 },
+    L: { ocupacion: ocL, capacidad: 8, radio: rL, zEff: z2 },
+    exterior: ligL ? rL : ligK ? rK : null,
+  };
+}

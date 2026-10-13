@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
@@ -9,10 +9,10 @@ import { Plus, Minus, Power, Activity, Target, AlertTriangle, Scissors, CircleDa
 import { audio } from '@/utils/audioEngine';
 import LabLayout, { Lectura, BotonLab } from '@/components/simulador/LabLayout';
 // Física del modelo cuántico: módulo puro (sin three) — la escena 3D va en su propio chunk.
-import { estadoAtomo, radioNuclearFm, miles, A0_PM, type IdOrbital } from './simuladores/qmi01/orbitales';
+import { estadoAtomo, radioNuclearFm, miles, A0_PM, fotonCaptura, energiaCaptura, type IdOrbital } from './simuladores/qmi01/orbitales';
 import { useRelojAtomo } from './simuladores/qmi01/reloj';
 import { DiagramaCajas, GraficaRadial } from './simuladores/qmi01/PanelOrbitales';
-import type { ModoAtomo } from './simuladores/qmi01/Atomic3DScene';
+import type { ModoAtomo, VistaNube } from './simuladores/qmi01/Atomic3DScene';
 
 const Atomic3DScene = dynamic(() => import('./simuladores/qmi01/Atomic3DScene'), {
   ssr: false,
@@ -73,18 +73,26 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ── Modelo atómico mostrado (Cuántico por defecto; Bohr como referencia histórica) ──
+  // ── Vista: «Átomo» (esquema animado, por defecto), «Orbitales» (cuántico) o Bohr (histórico) ──
   const [reducirMov] = useState(prefiereReducirMovimiento);
-  const [modo, setModo] = useState<ModoAtomo>('cuantico');
+  const [modo, setModo] = useState<ModoAtomo>('atomo');
   const [corte, setCorte] = useState(false);
-  const [contorno, setContorno] = useState(true);
+  // Orbitales: volumen en calidad alta, puntos en media (la escena informa de la calidad)
+  const [calidadGrafica, setCalidadGrafica] = useState<'alta' | 'media' | null>(null);
+  const onCalidad = useCallback((c: 'alta' | 'media') => setCalidadGrafica(c), []);
+  const [nubePedida, setNube] = useState<VistaNube | null>(null);
+  const nube: VistaNube = nubePedida ?? (calidadGrafica === 'alta' ? 'volumen' : 'puntos');
+  // el contorno del 90 % acompaña a los puntos por defecto; con el volumen estorba
+  const [contornoPedido, setContorno] = useState<boolean | null>(null);
+  const contorno = contornoPedido ?? nube === 'puntos';
   const [escalaReal, setEscalaReal] = useState(false);
   const [pausa, setPausa] = useState(reducirMov);
   const [focoPedido, setFoco] = useState<IdOrbital | null>(null);
   const reglaRef = useRef<HTMLDivElement>(null);
   const aumentoRef = useRef<HTMLSpanElement>(null);
   const marcaNucleoRef = useRef<HTMLDivElement>(null);
-  const refsDom = useMemo(() => ({ regla: reglaRef, aumento: aumentoRef, marcaNucleo: marcaNucleoRef }), []);
+  const fotonRef = useRef<HTMLDivElement>(null);
+  const refsDom = useMemo(() => ({ regla: reglaRef, aumento: aumentoRef, marcaNucleo: marcaNucleoRef, foton: fotonRef }), []);
   // Ancho real de la escena: por debajo de 640 px (1366×768) la gráfica se pliega y el
   // rótulo del modelo se acorta, para que las tarjetas no tapen la nube.
   const escenaRef = useRef<HTMLDivElement>(null);
@@ -129,6 +137,23 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
   const reloj = useRelojAtomo(estado, reducirMov);
   const electronicConf = estado.texto;
   const foco = focoPedido && estado.orbitales.some((o) => o.def.id === focoPedido && o.ligado) ? focoPedido : null;
+
+  // Último fotón (o ionización) del modo Átomo, para leerlo cuando el rótulo flotante ya se fue.
+  // Mismas funciones que la escena: E = E_Slater(Z, e−1) − E_Slater(Z, e).
+  const [ultimoEvento, setUltimoEvento] = useState<string | null>(null);
+  const previoPE = useRef<{ p: number; e: number } | null>(null);
+  useEffect(() => {
+    const prev = previoPE.current;
+    previoPE.current = { p: currentP, e: currentE };
+    if (!prev || prev.p !== currentP) return;
+    if (currentE === prev.e + 1) {
+      const f = fotonCaptura(currentP, currentE);
+      setUltimoEvento(f ? `último fotón: ${miles(Math.round(f.lambdaNm))} nm · ${f.banda} · ${f.energiaEv.toFixed(1)} eV` : 'último e⁻: sin fotón en el modelo');
+    } else if (currentE === prev.e - 1) {
+      const E = energiaCaptura(currentP, prev.e);
+      setUltimoEvento(E > 0 ? `última ionización: ${E.toFixed(1)} eV` : 'último e⁻ salió sin coste (no ligado)');
+    }
+  }, [currentP, currentE]);
 
   const [guiaMensaje, setGuiaMensaje] = useState("Arrastra partículas al núcleo");
 
@@ -194,10 +219,11 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
   const ionesDelObjetivo = ELEMENT_CATALOGUE.find((e) => e.z === tZ && e.a === tA)?.ions ?? [];
 
   const cuantico = modo === 'cuantico';
+  const vivo = modo === 'atomo';
   const radioNucFm = radioNuclearFm(masaAtomica);
   const atomoSobreNucleo = estado.radioPm !== null && radioNucFm > 0 ? (estado.radioPm * 1000) / radioNucFm : null;
   const aviso = currentP === 0 && currentE === 0
-    ? 'Añade protones y electrones para construir el átomo'
+    ? (vivo ? 'Pulsa + en protones, neutrones o electrones: cada partícula sale de su fuente' : 'Añade protones y electrones para construir el átomo')
     : cuantico && currentE === 0
       ? 'Núcleo desnudo: sin electrones no hay nube de probabilidad'
       : cuantico && currentP === 0
@@ -210,24 +236,36 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
       <Atomic3DScene
         protons={protones} neutrons={neutrones} electrons={electrones} instability={instabilityLevel}
         modo={modo} estado={estado} reloj={reloj} corte={corte} contorno={contorno}
-        escalaReal={escalaReal} pausa={pausa} foco={foco} refsDom={refsDom}
+        escalaReal={escalaReal} pausa={pausa} foco={foco} refsDom={refsDom} nube={nube} onCalidad={onCalidad}
       />
+
+      {/* Rótulo del fotón / ionización: lo coloca la escena cada cuadro (modo Átomo) */}
+      {vivo && (
+        <div ref={fotonRef} style={{ opacity: 0 }} data-foton="" aria-live="polite"
+          className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap rounded-md border border-white/30 bg-[#0a1420]/85 px-2 py-0.5 font-mono text-[11.5px] font-semibold text-white shadow-lg backdrop-blur" />
+      )}
 
       {/* Barra del modelo (arriba a la izquierda) */}
       <div className={`pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1.5 ${compacto ? 'max-w-[calc(100%-11.5rem)]' : 'max-w-[calc(100%-9.5rem)]'}`}>
         <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
           <div className="flex rounded-lg border border-white/15 bg-[#0a1420]/85 p-0.5 backdrop-blur" role="group" aria-label="Modelo atómico">
-            {([['cuantico', 'Cuántico'], ['bohr', 'Bohr · 1913']] as [ModoAtomo, string][]).map(([v, t]) => (
+            {([['atomo', 'Átomo'], ['cuantico', 'Orbitales'], ['bohr', 'Bohr · 1913']] as [ModoAtomo, string][]).map(([v, t]) => (
               <button key={v} type="button" onClick={() => { setModo(v); audio.playPop(); }} aria-pressed={modo === v}
                 className={`h-7 rounded-md px-2.5 text-[11px] font-semibold ${modo === v ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>{t}</button>
             ))}
           </div>
           {cuantico && (
             <>
+              <div className="flex rounded-lg border border-white/15 bg-[#0a1420]/85 p-0.5 backdrop-blur" role="group" aria-label="Dibujo de la nube">
+                {([['puntos', 'Puntos', 'Muestras de |ψ|²: cada punto es una posible posición del electrón'], ['volumen', 'Volumen', '|ψ|² integrada a lo largo de la visual: nebulosa de densidad']] as [VistaNube, string, string][]).map(([v, t, ti]) => (
+                  <button key={v} type="button" title={ti} onClick={() => { setNube(v); audio.playPop(); }} aria-pressed={nube === v}
+                    className={`h-6 rounded-md px-2 text-[10.5px] font-semibold ${nube === v ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'}`}>{t}</button>
+                ))}
+              </div>
               <Interruptor activo={corte} onClick={() => setCorte((v) => !v)} titulo="Corta la nube por el plano z = 0 y muestra |ψ|² en la cara de corte">
                 <Scissors size={13} /> Cortar la nube
               </Interruptor>
-              <Interruptor activo={contorno} onClick={() => setContorno((v) => !v)} titulo="Superficie de isodensidad que encierra el 90 % de la probabilidad de cada orbital">
+              <Interruptor activo={contorno} onClick={() => setContorno(!contorno)} titulo="Superficie de isodensidad que encierra el 90 % de la probabilidad de cada orbital">
                 <CircleDashed size={13} /> Contorno 90 %
               </Interruptor>
               <Interruptor activo={escalaReal} onClick={() => setEscalaReal((v) => !v)} titulo="Encoge el núcleo hasta su tamaño real, R = 1,2 fm·A^(1/3)">
@@ -240,10 +278,14 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
           </Interruptor>
         </div>
         <p className="pointer-events-auto max-w-[440px] rounded-md bg-[#0a1420]/75 px-2 py-1 text-[10.5px] leading-snug text-slate-300 backdrop-blur" data-rotulo-modelo="">
-          {cuantico ? (compacto ? (
-            <><b className="text-white">Modelo cuántico</b> · ψ<sub>nlm</sub> hidrogenoides con Z<sub>eff</sub> de Slater. Cada punto: una posible posición del e⁻.</>
+          {vivo ? (compacto ? (
+            <><b className="text-white">Átomo · esquema.</b> Tamaños y órbitas no a escala; cada fotón sale de la energía de Slater.</>
           ) : (
-            <><b className="text-white">Modelo cuántico</b> · orbitales hidrogenoides ψ<sub>nlm</sub> de un electrón con Z<sub>eff</sub> de Slater (sin correlación). Cada punto es una posible posición del electrón; |ψ|² no cambia con el tiempo.</>
+            <><b className="text-white">Átomo · esquema animado.</b> Núcleo y capas K y L con la Z<sub>eff</sub> de Slater; cada electrón capturado emite un fotón con la energía del modelo. Tamaños y órbitas no a escala.</>
+          )) : cuantico ? (compacto ? (
+            <><b className="text-white">Modelo cuántico</b> · ψ<sub>nlm</sub> hidrogenoides con Z<sub>eff</sub> de Slater. {nube === 'volumen' ? 'Brillo: densidad |ψ|².' : 'Cada punto: una posible posición del e⁻.'}</>
+          ) : (
+            <><b className="text-white">Modelo cuántico</b> · orbitales hidrogenoides ψ<sub>nlm</sub> de un electrón con Z<sub>eff</sub> de Slater (sin correlación). {nube === 'volumen' ? 'El brillo es la densidad de probabilidad |ψ|² vista a través de la nube;' : 'Cada punto es una posible posición del electrón;'} |ψ|² no cambia con el tiempo.</>
           )) : compacto ? (
             <><b className="text-white">Bohr (1913) · histórico.</b> Esquema: radios y velocidades no a escala.</>
           ) : (
@@ -257,14 +299,24 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
         </p>
         {verNotas && (
           <ul className="pointer-events-auto max-w-[460px] list-disc space-y-0.5 rounded-md bg-[#0a1420]/90 py-1.5 pl-5 pr-2 text-[10.5px] leading-snug text-slate-300 backdrop-blur" data-notas-modelo="">
-            {cuantico ? (
+            {vivo ? (
+              <>
+                <li>Es un esquema para ver el ensamblado: las capas K y L y las órbitas con estela son un recurso visual. El electrón no recorre una trayectoria; lo que dice el modelo cuántico está en «Orbitales».</li>
+                <li>Radio de cada capa: el de máxima densidad de un orbital de Slater, n²/Z<sub>eff</sub> (reproduce los radios calculados de Clementi: C 65 pm frente a 67), comprimido a la potencia ¼ para que quepa. El orden es real (catión &lt; neutro &lt; anión; el Li, el mayor del periodo); las proporciones no. El núcleo está ampliado miles de veces.</li>
+                <li>Fotón: al capturar un electrón baja la energía total de Slater, E = −13.6 eV·Σ Z<sub>eff</sub>²/n², y la diferencia sale como un fotón de λ = hc/E. En el H da 13.6 eV y 91 nm, exacto; en los demás se aparta de las energías de ionización medidas hasta un 26 % (Ne).</li>
+                <li>Esos fotones son ultravioleta (λ &lt; 380 nm, invisibles): se pintan violeta por convención; la ondulación dibujada crece con λ pero no está a escala. En la realidad el electrón suele caer en cascada y emitir varios fotones; aquí se resume en uno con toda la energía.</li>
+                <li>Aniones: Slater no reproduce la afinidad electrónica; si el modelo no libera energía no se dibuja fotón. Quitar un electrón cuesta esa misma energía (ionización).</li>
+                <li>El temblor y las chispas siguen el estado nuclear del panel. Las fuentes son decorativas: no llevan cuenta de nada.</li>
+              </>
+            ) : cuantico ? (
               <>
                 <li>Cada electrón se describe con un orbital hidrogenoide ψ<sub>nlm</sub> y una carga efectiva Z<sub>eff</sub> (reglas de Slater, 1930): sin autoconsistencia, sin correlación entre electrones ni espín-órbita.</li>
                 <li>Slater da el mismo Z<sub>eff</sub> al 2s y al 2p; el orden 2s → 2p de llenado es el del principio de Aufbau, no sale de este modelo.</li>
                 <li>Los 2p se dibujan como orbitales reales pₓ, p<sub>y</sub>, p<sub>z</sub>; el color es el signo de ψ. Los puntos son muestras exactas de |ψ|²: 2 600 por electrón (1 000 en calidad media), así que la densidad de puntos es la densidad electrónica.</li>
                 <li>Contorno: superficie que encierra el 90 % de la probabilidad del orbital. Corte: |ψ|² exacta en el plano z = 0, en escala logarítmica.</li>
-                <li>El núcleo se dibuja ampliado (el aumento se indica); su radio real es R = 1,2 fm·A<sup>1/3</sup>. Si Z<sub>eff</sub> ≤ 0 el modelo no liga el electrón.</li>
-                <li>Al cambiar Z o los electrones, la nube pasa a su nuevo tamaño en ≈0,5 s: es una transición visual, los tamaños intermedios no son estados físicos.</li>
+                <li>Volumen: |ψ|² sumada a lo largo de cada visual (raymarching), con brillo ∝ (densidad relativa a la de valencia)<sup>0.85</sup> para que se vean a la vez el 1s, mucho más denso, y la capa externa. El sombreador usa las mismas fórmulas que la física (se comprueba en las pruebas).</li>
+                <li>El núcleo se dibuja ampliado (el aumento se indica); su radio real es R = 1.2 fm·A<sup>1/3</sup>. Si Z<sub>eff</sub> ≤ 0 el modelo no liga el electrón.</li>
+                <li>Al cambiar Z o los electrones, la nube pasa a su nuevo tamaño en ≈0.5 s: es una transición visual, los tamaños intermedios no son estados físicos.</li>
               </>
             ) : (
               <>
@@ -278,7 +330,12 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
 
       {/* Escala, núcleo y leyenda (arriba a la derecha, bajo el botón del panel) */}
       <div className="pointer-events-none absolute right-2 top-12 flex flex-col items-end gap-1 rounded-lg bg-[#0a1420]/75 px-2 py-1.5 text-[10.5px] text-slate-300 backdrop-blur" data-info-escala="">
-        {cuantico ? (
+        {vivo ? (
+          <>
+            <span className="font-semibold text-white">esquema: tamaños no a escala</span>
+            {ultimoEvento && <span className="max-w-[230px] text-right font-mono text-[10px] text-[#d8c8ff]" data-ultimo-foton="">{ultimoEvento}</span>}
+          </>
+        ) : cuantico ? (
           <>
             <div className="flex items-center gap-1.5">
               <div ref={reglaRef} className="relative h-[3px] w-16 bg-white/85 before:absolute before:-top-[3px] before:left-0 before:h-[9px] before:w-px before:bg-white after:absolute after:-top-[3px] after:right-0 after:h-[9px] after:w-px after:bg-white" />
@@ -291,9 +348,10 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
           <span>núcleo y órbitas <b className="text-white">no a escala</b></span>
         )}
         <span className="flex items-center gap-2 pt-0.5">
-          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#d6382d]" /> p⁺</span>
-          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#3f6fc4]" /> n</span>
-          {!cuantico && <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#f0bd22]" /> e⁻</span>}
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#ff6a5a]" /> p⁺</span>
+          <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#a7b4c8]" /> n</span>
+          {vivo && <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#ffd88a] shadow-[0_0_6px_#ffd88a]" /> e⁻</span>}
+          {modo === 'bohr' && <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-[#f0bd22]" /> e⁻</span>}
         </span>
         {cuantico && estado.noLigados > 0 && currentP > 0 && (
           <span className="max-w-[190px] text-right text-red-300">{estado.noLigados} e⁻ sin ligar: Z<sub>eff</sub> ≤ 0, el núcleo no los retiene</span>
@@ -316,7 +374,7 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true, onVa
 
       {/* Diagrama de cajas (abajo a la izquierda) y densidad radial (abajo a la derecha) */}
       <div className="absolute bottom-2 left-2">
-        <DiagramaCajas estado={estado} foco={foco} onFoco={setFoco} cuantico={cuantico} />
+        <DiagramaCajas estado={estado} foco={foco} onFoco={setFoco} cuantico={modo !== 'bohr'} />
       </div>
       {cuantico && (!compacto || verGraficaCompacta) && (
         <div className={`pointer-events-none absolute right-2 ${compacto ? 'bottom-11' : 'bottom-2'}`} data-franja-grafica="">
