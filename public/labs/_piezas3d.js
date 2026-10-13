@@ -9246,3 +9246,64 @@ export function levaCortada(perfil, ancho, opts = {}) {
   const corte = caraPlana(lazo);
   return { cuerpo, corte };
 }
+
+/**
+ * PIEL DE FUNDICIÓN SUAVE: los tres mapas (color, rugosidad y normal) de una
+ * pieza fundida en arena vista a la distancia de un banco de pruebas.
+ *
+ * Por qué no sirve `castAluminum()` del kit para una pieza grande: su poro es
+ * un ruido de TRES píxeles elevado a la octava potencia con un relieve fuerte,
+ * y sobre caras cuyas uv van en unidades de la pieza (un bloque da diez vueltas
+ * a la textura) se lee como lija o purpurina. Aquí no hay poro suelto: el color
+ * es casi blanco —el tono lo pone el material— con manchas de muy baja
+ * frecuencia, la rugosidad cambia despacio, y el relieve es una piel de naranja
+ * de varias octavas con poca altura. Todo el ruido es PERIÓDICO en el lienzo,
+ * así que la textura repite sin costura.
+ *
+ * Devuelve { map, roughnessMap, normalMap } con mipmaps y anisotropía 8.
+ */
+export function pielFundicion(opts = {}) {
+  const { px = 512, semilla = 11, manchas = 0.07, relieve = 3.2, celda = 20 } = opts;
+  const hash = (i, j, s) => { const v = Math.sin(i * 127.1 + j * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
+  const ruido = (x, y, per, s) => {
+    const fx = x * per, fy = y * per, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+    const m = (k) => ((k % per) + per) % per;
+    const a = hash(m(i), m(j), s), b = hash(m(i + 1), m(j), s), c = hash(m(i), m(j + 1), s), d = hash(m(i + 1), m(j + 1), s);
+    const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+    return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+  };
+  const fbm = (x, y, per, oct, s) => { let t = 0, amp = 0.5, p = per, n = 0;
+    for (let o = 0; o < oct; o++) { t += amp * ruido(x, y, p, s + o * 13); n += amp; amp *= 0.5; p *= 2; } return t / n; };
+  const lienzo = () => { const c = document.createElement('canvas'); c.width = c.height = px; return c; };
+  const textura = (c, srgb) => {
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+    t.anisotropy = 8; return t;
+  };
+  const per = Math.max(2, Math.round(px / celda));          // celdas de la piel de naranja
+  const H = new Float32Array(px * px);
+  const cC = lienzo(), cR = lienzo(), cN = lienzo();
+  const iC = cC.getContext('2d').createImageData(px, px), iR = cR.getContext('2d').createImageData(px, px);
+  for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) {
+    const u = x / px, v = y / px, k = (y * px + x) * 4;
+    const lento = fbm(u, v, 3, 3, semilla);                  // manchas grandes: arena y enfriamiento
+    const tono = 236 + (lento - 0.5) * 2 * 255 * manchas;
+    iC.data[k] = tono; iC.data[k + 1] = tono; iC.data[k + 2] = tono; iC.data[k + 3] = 255;
+    const r = 200 + (fbm(u, v, 4, 3, semilla + 5) - 0.5) * 90;
+    iR.data[k] = iR.data[k + 1] = iR.data[k + 2] = r; iR.data[k + 3] = 255;
+    H[y * px + x] = fbm(u, v, per, 3, semilla + 9);
+  }
+  cC.getContext('2d').putImageData(iC, 0, 0); cR.getContext('2d').putImageData(iR, 0, 0);
+  const xN = cN.getContext('2d'), iN = xN.createImageData(px, px);
+  const h = (x, y) => H[((y + px) % px) * px + ((x + px) % px)];
+  for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) {
+    const dx = (h(x + 1, y) - h(x - 1, y)) * relieve, dy = (h(x, y + 1) - h(x, y - 1)) * relieve;
+    const l = Math.hypot(dx, dy, 1), k = (y * px + x) * 4;
+    iN.data[k] = (-dx / l * 0.5 + 0.5) * 255; iN.data[k + 1] = (-dy / l * 0.5 + 0.5) * 255;
+    iN.data[k + 2] = (1 / l * 0.5 + 0.5) * 255; iN.data[k + 3] = 255;
+  }
+  xN.putImageData(iN, 0, 0);
+  return { map: textura(cC, true), roughnessMap: textura(cR, false), normalMap: textura(cN, false) };
+}
