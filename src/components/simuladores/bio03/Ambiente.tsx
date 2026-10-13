@@ -264,6 +264,8 @@ export function ARNtLibres({ reloj, geoARNt, geoEF }: { reloj: RelojSintesis; ge
   const dq = useMemo(() => new THREE.Quaternion(), []);
   const v = useMemo(() => new THREE.Vector3(), []);
   const uno = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+  // el ARNt es claro y neutro (se tiñe por sitio en el ribosoma): los libres, del tono del sitio A
+  const cTeal = useMemo(() => new THREE.Color('#5fd0bd'), []);
   const tPrev = useRef(0);
   useFrame(() => {
     const A = a.current, B = b.current; if (!A || !B) return;
@@ -278,6 +280,7 @@ export function ARNtLibres({ reloj, geoARNt, geoEF }: { reloj: RelojSintesis; ge
         e.q.multiply(dq).normalize();
       }
       A.setMatrixAt(i, m4.compose(v.set(...e.p), e.q, uno));
+      if (!A.instanceColor) for (let k = 0; k < n; k++) A.setColorAt(k, cTeal);
       const pe = new THREE.Vector3(0.9, 6.0, 2.2).applyQuaternion(e.q).add(v.set(...e.p));
       B.setMatrixAt(i, m4.compose(pe, e.q, uno));
     });

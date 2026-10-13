@@ -13,6 +13,14 @@
  * media de los colores de las esferas pesada por su aportación (dominios / ARNr y
  * proteína del ribosoma).
  *
+ * Dos opciones de acabado (para que lea como proteína y ARN, no como plastilina):
+ *  · RELIEVE: hundimiento suave a lo largo de la normal con ruido de BAJA frecuencia
+ *    (dos octavas de ≈ 2,6 y 1,3 nm; nada de grano fino). Sólo hacia dentro: nunca
+ *    invade un canal ni lo que pasa por él. Las normales se recalculan de las caras.
+ *  · OCLUSIÓN de cavidades: por vértice, cuánta «materia» hay fuera de él a 1–3,5 nm en
+ *    siete direcciones del hemisferio de la normal (el propio campo ρ). Oscurece el
+ *    color en hendiduras y canales (≤ 60 %).
+ *
  * Las formas son APROXIMADAS a escala (1 u = 1 nm): tamaños y canales de las estructuras
  * reales (Pol II ≈ 15 × 14 nm, Cramer 2001; 80S ≈ 28 nm; ARNt en L de ≈ 7 nm), no sus
  * coordenadas atómicas.
@@ -36,6 +44,28 @@ export interface OpcionesSuperficie {
   dureza?: number;
   /** cuánto restar al campo en (x, y, z) (canales); 0 fuera */
   excavar?: (x: number, y: number, z: number) => number;
+  /** relieve de baja frecuencia: hundimiento máximo (nm) y semilla */
+  relieve?: { amplitud: number; semilla: number };
+  /** oscurecer las cavidades (oclusión ambiental por vértice) */
+  oclusion?: boolean;
+}
+
+/** Ruido de valor 3D suave (interpolación quíntica), en [0, 1]. Baja frecuencia: 1 celda = 1 u. */
+function ruido3(x: number, y: number, z: number, s: number): number {
+  const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+  const fx = x - i, fy = y - j, fz = z - k;
+  const q = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+  const u = q(fx), v = q(fy), w = q(fz);
+  const hsh = (a: number, b: number, c: number) => {
+    let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(c, 1440662683) + Math.imul(s, 1274126177)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  };
+  const l = (a: number, b: number, t: number) => a + (b - a) * t;
+  return l(
+    l(l(hsh(i, j, k), hsh(i + 1, j, k), u), l(hsh(i, j + 1, k), hsh(i + 1, j + 1, k), u), v),
+    l(l(hsh(i, j, k + 1), hsh(i + 1, j, k + 1), u), l(hsh(i, j + 1, k + 1), hsh(i + 1, j + 1, k + 1), u), v),
+    w);
 }
 
 export const hexRGB = (hex: string): RGB => {
@@ -195,6 +225,59 @@ export function superficieGaussiana(esferas: readonly Esfera[], op: OpcionesSupe
   for (let n = 0; n < nv; n++) {
     if (!normales[3 * n] && !normales[3 * n + 1] && !normales[3 * n + 2]) normales[3 * n + 1] = 1;
   }
+
+  // ── relieve: hundimiento suave (sólo hacia dentro) y normales de las caras
+  if (op.relieve && op.relieve.amplitud > 0) {
+    const { amplitud: A, semilla: S } = op.relieve;
+    for (let n = 0; n < nv; n++) {
+      const x = posiciones[3 * n], y = posiciones[3 * n + 1], z = posiciones[3 * n + 2];
+      const r = 0.68 * ruido3(x / 2.6, y / 2.6, z / 2.6, S) + 0.32 * ruido3(x / 1.3 + 17, y / 1.3, z / 1.3, S + 1);
+      const d = -A * Math.min(1, Math.max(0, (r - 0.18) / 0.64));
+      posiciones[3 * n] += d * normales[3 * n]; posiciones[3 * n + 1] += d * normales[3 * n + 1]; posiciones[3 * n + 2] += d * normales[3 * n + 2];
+    }
+    const acc = new Float64Array(nv * 3);
+    for (let t = 0; t < indices.length; t += 3) {
+      const a = indices[t], b = indices[t + 1], c = indices[t + 2];
+      const ux = posiciones[3 * b] - posiciones[3 * a], uy = posiciones[3 * b + 1] - posiciones[3 * a + 1], uz = posiciones[3 * b + 2] - posiciones[3 * a + 2];
+      const vx = posiciones[3 * c] - posiciones[3 * a], vy = posiciones[3 * c + 1] - posiciones[3 * a + 1], vz = posiciones[3 * c + 2] - posiciones[3 * a + 2];
+      const fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;   // ponderada por el área
+      for (const p of [a, b, c]) { acc[3 * p] += fx; acc[3 * p + 1] += fy; acc[3 * p + 2] += fz; }
+    }
+    for (let n = 0; n < nv; n++) {
+      const l = Math.hypot(acc[3 * n], acc[3 * n + 1], acc[3 * n + 2]);
+      if (l > 1e-9) { normales[3 * n] = acc[3 * n] / l; normales[3 * n + 1] = acc[3 * n + 1] / l; normales[3 * n + 2] = acc[3 * n + 2] / l; }
+    }
+  }
+
+  // ── oclusión de cavidades: materia (ρ) fuera del vértice, en el hemisferio de la normal
+  if (op.oclusion) {
+    const dist = [1.0, 2.0, 3.5], peso = [0.45, 0.33, 0.22];
+    const dirs: V3[] = [];
+    for (let n = 0; n < nv; n++) {
+      const nx_ = normales[3 * n], ny_ = normales[3 * n + 1], nz_ = normales[3 * n + 2];
+      // base tangente
+      const ax = Math.abs(nx_) < 0.8 ? 1 : 0, ay = ax ? 0 : 1;
+      let tx = ny_ * 0 - nz_ * ay, ty = nz_ * ax - nx_ * 0, tz = nx_ * ay - ny_ * ax;
+      const lt = Math.hypot(tx, ty, tz) || 1; tx /= lt; ty /= lt; tz /= lt;
+      const bx = ny_ * tz - nz_ * ty, by = nz_ * tx - nx_ * tz, bz = nx_ * ty - ny_ * tx;
+      dirs.length = 0;
+      dirs.push([nx_, ny_, nz_]);
+      for (let m = 0; m < 6; m++) {
+        const a = (m / 6) * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a);
+        // 50° fuera de la normal
+        dirs.push([0.643 * nx_ + 0.766 * (c * tx + s * bx), 0.643 * ny_ + 0.766 * (c * ty + s * by), 0.643 * nz_ + 0.766 * (c * tz + s * bz)]);
+      }
+      const x = posiciones[3 * n], y = posiciones[3 * n + 1], z = posiciones[3 * n + 2];
+      let occ = 0;
+      for (const d of dirs) for (let q = 0; q < 3; q++) {
+        const v = tri(f, x + d[0] * dist[q], y + d[1] * dist[q], z + d[2] * dist[q]);
+        occ += peso[q] * Math.min(1, Math.max(0, (v - 0.2) / 0.8));
+      }
+      occ /= dirs.length;
+      const k = 1 - 0.62 * Math.min(1, occ * 2.6);
+      colores[3 * n] *= k; colores[3 * n + 1] *= k; colores[3 * n + 2] *= k;
+    }
+  }
   return { posiciones, normales, colores, indices };
 }
 
@@ -293,7 +376,7 @@ const muestrear = (f: (s: number) => V3, s0: number, s1: number, n: number): V3[
 
 // ───────────────────────────── formas ─────────────────────────────
 
-export interface Forma { esferas: Esfera[]; excavar?: (x: number, y: number, z: number) => number; h: number; dureza?: number }
+export interface Forma { esferas: Esfera[]; excavar?: (x: number, y: number, z: number) => number; h: number; dureza?: number; relieve?: { amplitud: number; semilla: number }; oclusion?: boolean }
 
 /**
  * ARN polimerasa II (marco de la polimerasa: sitio activo en el origen, ADN en +x).
@@ -306,9 +389,10 @@ export function formaPolimerasa(semilla = 11): Forma {
   const E: Elipsoide[] = [
     { c: [-0.4, -2.4, -1.4], r: [6.0, 3.5, 4.6], color: '#d98f6c' },     // Rpb1 núcleo
     { c: [-1.0, 2.1, -3.0], r: [5.6, 3.5, 3.3], color: '#e2a86a' },      // Rpb2
-    { c: [-1.2, 3.1, 2.7], r: [4.3, 2.1, 2.8], color: '#d77f6c' },       // pinza
-    { c: [5.0, -2.1, 1.7], r: [2.6, 2.0, 2.4], color: '#c99766' },       // mandíbula inferior
-    { c: [4.9, 2.4, -1.9], r: [2.6, 1.8, 2.2], color: '#d3a573' },       // mandíbula superior
+    { c: [-1.3, 3.5, 2.3], r: [4.8, 2.3, 3.1], color: '#cf6a5c' },       // pinza (clamp): techo de la hendidura
+    { c: [-4.6, 4.4, 4.2], r: [2.2, 1.9, 1.9], color: '#cf6a5c' },       // pinza: núcleo, junto al tallo
+    { c: [5.4, -2.3, 1.8], r: [2.8, 2.1, 2.6], color: '#d9a55a' },       // mandíbula inferior (Rpb1/Rpb5)
+    { c: [5.3, 2.5, -1.7], r: [2.7, 1.9, 2.3], color: '#d9a55a' },       // mandíbula superior (Rpb9)
     { c: [-4.4, 5.6, 3.6], r: [1.7, 3.0, 1.7], color: '#e8bf72' },       // tallo Rpb4/7
     { c: [-3.0, -2.2, -6.1], r: [3.6, 2.8, 2.3], color: '#c98482' },     // Rpb3/10/11/12
     { c: [-6.2, -3.4, 2.1], r: [2.4, 2.4, 2.4], color: '#d0948a' },      // Rpb6/8
@@ -322,19 +406,19 @@ export function formaPolimerasa(semilla = 11): Forma {
     { puntos: salida, radios: salida.map(() => 1.05) },                                   // salida del ARN
     { puntos: [[0.3, -0.7, 0.8], [0.9, -4, 2.0], [1.4, -8.5, 3.6]], radios: [0.9, 1.5, 2.4] }, // embudo de NTP
   ];
-  return { esferas, excavar: excavarCanales(canales), h: 0.34, dureza: 1.75 };
+  return { esferas, excavar: excavarCanales(canales), h: 0.34, dureza: 1.75, relieve: { amplitud: 0.42, semilla: 3 }, oclusion: true };
 }
 
 /** Subunidad menor 40S (marco del ribosoma: ARNm en +x a y = 0). ARNr 18S (oro) con proteínas. */
 export function formaSubunidadMenor(semilla = 23): Forma {
   const rng = rngConSemilla(semilla);
   const E: Elipsoide[] = [
-    { c: [0.5, -4.4, -0.6], r: [11.0, 4.0, 7.8], color: '#f1c56c' },     // cuerpo
-    { c: [-1.0, -0.4, -6.6], r: [6.6, 3.0, 3.2], color: '#f3cd7c' },     // cabeza
-    { c: [4.6, -1.0, 5.2], r: [3.8, 2.4, 2.8], color: '#efbf62' },       // hombro
-    { c: [-7.2, -1.6, 3.4], r: [3.8, 2.4, 3.2], color: '#f1c56c' },      // plataforma
-    { c: [-4.2, 1.4, -8.6], r: [2.0, 1.6, 1.8], color: '#f3cd7c' },      // pico
-    { c: [8.4, -6.0, -2.0], r: [3.0, 2.4, 3.4], color: '#efbf62' },      // pie
+    { c: [0.5, -4.8, -0.2], r: [9.4, 4.6, 7.2], color: '#f1c56c' },     // cuerpo
+    { c: [-1.2, 0.6, -7.3], r: [6.2, 3.8, 3.3], color: '#f3cd7c' },     // cabeza (detrás del canal del ARNm)
+    { c: [-5.6, 3.2, -6.6], r: [2.3, 2.0, 1.9], color: '#f3cd7c' },     // pico de la cabeza
+    { c: [6.6, -1.6, 4.4], r: [3.4, 2.9, 3.0], color: '#efbf62' },      // hombro
+    { c: [-8.0, -1.8, 3.4], r: [3.6, 2.7, 3.3], color: '#f1c56c' },     // plataforma
+    { c: [3.2, -10.0, 1.2], r: [3.2, 2.4, 2.8], color: '#efbf62' },     // pie (espolón)
   ];
   const esferas = racimo(E, rng);
   marcarProteinas(esferas, rng, '#e7905e', 0.3);
@@ -343,19 +427,25 @@ export function formaSubunidadMenor(semilla = 23): Forma {
     { puntos: [[-3.6, 1.6, 0.6], [3.8, 1.6, 0.6]], radios: [1.55, 1.55] },              // tallos anticodón (A, P, E)
     { puntos: [[0.9, 1.6, 0.8], [6, 3.5, 9]], radios: [1.8, 3.2] },                      // entrada al sitio A
   ];
-  return { esferas, excavar: excavarCanales(canales), h: 0.42, dureza: 1.9 };
+  return { esferas, excavar: excavarCanales(canales), h: 0.42, dureza: 1.9, relieve: { amplitud: 0.5, semilla: 5 }, oclusion: true };
 }
 
 /** Subunidad mayor 60S: ARNr 28S/5,8S/5S (azul) con proteínas; cavidad de los ARNt y túnel. */
 export function formaSubunidadMayor(semilla = 37): Forma {
   const rng = rngConSemilla(semilla);
   const E: Elipsoide[] = [
-    { c: [0.4, 8.8, -1.4], r: [12.4, 7.2, 10.2], color: '#93b3f2' },     // cuerpo
-    { c: [-0.6, 15.6, -3.6], r: [3.6, 2.4, 3.0], color: '#9bbaf4' },     // protuberancia central
-    { c: [-11.4, 7.8, 2.6], r: [2.4, 4.0, 2.0], color: '#9bbaf4' },      // tallo L1 (lado E)
-    { c: [11.6, 6.6, 1.6], r: [1.9, 4.0, 1.5], color: '#8aaced' },       // tallo P (lado A)
+    { c: [0.4, 8.6, -1.4], r: [12.0, 6.9, 9.9], color: '#93b3f2' },     // cuerpo
+    { c: [-0.4, 16.2, -3.6], r: [4.2, 3.4, 3.4], color: '#9bbaf4' },     // protuberancia central (ARNr 5S)
   ];
-  const esferas = racimo(E, rng);
+  const esferas = [
+    ...racimo(E, rng),
+    // tallo L1 (lado E): brazo hacia arriba y fuera, con su nudo (proteína L1)
+    ...tubo([[-10.4, 9.2, 1.2], [-13.0, 11.6, 2.2], [-14.6, 13.6, 2.6]], 1.45, 0.6, '#9bbaf4', rng, 0.1),
+    { c: [-15.2, 14.4, 2.6] as V3, r: 2.3, color: hexRGB('#b39cf2') },
+    // tallo P (lado A): brazo fino con su nudo (proteínas P)
+    ...tubo([[10.4, 7.2, 1.0], [13.2, 8.8, 1.6], [14.8, 10.2, 1.9]], 0.95, 0.5, '#8aaced', rng, 0.08),
+    { c: [15.4, 10.8, 1.9] as V3, r: 1.6, color: hexRGB('#b39cf2') },
+  ];
   marcarProteinas(esferas, rng, '#b39cf2', 0.32);
   const tunel = muestrear(caminoTunel, -0.5, LARGO_TUNEL + 2, 12);
   const canales: Canal[] = [
@@ -366,7 +456,7 @@ export function formaSubunidadMayor(semilla = 37): Forma {
     { puntos: [[3.0, 4.0, 2.5], [9, 5, 10]], radios: [2.6, 3.4] },                        // entrada al sitio A
     { puntos: tunel, radios: tunel.map(() => 0.85) },                                     // túnel de salida
   ];
-  return { esferas, excavar: excavarCanales(canales), h: 0.44, dureza: 1.9 };
+  return { esferas, excavar: excavarCanales(canales), h: 0.44, dureza: 1.9, relieve: { amplitud: 0.5, semilla: 7 }, oclusion: true };
 }
 
 /**
@@ -409,17 +499,17 @@ export function formaARNt(semilla = 5): Forma {
   const rng = rngConSemilla(semilla);
   const { base, codo, cca } = L_ARNT;
   const esferas = [
-    ...tubo([base, [0, 2.9, 1.25], codo], 0.88, 0.4, '#7fd6c8', rng, 0.08),
-    ...tubo([codo, [0, 6.2, 0.2], [0, 6.75, -1.6]], 0.86, 0.4, '#7fd6c8', rng, 0.08),
+    ...tubo([base, [0, 2.9, 1.25], codo], 0.7, 0.34, '#e4eeec', rng, 0.05),
+    ...tubo([codo, [0, 6.2, 0.2], [0, 6.75, -1.6]], 0.68, 0.34, '#e4eeec', rng, 0.05),
     // bucles del codo, algo más anchos
-    { c: [0.35, 5.5, 3.0] as V3, r: 1.05, color: hexRGB('#8fdccf') },
-    { c: [-0.4, 4.9, 2.8] as V3, r: 0.95, color: hexRGB('#8fdccf') },
+    { c: [0.3, 5.45, 2.85] as V3, r: 0.86, color: hexRGB('#f2f7f6') },
+    { c: [-0.35, 4.95, 2.7] as V3, r: 0.78, color: hexRGB('#f2f7f6') },
     // bucle del anticodón
-    { c: [0, 0.95, 0] as V3, r: 0.85, color: hexRGB('#86d9cb') },
+    { c: [0, 0.95, 0] as V3, r: 0.74, color: hexRGB('#dfe9e7') },
     // extremo CCA monocatenario, fino
-    ...tubo([[0, 6.75, -1.6], cca], 0.5, 0.3, '#a7e6dc', rng, 0.04),
+    ...tubo([[0, 6.75, -1.6], cca], 0.42, 0.26, '#ffffff', rng, 0.03),
   ];
-  return { esferas, h: 0.22 };
+  return { esferas, h: 0.2, dureza: 2.6, oclusion: true };
 }
 
 /** Factor de liberación eRF1 (imita la forma del ARNt: dominio N al codón, GGQ al CPT). */
@@ -461,4 +551,4 @@ export function formaGlobular(semilla: number, R: number, color: string): Forma 
 }
 
 /** Malla de una forma. */
-export const mallaDe = (f: Forma): Malla => superficieGaussiana(f.esferas, { h: f.h, excavar: f.excavar, dureza: f.dureza ?? 2.2 });
+export const mallaDe = (f: Forma): Malla => superficieGaussiana(f.esferas, { h: f.h, excavar: f.excavar, dureza: f.dureza ?? 2.2, relieve: f.relieve, oclusion: f.oclusion });

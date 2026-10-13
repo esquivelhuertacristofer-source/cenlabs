@@ -345,6 +345,27 @@ describe('superficies moleculares (surface nets)', () => {
     }
     expect(dMin).toBeGreaterThan(1.2);
   });
+
+  test('relieve sólo hacia dentro (≤ amplitud) y la oclusión oscurece la hendidura entre dos lóbulos', () => {
+    const lisa = superficieGaussiana([{ c: [0, 0, 0], r: 3, color: [1, 1, 1] }], { h: 0.2 });
+    const rel = superficieGaussiana([{ c: [0, 0, 0], r: 3, color: [1, 1, 1] }], { h: 0.2, relieve: { amplitud: 0.4, semilla: 1 } });
+    const radios = (m: typeof lisa) => { const r: number[] = []; for (let i = 0; i < m.posiciones.length; i += 3) r.push(Math.hypot(m.posiciones[i], m.posiciones[i + 1], m.posiciones[i + 2])); return r; };
+    const r0 = radios(lisa), r1 = radios(rel);
+    expect(Math.max(...r1)).toBeLessThanOrEqual(Math.max(...r0) + 1e-6);
+    expect(Math.min(...r1)).toBeGreaterThan(Math.min(...r0) - 0.4 - 0.02);
+    expect(Math.max(...r0) - Math.min(...r1)).toBeGreaterThan(0.2);      // se nota
+    expect(revisarMalla(rel).ceros).toBe(0);
+    // dos lóbulos separados 7 nm: el lado de dentro (x ≈ 0) queda más oscuro que el de fuera
+    const m = superficieGaussiana([{ c: [-3.5, 0, 0], r: 2.6, color: [1, 1, 1] }, { c: [3.5, 0, 0], r: 2.6, color: [1, 1, 1] }], { h: 0.25, oclusion: true });
+    let dentro = 0, nd = 0, fuera = 0, nf = 0;
+    for (let i = 0; i < m.posiciones.length; i += 3) {
+      const x = Math.abs(m.posiciones[i]), c = m.colores[i];
+      if (x < 1.5) { dentro += c; nd++; } else if (x > 5.5) { fuera += c; nf++; }
+    }
+    expect(nd).toBeGreaterThan(0);
+    expect(dentro / nd).toBeLessThan(0.85 * (fuera / nf));
+    expect(fuera / nf).toBeGreaterThan(0.9);
+  });
 });
 
 // ═════════════════════════════ reloj ═════════════════════════════

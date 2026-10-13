@@ -76,8 +76,17 @@ export interface PropsTranscripcion {
   corte: boolean;
 }
 
-/** Plano de corte de la polimerasa (marco propio): se quita lo que está por delante de z = 0,3 nm. */
-const PLANO_POL = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.3);
+/**
+ * Ventana de corte de la polimerasa (marco propio): se quita lo que está a la vez por
+ * delante de z = 0,3, por debajo de y = 3,3 y entre x = −9,5 y 3,4 nm. Quedan enteras
+ * la pinza (techo de la hendidura) y las mandíbulas que abrazan el ADN corriente abajo.
+ */
+const VENTANA_POL = [
+  new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.3),
+  new THREE.Plane(new THREE.Vector3(0, 1, 0), -3.3),
+  new THREE.Plane(new THREE.Vector3(-1, 0, 0), -9.5),
+  new THREE.Plane(new THREE.Vector3(1, 0, 0), -3.4),
+];
 
 export default function ActoTranscripcion({ reloj, alta, geoPolimerasa, liberacion, corte }: PropsTranscripcion) {
   // ── secuencia completa (hebra molde) y piezas
@@ -102,7 +111,7 @@ export default function ActoTranscripcion({ reloj, alta, geoPolimerasa, liberaci
   const matMolecula = useMemo(() => materialCera({ rugosidad: 0.46, fuerzaBorde: 0.42, borde: '#d6e6ff' }), []);
   const matCascara = useMemo(() => materialCera({ vertexColors: true, rugosidad: 0.5, alfa: [0.09, 0.94], fuerzaBorde: 0.75, potenciaBorde: 2.4, borde: '#d9e8ff' }), []);
   const matPre = useMemo(() => materialPreProfundidad(), []);
-  const matCorte = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.38, potenciaBorde: 3.0, borde: '#e2ecff', plano: PLANO_POL }), []);
+  const matCorte = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.38, potenciaBorde: 3.0, borde: '#e2ecff', planos: VENTANA_POL, sentidoRayado: 1 }), []);
   const matPuente = useMemo(() => materialBrillo('#bff4ff', 2.6), []);
   const matMg = useMemo(() => materialBrillo('#9dffcf', 2.0), []);
   useEffect(() => () => { matMolecula.dispose(); matCascara.dispose(); matPre.dispose(); matCorte.dispose(); matPuente.dispose(); matMg.dispose(); }, [matMolecula, matCascara, matPre, matCorte, matPuente, matMg]);

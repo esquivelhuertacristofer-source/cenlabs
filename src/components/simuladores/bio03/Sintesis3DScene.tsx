@@ -123,11 +123,11 @@ function Motor({ reloj, c }: { reloj: RelojSintesis; c: Coreografia }) {
 
 interface Encuadre { centro: V3; semiAlto: number; semiAncho: number; dir: V3 }
 const encuadreDe = (esc: Escena, vista: Vista, final = false): Encuadre => {
-  if (esc === 'I') return vista === 'general' ? { ...CAJA_TRANSCRIPCION, dir: [0.62, 0.3, 1] } : { ...CAJA_BURBUJA, dir: [0.34, 0.18, 1] };
+  if (esc === 'I') return vista === 'general' ? { ...CAJA_TRANSCRIPCION, dir: [0.62, 0.3, 1] } : { ...CAJA_BURBUJA, dir: [0.32, 0.05, 1] };
   // al terminar, la cámara va a la proteína liberada
   if (final) return vista === 'general' ? { ...CAJA_PEPTIDO, dir: [0.2, 0.32, 1] } : { ...CAJA_PEPTIDO, centro: POS_PEPTIDO, semiAlto: 1.9, semiAncho: 2.6, dir: [0.2, 0.32, 1] };
   // desde delante a la izquierda: E·P·A quedan de izquierda a derecha (como en el dock) y los ARNt llegan por el lado lejano
-  return vista === 'general' ? { ...CAJA_RIBOSOMA, dir: [-0.42, 0.3, 1] } : { ...CAJA_SITIOS, dir: [-0.5, 0.2, 1] };
+  return vista === 'general' ? { ...CAJA_RIBOSOMA, dir: [-0.42, 0.3, 1] } : { ...CAJA_SITIOS, dir: [-0.14, 0.12, 1] };
 };
 
 function Camara({ escena, vista, alejar, final }: { escena: Escena; vista: Vista; alejar: React.RefObject<number>; final: boolean }) {

@@ -138,39 +138,74 @@ export function materialBokeh(colorNiebla: THREE.Color, pixeles: number): THREE.
 }
 
 /**
- * Proteína en CORTE: la misma cera, opaca, recortada por un plano (lo de delante se
- * quita) y con la cara de sección PLANA, sin sombreado (el interior que deja ver el corte),
- * de un tono claro del color del dominio. El plano está en el marco de la molécula:
- * `actualizarCorte` lo lleva cada cuadro al mundo (el conjunto gira despacio).
+ * Proteína en CORTE con VENTANA: la misma cera, opaca, a la que se le quita una región
+ * —la intersección de los semiespacios negativos de `planos` (three: clipIntersection)—
+ * para ver lo de dentro sin perder la silueta (la pinza de la Pol II, la cabeza de la
+ * 40S, la protuberancia central y los tallos de la 60S quedan enteros).
+ *  · Cara de sección (lo que se ve del interior por la ventana): tono OSCURO del color
+ *    del dominio, sin luz, con RAYADO fino a 45° anclado a la molécula (paso 0,36 nm), en
+ *    sentidos opuestos en piezas vecinas, como en un plano de taller; de lejos el rayado
+ *    se funde en el tono medio (sin moaré).
+ *  · Borde de corte: una línea clara de ≈ 0,1 nm donde la superficie toca la ventana.
+ * Los planos están en el marco de la molécula: `actualizarCorte` los lleva cada cuadro
+ * al mundo (el conjunto gira despacio).
  */
-export function materialCorte(o: OpcionesCera & { plano: THREE.Plane }): THREE.MeshPhysicalMaterial {
+export function materialCorte(o: OpcionesCera & { planos: THREE.Plane[]; sentidoRayado?: 1 | -1 }): THREE.MeshPhysicalMaterial {
   const m = materialCera({ ...o, alfa: undefined });
   m.side = THREE.DoubleSide;
-  m.clippingPlanes = [o.plano.clone()];
-  m.userData.planoLocal = o.plano.clone();
+  m.clippingPlanes = o.planos.map((q) => q.clone());
+  m.clipIntersection = o.planos.length > 1;
+  m.userData.planosLocales = o.planos.map((q) => q.clone());
+  const signo = (o.sentidoRayado ?? 1) > 0 ? '+' : '-';
   const previo = m.onBeforeCompile;
   m.onBeforeCompile = (sh, r) => {
     previo.call(m, sh, r);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
-      if (!gl_FrontFacing) {
-        #if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
-          vec3 base = vColor.rgb;
-        #else
-          vec3 base = diffuse;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vPosObj;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPosObj = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vPosObj;')
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      {
+        // distancia (nm) a la región quitada: la mayor de las distancias con signo a los planos
+        float sCorte = 1e5;
+        #if NUM_CLIPPING_PLANES > 0
+          sCorte = -1e5;
+          for (int i = 0; i < NUM_CLIPPING_PLANES; i++) {
+            vec4 pl = clippingPlanes[i];
+            sCorte = max(sCorte, pl.w - dot(vClipPosition, pl.xyz));
+          }
         #endif
-        float luma = dot(base, vec3(0.2126, 0.7152, 0.0722));
-        vec3 tapa = mix(base, vec3(luma), 0.3) * 0.58;
-        gl_FragColor = vec4(tapa, 1.0);
-        #include <colorspace_fragment>
+        float bordeCorte = 1.0 - smoothstep(0.05, 0.16, sCorte);
+        if (!gl_FrontFacing) {
+          #if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
+            vec3 base = vColor.rgb;
+          #else
+            vec3 base = diffuse;
+          #endif
+          float luma = dot(base, vec3(0.2126, 0.7152, 0.0722));
+          vec3 tapa = mix(base, vec3(luma), 0.35) * 0.36;
+          // rayado a 45°, paso 0,36 nm, anclado a la molécula; se funde si se aprieta
+          float u = (vPosObj.x ${signo} vPosObj.y) / 0.36;
+          float fw = fwidth(u);
+          float t = min(fract(u), 1.0 - fract(u));
+          float linea = (1.0 - smoothstep(0.11 - fw, 0.11 + fw, t)) * (1.0 - smoothstep(0.16, 0.34, fw));
+          tapa = mix(tapa, tapa * 0.45, linea);
+          tapa = mix(tapa, vec3(0.86, 0.84, 0.8), 0.8 * bordeCorte);
+          gl_FragColor = vec4(tapa, 1.0);
+          #include <colorspace_fragment>
+        } else {
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0, 0.97, 0.9), 0.75 * bordeCorte);
+        }
       }`);
   };
-  m.customProgramCacheKey = () => 'bio03corte';
+  m.customProgramCacheKey = () => `bio03corte${signo}`;
   return m;
 }
 
-/** Lleva el plano de corte (en el marco de la molécula) al mundo. */
+/** Lleva los planos de la ventana (en el marco de la molécula) al mundo. */
 export function actualizarCorte(m: THREE.Material, mundo: THREE.Matrix4) {
-  const local = m.userData.planoLocal as THREE.Plane | undefined;
-  if (!local || !m.clippingPlanes?.length) return;
-  m.clippingPlanes[0].copy(local).applyMatrix4(mundo);
+  const locales = m.userData.planosLocales as THREE.Plane[] | undefined;
+  if (!locales || !m.clippingPlanes) return;
+  for (let i = 0; i < locales.length && i < m.clippingPlanes.length; i++) m.clippingPlanes[i].copy(locales[i]).applyMatrix4(mundo);
 }

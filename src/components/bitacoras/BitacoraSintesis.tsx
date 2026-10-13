@@ -59,20 +59,20 @@ export default function BitacoraSintesis({ onValidate }: { onValidate?: () => vo
       </div>
 
       {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-6 overflow-hidden relative shadow-sm">
          <div className="flex items-center gap-2 mb-4">
-            <Microscope size={14} className="text-purple-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
+            <Microscope size={14} className="text-purple-600" />
+            <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
          </div>
 
          <div className="space-y-4">
             {/* Hallazgo: Secuenciación */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${arnMensajero.length > 0 ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${arnMensajero.length > 0 ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${arnMensajero.length > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${arnMensajero.length > 0 ? 'text-purple-700' : 'text-slate-500'}`}>
                      Secuenciación mRNA
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-800">
                      {arnMensajero.length > 0 ? `✓ ${arnMensajero.length} nucleótidos ensamblados` : '... Esperando Polimerización'}
                   </span>
                </div>
@@ -80,12 +80,12 @@ export default function BitacoraSintesis({ onValidate }: { onValidate?: () => vo
             </div>
 
             {/* Hallazgo: Errores */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${errores === 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${errores === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${errores === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${errores === 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                      Fidelidad Genética
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-800">
                      {errores === 0 ? '✓ Sin errores de apareamiento' : `⚠ ${errores} ${errores === 1 ? 'apareamiento rechazado' : 'apareamientos rechazados'}`}
                   </span>
                </div>

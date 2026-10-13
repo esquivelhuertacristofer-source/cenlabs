@@ -43,7 +43,7 @@ const cruz = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0
 
 const MAX_ARNT = 6;
 /** Tinte (multiplica el color del ARNt) según el sitio. */
-const TINTE = { E: '#8e99a8', P: '#c9e2ff', A: '#ffffff', rojo: '#ff5c5c' };
+const TINTE = { E: '#a8998a', P: '#7fa9f5', A: '#5fd0bd', rojo: '#ff5c5c' };
 const MAX_RES = 32;
 const Y_ANCLA = 0.62;
 /** De dónde llegan los ARNt (y su factor) y adónde se van: arriba a la derecha (lado del sitio A) y arriba a la izquierda (E). */
@@ -94,15 +94,30 @@ export interface PropsTraduccion {
   corte: boolean;
 }
 
-/** Corte de la 40S (marco propio): se quita lo que está por delante de z = 0,9 nm (deja ver el canal del ARNm). */
-const PLANO_RIBO = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.9);
+/**
+ * Ventana de la 40S (marco propio): se quita lo que está a la vez por delante de z = 0,9,
+ * por encima de y = −4,2 y entre x = ±6,8 nm: se ven el canal del ARNm y el centro de
+ * descodificación; la plataforma, el hombro, el pie y la cabeza con su pico quedan enteros.
+ */
+const VENTANA_40S = [
+  new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.9),
+  new THREE.Plane(new THREE.Vector3(0, -1, 0), -4.2),
+  new THREE.Plane(new THREE.Vector3(-1, 0, 0), -6.8),
+  new THREE.Plane(new THREE.Vector3(1, 0, 0), -6.8),
+];
 /**
  * Corte de la 60S: un plano que CONTIENE el eje del túnel de salida (pasa 0,2 nm por
  * detrás del centro peptidiltransferasa y se inclina hacia atrás al subir, como el
  * túnel): deja a la vista los ARNt, el CPT y la cadena dentro del túnel.
  */
 const N_60S = new THREE.Vector3(0, -0.32, -0.9).normalize();
-const PLANO_60S = new THREE.Plane(N_60S, -N_60S.dot(new THREE.Vector3(CPT[0], CPT[1], CPT[2])) - 0.2);
+/** …limitado en x (±8,5) y por debajo de y = 13,2: la protuberancia central y los tallos L1 y P quedan enteros. */
+const VENTANA_60S = [
+  new THREE.Plane(N_60S, -N_60S.dot(new THREE.Vector3(CPT[0], CPT[1], CPT[2])) - 0.2),
+  new THREE.Plane(new THREE.Vector3(0, 1, 0), -13.2),
+  new THREE.Plane(new THREE.Vector3(-1, 0, 0), -8.5),
+  new THREE.Plane(new THREE.Vector3(1, 0, 0), -8.5),
+];
 
 export default function ActoTraduccion({ reloj, alta, geo, llegada, corte }: PropsTraduccion) {
   const arnGen = reloj.hecho.arn;
@@ -130,8 +145,8 @@ export default function ActoTraduccion({ reloj, alta, geo, llegada, corte }: Pro
   const matResiduo = useMemo(() => materialCera({ rugosidad: 0.35, fuerzaBorde: 0.6, borde: '#ffffff', clearcoat: 0.5 }), []);
   const matCascara = useMemo(() => materialCera({ vertexColors: true, rugosidad: 0.55, alfa: [0.13, 0.9], fuerzaBorde: 0.5, potenciaBorde: 2.3, borde: '#d6e6ff' }), []);
   const matPre = useMemo(() => materialPreProfundidad(), []);
-  const matCorteMenor = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.36, potenciaBorde: 3.0, borde: '#fff3dc', plano: PLANO_RIBO }), []);
-  const matCorteMayor = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.36, potenciaBorde: 3.0, borde: '#e2ecff', plano: PLANO_60S }), []);
+  const matCorteMenor = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.36, potenciaBorde: 3.0, borde: '#fff3dc', planos: VENTANA_40S, sentidoRayado: 1 }), []);
+  const matCorteMayor = useMemo(() => materialCorte({ vertexColors: true, rugosidad: 0.52, fuerzaBorde: 0.36, potenciaBorde: 3.0, borde: '#e2ecff', planos: VENTANA_60S, sentidoRayado: -1 }), []);
   const matPuente = useMemo(() => materialBrillo('#bff4ff', 2.6), []);
   useEffect(() => () => { [matMol, matARNt, matFactor, matResiduo, matCascara, matPre, matCorteMenor, matCorteMayor, matPuente].forEach((m) => m.dispose()); }, [matMol, matARNt, matFactor, matResiduo, matCascara, matPre, matCorteMenor, matCorteMayor, matPuente]);
   const matDestello = useMemo(() => new THREE.SpriteMaterial({ map: texturaHalo(), color: '#fff1c2', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), []);
@@ -424,7 +439,7 @@ export default function ActoTraduccion({ reloj, alta, geo, llegada, corte }: Pro
   );
 }
 
-export const CAJA_RIBOSOMA = { centro: [0, 3.4, 0] as V3, semiAlto: 12.6, semiAncho: 14.5 };
+export const CAJA_RIBOSOMA = { centro: [0, 4.4, 0] as V3, semiAlto: 14.2, semiAncho: 17 };
 export const CAJA_SITIOS = { centro: [0.2, 3.9, 0.4] as V3, semiAlto: 8.4, semiAncho: 10 };
 /** La proteína recién liberada con el ARNm debajo. */
 export const CAJA_PEPTIDO = { centro: [0, 2.5, 2.8] as V3, semiAlto: 3.5, semiAncho: 4.6 };
