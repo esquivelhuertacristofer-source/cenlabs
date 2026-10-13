@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Compara la eficiencia real de un ciclo Otto contra el techo ideal η = 1 − r^(1−γ) y localiza dónde se pierde cada punto porcentual.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/ciclo-otto-relacion-compresion.html",
 };
 

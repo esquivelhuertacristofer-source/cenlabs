@@ -3,7 +3,6 @@
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('biologia') 1`] = `
 [
   {
-    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "biologia-1",
@@ -67,6 +66,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Sistema Nervioso (Arco Reflejo)",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "biologia-8",
@@ -99,7 +99,6 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('fisica') 1`] = `
 [
   {
-    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "fisica-1",
@@ -172,6 +171,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Ley de Ohm (Circuitos DC)",
   },
   {
+    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "fisica-9",
@@ -195,7 +195,6 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('matematicas') 1`] = `
 [
   {
-    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "matematicas-1",
@@ -250,6 +249,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Transformaciones Geométricas",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "matematicas-7",
@@ -291,7 +291,6 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('mecanica') 1`] = `
 [
   {
-    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "mecanica-1",
@@ -1392,6 +1391,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Posiciona un Actuador Hidráulico en Lazo Cerrado",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "mecanica-111",
@@ -1557,6 +1557,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('quimica') 1`] = `
 [
   {
+    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "quimica-1",
@@ -1611,7 +1612,6 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Solubilidad y Cristalización",
   },
   {
-    "destacada": true,
     "duracion": "50 min",
     "estado": "activo",
     "id": "quimica-7",

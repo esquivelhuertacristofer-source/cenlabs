@@ -6,7 +6,6 @@ const catalogo: CatalogoEntry = {
   duracion: "50 min",
   teoria: "Determina concentraciones desconocidas calculando la curva de pH y dominando el control de la bureta gota a gota.",
   estado: "activo",
-  destacada: true,
 };
 
 export default catalogo;

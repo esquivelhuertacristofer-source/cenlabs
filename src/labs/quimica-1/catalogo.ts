@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "30 min",
   teoria: "Comprende la relación de partículas subatómicas, calculando la masa y carga neta para lograr la estabilidad isotópica.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

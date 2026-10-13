@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "30 min",
   teoria: "Experimenta la atracción y repulsión entre cargas puntuales basándote en la magnitud y distancia de separación.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

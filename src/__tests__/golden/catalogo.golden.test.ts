@@ -44,13 +44,15 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     }
   });
 
-  it('la práctica destacada de cada categoría es la original', () => {
+  // Desde 2026-10-13 la destacada de cada categoría es uno de los labs de
+  // «clase mundial» (antes: quimica-7, fisica-1, matematicas-1, biologia-1, mecanica-1).
+  it('la práctica destacada de cada categoría es la de clase mundial', () => {
     const esperado: Record<Categoria, string> = {
-      quimica: 'quimica-7',
-      fisica: 'fisica-1',
-      matematicas: 'matematicas-1',
-      biologia: 'biologia-1',
-      mecanica: 'mecanica-1', // == destacada del practicasMecanica original
+      quimica: 'quimica-1',
+      fisica: 'fisica-9',
+      matematicas: 'matematicas-7',
+      biologia: 'biologia-8',
+      mecanica: 'mecanica-111',
     };
     for (const cat of CATEGORIAS) {
       const destacada = catalogoDeCategoria(cat).find((i) => i.destacada);

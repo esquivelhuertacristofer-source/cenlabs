@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Ajusta el ángulo de un láser al cambiar de medio (aire a vidrio) y calcula el índice de refracción usando funciones trigonométricas.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;
