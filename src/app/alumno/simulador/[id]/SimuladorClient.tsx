@@ -251,13 +251,11 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
   );
 
   const getDynamicSteps = (z: number, a: number, charge: number = 0) => {
-    const n = a - z;
-    const expectedE = z - charge;
     const ionLabel = charge === 0 ? 'átomo neutro' : `ión (${charge > 0 ? '+' : ''}${charge})`;
     return [
       { id: 1, text: `Configura Z=${z} protones. El número atómico define al ${list[z] ?? 'elemento'} en la tabla periódica.` },
-      { id: 2, text: `Añade N=${n} neutrones → A=${a} u.m.a. Verifica N/Z ≈ 1.0 en el Diagrama de Segré.` },
-      { id: 3, text: `Distribuye ${expectedE} e⁻ en capas K/L (1s², 2s², 2p…) para ${ionLabel}. Recuerda: carga = Z − e⁻.` },
+      { id: 2, text: `Añade neutrones hasta que el número de masa sea A=${a}. Recuerda: A = Z + N.` },
+      { id: 3, text: `Añade los e⁻ que necesita el ${ionLabel} (1s, 2s, 2p…). Recuerda: carga = Z − e⁻.` },
       { id: 4, text: 'Valida la integridad nuclear. El isótopo debe estar dentro de la banda de estabilidad.' }
     ];
   };

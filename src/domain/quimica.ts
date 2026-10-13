@@ -52,7 +52,7 @@ export function validarQ1(p: ParticulasState): ValidarQ1Result {
   if (!isCorrectElement)
     message = `Elemento incorrecto: tienes Z=${p.protones} (${ELEMENT_NAMES[p.protones] ?? 'desconocido'}), necesitas Z=${p.targetZ} (${targetName}).`;
   else if (!isCorrectIsotope)
-    message = `Masa atómica incorrecta: A=${p.protones + p.neutrones}, necesitas A=${p.targetA}. Verifica neutrones (N=${p.targetA - p.targetZ}).`;
+    message = `Masa atómica incorrecta: A=${p.protones + p.neutrones}, necesitas A=${p.targetA}. Recuerda que A = Z + N: calcula cuántos neutrones faltan o sobran.`;
   else
     message = p.targetCharge === 0
       ? `Carga neta ≠ 0: tienes ${p.electrones} e⁻, necesitas ${expectedElectrons} para átomo neutro.`
