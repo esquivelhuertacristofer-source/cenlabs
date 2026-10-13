@@ -53,8 +53,11 @@ for (const m of K.MODES) {
   await pag.evaluate(mm => window.__labDebug.setMode(mm), m);
   await pag.waitForTimeout(200);
   const modo = await pag.evaluate(() => window.__labDebug.mode);
-  const ancho = await pag.evaluate(() => window.__labDebug.anchoTableroPx);
-  console.log(`  ${m.padEnd(12)} modo=${modo.padEnd(12)} pizarrón=${ancho.toFixed(0)} px  errores=${errores.length}`,
+  // El pizarrón 3D se sustituyó por un dock del DOM (clase mundial V2): se
+  // mide el dock y el ancho de sus lienzos en píxeles de pantalla.
+  const d = await pag.evaluate(() => window.__labDebug.dock);
+  const lz = d.lienzos.filter(l => l.ve).map(l => l.w).join('/');
+  console.log(`  ${m.padEnd(12)} modo=${modo.padEnd(12)} dock=${d.visible ? d.ancho : 0} px lienzos=${lz}  errores=${errores.length}`,
     errores.length ? errores[0].slice(0, 160) : '');
 }
 

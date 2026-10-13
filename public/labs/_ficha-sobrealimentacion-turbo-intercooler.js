@@ -5,7 +5,7 @@ fichaTecnica({
 
   s1: {
     presentes:
-      "<b>Presentes en la maqueta 3D:</b> el camino del aire completo y en su orden real, montado pieza a pieza por el alumno: <b>filtro de aire</b> con su elemento plisado a la vista, <b>compresor</b> con su caracola y su rueda de diez álabes —que gira a las vueltas que el modelo calcula—, <b>intercooler</b> de núcleo tubular con sus dos colectores laterales, cuyo núcleo <b>cambia de color con la temperatura real del aire</b> que lo atraviesa, <b>mariposa</b> con su plato girando con la carga, el <b>colector de admisión</b> con un corredor por cilindro, el <b>colector de escape</b> en fundición llevando los gases a la <b>turbina</b> —montada en el MISMO eje que el compresor y girando a las mismas vueltas, que es la mitad de lo que hay que entender—, la <b>válvula de descarga</b> con su cápsula neumática, su varilla y una trampilla que abre lo que el equilibrio del eje decide, y el <b>sensor de presión y temperatura de admisión</b> con su testigo, que se enciende <b>sólo cuando hay código</b> y no cuando hay avería. Mientras falte una pieza, los seis modos de trabajo están cerrados: en un banco de verdad tampoco se arranca un motor al que le falta el colector de escape.",
+      "<b>Presentes en la maqueta 3D:</b> un banco de ensayo con el motor en bloque, su colector de escape en fundición y su colector de admisión con un corredor por cilindro, y el camino del aire completo y en su orden real, montado pieza a pieza por el alumno desde el tapete: <b>filtro de aire</b> abierto con su elemento plisado de 46 pliegues, <b>compresor</b> en media sección con su caracola de aluminio, su difusor y una rueda de seis álabes y seis intercalados, el <b>cartucho central</b> cortado con sus dos casquillos flotantes, el cojinete de empuje, la galería de aceite y el eje, la <b>turbina</b> en media sección con su caracola de fundición y su rueda de once álabes —en el MISMO eje que el compresor y girando a las mismas vueltas, que es la mitad de lo que hay que entender—, la <b>válvula de descarga</b> con su cápsula, su varilla y una trampilla que abre el ángulo que el equilibrio del eje decide, el <b>intercooler</b> de diez tubos planos con sus aletas onduladas y sus dos depósitos, la <b>mariposa</b> con su plato girando con la carga y el <b>sensor de presión y temperatura de admisión</b> con su testigo, que se enciende <b>sólo cuando hay código</b> y no cuando hay avería. Las caras de corte van rayadas como en un plano de conjunto y los manguitos de carga son de vidrio. Por dentro corre el gas como <b>porciones de masa fija coloreadas con la temperatura que el modelo da en cada tramo</b> —T₁ hasta la rueda, T₂ a la salida del compresor, T₂ − ε·(T₂ − T_amb) a la salida del intercooler, T₃ antes de la turbina y T₄ tras ella—; la carcasa de la turbina, el colector de escape y el bajante se encienden de rojo sólo cuando la temperatura del modelo pasa del punto de Draper. Al lado, en el panel de la derecha y con el mismo reloj, el mapa del compresor con el punto de funcionamiento y la tabla de presiones y temperaturas por estación. Mientras falte una pieza, los modos de trabajo están cerrados: en un banco de verdad tampoco se arranca un motor al que le falta la turbina.",
     omitidos: [
       "La geometría variable de la turbina y su ley de mando. Aquí la turbina es de sección fija y la regulación es por válvula de descarga, que es el caso más común y el que deja ver el equilibrio del eje sin un lazo de control encima.",
       "El transitorio del colector de admisión. El retardo que se calcula es el del EJE contra su inercia; llenar el volumen de admisión añade unas décimas más que aquí no se cuentan.",
@@ -45,7 +45,11 @@ fichaTecnica({
     "Todo lo anterior ocurre donde el ordenador no mira. Un sistema de sobrealimentación de serie lleva un sensor de presión absoluta y temperatura de admisión, y con eso tiene que arreglárselas. No hay sensor de gasto por el compresor, ni de vueltas del eje, ni de contrapresión de escape, ni nada que se parezca a un margen de bombeo. Por eso el escáner distingue perfectamente si falta presión o si sobra —P0299 y P0234— y es incapaz de decir por qué, y por eso hay averías que se llevan un tercio del par sin encender un solo testigo. Y hay algo peor, que sólo se ve probando el reto régimen por régimen: <b>la ceguera del escáner no es la misma a todas las vueltas, y es máxima justo donde el motor trabaja.</b> A 2 400 rpm —en plena meseta de soplado— el motor sano, el filtro saturado, el escape restringido y el turbo gastado dan <b>la misma presión de colector y la misma temperatura de admisión</b>: cuatro casos indistinguibles con el único instrumento que lleva el coche. No es una casualidad numérica, es la válvula de descarga haciendo su trabajo: mientras le quede recorrido, se encarga de que el colector marque lo mismo pase lo que pase aguas arriba. A 6 000 rpm, con la descarga ya cerrada y sin autoridad que gastar, las cuatro se separan y el escáner las ve otra vez. <b>La avería se esconde en el régimen donde manda el lazo de control</b>, y lo que rompe el empate es la sonda de antes de la turbina, que mide la contrapresión —exactamente la magnitud que ningún sensor de serie mide.",
   ],
 
-  s4: [
+  // Antes era una lista de pares suelta: el renderizador espera {intro, items} y
+  // la sección salía VACÍA. Se conservan los pares y se escriben como renglones.
+  s4: {
+    intro: "El banco didáctico fija estas constantes; en un taller de verdad cada una sería una medición o una hoja del fabricante. Son las del motor sellado, para rehacer cualquier cifra de la ficha:",
+    items: [
     ["Constante del aire y calor específico", "287,05 J/(kg·K) · 1 005 J/(kg·K) · γ = 1,400"],
     ["Gas de escape", "cp = 1 150 J/(kg·K) · γ = 1,330"],
     ["Condiciones de referencia del mapa, SAE J1826", "101 325 Pa · 298,15 K"],
@@ -66,7 +70,9 @@ fichaTecnica({
     ["Mando de la válvula de descarga en el transitorio", "proporcional 2,6 · integral 14 s⁻¹ · carrera limitada a 7 s⁻¹"],
     ["Paso de integración del transitorio", "4 ms sobre 4 s"],
     ["Códigos de a bordo del sistema", "P0299 por debajo del 80 % de la consigna · P0234 por encima del máximo"],
-  ],
+    ["Secciones de paso que mueven las partículas, 1.4 T", "conducto Ø 60 mm · rueda 7,5 cm² · voluta 4,5 cm² · tubo de carga Ø 50 mm · intercooler 24 cm² · mariposa Ø 48 mm · bajante Ø 55 mm; en los otros motores, escaladas con el gasto de bloqueo"],
+    ].map(function (f) { return "<b>" + f[0] + "</b> · " + f[1]; }),
+  },
 
   s5: {
     modela: [
@@ -88,6 +94,14 @@ fichaTecnica({
       "La acústica del compresor y de la válvula de alivio.",
       "La lubricación, la refrigeración y la vida del turbo.",
       "Los montajes de dos turbos y la sobrealimentación mecánica.",
+      "En el DIBUJO, y no en las cifras: el turbo va ampliado unas tres veces más que el motor —su rueda de compresor, de 44 mm reales, se dibuja de 33 cm (×7,5), y el motor va a ×2 a ×3,5—, como un turbo de corte de formación, y en los otros motores se dibuja el mismo turbo escalado con su gasto de bloqueo elevado a 0,18. El V8 6.6 se dibuja con una sola bancada. Los manguitos de carga son de vidrio para que se vea el aire. Las velocidades del gas salen de las secciones reales de la tabla de constantes, nunca de las del dibujo.",
+      "Dos cámaras lentas FIJAS y rotuladas: las ruedas giran a 1/5 000 de sus vueltas (a 100 000 rpm, un tercio de vuelta por segundo) y el gas avanza a 1/300 de su velocidad. Son dos relojes distintos porque con uno solo o el gas sería invisible o las ruedas serían un borrón. El ensayo de respuesta se reproduce además a 1/4.",
+      "Cada partícula es una porción de gas de masa fija; una de escape lleva 0,15 veces la masa de una de aire, para que el escape no tape el turbo. Dentro del compresor, donde el gas real pasa en milésimas de segundo, se dibuja un enjambre aparte con ocho veces más densidad, como una lupa; el tiempo de paso sigue siendo el de la fórmula.",
+      "La temperatura dentro de la rueda del compresor sube lineal de T₁ a T₂; a lo largo del intercooler baja como T_amb + (T₂ − T_amb)·(1 − ε)^ξ, que es exacto con el refrigerante a temperatura constante y sólo aproximado en flujos cruzados; dentro de la turbina se expande lineal de T₃ a T₄, con T₄ sacado del balance de energía del eje, y la mezcla con el gas que se salta por la descarga se completa en el primer 30 % del bajante. El escape se trata con la R del aire para su densidad.",
+      "El brillo del metal: la superficie se toma 150 K por debajo del gas, empieza a emitir a partir de 760 K de superficie y el rojo sólo se distingue hacia el punto de Draper, unos 800 K. Es una estimación declarada: no hay cálculo térmico de la carcasa.",
+      "Los colores del gas son dos escalas PEDAGÓGICAS, una para el aire (260 a 530 K, y morado para lo que se sale de ahí) y otra para el escape (600 a 1 320 K), sin colores repetidos dentro de cada una. El gas real es transparente.",
+      "La trampilla de la descarga abre un ángulo con sen θ = x·sen 28°, donde x es la apertura que da el lazo: el área de cortina es proporcional a sen θ. La geometría real de la cápsula y su muelle no se calculan.",
+      "En el reto, la escena enseña el motor SANO salvo en lo que el alumno ya ha medido: así la escena no dice la avería antes que los instrumentos.",
     ],
   },
 

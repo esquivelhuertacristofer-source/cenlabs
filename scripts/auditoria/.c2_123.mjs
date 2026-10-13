@@ -4,7 +4,7 @@
  * Lo que la Capa 1 no puede ver: que la página arranque, que el mode-lock
  * funcione —los modos cerrados hasta que las siete piezas estén puestas—, que
  * las siete vistas pinten sin reventar, que TODA malla del banco lleve un
- * material de verdad, que el pizarrón se LEA, y que el reto a ciegas no regale
+ * material de verdad, que el dock de instrumentos se VEA, y que el reto a ciegas no regale
  * la respuesta por ninguna superficie: ni el panel, ni la telemetría, ni el
  * informe, ni las preguntas, ni los rótulos del 3D.
  *
@@ -91,18 +91,26 @@ ok(await pag.evaluate(() => window.__labDebug.montadas) === 7, 'las siete piezas
   ok(mal.length === 0, `tras montar, ${mal.length} mallas con material falso`);
 }
 
-grupo('5 · las siete vistas pintan, y el pizarrón se LEE');
-// El estándar de la casa es ≥ 480 px de ancho de pizarrón en 1600×900: el texto
-// del lienzo es de 13 px sobre 1 024, y por debajo llega al ojo a menos de 6.
+grupo('5 · las siete vistas pintan, y el dock se VE');
+// Clase mundial V2: el pizarrón 3D se quitó (nada de texto ni gráficas dentro
+// de la escena) y las gráficas viven en un dock del DOM, en lienzos medidos en
+// píxeles de pantalla. Se comprueba que el dock está a la vista con un ancho
+// legible (≥ 300 px en 1600×900) y que cada lienzo que se enseña tiene tamaño
+// de verdad y su resolución sigue al devicePixelRatio.
 for (const m of K.MODES) {
   errores.length = 0;
   await pag.evaluate(mm => window.__labDebug.setMode(mm), m);
   await pag.waitForTimeout(190);
   const est = await pag.evaluate(() => ({ modo: window.__labDebug.mode,
-    ancho: window.__labDebug.anchoTableroPx, frames: window.__labDebug.frames }));
+    dock: window.__labDebug.dock, frames: window.__labDebug.frames }));
   ok(est.modo === m, `entra en "${m}"`);
   ok(errores.length === 0, `"${m}" pinta sin errores: ${errores.slice(0, 2).join(' | ')}`);
-  ok(est.ancho >= 480, `"${m}": pizarrón a ${est.ancho.toFixed(0)} px (mínimo 480)`);
+  ok(est.dock.visible && est.dock.ancho >= 300, `"${m}": dock a la vista, ${est.dock.ancho} px (mínimo 300)`);
+  if (m !== 'reto') {
+    const vis = est.dock.lienzos.filter(l => l.ve);
+    ok(vis.length >= 1 && vis.every(l => l.w >= 200 && l.h >= 50 && l.px >= Math.round(l.w * l.dpr) - 1),
+      `"${m}": ${vis.length} lienzos legibles (${vis.map(l => l.w + '×' + l.h).join(', ')})`);
+  }
 }
 
 grupo('6 · los cuatro vehículos, las nueve averías y los mandos');
