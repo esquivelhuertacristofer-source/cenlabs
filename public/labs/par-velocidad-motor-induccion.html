@@ -610,7 +610,7 @@ function lentoEstrobo(wAp){ const rps=Math.abs(wAp)/DOSPI; for(const n of VEL_E)
 const D={
   rEje:0.085, rEjeRod:0.075, rEjeExt:0.07,
   rRot:0.2375, rSi:0.2415, rSo:0.3875,
-  rFi:0.3875, rFs:0.4375, rFt:0.515,
+  rFi:0.3887, rFs:0.4375, rFt:0.515,
   lc:0.60, xCarc:0.62, vuelo:0.13, yEje:1.33,
 };
 const RAN=(function(){ // ranura del estátor, semicerrada y de dientes paralelos
@@ -731,7 +731,7 @@ const fis=(o)=>new THREE.MeshPhysicalMaterial(o);
 const MAT={
   pintura:  fis({color:0x3e5a6e,roughness:0.85,metalness:0.12,clearcoat:0.45,clearcoatRoughness:0.32,
               roughnessMap:T_PINT.roughnessMap,normalMap:T_PINT.normalMap,normalScale:nS(0.35),envMapIntensity:0.9}),
-  chapa:    pbr({color:0x737b84,roughness:0.92,metalness:0.72,roughnessMap:T_CHAP.roughnessMap,
+  chapa:    pbr({color:0x60676f,roughness:0.92,metalness:0.72,roughnessMap:T_CHAP.roughnessMap,
               normalMap:T_CHAP.normalMap,normalScale:nS(0.55),envMapIntensity:0.95}),
   cobre:    fis({color:0xc4734a,roughness:0.30,metalness:1.0,clearcoat:0.6,clearcoatRoughness:0.25,envMapIntensity:1.1}),
   aluCage:  pbr({color:0xc6cbd0,roughness:0.95,metalness:0.92,roughnessMap:T_FUND.roughnessMap,
@@ -775,16 +775,27 @@ const CLIP=new THREE.Plane(new THREE.Vector3(-1,0,0),X_SIN);
 const CAP_N=new THREE.Vector3(1,0,0);
 const LUCES_SIN_SOMBRA_DENTRO=THREE.ShaderChunk.lights_fragment_begin
   .split('( directLight.visible && receiveShadow )').join('( directLight.visible && receiveShadow && gl_FrontFacing )');
+/* RAYADO DE SECCIÓN (o.rayado): líneas finas a 45° en coordenadas de MUNDO,
+   como el rayado de un plano de taller; con `todo`, también en las caras de
+   frente (las caras planas de la ventana). Se desvanece solo cuando las líneas
+   quedarían a menos de ~3 px: nunca hace muaré. */
 function conCorte(mat,o){
   mat.side=THREE.DoubleSide; mat.clippingPlanes=[CLIP]; mat.clipShadows=true;
-  const u={uCapCol:{value:new THREE.Color(o.color)},uCapRough:{value:o.rough??0.5},uCapMetal:{value:o.metal??0.0},uCapN:{value:CAP_N}};
+  const u={uCapCol:{value:new THREE.Color(o.color)},uCapRough:{value:o.rough??0.5},uCapMetal:{value:o.metal??0.0},uCapN:{value:CAP_N},
+    uRaya:{value:o.rayado?1:0},uRayaTodo:{value:o.todo?1:0}};
   const prev=mat.onBeforeCompile;
   mat.onBeforeCompile=(sh,r)=>{
     if(prev) prev.call(mat,sh,r);
     Object.assign(sh.uniforms,u);
+    sh.vertexShader=sh.vertexShader
+      .replace('#include <common>','#include <common>\nvarying vec3 vWc;')
+      .replace('#include <project_vertex>','#include <project_vertex>\n vWc=(modelMatrix*vec4(transformed,1.0)).xyz;');
     sh.fragmentShader=sh.fragmentShader
-      .replace('#include <common>','#include <common>\nuniform vec3 uCapCol; uniform float uCapRough; uniform float uCapMetal; uniform vec3 uCapN;')
-      .replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\n if(!gl_FrontFacing){ diffuseColor.rgb=uCapCol; roughnessFactor=uCapRough; metalnessFactor=uCapMetal; }')
+      .replace('#include <common>','#include <common>\nuniform vec3 uCapCol; uniform float uCapRough; uniform float uCapMetal; uniform vec3 uCapN; uniform float uRaya; uniform float uRayaTodo; varying vec3 vWc;\n'+
+        'float rayado(){ float d=dot(vWc,vec3(0.57735))/0.0105; float fw=fwidth(d); float h=abs(fract(d)-0.5)*2.0;'+
+        ' float l=1.0-smoothstep(0.30-fw,0.30+fw,h); return l*(1.0-smoothstep(0.18,0.34,fw)); }')
+      .replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\n if(!gl_FrontFacing){ diffuseColor.rgb=uCapCol; roughnessFactor=uCapRough; metalnessFactor=uCapMetal; }\n'+
+        ' if(uRaya>0.5&&(!gl_FrontFacing||uRayaTodo>0.5)) diffuseColor.rgb*=1.0-0.30*rayado();')
       .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n if(!gl_FrontFacing){ normal=normalize((viewMatrix*vec4(uCapN,0.0)).xyz); }')
       .replace('#include <clearcoat_normal_fragment_maps>','#include <clearcoat_normal_fragment_maps>\n#ifdef USE_CLEARCOAT\n if(!gl_FrontFacing){ clearcoatNormal=normal; }\n#endif')
       .replace('#include <lights_fragment_begin>',LUCES_SIN_SOMBRA_DENTRO);
@@ -816,24 +827,50 @@ function conBrillo(mat,n,color,clave,fases){
   mat.userData.brillo=u;
   return mat;
 }
+/* LOS POLOS EN LA PARED DEL AGUJERO (estátor en el banco). La cara de los
+   dientes se tiñe con el signo de Br = −sin(Pθ − ψ − γ) en el entrehierro:
+   rojo donde el flujo sale del estátor (su polo norte), azul donde entra. Es
+   el mismo Br del bloque de física y de la capa del corte, en el marco de la
+   pieza (uMEst lleva del mundo al estátor, que puede ir en la mano). */
+function conPolos(mat){
+  const u={uPolos:{value:0},uMEst:{value:new THREE.Matrix4()},uPp:{value:2},uPsiP:{value:0},uGamP:{value:0},uRgP:{value:D.rSi}};
+  const prev=mat.onBeforeCompile;
+  mat.onBeforeCompile=(sh,r)=>{
+    if(prev) prev.call(mat,sh,r);
+    Object.assign(sh.uniforms,u);
+    sh.vertexShader=sh.vertexShader
+      .replace('#include <common>','#include <common>\nuniform mat4 uMEst; varying vec3 vLoc;')
+      .replace('#include <project_vertex>','#include <project_vertex>\n vLoc=(uMEst*modelMatrix*vec4(transformed,1.0)).xyz;');
+    sh.fragmentShader=sh.fragmentShader
+      .replace('#include <common>','#include <common>\nuniform float uPolos,uPp,uPsiP,uGamP,uRgP; varying vec3 vLoc;')
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n if(uPolos>0.001&&gl_FrontFacing){ float rr=length(vLoc.yz); float bb=-sin(uPp*atan(vLoc.y,-vLoc.z)-uPsiP-uGamP);'+
+        ' float ww=(1.0-smoothstep(uRgP+0.003,uRgP+0.012,rr))*(1.0-smoothstep(0.29,0.30,abs(vLoc.x)));'+
+        ' totalEmissiveRadiance+=(bb<0.0?vec3(1.0,0.28,0.16):vec3(0.22,0.50,1.0))*abs(bb)*ww*uPolos; }');
+  };
+  const k0=mat.customProgramCacheKey?mat.customProgramCacheKey.bind(mat):()=>'';
+  mat.customProgramCacheKey=()=>k0()+'|polos';
+  mat.userData.polos=u;
+  return mat;
+}
 /* Los materiales del MOTOR se clonan con el corte (las piezas del banco son las
    mismas: mientras se arma, el plano está lejos y no recorta nada). */
-const ROJO_CORTE='#b8463a', CARA_CHAPA='#4f5861';
+// sección de fundición y chapa: teja oscura, poco saturada, con rayado fino (se lee como corte, no como adorno)
+const ROJO_CORTE='#6f3e37', CARA_CHAPA='#4f5861';
 const MC={
-  pintura: conCorte(MAT.pintura.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,clave:'pint'}),
-  chapa:   conCorte(MAT.chapa.clone(),{color:CARA_CHAPA,rough:0.42,metal:0.70,clave:'chapa'}),
+  pintura: conCorte(MAT.pintura.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,rayado:true,clave:'pint'}),
+  chapa:   conPolos(conCorte(MAT.chapa.clone(),{color:CARA_CHAPA,rough:0.42,metal:0.70,clave:'chapa'})),
   aluCage: conCorte(MAT.aluCage.clone(),{color:'#cfd4d8',rough:0.30,metal:0.9,clave:'alu'}),
   eje:     conCorte(MAT.eje.clone(),{color:'#c9ced3',rough:0.28,metal:1.0,clave:'eje'}),
   rodam:   conCorte(MAT.rodam.clone(),{color:'#c9ced3',rough:0.28,metal:1.0,clave:'rod'}),
   bola:    conCorte(MAT.bola.clone(),{color:'#d0d5da',rough:0.2,metal:1.0,clave:'bola'}),
   polimero:conCorte(MAT.polimero.clone(),{color:'#3a3f45',rough:0.6,metal:0,clave:'pol'}),
-  chapaCub:conCorte(MAT.chapaCub.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,clave:'cub'}),
-  negro:   conCorte(MAT.negro.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,clave:'negro'}),
+  chapaCub:conCorte(MAT.chapaCub.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,rayado:true,clave:'cub'}),
+  negro:   conCorte(MAT.negro.clone(),{color:ROJO_CORTE,rough:0.55,metal:0.05,rayado:true,clave:'negro'}),
   cuna:    conCorte(MAT.cuna.clone(),{color:'#d9c9a0',rough:0.7,metal:0,clave:'cuna'}),
   junta:   conCorte(MAT.junta.clone(),{color:'#2a2c2e',rough:0.8,metal:0,clave:'junta'}),
   cobreC:  conBrillo(conCorte(MAT.cobre.clone(),{color:'#c97a52',rough:0.30,metal:1.0,clave:'cobre'}),2*Q1,'#ffd2a0','est',COL_FASE),
   barras:  conBrillo(conCorte(MAT.aluCage.clone(),{color:'#c4cad0',rough:0.30,metal:0.95,clave:'barra'}),Q2,'#ff9440','rot'),
-  rojo:    conCorte(pbr({color:ROJO_CORTE,roughness:0.55,metalness:0.05,envMapIntensity:0.7}),{color:ROJO_CORTE,rough:0.55,metal:0.05,clave:'rojo'}),
+  rojo:    conCorte(pbr({color:ROJO_CORTE,roughness:0.62,metalness:0.05,envMapIntensity:0.6}),{color:ROJO_CORTE,rough:0.62,metal:0.05,rayado:true,todo:true,clave:'rojo'}),
   chapaCara:conCorte(pbr({color:CARA_CHAPA,roughness:0.42,metalness:0.70,envMapIntensity:0.9}),{color:CARA_CHAPA,rough:0.42,metal:0.70,clave:'cara'}),
   fase:    MAT_FASE.map((m,i)=>conCorte(m.clone(),{color:'#d2845a',rough:0.3,metal:1.0,clave:'fase'+i})),
   // el paquete del rotor, torneado y recocido: más oscuro que el del estátor (y así sus barras se leen)
@@ -1154,7 +1191,8 @@ function bordeRotor(){ // contorno exterior de la chapa del rotor con las bocas 
 }
 function construyeRotor(){
   const g=pieza(0), d=g.userData.dentro, x0=-D.lc/2, x1=D.lc/2, pasos=calAlta()?24:14;
-  const nucleo=barrido([bordeRotor(),arcoR(D.rEje,0,DOSPI,4*DEG).slice(0,-1)],x0,x1,{pasos,giro:giroEn,gT0:1,gT1:1});
+  // el agujero del paquete 1,2 mm (de modelo) mayor que el eje: dos cilindros coincidentes se pelean en el z-buffer
+  const nucleo=barrido([bordeRotor(),arcoR(D.rEje+0.0012,0,DOSPI,4*DEG).slice(0,-1)],x0,x1,{pasos,giro:giroEn,gT0:1,gT1:1});
   d.add(malla(nucleo,[MC.chapaRot,MC.chapaCara]));
   const paso=DOSPI/Q2, sl=ranuraRotor(), bars=[];
   const inset=c=>{ const cx=c.reduce((s,p)=>s+p[0],0)/c.length, cy=c.reduce((s,p)=>s+p[1],0)/c.length;
@@ -1262,14 +1300,20 @@ const SOPORTES={};
   const base=roundedBox(1.5,0.03,0.66,MAT.placa,0.18); base.position.set(-0.12,Y_MESA+0.015,0); MESA.add(base);
   for(const z of [-0.18,0,0.18]){ const r=new THREE.Mesh(new THREE.BoxGeometry(1.42,0.004,0.022),MAT.negro); r.position.set(-0.12,Y_MESA+0.0302,z); MESA.add(r); }
   compacta(MESA);
-  // soportes en V del rotor
-  const v=P3.contornoRedondeado([[-0.09,0],[0.09,0],[0.09,0.15],[0.05,0.15],[0,0.105],[-0.05,0.15],[-0.09,0.15]],0.006,2);
+  // soportes en V del rotor: V de 90° bajo cada asiento de rodamiento (ø 150 de modelo), con la
+  // garganta a la altura justa para que el eje APOYE (centro a 0,30 sobre el tapete)
+  const v=P3.contornoRedondeado([[-0.09,0],[0.09,0],[0.09,0.24],[0.046,0.24],[0,0.194],[-0.046,0.24],[-0.09,0.24]],0.005,2);
   SOPORTES.v=[];
   for(const dx of [-0.68,0.68]){ const geo=P3.extruido(v,{espesor:0.07,bisel:0.004}); const m=new THREE.Mesh(geo,MAT.anod);
+    m.rotation.y=Math.PI/2;   // la garganta corre a lo largo del eje del rotor
     m.castShadow=m.receiveShadow=true; BANCO.add(m); SOPORTES.v.push({m,dx}); }
-  // aro de apoyo del estátor
-  const aro=new THREE.Mesh(revolucionX([[0.30,-0.05],[0.40,-0.05],[0.40,0.05],[0.30,0.05]],{seg:48}),MAT.anod);
-  aro.castShadow=aro.receiveShadow=true; BANCO.add(aro); SOPORTES.aro=aro;
+  // cunas del estátor: el estátor descansa TUMBADO, con la boca hacia quien mira (así se ve su campo)
+  const R=D.rSo+0.002, H=0.4175, cun=[[-0.31,0],[0.31,0]];
+  for(let i=0;i<=24;i++){ const u=0.31-0.62*i/24; cun.push([u,H-Math.sqrt(R*R-u*u)]); }
+  const cuna=new THREE.Group(); SOPORTES.cuna=cuna; SOPORTES.cunaH=H;
+  for(const s of [-1,1]){ const m=new THREE.Mesh(P3.extruido(cun,{espesor:0.08,bisel:0}),MAT.anod); m.position.z=s*0.23;
+    m.castShadow=m.receiveShadow=true; cuna.add(m); }
+  BANCO.add(cuna);
 })();
 
 /* ===================== 8. ENSAMBLE ===================== */
@@ -1296,13 +1340,16 @@ const REPOSO={
   ventilador:  {p:[-1.05,0,1.40],rz:-Math.PI/2,base:0.05},
   tapaT:       {p:[-0.30,0,1.08],rz:-Math.PI/2,base:0.066},
   tapaD:       {p:[0.62,0,1.10],rz:Math.PI/2,base:0.066},
-  estator:     {p:[1.72,0,0.70],rz:Math.PI/2,base:0.43+0.10},
+  // tumbado, la boca hacia la cámara del banco y la ventana de corte girada hacia abajo (rx: 155° → 270°)
+  estator:     {p:[1.52,0,1.02],rz:0,ry:-Math.atan2(0.92,0.40),rx:115*DEG,base:0.4175},
   rotor:       {p:[-0.15,0,1.62],rz:0,base:0.30},
 };
-function poseReposo(id){ const r=REPOSO[id]; return {p:new THREE.Vector3(r.p[0],Y_MESA+0.008+r.base,r.p[2]),q:new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,r.rz))}; }
+function poseReposo(id){ const r=REPOSO[id]; return {p:new THREE.Vector3(r.p[0],Y_MESA+0.008+r.base,r.p[2]),q:new THREE.Quaternion().setFromEuler(new THREE.Euler(r.rx||0,r.ry||0,r.rz,'YXZ'))}; }
 function colocaSoportes(){ // los soportes, bajo sus piezas
   const r=poseReposo('rotor'); for(const s of SOPORTES.v){ s.m.position.set(r.p.x+s.dx,Y_MESA+0.008,r.p.z); s.m.visible=true; }
-  const e=poseReposo('estator'); SOPORTES.aro.rotation.z=Math.PI/2; SOPORTES.aro.position.set(e.p.x,Y_MESA+0.058,e.p.z); SOPORTES.aro.visible=true;
+  // las cunas: su extrusión (z) a lo largo del eje del estátor, que es la x local de la pieza girada
+  const e=poseReposo('estator'), c=SOPORTES.cuna; c.position.set(e.p.x,Y_MESA+0.008,e.p.z);
+  c.rotation.set(0,(REPOSO.estator.ry||0)+Math.PI/2,0); c.visible=true;
 }
 colocaSoportes();
 /* Un soporte vacío se recoge bajo el tablero (como los topes escamoteables de
@@ -1338,16 +1385,18 @@ function makePart(part){
   return g;
 }
 function initAssembly(){
+  if(CAMPO_B.m.parent) CAMPO_B.m.parent.remove(CAMPO_B.m);
   [...trayObjs,...ghostObjs].forEach(o=>{ scene.remove(o); o.traverse(m=>{ if(m.isMesh&&m.geometry) m.geometry.dispose(); }); });
   trayObjs.length=ghostObjs.length=tweens.length=0; colocaSoportes();
   placed={}; selectedId=null; progress=0; simUnlocked=false;
-  PARTS.forEach(p=>{ const g=makePart(p); groups[p.id]=g; scene.add(g); trayObjs.push(g);
+  PARTS.forEach(p=>{ const g=makePart(p); groups[p.id]=g; scene.add(g); trayObjs.push(g); if(p.id==='estator') g.add(CAMPO_B.m);
     const gh=makeGhost(p); ghosts[p.id]=gh; ghostObjs.push(gh); });
   showGhostFor(null);
   renderChecklist(); renderProg();
   syncCtrlbar();
   if(mode!=='ensamble') setMode('ensamble'); else ponVista('banco');
   el('asmStatus').innerHTML='Toca una <b>pieza</b> del banco y luego su <b>hueco luminoso</b> en el motor.';
+  pintaVivo();
 }
 
 /* ---------- selección / colocación ---------- */
@@ -1381,12 +1430,12 @@ function placePart(id){
   const dest=M0.clone().add(new THREE.Vector3(p.homeX,0,0)), ent=dest.clone().add(new THREE.Vector3(p.entrada,0,0));
   tweens.push(trayecto(g,dest,ent,REDUCIDO?0.6:1.9,()=>{ synth.beep(196,0.07,0.06); setTimeout(()=>synth.beep(392,0.05,0.04),60); }));
   if(gh) gh.userData.fading=true;
-  if(id==='rotor') SOPORTES.v.forEach(s=>recoge(s.m)); if(id==='estator') recoge(SOPORTES.aro);
+  if(id==='rotor') SOPORTES.v.forEach(s=>recoge(s.m)); if(id==='estator') recoge(SOPORTES.cuna);
   g.userData.kind='placed'; g.userData.lift=0;
   placed[id]=true; selectedId=null; progress++;
   synth.beep(880,0.08,0.05); setTimeout(()=>synth.beep(1174,0.1,0.05),110);
   showToast(`<span style="color:var(--good)">✔ ${p.name} colocada.</span><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`);
-  renderChecklist(); renderProg();
+  renderChecklist(); renderProg(); pintaVivo();
   if(progress>=PARTS.length) finishAssembly();
   else el('asmStatus').innerHTML=`Bien. Faltan <b>${PARTS.length-progress}</b>: toca otra pieza y luego su hueco.`;
 }
@@ -1458,8 +1507,9 @@ function renderProg(){ el('p_prog').textContent=`${progress} / ${PARTS.length}`;
    corriente con la notación de plano (⊙ hacia ti, ⊗ hacia dentro) y las P
    marcas del rotor son las de un disco de estroboscopio. Sobre el cobre y el
    aluminio las líneas se atenúan: el flujo va por el hierro. */
-const CAMPO=(function(){
+function capaCampo(conRotor){
   const u={uP:{value:2},uPsi:{value:0},uGam:{value:0},uThR:{value:0},uAlfa:{value:0},uMarca:{value:1},
+    uRotor:{value:conRotor?1:0},uN:{value:new THREE.Vector3(1,0,0)},uTinte:{value:conRotor?0.34:1.3},uGanancia:{value:conRotor?1:1.25},uLinea:{value:conRotor?1.05:0.45},
     uRg:{value:D.rSi},uRo:{value:D.rSo},uRr:{value:D.rRot},uRsh:{value:D.rEje},
     uR1:{value:RAN.r1},uRf:{value:RAN.rFondo},uDiente:{value:RAN.diente},
     uRt:{value:R_GLIFO[0]},uRb:{value:R_GLIFO[1]},uRbar:{value:BAR.rGl},
@@ -1468,7 +1518,8 @@ const CAMPO=(function(){
   const vs=`varying vec2 vP; varying vec3 vW; void main(){ vP=position.xy; vW=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
   const fs=`
 precision highp float;
-uniform float uP,uPsi,uGam,uThR,uAlfa,uMarca,uRg,uRo,uRr,uRsh,uR1,uRf,uDiente,uRt,uRb,uRbar;
+uniform float uP,uPsi,uGam,uThR,uAlfa,uMarca,uRg,uRo,uRr,uRsh,uR1,uRf,uDiente,uRt,uRb,uRbar,uRotor,uTinte,uGanancia,uLinea;
+uniform vec3 uN;
 uniform vec4 uBc;
 uniform float uIs[${2*Q1}]; uniform float uIb[${Q2}];
 varying vec2 vP; varying vec3 vW;
@@ -1494,7 +1545,7 @@ void main(){
   float A=Gr(r)*cos(ph), n=6.0, L=A*n-0.5;
   float dL=abs(L-floor(L+0.5)), wL=max(fwidth(L),1e-5);
   float lin=1.0-smoothstep(0.42*wL,1.30*wL,dL);
-  lin*=smoothstep(0.0,0.006,uRo-r)*smoothstep(uRsh*0.6,uRsh,r);
+  lin*=smoothstep(0.0,0.006,uRo-r)*mix(1.0,smoothstep(uRsh*0.6,uRsh,r),uRotor);
   // --- ranura del estátor que toca a este punto (marco de ranura: t, r) ---
   float paso=TAU/${Q1}.0, k=floor(th/paso), tk=(k+0.5)*paso;
   vec2 q=vec2(dot(vP,vec2(-sin(tk),cos(tk))),dot(vP,vec2(cos(tk),sin(tk))));
@@ -1504,7 +1555,7 @@ void main(){
   float pb=TAU/${Q2}.0, j=floor(thr/pb), tj=(j+0.5)*pb+uThR;
   vec2 qb=vec2(dot(vP,vec2(-sin(tj),cos(tj))),dot(vP,vec2(cos(tj),sin(tj))));
   float hb=clamp((qb.y-uBc.z)/(uBc.x-uBc.z),0.0,1.0);
-  float enBar=step(length(vec2(qb.x,qb.y-mix(uBc.z,uBc.x,hb))),mix(uBc.w,uBc.y,hb)+0.0005)*step(qb.y,uRr);
+  float enBar=step(length(vec2(qb.x,qb.y-mix(uBc.z,uBc.x,hb))),mix(uBc.w,uBc.y,hb)+0.0005)*step(qb.y,uRr)*uRotor;
   lin*=1.0-0.75*max(enRan,enBar);
   // --- anillo del entrehierro teñido con Br ---
   float b=-sin(ph);
@@ -1513,7 +1564,9 @@ void main(){
   float aB=anillo*(0.12+0.88*abs(b));
   // --- los polos: la componente radial de B tiñe dientes y yugo cercano (rojo N, azul S) ---
   float br=-(uRg/r)*Gr(r)*sin(ph);
-  float zona=smoothstep(uBc.z-0.03,uBc.z,r)*(1.0-smoothstep(uRf,uRf+0.025,r));
+  // sin rotor, el agujero entero se tiñe: los P pares de polos se ven como pétalos que giran
+  float r0=mix(0.0,uBc.z-0.03,uRotor);
+  float zona=smoothstep(r0,r0+0.03,r)*(1.0-smoothstep(uRf,uRf+0.025,r));
   vec3 cP=br<0.0?vec3(1.0,0.30,0.18):vec3(0.22,0.52,1.0);
   float aP=zona*abs(br)*(1.0-0.6*max(enRan,enBar));
   // --- glifos de corriente ---
@@ -1522,22 +1575,37 @@ void main(){
   for(int c=0;c<2;c++){ float rc=c==0?uRt:uRb; float I=uIs[2*ki+c];
     gl=max(gl,glifo(q-vec2(0.0,rc),I,0.0070,px)*clamp(abs(I)*1.8,0.0,1.0)); }
   float Ib=uIb[int(j)];
-  gl=max(gl,glifo(qb-vec2(0.0,uRbar),Ib,0.0068,px)*clamp(abs(Ib)*2.4,0.0,1.0));
+  gl=max(gl,glifo(qb-vec2(0.0,uRbar),Ib,0.0068,px)*clamp(abs(Ib)*2.4,0.0,1.0)*uRotor);
   gl*=vis;
   // --- marcas del rotor (una por par de polos, como un disco de estroboscopio) ---
   float dm=thr*uP/TAU; dm=dm-floor(dm+0.5);
-  float marca=banda(abs(dm)*TAU/uP*r,0.0024,px)*step(0.105,r)*step(r,0.150)*uMarca;
-  vec3 col=vec3(0.50,0.86,1.0)*lin*1.05+cB*aB*1.5+cP*aP*0.34+vec3(1.0,0.96,0.86)*gl*1.1+vec3(1.0)*marca*1.1;
+  float marca=banda(abs(dm)*TAU/uP*r,0.0024,px)*step(0.105,r)*step(r,0.150)*uMarca*uRotor;
+  vec3 col=(vec3(0.50,0.86,1.0)*lin*uLinea+cB*aB*1.5+cP*aP*uTinte+vec3(1.0,0.96,0.86)*gl*1.1+vec3(1.0)*marca*1.1)*uGanancia;
   // de canto, las líneas se apiñan en un borrón blanco: la capa se apaga si se mira rasante
-  float frente=abs(normalize(cameraPosition-vW).x);
+  float frente=abs(dot(normalize(cameraPosition-vW),uN));
   gl_FragColor=vec4(col,uAlfa*smoothstep(0.22,0.5,frente));
 }`;
   const mat=new THREE.ShaderMaterial({uniforms:u,vertexShader:vs,fragmentShader:fs,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
   const m=new THREE.Mesh(new THREE.CircleGeometry(D.rSo,192),mat);
-  m.rotation.y=Math.PI/2; m.position.copy(M0).add(new THREE.Vector3(X_CORTE+0.0012,0,0));
-  m.raycast=()=>{}; m.renderOrder=5; m.visible=false; m.frustumCulled=false; scene.add(m);
+  m.rotation.y=Math.PI/2; m.raycast=()=>{}; m.renderOrder=5; m.visible=false; m.frustumCulled=false;
   return {m,u};
-})();
+}
+const CAMPO=capaCampo(true);
+CAMPO.m.position.copy(M0).add(new THREE.Vector3(X_CORTE+0.0012,0,0)); scene.add(CAMPO.m);
+/* EL GANCHO DEL BANCO: el estátor que espera en el banco ya está energizado.
+   Sin rotor, el campo de la onda fundamental en el agujero vacío tiene la
+   MISMA forma (r/Rg)^P·cos(Pθ − ψ − γ) —es la solución de Laplace dentro de
+   la lámina de corriente—; cambia su magnitud, no su dibujo ni su giro a ns.
+   Una segunda capa, sin barras ni marcas de rotor, va pegada a la cara
+   superior del paquete y viaja con la pieza. Se apaga al montar el estátor. */
+const CAMPO_B=capaCampo(false);
+CAMPO_B.u.uIs.value=CAMPO.u.uIs.value; CAMPO_B.u.uIb.value=CAMPO.u.uIb.value;
+CAMPO_B.m.position.set(D.lc/2+0.013,0,0);
+// un vidrio ahumado en la boca: el agujero vacío deja ver el banco a través y el campo
+// (aditivo) se lavaba contra ese fondo claro; detrás de la capa, sólo dentro del agujero
+CAMPO_B.fondo=new THREE.Mesh(new THREE.CircleGeometry(D.rSi-0.001,96),new THREE.MeshBasicMaterial({color:0x04080b,transparent:true,opacity:0,depthWrite:false}));
+CAMPO_B.fondo.position.z=-0.0008; CAMPO_B.fondo.renderOrder=4; CAMPO_B.fondo.raycast=()=>{};   // hijo de la capa: mismo plano, un pelo detrás
+CAMPO_B.m.add(CAMPO_B.fondo);
 
 /* ===================== 10. EL RELOJ ÚNICO =====================
    Un solo reloj mueve todo: ψ (ángulo eléctrico de la red) y θr (ángulo del
@@ -1555,6 +1623,8 @@ fasesBrillo();
 const enSim=()=>simUnlocked&&(mode==='operacion'||mode==='curva'||mode==='reto');
 // en el reto la máquina se queda quieta y sin capa de campo: se calcula con la placa, no se mide
 const anima=()=>enSim()&&mode!=='reto';
+// el estátor espera en el banco (o va de camino, aún sin asentar): ya está energizado
+const enBanco=()=>mode==='ensamble'&&!placed.estator&&!!groups.estator;
 function ajustaCamaraLenta(){ const st=motorState(STATE.f,STATE.p,STATE.TL);
   if(RELOJ.auto) RELOJ.N=camaraLentaAuto(st.ns);
   RELOJ.Ne=lentoEstrobo(velEstrobo(st.stalled?1:st.s,DOSPI*STATE.f/(STATE.p/2))); }
@@ -1653,33 +1723,46 @@ S.setAnimate((dt0,t)=>{
   if(CORTE.t<1){ CORTE.t=Math.min(1,CORTE.t+dt/CORTE.dur); CORTE.x=CORTE.de+(CORTE.a-CORTE.de)*ease(CORTE.t); }
   else CORTE.x=CORTE.a;
   CLIP.constant=M0.x+CORTE.x;
-  // el motor: sólo gira con la simulación abierta
-  const sim=anima();
+  // el motor gira con la simulación abierta; en el banco, el estátor suelto ya hace girar su campo
+  const sim=anima(), banco=enBanco();
   const st=motorState(STATE.f,STATE.p,STATE.TL), P=STATE.p/2, w=DOSPI*STATE.f, ws=w/P, s=st.stalled?1:st.s;
-  RELOJ.esc+=(((sim&&!RELOJ.pausa)?1:0)-RELOJ.esc)*Math.min(1,dt*2.4);
-  if(sim){
-    if(!RELOJ.estrobo){ const dts=dt*RELOJ.esc/RELOJ.N; RELOJ.psi+=w*dts; RELOJ.thR+=(1-s)*ws*dts; }
+  RELOJ.esc+=((((sim||banco)&&!RELOJ.pausa)?1:0)-RELOJ.esc)*Math.min(1,dt*2.4);
+  if(sim||banco){
+    if(!RELOJ.estrobo||!sim){ const dts=dt*RELOJ.esc/RELOJ.N; RELOJ.psi+=w*dts; if(sim) RELOJ.thR+=(1-s)*ws*dts; }
     else RELOJ.thR+=velEstrobo(s,ws)*dt*RELOJ.esc/RELOJ.Ne;     // ψ congelado: cada destello cae en la misma fase
     RELOJ.psi%=DOSPI*12; RELOJ.thR%=DOSPI*12;
   }
   if(placed.rotor&&groups.rotor&&!tweens.some(x=>x.obj===groups.rotor)){ groups.rotor.rotation.set(RELOJ.thR,0,0); }
   if(placed.ventilador&&groups.ventilador&&!tweens.some(x=>x.obj===groups.ventilador)){ groups.ventilador.rotation.set(RELOJ.thR,0,0); }
   // brillos: corriente de cada conductor, de cada barra y de cada fase
-  const encendido=sim?1:0, uS=MC.cobreC.userData.brillo, uB=MC.barras.userData.brillo;
+  const encendido=(sim||banco)?1:0, uS=MC.cobreC.userData.brillo, uB=MC.barras.userData.brillo;
   for(let i=0;i<2*Q1;i++) CAMPO.u.uIs.value[i]=uS.uI.value[i]=corrienteConductor(DV.cond[i],RELOJ.psi);
   for(let j=0;j<Q2;j++) CAMPO.u.uIb.value[j]=uB.uI.value[j]=iBarra(RELOJ.thR+(j+0.5)*DOSPI/Q2,RELOJ.psi,P,DV.gam,s);
-  BRILLO.est+=(encendido-BRILLO.est)*Math.min(1,dt*3); uS.uGain.value=0.75*BRILLO.est; uB.uGain.value=2.6*BRILLO.est;
-  const iF=corrientesFase(RELOJ.psi); MC.fase.forEach((m,k)=>{ m.emissiveIntensity=0.42*Math.abs(iF[k])*BRILLO.est; });
+  BRILLO.est+=(encendido-BRILLO.est)*Math.min(1,dt*3); BRILLO.rot+=((sim?1:0)-BRILLO.rot)*Math.min(1,dt*3);
+  uS.uGain.value=0.75*BRILLO.est; uB.uGain.value=2.6*BRILLO.rot;
+  // en el banco, las cabezas de bobina se encienden más: son lo primero que ve el alumno
+  const kF=banco?0.85:0.42, iF=corrientesFase(RELOJ.psi); MC.fase.forEach((m,k)=>{ m.emissiveIntensity=kF*Math.abs(iF[k])*BRILLO.est; });
   // la capa del campo
   const u=CAMPO.u, vis=sim&&corteListo();
   u.uAlfa.value+=((vis?1:0)-u.uAlfa.value)*Math.min(1,dt*(vis?2.2:6));
   CAMPO.m.visible=u.uAlfa.value>0.01;
   u.uP.value=P; u.uPsi.value=RELOJ.psi; u.uGam.value=DV.gam; u.uThR.value=RELOJ.thR+giroEn(X_CORTE);
+  // la del banco: mismo ψ, misma fase γ, normal = el eje de la pieza (de pie, mira hacia arriba)
+  const ub=CAMPO_B.u, vb=banco&&!!CAMPO_B.m.parent;
+  ub.uAlfa.value+=((vb?1:0)-ub.uAlfa.value)*Math.min(1,dt*(vb?1.6:5));
+  CAMPO_B.m.visible=ub.uAlfa.value>0.01; CAMPO_B.fondo.material.opacity=0.78*ub.uAlfa.value;
+  ub.uP.value=P; ub.uPsi.value=RELOJ.psi; ub.uGam.value=DV.gam;
+  if(CAMPO_B.m.parent) ub.uN.value.set(1,0,0).applyQuaternion(CAMPO_B.m.parent.quaternion);
+  // y los polos en la pared del agujero del estátor suelto
+  const up=MC.chapa.userData.polos;
+  up.uPolos.value+=((banco?1.15:0)-up.uPolos.value)*Math.min(1,dt*(banco?1.6:5));
+  if(groups.estator&&up.uPolos.value>0.001){ groups.estator.updateMatrixWorld(); up.uMEst.value.copy(groups.estator.matrixWorld).invert(); }
+  up.uPp.value=P; up.uPsiP.value=RELOJ.psi; up.uGamP.value=DV.gam;
   // el panel: el diagrama de fasores sigue al mismo ψ (a ~30 cuadros por segundo)
   if(sim&&t-ultimoDock>1/30){ ultimoDock=t; pintaFasores(); }
   if(ROT.on) colocaRotulos();
 });
-const BRILLO={est:0};
+const BRILLO={est:0,rot:0};
 
 /* ===================== 11. EL PANEL Y EL DOCK =====================
    Nada de texto ni gráficas dentro de la escena: la curva y los fasores viven
@@ -1724,6 +1807,13 @@ const BRILLO={est:0};
 @media (max-width:1439px){ .fg b{font-size:15.5px} .fg b small{font-size:10px} .fg{padding:4px 7px} .fg b small.pct{display:none} }
 @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42}
   .hud #checklist{line-height:1.6}.hud .btns .b{padding:6px} }
+/* ---- el estátor energizado del banco ---- */
+.hud .vivo{display:flex;gap:8px;align-items:baseline;font-size:11.8px;line-height:1.45;color:#c9f3ee;margin:0;
+  background:rgba(79,209,197,.07);border:1px solid rgba(79,209,197,.28);border-radius:9px;padding:6px 9px}
+.hud .vivo i{flex:none;width:7px;height:7px;border-radius:50%;background:#4FD1C5;box-shadow:0 0 8px #4FD1C5;transform:translateY(-1px);animation:latido 1.6s ease-in-out infinite}
+.hud .vivo b{color:#fff;font-weight:600}
+@keyframes latido{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.hud .vivo i{animation:none}}
 /* ---- dock de instrumentos ---- */
 .panel{top:66px;bottom:14px;width:var(--dockW);max-height:none;padding:13px 14px 12px;display:flex;flex-direction:column;gap:7px;overflow:hidden}
 body.enEnsamble .panel{display:none}
@@ -1786,7 +1876,7 @@ body.enEnsamble .tbar,body.enReto .tbar{display:none}
 })();
 
 const INTRO={
-  ensamble:'Arma el motor de jaula de ardilla: toca una pieza del banco y luego su hueco luminoso. Al cerrarlo se abre en corte y verás girar el campo.',
+  ensamble:'Arma el motor de jaula de ardilla: toca una pieza del banco y luego su hueco luminoso. Al cerrarlo, se abre en corte.',
   operacion:'Tres corrientes desfasadas 120° hacen girar el campo a ns. El rotor lo persigue sin alcanzarlo: esa diferencia es el deslizamiento. Sube la carga y míralo quedarse atrás.',
   curva:'El motor trabaja donde su curva corta la recta de la carga. Si la carga supera el par máximo, no hay cruce: el motor se cala.',
   reto:'Calcula con las fórmulas: la telemetría queda oculta hasta que aciertes.',
@@ -1803,6 +1893,7 @@ el('hud').innerHTML=`
   </div>
   <div id="secEnsamble">
     <div class="console" id="asmStatus"></div>
+    <div class="vivo" id="asmVivo"><i></i><span id="asmVivoTxt"></span></div>
     <div class="g" style="margin:7px 0 3px"><div class="gl"><span>Piezas colocadas</span><b id="p_prog">0 / 6</b></div></div>
     <div id="checklist"></div>
     <div class="btns" style="margin-top:7px">
@@ -1888,6 +1979,13 @@ el('panel').innerHTML=`
     if(e.code==='Space'&&enSim()){ e.preventDefault(); RELOJ.pausa=!RELOJ.pausa; pintaBarras(); }
   });
 })();
+/* La línea del estátor energizado: sólo mientras espera en el banco. */
+function pintaVivo(){
+  const e=el('asmVivo'); if(!e) return; const on=enBanco(); e.style.display=on?'':'none'; if(!on) return;
+  const ns=motorState(STATE.f,STATE.p,STATE.TL).ns;
+  el('asmVivoTxt').innerHTML=`El estátor solo ya hace girar el campo, a <b>ns = ${fN(ns)} rpm</b> `+
+    (RELOJ.pausa?'(quieto: movimiento reducido)':`(aquí ×1/${fN(RELOJ.N)})`)+'. Mete el rotor y verás cómo lo persigue.';
+}
 function colocaBarras(){
   if(innerWidth<=820){ for(const id of ['vbar','tbar']) el(id).style.left='50%'; return; }
   const a=el('hud').getBoundingClientRect(), p=el('panel'), b=seVe(p)?p.getBoundingClientRect():{left:innerWidth-8};
@@ -2072,7 +2170,7 @@ function updateTele(){
   else if(STATE.TL>Tcurve(1)){ av.className='dk-aviso on ojo'; av.textContent=`TL supera el par de arranque (${fN(Tcurve(1),2)} N·m): parado no arrancaría. El punto es el de un motor que ya giraba.`; }
   else { av.className='dk-aviso'; av.textContent=''; }
 }
-function refreshAll(){ ajustaCamaraLenta(); updateTele(); if(mode==='operacion'||mode==='curva') pintaCurva(); if(mode==='reto') drawReto(); pintaBarras(); }
+function refreshAll(){ ajustaCamaraLenta(); updateTele(); pintaVivo(); if(mode==='operacion'||mode==='curva') pintaCurva(); if(mode==='reto') drawReto(); pintaBarras(); }
 
 /* ===================== 13. MÁQUINA DE MODOS ===================== */
 const MODE_META={
