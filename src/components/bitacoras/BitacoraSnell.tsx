@@ -10,6 +10,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { ANGULO_MIN_M7, ANGULO_MAX_M7 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
+import { useBancoSnell } from '@/components/simuladores/mat07/banco';
+import { abbeDe, indiceA, indicesInterfaz, laserDe } from '@/components/simuladores/mat07/optica';
 
 const MATERIALES: { label: string; n: number; icon: React.ReactNode; color: string }[] = [
   { label: 'Aire',      n: 1.000, icon: <Wind size={14} />,      color: 'text-slate-400' },
@@ -25,6 +27,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
   );
   const esMisterio = optica7.n2 === 'misterio';
   const { n1, n2, n2Misterio, anguloIncidencia: theta1, status } = optica7;
+  const { sentido, laser } = useBancoSnell(useShallow((s) => ({ sentido: s.sentido, laser: s.laser })));
 
   const [conclusionText, setConclusionText] = useState('');
   const [selectedMat, setSelectedMat] = useState<number | null>(null);
@@ -57,10 +60,17 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
 
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
   const n2Val = typeof n2 === 'number' ? n2 : n2Misterio;
-  const sinTheta2 = (n1 * Math.sin(theta1 * Math.PI / 180)) / n2Val;
+  // Mismo banco que la escena: sentido de la luz y fuente (el índice depende de λ, Cauchy).
+  const nLaser = indiceA(n2Val, abbeDe(n2Val, esMisterio), laserDe(laser).lambdaNm);
+  const [nInc, nTr] = indicesInterfaz(sentido, n1, nLaser);
+  const sinTheta2 = (nInc * Math.sin(theta1 * Math.PI / 180)) / nTr;
   const isTIR = sinTheta2 > 1;
   const theta2 = isTIR ? NaN : Math.asin(sinTheta2) * 180 / Math.PI;
-  const criticalAngle = n1 < n2Val ? NaN : Math.asin(n2Val / n1) * 180 / Math.PI;
+  const criticalAngle = nInc <= nTr ? NaN : Math.asin(nTr / nInc) * 180 / Math.PI;
+  // Con el cristal misterioso la curva θ₂(θ₁) y su punto darían θ₂ (y n₂) sin medir: se revelan al validar.
+  const curvaVisible = !esMisterio || status === 'success';
+  // las cifras del misterio (θ₂, n₁/n₂, θc) también se revelan al validar, no antes
+  const oculto = !curvaVisible;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -111,10 +121,10 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
       </div>
 
       {/* ═══ SELECTOR DE MATERIAL (MEDIO 2) ═══ */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-5">
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
-          <Lightbulb size={14} className="text-amber-400" />
-          <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Material del Medio 2</span>
+          <Lightbulb size={14} className="text-amber-500" />
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Material del Medio 2</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -124,15 +134,15 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
               onClick={() => handleSelectMaterial(i)}
               className={`p-3 rounded-xl border text-left transition-all ${
                 selectedMat === i
-                  ? 'bg-cyan-500/15 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                  : 'bg-white/5 border-white/5 hover:bg-white/10'
+                  ? 'bg-cyan-50 border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.18)]'
+                  : 'bg-white border-slate-200 hover:border-cyan-300'
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className={mat.color}>{mat.icon}</span>
-                <span className="text-xs font-black text-white">{mat.label}</span>
+                <span className="text-xs font-black text-[#023047]">{mat.label}</span>
               </div>
-              <span className="text-[10px] font-mono font-bold text-white/40">n = {mat.n.toFixed(3)}</span>
+              <span className="text-[10px] font-mono font-bold text-slate-500">n = {mat.n.toFixed(3)}</span>
             </button>
           ))}
 
@@ -141,45 +151,45 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             onClick={handleMisterio}
             className={`p-3 rounded-xl border text-left transition-all col-span-2 ${
               n2 === 'misterio'
-                ? 'bg-amber-500/15 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
-                : 'bg-white/5 border-white/5 hover:bg-white/10'
+                ? 'bg-amber-50 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.18)]'
+                : 'bg-white border-slate-200 hover:border-amber-300'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
               <span className="text-amber-400">❓</span>
-              <span className="text-xs font-black text-amber-400">Material Desconocido</span>
+              <span className="text-xs font-black text-amber-600">Material Desconocido</span>
             </div>
-            <span className="text-[10px] font-bold text-white/40">Calcula n₂ con la Ley de Snell</span>
+            <span className="text-[10px] font-bold text-slate-500">Calcula n₂ con la Ley de Snell</span>
           </button>
         </div>
       </div>
 
       {/* ═══ TELEMETRÍA EN VIVO ═══ */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-5 space-y-3">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Telemetría Óptica</span>
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-5 space-y-3 shadow-sm">
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block">Telemetría Óptica</span>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-black/30 rounded-xl">
-            <span className="text-[8px] font-black text-cyan-400/60 uppercase block">θ₁ Incidencia</span>
+          <div className="p-3 bg-[#0b1220] rounded-xl">
+            <span className="text-[8px] font-black text-cyan-300 uppercase block">θ₁ {sentido === 'aire-bloque' ? 'Incidencia' : 'en el bloque'}</span>
             <span className="text-lg font-black text-white font-mono">{theta1}°</span>
           </div>
-          <div className="p-3 bg-black/30 rounded-xl">
-            <span className="text-[8px] font-black text-pink-400/60 uppercase block">θ₂ Refracción</span>
+          <div className="p-3 bg-[#0b1220] rounded-xl">
+            <span className="text-[8px] font-black text-pink-300 uppercase block">θ₂ {sentido === 'aire-bloque' ? 'Refracción' : 'en el aire'}</span>
             <span className="text-lg font-black text-white font-mono">
               {/* Con el medio misterioso θ₂ es la MEDICIÓN del alumno: se lee en el disco graduado, no aquí. */}
-              {isTIR ? <span className="text-red-400 text-sm">TIR</span> : esMisterio ? <span className="text-sm">mídelo</span> : `${theta2.toFixed(1)}°`}
+              {isTIR ? <span className="text-red-400 text-sm">TIR</span> : oculto ? <span className="text-sm">mídelo</span> : `${theta2.toFixed(1)}°`}
             </span>
           </div>
-          <div className="p-3 bg-black/30 rounded-xl">
-            <span className="text-[8px] font-black text-white/30 uppercase block">n₁ / n₂</span>
+          <div className="p-3 bg-[#0b1220] rounded-xl">
+            <span className="text-[8px] font-black text-slate-400 uppercase block">n₁ / n₂</span>
             {/* Con el medio misterioso, n₁/n₂ ES la respuesta: no se muestra. */}
-            <span className="text-sm font-black text-white font-mono">{esMisterio ? '?' : (n1 / n2Val).toFixed(4)}</span>
+            <span className="text-sm font-black text-white font-mono">{oculto ? '?' : (n1 / n2Val).toFixed(4)}</span>
           </div>
-          <div className="p-3 bg-black/30 rounded-xl">
-            <span className="text-[8px] font-black text-white/30 uppercase block">θ Crítico</span>
+          <div className="p-3 bg-[#0b1220] rounded-xl">
+            <span className="text-[8px] font-black text-slate-400 uppercase block">θ Crítico</span>
             <span className="text-sm font-black text-white font-mono">
               {/* sen θc = n₂/n₁: con el medio misterioso daría n₂ sin medir nada. */}
-              {esMisterio ? '?' : isNaN(criticalAngle) ? 'N/A' : `${criticalAngle.toFixed(1)}°`}
+              {oculto ? '?' : isNaN(criticalAngle) ? 'N/A' : `${criticalAngle.toFixed(1)}°`}
             </span>
           </div>
         </div>
@@ -190,18 +200,18 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             animate={{ opacity: 1, y: 0 }}
             className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl"
           >
-            <span className="text-[10px] font-black text-red-400 uppercase">⚠ Reflexión Total Interna</span>
-            <p className="text-[10px] text-red-300/60 mt-1">
-              El ángulo supera el crítico ({criticalAngle?.toFixed(1)}°). La luz no puede salir del medio 1.
+            <span className="text-[10px] font-black text-red-500 uppercase">⚠ Reflexión Total Interna</span>
+            <p className="text-[10px] text-red-500/80 mt-1">
+              {oculto ? 'El ángulo supera el crítico.' : `El ángulo supera el crítico (${criticalAngle.toFixed(1)}°).`} La luz no puede salir del bloque.
             </p>
           </motion.div>
         )}
       </div>
 
       {/* ═══ GRÁFICA θ₁ vs θ₂ EN VIVO ═══ */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-5">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-3">Curva de Snell — θ₁ vs θ₂</span>
-        <div className="bg-black/30 rounded-xl p-3">
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-5 shadow-sm">
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-3">Curva de Snell — θ₁ vs θ₂</span>
+        <div className="bg-[#0b1220] rounded-xl p-3 relative">
           <svg viewBox="0 0 200 120" className="w-full h-auto">
             {/* Grid */}
             {[0, 25, 50, 75, 100].map(x => (
@@ -222,7 +232,7 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             ))}
 
             {/* TIR zone (if applicable) */}
-            {!isNaN(criticalAngle) && (
+            {curvaVisible && !isNaN(criticalAngle) && (
               <>
                 <rect x={20 + criticalAngle * 1.88} y={10} width={190 - (20 + criticalAngle * 1.88)} height={100} fill="#ef4444" opacity={0.06} />
                 <line x1={20 + criticalAngle * 1.88} y1={10} x2={20 + criticalAngle * 1.88} y2={110} stroke="#ef4444" strokeWidth={0.8} strokeDasharray="3,2" />
@@ -231,10 +241,10 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             )}
 
             {/* Snell curve */}
-            <path
+            {curvaVisible && <path
               d={Array.from({ length: 89 }, (_, i) => {
                 const a = i + 1;
-                const s = (n1 * Math.sin(a * Math.PI / 180)) / n2Val;
+                const s = (nInc * Math.sin(a * Math.PI / 180)) / nTr;
                 if (s > 1) return '';
                 const t2 = Math.asin(s) * 180 / Math.PI;
                 const x = 20 + a * 1.88;
@@ -245,10 +255,10 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
               stroke="#22d3ee"
               strokeWidth={1.5}
               strokeLinecap="round"
-            />
+            />}
 
             {/* Current position dot */}
-            {!isTIR && (
+            {curvaVisible && !isTIR && (
               <circle
                 cx={20 + theta1 * 1.88}
                 cy={110 - theta2 * 1.1}
@@ -264,6 +274,9 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
             {/* 45° reference line */}
             <line x1={20} y1={110} x2={20 + 90 * 1.88} y2={110 - 90 * 1.1} stroke="#334155" strokeWidth={0.5} strokeDasharray="2,3" />
           </svg>
+          {!curvaVisible && (
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Se revela al validar</span>
+          )}
         </div>
       </div>
 
