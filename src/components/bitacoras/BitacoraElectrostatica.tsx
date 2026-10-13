@@ -15,7 +15,7 @@ export default function BitacoraElectrostatica({ onValidate }: { onValidate?: ()
   return (
     <BitacoraFisica
       titulo="Ley de Coulomb"
-      intro="Dos cargas puntuales se ejercen fuerzas iguales y opuestas a lo largo de la recta que las une. La magnitud crece con el producto de las cargas y cae con el cuadrado de la distancia; el sentido depende de los signos: iguales se repelen, opuestos se atraen."
+      intro="Fuerzas iguales y opuestas sobre la recta que une las cargas: crecen con el producto q₁q₂ y caen con r². Signos iguales se repelen; opuestos se atraen."
       formulas={[
         { tex: 'F = k\\,\\dfrac{|q_1 q_2|}{r^2}', etiqueta: 'Ley de Coulomb' },
         { tex: 'k = \\dfrac{1}{4\\pi\\varepsilon_0} \\approx 8.99\\times10^{9}\\ \\mathrm{N\\,m^2/C^2}', etiqueta: 'Constante' },

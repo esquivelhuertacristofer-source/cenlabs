@@ -1,20 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ShieldAlert, Pause, Play, Scan } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { CARGAS_UC, RANGO_R9_CM, K_COULOMB, evaluarF9, tipoInteraccion } from '@/domain/fisica';
+import { CARGAS_UC, RANGO_R9_CM, evaluarF9, fuerzaCoulomb } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
 import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab, Segmentado } from './simulador/LabLayout';
+// El reloj y el dock no arrastran three: la escena 3D va en su propio chunk.
+import { useRelojCampo, prefiereReducirMovimiento } from './simuladores/fis09/reloj';
+import { DockCampo } from './simuladores/fis09/Dock';
+import type { PuntoMedido } from './simuladores/fis09/grafica';
+import type { CapasVisibles } from './simuladores/fis09/Electrostatica3DScene';
 
 const Electrostatica3DScene = dynamic(() => import('./simuladores/fis09/Electrostatica3DScene'), {
   ssr: false,
-  loading: () => <div className="w-full h-full bg-[#03040a] flex items-center justify-center text-blue-400 font-black text-xs uppercase tracking-[0.3em]">Cargando esferas...</div>
+  loading: () => <div className="h-full w-full bg-[#0a111b]" />,
 });
 
 const fmtQ = (q: number) => `${q > 0 ? '+' : '−'}${Math.abs(q)} μC`;
+
+/** Interruptor de capa de la escena (píldora). */
+function Pildora({ activo, onClick, children, title }: { activo: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={activo} title={title}
+      className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold backdrop-blur transition-colors ${activo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-400 hover:text-slate-200'}`}>
+      {children}
+    </button>
+  );
+}
 
 export default function PilotoElectrostatica({ onValidate }: { onValidate?: () => void }) {
   const { e, setElectrostatica9, audio, setAsistente } = useSimuladorStore(useShallow((s) => ({
@@ -52,6 +67,52 @@ export default function PilotoElectrostatica({ onValidate }: { onValidate?: () =
     if (v.ok) audio?.playSuccess(); else { audio?.playError(); avisar(v.mensaje ?? 'Revisa tus datos.'); }
   };
 
+  // ── escena: un solo reloj para el 3D y el dock ──
+  const [reducido] = useState(prefiereReducirMovimiento);
+  const reloj = useRelojCampo({ q1, q2, r: distancia }, reducido);
+  const [pausa, setPausa] = useState(reducido);
+  useEffect(() => { reloj.pausa = pausa; }, [reloj, pausa]);
+  const [capas, setCapas] = useState<CapasVisibles>({ lineas: true, equipotenciales: true, fuerzas: true, rotulos: false, sonda: false });
+  const alternar = (k: keyof CapasVisibles) => setCapas((c) => ({ ...c, [k]: !c[k] }));
+  const [encuadre, setEncuadre] = useState(0);
+
+  // razón entre la fuerza de este ajuste y la del anterior (sin cifras absolutas)
+  const previo = useRef({ q1, q2, r: distancia });
+  const [razon, setRazon] = useState<{ factor: number; que: string } | null>(null);
+  const [aviso, setAviso] = useState<{ factor: number; n: number } | null>(null);
+  useEffect(() => {
+    const p = previo.current;
+    if (p.q1 === q1 && p.q2 === q2 && p.r === distancia) return;
+    const factor = fuerzaCoulomb(q1, q2, distancia) / fuerzaCoulomb(p.q1, p.q2, p.r);
+    const que = p.r !== distancia && p.q1 === q1 && p.q2 === q2 ? `r ${p.r} → ${distancia} cm` : 'cargas y/o r';
+    previo.current = { q1, q2, r: distancia };
+    setRazon({ factor, que });
+    setAviso((a) => ({ factor, n: (a?.n ?? 0) + 1 }));
+  }, [q1, q2, distancia]);
+  useEffect(() => {
+    if (!aviso) return;
+    const t = window.setTimeout(() => setAviso(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [aviso]);
+
+  // mediciones que el alumno anota en la gráfica (sin cifras de F: sólo puntos)
+  const [puntos, setPuntos] = useState<PuntoMedido[]>([]);
+  const anotar = useCallback(() => setPuntos((ps) => (ps.some((p) => p.r === distancia && p.q1 * p.q2 === q1 * q2) ? ps : [...ps, { r: distancia, q1, q2 }].slice(-24))), [distancia, q1, q2]);
+  const validado = !!veredicto?.ok || e.resultado === 'exito';
+  const retoMemo = useMemo(() => ({ q1: reto.q1, q2: reto.q2, r: reto.r }), [reto.q1, reto.q2, reto.r]);
+
+  // ancho de la barra superior: en el lab estrecho (1366×768) el banco ya se lee en los controles
+  const barraRef = useRef<HTMLDivElement>(null);
+  const [anchoBarra, setAnchoBarra] = useState(1000);
+  useEffect(() => {
+    const el = barraRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([en]) => setAnchoBarra(en.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const barraCompacta = anchoBarra < 600;
+
   const selector = (etiqueta: string, valor: number, onChange: (v: number) => void) => (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold text-slate-300">{etiqueta}</span>
@@ -62,28 +123,63 @@ export default function PilotoElectrostatica({ onValidate }: { onValidate?: () =
     </label>
   );
 
+  const escena = (
+    <div className="relative h-full w-full overflow-hidden bg-[#0a111b]">
+      <Electrostatica3DScene reloj={reloj} q1={q1} q2={q2} capas={capas} encuadre={encuadre} />
+      {/* capas de la escena */}
+      <div className="pointer-events-none absolute left-2 top-2 right-36 flex flex-wrap items-center gap-1.5">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
+          <Pildora activo={capas.lineas} onClick={() => alternar('lineas')} title="Líneas de campo eléctrico">
+            <i className="h-0.5 w-3.5 rounded bg-gradient-to-r from-[#ff7a5c] via-white to-[#6aa6ff]" /> Líneas
+          </Pildora>
+          <Pildora activo={capas.equipotenciales} onClick={() => alternar('equipotenciales')} title="Superficies equipotenciales">
+            <i className="h-2.5 w-2.5 rounded-full border border-[#c9b8ff]/80" /> Equipotenciales
+          </Pildora>
+          <Pildora activo={capas.fuerzas} onClick={() => alternar('fuerzas')} title="Par de fuerzas acción–reacción">
+            <i className="h-0.5 w-3 rounded bg-[#ffb547]" /> Fuerzas
+          </Pildora>
+          <Pildora activo={capas.sonda} onClick={() => alternar('sonda')} title="Carga de prueba: E = E₁ + E₂ (superposición)">
+            <i className="h-2 w-2 rounded-full bg-white/90" /> Sonda
+          </Pildora>
+          <Pildora activo={capas.rotulos} onClick={() => alternar('rotulos')} title="Rótulos de cargas y fuerzas">Rótulos</Pildora>
+          <Pildora activo={!pausa} onClick={() => setPausa((p) => !p)} title={pausa ? 'Animar el sentido del campo' : 'Pausar la animación'}>
+            {pausa ? <Play size={12} /> : <Pause size={12} />}
+          </Pildora>
+          <Pildora activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={12} /></Pildora>
+        </div>
+      </div>
+      {/* razón de fuerzas tras cada cambio: se lee y se va */}
+      {aviso && (
+        <div key={aviso.n} className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-lg border border-[#ffb547]/40 bg-[#0b1422]/85 px-3 py-1.5 font-mono text-[13px] font-semibold tabular-nums text-[#ffd9a0] shadow-lg backdrop-blur" data-aviso-razon="">
+          |F| {aviso.factor >= 1 ? '×' : '÷'} {(aviso.factor >= 1 ? aviso.factor : 1 / aviso.factor).toFixed(aviso.factor >= 10 || aviso.factor <= 0.1 ? 1 : 2).replace('.', ',')}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <LabLayout
-      escena={<Electrostatica3DScene q1={q1} q2={q2} distancia={distancia} isAtraccion={tipoInteraccion(q1, q2) === 'atraccion'} />}
+      escena={escena}
       barraSuperior={
-        <>
+        <div ref={barraRef} className="flex min-w-0 flex-1 items-center gap-2">
           <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-300">Reto</span>
           <Lectura etiqueta="q₁" valor={fmtQ(reto.q1)} acento />
           <Lectura etiqueta="q₂" valor={fmtQ(reto.q2)} acento />
           <Lectura etiqueta="r" valor={reto.r} unidad="cm" acento />
-          <span className="mx-1 h-5 w-px shrink-0 bg-white/15" />
-          <Lectura etiqueta="Banco q₁" valor={fmtQ(q1)} />
-          <Lectura etiqueta="q₂" valor={fmtQ(q2)} />
-          <Lectura etiqueta="r" valor={distancia} unidad="cm" />
-        </>
-      }
-      tituloPanel="Datos"
-      panelLateral={
-        <div className="flex flex-col gap-3 text-[11px] text-slate-300">
-          <p>Dos esferas pequeñas, tratadas como cargas puntuales. El reto pide la fuerza para q₁, q₂ y r de la franja «Reto»; el banco te deja explorar otras configuraciones.</p>
-          <p className="font-mono text-slate-400">k = {(K_COULOMB / 1e9).toFixed(3)}×10⁹ N·m²/C² · 1 μC = 10⁻⁶ C · 1 cm = 10⁻² m</p>
-          <p className="text-slate-400">Las flechas naranjas son el par acción-reacción: su longitud crece o decrece con |F| en escala logarítmica y sin cifras. Si duplicas r, ¿qué le pasa a la flecha?</p>
+          {!barraCompacta && (
+            <>
+              <span className="mx-1 h-5 w-px shrink-0 bg-white/15" />
+              <Lectura etiqueta="Banco q₁" valor={fmtQ(q1)} />
+              <Lectura etiqueta="q₂" valor={fmtQ(q2)} />
+              <Lectura etiqueta="r" valor={distancia} unidad="cm" />
+            </>
+          )}
         </div>
+      }
+      tituloPanel="Campo y fuerza"
+      panelLateral={
+        <DockCampo reloj={reloj} q1={q1} q2={q2} r={distancia} reto={retoMemo} puntos={puntos} onAnotar={anotar}
+          onBorrar={() => setPuntos([])} validado={validado} razon={razon} />
       }
       controles={
         <div className="flex flex-col gap-2">
