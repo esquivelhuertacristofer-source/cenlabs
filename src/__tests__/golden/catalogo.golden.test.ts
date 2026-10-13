@@ -44,19 +44,19 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     }
   });
 
-  // Desde 2026-10-13 la destacada de cada categoría es uno de los labs de
+  // Desde 2026-10-13 las destacadas de cada categoría son los labs de
   // «clase mundial» (antes: quimica-7, fisica-1, matematicas-1, biologia-1, mecanica-1).
-  it('la práctica destacada de cada categoría es la de clase mundial', () => {
-    const esperado: Record<Categoria, string> = {
-      quimica: 'quimica-1',
-      fisica: 'fisica-9',
-      matematicas: 'matematicas-7',
-      biologia: 'biologia-8',
-      mecanica: 'mecanica-111',
+  it('las destacadas de cada categoría son los 10 labs de clase mundial', () => {
+    const esperado: Record<Categoria, string[]> = {
+      quimica: ['quimica-1'],
+      fisica: ['fisica-9'],
+      matematicas: ['matematicas-7', 'matematicas-10'],
+      biologia: ['biologia-3', 'biologia-8'],
+      mecanica: ['mecanica-3', 'mecanica-49', 'mecanica-111', 'mecanica-123'],
     };
     for (const cat of CATEGORIAS) {
-      const destacada = catalogoDeCategoria(cat).find((i) => i.destacada);
-      expect(destacada?.id).toBe(esperado[cat]);
+      const destacadas = catalogoDeCategoria(cat).filter((i) => i.destacada).map((i) => i.id).sort();
+      expect(destacadas).toEqual([...esperado[cat]].sort());
     }
   });
 

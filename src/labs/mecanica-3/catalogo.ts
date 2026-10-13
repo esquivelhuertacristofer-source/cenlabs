@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Controla la cinemática de un manipulador articulado: posiciona el efector final, calcula el par por articulación y diagnostica el espacio de trabajo.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/brazo-robotico.html",
 };
 

@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Relaciona deslizamiento y par en un motor de inducción trifásico y localiza el par máximo entre el arranque y la velocidad síncrona.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/par-velocidad-motor-induccion.html",
 };
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { FlaskConical, Play, ArrowLeft, Clock, Target, User, Search, Filter, CheckCircle2 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import LabsDestacados from '@/components/LabsDestacados';
 import { catalogoDeCategoria } from '@/labs/_catalogo';
 
 // ==========================================
@@ -199,7 +200,7 @@ export default function QuimicaCatalogPage() {
 
   const completedCount = practicasQuimica.filter(p => p.estado === 'completado').length;
   const progreso = (completedCount / 10) * 100;
-  const destacada = practicasQuimica.find(p => p.destacada) || practicasQuimica[0];
+  const destacadas = practicasQuimica.filter(p => p.destacada);
 
   // Motor de Búsqueda y Filtrado Dual
   const filteredPracticas = practicasQuimica.filter(p => {
@@ -288,23 +289,8 @@ export default function QuimicaCatalogPage() {
            </div>
         </div>
 
-        {/* 2. QUICK RESUME BANNER */}
-        <div className={`w-full bg-white dark:bg-[#0A1121] backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-[32px] p-6 lg:p-8 flex flex-col lg:flex-row items-center justify-between gap-6 mb-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-colors border-t-4 border-t-[#FB8500]`}>
-           <div className="flex items-center gap-6">
-             <div className="w-16 h-16 rounded-2xl bg-[#FFF8E6] dark:bg-[#FB8500]/10 shadow-inner flex items-center justify-center animate-pulse duration-3000 border border-[#FB8500]/20">
-                <Play className="w-8 h-8 text-[#FB8500]" fill="currentColor" />
-             </div>
-             <div>
-               <p className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">⭐ Práctica Destacada Sugerida</p>
-               <p className="text-2xl font-black text-[#023047] dark:text-white">{destacada?.titulo}</p>
-             </div>
-           </div>
-           
-           <Link href={`/alumno/simulador/quimica-${destacada.id}`} className={`px-8 py-4 rounded-xl font-black text-white text-lg ${accentBg} shadow-xl hover:shadow-2xl hover:shadow-[#219EBC]/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center gap-3 whitespace-nowrap`}>
-             <Play size={20} fill="currentColor" />
-             Iniciar Simulación
-           </Link>
-        </div>
+        {/* 2. DESTACADAS (todas las marcadas en el catálogo) */}
+        <LabsDestacados acento="#FB8500" items={destacadas.map((p) => ({ href: `/alumno/simulador/quimica-${p.id}`, titulo: p.titulo, modulo: p.modulo }))} />
 
         {/* 3. TABS NAVIGATION & SEARCH ROW */}
         <div className="w-full flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">

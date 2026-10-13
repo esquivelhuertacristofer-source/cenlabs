@@ -21,6 +21,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Transporte Celular",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "biologia-3",
@@ -277,6 +278,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Sumas de Riemann",
   },
   {
+    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "matematicas-10",
@@ -311,6 +313,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Motor de Combustión Interna (4 Tiempos)",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "mecanica-3",
@@ -771,6 +774,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Generador de CD Autoexcitado: Curva de Magnetización",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "mecanica-49",
@@ -1512,6 +1516,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Conducto Común Diésel y Precalentamiento",
   },
   {
+    "destacada": true,
     "duracion": "50 min",
     "estado": "activo",
     "id": "mecanica-123",

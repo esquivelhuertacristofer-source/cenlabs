@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "30 min",
   teoria: "Deja caer cientos de esferas a través de un tablero de probabilidad y observa cómo el caos converge perfectamente en la Campana de Gauss.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;
