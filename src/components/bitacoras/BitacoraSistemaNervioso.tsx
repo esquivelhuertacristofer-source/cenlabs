@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
+import { ensayoEnCurso } from '@/components/simuladores/bio07/enCurso';
 import { Trash2, ShieldCheck, BookOpen, Bot, Volume2, Table } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
+
+/** Decimales con coma, como en el resto del lab. */
+const coma = (x: number, d: number) => x.toFixed(d).replace('.', ',');
 
 export default function BitacoraSistemaNervioso({ onValidate }: { onValidate?: () => void }) {
   const sistemaNervioso = useSimuladorStore((s) => s.sistemaNervioso);
@@ -11,6 +15,7 @@ export default function BitacoraSistemaNervioso({ onValidate }: { onValidate?: (
   // Sin integridadMielina ni umbral: son lo que el alumno debe descubrir.
   const { ensayos, distancia, velocidadEstimada, diagnostico } = sistemaNervioso;
   const [conclusionText, setConclusionText] = useState("");
+  const enCurso = useSyncExternalStore(ensayoEnCurso.suscribir, ensayoEnCurso.get, () => false);
 
   const handleReset = () => {
     resetB7();
@@ -29,8 +34,7 @@ export default function BitacoraSistemaNervioso({ onValidate }: { onValidate?: (
         <div className="relative z-10">
           <h4 className="text-white font-black text-lg leading-tight mb-2">Arco reflejo rotuliano</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Recorrido del arco: {distancia.toFixed(2)} m. La latencia incluye la conducción por la vía aferente y eferente MÁS los retardos
-            de la sinapsis central y de la placa neuromuscular.
+            Recorrido del arco: {coma(distancia, 2)} m. La latencia suma conducción, sinapsis central y placa.
           </p>
           <button onClick={() => audio.playNotification()}
             className="w-full py-4 bg-gradient-to-r from-cyan-600 to-cyan-800 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95">
@@ -46,13 +50,15 @@ export default function BitacoraSistemaNervioso({ onValidate }: { onValidate?: (
             <thead><tr className="text-[9px] uppercase text-slate-400"><th className="text-left">Fuerza</th><th>Reflejo</th><th className="text-right">Latencia</th></tr></thead>
             <tbody>
               {ensayos.map((e, i) => (
-                <tr key={i}><td>{e.fuerza} %</td><td className="text-center">{e.respuesta ? 'sí' : 'no'}</td><td className="text-right">{e.latencia === null ? '—' : `${e.latencia.toFixed(1)} ms`}</td></tr>
+                enCurso && i === ensayos.length - 1
+                  ? <tr key={i}><td>{e.fuerza} %</td><td className="text-center">…</td><td className="text-right">…</td></tr>
+                  : <tr key={i}><td>{e.fuerza} %</td><td className="text-center">{e.respuesta ? 'sí' : 'no'}</td><td className="text-right">{e.latencia === null ? '—' : `${coma(e.latencia, 1)} ms`}</td></tr>
               ))}
             </tbody>
           </table>
         )}
         <div className="text-[11px] text-slate-500">
-          Tu velocidad: <b className="font-mono">{velocidadEstimada === null ? '—' : `${velocidadEstimada} m/s`}</b> · Tu diagnóstico: <b>{diagnostico ?? '—'}</b>
+          Tu velocidad: <b className="font-mono">{velocidadEstimada === null ? '—' : `${String(velocidadEstimada).replace('.', ',')} m/s`}</b> · Tu diagnóstico: <b>{diagnostico ?? '—'}</b>
         </div>
       </div>
 
@@ -62,7 +68,7 @@ export default function BitacoraSistemaNervioso({ onValidate }: { onValidate?: (
           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
         </div>
         <textarea value={conclusionText} onChange={(e) => setConclusionText(e.target.value)}
-          placeholder="¿Cambió la latencia al golpear más fuerte? ¿Qué demuestra eso sobre la ley del todo o nada? Explica cómo calculaste la velocidad de conducción y por qué la mielina la modifica."
+          placeholder="¿Cambió la latencia al golpear más fuerte? ¿Cómo calculaste la velocidad y qué dice de la mielina?"
           rows={4}
           className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-cyan-500 italic" />
       </div>
