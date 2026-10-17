@@ -35,8 +35,9 @@ fichaTecnica({
     omitidos: [
       'Modelo multizona o de dos zonas: aquí hay una sola zona con propiedades medias. No se separa el gas quemado del sin quemar.',
       'Química detallada de la combustión y de la formación de contaminantes: no se calculan NOx, hollín, CO ni HC. El margen de humo se declara como lectura, no como criterio.',
-      'Penetración y atomización del chorro: el chorro dibujado indica qué fracción de la dosis ya salió, no hasta dónde llegó.',
-      'Bol en la cabeza del pistón: la corona se dibuja plana porque el motor solo resuelve el equivalente de cámara plana Vc = Vd/(r − 1).',
+      'El chorro como física del motor: el 3D lo DIBUJA con la penetración de Hiroyasu–Arai, el cono de Reitz–Bracco y una longitud líquida esquemática, pero el motor sellado no lo usa; la mezcla entra en el cálculo solo por la doble Wiebe.',
+      'El bowl como cámara de combustión: el 3D lo dibuja reentrante y con su volumen exacto (en el urbano a r 16 se lleva 19,844 de los 25,011 cm³ de la cámara), pero el motor resuelve una sola zona y Vc = Vd/(r − 1); la forma no cambia ninguna cifra.',
+      'La llama: la de premezcla, la envoltura de difusión y el bowl entero se pintan con los ritmos de liberación de calor del motor, pero su forma es ilustrativa. En el modo frío el motor gira a las rpm de arrastre y el encendido dibujado es ilustrativo: el motor no integra el arranque.',
       'Movimiento del aire dentro del cilindro (swirl, squish, tumble): entra en el modelo únicamente por las constantes de la doble Wiebe y de Woschni.',
       'Dinámica del sistema de inyección: no hay ondas de presión en el riel, ni retardo del inyector, ni inyecciones piloto o posteriores. Un solo pulso.',
       'Sobrealimentación como sistema: la presión y la temperatura de admisión son datos de cada máquina, no salida de un turbo con su mapa.',
@@ -91,9 +92,10 @@ fichaTecnica({
 
       ['Fricción mecánica', 'fmep = 0,55 + 0,0060·p_max + 0,0450·Sp + 0,00080·Sp² (Chen-Flynn)', 'Firmadas: 1,538 a 1,822 bar · rango global 1,297 a 2,105 bar', 'Sube con la presión de pico: apretar la relación de compresión también aprieta los cojinetes.'],
       ['Bombeo', 'pmep = (p_esc − p_adm)', 'Firmadas: 0,110 a 0,250 bar', 'En un diésel sin mariposa el bombeo es casi anecdótico frente a la fricción: 0,25 bar contra 2,3.'],
-      ['Balance de presiones medias', 'imep_G − pmep − fmep_mec − fmep_iny = bmep', 'Referencia urbano: 14,370 − 0,250 − 1,791 − 0,479 = 11,851 bar', 'Cada resta es visible en el pizarrón. El 21,1 % de la fricción del urbano es la bomba de inyección.'],
+      ['Balance de presiones medias', 'imep_G − pmep − fmep_mec − fmep_iny = bmep', 'Referencia urbano: 14,370 − 0,250 − 1,791 − 0,479 = 11,851 bar', 'Cada resta está en el informe del ciclo. El 21,1 % de la fricción del urbano es la bomba de inyección.'],
 
-      ['Geometría', 'V(θ) = Vc + Ap·(L + a − a·cos θ − √(L² − a²·sen²θ))', 'Vc = Vd/(r − 1)', 'Exacta, con la biela real. La columna de gas dibujada en 3D vale V(θ) exactamente, no una aproximación.'],
+      ['Geometría', 'V(θ) = Vc + Ap·(L + a − a·cos θ − √(L² − a²·sen²θ))', 'Vc = Vd/(r − 1)', 'Exacta, con la biela real. El volumen que encierra la maqueta 3D (cilindro, squish de 0,90 mm, bowl y recesos de válvula, menos la punta de la tobera y la bujía) vale V(θ) exactamente, no una aproximación.'],
+      ['Chorro dibujado', 'S = 0,39·√(2Δp/ρ_l)·t hasta t_b = 28,65·ρ_l·d₀/√(ρ_a·Δp); después 2,95·(Δp/ρ_a)^¼·√(d₀·t)', 'Urbano r 16, SOI 10°, 1 800 bar: 252,3 m/s · ruptura a los 35,2 µs · cono de 16,46° · longitud líquida 10,1 mm · toca el bowl 5,00° después del SOI', 'Penetración de Hiroyasu–Arai y cono de Reitz–Bracco con la ρ_a del cilindro al empezar la inyección. Es dibujo: el motor sellado no lo lee. La longitud líquida es una escala esquemática (18·d₀·√(ρ_l/ρ_a)), no la correlación completa de Siebers.'],
       ['Compresión efectiva', 'rEf = V(IVC)/Vc', 'Firmadas: 13,810 a 19,310 · rango global 12,895 a 19,310', 'El motor no comprime desde el PMI sino desde que cierra la admisión. Cuesta 1,50 a 1,62 puntos del techo ideal, y es la pérdida que nadie apunta.'],
       ['Residuales', 'f_res por punto fijo con la masa atrapada al EVO', 'Firmadas: 2,04 % a 3,21 % · rango global 1,96 % a 3,53 %', 'Calientan la carga fresca antes de comprimir; en frío eso no existe, y por eso el arranque se resuelve aparte.'],
       ['Dosis', 'm_comb = Qdem/PCI', 'Referencia: 27,06 mg (marino) a 28,25 mg (B20) para el MISMO calor', 'La energía pedida la fija el banco; la masa la fija el combustible. Quien tiene menos poder calorífico tiene que inyectar más masa para dar lo mismo.'],
@@ -142,13 +144,15 @@ fichaTecnica({
 
   s3: [
     'Seis modos con la misma física detrás: ciclo, retardo, riel, frío, censo y reto. Ninguno recalcula nada por su cuenta: los seis leen el mismo motor sellado.',
-    'Motor en 3D con el periodo cerrado real: la columna de gas dibujada vale exactamente V(θ), el color indica la fracción quemada y la opacidad la presión respecto al límite mecánico.',
-    'Manómetro de cilindro con aguja instantánea, acelerómetro de ruido que marca dp/dθ contra el límite del pliego y brida de escape que se pone al rojo con la temperatura calculada en el termopar.',
-    'Cuadro de seis pilotos, uno por criterio del pliego, que se encienden y se apagan mientras se mueven los mandos: se ve cuál es el que impide firmar.',
-    'Diagrama p-V con los tres techos ideales superpuestos —Otto, Diésel y Dual— dibujados con el mismo calor y el mismo gamma que la curva real.',
+    'Motor en media sección que sigue al modelo con un solo reloj: biela-manivela exacta, levas a media vuelta del cigüeñal, bowl reentrante en el pistón y tobera de cinco a ocho orificios según la máquina. El volumen que encierra la maqueta es V(θ) y el gas toma el color de su temperatura.',
+    'El chorro y la llama en el plano de corte y detrás de él: gotas hasta la longitud líquida, vapor después, abanico contra la pared del bowl; al encender, la premezcla prende el vapor y la difusión envuelve cada chorro, con el brillo de los ritmos de liberación de calor del motor. Cámara lenta rotulada (×1/10 a ×1/10 000) y más lenta aún durante la combustión.',
+    'Cuatro vistas (corte, cámara, válvulas y tres cuartos) y ocho rótulos que solo aparecen al pedirlos o al pasar por encima; ningún texto vive dentro del 3D.',
+    'Manómetro de cilindro con aguja instantánea, testigo de ruido que marca dp/dθ contra el límite del pliego y brida de escape que se pone al rojo con la temperatura calculada en el termopar. En frío brillan la bujía incandescente o la rejilla con lo que aportan.',
+    'Seis chips del pliego bajo las gráficas, uno por criterio, que cambian mientras se mueven los mandos; al tocar uno se lee la medida, el límite y por qué importa.',
+    'Diagrama p-V con el punto del instante que se dibuja y el ciclo Dual ideal de aire frío calculado con el mismo calor; debajo, el reloj de la combustión con la cuenta del retardo, la inyección, la liberación de calor y la fracción quemada.',
     'Modo retardo: se ve crecer la integral de Livengood-Wu hasta 1 y el instante exacto en que arranca la combustión, junto con la doble Wiebe y su reparto premezcla/difusión.',
     'Modo riel: barrido de las cuatro presiones disponibles con la ley de la raíz cuadrada visible, la duración de inyección, el quemado tardío y lo que cuesta la bomba.',
-    'Modo frío: politrópica de arrastre, aportación de la rejilla multiplicada por la compresión, aportación de la bujía sin multiplicar, umbral térmico del combustible y puerta del CFPP, todo sobre la misma barra de temperatura.',
+    'Modo frío: politrópica de arrastre, aportación de la rejilla multiplicada por la compresión, aportación de la bujía sin multiplicar, umbral térmico del combustible y puerta del CFPP: la temperatura en el PMS frente a la relación de compresión con el umbral de cada combustible, y el margen frente a la temperatura ambiente.',
     'Modo censo: las 640 combinaciones de cada máquina clasificadas por criterio, con las no construibles marcadas ⚠, y el recuento de cuántas veces cada criterio decide él solo.',
     'Modo reto: buscar la calibración firmable más barata de las máquinas del reto (tractor, camioneta, planta y marino; el compacto urbano queda fuera porque es el punto de partida del modo de estudio), con dos pistas como máximo que orientan sin dar valores y tres intentos por caso: al tercer fallo llega otra máquina, y al fallar nunca se revela la respuesta.',
   ],
@@ -156,9 +160,9 @@ fichaTecnica({
   s4: {
     intro: 'Recorrido recomendado, de lo que se ve a lo que se firma:',
     items: [
-      '1. Abre el modo ciclo con el compacto urbano tal como aparece y mira el diagrama p-V con los tres techos encima. Anota los tres números: 67,01, 61,91 y 58,88 por ciento.',
-      '2. Compara esos tres con el rendimiento indicado (46,44 %) y con el del freno (38,29 %). Todo lo que falta hasta 28,72 puntos está desglosado en el pizarrón.',
-      '3. Toca la columna de gas y comprueba que el volumen dibujado es el mismo que usa el cálculo. Nada de lo que ves es decorativo.',
+      '1. Abre el modo ciclo con el compacto urbano tal como aparece: el motor gira y la tobera pulveriza. Pasa a la vista Cámara y mira el chorro entrar en el bowl, esperar el retardo y prender de golpe.',
+      '2. Abre «Ecuaciones» e «Informe del ciclo» y anota los tres techos ideales (67,01, 61,91 y 58,88 por ciento); compáralos con el rendimiento indicado (46,44 %) y con el del freno (38,29 %). Lo que falta hasta 28,72 puntos está desglosado allí.',
+      '3. Toca el pistón y la carga del cilindro: el volumen del bowl y el V(θ) que leen son los mismos que usa el cálculo. Nada de lo que ves es decorativo.',
       '4. Pasa al modo retardo y observa cómo la integral sube hasta 1 antes de que empiece a quemar. Retrasa el SOI y verás que el retardo se ACORTA, no se alarga.',
       '5. Cambia el combustible sin tocar nada más. El calor liberado no se mueve (1 143,6 J en los cuatro) pero la masa inyectada sí, y el ruido cambia con el cetano, no con la masa.',
       '6. Ordena los cuatro por ruido: el B20 (CN 54) da 9,75 bar/° y el marino (CN 42) da 10,45. El orden es exactamente el del número de cetano invertido.',
@@ -178,7 +182,7 @@ fichaTecnica({
     modela:
       'Un motor diésel de inyección directa durante su periodo cerrado, con el encendido calculado y no ordenado, la dosis repartida entre premezcla y difusión según cuánta masa entró antes de la llama, el calor perdido a las paredes por Woschni, la fricción de Chen-Flynn con el trabajo real de la bomba de inyección, los tres techos ideales de aire frío para comparar, y un arranque en frío que separa lo térmico (¿hace bastante calor?) de lo físico (¿fluye el combustible?). Encima, un pliego industrial de seis criterios y un desempate por dinero a cinco años.',
     noModela:
-      'No modela la química (nada de NOx ni hollín), ni el chorro (ni penetración ni gotas), ni el bol del pistón, ni el movimiento del aire dentro del cilindro, ni el sistema de inyección como sistema (un solo pulso, sin piloto ni post, sin ondas en el riel), ni el turbo como máquina, ni el periodo abierto, ni transitorios, ni dispersión ciclo a ciclo, ni postratamiento, ni el ruido radiado que se oye desde fuera. Todo lo que aparece en pantalla sale de una sola zona con propiedades medias.',
+      'No modela la química (nada de NOx ni hollín), ni el chorro ni el bowl como física —los dos se DIBUJAN con su penetración, su cono y su volumen exacto, pero el motor no los lee—, ni la forma de la llama (su brillo sí sale de los ritmos del motor), ni el movimiento del aire dentro del cilindro, ni el sistema de inyección como sistema (un solo pulso, sin piloto ni post, sin ondas en el riel), ni el turbo como máquina, ni el periodo abierto, ni transitorios, ni dispersión ciclo a ciclo, ni postratamiento, ni el ruido radiado que se oye desde fuera. Todo lo que aparece en pantalla sale de una sola zona con propiedades medias.',
   },
 
   s6: [
@@ -187,11 +191,14 @@ fichaTecnica({
     'Watson, N., Pilley, A. D. y Marzouk, M. (1980). "A Combustion Correlation for Diesel Engine Simulation". SAE 800029. Es la forma de doble Wiebe con pico premezclado y cola de difusión.',
     'Woschni, G. (1967). "A Universally Applicable Equation for the Instantaneous Heat Transfer Coefficient in the Internal Combustion Engine". SAE 670931. Constantes C1 = 2,28 y C2 = 3,24e−3 del periodo cerrado.',
     'Chen, S. K. y Flynn, P. F. (1965). "Development of a Single Cylinder Compression Ignition Research Engine". SAE 650733. Es la fricción como polinomio de la presión de pico y de la velocidad media del pistón.',
+    'Hiroyasu, H. y Arai, M. (1990). "Structures of Fuel Sprays in Diesel Engines". SAE 900475. Es la penetración en dos tramos (antes y después de la ruptura) con la que se dibuja la punta de cada chorro.',
+    'Reitz, R. D. y Bracco, F. V. (1979). "On the Dependence of Spray Angle and Other Spray Parameters on Nozzle Design and Operating Conditions". SAE 790494. Es el ángulo del cono, con A = 3 + 0,28·l/d₀.',
+    'Siebers, D. L. (1999). "Scaling Liquid-Phase Fuel Penetration in Diesel Sprays Based on Mixing-Limited Vaporization". SAE 1999-01-0528. De aquí sale la idea de una longitud líquida que no crece con la presión de riel y escala con d₀·√(ρ_l/ρ_a); el laboratorio usa esa escala con una constante esquemática, no la correlación completa.',
     'Heywood, J. B. (2018). "Internal Combustion Engine Fundamentals", 2.ª ed., McGraw-Hill. Capítulos 5 y 10: ciclos ideales Otto, Diésel y Dual (Seiliger), compresión efectiva y balance de presiones medias.',
     'Stone, R. (2012). "Introduction to Internal Combustion Engines", 4.ª ed., Palgrave Macmillan. Capítulo 5: por qué el ciclo Dual describe un DI mejor que el Diésel de presión constante.',
     'UNE-EN 590 y UNE-EN 116: requisitos del gasóleo de automoción y determinación del punto de obstrucción de filtro en frío (CFPP). Los grados de CFPP de los cuatro combustibles son valores de proyecto dentro de las clases de la norma.',
     'UNE-EN 14214 y UNE-EN 590 anexo: mezclas con éster metílico de ácidos grasos, de donde vienen el mayor cetano y el menor poder calorífico del B20.',
     'ISO 8178 e ISO 3046: condiciones de referencia y declaración de prestaciones de motores alternativos de combustión interna; es el marco del que se toma la idea de homologar a una temperatura declarada.',
-    'Verificación numérica propia: toda la física vive en un motor sellado, verificado mediante 279 937 comprobaciones sin un solo fallo, incluidas la conservación de la energía paso a paso, la convergencia del escape en las 1 460 combinaciones construibles y el contraste de los tres ciclos ideales contra sus formas cerradas. Las cifras de esta ficha se extrajeron después del propio motor, sin escribir a mano ni un solo número. El laboratorio ya construido se volvió a verificar dentro de un navegador real: 161 756 comprobaciones más, también sin un solo fallo, contrastando punto por punto lo que se dibuja en pantalla contra lo que devuelve el motor sellado.',
+    'Verificación numérica propia: toda la física vive en un motor sellado, verificado mediante 279 937 comprobaciones sin un solo fallo, incluidas la conservación de la energía paso a paso, la convergencia del escape en las 1 460 combinaciones construibles y el contraste de los tres ciclos ideales contra sus formas cerradas. Las cifras de esta ficha se extrajeron después del propio motor, sin escribir a mano ni un solo número. La maqueta 3D se verificó aparte contra ese mismo motor: 144 991 comprobaciones más, también sin un solo fallo —biela-manivela exacta, volumen encerrado igual a V(θ) con el bowl (Vc = Vd/(r − 1) en las cinco máquinas y las ocho r, y un Monte Carlo independiente de la cámara en tres de ellas), levas a media vuelta del cigüeñal, holguras de válvulas, penetración del chorro contra la fórmula escrita a mano y los 180 casos del motor idénticos al original.',
   ],
 });
