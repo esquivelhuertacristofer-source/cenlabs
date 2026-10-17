@@ -145,7 +145,7 @@ export default function BitacoraLeyesGases({ onValidate }: { onValidate?: () => 
                      Objetivo de Telemetría
                   </span>
                   <span className="text-xs font-bold text-[#023047]">
-                     {Math.abs(P - pTarget) < 0.1 ? '✓ Punto de Gay-Lussac OK' : `... Buscando ${pTarget.toFixed(2)} atm`}
+                     {Math.abs(P - pTarget) < 0.1 ? '✓ Presión objetivo alcanzada' : `... Buscando ${pTarget.toFixed(2)} atm`}
                   </span>
                </div>
                <div className={`w-2 h-2 rounded-full ${Math.abs(P - pTarget) < 0.1 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-300'}`} />
@@ -258,7 +258,7 @@ export default function BitacoraLeyesGases({ onValidate }: { onValidate?: () => 
 
         {/* MONITOR DE TENDENCIAS (NUEVO) */}
         <div className="h-32 w-full bg-slate-50 rounded-2xl border border-slate-100 p-2 overflow-hidden">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
             <LineChart data={history}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <YAxis domain={[0, 8]} hide />
