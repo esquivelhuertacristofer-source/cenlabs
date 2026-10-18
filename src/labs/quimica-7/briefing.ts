@@ -15,7 +15,7 @@ const briefing: BriefingConfig = {
       { icono: '💧', nombre: 'Goteo Crítico', descripcion: 'Técnica de flujo lento al final de la valoración.' }
     ],
     mision: [
-      'Purga la bureta con NaOH 0.1 M.',
+      'Purga la bureta con NaOH 0,1 M.',
       'Añade Fenolftaleína al matraz de HCl.',
       'Inicia el goteo constante.',
       'Reduce a goteo lento al notar cambios de color.',

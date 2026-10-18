@@ -29,7 +29,7 @@ const quiz: Question[] = [
       pregunta: "La 'Bureta' se utiliza para:",
       opciones: ["Contener el ácido", "Medir y dispensar el volumen de titulante con alta precisión", "Pesar sólidos", "Calentar la mezcla"],
       respuestaCorrecta: 1,
-      explicacion: "Su escala y válvula permiten controlar gota a gota la adición de reactivo."
+      explicacion: "Su escala y su llave permiten controlar gota a gota la adición de reactivo."
     },
     {
       pregunta: "¿Qué es el 'Punto Final'?",
@@ -38,8 +38,8 @@ const quiz: Question[] = [
       explicacion: "Es la aproximación experimental al punto de equivalencia."
     },
     {
-      pregunta: "Si usamos 20ml de NaOH 0.1M para neutralizar 20ml de HCl, la molaridad del HCl es:",
-      opciones: ["0.2 M", "0.1 M", "0.05 M", "1 M"],
+      pregunta: "Si usamos 20 mL de NaOH 0,1 M para neutralizar 20 mL de HCl, la molaridad del HCl es:",
+      opciones: ["0,2 M", "0,1 M", "0,05 M", "1 M"],
       respuestaCorrecta: 1,
       explicacion: "Al ser volúmenes iguales y relación 1:1, las concentraciones deben ser iguales."
     },
@@ -77,13 +77,13 @@ const quiz: Question[] = [
       pregunta: "Si el pOH de una solución es 4, ¿cuál es su pH?",
       opciones: ["4", "14", "10", "7"],
       respuestaCorrecta: 2,
-      explicacion: "pH + pOH = 14 a 25°C."
+      explicacion: "pH + pOH = 14 a 25 °C."
     },
     {
       pregunta: "¿Qué indica un cambio de color brusco de la fenolftaleína de incoloro a rosa?",
       opciones: ["Que el medio se volvió ácido", "Que el medio se volvió básico", "Que la reacción se detuvo", "Que el indicador se dañó"],
       respuestaCorrecta: 1,
-      explicacion: "La fenolftaleína vira a rosa en medios básicos (pH > 8.2)."
+      explicacion: "La fenolftaleína vira a rosa en medios básicos (pH > 8,2)."
     }
   ];
 

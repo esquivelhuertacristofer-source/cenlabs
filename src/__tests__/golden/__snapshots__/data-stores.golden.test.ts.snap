@@ -10198,7 +10198,7 @@ Tu misión: Encontrar el punto de equivalencia con precisión de mililitro.",
     ],
     "duracion": 40,
     "mision": [
-      "Purga la bureta con NaOH 0.1 M.",
+      "Purga la bureta con NaOH 0,1 M.",
       "Añade Fenolftaleína al matraz de HCl.",
       "Inicia el goteo constante.",
       "Reduce a goteo lento al notar cambios de color.",
@@ -16143,7 +16143,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "respuestaCorrecta": 1,
     },
     {
-      "explicacion": "Su escala y válvula permiten controlar gota a gota la adición de reactivo.",
+      "explicacion": "Su escala y su llave permiten controlar gota a gota la adición de reactivo.",
       "opciones": [
         "Contener el ácido",
         "Medir y dispensar el volumen de titulante con alta precisión",
@@ -16167,12 +16167,12 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "explicacion": "Al ser volúmenes iguales y relación 1:1, las concentraciones deben ser iguales.",
       "opciones": [
-        "0.2 M",
-        "0.1 M",
-        "0.05 M",
+        "0,2 M",
+        "0,1 M",
+        "0,05 M",
         "1 M",
       ],
-      "pregunta": "Si usamos 20ml de NaOH 0.1M para neutralizar 20ml de HCl, la molaridad del HCl es:",
+      "pregunta": "Si usamos 20 mL de NaOH 0,1 M para neutralizar 20 mL de HCl, la molaridad del HCl es:",
       "respuestaCorrecta": 1,
     },
     {
@@ -16231,7 +16231,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "respuestaCorrecta": 1,
     },
     {
-      "explicacion": "pH + pOH = 14 a 25°C.",
+      "explicacion": "pH + pOH = 14 a 25 °C.",
       "opciones": [
         "4",
         "14",
@@ -16242,7 +16242,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       "respuestaCorrecta": 2,
     },
     {
-      "explicacion": "La fenolftaleína vira a rosa en medios básicos (pH > 8.2).",
+      "explicacion": "La fenolftaleína vira a rosa en medios básicos (pH > 8,2).",
       "opciones": [
         "Que el medio se volvió ácido",
         "Que el medio se volvió básico",
@@ -17686,7 +17686,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "quimica-7": [
     {
       "id": 1,
-      "mensaje": "¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta presionando el botón "Cargar Bureta".",
+      "mensaje": "¡Hola, {alumno}! Tu objetivo es determinar la concentración de HCl. Primero, purga la bureta con el botón «Purgar bureta».",
       "pista": "Misión: Valoración",
       "tipo": "intro",
     },
@@ -17698,7 +17698,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     },
     {
       "id": 3,
-      "mensaje": "Abre la válvula de la bureta suavemente. Te recomiendo usar un goteo lento cuando te acerques al pH 7. ¡La precisión es clave!",
+      "mensaje": "Abre la llave de la bureta suavemente. Te recomiendo usar un goteo lento cuando te acerques al pH 7. ¡La precisión es clave!",
       "pista": "Control de Válvula",
       "tipo": "accion",
     },
@@ -17717,7 +17717,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Validar Titulación",
       "id": 6,
-      "mensaje": "¡Excelente! Lee el volumen de NaOH gastado y calcula [HCl] = Cb·Vb / Va (Cb = 0.1 M, Va = 25 mL). Escríbela y pulsa "Finalizar y Enviar Datos".",
+      "mensaje": "¡Excelente! Lee el volumen de NaOH gastado y calcula [HCl] = Cb·Vb / Va (Cb = 0,1 M, Va = 25 mL). Escríbela y pulsa «Enviar».",
       "pista": "Finalizar",
       "tipo": "verificar",
     },
@@ -19722,22 +19722,22 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "titulo": "Punto Final",
       },
       {
-        "desc": "Volumen fijo de muestra (20mL en este caso).",
+        "desc": "Volumen fijo de muestra (25 mL en este caso).",
         "titulo": "Alícuota",
       },
     ],
     "ecuacion": "Ca · Va = Cb · Vb",
-    "formulaGfx": "NaOH 0.1 M (Base)",
+    "formulaGfx": "NaOH 0,1 M (base)",
     "guiaMaestro": {
       "friccion": "El 'salto de pH' es la parte más difícil; si el alumno se distrae, la muestra se vuelve fucsia y debe reiniciar.",
-      "objetivo": "Determinar el punto de equivalencia mediante calorimetría visual.",
+      "objetivo": "Determinar el punto de equivalencia por volumetría con indicador.",
       "puntosClave": [
         "Punto de Equivalencia: Moles H+ = Moles OH-.",
-        "Indicador: Rango de viraje pH 8.2 - 10.",
+        "Indicador: rango de viraje pH 8,2–10,0.",
         "Menisco: Lectura en la parte cóncava.",
       ],
     },
-    "mision": "¡Bienvenido al Laboratorio de Química Analítica! Tu misión es realizar una valoración ácido-base de alta precisión para determinar la concentración desconocida de Ácido Clorhídrico (HCl). Deberás controlar la bureta con maestría técnica, añadiendo Hidróxido de Sodio (NaOH) gota a gota hasta alcanzar el punto de equivalencia estequiométrico. La Fenolftaleína será tu sensor visual: el primer viraje a rosa pálido persistente marcará el éxito de tu análisis. Un exceso de una sola gota invalidará la muestra. ¡Demuestra tu destreza en el manejo volumétrico!",
+    "mision": "¡Bienvenido al Laboratorio de Química Analítica! Tu misión es realizar una valoración ácido-base de alta precisión para determinar la concentración desconocida de Ácido Clorhídrico (HCl). Deberás controlar la bureta con maestría técnica, añadiendo Hidróxido de Sodio (NaOH) gota a gota hasta alcanzar el punto de equivalencia estequiométrico. La Fenolftaleína será tu sensor visual: el primer viraje a rosa pálido persistente marcará el éxito de tu análisis. Pasarse varias gotas del punto final falsea el resultado. ¡Demuestra tu destreza en el manejo volumétrico!",
     "pasos": [
       {
         "icon": "zap",
