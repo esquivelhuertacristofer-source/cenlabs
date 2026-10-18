@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Convierte corriente continua en trifásica mediante conmutación PWM de seis transistores y observa cómo se sintetiza la onda senoidal que alimenta al motor.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/inversor-trifasico.html",
 };
 

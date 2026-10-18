@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "35 min",
   teoria: "Manipula los gradientes de concentración y observa la ósmosis y la difusión a través de una membrana semipermeable.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

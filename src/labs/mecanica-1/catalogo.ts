@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Arma un motor síncrono de imanes permanentes y comprende cómo el campo giratorio del estátor produce par sobre el rotor. Diagnostica fallas de fase.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/motor-electrico.html",
 };
 

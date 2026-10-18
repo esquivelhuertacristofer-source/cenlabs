@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Aumenta la resolución de los rectángulos bajo la curva para aproximar el área exacta, la base del cálculo integral.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

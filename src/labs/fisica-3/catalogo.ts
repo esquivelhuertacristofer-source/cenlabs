@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "35 min",
   teoria: "Explora la conservación de la energía mecánica y calcula la gravedad alterando la longitud de la cuerda y la masa.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

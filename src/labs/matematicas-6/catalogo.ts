@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "35 min",
   teoria: "Aplica matrices de rotación, traslación y escala sobre polígonos, descubriendo las matemáticas detrás de la animación digital.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

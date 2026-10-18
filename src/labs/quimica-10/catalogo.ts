@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Separa mezclas homogéneas controlando finamente la temperatura basándote en los puntos de ebullición específicos.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

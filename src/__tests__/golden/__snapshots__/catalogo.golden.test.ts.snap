@@ -12,6 +12,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Microscopio Virtual",
   },
   {
+    "destacada": true,
     "duracion": "35 min",
     "estado": "activo",
     "id": "biologia-2",
@@ -50,6 +51,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Leyes de Mendel",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "biologia-6",
@@ -102,6 +104,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('fisica') 1`] = `
 [
   {
+    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "fisica-1",
@@ -120,6 +123,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Leyes de Newton (Plano Inclinado)",
   },
   {
+    "destacada": true,
     "duracion": "35 min",
     "estado": "activo",
     "id": "fisica-3",
@@ -246,6 +250,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "El Círculo Trigonométrico",
   },
   {
+    "destacada": true,
     "duracion": "35 min",
     "estado": "activo",
     "id": "matematicas-6",
@@ -275,6 +280,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "La Derivada",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "matematicas-9",
@@ -299,6 +305,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('mecanica') 1`] = `
 [
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "mecanica-1",
@@ -330,6 +337,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Brazo Robótico de 4 Ejes",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "mecanica-4",
@@ -1626,6 +1634,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Solubilidad y Cristalización",
   },
   {
+    "destacada": true,
     "duracion": "50 min",
     "estado": "activo",
     "id": "quimica-7",
@@ -1654,6 +1663,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Celdas Galvánicas (Electroquímica)",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "quimica-10",
