@@ -103,50 +103,119 @@ export interface ResultadoTiro {
 }
 
 /**
- * Integra el disparo (Euler semi-implícito, dt = 0,01 s) hasta que toca el suelo,
- * choca con el muro o pasan 60 s. El cruce con el muro y con el suelo se
- * interpola entre pasos, así que el proyectil no puede «atravesar» el muro.
+ * Condiciones de un vuelo: gravedad g (m/s²), coeficiente de arrastre por unidad de masa
+ * k = ρ·Cd·A/(2m) (1/m), viento horizontal (m/s, + hacia la diana), altura de salida y₀ (m)
+ * y, si lo hay, el muro (cara frontal en x, alto en m). El proyectil sale de (0, y₀).
  */
-export function simularDisparo(m: Mision1, d: Disparo1, conMuestras = false): ResultadoTiro {
-  const { g, rho } = ESCENARIOS[m.escenario] ?? ESCENARIOS.tierra;
-  const K = coefArrastre(rho);
+export interface CondicionesTiro { g: number; k: number; viento: number; y0: number; muro: { x: number; alto: number } | null }
+export interface Vuelo extends Omit<ResultadoTiro, 'resultado'> { fin: 'suelo' | 'muro' | 'tiempo' }
+
+/** Paso del integrador (s). Sin aire RK4 es EXACTO (y(t) es cuadrática); con arrastre, el impacto
+ *  queda a < 1 mm del de h → 0 (prueba en fis01-balistica.test.ts). */
+export const H_TIRO = 0.04;
+/** Tiempo máximo de vuelo que se integra (s). */
+export const T_MAX_TIRO = 60;
+
+/** Hermite cúbico en τ ∈ [0, h] con posiciones y velocidades en los extremos. */
+function hermite(p0: number, v0: number, p1: number, v1: number, h: number, tau: number): number {
+  const s = tau / h, s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * v0 + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * v1;
+}
+function hermiteD(p0: number, v0: number, p1: number, v1: number, h: number, tau: number): number {
+  const s = tau / h, s2 = s * s;
+  return ((6 * s2 - 6 * s) * p0 + (3 * s2 - 4 * s + 1) * h * v0 + (-6 * s2 + 6 * s) * p1 + (3 * s2 - 2 * s) * h * v1) / h;
+}
+/** Raíz de f en [0, h] con f(0)·f(h) ≤ 0 (bisección: f es una cúbica, 50 pasos bastan para 1e-15·h). */
+function raiz(f: (tau: number) => number, h: number): number {
+  let a = 0, b = h, fa = f(0);
+  if (fa === 0) return 0;
+  for (let i = 0; i < 50; i++) {
+    const m = (a + b) / 2, fm = f(m);
+    if (fm === 0) return m;
+    if ((fa < 0) === (fm < 0)) { a = m; fa = fm; } else b = m;
+  }
+  return (a + b) / 2;
+}
+
+/**
+ * Integra un vuelo con RK4 de paso fijo H_TIRO: a = g⃗ − k·|v⃗ − w⃗|·(v⃗ − w⃗). Termina al tocar el
+ * suelo (y = 0), al cruzar el plano del muro por debajo de su altura o a los T_MAX_TIRO s. Los
+ * cruces y la altura máxima se resuelven DENTRO del paso con el Hermite cúbico de las dos
+ * posiciones y velocidades (exacto sin aire), así que el proyectil no atraviesa el muro.
+ */
+export function volarTiro(c: CondicionesTiro, d: Disparo1, conMuestras = false, h = H_TIRO): Vuelo {
+  const { g, k, viento } = c;
   const rad = (d.angulo * Math.PI) / 180;
-  const dt = 0.01;
-  let x = 0, y = m.y0, t = 0;
+  let x = 0, y = c.y0, t = 0;
   let vx = d.velocidad * Math.cos(rad);
   let vy = d.velocidad * Math.sin(rad);
   let maxY = y;
   const muestras: MuestraTiro[] = [];
   if (conMuestras) muestras.push({ x, y, vx, vy, t });
-
-  while (t < 60) {
-    const rx = vx - m.viento;
-    const rv = Math.hypot(rx, vy);
-    vx += -K * rv * rx * dt;
-    vy += (-g - K * rv * vy) * dt;
-    const px = x, py = y;
-    x += vx * dt; y += vy * dt; t += dt;
-    if (y > maxY) maxY = y;
-
-    // ¿cruza el plano del muro en este paso?
-    if ((px - m.obsX) * (x - m.obsX) <= 0 && px !== x) {
-      const f = (m.obsX - px) / (x - px);
-      const yMuro = py + f * (y - py);
-      if (yMuro <= m.obsY && yMuro >= 0) {
-        if (conMuestras) muestras.push({ x: m.obsX, y: yMuro, vx, vy, t: t - dt + f * dt });
-        return { resultado: 'colision', hitX: m.obsX, yImpacto: yMuro, t, maxY, muestras };
+  // a(v): sólo depende de la velocidad (campo uniforme)
+  let ax = 0, ay = 0;
+  const acel = (ux: number, uy: number) => {
+    const rx = ux - viento, rv = k > 0 ? Math.hypot(rx, uy) : 0;
+    ax = -k * rv * rx; ay = -g - k * rv * uy;
+  };
+  const xMuro = c.muro ? c.muro.x : NaN;
+  while (t < T_MAX_TIRO - 1e-12) {
+    // RK4 sobre (x, y, vx, vy)
+    acel(vx, vy); const k1x = ax, k1y = ay;
+    const v2x = vx + 0.5 * h * k1x, v2y = vy + 0.5 * h * k1y; acel(v2x, v2y); const k2x = ax, k2y = ay;
+    const v3x = vx + 0.5 * h * k2x, v3y = vy + 0.5 * h * k2y; acel(v3x, v3y); const k3x = ax, k3y = ay;
+    const v4x = vx + h * k3x, v4y = vy + h * k3y; acel(v4x, v4y); const k4x = ax, k4y = ay;
+    const nx = x + (h / 6) * (vx + 2 * v2x + 2 * v3x + v4x);
+    const ny = y + (h / 6) * (vy + 2 * v2y + 2 * v3y + v4y);
+    const nvx = vx + (h / 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
+    const nvy = vy + (h / 6) * (k1y + 2 * k2y + 2 * k3y + k4y);
+    // altura máxima: vy cambia de signo dentro del paso
+    if (vy > 0 && nvy <= 0) maxY = Math.max(maxY, hermite(y, vy, ny, nvy, h, raiz((s) => hermiteD(y, vy, ny, nvy, h, s), h)));
+    if (ny > maxY) maxY = ny;
+    // cruces dentro del paso: muro (x = xMuro) y suelo (y = 0)
+    const cruzaMuro = !!c.muro && (x - xMuro) * (nx - xMuro) <= 0 && x !== nx;
+    if (cruzaMuro || ny <= 0) {
+      const X = (s: number) => hermite(x, vx, nx, nvx, h, s);
+      const Y = (s: number) => hermite(y, vy, ny, nvy, h, s);
+      const VX = (s: number) => hermiteD(x, vx, nx, nvx, h, s);
+      const VY = (s: number) => hermiteD(y, vy, ny, nvy, h, s);
+      const tauMuro = cruzaMuro ? raiz((s) => X(s) - xMuro, h) : Infinity;
+      const tauSuelo = ny <= 0 ? raiz(Y, h) : Infinity;
+      if (c.muro && tauMuro <= tauSuelo) {
+        const yMuro = Y(tauMuro);
+        if (yMuro <= c.muro.alto && yMuro >= 0) {
+          const tc = t + tauMuro;
+          if (conMuestras) muestras.push({ x: xMuro, y: yMuro, vx: VX(tauMuro), vy: VY(tauMuro), t: tc });
+          return { fin: 'muro', hitX: xMuro, yImpacto: yMuro, t: tc, maxY, muestras };
+        }
+      }
+      if (tauSuelo < Infinity) {
+        const hitX = X(tauSuelo), tc = t + tauSuelo;
+        if (conMuestras) muestras.push({ x: hitX, y: 0, vx: VX(tauSuelo), vy: VY(tauSuelo), t: tc });
+        return { fin: 'suelo', hitX, yImpacto: 0, t: tc, maxY, muestras };
       }
     }
-    if (y <= 0) {
-      const f = py / (py - y);
-      const hitX = px + f * (x - px);
-      if (conMuestras) muestras.push({ x: hitX, y: 0, vx, vy, t: t - dt + f * dt });
-      const resultado = Math.abs(hitX - m.targetX) <= RADIO_DIANA ? 'exito' : 'fallo';
-      return { resultado, hitX, yImpacto: 0, t, maxY, muestras };
-    }
-    if (conMuestras && Math.round(t / dt) % 2 === 0) muestras.push({ x, y, vx, vy, t });
+    x = nx; y = ny; vx = nvx; vy = nvy; t += h;
+    if (conMuestras) muestras.push({ x, y, vx, vy, t });
   }
-  return { resultado: 'fallo', hitX: x, yImpacto: y, t, maxY, muestras };
+  return { fin: 'tiempo', hitX: x, yImpacto: y, t, maxY, muestras };
+}
+
+/** Condiciones del disparo de una misión (mundo, viento, altura del cañón y muro). */
+export function condicionesMision(m: Mision1): CondicionesTiro {
+  const { g, rho } = ESCENARIOS[m.escenario] ?? ESCENARIOS.tierra;
+  return { g, k: coefArrastre(rho), viento: m.viento, y0: m.y0, muro: { x: m.obsX, alto: m.obsY } };
+}
+
+/**
+ * El disparo del reto: integra el vuelo (volarTiro) hasta que toca el suelo, choca con el muro
+ * o pasan 60 s, y decide el resultado: acierto si cae a ≤ RADIO_DIANA del centro de la diana.
+ */
+export function simularDisparo(m: Mision1, d: Disparo1, conMuestras = false): ResultadoTiro {
+  const v = volarTiro(condicionesMision(m), d, conMuestras);
+  const resultado: ResultadoTiro['resultado'] = v.fin === 'muro' ? 'colision'
+    : v.fin === 'suelo' && Math.abs(v.hitX - m.targetX) <= RADIO_DIANA ? 'exito' : 'fallo';
+  return { resultado, hitX: v.hitX, yImpacto: v.yImpacto, t: v.t, maxY: v.maxY, muestras: v.muestras };
 }
 
 /** Duración de la animación de un disparo (ms); la usan el store y la escena. */
