@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "50 min",
   teoria: "Ensambla un motor básico y descubre cómo el flujo de corriente en un campo magnético genera torque mecánico.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

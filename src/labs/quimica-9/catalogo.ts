@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Ensambla una pila funcional identificando ánodo y cátodo, asegurando el flujo de electrones y el potencial de celda.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

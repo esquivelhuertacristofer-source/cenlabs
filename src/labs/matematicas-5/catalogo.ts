@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Proyecta el movimiento circular sobre un eje de tiempo para trazar el origen exacto de las ondas Seno y Coseno.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "35 min",
   teoria: "Aplica un estímulo físico y rastrea el impulso eléctrico desde el nervio sensorial hasta la contracción muscular involuntaria.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Contrasta el ciclo Diésel contra su techo ideal y comprueba qué le hacen a la eficiencia el autoencendido y la relación de corte.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/ciclo-diesel-autoencendido.html",
 };
 

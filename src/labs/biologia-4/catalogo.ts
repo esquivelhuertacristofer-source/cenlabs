@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Ajusta la intensidad luminosa y el espectro de color para maximizar la producción de oxígeno en una planta acuática.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

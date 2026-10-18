@@ -31,6 +31,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Síntesis de Proteínas",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "biologia-4",
@@ -58,6 +59,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Selección Natural",
   },
   {
+    "destacada": true,
     "duracion": "35 min",
     "estado": "activo",
     "id": "biologia-7",
@@ -145,6 +147,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Sistemas Hidráulicos (Prensa)",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "fisica-6",
@@ -182,6 +185,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Electrostática",
   },
   {
+    "destacada": true,
     "duracion": "50 min",
     "estado": "activo",
     "id": "fisica-10",
@@ -232,6 +236,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Teorema de Pitágoras",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "matematicas-5",
@@ -260,6 +265,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Refracción de la Luz (Snell)",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "matematicas-8",
@@ -354,6 +360,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Sistema de Inyección Electrónica",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "mecanica-7",
@@ -1406,6 +1413,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Analiza el Ciclo Otto y su Eficiencia contra la Relación de Compresión",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "mecanica-112",
@@ -1572,6 +1580,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Construcción Atómica e Isótopos",
   },
   {
+    "destacada": true,
     "duracion": "40 min",
     "estado": "activo",
     "id": "quimica-2",
@@ -1635,6 +1644,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "titulo": "Equilibrio Químico (Le Châtelier)",
   },
   {
+    "destacada": true,
     "duracion": "45 min",
     "estado": "activo",
     "id": "quimica-9",

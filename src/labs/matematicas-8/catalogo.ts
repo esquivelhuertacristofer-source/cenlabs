@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "45 min",
   teoria: "Desliza un punto sobre una curva y observa cómo la recta tangente actúa como un balancín, revelando la tasa de cambio instantánea.",
   estado: "activo",
+  destacada: true,
 };
 
 export default catalogo;

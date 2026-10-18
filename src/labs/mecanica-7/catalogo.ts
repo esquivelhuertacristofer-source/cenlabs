@@ -6,6 +6,7 @@ const catalogo: CatalogoEntry = {
   duracion: "40 min",
   teoria: "Modula la presión hidráulica evitando el bloqueo de rueda; analiza el deslizamiento óptimo y la actuación del grupo hidráulico en frenado de emergencia.",
   estado: "activo",
+  destacada: true,
   simuladorHtml: "/labs/frenos-abs.html",
 };
 
