@@ -11,11 +11,17 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
+/** Coma decimal y signo menos tipográfico, como el dock del lab (−0 se escribe 0). */
+const decimal = (v: number) => {
+  const t = (Math.abs(v) < 5e-5 ? 0 : v).toFixed(4);
+  return t.replace('-', '−').replace('.', ',');
+};
+
 export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () => void }) {
   const { trigonometria, registrarHallazgoM5, resetM5 } = useSimuladorStore(
     useShallow((s) => ({ trigonometria: s.trigonometria, registrarHallazgoM5: s.registrarHallazgoM5, resetM5: s.resetM5 })),
   );
-  const { angulo, hallazgos, objetivo } = trigonometria;
+  const { angulo, hallazgos, objetivo, animando } = trigonometria;
 
   const [conclusionText, setConclusionText] = useState('');
   const quantumMsg = `Explora las funciones trigonométricas en el círculo unitario: el seno es la ordenada y el coseno la abscisa del vector. Resuelve la ecuación del reto: tiene dos soluciones en una vuelta, una en cada cuadrante donde la función tiene ese signo.`;
@@ -31,7 +37,9 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
 
   // Hallazgos en vivo
   const checkRotation = angulo !== 0;
-  const isNotable = [0, 30, 45, 60, 90, 180, 270, 360].includes(Math.round(angulo));
+  // notable = múltiplo de 30° o de 45° (120°, 135°, 210°… también lo son)
+  const gEntero = Math.round(angulo);
+  const isNotable = gEntero % 30 === 0 || gEntero % 45 === 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -50,7 +58,7 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
 
           <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo Trigonométrico</h4>
           <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre la oscilación de proyecciones en el círculo unitario.
+            Pulsa para oír el aviso del protocolo.
           </p>
 
           <button
@@ -75,20 +83,20 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
       </div>
 
       {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-6 overflow-hidden relative">
          <div className="flex items-center gap-2 mb-4">
             <RotateCw size={14} className="text-emerald-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
          </div>
 
          <div className="space-y-4">
             {/* Hallazgo: Rotación */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkRotation ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkRotation ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkRotation ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkRotation ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Fase de Ángulo (θ)
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-700">
                      {checkRotation ? `✓ Ángulo: ${Math.round(angulo)}°` : '... Esperando Rotación'}
                   </span>
                </div>
@@ -96,12 +104,12 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
             </div>
 
             {/* Hallazgo: Ángulo Notable */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${isNotable ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${isNotable ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${isNotable ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${isNotable ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Detección Notable
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-700">
                      {isNotable ? '✓ Ángulo Notable Localizado' : '... Buscando Múltiplos de 30/45'}
                   </span>
                </div>
@@ -109,16 +117,16 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
             </div>
 
             {/* Hallazgo: Capturas */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${(hallazgos?.length || 0) >= 3 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${(hallazgos?.length || 0) >= 2 ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${(hallazgos?.length || 0) >= 3 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${(hallazgos?.length || 0) >= 2 ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Base de Datos Trig.
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-700">
                      {objetivo ? `Reto: ${objetivo.funcion} θ = ${objetivo.texto} · ${hallazgos?.length || 0} muestra(s)` : '...'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${(hallazgos?.length || 0) >= 3 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${(hallazgos?.length || 0) >= 2 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
             </div>
          </div>
       </div>
@@ -138,17 +146,19 @@ export default function BitacoraTrigonometria({ onValidate }: { onValidate?: () 
         <div className="grid grid-cols-2 gap-3">
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Coseno (X)</span>
-              <span className="text-lg font-black text-emerald-600 font-mono">{Math.cos(angulo * Math.PI / 180).toFixed(4)}</span>
+              <span className="text-lg font-black text-emerald-600 font-mono">{decimal(Math.cos(angulo * Math.PI / 180))}</span>
            </div>
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Seno (Y)</span>
-              <span className="text-lg font-black text-emerald-600 font-mono">{Math.sin(angulo * Math.PI / 180).toFixed(4)}</span>
+              <span className="text-lg font-black text-emerald-600 font-mono">{decimal(Math.sin(angulo * Math.PI / 180))}</span>
            </div>
         </div>
 
         <button
           onClick={() => { registrarHallazgoM5(); audio.playPop(); }}
-          className="w-full py-3 bg-[#023047] hover:bg-[#054a6d] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+          disabled={animando}
+          title={animando ? 'Detén el giro para capturar' : undefined}
+          className="w-full py-3 bg-[#023047] hover:bg-[#054a6d] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all disabled:cursor-not-allowed disabled:opacity-40"
         >
           Capturar Punto en Bitácora
         </button>
