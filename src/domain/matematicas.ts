@@ -337,7 +337,8 @@ export function evaluarM9(i: Pick<Integral9State, 'n' | 'metodo' | 'metodoReto'>
     return { ok: false, mensaje: `El reto pide sumas por ${NOMBRE_METODO_M9[i.metodoReto]}.` };
   const e = errorRelativoM9(i.n, i.metodo);
   if (e < tol) return { ok: true };
-  return { ok: false, mensaje: `Con n = ${i.n} el error relativo es ${(e * 100).toFixed(2)} %; el reto pide menos de ${(tol * 100).toFixed(1)} %. Refina la partición.` };
+  // El mensaje NO da el error: con él y la suma a la vista, I = S/(1 ∓ e) saldría sin hacer Barrow.
+  return { ok: false, mensaje: `Con n = ${i.n} todavía no se cumple el error relativo menor a ${(tol * 100).toFixed(1).replace('.', ',')} %. Calcula la integral exacta con Barrow, compara y refina la partición.` };
 }
 
 // ════════════════════════════════════════════════════════════════════════════

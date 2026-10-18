@@ -1,19 +1,25 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
-  Trash2, ShieldCheck, Calculator, BookOpen,
-  Binary, Compass, Bot, Volume2, Shapes, Layers, Sigma, Plus
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Trash2, ShieldCheck, Calculator, BookOpen, Bot, Volume2, Sigma, Plus } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import {
-  sumaRiemannM9, errorRelativoM9, TOLERANCIA_M9, NOMBRE_METODO_M9, INTEGRAL_EXACTA_M9, N_MAX_M9,
+  sumaRiemannM9, errorRelativoM9, TOLERANCIA_M9, NOMBRE_METODO_M9, INTEGRAL_EXACTA_M9, N_MAX_M9, A_M9, B_M9,
 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 
+/** Coma decimal y signo menos tipográfico, como el dock y la barra del lab (−0 se escribe 0). */
+const decimal = (v: number, d: number) => {
+  const t = (Math.abs(v) < 0.5 * 10 ** -d ? 0 : v).toFixed(d);
+  return t.replace('-', '−').replace('.', ',');
+};
+
+/**
+ * Bitácora del MAT-09. NO REGALA: antes de validar no muestra la integral exacta, ni el error, ni
+ * si la tolerancia ya se cumple (eso es justo lo que el alumno tiene que averiguar con Barrow).
+ */
 export default function BitacoraRiemann({ onValidate }: { onValidate?: () => void }) {
   const { integral9, setIntegralM9, resetM9 } = useSimuladorStore(
     useShallow((s) => ({ integral9: s.integral9, setIntegralM9: s.setIntegralM9, resetM9: s.resetM9 })),
@@ -32,12 +38,12 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
   const canValidate = wordCount >= 30;
 
-  // Hallazgos en vivo: los MISMOS números que usa el validador.
+  // Los MISMOS números que usa el validador; el error sólo se enseña tras validar.
   const suma = sumaRiemannM9(n, metodo);
   const errRel = errorRelativoM9(n, metodo);
+  const validado = status === 'success';
   const checkMetodo = metodo === metodoReto;
   const checkDensity = n > 10;
-  const checkPrecision = checkMetodo && errRel < tol;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
@@ -55,8 +61,8 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
           </div>
 
           <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo de Integración</h4>
-          <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Reto: aproxima ∫₀¹⁰ (0.1x² + 1) dx con {NOMBRE_METODO_M9[metodoReto]} y un error relativo menor a {(tol * 100).toFixed(1)} %. Calcula tú la integral exacta con la regla de Barrow para comparar.
+          <p className="text-[11px] text-slate-300 font-medium mb-6 leading-relaxed">
+            Reto: aproxima ∫₀¹⁰ (0,1x² + 1) dx con {NOMBRE_METODO_M9[metodoReto]} y un error relativo menor a {decimal(tol * 100, 1)} %. Calcula tú la integral exacta con la regla de Barrow para comparar.
           </p>
 
           <button
@@ -81,50 +87,53 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
       </div>
 
       {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
+      {/* (fondo claro: el panel lateral es blanco; con bg-white/5 y texto blanco no se leía nada) */}
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-6 overflow-hidden relative">
          <div className="flex items-center gap-2 mb-4">
-            <Sigma size={14} className="text-amber-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
+            <Sigma size={14} className="text-amber-500" />
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
          </div>
 
          <div className="space-y-4">
             {/* Hallazgo: Densidad */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkDensity ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkDensity ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkDensity ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkDensity ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Densidad de Muestreo (n)
                   </span>
-                  <span className="text-xs font-bold text-white">
-                     {checkDensity ? `✓ Rectángulos activos: ${n}` : '... Incrementando Particiones'}
+                  <span className="text-xs font-bold text-slate-700">
+                     {checkDensity ? `✓ ${n} rectángulos de Δx = ${decimal((B_M9 - A_M9) / n, 3)}` : `... ${n} rectángulos: aumenta la partición`}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${checkDensity ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${checkDensity ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`} />
             </div>
 
-            {/* Hallazgo: Delta X */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkMetodo ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            {/* Hallazgo: Método */}
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkMetodo ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkMetodo ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkMetodo ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Método del reto
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-700">
                      {checkMetodo ? `✓ Usando ${NOMBRE_METODO_M9[metodo]}` : `... Ahora: ${NOMBRE_METODO_M9[metodo]}`}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${checkMetodo ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${checkMetodo ? 'bg-emerald-400' : 'bg-slate-400'}`} />
             </div>
 
-            {/* Hallazgo: Precisión */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkPrecision ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            {/* Hallazgo: Precisión (sólo se juzga al validar) */}
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${validado ? 'bg-emerald-50 border-emerald-300' : status === 'error' ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkPrecision ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Precisión del reto (error &lt; {(tol * 100).toFixed(1)} %)
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${validado ? 'text-emerald-600' : status === 'error' ? 'text-rose-600' : 'text-slate-500'}`}>
+                     Precisión del reto (error &lt; {decimal(tol * 100, 1)} %)
                   </span>
-                  <span className="text-xs font-bold text-white">
-                     {checkPrecision ? '✓ Error dentro de la tolerancia' : `... Error actual ${(errRel * 100).toFixed(2)} %`}
+                  <span className="text-xs font-bold text-slate-700">
+                     {validado ? `✓ Error ${decimal(errRel * 100, 3)} %: dentro de la tolerancia`
+                       : status === 'error' ? '✗ Aún no cumple: revisa tu integral exacta y refina n'
+                       : '... Se comprueba al validar'}
                   </span>
                </div>
-                <div className={`w-2 h-2 rounded-full ${checkPrecision ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+                <div className={`w-2 h-2 rounded-full ${validado ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : status === 'error' ? 'bg-rose-400' : 'bg-slate-400'}`} />
             </div>
          </div>
       </div>
@@ -137,18 +146,27 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
           </div>
           <div>
             <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Monitor de Convergencia</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cálculo diferencial vs integral</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">La suma frente a la integral</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Σ Riemann (n = {n})</span>
-              <span className="text-sm font-black text-[#023047] font-mono">{suma.toFixed(4)}</span>
+              <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Σ Riemann (n = {n})</span>
+              <span className="text-sm font-black text-[#023047] font-mono">{decimal(suma, 4)}</span>
            </div>
            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Error absoluto | Σ − ∫ |</span>
-              <span className="text-sm font-black font-mono text-amber-600">{Math.abs(suma - INTEGRAL_EXACTA_M9).toFixed(4)}</span>
+              {validado ? (
+                <>
+                  <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Error | Σ − ∫ | (∫ = 130/3)</span>
+                  <span className="text-sm font-black font-mono text-amber-600">{decimal(Math.abs(suma - INTEGRAL_EXACTA_M9), 4)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Integral exacta ∫</span>
+                  <span className="text-[11px] font-bold text-slate-600">Calcúlala con Barrow</span>
+                </>
+              )}
            </div>
         </div>
       </div>
@@ -160,13 +178,13 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
                 <BookOpen size={14} className="text-[#023047]" />
                 <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Análisis de Límite</span>
              </div>
-             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
+             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{wordCount}/30</span>
           </div>
           <textarea
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
              placeholder="Explica qué sucede con el error de aproximación cuando el número de rectángulos (n) aumenta significativamente..."
              rows={4}
-             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-amber-500 italic"
+             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-[11px] font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 italic"
           />
       </div>
 
@@ -174,20 +192,22 @@ export default function BitacoraRiemann({ onValidate }: { onValidate?: () => voi
       <div className="flex gap-3">
         <button
           onClick={handleReset}
-          className="w-14 h-14 bg-slate-100 hover:bg-amber-50 text-slate-400 hover:text-amber-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
+          aria-label="Reiniciar el reto"
+          className="w-14 h-14 bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Trash2 size={20} />
         </button>
         <button
           onClick={() => { setIntegralM9(Math.min(N_MAX_M9, n + 10), metodo); audio.playPop(); }}
-          className="w-14 h-14 bg-slate-100 hover:bg-amber-50 text-slate-400 hover:text-amber-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
+          aria-label="Diez rectángulos más"
+          className="w-14 h-14 bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
         >
           <Plus size={20} />
         </button>
         <button
           onClick={() => onValidate?.()}
           disabled={!canValidate}
-          className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+          className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
         >
           <ShieldCheck size={16} />
           {status === 'success' ? 'Integral validada' : 'Someter Análisis'}
