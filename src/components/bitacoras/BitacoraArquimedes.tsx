@@ -6,11 +6,15 @@ import { useSimuladorStore } from '@/store/simuladorStore';
 import { evaluarF6, FLUIDOS, G_TIERRA, TOL_DENSIDAD } from '@/domain/fisica';
 import BitacoraFisica from './fisica/BitacoraFisica';
 
+/** Coma decimal, como el resto del lab (el dato del dominio no cambia). */
+const coma = (x: number, d?: number) => (d === undefined ? String(x) : x.toFixed(d)).replace('.', ',');
+
 export default function BitacoraArquimedes({ onValidate }: { onValidate?: () => void }) {
   const a = useSimuladorStore(useShallow((s) => s.arquimedes6));
   const fl = FLUIDOS[a.fluidoLectura ?? a.fluido];
   const empuje = a.lecturaAire !== null && a.lecturaFluido !== null ? a.lecturaAire - a.lecturaFluido : null;
 
+  // Los ensayos van UNA vez, en los datos (sin tabla que los repita).
   return (
     <BitacoraFisica
       titulo="Principio de Arquímedes"
@@ -18,23 +22,21 @@ export default function BitacoraArquimedes({ onValidate }: { onValidate?: () => 
       formulas={[
         { tex: 'E = W - W_{ap}', etiqueta: 'Empuje medido' },
         { tex: 'E = \\rho_f\\, g\\, V', etiqueta: 'Arquímedes' },
-        { tex: '\\rho = \\dfrac{W}{g\\,V} = \\rho_f \\dfrac{W}{W - W_{ap}}', etiqueta: 'Densidad del sólido' },
+        { tex: '\\rho = \\rho_f\\, \\dfrac{W}{W - W_{ap}}', etiqueta: 'Densidad del sólido' },
       ]}
       datos={[
-        { label: 'g', valor: `${G_TIERRA} m/s²` },
+        { label: 'g', valor: `${coma(G_TIERRA)} m/s²` },
         { label: 'Fluido de la lectura', valor: fl ? `${fl.nombre} · ${fl.rho} kg/m³` : '—' },
-        { label: 'W (aire)', valor: a.lecturaAire !== null ? `${a.lecturaAire.toFixed(2)} N` : '—' },
-        { label: 'W aparente', valor: a.lecturaFluido !== null ? `${a.lecturaFluido.toFixed(2)} N` : '—' },
+        { label: 'W (aire)', valor: a.lecturaAire !== null ? `${coma(a.lecturaAire, 2)} N` : '—' },
+        { label: 'W aparente', valor: a.lecturaFluido !== null ? `${coma(a.lecturaFluido, 2)} N` : '—' },
+        { label: 'Empuje', valor: empuje !== null ? `${coma(empuje, 2)} N` : '—' },
+        { label: 'Tu ρ', valor: a.densidadAlumno !== null ? `${coma(a.densidadAlumno)} kg/m³` : '—' },
       ]}
       protocolo={[
         { label: 'Pesar el sólido en el aire', ok: a.lecturaAire !== null },
         { label: 'Pesarlo completamente sumergido', ok: a.lecturaFluido !== null },
         { label: `Densidad calculada a ±${TOL_DENSIDAD * 100} %`, ok: evaluarF6(a).ok },
       ]}
-      tabla={empuje !== null ? {
-        columnas: ['W aire', 'W aparente', 'Empuje', 'Tu ρ'],
-        filas: [[`${a.lecturaAire!.toFixed(2)} N`, `${a.lecturaFluido!.toFixed(2)} N`, `${empuje.toFixed(2)} N`, a.densidadAlumno !== null ? `${a.densidadAlumno} kg/m³` : '—']],
-      } : undefined}
       preguntaEnsayo="Si repites la medición en glicerina, ¿el empuje sube o baja? ¿Cambia la densidad que calculas? ¿Por qué el método no necesita medir el volumen del sólido?"
       acento="#3b82f6"
       onValidate={onValidate}
