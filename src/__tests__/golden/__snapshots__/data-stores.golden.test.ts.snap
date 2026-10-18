@@ -17420,7 +17420,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
     {
       "accion": "Validar",
       "id": 4,
-      "mensaje": "Marca ese instante (se acepta ±0.2 s) y presiona Validar.",
+      "mensaje": "Marca ese instante (se acepta ±0,2 s) y presiona Validar.",
       "pista": "Validar Telemetría",
       "tipo": "verificar",
     },
@@ -19283,7 +19283,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "award",
         "id": 4,
-        "text": "Marca ese instante (tolerancia ±0.2 s) y valida.",
+        "text": "Marca ese instante (tolerancia ±0,2 s) y valida.",
       },
     ],
     "titulo": "La Derivada",

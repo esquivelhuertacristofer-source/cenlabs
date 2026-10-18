@@ -15,7 +15,7 @@ const tutorSteps: TutorStep[] = [
     },
     {
       id: 4, tipo: 'verificar', pista: 'Validar Telemetría',
-      mensaje: 'Marca ese instante (se acepta ±0.2 s) y presiona Validar.',
+      mensaje: 'Marca ese instante (se acepta ±0,2 s) y presiona Validar.',
       accion: 'Validar',
     },
   ];

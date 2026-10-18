@@ -12,6 +12,12 @@ import { useSimuladorStore } from '@/store/simuladorStore';
 import { posicionM8, velocidadM8 } from '@/domain/matematicas';
 import { audio } from '@/utils/audioEngine';
 
+/** Coma decimal y signo menos tipográfico, como el dock y la barra del lab (−0 se escribe 0). */
+const decimal = (v: number, d: number) => {
+  const t = (Math.abs(v) < 0.5 * 10 ** -d ? 0 : v).toFixed(d);
+  return t.replace('-', '−').replace('.', ',');
+};
+
 export default function BitacoraDerivadas({ onValidate }: { onValidate?: () => void }) {
   const { derivada8, resetM8 } = useSimuladorStore(useShallow((s) => ({ derivada8: s.derivada8, resetM8: s.resetM8 })));
   const { xActual, status, k, m } = derivada8;
@@ -76,50 +82,51 @@ export default function BitacoraDerivadas({ onValidate }: { onValidate?: () => v
       </div>
 
       {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
+      {/* (fondo claro: el panel lateral es blanco; con bg-white/5 y texto blanco no se leía nada) */}
+      <div className="bg-white rounded-[2rem] border border-slate-200 p-6 overflow-hidden relative">
          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={14} className="text-indigo-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
+            <TrendingUp size={14} className="text-indigo-500" />
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
          </div>
 
          <div className="space-y-4">
             {/* Hallazgo: Rastreo */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${xActual !== 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${xActual !== 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                   <span className={`text-[8px] font-black uppercase tracking-widest ${xActual !== 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                   <span className={`text-[8px] font-black uppercase tracking-widest ${xActual !== 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Rastreo de Tangente
                   </span>
-                  <span className="text-xs font-bold text-white">
-                      {xActual !== 0 ? `✓ Posición: ${xActual.toFixed(2)}` : '... Esperando Movimiento'}
+                  <span className="text-xs font-bold text-slate-700">
+                      {xActual !== 0 ? `✓ Tangente en t = ${decimal(xActual, 2)} s` : '... Esperando Movimiento'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${xActual !== 0 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${xActual !== 0 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`} />
             </div>
 
             {/* Hallazgo: Pendiente Cero */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkZeroSlope ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkZeroSlope ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkZeroSlope ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkZeroSlope ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Instante marcado
                   </span>
-                  <span className="text-xs font-bold text-white">
-                     {checkZeroSlope ? `✓ t = ${xActual.toFixed(2)} s · s = ${sMarcada.toFixed(1)} m` : '... Marca un instante en el panel'}
+                  <span className="text-xs font-bold text-slate-700">
+                     {checkZeroSlope ? `✓ t = ${decimal(xActual, 2)} s · s = ${decimal(sMarcada, 1)} m` : '... Marca un instante en el panel'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${checkZeroSlope ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${checkZeroSlope ? 'bg-emerald-400' : 'bg-slate-400'}`} />
             </div>
 
             {/* Hallazgo: Capturas */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${status === 'success' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${status === 'success' ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
                <div className="flex flex-col">
-                   <span className={`text-[8px] font-black uppercase tracking-widest ${status === 'success' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                   <span className={`text-[8px] font-black uppercase tracking-widest ${status === 'success' ? 'text-emerald-600' : 'text-slate-500'}`}>
                      Validación
                   </span>
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-bold text-slate-700">
                       {status === 'success' ? '✓ Velocidad máxima localizada' : '... Pendiente de validar'}
                   </span>
                </div>
-               <div className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
+               <div className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`} />
             </div>
          </div>
       </div>
@@ -139,7 +146,7 @@ export default function BitacoraDerivadas({ onValidate }: { onValidate?: () => v
         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
            <div>
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 italic">v(t) = pendiente de la tangente</span>
-              <span className="text-sm font-black font-mono text-indigo-600">{vMarcada.toFixed(3)} m/s</span>
+              <span className="text-sm font-black font-mono text-indigo-600">{decimal(vMarcada, 3)} m/s</span>
            </div>
            <div className="text-right">
               <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 italic">Estado</span>

@@ -6,7 +6,7 @@ const contenido: SimuladorContenido = {
       { id: 1, text: "Lee la función de posición s(t) del cohete en el panel.", icon: "move" },
       { id: 2, text: "Recorre t: la recta tangente a s(t) tiene pendiente v(t) = s'(t).", icon: "target" },
       { id: 3, text: "Deriva otra vez: v es máxima donde a(t) = v'(t) = 0.", icon: "mouse-pointer" },
-      { id: 4, text: "Marca ese instante (tolerancia ±0.2 s) y valida.", icon: "award" }
+      { id: 4, text: "Marca ese instante (tolerancia ±0,2 s) y valida.", icon: "award" }
     ],
     guiaMaestro: {
       objetivo: "Visualizar la derivada como la pendiente de la recta tangente en un punto.",
