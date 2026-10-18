@@ -6,7 +6,7 @@ const contenido: SimuladorContenido = {
       { id: 1, text: "Compara tu nave con la silueta objetivo: tamaño, orientación y posición.", icon: "maximize" },
       { id: 2, text: "Ajusta la escala s y la rotación θ.", icon: "rotate-cw" },
       { id: 3, text: "Traslada en X e Y; la matriz M = T·R·S del panel resume tu transformación.", icon: "move" },
-      { id: 4, text: "Valida cuando coincidan (±0.2 en posición, ±5° en giro, ±0.1 en escala).", icon: "check" }
+      { id: 4, text: "Valida cuando coincidan (±0,2 en posición, ±5° en giro, ±0,1 en escala).", icon: "check" }
     ],
     guiaMaestro: {
       objetivo: "Comprender cómo las matrices de transformación alteran la posición, orientación y tamaño de un objeto.",

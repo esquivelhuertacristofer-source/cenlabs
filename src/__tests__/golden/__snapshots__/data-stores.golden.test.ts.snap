@@ -14434,7 +14434,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
         "La figura desaparece",
         "La figura se voltea",
       ],
-      "pregunta": "¿Qué sucede si aplicamos una escala de factor 0.5?",
+      "pregunta": "¿Qué sucede si aplicamos una escala de factor 0,5?",
       "respuestaCorrecta": 1,
     },
     {
@@ -19181,7 +19181,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
       {
         "icon": "check",
         "id": 4,
-        "text": "Valida cuando coincidan (±0.2 en posición, ±5° en giro, ±0.1 en escala).",
+        "text": "Valida cuando coincidan (±0,2 en posición, ±5° en giro, ±0,1 en escala).",
       },
     ],
     "titulo": "Transformaciones Geométricas",

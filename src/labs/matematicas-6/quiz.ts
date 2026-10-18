@@ -26,7 +26,7 @@ const quiz: Question[] = [
       explicacion: "Las isometrías (traslación, rotación, reflexión) conservan la forma y tamaño exactos de la figura original."
     },
     {
-      pregunta: "¿Qué sucede si aplicamos una escala de factor 0.5?",
+      pregunta: "¿Qué sucede si aplicamos una escala de factor 0,5?",
       opciones: ["La figura se duplica", "La figura se reduce a la mitad", "La figura desaparece", "La figura se voltea"],
       respuestaCorrecta: 1,
       explicacion: "Un factor entre 0 y 1 produce una contracción o reducción de la figura."

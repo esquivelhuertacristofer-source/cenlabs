@@ -1,190 +1,51 @@
 "use client";
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info,
-  Trash2, ShieldCheck, Calculator, BookOpen,
-  Binary, Compass, Bot, Volume2, Shapes, Move, RotateCcw
-} from 'lucide-react';
+/**
+ * Bitácora de MAT-06 · Transformaciones geométricas.
+ *
+ * Cuaderno de SOLO LECTURA con el mismo diseño legible que las bitácoras remodeladas
+ * (texto oscuro sobre fondo claro, coma decimal). Antes marcaba en vivo «✓ Posición
+ * sincronizada» / «✓ Orientación correcta» con la tolerancia del validador: bastaba barrer
+ * un mando hasta ver la palomita. Ahora el protocolo sólo registra lo que el alumno ya
+ * hizo (escalar, girar, trasladar, validar) y nunca compara con la silueta.
+ */
+import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { TOL_M6, difAnguloM6 } from '@/domain/matematicas';
-import { audio } from '@/utils/audioEngine';
+import { TOL_M6, RANGO_T_M6, ESCALA_MIN_M6, ESCALA_MAX_M6 } from '@/domain/matematicas';
+import { num, trs, det2 } from '../simuladores/mat06/transformaciones';
+import BitacoraFisica from './fisica/BitacoraFisica';
 
 export default function BitacoraTransformaciones({ onValidate }: { onValidate?: () => void }) {
-  const { geometria6, resetM6 } = useSimuladorStore(useShallow((s) => ({ geometria6: s.geometria6, resetM6: s.resetM6 })));
-  const { tx, ty, rotacion, escala, target, status } = geometria6;
-
-  const [conclusionText, setConclusionText] = useState('');
-  const quantumMsg = `Aplica escala, rotación y traslación (M = T·R·S) para que la nave coincida con la silueta blanca de la rejilla. Deduce cada parámetro de la figura: su tamaño, hacia dónde apunta y dónde está su centro.`;
-
-  const handleReset = () => {
-    resetM6();
-    setConclusionText('');
-    audio.playPop();
-  };
-
-  const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-
-  // Checks de Hallazgos en Vivo
-  // Mismas tolerancias que el validador; la rotación se compara módulo 360°.
-  const checkTranslacion = Math.abs(tx - target.tx) < TOL_M6.t && Math.abs(ty - target.ty) < TOL_M6.t;
-  const checkRotacion = difAnguloM6(rotacion, target.rotacion) < TOL_M6.rot;
-  const checkEscala = Math.abs(escala - target.escala) < TOL_M6.escala;
-  const isSynchronized = checkTranslacion && checkRotacion && checkEscala;
-
-  const canValidate = isSynchronized && wordCount >= 30;
+  const { geometria6 } = useSimuladorStore(useShallow((s) => ({ geometria6: s.geometria6 })));
+  const { tx, ty, rotacion, escala, status } = geometria6;
+  const det = det2(trs(tx, ty, rotacion, escala));
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-
-      {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
-      <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-cyan-500/30 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-           <Bot size={60} className="text-white" />
-        </div>
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-             <span className="text-[10px] font-black text-cyan-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
-          </div>
-
-          <h4 className="text-white font-black text-lg leading-tight mb-2">Protocolo Isométrico</h4>
-          <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre la manipulación de vectores en el plano cartesiano.
-          </p>
-
-          <button
-            onClick={() => audio.playNotification()}
-            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-cyan-800 hover:from-cyan-500 hover:to-cyan-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-cyan-600/20"
-          >
-            <Volume2 size={18} fill="currentColor" className="text-white" />
-            Solicitar Informe de Telemetría
-          </button>
-        </div>
-
-        <div className="flex gap-1 mt-4 justify-center opacity-30">
-           {[...Array(12)].map((_, i) => (
-             <motion.div
-               key={i}
-               animate={{ height: [4, 12, 4] }}
-               transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
-               className="w-1 bg-cyan-400 rounded-full"
-             />
-           ))}
-        </div>
-      </div>
-
-      {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
-         <div className="flex items-center gap-2 mb-4">
-            <Move size={14} className="text-cyan-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
-         </div>
-
-         <div className="space-y-4">
-            {/* Hallazgo: Traslación */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkTranslacion ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkTranslacion ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Vector de Traslación
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {checkTranslacion ? `✓ Posición Sincronizada` : '... Buscando Coordenadas'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${checkTranslacion ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-
-            {/* Hallazgo: Rotación */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${checkRotacion ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${checkRotacion ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Fase de Rotación
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {checkRotacion ? `✓ Orientación Correcta` : '... Ajustando Grados'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${checkRotacion ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-            </div>
-
-            {/* Hallazgo: Sincronía Total */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${isSynchronized ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${isSynchronized ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Sincronía Espacial
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {isSynchronized ? '✓ Transformación Certificada' : '... Analizando Superposición'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${isSynchronized ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-         </div>
-      </div>
-
-      {/* MONITOR DE TRANSFORMACIÓN */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-500">
-            <Calculator size={20} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Calculadora Isométrica</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Estado de la matriz de transformación</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Translación</span>
-              <span className="text-xs font-black text-cyan-600 font-mono">({tx.toFixed(1)}, {ty.toFixed(1)})</span>
-           </div>
-           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Rotación</span>
-              <span className="text-xs font-black text-cyan-600 font-mono">{rotacion.toFixed(0)}°</span>
-           </div>
-        </div>
-      </div>
-
-      {/* ENSAYO CRÍTICO */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                <BookOpen size={14} className="text-[#023047]" />
-                <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Teoría de Isometrías</span>
-             </div>
-             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
-          </div>
-          <textarea
-             value={conclusionText} onChange={e => setConclusionText(e.target.value)}
-             placeholder="Explica la diferencia entre una isometría (como traslación y rotación) y una transformación de escala..."
-             rows={4}
-             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-cyan-500 italic"
-          />
-      </div>
-
-      {/* BOTONES DE ACCIÓN FINALES */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleReset}
-          className="w-14 h-14 bg-slate-100 hover:bg-cyan-50 text-slate-400 hover:text-cyan-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
-        >
-          <Trash2 size={20} />
-        </button>
-        <button
-          onClick={() => onValidate?.()}
-          disabled={!canValidate}
-          className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-        >
-          <ShieldCheck size={16} />
-          {canValidate ? 'Certificar Misión' : 'Someter Análisis'}
-        </button>
-      </div>
-
-    </div>
+    <BitacoraFisica
+      titulo="Matrices de transformación"
+      intro="Cada pose de la placa es una matriz 3×3: el bloque 2×2 gira y escala, la última columna traslada y el determinante mide el área."
+      formulas={[
+        { tex: 'M = T\\,R\\,S = \\begin{pmatrix} s\\cos\\theta & -s\\operatorname{sen}\\theta & t_x \\\\ s\\operatorname{sen}\\theta & s\\cos\\theta & t_y \\\\ 0 & 0 & 1 \\end{pmatrix}', etiqueta: 'Reto' },
+        { tex: '\\det M = s^2', etiqueta: 'Factor de área' },
+        { tex: 'T\\,R \\neq R\\,T', etiqueta: 'El orden importa' },
+      ]}
+      datos={[
+        { label: 'Pieza', valor: '10 vértices · pivote (0; 0)' },
+        { label: 'Traslación', valor: `de −${RANGO_T_M6} a ${RANGO_T_M6} u` },
+        { label: 'Escala', valor: `de ${num(ESCALA_MIN_M6, 1)} a ${num(ESCALA_MAX_M6, 1)}` },
+        { label: 'Tolerancias', valor: `±${num(TOL_M6.t, 1)} u · ±${TOL_M6.rot}° · ±${num(TOL_M6.escala, 1)}` },
+        { label: 'Tu placa', valor: `T(${num(tx, 1)}; ${num(ty, 1)}) · ${num(rotacion, 0)}° · ×${num(escala, 1)}` },
+        { label: 'det de tu M', valor: num(det, 2) },
+      ]}
+      protocolo={[
+        // sólo lo que el alumno hizo: nada se compara con la silueta antes de validar
+        { label: 'Mover la placa con T·R·S', ok: tx !== 0 || ty !== 0 || rotacion % 360 !== 0 || escala !== 1, detalle: 'Primero escala, luego gira alrededor del pivote, al final traslada.' },
+        { label: 'Acoplamiento validado', ok: status === 'success' },
+      ]}
+      preguntaEnsayo="¿Por qué en M = T·R·S se escala y se gira antes de trasladar? ¿Dónde acabaría tu placa si trasladas primero y giras después?"
+      acento="#ffb43a"
+      onValidate={onValidate}
+    />
   );
 }
