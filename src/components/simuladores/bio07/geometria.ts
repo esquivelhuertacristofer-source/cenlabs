@@ -290,7 +290,8 @@ export function contornoMedula(rx: number, ry: number): THREE.Vector2[] {
   const n = 200;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    let x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+    const x = Math.cos(a) * rx;
+    let y = Math.sin(a) * ry;
     // un poco más ancha por delante (asta ventral lumbar)
     y *= 1 - 0.05 * Math.sin(a);
     // fisura ventral (abajo) y surco dorsal (arriba)
