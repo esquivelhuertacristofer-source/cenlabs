@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { evaluarF10, estadoMotor, MOTOR, TOL_RPM, TOL_V10 } from '@/domain/fisica';
 import BitacoraFisica from './fisica/BitacoraFisica';
+import { cifra } from '../simuladores/fis10/formato';
 
 export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: () => void }) {
   const m = useSimuladorStore(useShallow((s) => s.motor10));
@@ -14,7 +15,7 @@ export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: ()
   return (
     <BitacoraFisica
       titulo="Motor de Corriente Directa"
-      intro="La corriente en la bobina, dentro del campo de los imanes, sufre fuerzas de Laplace que producen par; el conmutador invierte la corriente cada media vuelta para que el giro continúe. Al girar, la bobina genera una fuerza contraelectromotriz proporcional a la velocidad: en régimen, el voltaje aplicado se reparte entre esa fem y la caída en la resistencia del bobinado."
+      intro="Cada lado de la bobina siente F = I·L×B; el conmutador invierte la corriente para que el par no cambie de signo. Al girar aparece la f.c.e.m. E = k·ω y, en régimen, V = E + I·R."
       formulas={[
         { tex: 'k = N\\,B\\,A', etiqueta: 'Constante del motor' },
         { tex: '\\tau = k\\,I \\;\\Rightarrow\\; I = \\tau_{carga}/k', etiqueta: 'Par' },
@@ -22,10 +23,10 @@ export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: ()
         { tex: '\\omega = \\dfrac{2\\pi\\,n_{rpm}}{60}', etiqueta: 'rpm → rad/s' },
       ]}
       datos={[
-        { label: 'B', valor: `${MOTOR.B} T` },
+        { label: 'B', valor: `${cifra(MOTOR.B, 1)} T` },
         { label: 'A', valor: `${(MOTOR.A * 1e4).toFixed(0)} cm²` },
-        { label: 'R por espira', valor: `${MOTOR.rEspira} Ω` },
-        { label: 'Reto', valor: `${m.reto.rpmObjetivo} rpm ${m.reto.sentido}, ${m.reto.carga} N·m` },
+        { label: 'R por espira', valor: `${cifra(MOTOR.rEspira, 2)} Ω` },
+        { label: 'Reto', valor: `${cifra(m.reto.rpmObjetivo, 0)} rpm ${m.reto.sentido}, ${cifra(m.reto.carga, 3)} N·m` },
       ]}
       protocolo={[
         { label: 'Predecir el voltaje y energizar', ok: !!e },
@@ -36,7 +37,7 @@ export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: ()
       ]}
       tabla={e && est ? {
         columnas: ['V', 'N', 'Imanes', 'Predicción', 'Medido'],
-        filas: [[`${e.voltaje.toFixed(1)} V`, String(e.espiras), `${e.imanIzq}–${e.imanDer}`, e.vPrediccion !== null ? `${e.vPrediccion} V` : '—', est.arranca ? `${Math.round(Math.abs(est.rpm))} rpm` : 'no gira']],
+        filas: [[`${cifra(e.voltaje, 1)} V`, String(e.espiras), `${e.imanIzq}–${e.imanDer}`, e.vPrediccion !== null ? `${String(e.vPrediccion).replace('.', ',')} V` : '—', est.arranca ? `${cifra(Math.abs(est.rpm), 0)} rpm` : 'no gira']],
       } : undefined}
       preguntaEnsayo="¿Por qué con más espiras el motor gira más despacio al mismo voltaje? ¿Qué le pasa a la corriente si frenas el rotor por completo? ¿Para qué sirve el conmutador?"
       acento="#f97316"
