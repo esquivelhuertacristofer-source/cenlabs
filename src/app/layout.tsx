@@ -55,6 +55,9 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/icon-192.png?v=2" />
+        {/* El build de Cloudflare (esbuild keepNames) envuelve funciones con __name; el script de tema de next-themes
+            se serializa con toString() y falla en el navegador si __name no existe. */}
+        <script dangerouslySetInnerHTML={{ __html: "globalThis.__name=globalThis.__name||function(f){return f}" }} />
       </head>
       <body className={`${outfit.className} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ThemeProvider

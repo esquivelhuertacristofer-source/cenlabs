@@ -78,7 +78,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
 
       {/* Textura sutil en el fondo de toda la tarjeta */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.015]">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+        <div className="absolute inset-0 mix-blend-overlay"></div>
       </div>
 
       {/* 3D Render Image con Fade integrado */}

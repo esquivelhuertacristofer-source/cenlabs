@@ -257,7 +257,7 @@ export default function QuimicaCatalogPage() {
         {/* 1. HERO SECTION */}
         <div className={`relative w-full rounded-[40px] ${gradient} border border-[#219EBC]/20 dark:border-white/5 shadow-md overflow-hidden flex flex-col md:flex-row p-8 md:p-12 mb-8 transition-colors`}>
            <div className="absolute inset-0 z-0 opacity-[0.03] dark:opacity-[0.015] pointer-events-none">
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+              <div className="absolute inset-0 mix-blend-overlay"></div>
            </div>
            
            <div className="hidden sm:flex absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] items-center justify-end overflow-hidden">
