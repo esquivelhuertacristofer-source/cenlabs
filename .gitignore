@@ -76,3 +76,10 @@ next-env.d.ts
 public/assets/voz/
 zz-voz.json
 scripts/auditoria/.salida/
+
+# Basura de sesión y artefactos (2026-10-19)
+*.stackdump
+_diagnostico-correctivo.log
+zz-voz.json
+output/
+Recursos.zip
