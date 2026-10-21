@@ -1847,6 +1847,17 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El bus CAN a 500 kbit/s lleva los mensajes del coche sin autenticarlos: quien se conecte al puerto de diagnóstico puede repetir o inventar una orden de frenado. Una defensa al estilo AUTOSAR SecOC añade a cada trama de 64 bits un contador (8 bits) y una firma truncada de m bits; adivinarla al azar acierta con 2^−m, así que con 20 000 intentos 24 bits dejan pasar 1 de cada 839 ataques y 28 bits 1 de 13 422. Pero cada bit cuesta sitio (con 28 bits quedan 12 libres), una trama de 8 bytes dura 270 µs en el peor caso y el resto del coche ya ocupa el 25,9 % del bus: mandar la orden cada 10 ms lleva el bus al 28,4 %. Con ruido del 3 %, una ventana de contador de 1 mensaje hace perder la sincronía 10 476 veces por hora y una de 40 deja al freno ciego 400 ms: la ventana buena está en el interior. Es un modelo didáctico, no una implementación de SecOC: la firma es una mezcla de bits sin valor criptográfico.",
     "titulo": "Ciberseguridad del bus CAN: autenticación de mensajes y ataque de reproducción",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-153",
+    "modulo": "Autotrónica",
+    "orden": 153,
+    "simuladorHtml": "/labs/mantenimiento-carril-lka.html",
+    "teoria": "Un sistema de mantenimiento de carril gira el volante para devolver el coche al centro: una cámara mide el desvío y el rumbo respecto de las rayas y un controlador PD ordena el ángulo, con P según el desvío y D según la rapidez con que se acerca a la raya. El coche es un modelo lateral de bicicleta linealizado (L = 2,7 m, gradiente de subviraje K = 2,71·10⁻³ rad por m/s², velocidad característica 113,6 km/h) al que la curva empuja: en régimen necesita δ = (L + K·v²)·κ, es decir 0,65° en las ruedas (10° de volante) en una curva de 420 m a 100 km/h, con un empuje lateral de 1,8 m/s². Con la cámara retrasada 100 ms, P = 3 y D = 8 °/m dejan que el coche se abra hasta 1,30 m (la raya está a 0,85 m); con P = 10 y D = 3 zigzaguea 11 veces hasta 2,19 m; con P = 12 y D = 10 se corrige en 1,5 s y no pasa de 0,42 m. La velocidad cuenta: con P = 9 y D = 6 el desvío máximo es 0,40 m a 60 km/h y 0,84 m a 130 km/h, y el tiempo hasta la raya (TLC) baja de 3,3 s a 0,2 s; y con P = 14 y D = 5 el sistema es estable con 50 ms de retardo y zigzaguea con 180 ms. La ventana que cumple a la vez no pisar la raya, no zigzaguear, no hacer temblar el volante y no disparar el aviso (TLC menor de 1 s) es el 10,9 % de las combinaciones en la autopista: P de 7 a 29 y D de 6 a 20 °/m.",
+    "titulo": "Mantenimiento de carril (LKA): el volante que se corrige solo",
+  },
 ]
 `;
 
@@ -2041,6 +2052,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-150",
   "mecanica-151",
   "mecanica-152",
+  "mecanica-153",
   "mecanica-16",
   "mecanica-17",
   "mecanica-18",

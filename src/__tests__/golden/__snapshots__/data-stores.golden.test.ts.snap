@@ -5759,6 +5759,49 @@ Es un modelo didáctico, no una implementación real de SecOC.",
     "titulo": "Ciberseguridad del bus CAN: autenticación de mensajes y ataque de reproducción",
     "videoUrl": "",
   },
+  "mecanica-153": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Asistentes de conducción",
+        "ejemplo": "El mantenimiento de carril mantiene el coche centrado en autopista; su aviso por TLC es el pitido que suena cuando te acercas a la raya sin intermitente.",
+      },
+      {
+        "area": "Conducción autónoma",
+        "ejemplo": "Los vehículos autónomos usan el mismo lazo (cámara, controlador, volante) con ganancias que cambian según la velocidad para no zigzaguear a 130 km/h.",
+      },
+    ],
+    "bienvenida": "Ajustas cómo gira el volante el coche solo para que no se salga de su carril.
+Una cámara en el parabrisas ve las rayas y el sistema gira el volante hacia el centro del carril, más fuerte cuanto más se aparta (la P) y frenando el giro según con qué rapidez se acerca a la raya (la D). La curva de la carretera lo empuja hacia afuera todo el tiempo.
+Primero calculas en cuántos segundos tocaría la raya; luego ajustas P y D para seguir una curva sin pisar la raya ni zigzaguear; al final diagnosticas por qué falla un sistema mal ajustado.",
+    "codigo": "MEC-153",
+    "conceptos": [
+      {
+        "descripcion": "La orden del volante es −(P·desvío + D·velocidad lateral): con P muy chica el coche se abre en la curva; con P grande y D chica se pasa del centro y zigzaguea; con D enorme el volante tiembla por el ruido de la cámara.",
+        "icono": "🎛️",
+        "nombre": "P y D: fuerza y freno del giro",
+      },
+      {
+        "descripcion": "TLC = distancia de la rueda a la raya ÷ velocidad lateral (v·sen del rumbo). El aviso salta cuando baja de 1 segundo, antes de que la rueda toque la raya.",
+        "icono": "⏱️",
+        "nombre": "Aviso por tiempo hasta cruzar la raya (TLC)",
+      },
+      {
+        "descripcion": "La curva empuja con el cuadrado de la velocidad y el mismo giro de volante mueve el coche más rápido: con los mismos P y D, el desvío máximo pasa de 0,40 m a 60 km/h a 0,84 m a 130 km/h.",
+        "icono": "🏎️",
+        "nombre": "La velocidad cambia la estabilidad",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula en cuántos segundos toca la raya un coche con cierto rumbo, velocidad y distancia.",
+      "Elige P y D para seguir una curva a cierta velocidad sin pisar la raya, sin zigzaguear y sin que tiemble el volante ni salte el aviso.",
+      "Diagnostica si un sistema falla por poca fuerza, poco freno al giro, demasiado freno o exceso de velocidad.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Mantenimiento de carril (LKA): el volante que se corrige solo",
+    "videoUrl": "",
+  },
   "mecanica-16": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -21258,6 +21301,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-150": [],
   "mecanica-151": [],
   "mecanica-152": [],
+  "mecanica-153": [],
   "mecanica-16": [],
   "mecanica-17": [],
   "mecanica-18": [],
@@ -21644,6 +21688,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-150",
   "mecanica-151",
   "mecanica-152",
+  "mecanica-153",
   "mecanica-16",
   "mecanica-17",
   "mecanica-18",
