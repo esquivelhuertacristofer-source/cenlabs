@@ -5855,6 +5855,178 @@ Primero calculas en cuántos segundos tocaría la raya; luego ajustas P y D para
     "titulo": "Mantenimiento de carril (LKA): el volante que se corrige solo",
     "videoUrl": "",
   },
+  "mecanica-154": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Asistentes de conducción",
+        "ejemplo": "El crucero adaptativo mantiene la distancia en autopista y en atascos; el conductor elige el tiempo de brecha (típicamente de 1 a 2,5 s) y el sistema frena y acelera dentro de un límite de confort.",
+      },
+      {
+        "area": "Tráfico en pelotón",
+        "ejemplo": "La estabilidad de cadena es la razón por la que un frenazo en una autopista llena puede convertirse en una parada varios coches atrás; con sistemas bien ajustados (o conectados por radio) la perturbación se amortigua.",
+      },
+    ],
+    "bienvenida": "Ajustas cómo el coche acelera y frena solo para mantener una distancia segura con el de adelante.
+Un radar mide qué tan lejos está el coche naranja y qué tan rápido se acerca. El sistema deja una distancia que crece con la velocidad (5 m más h segundos de tu velocidad) y corrige acelerando o frenando, sin pasarse del límite de confort.
+Primero calculas qué distancia debería dejar; luego ajustas h, P y D para seguir a un coche que frena fuerte sin chocar, sin frenar a tirones y sin que la frenada se amplifique en una fila de coches; al final diagnosticas por qué falla un sistema mal ajustado.",
+    "codigo": "MEC-154",
+    "conceptos": [
+      {
+        "descripcion": "La distancia ideal es d* = 5 m + h × velocidad. Con h = 1,3 s deja 41,1 m a 100 km/h y 23,1 m a 50 km/h: h son los segundos que tardarías en llegar adonde está el de adelante.",
+        "icono": "📏",
+        "nombre": "Tiempo de brecha h: más velocidad, más distancia",
+      },
+      {
+        "descripcion": "La aceleración pedida es P × (distancia − ideal) + D × (velocidad del de adelante − la tuya). Con D casi nula reacciona tarde y llega al tope de frenada; con D muy alta el ruido del radar mueve el pedal a tirones.",
+        "icono": "🎛️",
+        "nombre": "P y D: cuánto y cómo corrige",
+      },
+      {
+        "descripcion": "Si detrás vienen coches con el mismo sistema, un h corto amplifica la frenada hacia atrás: con h = 0,6 s la ganancia pico es ×1,15; con h = 1,3 s ningún coche frena más que el anterior.",
+        "icono": "⛓️",
+        "nombre": "Estabilidad de cadena",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula qué distancia ideal deja el coche con un tiempo de brecha y una velocidad dados.",
+      "Elige h, P y D para seguir a un coche que frena fuerte sin chocar, sin llegar al tope de confort ni frenar a tirones, sin que la frenada se amplifique en cadena y sin quedarte demasiado lejos.",
+      "Diagnostica si un sistema falla por dejar muy poca o demasiada distancia, por casi no mirar la velocidad relativa o por reaccionar de más al radar.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Control de crucero adaptativo (ACC): mantener la distancia con el coche de adelante",
+    "videoUrl": "",
+  },
+  "mecanica-155": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vehículos eléctricos",
+        "ejemplo": "El inversor de cualquier coche eléctrico con motor de imanes permanentes calcula id e iq miles de veces por segundo para dar el par que pide el pedal, y debilita el campo para llegar a altas velocidades.",
+      },
+      {
+        "area": "Motores industriales y robótica",
+        "ejemplo": "Los servomotores de las máquinas CNC y de los robots usan el mismo control vectorial para dar par suave a baja velocidad y responder rápido a un escalón de carga.",
+      },
+    ],
+    "bienvenida": "Conviertes las tres corrientes que giran del motor en dos números fijos para controlar su fuerza fácilmente.
+Un motor de coche eléctrico recibe tres corrientes que suben y bajan sin parar. Mirándolas desde el rotor, que gira con ellas, se vuelven dos números quietos: uno empuja (da el par) y el otro sube o baja el campo del imán. Un regulador mueve la tensión hasta que esos dos números lleguen adonde se piden.
+Primero calculas el par que dan dos corrientes; luego ajustas qué tan rápido es el regulador y cómo repartes la corriente para seguir un escalón de par a cierta velocidad; al final diagnosticas por qué falla un control mal ajustado.",
+    "codigo": "MEC-155",
+    "conceptos": [
+      {
+        "descripcion": "Las tres corrientes son las sombras de una sola flecha que gira. Si miras desde el rotor, la flecha queda quieta y sus dos componentes, id e iq, son constantes: así un regulador PI puede controlarlas.",
+        "icono": "🔄",
+        "nombre": "Clarke y Park: de tres ondas a dos números",
+      },
+      {
+        "descripcion": "T = 3/2·p·(ψm·iq + (Ld − Lq)·id·iq). La iq da casi todo el par; con imanes interiores, una id negativa añade par de reluctancia, y el MTPA reparte la corriente para usar la menor posible.",
+        "icono": "⚙️",
+        "nombre": "Par = imanes + reluctancia",
+      },
+      {
+        "descripcion": "Al girar, los imanes inducen una tensión que crece con la velocidad y se come la del inversor. Con una id negativa se resta flujo y la tensión vuelve a caber, a costa de más corriente.",
+        "icono": "⚡",
+        "nombre": "Se acaba la tensión: debilitar el campo",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula el par que dan una id y una iq dadas, separando la parte de los imanes y la de reluctancia.",
+      "Elige la rapidez del lazo, la parte integral y el reparto de la corriente para seguir un escalón de par sin pasarte, rápido, sin dejar la tensión al tope y sin calentar de más.",
+      "Diagnostica si un control falla por un lazo lento, una parte integral excesiva, falta de tensión o falta de desacople.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Control vectorial (FOC) del motor de tracción: de tres corrientes a dos números",
+    "videoUrl": "",
+  },
+  "mecanica-156": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Muchos compactos y scooters usan CVT de banda: mantienen el motor en su zona de mayor eficiencia y evitan los tirones del cambio de marcha.",
+      },
+      {
+        "area": "Mantenimiento",
+        "ejemplo": "Una CVT con la presión de línea baja patina y se desgasta; con la presión alta, desperdicia combustible. Por eso se diagnostica con el valor de presión y el patinaje.",
+      },
+    ],
+    "bienvenida": "Cambias el tamaño de dos poleas para que el motor gire siempre a su velocidad más eficiente.
+Una banda de acero une dos poleas hechas de mitades cónicas: al acercarlas o separarlas, la banda sube o baja y la «marcha» cambia sin escalones. La banda no tiene dientes, se sujeta por fricción, y el aceite a presión la aprieta para que no patine.
+Primero calculas a cuántas vueltas gira el motor; luego eliges el tamaño de las poleas y el apriete para una ruta, sin que patine y gastando lo mínimo; al final diagnosticas qué falla en una transmisión mal ajustada.",
+    "codigo": "MEC-156",
+    "conceptos": [
+      {
+        "descripcion": "La banda mide siempre lo mismo: si la polea de entrada crece, la de salida encoge. La relación i = Rs/Rp va de 0,40 (motor tranquilo) a 2,60 (marcha corta) sin escalones.",
+        "icono": "🎚️",
+        "nombre": "Relación continua",
+      },
+      {
+        "descripcion": "La fuerza que evita que la banda patine es F_ax = F_t·cosβ/(2μ). La presión del aceite la da (p·A): con poca, la banda patina; con mucha, la bomba gasta potencia del motor y sube el consumo.",
+        "icono": "🗜️",
+        "nombre": "Apriete y deslizamiento",
+      },
+      {
+        "descripcion": "El consumo por kWh depende de las vueltas y del par. La CVT puede llevar el motor al punto de mínimo consumo para cada velocidad y pendiente: a 80 km/h en llano son 1 240 rpm y 3,8 L/100 km.",
+        "icono": "⛽",
+        "nombre": "El punto dulce del motor",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula a cuántas rpm gira el motor con cierta velocidad, reductora y relación.",
+      "Elige la relación y el apriete para una ruta: sin patinar con margen, con el motor dentro de sus límites y a menos de 5 % del consumo mínimo posible.",
+      "Diagnostica si la transmisión falla porque la banda patina, el motor se ahoga, va muy revolucionado o el aceite aprieta de más.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Transmisión CVT de banda: relación continua, presión y deslizamiento",
+    "videoUrl": "",
+  },
+  "mecanica-157": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Los asistentes de estacionamiento miden el hueco con sensores ultrasónicos laterales mientras el coche pasa, y sólo ofrecen estacionar si el hueco es mayor que el largo del coche más un margen.",
+      },
+      {
+        "area": "Diagnóstico",
+        "ejemplo": "Un sensor sucio, tapado o con mucho frío lee mal las distancias; el sistema entonces mide huecos falsos o se rinde. Conocer c(T) y la separación entre pitidos explica esos errores.",
+      },
+    ],
+    "bienvenida": "Ayudas a un coche a estacionarse solo en un hueco entre dos coches sin tocarlos.
+Primero el coche pasa despacio y un sensor de ultrasonido de su costado mide el hueco con el tiempo que tarda el eco; después retrocede con el volante a un lado y a otro, dibujando una «S» hecha de dos arcos.
+Calculas la distancia de un eco y el radio de giro; eliges la velocidad al pasar, el giro del volante y dónde se detiene antes de retroceder; y al final diagnosticas por qué una maniobra salió mal.",
+    "codigo": "MEC-157",
+    "conceptos": [
+      {
+        "descripcion": "El sensor lanza un pitido y mide cuánto tarda en volver. La distancia es d = c·t/2 (el sonido va y vuelve) con c = 331,3 + 0,606·T m/s: un metro de eco tarda 5,8 ms a 20 °C. Pita 10 veces por segundo, así que a 8 km/h cada lectura está a 22 cm de la anterior.",
+        "icono": "🔊",
+        "nombre": "Eco y tiempo de vuelo",
+      },
+      {
+        "descripcion": "Con el volante a tope las ruedas giran 33° y el eje trasero describe un círculo de radio R = L/tan δ = 4,0 m (L = 2,60 m). Para correrse de lado h con dos arcos iguales, h = 2R(1 − cos α) y el coche avanza 2R·sen α.",
+        "icono": "↺",
+        "nombre": "Radio de giro y «S»",
+      },
+      {
+        "descripcion": "Con el volante a tope una sola maniobra pide un hueco de unos 6,2 m (1,4 veces el largo del coche de 4,40 m); con menos volante pide más. Si el hueco es más corto, el coche debe avanzar y retroceder varias veces.",
+        "icono": "📏",
+        "nombre": "Hueco mínimo y maniobras",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula a qué distancia está un coche por el tiempo del eco (con la temperatura) y el radio de giro de un ángulo de ruedas.",
+      "Elige velocidad, giro del volante y punto de parada para detectar el hueco y estacionar sin tocar a nadie, en las maniobras permitidas y con al menos 15 cm libres.",
+      "Diagnostica por qué falla una maniobra: pasó muy rápido, giró poco el volante, se detuvo muy adelante o muy atrás.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Estacionamiento automático en paralelo: geometría y sensores ultrasónicos",
+    "videoUrl": "",
+  },
   "mecanica-16": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -21356,6 +21528,10 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-151": [],
   "mecanica-152": [],
   "mecanica-153": [],
+  "mecanica-154": [],
+  "mecanica-155": [],
+  "mecanica-156": [],
+  "mecanica-157": [],
   "mecanica-16": [],
   "mecanica-17": [],
   "mecanica-18": [],
@@ -21744,6 +21920,10 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-151",
   "mecanica-152",
   "mecanica-153",
+  "mecanica-154",
+  "mecanica-155",
+  "mecanica-156",
+  "mecanica-157",
   "mecanica-16",
   "mecanica-17",
   "mecanica-18",

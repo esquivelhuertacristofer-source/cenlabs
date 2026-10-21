@@ -1,0 +1,29 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-154",
+  titulo: "Control de crucero adaptativo (ACC): mantener la distancia con el coche de adelante",
+  subtitulo: "Autotrónica",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Ajustas cómo el coche acelera y frena solo para mantener una distancia segura con el de adelante.
+Un radar mide qué tan lejos está el coche naranja y qué tan rápido se acerca. El sistema deja una distancia que crece con la velocidad (5 m más h segundos de tu velocidad) y corrige acelerando o frenando, sin pasarse del límite de confort.
+Primero calculas qué distancia debería dejar; luego ajustas h, P y D para seguir a un coche que frena fuerte sin chocar, sin frenar a tirones y sin que la frenada se amplifique en una fila de coches; al final diagnosticas por qué falla un sistema mal ajustado.`,
+  conceptos: [
+    { icono: '📏', nombre: 'Tiempo de brecha h: más velocidad, más distancia', descripcion: 'La distancia ideal es d* = 5 m + h × velocidad. Con h = 1,3 s deja 41,1 m a 100 km/h y 23,1 m a 50 km/h: h son los segundos que tardarías en llegar adonde está el de adelante.' },
+    { icono: '🎛️', nombre: 'P y D: cuánto y cómo corrige', descripcion: 'La aceleración pedida es P × (distancia − ideal) + D × (velocidad del de adelante − la tuya). Con D casi nula reacciona tarde y llega al tope de frenada; con D muy alta el ruido del radar mueve el pedal a tirones.' },
+    { icono: '⛓️', nombre: 'Estabilidad de cadena', descripcion: 'Si detrás vienen coches con el mismo sistema, un h corto amplifica la frenada hacia atrás: con h = 0,6 s la ganancia pico es ×1,15; con h = 1,3 s ningún coche frena más que el anterior.' },
+  ],
+  mision: [
+    'Calcula qué distancia ideal deja el coche con un tiempo de brecha y una velocidad dados.',
+    'Elige h, P y D para seguir a un coche que frena fuerte sin chocar, sin llegar al tope de confort ni frenar a tirones, sin que la frenada se amplifique en cadena y sin quedarte demasiado lejos.',
+    'Diagnostica si un sistema falla por dejar muy poca o demasiada distancia, por casi no mirar la velocidad relativa o por reaccionar de más al radar.',
+  ],
+  aplicaciones: [
+    { area: 'Asistentes de conducción', ejemplo: 'El crucero adaptativo mantiene la distancia en autopista y en atascos; el conductor elige el tiempo de brecha (típicamente de 1 a 2,5 s) y el sistema frena y acelera dentro de un límite de confort.' },
+    { area: 'Tráfico en pelotón', ejemplo: 'La estabilidad de cadena es la razón por la que un frenazo en una autopista llena puede convertirse en una parada varios coches atrás; con sistemas bien ajustados (o conectados por radio) la perturbación se amortigua.' },
+  ],
+};
+
+export default briefing;

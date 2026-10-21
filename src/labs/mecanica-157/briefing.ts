@@ -1,0 +1,29 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-157",
+  titulo: "Estacionamiento automático en paralelo: geometría y sensores ultrasónicos",
+  subtitulo: "Autotrónica",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Ayudas a un coche a estacionarse solo en un hueco entre dos coches sin tocarlos.
+Primero el coche pasa despacio y un sensor de ultrasonido de su costado mide el hueco con el tiempo que tarda el eco; después retrocede con el volante a un lado y a otro, dibujando una «S» hecha de dos arcos.
+Calculas la distancia de un eco y el radio de giro; eliges la velocidad al pasar, el giro del volante y dónde se detiene antes de retroceder; y al final diagnosticas por qué una maniobra salió mal.`,
+  conceptos: [
+    { icono: '🔊', nombre: 'Eco y tiempo de vuelo', descripcion: 'El sensor lanza un pitido y mide cuánto tarda en volver. La distancia es d = c·t/2 (el sonido va y vuelve) con c = 331,3 + 0,606·T m/s: un metro de eco tarda 5,8 ms a 20 °C. Pita 10 veces por segundo, así que a 8 km/h cada lectura está a 22 cm de la anterior.' },
+    { icono: '↺', nombre: 'Radio de giro y «S»', descripcion: 'Con el volante a tope las ruedas giran 33° y el eje trasero describe un círculo de radio R = L/tan δ = 4,0 m (L = 2,60 m). Para correrse de lado h con dos arcos iguales, h = 2R(1 − cos α) y el coche avanza 2R·sen α.' },
+    { icono: '📏', nombre: 'Hueco mínimo y maniobras', descripcion: 'Con el volante a tope una sola maniobra pide un hueco de unos 6,2 m (1,4 veces el largo del coche de 4,40 m); con menos volante pide más. Si el hueco es más corto, el coche debe avanzar y retroceder varias veces.' },
+  ],
+  mision: [
+    'Calcula a qué distancia está un coche por el tiempo del eco (con la temperatura) y el radio de giro de un ángulo de ruedas.',
+    'Elige velocidad, giro del volante y punto de parada para detectar el hueco y estacionar sin tocar a nadie, en las maniobras permitidas y con al menos 15 cm libres.',
+    'Diagnostica por qué falla una maniobra: pasó muy rápido, giró poco el volante, se detuvo muy adelante o muy atrás.',
+  ],
+  aplicaciones: [
+    { area: 'Automoción', ejemplo: 'Los asistentes de estacionamiento miden el hueco con sensores ultrasónicos laterales mientras el coche pasa, y sólo ofrecen estacionar si el hueco es mayor que el largo del coche más un margen.' },
+    { area: 'Diagnóstico', ejemplo: 'Un sensor sucio, tapado o con mucho frío lee mal las distancias; el sistema entonces mide huecos falsos o se rinde. Conocer c(T) y la separación entre pitidos explica esos errores.' },
+  ],
+};
+
+export default briefing;

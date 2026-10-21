@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Estacionamiento automático en paralelo: geometría y sensores ultrasónicos — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08161F;--panel:rgba(7,20,28,.88);--line:#21495C;--ink:#EAF4F8;
+    --dim:#9BB8C4;--accent:#5BC8FF;--accent2:#A8E2FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#5BC8FF;--cR:#FFA445;--cE:#3DDC97;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#0f2733;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#173748}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#8ad8ff}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#5BC8FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-top{display:flex;gap:6px;align-items:stretch}
+  .vol{flex:0 0 76px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);position:relative;min-height:76px}
+  .vol canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-fig{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#0f2733;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(91,200,255,.38);background:rgba(91,200,255,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(91,200,255,.55),0 0 24px 6px rgba(91,200,255,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .onda{color:#8fd8ff;font-size:11px;display:none}.onda.on{display:inline}
+  .hud .sub{font-size:11.5px;color:var(--dim);line-height:1.45}
+  .hud .tabla{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:11.6px;margin:4px 0}.hud .tabla span:nth-child(odd){color:var(--dim)}.hud .tabla span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-top{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · el coche que se estaciona solo</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-top">
+    <div class="vol" id="gVol" title="El volante, tal como lo gira el sistema al estacionar"><canvas></canvas></div>
+    <div class="dk-fig">
+      <div class="fg"><div class="fl" id="l_f1">Radio giro</div><b id="f_1">—</b></div>
+      <div class="fg"><div class="fl" id="l_f2">Medido</div><b id="f_2">—</b></div>
+      <div class="fg"><div class="fl" id="l_f3">Mín. 1 vez</div><b id="f_3">—</b></div>
+      <div class="fg"><div class="fl" id="l_f4">Maniobra</div><b id="f_4">—</b></div>
+      <div class="fg"><div class="fl" id="l_f5">Margen</div><b id="f_5">—</b></div>
+      <div class="fg"><div class="fl" id="l_f6">Cada pitido</div><b id="f_6">—</b></div>
+    </div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Lo que oye el sensor</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Volante y marcha <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Margen a los vecinos <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Hueco mínimo según el volante <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — ESTACIONAMIENTO AUTOMÁTICO EN PARALELO: GEOMETRÍA Y SENSORES ULTRASÓNICOS
+   (Autotrónica · mecanica-157)
+
+   Un coche pasa despacio frente a una fila de coches estacionados; un sensor ultrasónico de su costado mide el tiempo de vuelo del eco (d = c·t/2),
+   encuentra el hueco y estima dónde están las caras de los dos vecinos. Con la cinemática de bicicleta (radio mínimo R = L/tanδ) planea una «S» de dos
+   arcos en reversa y, si el hueco no alcanza, encadena más maniobras. La pasada, el eco, el hueco medido, el plan, el choque con los vecinos y las
+   gráficas son un único modelo, en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Estacionamiento automático en paralelo: física pura (sin three). SI salvo donde se diga. ----
+   Cinemática de bicicleta (rodadura sin deslizamiento a baja velocidad, Rajamani cap. 2; Paden et al. 2016 para el planificador de arcos):
+   el punto de referencia es el CENTRO DEL EJE TRASERO (x, y), con rumbo θ (0 = mirando a +x, antihorario +). Con ruedas giradas δ y velocidad v
+   (v < 0 = marcha atrás):  ẋ = v·cosθ,  ẏ = v·sinθ,  θ̇ = v·tanδ / L.  La curvatura es κ = tanδ / L y el radio mínimo de giro del eje trasero
+   es R = L / tanδ_máx.  El mundo: la acera es la recta y = 0, los coches vecinos están pegados a ella y el hueco mide S entre ellos.
+   El sensor ultrasónico mide tiempo de vuelo: d = c·t/2, con c = 331,3 + 0,606·T (T en °C). */
+const DOSPI=Math.PI*2, RAD=Math.PI/180;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>t*t*(3-2*t);
+
+/* ---- El coche (un sedán mediano; mismas cotas que el modelo 3D) ---- */
+const VEH={L:2.60, vd:0.85, vt:0.95, ancho:1.80, dMax:33*RAD, relVol:16, cham:0.22, vTramo:1.20};
+VEH.largo=VEH.vt+VEH.L+VEH.vd;                                       // 4,40 m
+VEH.rMinEje=VEH.L/Math.tan(VEH.dMax);                                 // radio mínimo del eje trasero a tope de volante
+const radioDe=delta=>VEH.L/Math.tan(delta);                           // R = L / tanδ
+const deltaDeVol=volGrados=>volGrados*RAD/VEH.relVol;                 // ángulo de las ruedas a partir del volante
+const volDeDelta=d=>d*VEH.relVol/RAD;
+const RESERVA=0.90;                                                   // el controlador no pide más del 90 % del giro máximo: deja reserva para corregir
+
+/* ---- El sonido ---- */
+const velSonido=T=>331.3+0.606*T;                                     // m/s
+const distDeTiempo=(t,T)=>velSonido(T)*t/2;                           // d = c·t/2 (el pulso va y vuelve)
+const tiempoDeDist=(d,T)=>2*d/velSonido(T);
+
+/* ---- Geometría: polígonos convexos y distancia con signo ---- */
+/** Rectángulo con las esquinas cortadas (octágono): [u0,u1] a lo largo, [n0,n1] a lo ancho, en el sistema del coche. */
+function octagono(u0,u1,n0,n1,c){ return [[u0+c,n0],[u1-c,n0],[u1,n0+c],[u1,n1-c],[u1-c,n1],[u0+c,n1],[u0,n1-c],[u0,n0+c]]; }
+const OCT_COCHE=octagono(-VEH.vt,VEH.L+VEH.vd,-VEH.ancho/2,VEH.ancho/2,VEH.cham);
+function poseA(poly,x,y,th){ const c=Math.cos(th), s=Math.sin(th); return poly.map(([u,n])=>[x+u*c-n*s, y+u*s+n*c]); }
+function cocheEn(x,y,th){ return poseA(OCT_COCHE,x,y,th); }
+function ptSeg(px,py,ax,ay,bx,by){ const dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy; let t=l2>0?((px-ax)*dx+(py-ay)*dy)/l2:0; t=t<0?0:(t>1?1:t); const qx=ax+t*dx-px, qy=ay+t*dy-py; return Math.sqrt(qx*qx+qy*qy); }
+/** Separación entre dos polígonos convexos: > 0 es el hueco más corto entre ellos; ≤ 0 es que se tocan (−penetración mínima por ejes separadores). */
+function separacion(P,Q){
+  { let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9,c0=1e9,c1=-1e9,d0=1e9,d1=-1e9;                       // lejos: basta la separación de las cajas (cota inferior)
+    for(const v of P){ if(v[0]<a0)a0=v[0]; if(v[0]>a1)a1=v[0]; if(v[1]<b0)b0=v[1]; if(v[1]>b1)b1=v[1]; }
+    for(const v of Q){ if(v[0]<c0)c0=v[0]; if(v[0]>c1)c1=v[0]; if(v[1]<d0)d0=v[1]; if(v[1]>d1)d1=v[1]; }
+    const gx=Math.max(c0-a1,a0-c1), gy=Math.max(d0-b1,b0-d1); if(Math.max(gx,gy)>1.5) return Math.max(gx,gy); }
+  let pen=Infinity;
+  for(const poly of [P,Q]) for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length]; let nx=b[1]-a[1], ny=a[0]-b[0]; const l=Math.hypot(nx,ny); nx/=l; ny/=l;
+    let p0=Infinity,p1=-Infinity,q0=Infinity,q1=-Infinity;
+    for(const v of P){ const d=v[0]*nx+v[1]*ny; if(d<p0)p0=d; if(d>p1)p1=d; }
+    for(const v of Q){ const d=v[0]*nx+v[1]*ny; if(d<q0)q0=d; if(d>q1)q1=d; }
+    const solape=Math.min(p1,q1)-Math.max(p0,q0);       // > 0: se solapan en este eje
+    if(solape<=0) { let m=Infinity;                       // hay eje separador: la distancia es el mínimo vértice–lado
+      for(const [A,B] of [[P,Q],[Q,P]]) for(const v of A) for(let j=0;j<B.length;j++){ const d=ptSeg(v[0],v[1],B[j][0],B[j][1],B[(j+1)%B.length][0],B[(j+1)%B.length][1]); if(d<m)m=d; }
+      return m; }
+    if(solape<pen) pen=solape;
+  }
+  return -pen;
+}
+
+/* ---- La calle: acera, dos coches vecinos y el hueco de largo S ---- */
+const CALLE={yAcera:0.10, yLado:0.30, anchoVec:1.80, largoB:4.60, largoA:4.20, gapLat:0.90};
+CALLE.yLanda=CALLE.yLado+CALLE.anchoVec;                              // cara del vecino hacia la calzada: y = 2,10
+CALLE.yFinal=CALLE.yLado+VEH.ancho/2;                                 // eje del coche ya estacionado: pegado a la línea de los vecinos
+CALLE.yPaso=CALLE.yLanda+CALLE.gapLat+VEH.ancho/2;                    // eje del coche al pasar frente a los vecinos (0,90 m de la cara de ellos)
+/** El mundo: la cara delantera del vecino de atrás B está en x = xB y la cara trasera del vecino de adelante A en x = xA; el hueco mide S = xA − xB. */
+function mundo(S,xB){
+  xB=xB||0; const xA=xB+S;
+  const B=poseA(octagono(xB-CALLE.largoB,xB,CALLE.yLado,CALLE.yLanda,VEH.cham),0,0,0), A=poseA(octagono(xA,xA+CALLE.largoA,CALLE.yLado,CALLE.yLanda,VEH.cham),0,0,0);
+  const acera=[[-60,-2],[90,-2],[90,CALLE.yAcera],[-60,CALLE.yAcera]];
+  return {S,xA,xB,A,B,acera};
+}
+/* Las dos llantas del lado de la acera (la carrocería puede pasar por encima del bordillo; la llanta no). */
+const RUEDA={larg:0.62, anch:0.215, lado:VEH.ancho/2-0.1075+0.025};
+const OCT_RUEDAS=[octagono(-RUEDA.larg/2,RUEDA.larg/2,-RUEDA.lado-RUEDA.anch/2,-RUEDA.lado+RUEDA.anch/2,0.02), octagono(VEH.L-RUEDA.larg/2,VEH.L+RUEDA.larg/2,-RUEDA.lado-RUEDA.anch/2,-RUEDA.lado+RUEDA.anch/2,0.02)];
+const BORDE_ACERA=0.10;                                                // la llanta puede acercarse a 5 cm del bordillo y la carrocería a 15 cm de un vecino: se compara con el mismo margen sumando 10 cm a la llanta
+/** Hueco libre entre el coche y lo que lo rodea: {A, B} carrocería contra vecinos y acera = llanta más cercana al bordillo (+10 cm, ver arriba). */
+function holguras(M,x,y,th){ const c=cocheEn(x,y,th); let ac=Infinity; for(const w of OCT_RUEDAS){ const d=separacion(poseA(w,x,y,th),M.acera); if(d<ac) ac=d; }
+  return {A:separacion(c,M.A), B:separacion(c,M.B), acera:ac+BORDE_ACERA}; }
+const holguraMin=h=>Math.min(h.A,h.B,h.acera);
+
+/* ---- Paso circular exacto: avanza una longitud de arco s (con signo: < 0 es marcha atrás) con curvatura k = tanδ/L ---- */
+function arco(est,k,s){
+  const [x,y,th]=est;
+  if(Math.abs(k)<1e-12) return [x+s*Math.cos(th), y+s*Math.sin(th), th];
+  const th2=th+k*s;
+  return [x+(Math.sin(th2)-Math.sin(th))/k, y-(Math.cos(th2)-Math.cos(th))/k, th2];
+}
+/** Los dos arcos y la recta de la «S»: ángulo de giro α para desplazarse lateralmente h con dos arcos iguales de radio R:  h = 2R(1 − cosα). */
+const anguloS=(h,R)=>Math.acos(clamp(1-h/(2*R),-1,1));
+const recorridoS=(h,R)=>{ const a=anguloS(h,R); return 2*R*Math.sin(a); };      // avance del eje trasero a lo largo de la calle = 2R·senα = √(4Rh − h²)
+
+
+
+/* ---- El planificador: reversa con el volante a un lado hasta el punto de enderezar y, desde ahí, el volante al otro lado (la «S» de dos arcos);
+   si un vecino lo impide, el tramo termina y se encadena un tramo hacia adelante con el volante hacia la acera y otra reversa (3, 5… tramos).
+   Cada TRAMO es un movimiento continuo en una misma marcha: cambiar de marcha es una maniobra más. Arcos exactos; la holgura se mide contra los
+   polígonos del mapa que el sistema CREE tener (el que midieron los sensores), con un margen de seguridad. Si al terminar queda menos de gMin delante
+   o detrás, se centra con un tramo recto. ---- */
+const PASO=0.02;                                                       // m de arco entre comprobaciones de choque
+const PLAN={margen:0.15, gMin:0.25, maxTramos:9, tolY:0.03};           // margen de seguridad (m), hueco mínimo exigido al terminar (m), tramos máximos y tolerancia lateral (m)
+const huecosFin=(Mp,e)=>({B:(e[0]-VEH.vt)-Mp.xB, A:Mp.xA-(e[0]+VEH.L+VEH.vd)});     // hueco libre detrás (hasta la cara delantera de B) y delante (hasta la cara trasera de A)
+function planea(Mp,x0,prm){
+  const R=prm.R, kR=1/R, m=prm.margen===undefined?PLAN.margen:prm.margen, yf=CALLE.yFinal, tolY=PLAN.tolY, maxT=prm.maxTramos||PLAN.maxTramos, gMin=prm.gMin===undefined?PLAN.gMin:prm.gMin;
+  let est=[x0,prm.y0===undefined?CALLE.yPaso:prm.y0,0];
+  const pts=[{x:est[0],y:est[1],th:est[2],k:0,dir:0,tr:0}], tramos=[]; let causa=null, ok=false;
+  for(let it=0;it<maxT&&!ok;it++){
+    const dir=(it%2===0)?-1:1, ini=pts.length-1; let paso=0, listo=false;
+    for(let q=0;q<8000;q++){
+      let k, s=dir*PASO, fin=false;
+      if(dir<0){
+        if(est[2]>1e-9){ const yEnd=est[1]-R*(1-Math.cos(est[2])); if(yEnd<=yf+0.004){ k=kR; const rest=est[2]/kR; if(rest<=PASO){ s=-rest; fin=true; } } else k=-kR; }
+        else { if(Math.abs(est[1]-yf)<=tolY){ listo=true; break; } if(est[1]>yf) k=-kR; else break; }
+      } else { if(est[2]<=1e-9) break; k=-kR; const rest=est[2]/kR; if(rest<=PASO){ s=rest; fin=true; } }
+      const nx=arco(est,k,s); if(fin) nx[2]=0;
+      if(holguraMin(holguras(Mp,nx[0],nx[1],nx[2]))<m){ causa='choque'; break; }
+      est=nx; paso+=Math.abs(s); pts.push({x:est[0],y:est[1],th:est[2],k,dir,tr:it});
+      if(fin){ if(dir<0&&Math.abs(est[1]-yf)<=tolY) listo=true; break; }
+    }
+    if(paso<0.03&&!listo){ causa=causa||'atascado'; break; }
+    if(paso>=0.03) tramos.push({dir,ini,fin:pts.length-1,largo:paso});
+    if(listo){ ok=true; break; }
+  }
+  if(ok){ causa=null;
+    const g=huecosFin(Mp,est);
+    if(Math.min(g.A,g.B)<gMin){
+      const dx=(g.A-g.B)/2, dir=dx>0?1:-1, ultimo=tramos[tramos.length-1], mismo=ultimo.dir===dir; let paso=0, e2=est.slice(); const pts2=[];
+      for(let q=0;q<4000&&paso<Math.abs(dx)-1e-9;q++){ const s=dir*Math.min(PASO,Math.abs(dx)-paso), nx=arco(e2,0,s); if(holguraMin(holguras(Mp,nx[0],nx[1],nx[2]))<m) break; e2=nx; paso+=Math.abs(s); pts2.push({x:e2[0],y:e2[1],th:e2[2],k:0,dir,tr:tramos.length-(mismo?1:0)}); }
+      const g2=huecosFin(Mp,e2);
+      if(Math.min(g2.A,g2.B)<gMin){ ok=false; causa='sin hueco'; }
+      else { const ini=pts.length-1; for(const p of pts2) pts.push(p); est=e2; if(mismo) ultimo.fin=pts.length-1; else tramos.push({dir,ini,fin:pts.length-1,largo:paso}); }
+    }
+  }
+  return {ok,causa,pts,tramos,n:tramos.length,fin:est};
+}
+
+
+/* ---- El sensor ultrasónico del costado derecho (en el guardabarros delantero): un cono de semiapertura β que mide el TIEMPO DE VUELO del eco
+   más cercano: d = c·t/2. El haz se simula con rayos dentro del cono y se toma el eco que llega primero. Pita f veces por segundo, así que
+   entre dos lecturas el coche avanza v/f metros: esa es la resolución con la que «ve» los bordes del hueco. ---- */
+const SENSOR={u:3.0, n:-0.90, beta:30*RAD, rMax:4.5, rUmbral:2.0, f:10, nRayos:25, tAsum:20};
+SENSOR.holgura=SENSOR.rUmbral*Math.sin(SENSOR.beta);                    // el eco de un vecino se oye hasta rUmbral·senβ antes/después de su cara: 1,0 m por lado
+function rayoPoli(ox,oy,dx,dy,poly){
+  let tm=Infinity;
+  for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length], ex=b[0]-a[0], ey=b[1]-a[1], den=dx*ey-dy*ex; if(Math.abs(den)<1e-12) continue;
+    const t=((a[0]-ox)*ey-(a[1]-oy)*ex)/den, u=((a[0]-ox)*dy-(a[1]-oy)*dx)/den; if(t>1e-9&&u>=0&&u<=1&&t<tm) tm=t; }
+  return tm;
+}
+const PARED=[[-60,-4],[90,-4],[90,-1.0],[-60,-1.0]];                   // fachada o seto detrás de la acera: es lo que oye el sensor donde no hay coche
+/** Distancia geométrica al eco más cercano dentro de un cono con eje en el ángulo ang (rad, en el plano de la calle) y semiapertura β (m), o Infinity si no hay eco a menos de rMax.
+ *  Devuelve también el punto del eco {r, px, py}. */
+function ecoDesde(M,ox,oy,ang,beta,rMax){
+  beta=beta===undefined?SENSOR.beta:beta; rMax=rMax===undefined?SENSOR.rMax:rMax;
+  let r=Infinity, px=NaN, py=NaN;
+  for(let q=0;q<SENSOR.nRayos;q++){ const fi=ang-beta+2*beta*q/(SENSOR.nRayos-1), dx=Math.cos(fi), dy=Math.sin(fi);
+    for(const P of [M.A,M.B,PARED]){ const t=rayoPoli(ox,oy,dx,dy,P); if(t<r){ r=t; px=ox+dx*t; py=oy+dy*t; } } }
+  return r>rMax?{r:Infinity,px:NaN,py:NaN}:{r,px,py};
+}
+const ecoGeom=(M,sx,sy)=>ecoDesde(M,sx,sy,-Math.PI/2).r;
+/** El sensor lateral derecho del coche en la pose (x, y, θ): origen y ángulo del eje del cono (apunta a la derecha del coche). */
+function sensorLateral(x,y,th){ const c=Math.cos(th), s=Math.sin(th); return {ox:x+SENSOR.u*c-SENSOR.n*s, oy:y+SENSOR.u*s+SENSOR.n*c, ang:th-Math.PI/2}; }
+/** Lo que LEE el sistema: el eco tarda t = 2d/c con la velocidad real del sonido (temperatura T) y el sistema lo convierte con la que supone (SENSOR.tAsum). */
+function ecoLeido(M,sx,sy,T){ const r=ecoGeom(M,sx,sy); return isFinite(r)?distDeTiempo(tiempoDeDist(r,T),SENSOR.tAsum):Infinity; }
+
+/** La pasada: el coche (eje trasero en xs0, rumbo 0) avanza a v por la calle a 0,90 m de la cara de los vecinos; el sensor pita cada 1/f s.
+ *  Detecta el hueco entre el último eco de B y el primero de A y estima dónde están las dos caras (punto medio entre las dos lecturas que
+ *  cruzan el umbral, menos/más lo que el cono se «come»). */
+function mide(S,v,T,xs0){
+  const M=mundo(S,0), dt=1/SENSOR.f, sy=CALLE.yPaso+SENSOR.n, mu=[];
+  let estado=0, nCoche=0, iLibre=-1, jCoche=-1;
+  for(let k=0;k<6000;k++){
+    const t=k*dt, xr=xs0+v*t, sx=xr+SENSOR.u, r=ecoLeido(M,sx,sy,T), coche=r<SENSOR.rUmbral;
+    mu.push({t,xr,sx,r,coche});
+    if(estado===0){ if(coche){ nCoche++; if(nCoche>=2) estado=1; } else nCoche=0; }
+    else if(estado===1){ if(!coche){ estado=2; iLibre=k; } }
+    else if(estado===2){ if(coche){ estado=3; jCoche=k; break; } }
+    if(sx>S+14) break;
+  }
+  if(estado<3) return {ok:false,mu,dx:v*dt};
+  const sB=(mu[iLibre-1].sx+mu[iLibre].sx)/2, sA=(mu[jCoche-1].sx+mu[jCoche].sx)/2;
+  const xBh=sB-SENSOR.holgura, xAh=sA+SENSOR.holgura;
+  return {ok:true,mu,iLibre,jCoche,dx:v*dt,xBh,xAh,Sest:xAh-xBh,sB,sA,tA:mu[jCoche].t,xrA:mu[jCoche].xr};
+}
+
+
+/* ---- Los escenarios del reto: el largo real del hueco, la temperatura, cuántas maniobras se permiten y si hay tráfico detrás esperando ---- */
+const ESCENARIOS=[
+  {id:'amplio',nombre:'Calle tranquila · hueco amplio',desc:'hueco de 7,4 m, 20 °C, poca prisa',S:7.4,T:20,nMax:1,tPasoMax:16},
+  {id:'justo',nombre:'Hueco justo',desc:'hueco de 6,9 m, 20 °C: una sola maniobra y no hay mucho tiempo',S:6.9,T:20,nMax:1,tPasoMax:12},
+  {id:'corto',nombre:'Hueco corto con tráfico',desc:'hueco de 6,4 m, 5 °C: hasta 3 maniobras y alguien espera detrás',S:6.4,T:5,nMax:3,tPasoMax:10},
+];
+const escPorId=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[0];
+const XS0=-7.5;                                                        // eje trasero al empezar la pasada (m): el sensor arranca frente a la mitad del coche B
+const VOL_MAX=volDeDelta(VEH.dMax);                                    // 528° de volante = 33° en las ruedas
+const LIM={toque:0.05, hueco:0.15, aFrena:3.0, vTramo:1.0, aTramo:0.8, tPlan:1.2, tCambio:1.0, tFinal:1.5, rateRueda:40*RAD, tDecide:0.1};   // m, m, m/s², m/s, m/s², s, s, s, rad/s, s
+
+/** Corre todo de principio a fin con los mandos del alumno: prm = {kmh, vol (° de volante), a (m: dónde para, medido desde la cara de A que cree el sistema)}. */
+function corre(esc,prm){
+  const v=prm.kmh/3.6, delta=deltaDeVol(Math.min(prm.vol,VOL_MAX)), R=radioDe(delta), S=esc.S, M=mundo(S,0);
+  const sen=mide(S,v,esc.T,XS0);
+  const res={esc,prm,v,delta,R,Sreal:S,dxPing:v/SENSOR.f,sen,detectado:sen.ok,volFrac:prm.vol/VOL_MAX};
+  if(!sen.ok){ res.plan=null; res.ok=false; res.causa='no se vio el hueco'; res.n=0; res.cumple={detecta:false,sinToque:false,maniobras:false,huecos:false,reserva:res.volFrac<=RESERVA,tiempo:false}; return res; }
+  res.eA=sen.xAh-S; res.eB=sen.xBh-0;                                       // error con que el sistema cree dónde están las caras (m)
+  const Mp=mundo(sen.Sest,sen.xBh);                                         // el mapa que el sistema CREE tener
+  // dónde frena: x0 = cara de A estimada + a; y no puede frenar antes de lo que su frenada le deja
+  const xb=sen.xrA+v*LIM.tDecide, dMin=v*v/(2*LIM.aFrena);
+  let x0=sen.xAh+prm.a; if(x0<xb+dMin) x0=xb+dMin;
+  res.x0=x0; res.xb=xb;
+  const plan=planea(Mp,x0,{R}); res.plan=plan; res.ok=plan.ok; res.causa=plan.causa; res.n=plan.n;
+  // se ejecuta el recorrido planeado en la calle REAL
+  let hmin=Infinity, hA=Infinity, hB=Infinity, hAc=Infinity;
+  for(const p of plan.pts){ const h=holguras(M,p.x,p.y,p.th); if(h.A<hA)hA=h.A; if(h.B<hB)hB=h.B; if(h.acera<hAc)hAc=h.acera; }
+  hmin=Math.min(hA,hB,hAc-BORDE_ACERA+LIM.toque);                           // la llanta puede rozar a 5 cm; la carrocería, no
+  res.hA=hA; res.hB=hB; res.hAcera=hAc-BORDE_ACERA; res.hmin=Math.min(hA,hB,res.hAcera);
+  const e=plan.fin, gf=huecosFin(M,e); res.gA=gf.A; res.gB=gf.B; res.xFin=e[0]; res.yFin=e[1]; res.thFin=e[2];
+  res.tPaso=0;       // se completa en la línea de tiempo
+  const L=linea(res); res.L=L; res.tPaso=L.tPaso;
+  res.cumple={
+    detecta:true,
+    sinToque:plan.ok&&Math.min(hA,hB)>=LIM.toque&&res.hAcera>=0.0,
+    maniobras:plan.ok&&plan.n<=esc.nMax,
+    huecos:plan.ok&&gf.A>=LIM.hueco&&gf.B>=LIM.hueco,
+    reserva:res.volFrac<=RESERVA+1e-9,
+    tiempo:esc.tPasoMax===null||L.tPaso<=esc.tPasoMax,
+  };
+  return res;
+}
+const cumpleTodo=r=>{ const c=r.cumple; return c.detecta&&c.sinToque&&c.maniobras&&c.huecos&&c.reserva&&c.tiempo; };
+
+/* ---- La línea de tiempo: UN reloj para la pasada, el frenado, el cálculo, cada tramo con su cambio de marcha y el volante con su velocidad
+   máxima de giro. Se muestrea cada DTS s. ---- */
+const DTS=0.02;
+function perfilTrapecio(Ltot,vmax,acc){                                   // s(τ) con aceleración constante, crucero y frenada simétrica
+  const dAc=vmax*vmax/(2*acc);
+  if(Ltot>=2*dAc){ const tAc=vmax/acc, tCr=(Ltot-2*dAc)/vmax; return {T:2*tAc+tCr, s:t=>{ if(t<=0) return 0; if(t<tAc) return 0.5*acc*t*t; if(t<tAc+tCr) return dAc+vmax*(t-tAc); const u=Math.min(t-tAc-tCr,tAc); return dAc+vmax*tCr+vmax*u-0.5*acc*u*u; }}; }
+  const vp=Math.sqrt(acc*Ltot), tAc=vp/acc;                               // triangular
+  return {T:2*tAc, s:t=>{ if(t<=0) return 0; if(t<tAc) return 0.5*acc*t*t; const u=Math.min(t-tAc,tAc); return Ltot/2+vp*u-0.5*acc*u*u; }};
+}
+function linea(res){
+  const v=res.v, sen=res.sen, plan=res.plan, out={t:[],x:[],y:[],th:[],dl:[],gear:[],vv:[],fase:[]};
+  let t=0, dl=0, x=XS0, y=CALLE.yPaso, th=0, gear=1, vel=v, fase=0;
+  const empuja=(tt)=>{ out.t.push(tt); out.x.push(x); out.y.push(y); out.th.push(th); out.dl.push(dl); out.gear.push(gear); out.vv.push(vel); out.fase.push(fase); };
+  const mueveVolante=(meta,dt)=>{ const d=meta-dl, mx=LIM.rateRueda*dt; dl+=Math.abs(d)<=mx?d:Math.sign(d)*mx; };
+  // 1 · pasada a velocidad constante hasta que el sistema decide (oyó la cara de A) y frenada hasta x0
+  const tb=sen.tA+LIM.tDecide, xb=XS0+v*tb;
+  const dFren=Math.max(res.x0-xb,v*v/(2*LIM.aFrena)), ab=v*v/(2*dFren), tFr=v/ab;
+  res.tb=tb; res.tFren=tFr;
+  for(;t<tb;t+=DTS){ x=XS0+v*t; vel=v; gear=1; fase=0; empuja(t); }
+  for(let u=0;u<tFr;u+=DTS,t+=DTS){ x=xb+v*u-0.5*ab*u*u; vel=v-ab*u; fase=1; empuja(t); }
+  x=xb+dFren; vel=0; gear=0; fase=2; res.tParo=t;
+  const tPaso=t;                                                          // el tiempo que le tomó llegar a donde para
+  // 2 · el sistema piensa (y gira el volante hacia donde lo pide el primer tramo)
+  const tr0=plan&&plan.pts.length>1?plan.pts[1].k:0;
+  for(let u=0;u<LIM.tPlan;u+=DTS,t+=DTS){ mueveVolante(Math.atan(tr0*VEH.L),DTS); empuja(t); }
+  // 3 · los tramos del plan
+  if(plan&&plan.pts.length>1){
+    const P=plan.pts;
+    for(let i=0;i<plan.tramos.length;i++){
+      const tm=plan.tramos[i];
+      if(i>0){ const kNext=P[tm.ini+1].k; for(let u=0;u<LIM.tCambio;u+=DTS,t+=DTS){ mueveVolante(Math.atan(kNext*VEH.L),DTS); gear=0; vel=0; fase=2; empuja(t); } }
+      // longitud de arco acumulada del tramo
+      const sc=[0]; for(let j=tm.ini+1;j<=tm.fin;j++) sc.push(sc[sc.length-1]+Math.hypot(P[j].x-P[j-1].x,P[j].y-P[j-1].y));
+      const Lt=sc[sc.length-1], pf=perfilTrapecio(Lt,LIM.vTramo,LIM.aTramo); let j=0;
+      for(let u=0;u<pf.T;u+=DTS,t+=DTS){ const s=pf.s(u); while(j<sc.length-2&&sc[j+1]<s) j++;
+        const f=sc[j+1]>sc[j]?clamp((s-sc[j])/(sc[j+1]-sc[j]),0,1):0, a=P[tm.ini+j], b=P[tm.ini+j+1];
+        x=a.x+(b.x-a.x)*f; y=a.y+(b.y-a.y)*f; th=a.th+(b.th-a.th)*f; gear=tm.dir; vel=tm.dir*(j<sc.length-2||u<pf.T-DTS?(pf.s(u+DTS)-pf.s(u))/DTS:0); fase=3;
+        mueveVolante(Math.atan(b.k*VEH.L),DTS); empuja(t); }
+      const q=P[tm.fin]; x=q.x; y=q.y; th=q.th; vel=0; gear=0;
+    }
+  }
+  // 4 · quieto, ya estacionado
+  for(let u=0;u<LIM.tFinal;u+=DTS,t+=DTS){ mueveVolante(0,DTS); fase=4; empuja(t); }
+  out.N=out.t.length; out.T=t; out.tPaso=tPaso;
+  return out;
+}
+
+
+/* ---- La «S» de libro en forma cerrada y el hueco mínimo para una sola maniobra ----
+   Dos arcos iguales de radio R y ángulo α (h = 2R(1 − cosα)): el eje trasero recorre 2R·senα a lo largo de la calle. Con el eje trasero en (x0, y0) al empezar,
+   el primer arco lo lleva a (x0 − R·senθ, y0 − R(1 − cosθ)) con rumbo θ y el segundo deshace el giro. */
+const H_LAT=CALLE.yPaso-CALLE.yFinal;                                   // cuánto hay que correr de lado: 2,70 m
+function poseS(R,x0,t){                                                 // t ∈ [0, 2α]: posición y rumbo del eje trasero a lo largo de la «S»
+  const al=anguloS(H_LAT,R);
+  if(t<=al) return [x0-R*Math.sin(t), CALLE.yPaso-R*(1-Math.cos(t)), t];
+  const x1=x0-R*Math.sin(al), y1=CALLE.yPaso-R*(1-Math.cos(al)), ph=2*al-t;
+  return [x1+R*(Math.sin(ph)-Math.sin(al)), y1+R*(Math.cos(al)-Math.cos(ph)), ph];
+}
+/** Hasta dónde puede estar adelantado el eje trasero respecto de la cara trasera del vecino A (a, m) para que la «S» no se le acerque a menos del margen. */
+function aMaxS(R,margen){
+  const M=mundo(60,0), al=anguloS(H_LAT,R), N=70; margen=margen===undefined?PLAN.margen:margen;
+  const libre=a=>{ for(let i=0;i<=N;i++){ const p=poseS(R,60+a,i/N*2*al); if(separacion(cocheEn(p[0],p[1],p[2]),M.A)<margen) return false; } return true; };
+  let lo=-3, hi=4; for(let i=0;i<20;i++){ const m=(lo+hi)/2; if(libre(m)) lo=m; else hi=m; } return lo;
+}
+/** Hueco mínimo para estacionar en UNA maniobra con un volante dado (° de volante): el coche termina con gMin detrás, empezando lo más adelantado que permite A. */
+function huecoMin1(volGrados){
+  const R=radioDe(deltaDeVol(Math.min(volGrados,VOL_MAX)));
+  return PLAN.gMin+VEH.vt+recorridoS(H_LAT,R)-aMaxS(R);
+}
+/** Ángulos de las dos ruedas delanteras para un giro del eje trasero de radio con signo Rc = L/tanδ (Ackermann): la interior gira más. */
+function angulosRuedas(delta){
+  if(Math.abs(delta)<1e-9) return [0,0];
+  const Rc=VEH.L/Math.tan(delta), t=1.55;                                 // t: vía (m)
+  return [Math.atan(VEH.L/(Rc-t/2)), Math.atan(VEH.L/(Rc+t/2))];         // [izquierda, derecha]
+}
+
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.75;
+scene.fog=new THREE.Fog('#1b3a4e',20,60);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(2,7,6);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(3.5,0.2,-1.8);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.7); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-2,11,-7); LUZ.sol.target.position.set(3.5,0,-2.5);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-12,right:12,top:8,bottom:-8,near:1,far:40});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,8); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.4); LUZ.rim.position.set(-3,4,-9); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las lecturas de los sensores, la estimación y los bordes de la plataforma.
+   En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta) dibujadas como objetos, no como ruido. */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto: tono lento (baja frecuencia), sin grano. */
+function texAsfalto(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(5,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), v=Math.max(0,Math.min(255,(0.80+(n-0.5)*0.17)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_ASF=texAsfalto(), T_PLAT=texPlataforma();
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  asfalto: fis({color:'#3b4047',map:T_ASF,roughness:0.72,metalness:0,clearcoat:0.12,clearcoatRoughness:0.6}),
+  pintura: fis({color:'#1d56bd',metalness:0.50,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.16}),
+  pinturaL: fis({color:'#ee5a2b',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  cristal: fis({color:'#0b1a24',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.90,envMapIntensity:1.6}),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  faro: pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:0.9}),
+  piloto: pbr({color:'#6b0a12',metalness:0.1,roughness:0.2,emissive:'#ff1f2d',emissiveIntensity:0.55}),
+  sensor: pbr({color:'#101418',metalness:0.5,roughness:0.25,emissive:'#4fa3ff',emissiveIntensity:0.5}),
+  poste: pbr({color:'#6c757d',metalness:0.7,roughness:0.5}),
+  riel: pbr({color:'#aab4bb',metalness:0.85,roughness:0.34}),
+  arbol: pbr({color:'#ffffff',roughness:0.9,metalness:0,envMapIntensity:0.35}),
+  tronco: pbr({color:'#4b3a2d',roughness:0.9,metalness:0}),
+};
+M.alu=M.llanta; M.aluminio=M.llanta; M.hierro=M.acero; M.negro=M.goma;
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+/** Interpola de forma suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+/* ===================== 6. LA VÍA =====================
+   Escala 1:1 (metros). El mundo es estático y es el coche el que recorre la vía; la cámara sigue el CENTRO del carril, de modo que
+
+
+/* ===================== 6. LA CALLE =====================
+   Escala 1:1 (metros). Convención de la física: x hacia adelante, y desde la acera hacia la calzada. En el mundo de three: X = x, Z = −y (la acera queda del lado
+   +Z, a la derecha de un coche que avanza hacia +X). Acera con su bordillo, el seto que oye el sensor donde no hay coche, dos carriles y los árboles del otro lado. */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const WZ=y=>-y;                                   // y de la calle → Z del mundo
+const X_MIN=-46, X_MAX=58;
+const MV={
+  acera: pbr({color:'#aeb6bb',roughness:0.88,metalness:0}),
+  bordillo: pbr({color:'#d6dbde',roughness:0.8,metalness:0}),
+  seto: pbr({color:'#2f6a45',roughness:0.95,metalness:0,envMapIntensity:0.3}),
+  fachada: pbr({color:'#34505f',roughness:0.85,metalness:0.05}),
+  ventana: new THREE.MeshBasicMaterial({color:'#f4d58a',toneMapped:false}),
+  raya: new THREE.MeshBasicMaterial({color:'#eef1f3',toneMapped:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),
+  rayaAmar: new THREE.MeshBasicMaterial({color:'#f2c84b',toneMapped:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),
+  copa: pbr({color:'#ffffff',roughness:0.9,metalness:0,envMapIntensity:0.35}),
+  tronco: pbr({color:'#4b3a2d',roughness:0.9,metalness:0}),
+  poste: pbr({color:'#6c757d',metalness:0.7,roughness:0.5}),
+  luz: new THREE.MeshBasicMaterial({color:'#fff2c9',toneMapped:false}),
+};
+/** Una caja que cubre [x0,x1]×[y0,y1] de la calle entre las alturas h0 y h1. */
+function cajaCalle(x0,x1,y0,y1,h0,h1,mat,clave,{sombra=false,recibe=true}={}){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,h1-h0,y1-y0),mat); m.position.set((x0+x1)/2,(h0+h1)/2,WZ((y0+y1)/2));
+  m.castShadow=sombra; m.receiveShadow=recibe; if(clave) m.userData.clave=clave; MUNDO.add(m); return m;
+}
+const T_ASF2=T_ASF.clone(); T_ASF2.repeat.set((X_MAX-X_MIN)/4.5,2.4); T_ASF2.needsUpdate=true;
+const M_ASF=fis({color:'#3b4047',map:T_ASF2,roughness:0.72,metalness:0,clearcoat:0.12,clearcoatRoughness:0.6});
+const SUELO=cajaCalle(X_MIN,X_MAX,-4.2,12.5,-0.30,-0.01,pbr({color:'#16262e',roughness:0.95}),null,{recibe:true}); SUELO.userData.fondo=true;
+cajaCalle(X_MIN,X_MAX,CALLE.yAcera,8.4,-0.2,0.0,M_ASF,'calle');                                         // la calzada: parte baja, la acera la sobrepasa 15 cm
+cajaCalle(X_MIN,X_MAX,-1.0,0.0,-0.2,0.15,MV.acera,'acera');                                   // la acera
+cajaCalle(X_MIN,X_MAX,0.0,CALLE.yAcera,-0.2,0.15,MV.bordillo,'acera');                                  // el bordillo (la franja clara junto a la calzada)
+cajaCalle(X_MIN,X_MAX,-1.6,-1.0,0.0,0.62,MV.seto,'seto',{sombra:true});                                // el seto: lo que oye el sensor donde no hay coche
+cajaCalle(X_MIN,X_MAX,-4.4,-2.6,0.0,2.4,MV.fachada,'seto',{sombra:true});                              // el edificio detrás
+cajaCalle(X_MIN,X_MAX,8.4,9.4,-0.2,0.15,MV.acera,'acera');                                             // la otra acera
+cajaCalle(X_MIN,X_MAX,9.4,10.4,0.0,0.7,MV.seto,'seto');
+// ventanas del edificio (una malla instanciada)
+{ const n=Math.floor((X_MAX-X_MIN)/5), im=new THREE.InstancedMesh(new THREE.BoxGeometry(1.5,1.1,0.04),MV.ventana,n*2), m4=new THREE.Matrix4();
+  for(let k=0;k<n;k++) for(let f=0;f<2;f++){ m4.makeTranslation(X_MIN+2.5+k*5,0.9+f*1.0,WZ(-2.6)-0.03); im.setMatrixAt(k*2+f,m4); }
+  im.userData.clave='seto'; MUNDO.add(im); }
+// rayas: borde del carril de estacionamiento (continua, a 2,45 m de la acera) y eje de la calle (discontinua)
+cajaCalle(X_MIN,X_MAX,2.40,2.50,0,0.012,MV.raya,'calle',{recibe:false});
+cajaCalle(X_MIN,X_MAX,8.25,8.35,0,0.012,MV.raya,'calle',{recibe:false});
+{ const P=9, n=Math.ceil((X_MAX-X_MIN)/P), im=new THREE.InstancedMesh(new THREE.BoxGeometry(3,0.012,0.14),MV.rayaAmar,n), m4=new THREE.Matrix4();
+  for(let k=0;k<n;k++){ m4.makeTranslation(X_MIN+1.5+k*P,0.008,WZ(5.5)); im.setMatrixAt(k,m4); } im.userData.clave='calle'; MUNDO.add(im); }
+// árboles del otro lado y farolas de este
+{ const n=11, copas=new THREE.InstancedMesh(new THREE.ConeGeometry(1.1,3.2,9),MV.copa,n), troncos=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.13,0.17,1.2,7),MV.tronco,n), m4=new THREE.Matrix4(), col=new THREE.Color();
+  for(let k=0;k<n;k++){ const x=X_MIN+4+k*9.6+((k*7)%3), s=0.8+0.4*(((k*5)%7)/7); m4.compose(V3(x,1.2+1.6*s,WZ(9.9)),new THREE.Quaternion(),V3(s,s,s)); copas.setMatrixAt(k,m4); col.setHSL(0.30+0.04*(k%3),0.40,0.16+0.04*((k*3)%4)/4); copas.setColorAt(k,col);
+    m4.compose(V3(x,0.6*s,WZ(9.9)),new THREE.Quaternion(),V3(s,s,s)); troncos.setMatrixAt(k,m4); }
+  copas.castShadow=true; troncos.castShadow=true; copas.userData.clave='calle'; MUNDO.add(copas,troncos);
+  const XF=[-30,-17,15.5,28,41], nF=XF.length, postes=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05,0.07,4.2,8),MV.poste,nF), focos=new THREE.InstancedMesh(new THREE.SphereGeometry(0.16,10,8),MV.luz,nF);
+  for(let k=0;k<nF;k++){ const x=XF[k]; m4.makeTranslation(x,2.1,WZ(-0.55)); postes.setMatrixAt(k,m4); m4.makeTranslation(x,4.25,WZ(-0.55)); focos.setMatrixAt(k,m4); }
+  postes.castShadow=true; postes.userData.clave='calle'; focos.userData.clave='calle'; MUNDO.add(postes,focos); }
+scene.background=fondoDegradado('#07151e','#1b4256','#6fa3bd'); scene.fog.color.set('#2a5b73'); scene.fog.near=34; scene.fog.far=130;
+
+/* ===================== 7. LOS COCHES =====================
+   El modelo (a escala de metros, 4,4 m) es el de la biblioteca de los labs de automovilidad: su +X es el morro, el eje trasero está en x = −1,50 y el delantero
+   en x = +1,10 (entre ejes 2,60 m). Los tres coches de la escena —el que se estaciona y sus dos vecinos— salen de la misma función con otra pintura. */
+const POS_RUEDA=[[1.10,-0.775],[1.10,0.775],[-1.50,-0.775],[-1.50,0.775]];
+const LRUEDA=0.31, X_CG=-0.10;
+function construyeCoche(pint){
+  const raiz=new THREE.Group(), caja=new THREE.Group(); caja.position.y=0.12; raiz.add(caja);
+  const fija=new THREE.Group();
+  const xc=-0.25, hl=2.2;
+  const yt=perfil1D([[-2.45,0.62],[-2.2,0.80],[-1.5,0.88],[-0.6,0.86],[0.4,0.82],[1.1,0.76],[1.7,0.66],[1.95,0.50]]);
+  const secs=[], N=44;
+  for(let i=0;i<=N;i++){
+    const x=xc-hl*Math.cos(Math.PI*i/N), u=(x-xc)/hl, ab=Math.pow(Math.abs(u),4.2);
+    let w=0.90*Math.pow(Math.max(0.0004,1-ab),1/4.2);
+    w-=0.12*(Math.exp(-Math.pow((x-1.10)/0.40,2))+Math.exp(-Math.pow((x+1.50)/0.40,2)));
+    const yb=0.27+0.22*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  fija.add(new THREE.Mesh(lofteo(secs,30),pint));
+  const cab=[], cabM=26, x0=-1.28, x1=0.62;
+  for(let i=0;i<=cabM;i++){
+    const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),1.43,env));
+    cab.push({x,w:Math.max(0.03,0.80*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30});
+  }
+  fija.add(new THREE.Mesh(lofteo(cab,26),M.cristal));
+  const tec=[], tM=18, tx0=-0.92, tx1=0.30;
+  for(let i=0;i<=tM;i++){
+    const t=i/tM, x=mezcla(tx0,tx1,t), tx=(x-x0)/(x1-x0), env=Math.pow(Math.sin(Math.PI*Math.pow(tx,0.85)),0.55), techo=Math.max(yt(x)+0.05,mezcla(yt(x),1.43,env));
+    const wtop=0.80*Math.pow(env,0.35)*(1-0.30);
+    tec.push({x,w:Math.max(0.03,wtop+0.012),y0:techo-0.045,y1:techo+0.005,n:4.5,tum:0.0});
+  }
+  fija.add(new THREE.Mesh(lofteo(tec,20),pint));
+  const bajos=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.07,1.30),M.bajos); bajos.position.set(-0.25,0.27,0); fija.add(bajos);
+  for(const [px,pz] of POS_RUEDA){
+    const lado=Math.sign(pz), liner=new THREE.Mesh(new THREE.CylinderGeometry(0.385,0.385,0.02,28),M.bajos); liner.rotation.x=Math.PI/2; liner.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(liner);
+    const labio=new THREE.Mesh(new THREE.TorusGeometry(0.405,0.034,8,28,Math.PI),pint); labio.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(labio);
+  }
+  // la cámara del parabrisas (bajo el retrovisor): un módulo oscuro con la lente azul
+  const camM=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.07,0.16),M.sensor); camM.position.set(0.56,1.21,0); fija.add(camM);
+  for(const lado of [-1,1]){
+    const faro=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.075,0.32),M.faro); faro.position.set(1.80,0.60,lado*0.58); faro.rotation.y=lado*0.18; fija.add(faro);
+    const pil=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.09,0.34),M.piloto); pil.position.set(-2.26,0.70,lado*0.60); pil.rotation.y=lado*0.14; fija.add(pil);
+  }
+  const fus=fusiona(fija); fus.position.y=-0.12; caja.add(fus);
+  const pivs=[], spins=[];
+  POS_RUEDA.forEach(([px,pz],i)=>{
+    const lado=Math.sign(pz), piv=new THREE.Group(); piv.position.set(px,LRUEDA,pz); piv.userData.rueda=i; raiz.add(piv);
+    const spin=new THREE.Group(); piv.add(spin);
+    const t=P3.neumatico(M,{dExt:LRUEDA*2,dLlanta:0.43,ancho:0.215,tacos:0,radios:5}), tf=fusiona(t); tf.rotation.y=lado*Math.PI/2; spin.add(tf);
+    pivs.push(piv); spins.push(spin);
+  });
+  raiz.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  raiz.userData.asas={caja,pivs,spins};
+  return raiz;
+}
+
+
+/* ===================== 8. LOS ACTORES Y LO QUE SE DIBUJA SOBRE LA CALLE =====================
+   Tres coches: el que se estaciona (azul, con el eje trasero en el origen de su grupo) y los dos vecinos, ya fundidos en pocas mallas. Sobre la calle: el cono del
+   sensor lateral y sus pulsos, el eco, el hueco que el sistema cree haber medido, el punto donde frena, la huella del eje trasero, las siluetas del coche a
+   intervalos (estela estroboscópica), el plan y el círculo de giro. Todo lo que se mueve sale de la línea de tiempo del modelo. */
+const pintA=fis({color:'#ee5a2b',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10});
+const pintB=fis({color:'#dfe4e8',metalness:0.5,roughness:0.32,clearcoat:0.9,clearcoatRoughness:0.14});
+function creaVecino(pint,clave){
+  const g=new THREE.Group(); g.add(construyeCoche(pint)); const f=fusiona(g);
+  f.traverse(o=>{ if(o.isMesh) o.userData.clave=clave; }); const cont=new THREE.Group(); cont.add(f); MUNDO.add(cont); return cont;
+}
+const VEC_A=creaVecino(pintA,'vecinoA'), VEC_B=creaVecino(pintB,'vecinoB');
+/** Pone un vecino de largo `largo` con su cara trasera en x0 (A) o su cara delantera en x1 (B). El modelo mide 4,4 m y su centro está en x = −0,25. */
+function colocaVecino(cont,centro,largo){ const s=largo/4.4; cont.scale.set(s,1,1); cont.position.set(centro+0.25*s,0,WZ(CALLE.yLado+CALLE.anchoVec/2)); }
+colocaVecino(VEC_B,0-CALLE.largoB/2,CALLE.largoB);
+colocaVecino(VEC_A,6.9+CALLE.largoA/2,CALLE.largoA);
+function ponHueco(S){ colocaVecino(VEC_A,S+CALLE.largoA/2,CALLE.largoA); }
+
+const EGO=new THREE.Group();
+{ const raiz=construyeCoche(M.pintura); raiz.position.x=1.50; EGO.add(raiz); EGO.userData.asas=raiz.userData.asas; MUNDO.add(EGO);
+  EGO.traverse(o=>{ if(o.isMesh) o.userData.clave='coche'; }); }
+const ASAS=EGO.userData.asas;
+
+/* ---- los conos de ultrasonido: un sector translúcido que se desvanece con la distancia ---- */
+function abanico(semiGrados,R,col,aOpac,dirFn,y){
+  const semi=semiGrados*RAD, N=24, pos=[0,y,0], colr=[1,1,1,aOpac], idx=[];
+  for(let i=0;i<=N;i++){ const a=-semi+2*semi*i/N, d=dirFn(a); pos.push(d[0]*R,y,d[1]*R); colr.push(1,1,1,0); }
+  for(let i=0;i<N;i++) idx.push(0,i+1,i+2);
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(colr,4)); g.setIndex(idx);
+  const m=new THREE.MeshBasicMaterial({color:col,vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false});
+  const sector=new THREE.Mesh(g,m); sector.renderOrder=7; sector.raycast=()=>{};
+  const lp=[]; for(const s of [-1,1]){ const d=dirFn(s*semi); lp.push(0,y,0,d[0]*R,y,d[1]*R); }
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+  const lm=new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.5,toneMapped:false,depthWrite:false});
+  const lineas=new THREE.LineSegments(lg,lm); lineas.renderOrder=8; lineas.raycast=()=>{};
+  const grupo=new THREE.Group(); grupo.add(sector,lineas); sector.userData.clave='cono';
+  return {grupo,sector,mat:m,lm};
+}
+const CONO_LAT=abanico(30,SENSOR.rMax,'#58d6ff',0.15,a=>[Math.sin(a),Math.cos(a)],0.45); CONO_LAT.grupo.position.set(SENSOR.u,0,-SENSOR.n); EGO.add(CONO_LAT.grupo);        // apunta a la derecha del coche (+Z local)
+const CONO_DEL=abanico(50,1.9,'#58d6ff',0.30,a=>[Math.cos(a),Math.sin(a)],0.40); CONO_DEL.grupo.position.set(VEH.L+VEH.vd,0,0); EGO.add(CONO_DEL.grupo);
+const CONO_TRA=abanico(50,1.9,'#58d6ff',0.30,a=>[-Math.cos(a),Math.sin(a)],0.40); CONO_TRA.grupo.position.set(-VEH.vt,0,0); EGO.add(CONO_TRA.grupo);
+// el sensor mismo: un disco oscuro con aro luminoso en el guardabarros
+{ const s=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.05,18),M.sensor); s.rotation.x=Math.PI/2; s.position.set(SENSOR.u,0.45,-SENSOR.n+0.01); s.userData.clave='sensor'; EGO.add(s);
+  for(const [px,s2] of [[VEH.L+VEH.vd-0.02,1],[-VEH.vt+0.02,-1]]) for(const pz of [-0.55,-0.18,0.18,0.55]){ const q=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.04,12),M.sensor); q.rotation.z=Math.PI/2; q.position.set(px,0.50,pz); q.userData.clave='sensor'; EGO.add(q); } }
+
+/* ---- el eco: una línea del sensor al punto donde rebota, y un punto luminoso ---- */
+const ECO={punto:new THREE.Mesh(new THREE.SphereGeometry(0.09,14,10),new THREE.MeshBasicMaterial({color:'#bff0ff',toneMapped:false})),
+  linea:new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(),V3(0,0,1)]),new THREE.LineBasicMaterial({color:'#9be7ff',transparent:true,opacity:0.85,toneMapped:false,depthWrite:false}))};
+ECO.punto.userData.clave='eco'; ECO.linea.userData.clave='eco'; ECO.punto.renderOrder=9; ECO.linea.renderOrder=9; ECO.linea.frustumCulled=false; MUNDO.add(ECO.punto,ECO.linea);
+/* ---- los pulsos: arcos que salen del sensor a una velocidad VISUAL (la real, 343 m/s, no se vería); paran donde rebotan ---- */
+const ONDA_ESCALA=40, V_ONDA=343/ONDA_ESCALA;                    // «onda ×1/40»: 8,6 m/s en pantalla
+const ONDAS=[];
+{ const N=28, pos=[], idx=[], semi=SENSOR.beta;
+  for(let i=0;i<=N;i++){ const a=-semi+2*semi*i/N; for(const r of [0.972,1.0]) pos.push(Math.sin(a)*r,0,Math.cos(a)*r); }
+  for(let i=0;i<N;i++){ const a=i*2; idx.push(a,a+1,a+2,a+1,a+3,a+2); }
+  for(let k=0;k<7;k++){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+    const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:'#8fe3ff',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,toneMapped:false})); m.visible=false; m.renderOrder=8; m.frustumCulled=false; m.raycast=()=>{}; MUNDO.add(m); ONDAS.push(m); } }
+
+/* ---- el hueco que el sistema CREE haber medido, y el punto donde frena ---- */
+const SLOT={fill:new THREE.Mesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#3DDC97',transparent:true,opacity:0.20,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4})),
+  borde:new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([V3(),V3(),V3(),V3(),V3(),V3(),V3(),V3()]),new THREE.LineBasicMaterial({color:'#7dffc0',transparent:true,opacity:0.95,toneMapped:false,depthWrite:false}))};
+SLOT.fill.renderOrder=5; SLOT.fill.userData.clave='hueco'; SLOT.borde.renderOrder=6; SLOT.borde.frustumCulled=false; SLOT.fill.visible=SLOT.borde.visible=false; MUNDO.add(SLOT.fill,SLOT.borde);
+const PARADA=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.012,2.9),new THREE.MeshBasicMaterial({color:'#ffd166',toneMapped:false,transparent:true,opacity:0.9,depthWrite:false})); PARADA.visible=false; PARADA.userData.clave='parada'; PARADA.renderOrder=6; MUNDO.add(PARADA);
+
+/* ---- la huella del eje trasero (cinta con color por marcha), las siluetas a intervalos y el plan en puntos ---- */
+const TR_N=700;
+const TRAIL={geo:new THREE.BufferGeometry(),pos:new Float32Array(TR_N*2*3),col:new Float32Array(TR_N*2*4),n:0};
+{ const ix=[]; for(let i=0;i<TR_N-1;i++){ const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3; ix.push(a,b,c,b,d,c); }
+  TRAIL.geo.setAttribute('position',new THREE.BufferAttribute(TRAIL.pos,3)); TRAIL.geo.setAttribute('color',new THREE.BufferAttribute(TRAIL.col,4)); TRAIL.geo.setIndex(ix);
+  TRAIL.mesh=new THREE.Mesh(TRAIL.geo,new THREE.MeshBasicMaterial({color:'#ffffff',vertexColors:true,transparent:true,depthWrite:false,toneMapped:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-9,polygonOffsetUnits:-9}));
+  TRAIL.mesh.frustumCulled=false; TRAIL.mesh.renderOrder=7; TRAIL.mesh.raycast=()=>{}; TRAIL.mesh.userData.clave='huella'; MUNDO.add(TRAIL.mesh); }
+const FANT_N=110;
+const FANT={geo:new THREE.BufferGeometry(),pos:new Float32Array(FANT_N*16*3),tt:[],n:0};
+FANT.geo.setAttribute('position',new THREE.BufferAttribute(FANT.pos,3));
+FANT.mesh=new THREE.LineSegments(FANT.geo,new THREE.LineBasicMaterial({color:'#7fe4ff',transparent:true,opacity:0.45,toneMapped:false,depthWrite:false})); FANT.mesh.frustumCulled=false; FANT.mesh.renderOrder=6; FANT.mesh.raycast=()=>{}; FANT.mesh.userData.clave='huella'; MUNDO.add(FANT.mesh);
+const PLAN_N=320;
+const PLANV={mesh:new THREE.InstancedMesh(new THREE.CircleGeometry(0.075,10).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false,transparent:true,opacity:0.95,depthWrite:false}),PLAN_N),n:0};
+PLANV.mesh.frustumCulled=false; PLANV.mesh.renderOrder=6; PLANV.mesh.raycast=()=>{}; PLANV.mesh.userData.clave='plan'; PLANV.mesh.count=0; MUNDO.add(PLANV.mesh);
+/* ---- el círculo de giro: el que recorre el eje trasero con el volante en la posición de ese instante ---- */
+const CIRC={aro:new THREE.Mesh(new THREE.RingGeometry(0.985,1,120).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#d4f5ff',transparent:true,opacity:0.8,depthWrite:false,toneMapped:false,side:THREE.DoubleSide})),
+  radio:new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(),V3(1,0,0)]),new THREE.LineBasicMaterial({color:'#d4f5ff',transparent:true,opacity:0.8,toneMapped:false,depthWrite:false})),
+  centro:new THREE.Mesh(new THREE.CircleGeometry(0.12,14).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#d4f5ff',toneMapped:false}))};
+for(const o of [CIRC.aro,CIRC.radio,CIRC.centro]){ o.visible=false; o.renderOrder=6; o.raycast=()=>{}; o.userData.clave='circulo'; if(o!==CIRC.aro) o.frustumCulled=false; MUNDO.add(o); }
+const MOVILES=[EGO,VEC_A,VEC_B,TRAIL.mesh,FANT.mesh];
+
+
+/* ===================== 11. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t es el tiempo del escenario (s) y avanza
+   dt·velocidad; con ÉL se mueve el coche, el volante, el cono, los pulsos, la huella y el cursor de todas las gráficas. Modos: «Recorrido», «Probar» y «Reto». */
+const EST={modo:'tour',esc:'amplio',kmh:8,vol:470,a:1.3,verPlan:true,circulo:false,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const SIM={t:0,calc:null,ver:0,e:null,salto:true};
+let CALC=null;
+const MIN_KMH=4, MAX_KMH=20, MIN_VOL=200, MIN_A=-1.0, MAX_A=2.5;
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {esc:EST.esc,kmh:EST.kmh,vol:EST.vol,a:EST.a};
+}
+let _ult=null;
+function calcula(pr){
+  const clave=[pr.esc,pr.kmh,pr.vol,pr.a].join('|');
+  if(_ult&&_ult.clave===clave) return _ult;
+  const esc=escPorId(pr.esc), r=corre(esc,{kmh:pr.kmh,vol:pr.vol,a:pr.a});
+  r.clave=clave; r.pr=pr; r.M=mundo(esc.S,0); prepara(r); _ult=r; ponHueco(esc.S);
+  return r;
+}
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  SIM.t=Math.min(SIM.t,CALC.L.T-0.05); if(SIM.t<0) SIM.t=0;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+
+/* ---- lo que se prepara una vez por cálculo: distancia recorrida, márgenes en el tiempo, huella, siluetas y plan ---- */
+const W3=(x,y,h)=>V3(x,h,WZ(y));
+function prepara(C){
+  const L=C.L, N=L.N; C.cum=new Float32Array(N); let s=0; for(let k=0;k<N;k++){ s+=L.vv[k]*DTS; C.cum[k]=s; }
+  // número de tramo (movimiento continuo en una marcha) de cada muestra: 0 antes de maniobrar
+  C.tramoK=new Uint8Array(N); { let c=0; for(let k=0;k<N;k++){ if(k>0&&L.fase[k]===3&&(L.fase[k-1]!==3||L.gear[k]!==L.gear[k-1])) c++; C.tramoK[k]=c; } }
+  // márgenes contra los vecinos reales a lo largo del tiempo (cada 0,1 s): lo que dibuja la gráfica
+  const ST=5, nh=Math.ceil(N/ST); C.hs=new Float32Array(nh*3); C.hsST=ST;
+  for(let i=0;i<nh;i++){ const k=Math.min(N-1,i*ST), h=holguras(C.M,L.x[k],L.y[k],L.th[k]); C.hs[i*3]=h.A; C.hs[i*3+1]=h.B; C.hs[i*3+2]=h.acera; }
+  // la huella: cinta del eje trasero cada 0,1 s, de color según la marcha
+  const np=Math.min(TR_N,Math.floor(N/ST)); TRAIL.n=np; C.trailK=ST;
+  let ux=0, uz=1;
+  for(let i=0;i<np;i++){ const k=i*ST, k2=Math.min(N-1,k+ST), x=L.x[k], y=L.y[k], dx=L.x[k2]-x, dy=L.y[k2]-y, l=Math.hypot(dx,dy);
+    if(l>1e-4){ ux=dy/l; uz=dx/l; }                                         // normal al sentido de marcha (dx, −dy) en el plano del suelo (X, Z)
+    const w=0.055, X=x, Z=WZ(y);
+    TRAIL.pos.set([X+ux*w,0.05,Z+uz*w,X-ux*w,0.05,Z-uz*w],i*6);
+    const g=L.gear[k], c=g<0?[1,0.69,0.20]:(g>0?(L.fase[k]===3?[0.43,0.88,1]:[0.93,0.95,0.97]):[0.9,0.9,0.9]), a=L.fase[k]<=1?0.28:0.9;
+    TRAIL.col.set([c[0],c[1],c[2],a,c[0],c[1],c[2],a],i*8); }
+  TRAIL.geo.attributes.position.needsUpdate=true; TRAIL.geo.attributes.color.needsUpdate=true; TRAIL.geo.setDrawRange(0,0); TRAIL.geo.computeBoundingSphere();
+  // las siluetas del coche cada 0,6 s mientras se maniobra
+  FANT.tt.length=0; let ng=0; const oct=OCT_COCHE;
+  for(let k=0;k<N&&ng<FANT_N;k+=30){ if(L.fase[k]!==3) continue; const P=poseA(oct,L.x[k],L.y[k],L.th[k]);
+    for(let j=0;j<8;j++){ const a=P[j], b=P[(j+1)%8]; FANT.pos.set([a[0],0.035,WZ(a[1]),b[0],0.035,WZ(b[1])],(ng*8+j)*6); }
+    FANT.tt.push(L.t[k]); ng++; }
+  FANT.n=ng; FANT.geo.attributes.position.needsUpdate=true; FANT.geo.setDrawRange(0,0); FANT.geo.computeBoundingSphere();
+  // el plan en puntos cada 0,25 m, ámbar en reversa y celeste hacia adelante
+  const P=C.plan?C.plan.pts:[]; let acum=0, nP=0, mm=new THREE.Matrix4(), col=new THREE.Color();
+  for(let i=1;i<P.length&&nP<PLAN_N;i++){ acum+=Math.hypot(P[i].x-P[i-1].x,P[i].y-P[i-1].y); if(acum<0.25) continue; acum=0;
+    mm.makeTranslation(P[i].x,0.03,WZ(P[i].y)); PLANV.mesh.setMatrixAt(nP,mm); PLANV.mesh.setColorAt(nP,col.set(P[i].dir<0?'#ffb03b':'#6fe0ff')); nP++; }
+  PLANV.mesh.count=nP; PLANV.mesh.instanceMatrix.needsUpdate=true; if(PLANV.mesh.instanceColor) PLANV.mesh.instanceColor.needsUpdate=true;
+  // el hueco medido y el punto de frenado
+  const sen=C.sen;
+  if(sen.ok){ const S1=sen.Sest, xc=sen.xBh+S1/2, yc=(CALLE.yLado+CALLE.yLanda)/2, d=CALLE.anchoVec;
+    SLOT.fill.scale.set(S1,1,d); SLOT.fill.position.set(xc,0.025,WZ(yc));
+    const y0=CALLE.yLado, y1=CALLE.yLanda, p=SLOT.borde.geometry.attributes.position;
+    const seg=[[sen.xBh,y0,sen.xBh,y1],[sen.xAh,y0,sen.xAh,y1],[sen.xBh,y0,sen.xAh,y0],[sen.xBh,y1,sen.xAh,y1]];
+    seg.forEach((q,i)=>{ p.setXYZ(i*2,q[0],0.04,WZ(q[1])); p.setXYZ(i*2+1,q[2],0.04,WZ(q[3])); }); p.needsUpdate=true; SLOT.borde.geometry.computeBoundingSphere();
+    PARADA.position.set(C.x0,0.03,WZ(CALLE.yPaso)); }
+  { const pv=new Float32Array(221); for(let i=0;i<221;i++){ const q=ecoGeom(C.M,-5+i*0.1,CALLE.yPaso+SENSOR.n); pv[i]=isFinite(q)?q:SENSOR.rMax; } C.perfilVerdad=pv; }
+  ECO_CACHE.clear();
+}
+const ECO_CACHE=new Map();
+const lerpA=(a,k,f)=>{ const k1=Math.min(k+1,a.length-1); return a[k]+(a[k1]-a[k])*f; };
+/* ---- el estado del sistema en el instante t, interpolado entre las muestras de 20 ms ---- */
+function estadoEn(t){
+  const C=CALC; if(!C) return null; const L=C.L, k=clamp(Math.floor(t/DTS),0,L.N-1), f=clamp(t/DTS-k,0,1);
+  const e={k,t,x:lerpA(L.x,k,f),y:lerpA(L.y,k,f),th:lerpA(L.th,k,f),dl:lerpA(L.dl,k,f),vv:lerpA(L.vv,k,f),gear:L.gear[k],fase:L.fase[k],s:lerpA(C.cum,k,f)};
+  const h=holguras(C.M,e.x,e.y,e.th); e.gA=h.A; e.gB=h.B; e.gAc=h.acera-BORDE_ACERA; e.gMin=Math.min(h.A,h.B);
+  e.tocaVecino=Math.min(h.A,h.B)<=LIM.toque; e.tocaAcera=e.gAc<0;
+  // en qué tramo va y cuántos hay
+  e.tramo=C.tramoK[k]; e.nTramos=C.plan?C.plan.n:0;
+  return e;
+}
+
+/* ===================== 12. LO QUE SE VE ===================== */
+const colGap=g=>g<LIM.hueco?'#ff4d5e':(g<0.45?'#ffb347':'#58d6ff');
+const _c1=new THREE.Color(), _c2=new THREE.Color();
+let ultPing=-1, ultBip=0, ruedaPrev=0;
+function verPlanAhora(){ if(EST.modo==='reto'){ return GUIA.paso==='ajusta'&&GUIA.r2&&GUIA.r2.validado; } return EST.verPlan; }
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;
+  const C=CALC; if(!C) return;
+  const T=C.L.T-0.05; SIM.t+=dtSim; if(SIM.t>=T){ SIM.t=SIM.t-T; SIM.salto=true; }
+  const e=estadoEn(SIM.t); if(!e) return; SIM.e=e;
+  const L=C.L;
+  // ---- el coche: eje trasero en (x, y), rumbo θ; las ruedas giran con lo recorrido; las delanteras con Ackermann ----
+  EGO.position.set(e.x,0,WZ(e.y)); EGO.rotation.y=e.th;
+  for(let i=0;i<4;i++) ASAS.spins[i].rotation.z=-e.s/LRUEDA;
+  const [dL,dR]=angulosRuedas(e.dl); ASAS.pivs[0].rotation.y=dL; ASAS.pivs[1].rotation.y=dR;
+  // ---- el sensor lateral: el eco más cercano dentro del cono ----
+  const sl=sensorLateral(e.x,e.y,e.th), eco=ecoDesde(C.M,sl.ox,sl.oy,sl.ang);
+  if(isFinite(eco.r)){ ECO.punto.visible=true; ECO.punto.position.set(eco.px,0.45,WZ(eco.py)); ECO.linea.visible=true;
+    const p=ECO.linea.geometry.attributes.position; p.setXYZ(0,sl.ox,0.45,WZ(sl.oy)); p.setXYZ(1,eco.px,0.45,WZ(eco.py)); p.needsUpdate=true; ECO.linea.geometry.computeBoundingSphere(); }
+  else { ECO.punto.visible=false; ECO.linea.visible=false; }
+  SIM.eco=eco.r;
+  // ---- los conos de las defensas aparecen cuando maniobra y se tiñen según el margen ----
+  const man=e.fase>=2;
+  for(const [cono,g] of [[CONO_DEL,e.gA],[CONO_TRA,e.gB]]){ cono.grupo.visible=man; if(man){ _c1.set(colGap(g)); cono.mat.color.copy(_c1); cono.lm.color.copy(_c1); } }
+  // ---- los pulsos de ultrasonido (onda ×1/40) durante la pasada ----
+  const per=1/SENSOR.f, vida=SENSOR.rMax/V_ONDA+0.15, kUlt=Math.floor(SIM.t/per);
+  let nOnda=0;
+  if(e.fase<=1){
+    for(let j=0;j<ONDAS.length;j++){ const kp=kUlt-j, w=ONDAS[j]; if(kp<0){ w.visible=false; continue; } const tp=kp*per, edad=SIM.t-tp; if(edad>vida||edad<0){ w.visible=false; continue; }
+      let r=ECO_CACHE.get(kp); if(r===undefined){ const kk=clamp(Math.round(tp/DTS),0,L.N-1), s2=sensorLateral(L.x[kk],L.y[kk],L.th[kk]), q=ecoDesde(C.M,s2.ox,s2.oy,s2.ang); r={r:q.r,ox:s2.ox,oy:s2.oy,th:L.th[kk]}; ECO_CACHE.set(kp,r); }
+      const tope=isFinite(r.r)?r.r:SENSOR.rMax, rad=Math.min(V_ONDA*edad,tope), pasada=V_ONDA*edad>tope?Math.min(1,(V_ONDA*edad-tope)/(0.15*V_ONDA)):0;
+      w.visible=true; w.position.set(r.ox,0.45,WZ(r.oy)); w.rotation.y=r.th; w.scale.set(rad,1,rad); w.material.opacity=0.75*(1-edad/vida)*(1-pasada); nOnda++; }
+  } else for(const w of ONDAS) w.visible=false;
+  SIM.ondas=nOnda;
+  // ---- el hueco medido, el punto de frenado, la huella y las siluetas ----
+  const visto=C.sen.ok&&SIM.t>=C.sen.tA;
+  SLOT.fill.visible=SLOT.borde.visible=visto; PARADA.visible=visto;
+  TRAIL.geo.setDrawRange(0,Math.max(0,Math.min(TRAIL.n-1,Math.floor(e.k/C.trailK)))*6);
+  { let c=0; while(c<FANT.n&&FANT.tt[c]<=SIM.t) c++; FANT.geo.setDrawRange(0,c*16); }
+  PLANV.mesh.visible=verPlanAhora()&&PLANV.mesh.count>0;
+  // ---- el círculo de giro con el volante de este instante ----
+  const kc=Math.tan(e.dl)/VEH.L, ver=circuloAhora()&&Math.abs(e.dl)>1.5*RAD&&e.fase>=2;
+  for(const o of [CIRC.aro,CIRC.radio,CIRC.centro]) o.visible=ver;
+  if(ver){ const Rr=1/Math.abs(kc), cx=e.x-Math.sin(e.th)/kc, cy=e.y+Math.cos(e.th)/kc;
+    CIRC.aro.position.set(cx,0.04,WZ(cy)); CIRC.aro.scale.set(Rr,1,Rr); CIRC.centro.position.set(cx,0.04,WZ(cy));
+    const p=CIRC.radio.geometry.attributes.position; p.setXYZ(0,cx,0.045,WZ(cy)); p.setXYZ(1,e.x,0.045,WZ(e.y)); p.needsUpdate=true; CIRC.radio.geometry.computeBoundingSphere(); }
+  // ---- los vecinos se tiñen de rojo si el coche se les acerca a menos del margen ----
+  for(const [pint,g] of [[pintA,e.gA],[pintB,e.gB]]){ const q=clamp(1-g/LIM.hueco,0,1); pint.emissive.set('#ff2a3a'); pint.emissiveIntensity+=((q*0.9)-pint.emissiveIntensity)*clamp(dtR*10,0,1); }
+  // ---- la luz del sol acompaña al hueco ----
+  LUZ.sol.target.position.set(C.esc.S/2,0,-2); LUZ.sol.position.set(C.esc.S/2-3,11,6);
+  // ---- el sonido: un tic suave por cada pitido del sensor y, al maniobrar, el pitido de proximidad de los sensores de parking ----
+  if(!EST.pausa&&typeof sonido!=='undefined'){
+    if(e.fase<=1&&kUlt!==ultPing&&dtSim>0) sonido.tic();
+    if(e.fase===3&&e.vv!==0){ const g=e.gMin, ints=clamp(g*1.1,0.12,1.0); ultBip+=dtR; if(g<0.9&&ultBip>=ints){ ultBip=0; sonido.bip(g<LIM.hueco); } }
+  }
+  ultPing=kUlt;
+}
+
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const ocultaVerdad=()=>EST.modo==='reto'&&((GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado))||enDiagnostico()||enCalcula());
+const NOMBRE_ESC={amplio:'Amplio',justo:'Justo',corto:'Corto'};
+const FRASE='Ayudas a un coche a estacionarse solo en un hueco entre dos coches sin tocarlos.';
+/* mandos: velocidad 4–20 km/h, volante 200–528° (528° = 33° en las ruedas = tope), punto de frenado de −1,0 a +2,5 m */
+const txtV=k=>fN(k,0)+' km/h', txtS=s=>fN(s,0)+'° · radio '+fN(radioDe(deltaDeVol(Math.min(s,VOL_MAX))),1)+' m', txtA=a=>(a>0?'+':'')+fN(a,2)+' m';
+function slidersHTML(p,ids){
+  const [iv,is,ia]=ids;
+  return `<div class="cg"><div class="cl"><div>Velocidad al pasar frente a los coches</div><b id="v${iv}">${txtV(p.kmh)}</b></div><input type="range" id="${iv}" min="${MIN_KMH}" max="${MAX_KMH}" step="1" value="${p.kmh}" aria-label="Velocidad al pasar frente a los coches, en kilómetros por hora">
+    <div class="marcas"><span>lento</span><span>rápido</span></div></div>
+  <div class="cg"><div class="cl"><div>Giro del volante al maniobrar</div><b id="v${is}">${txtS(p.vol)}</b></div><input type="range" id="${is}" min="${MIN_VOL}" max="${Math.round(VOL_MAX)}" step="4" value="${p.vol}" aria-label="Giro del volante al maniobrar, en grados">
+    <div class="marcas"><span>poco</span><span>a tope</span></div></div>
+  <div class="cg"><div class="cl"><div>Dónde se detiene antes de retroceder <em class="gr">(eje trasero)</em></div><b id="v${ia}">${txtA(p.a)}</b></div><input type="range" id="${ia}" min="${MIN_A}" max="${MAX_A}" step="0.05" value="${p.a}" aria-label="Dónde se detiene antes de retroceder, en metros respecto de la cara trasera del coche de adelante">
+    <div class="marcas"><span>más atrás</span><span>más adelante</span></div></div>`;
+}
+function pintaHUD(){
+  const H=el('hud'), C=CALC;
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · estacionamiento en paralelo</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='probar') h+=`<p class="intro">Mueve las barras: el coche <b>pasa oyendo</b> el hueco con ultrasonido y luego <b>retrocede</b> con la «S». Busca que quepa sin rozar a nadie y en pocas maniobras.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Hueco</div><div class="seg" id="segEsc">${Object.keys(NOMBRE_ESC).map(k=>`<button class="b ${EST.esc===k?'on':''}" data-esc="${k}">${NOMBRE_ESC[k]}</button>`).join('')}</div></div>
+    ${slidersHTML(EST,['rV','rS','rA'])}
+    <div class="fila"><div class="cg" style="flex:1"><div class="cl">Trayectoria planeada</div><div class="seg"><button class="b ${EST.verPlan?'on':''}" data-plan="1">Sí</button><button class="b ${EST.verPlan?'':'on'}" data-plan="0">No</button></div></div>
+      <div class="cg" style="flex:1"><div class="cl">Círculo de giro</div><div class="seg"><button class="b ${EST.circulo?'on':''}" data-circ="1">Sí</button><button class="b ${EST.circulo?'':'on'}" data-circ="0">No</button></div></div></div>
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else if(EST.modo==='reto') h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">θ̇ = v·tanδ / L · R = L / tanδ</div>
+    <div class="fl">Cinemática de <b>bicicleta</b> con el eje trasero como referencia: con las ruedas giradas δ, el coche recorre un círculo de radio R. Entre ejes L = ${fN(VEH.L,2)} m; a tope (δ = ${fN(VEH.dMax/RAD,0)}°) R = ${fN(VEH.rMinEje,2)} m.</div>
+    <div class="formula">h = 2R(1 − cos α) · avance = 2R·sen α</div>
+    <div class="fl">La «S»: dos arcos iguales de ángulo α corren el coche h = ${fN(H_LAT,2)} m de lado. Con ${C?fN(C.R,1):'—'} m de radio avanza ${C?fN(recorridoS(H_LAT,C.R),2):'—'} m a lo largo de la calle.</div>
+    <div class="formula">d = c·t / 2 · c = 331,3 + 0,606·T</div>
+    <div class="fl">El sensor mide el tiempo t del eco (ida y vuelta, por eso la mitad). Pita ${SENSOR.f} veces por segundo: a ${C?fN(C.prm.kmh,0):'—'} km/h avanza ${C?fN(C.dxPing*100,0):'—'} cm entre pitidos, y esa es la incertidumbre con que ve los bordes del hueco.${C&&C.sen.ok&&!ocultaVerdad()?` Aquí midió ${fN(C.sen.Sest,2)} m y el hueco real es ${fN(C.Sreal,2)} m.`:''}</div>
+    <div class="fl">Hueco mínimo para una sola maniobra con este volante: <b>${C?fN(s0Para(C.prm.vol),2):'—'} m</b> (con el coche de adelante a 15 cm y 25 cm libres detrás).</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Cinemática pura: las ruedas ruedan sin deslizar y el coche maniobra a ${fN(LIM.vTramo,1)} m/s como máximo. No hay dinámica, lluvia, hielo ni pendiente.</li>
+    <li>El sensor es un cono de ±${fN(SENSOR.beta/RAD,0)}° simulado con ${SENSOR.nRayos} rayos; sin ruido, y con una compensación fija del cono (${fN(SENSOR.holgura*2,1)} m). Las lecturas se toman cada ${fN(1000/SENSOR.f,0)} ms.</li>
+    <li>El volante se gira con el coche casi parado; el radio y los arcos son exactos. Las ruedas delanteras usan geometría de Ackermann.</li>
+    <li>El planificador es <b>voraz y didáctico</b>, no óptimo: un conductor experto puede entrar en menos maniobras. Margen de seguridad de ${fN(PLAN.margen*100,0)} cm.</li>
+    <li>Los vecinos son polígonos rígidos de ${fN(CALLE.largoB,1)} y ${fN(CALLE.largoA,1)} m. No es el sistema de un fabricante ni una homologación.</li>
+  </ul><div class="src">A verificar: Rajamani, <i>Vehicle Dynamics and Control</i> (cinemática de bicicleta); Paden et al., <i>A Survey of Motion Planning and Control Techniques for Self-driving Urban Vehicles</i> (2016); ISO 17386 (asistencia de maniobra a baja velocidad).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.esc=b.dataset.esc; SIM.t=0; pintaHUD(); re(); });
+  H.querySelectorAll('[data-plan]').forEach(b=>b.onclick=()=>{ EST.verPlan=b.dataset.plan==='1'; pintaHUD(); });
+  H.querySelectorAll('[data-circ]').forEach(b=>b.onclick=()=>{ EST.circulo=b.dataset.circ==='1'; pintaHUD(); });
+  const lig=(id,campo,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=+e.value; el('v'+id).textContent=fmt(EST[campo]); re(); }; };
+  lig('rV','kmh',txtV); lig('rS','vol',txtS); lig('rA','a',txtA);
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp'), LVO=lienzo('gVol');
+const COL={e:'#58d6ff',libre:'#FFB703',vol:'#3DDC97',rev:'rgba(255,176,59,0.18)',avd:'rgba(111,224,255,0.16)',peligro:'rgba(244,71,94,0.20)',pelLin:'#ff6b7c',hueco:'rgba(61,220,151,0.20)',huecoLin:'#7dffc0',real:'rgba(200,215,225,0.55)'};
+const GRID='rgba(160,200,220,0.10)', EJE='#3f6a80', TXT='#8eb3c5';
+function cursorT(x,X,Y0,Y1){ const px=X(SIM.t); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+function ejeY(x,X0,X1,Y,vals,fmt){ let ult=-99; for(const v of vals){ raya(x,X0,Y(v),X1,Y(v),GRID); if(Math.abs(Y(v)-ult)>=11){ ult=Y(v); txt(x,fmt?fmt(v):String(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } } }
+function ejeXt(x,X,Hd,paso,T){ for(let t=0;t<=T;t+=paso){ raya(x,X(t),Hd-14,X(t),Hd-11,EJE); txt(x,String(t),X(t),Hd-3,TXT,8.5,'center','500'); } }
+/* bandas de marcha: ámbar = reversa, celeste = adelante */
+function bandasMarcha(x,X,Y0,Y1,C){ const L=C.L; let ini=-1, g=0;
+  for(let k=0;k<=L.N;k+=2){ const gg=k<L.N&&L.fase[k]===3?L.gear[k]:0; if(gg!==g){ if(g!==0){ x.fillStyle=g<0?COL.rev:COL.avd; x.fillRect(X(L.t[ini]),Y0,X(L.t[Math.min(k,L.N-1)])-X(L.t[ini]),Y1-Y0); } g=gg; ini=k; } } }
+
+/* ---- lo que oye el sensor: la distancia del eco en cada pitido, a lo largo de la calle ---- */
+function pintaSensor(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-8, Y0=8, Y1=Hd-16, XA=-5, XB=17, RM=5, X=s=>X0+(s-XA)/(XB-XA)*(X1-X0), Y=r=>Y1-r/RM*(Y1-Y0), sen=C.sen, mu=sen.mu;
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip();
+  // lo que hay de verdad (sólo cuando ya no es el misterio del reto): la distancia al coche o al seto
+  if(!ocultaVerdad()){ x.strokeStyle=COL.real; x.lineWidth=1; x.beginPath(); const pv=C.perfilVerdad; for(let i=0;i<pv.length;i++){ const px=X(-5+i*0.1), py=Y(pv[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); }
+  // el hueco medido
+  if(sen.ok&&SIM.t>=sen.tA){ x.fillStyle=COL.hueco; x.fillRect(X(sen.sB),Y0,X(sen.sA)-X(sen.sB),Y1-Y0); raya(x,X(sen.sB),Y0,X(sen.sB),Y1,COL.huecoLin,1,[3,3]); raya(x,X(sen.sA),Y0,X(sen.sA),Y1,COL.huecoLin,1,[3,3]); }
+  // los pitidos ya dados
+  for(let k=0;k<mu.length;k++){ const q=mu[k]; if(q.t>SIM.t) break; const car=q.coche, py=Y(isFinite(q.r)?q.r:RM-0.12);
+    x.fillStyle=car?COL.e:COL.libre; x.beginPath(); x.arc(X(q.sx),py,2.3,0,DOSPI); x.fill(); }
+  x.restore();
+  ejeY(x,X0,X1,Y,[0,1,2,3,4,5],v=>String(v));
+  for(let s=-5;s<=17;s+=5){ raya(x,X(s),Hd-14,X(s),Hd-11,EJE); txt(x,String(s),X(s),Hd-3,TXT,8.5,'center','500'); }
+  raya(x,X0,Y(SENSOR.rUmbral),X1,Y(SENSOR.rUmbral),COL.pelLin,1,[4,3]); txt(x,'umbral '+fN(SENSOR.rUmbral,1)+' m',X1-3,Y(SENSOR.rUmbral)-3,COL.pelLin,8.5,'right','600');
+  txt(x,'m del eco',X0+4,Y0+8,TXT,8.5,'left','600'); txt(x,'calle (m)',X1,Hd-3,TXT,8.5,'right','600');
+  if(sen.ok&&SIM.t>=sen.tA){ const cx=(X(sen.sB)+X(sen.sA))/2; txt(x,'hueco medido '+fN(sen.Sest,2)+' m',cx,Y0+20,COL.huecoLin,9.5,'center','700'); }
+  const e=SIM.e; if(e&&e.fase<=1){ const sx=e.x+SENSOR.u; raya(x,X(sx),Y0,X(sx),Y1,'rgba(255,255,255,0.85)',1.2); }
+  el('t_fu').textContent='un pitido cada '+fN(C.dxPing*100,0)+' cm';
+}
+function pintaLeySensor(){
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:${COL.e}"></i>eco de un coche</span><span class="lg"><i class="bl" style="--c:${COL.libre}"></i>eco lejano: hueco</span><span class="lg"><i class="bl" style="--c:rgba(61,220,151,.5)"></i>hueco que mide</span>`;
+}
+/* ---- el volante y la marcha ---- */
+function pintaVolante(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC; if(!C) return;
+  const T=C.L.T, X0=28, X1=Wd-6, Y0=6, Y1=Hd-14, X=t=>X0+t/T*(X1-X0), RM=VOL_MAX*1.08, Y=v=>(Y0+Y1)/2-v/RM*((Y1-Y0)/2), L=C.L, f=VEH.relVol/RAD;
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip();
+  bandasMarcha(x,X,Y0,Y1,C);
+  x.strokeStyle=COL.vol; x.lineWidth=1.8; x.beginPath(); for(let k=0;k<L.N;k+=4){ const px=X(L.t[k]), py=Y(L.dl[k]*f); k?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  x.restore();
+  ejeY(x,X0,X1,Y,[-500,0,500],v=>fN(v,0)); raya(x,X0,Y(0),X1,Y(0),'rgba(160,200,220,0.28)',1);
+  raya(x,X0,Y(VOL_MAX),X1,Y(VOL_MAX),COL.pelLin,1,[4,3]); raya(x,X0,Y(-VOL_MAX),X1,Y(-VOL_MAX),COL.pelLin,1,[4,3]);
+  cursorT(x,X,Y0,Y1); txt(x,'° de volante',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_pw').textContent=SIM.e?fN(SIM.e.dl*f,0)+'°':'';
+}
+/* ---- el margen a los vecinos en el tiempo (cm): por debajo de 15 cm el planificador no se atreve; en 0 se tocan ---- */
+function pintaMargen(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC, e=SIM.e; if(!C||!e) return;
+  const T=C.L.T, X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, X=t=>X0+t/T*(X1-X0), RM=100, Y=v=>Y1-Math.max(0,Math.min(v,RM))/RM*(Y1-Y0), n=C.hs.length/3, ST=C.hsST;
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip();
+  bandasMarcha(x,X,Y0,Y1,C);
+  x.fillStyle=COL.peligro; x.fillRect(X0,Y(LIM.hueco*100),X1-X0,Y1-Y(LIM.hueco*100));
+  x.strokeStyle='#ffd166'; x.lineWidth=1.6; x.beginPath(); for(let i=0;i<n;i++){ const px=X(i*ST*DTS), py=Y(Math.min(C.hs[i*3],C.hs[i*3+1])*100); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  x.strokeStyle='rgba(160,200,220,0.65)'; x.lineWidth=1; x.beginPath(); for(let i=0;i<n;i++){ const px=X(i*ST*DTS), py=Y((C.hs[i*3+2]-BORDE_ACERA+LIM.toque)*100); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  x.restore();
+  ejeY(x,X0,X1,Y,[0,25,50,100],v=>String(v)); raya(x,X0,Y(LIM.hueco*100),X1,Y(LIM.hueco*100),COL.pelLin,1,[4,3]);
+  cursorT(x,X,Y0,Y1); txt(x,'cm',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_fr').textContent=e.fase>=2?fN(e.gMin*100,0)+' cm':'';
+}
+/* ---- el hueco mínimo para una sola maniobra según el volante, con el hueco que midió el sistema ---- */
+const S0C=new Map();                                              // volante redondeado a 20° → hueco mínimo
+const s0Clave=v=>Math.round(clamp(v,MIN_VOL,VOL_MAX)/20)*20;
+function s0Para(vol){ const a=clamp(vol,MIN_VOL,VOL_MAX), k0=Math.floor(a/20)*20, k1=Math.min(Math.ceil(a/20)*20,Math.round(VOL_MAX/20)*20);
+  const g=k=>{ const kk=Math.min(k,VOL_MAX); if(!S0C.has(kk)) S0C.set(kk,huecoMin1(kk)); return S0C.get(kk); };
+  const v0=g(k0), v1=g(k1); return k1===k0?v0:v0+(v1-v0)*(a-k0)/(k1-k0); }
+function llenaS0(){ for(let v=MIN_VOL;v<=VOL_MAX+20;v+=20){ const k=Math.min(v,VOL_MAX); if(!S0C.has(k)){ S0C.set(k,huecoMin1(k)); return true; } } return false; }
+function pintaHueco(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-8, Y0=4, Y1=Hd-14, V0=MIN_VOL, V1=VOL_MAX, S0=5.6, S1=9.0, X=v=>X0+(v-V0)/(V1-V0)*(X1-X0), Y=s=>Y1-(s-S0)/(S1-S0)*(Y1-Y0);
+  const pts=[]; for(let v=V0;v<=V1+20;v+=20){ const k=Math.min(v,V1); if(S0C.has(k)) pts.push([k,S0C.get(k)]); }
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip();
+  if(pts.length>1){
+    x.fillStyle='rgba(61,220,151,0.10)'; x.beginPath(); x.moveTo(X(pts[0][0]),Y(S1)); for(const p of pts) x.lineTo(X(p[0]),Y(p[1])); x.lineTo(X(pts[pts.length-1][0]),Y(S1)); x.closePath(); x.fill();
+    x.fillStyle='rgba(255,176,59,0.08)'; x.beginPath(); x.moveTo(X(pts[0][0]),Y(S0)); for(const p of pts) x.lineTo(X(p[0]),Y(p[1])); x.lineTo(X(pts[pts.length-1][0]),Y(S0)); x.closePath(); x.fill();
+    x.strokeStyle='#ffd166'; x.lineWidth=2; x.beginPath(); pts.forEach((p,i)=>{ i?x.lineTo(X(p[0]),Y(p[1])):x.moveTo(X(p[0]),Y(p[1])); }); x.stroke(); }
+  const sen=C.sen; if(sen.ok&&SIM.t>=sen.tA){ raya(x,X0,Y(sen.Sest),X1,Y(sen.Sest),COL.huecoLin,1.6); txt(x,'hueco medido '+fN(sen.Sest,2)+' m',X1-4,Y(sen.Sest)-3,COL.huecoLin,9,'right','700'); }
+  if(!ocultaVerdad()){ raya(x,X0,Y(C.Sreal),X1,Y(C.Sreal),COL.real,1,[3,3]); txt(x,'real '+fN(C.Sreal,2),X0+4,Y(C.Sreal)-3,'rgba(200,215,225,.8)',8.5,'left','600'); }
+  const px=X(clamp(C.prm.vol,V0,V1)); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2);
+  x.restore();
+  ejeY(x,X0,X1,Y,[6,7,8,9],v=>String(v));
+  for(const v of [200,300,400,500]){ raya(x,X(v),Hd-14,X(v),Hd-11,EJE); txt(x,String(v),X(v),Hd-3,TXT,8.5,'center','500'); }
+  txt(x,'una maniobra basta',X1-4,Y0+10,'rgba(125,255,192,.8)',8.5,'right','600'); txt(x,'hacen falta más',X1-4,Y1-4,'rgba(255,190,100,.85)',8.5,'right','600');
+  txt(x,'m',X0+3,Y0+10,TXT,8.5,'left','600'); txt(x,'° de volante',X1,Hd-3,TXT,8.5,'right','600');
+  el('t_sp').textContent=pts.length>1?'mínimo '+fN(s0Para(C.prm.vol),2)+' m':'calculando…';
+}
+/* ---- el volante: un instrumento nítido que gira lo mismo que el modelo (ángulo en las ruedas × relación de dirección) ---- */
+function pintaVolanteIcono(){
+  const x=abre(LVO), Wd=LVO.w, Hd=LVO.h, e=SIM.e; if(!e) return;
+  const cx=Wd/2, cy=Hd/2+1, R=Math.min(Wd,Hd)/2-6, ang=e.dl*VEH.relVol;
+  const tope=VEH.dMax*VEH.relVol; for(const s of [-1,1]){ x.strokeStyle='rgba(255,107,124,0.8)'; x.lineWidth=2; x.beginPath(); const a=-Math.PI/2-s*Math.min(tope,Math.PI*0.97); x.moveTo(cx+Math.cos(a)*(R+1),cy+Math.sin(a)*(R+1)); x.lineTo(cx+Math.cos(a)*(R+5),cy+Math.sin(a)*(R+5)); x.stroke(); }
+  x.save(); x.translate(cx,cy); x.rotate(-ang);
+  const g=x.createLinearGradient(-R,-R,R,R); g.addColorStop(0,'#3a4651'); g.addColorStop(1,'#10171d');
+  x.strokeStyle=g; x.lineWidth=R*0.20; x.beginPath(); x.arc(0,0,R*0.86,0,DOSPI); x.stroke();
+  x.strokeStyle='rgba(180,205,220,0.35)'; x.lineWidth=1; x.beginPath(); x.arc(0,0,R*0.97,0,DOSPI); x.stroke();
+  x.fillStyle='#202a32'; for(const a of [Math.PI,0,Math.PI/2]){ x.save(); x.rotate(a); x.fillRect(-R*0.05,0,R*0.10,R*0.80); x.restore(); }
+  x.fillStyle='#2b3743'; x.beginPath(); x.arc(0,0,R*0.26,0,DOSPI); x.fill();
+  x.fillStyle='#5BC8FF'; x.fillRect(-R*0.04,-R*0.98,R*0.08,R*0.16);
+  x.restore();
+}
+function pintaDockFijo(){
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?(CALC?NOMBRE_ESC[CALC.esc.id]:''):(enCalcula()?'Un solo instante':(enDiagnostico()?'Averigua la falla':(CALC?CALC.esc.nombre:''))));
+  pintaLeySensor();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d===undefined?1:d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t='';
+  el('p_sub').textContent='t = '+fN(SIM.t,0)+' s';
+  set('f_1',sm(C.R,'m')); _cl('f_1','');
+  const visto=C.sen.ok&&SIM.t>=C.sen.tA;
+  if(visto){ set('f_2',sm(C.sen.Sest,'m',2)); _cl('f_2',''); } else { set('f_2','<small>oyendo…</small>'); _cl('f_2','oculto'); }
+  set('f_3',sm(s0Para(C.prm.vol),'m',2)); _cl('f_3','');
+  if(e.fase>=2&&C.plan){ set('f_4',e.tramo+'<small> de '+e.nTramos+'</small>'); _cl('f_4',e.nTramos>C.esc.nMax&&!ocultaVerdad()?'warn':''); } else { set('f_4','<small>aún no</small>'); _cl('f_4','oculto'); }
+  if(e.fase>=2){ set('f_5',sm(e.gMin*100,'cm',0)); _cl('f_5',e.gMin<=LIM.toque?'bad':(e.gMin<LIM.hueco?'warn':'')); } else { set('f_5',sm(Math.min(e.gA,e.gB)*100,'cm',0)); _cl('f_5',''); }
+  set('f_6',sm(C.dxPing*100,'cm',0)); _cl('f_6',C.dxPing>0.35?'warn':'');
+  if(enDiagnostico()||enCalcula()){ cl=''; t=''; }
+  else if(e.tocaVecino){ cl='mal'; t='Tocó a un vecino.'; }
+  else if(e.tocaAcera){ cl='mal'; t='La llanta tocó la acera.'; }
+  else if(e.fase===4&&C.plan&&!C.plan.ok){ cl='mal'; t='El sistema se rindió: con estos mandos no le cabe.'; }
+  else if(e.fase===2&&C.x0-(C.sen.xAh+C.prm.a)>0.12){ cl='ojo'; t='Paró '+fN((C.x0-(C.sen.xAh+C.prm.a))*100,0)+' cm después de donde debía: no alcanzó a frenar.'; }
+  else if(e.fase>=3&&e.gMin<LIM.hueco){ cl='ojo'; t='Muy cerca de un vecino: '+fN(e.gMin*100,0)+' cm.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaSensor(); pintaVolante(); pintaMargen(); pintaHueco(); pintaVolanteIcono(); }
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×0,25'],[0.5,'×0,5'],[1,'×1'],[2,'×2']];
+const VISTAS_BARRA=[['todo','Oblicua'],['cenital','Desde arriba'],['cerca','De cerca']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="onda" id="tOnda">onda de sonido ×1/${ONDA_ESCALA}</span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,0)+' s';
+  el('tLento').textContent=EST.vel<1?'cámara lenta ×'+(EST.vel===0.5?'1/2':'1/4'):'';
+  el('tOnda').classList.toggle('on',e.fase<=1&&SIM.ondas>0);
+  let t,c;
+  if(e.tocaVecino||e.tocaAcera){ t='¡tocó!'; c='#ff6a55'; }
+  else if(e.fase===0){ t='pasando y midiendo'; c='#58d6ff'; }
+  else if(e.fase===1){ t='frenando'; c='#ffd88a'; }
+  else if(e.fase===2&&e.tramo===0){ t='calcula la maniobra'; c='#ffd88a'; }
+  else if(e.fase===2){ t='cambia de marcha'; c='#ffd88a'; }
+  else if(e.fase===3){ t=(e.gear<0?'reversa':'adelante')+' · maniobra '+e.tramo+' de '+e.nTramos; c=e.gear<0?'#ffb03b':'#6fe0ff'; }
+  else if(C.plan&&C.plan.ok){ t='estacionado'; c='#3DDC97'; } else { t='se rindió'; c='#ff6a55'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const mundoDe=(x,y,h)=>V3(x,h,WZ(y));
+const ANCLAS=[
+  ['Sensor ultrasónico lateral',()=>EGO.localToWorld(V3(SENSOR.u,0.45,-SENSOR.n))],
+  ['Cono del sensor (±30°)',()=>EGO.localToWorld(V3(SENSOR.u+1.9,0.45,-SENSOR.n+3.0))],
+  ['Eco: dónde rebota el sonido',()=>ECO.punto.visible?ECO.punto.position.clone():EGO.localToWorld(V3(SENSOR.u,0.45,-SENSOR.n+2.5))],
+  ['Hueco que mide el sistema',()=>CALC&&CALC.sen.ok?mundoDe(CALC.sen.xBh+CALC.sen.Sest/2,CALLE.yLado+0.9,0.05):mundoDe(3.5,1.2,0.05)],
+  ['Ruedas delanteras (giran con el volante)',()=>EGO.localToWorld(V3(VEH.L,0.35,0.9))],
+  ['Eje trasero: el punto que sigue la S',()=>EGO.localToWorld(V3(0,0.35,0))],
+  ['Coche de adelante',()=>VEC_A.localToWorld(V3(-0.25,1.45,0))],
+  ['Coche de atrás',()=>VEC_B.localToWorld(V3(-0.25,1.45,0))],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(168,226,255,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  coche:'Tu coche: 4,40 m de largo y 2,60 m entre ejes. Su punto de referencia es el centro del eje trasero. Lleva un sensor ultrasónico en cada guardabarros y cuatro en cada defensa',
+  sensor:'Sensor ultrasónico: lanza un pitido y mide cuánto tarda el eco. Distancia = velocidad del sonido × tiempo ÷ 2',
+  cono:'El cono del sensor lateral: ve lo que cae dentro de ±30°. Por eso «se come» un metro del hueco por cada lado',
+  eco:'El eco más cercano dentro del cono: de ahí sale la distancia que lee el sensor',
+  hueco:'El hueco tal como lo mide el sistema. Puede diferir del real por la separación entre pitidos',
+  parada:'El punto donde el coche se detiene antes de empezar a retroceder',
+  vecinoA:'Coche estacionado delante del hueco. Se pone rojo si el tuyo se le acerca a menos de 15 cm',
+  vecinoB:'Coche estacionado detrás del hueco. Se pone rojo si el tuyo se le acerca a menos de 15 cm',
+  huella:'La huella del eje trasero y las siluetas del coche cada 0,6 s mientras maniobra. Ámbar: reversa; celeste: adelante',
+  plan:'La trayectoria que planeó el sistema: ámbar en reversa, celeste hacia adelante',
+  circulo:'El círculo que recorre el eje trasero con el volante en esta posición. Su radio es R = L / tan δ',
+  acera:'La acera. La carrocería puede pasar sobre el bordillo, pero la llanta no debe tocarlo',
+  seto:'El seto y el edificio: es lo que oye el sensor cuando no hay coche',
+  calle:'La calle a escala real',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 18. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: el sensor que oye, el eco, por qué pasar rápido
+   emborrona los bordes, el círculo de giro, la «S», el hueco corto con más maniobras y tu turno. Cada paso lleva la cámara a su pieza y la señala con un aro. */
+const TOUR={paso:0,auto:false,timer:null};
+/** Instante en que el sensor lateral está frente a la posición sx de la calle durante la pasada. */
+const tSensorEn=(C,sx)=>Math.max(0,(sx-SENSOR.u-XS0)/C.v);
+/** Instante en una fracción del tramo i (1, 2…) de la maniobra. */
+function tTramo(C,i,fr){ const L=C.L; let a=-1,b=-1; for(let k=0;k<L.N;k++){ if(C.tramoK[k]===i&&L.fase[k]===3){ if(a<0) a=k; b=k; } } if(a<0) return Math.max(0,L.T-LIM.tFinal-0.5); return L.t[a]+(L.t[b]-L.t[a])*fr; }
+const posSensor=()=>EGO.localToWorld(V3(SENSOR.u,0.45,-SENSOR.n));
+const posEje=()=>EGO.localToWorld(V3(0,0.35,0));
+const posRuedasDel=()=>EGO.localToWorld(V3(VEH.L,0.35,0.9));
+const posHuecoMedido=()=>CALC&&CALC.sen.ok?mundoDe(CALC.sen.xBh+CALC.sen.Sest/2,CALLE.yLado+0.9,0.05):mundoDe(3.5,1.2,0.05);
+const posEco=()=>ECO.punto.visible?ECO.punto.position.clone():posSensor();
+const PAR_BIEN={esc:'amplio',kmh:8,vol:470,a:1.3};
+const TOUR_PASOS=[
+  {t:'Un coche que busca hueco',vista:'todo',foco:posSensor,par:PAR_BIEN,t0:()=>0.4,
+   x:()=>'Este coche va a estacionarse <b>solo</b> entre los dos coches parados. Primero pasa despacio y <b>escucha</b> con un sensor de ultrasonido en su costado derecho (el punto con el aro).'},
+  {t:'Mide con el eco',vista:'todo',foco:posEco,par:PAR_BIEN,t0:C=>tSensorEn(C,-2.4),
+   x:()=>'El sensor lanza un <b>pitido</b> y mide cuánto tarda en volver el eco. La distancia es <b>velocidad del sonido × tiempo ÷ 2</b>, porque el sonido va y vuelve. Frente a un coche el eco vuelve pronto; frente al hueco, mucho más tarde.'},
+  {t:'Pasar rápido emborrona los bordes',vista:'cenital',foco:posHuecoMedido,par:{esc:'amplio',kmh:18,vol:470,a:1.3},t0:C=>tSensorEn(C,2.2),
+   x:()=>`El sensor pita sólo ${SENSOR.f} veces por segundo. A 18 km/h el coche avanza <b>${fN(18/3.6/SENSOR.f*100,0)} cm entre pitidos</b>, y el borde del hueco queda con esa incertidumbre. Despacio, la medida es mucho más fina.`},
+  {t:'El volante manda el radio de giro',vista:'cenital',foco:posEje,par:{esc:'amplio',kmh:8,vol:528,a:1.3},circulo:true,t0:C=>tTramo(C,1,0.4),
+   x:()=>`Con las ruedas giradas un ángulo δ, el coche recorre un círculo de radio <b>R = L ÷ tan δ</b>, con L = ${fN(VEH.L,2)} m entre ejes. A tope de volante R = <b>${fN(VEH.rMinEje,1)} m</b>: no puede girar más cerrado.`},
+  {t:'Dos arcos: la «S»',vista:'cenital',foco:posEje,par:PAR_BIEN,t0:C=>tTramo(C,1,0.25),
+   x:()=>`Marcha atrás con el volante a un lado y, a mitad de camino, al otro: una <b>S de dos arcos iguales</b>. Corre el coche ${fN(H_LAT,1)} m de lado y lo deja paralelo a la acera en <b>una sola maniobra</b>.`},
+  {t:'Hueco más justo, más maniobras',vista:'cenital',foco:posRuedasDel,par:{esc:'corto',kmh:9,vol:470,a:1.2},t0:C=>tTramo(C,2,0.5),
+   x:C=>`En un hueco justo, la S no cabe de una. El coche se mide, <b>cambia de marcha</b> y corrige: cada cambio es una <b>maniobra más</b>. Aquí necesita ${C&&C.plan?C.plan.n:'varias'}, y hay menos margen con los vecinos.`},
+  {t:'Tu turno',vista:'todo',foco:null,par:PAR_BIEN,t0:C=>tTramo(C,1,0.1),
+   x:()=>'Tú decides la <b>velocidad</b> al pasar, el <b>giro del volante</b> y <b>dónde se detiene</b> antes de retroceder. Pulsa «Probar yo» y busca que entre sin rozar a nadie.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+const circuloAhora=()=>EST.circulo||(EST.modo==='tour'&&!!TOUR_PASOS[TOUR.paso].circulo);
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x(CALC)}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); SIM.t=clamp(P.t0(CALC),0,CALC.L.T-0.1); SIM.salto=true; ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 19. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (a qué distancia está el coche por el tiempo del eco, y qué radio de giro da un ángulo de ruedas); 2 · Ajusta (velocidad al pasar, giro del volante y
+   punto de arranque para un hueco: sin tocar a nadie, en pocas maniobras, con 15 cm libres y sin pedir más del 90 % del giro; la ventana es INTERIOR y los números del
+   veredicto sólo aparecen al validar) y 3 · Diagnostica (¿por qué falla este sistema?, sólo con lo que se ve en el dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Calcula: distancia por el eco y radio de giro ---------- */
+const CASOS_TOF=[{T:20,ms:5.8},{T:0,ms:6.2},{T:30,ms:4.6},{T:-10,ms:7.4},{T:35,ms:9.0},{T:20,ms:11.7}];
+const CASOS_RAD=[{g:33},{g:25},{g:20},{g:28},{g:15},{g:30}];
+const distEco=(ms,T)=>distDeTiempo(ms/1000,T);
+function sorteaCaso1(){
+  const p=GUIA.r1&&GUIA.r1.tof&&GUIA.r1.tof.ms+'|'+GUIA.r1.tof.T, q=GUIA.r1&&GUIA.r1.rad&&GUIA.r1.rad.g;
+  let a,b; do{ a=pickOne(CASOS_TOF); }while(a.ms+'|'+a.T===p); do{ b=pickOne(CASOS_RAD); }while(b.g===q);
+  GUIA.r1={sub:GUIA.r1?GUIA.r1.sub:0,tof:Object.assign({},a,{res:distEco(a.ms,a.T),c:velSonido(a.T)}),rad:Object.assign({},b,{res:radioDe(b.g*RAD)})};
+}
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, sub=r.sub, ok=sub===0?r.tof.res:r.rad.res, tol=sub===0?0.02:0.05;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el resultado en metros (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-ok)<=tol){
+    RETOS.fallos1=0; sonido.bien();
+    if(sub===0){
+      feedback('good','¡Correcto! ✓',`A ${fN(r.tof.T,0)} °C el sonido va a c = 331,3 + 0,606·${fN(r.tof.T,0)} = <b>${fN(r.tof.c,1)} m/s</b>. El eco tardó ${fN(r.tof.ms,1)} ms ida y vuelta, así que d = c·t/2 = <b>${fN(ok,2)} m</b>. Ahora el radio de giro.`,true);
+      r.sub=1; pintaHUD();
+    } else {
+      feedback('good','¡Correcto! ✓',`Con las ruedas giradas ${fN(r.rad.g,0)}°, R = L / tan δ = ${fN(VEH.L,2)} / tan ${fN(r.rad.g,0)}° = <b>${fN(ok,2)} m</b>. Cuanto más giradas las ruedas, más cerrado el círculo.`,true);
+      paso('ajusta'); prepararAjusta();
+    }
+  } else {
+    RETOS.fallos1++; sonido.mal();
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos',sub===0?'Cambia el caso. Recuerda: d = c·t/2, con t en segundos y c = 331,3 + 0,606·T.':'Cambia el caso. Recuerda: R = L / tan δ, con L = 2,60 m.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',(sub===0&&v>ok*1.7?'Te quedó una distancia muy grande: ¿olvidaste dividir entre 2 (el sonido va y vuelve)? ':'')+(sub===0?'Pasa los milisegundos a segundos y calcula c con la temperatura del caso.':'Usa la tangente del ángulo de las ruedas, no el seno.')+` (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta velocidad, volante y punto de arranque ---------- */
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id);
+  GUIA.r2={esc:e,kmh:14,vol:300,a:0.0,validado:false,res:null,intentos:0,ventana:null};
+  reiniciaCalculo(); pintaHUD();
+}
+/** Rangos que cumplen todo con los otros dos mandos como están (se calculan por pasos para no congelar la pantalla). */
+async function ventanas(r){
+  const esc=r.esc, base={kmh:r.kmh,vol:r.vol,a:r.a}, out={}, pasos=[['kmh',MIN_KMH,MAX_KMH,2],['vol',MIN_VOL,Math.round(VOL_MAX),12],['a',MIN_A,MAX_A,0.1]];
+  for(const [campo,lo,hi,st] of pasos){ let a=null,b=null;
+    for(let v=lo;v<=hi+1e-9;v+=st){ const p=Object.assign({},base,{[campo]:+v.toFixed(3)}), res=corre(esc,p); if(cumpleTodo(res)){ if(a===null) a=p[campo]; b=p[campo]; } await new Promise(r2=>setTimeout(r2,0)); }
+    out[campo]=a===null?null:[a,b]; }
+  return out;
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, C=CALC; r.res=C; r.validado=true; r.intentos++; RETOS.intentos++;
+  const c=C.cumple, ok=cumpleTodo(C);
+  reiniciaCalculo(); SIM.t=0;
+  const sen=C.sen, pedido=sen.ok?sen.xAh+C.prm.a:NaN, paso=sen.ok?C.x0-pedido:0;
+  const cifras=sen.ok?`El sistema midió <b>${fN(sen.Sest,2)} m</b> y el hueco real era <b>${fN(C.Sreal,2)} m</b> (un error de ${fN(Math.abs(sen.Sest-C.Sreal)*100,0)} cm con un pitido cada ${fN(C.dxPing*100,0)} cm). Se detuvo ${paso>0.03?fN(paso*100,0)+' cm después de lo pedido, porque frenar tarda':'donde pediste'}. ${C.plan&&C.plan.ok?`Hizo <b>${C.n}</b> maniobra${C.n>1?'s':''} (se permiten ${E.nMax}); el margen más justo fue <b>${fN(C.hmin*100,0)} cm</b> (se piden 15, sin tocar) y quedó a ${fN(Math.min(C.gA,C.gB)*100,0)} cm del vecino más cercano. `:'Se rindió: no le cupo. '}El volante llegó al <b>${fN(C.volFrac*100,0)} %</b> del tope (máximo ${fN(RESERVA*100,0)} %).${E.tPasoMax?` La pasada duró <b>${fN(C.tPaso,1)} s</b> (máximo ${fN(E.tPasoMax,0)} s: alguien espera detrás).`:''}`:'No alcanzó a ver el hueco.';
+  if(ok){
+    RETOS.fallos2=0; sonido.bien();
+    feedback('good','¡Lo conseguiste! ✓',cifras+' Calculando cuánto margen tenías…',true);
+    pintaHUD(); paso2('diag'); iniciaDiag();
+    ventanas(r).then(w=>{ r.ventana=w; const f=(a,u,d)=>a?fN(a[0],d)+' a '+fN(a[1],d)+u:'—';
+      if(GUIA.paso==='diag') feedback('good','¡Lo conseguiste! ✓',cifras+` Con tus otros dos mandos, la velocidad podía ser de <b>${f(w.kmh,' km/h',0)}</b>, el volante de <b>${f(w.vol,'°',0)}</b> y el punto de parada de <b>${f(w.a,' m',2)}</b>. Muy lento incumple el tiempo o no lo ves; muy rápido el sensor se equivoca y frena tarde; con poco volante no cabe y con todo el volante no queda reserva: la ventana está en el interior.`,true); });
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(!c.detecta) msg+='Baja la velocidad para que el sensor alcance a ver el hueco. ';
+    else {
+      if(C.plan&&!C.plan.ok) msg+=(C.volFrac<0.75?'Con tan poco volante el radio es grande y la «S» no cabe: gira más. ':'Con ese punto de arranque el coche queda demasiado cerca de un vecino: mueve dónde se detiene. ');
+      else if(!c.sinToque) msg+='Rozó a un vecino: el sensor se equivocó por la separación entre pitidos o el punto de parada quedó mal. Pasa más despacio. ';
+      if(c.sinToque&&!c.maniobras) msg+='Necesitó más maniobras de las permitidas: más volante o mejor punto de parada. ';
+      if(c.sinToque&&c.maniobras&&!c.huecos) msg+='Terminó demasiado pegado a un vecino (menos de 15 cm). ';
+      if(!c.reserva) msg+='Pediste más del 90 % del giro: sin reserva, el controlador no puede corregir. ';
+      if(!c.tiempo) msg+='Pasaste tan despacio que se pasó el tiempo (alguien espera detrás): sube la velocidad al pasar. ';
+    }
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia el hueco.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'rapido',esc:'justo',kmh:20,vol:450,a:1.3},
+  {k:'giro',esc:'justo',kmh:8,vol:300,a:1.3},
+  {k:'adelante',esc:'justo',kmh:8,vol:450,a:2.0},
+  {k:'atras',esc:'justo',kmh:8,vol:450,a:-0.4},
+];
+const NOMBRE_DX={rapido:'Pasó demasiado rápido',giro:'Giró poco el volante',adelante:'Se detuvo demasiado adelantado',atras:'Se detuvo demasiado atrás'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); SIM.t=0; pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso2('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira cada cuánto pitó el sensor, el radio de giro frente al hueco mínimo de una maniobra, y dónde paró el coche.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='rapido') return 'Pasó a 20 km/h: el sensor da un pitido cada medio metro, el borde del hueco queda con esa incertidumbre y además el coche frena tarde: se detiene más allá del punto previsto y el plan ya no le sirve.';
+  if(k==='giro') return 'Con ese volante el radio es grande y el hueco mínimo para una sola maniobra (curva amarilla) queda por encima del hueco medido: la «S» no cabe y el sistema se rinde tras zigzaguear.';
+  if(k==='adelante') return 'Se detuvo con el eje trasero muy adelantado: al retroceder, la esquina trasera se acerca al coche de adelante antes de entrar en el hueco y el sistema se rinde en el primer movimiento.';
+  return 'Se detuvo demasiado atrás: la «S» lo deja pegado al coche de atrás antes de terminar. Aunque el hueco alcanzaba para una maniobra con ese volante, no queda sitio y se rinde tras varias idas y vueltas.';
+}
+function noEs(k){
+  if(k==='rapido') return 'Mira la separación entre lecturas en el dock: aquí no es grande y el coche se detuvo donde debía.';
+  if(k==='giro') return 'Compara el radio con el hueco mínimo: aquí el hueco medido sí alcanza para una maniobra con ese volante.';
+  if(k==='adelante') return 'Mira dónde se detuvo y cómo termina: aquí no se rinde en el primer movimiento.';
+  return 'Mira cómo termina: aquí no se pega al coche de atrás.';
+}
+const QUIZ=[
+  {q:'El eco tarda 6 ms en volver. ¿Por qué la distancia es c·t/2 y no c·t?',ok:'Porque el sonido va hasta el coche y vuelve: el trayecto es el doble de la distancia',mal:['Porque el sonido se frena al rebotar','Porque el sensor sólo mide la mitad del cono','Porque el eco viaja más lento que el pitido']},
+  {q:'Si pasas el doble de rápido frente al hueco, ¿qué pasa con el borde que mide el sensor?',ok:'Hay el doble de distancia entre lecturas, así que el borde queda con el doble de incertidumbre',mal:['El eco tarda el doble en volver','El cono se hace más ancho y ve mejor','No cambia: el sonido es mucho más rápido que el coche']},
+  {q:'Giras más el volante (ruedas más giradas). ¿Qué pasa con el hueco mínimo para estacionar en una maniobra?',ok:'Disminuye: el radio de giro es menor y la «S» cabe en menos calle',mal:['Aumenta, porque el coche se mueve más','No cambia: sólo depende del largo del coche','Aumenta, porque el sensor ve menos']},
+];
+function iniciaQuiz(){ el('feedback').classList.remove('show'); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso2('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso2(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+const paso=paso2;
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v': {
+      const sub=GUIA.r1?GUIA.r1.sub:0;
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2',sub===0?'La velocidad del sonido es <b>c = 331,3 + 0,606·T</b> (T en °C), en m/s. Los milisegundos se dividen entre 1000.':'El radio es <b>L ÷ tan δ</b>: la tangente, con la calculadora en grados.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2',sub===0?'El eco va y vuelve: la distancia es <b>la mitad</b> de c·t.':'Con L = 2,60 m.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break; }
+    case 'validar': validarAjusta(); break;
+    case 'dx-rapido': diagnostica('rapido'); break; case 'dx-giro': diagnostica('giro'); break; case 'dx-adelante': diagnostica('adelante'); break; case 'dx-atras': diagnostica('atras'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1, sub=r.sub;
+      if(sub===0) return {no:'Fase 1 · Reto 1 de 2',head:'Tu cálculo',title:'¿A qué distancia está el coche?',
+        teach:`Hace <b>${fN(r.tof.T,0)} °C</b>. El sensor lanza un pitido y el eco vuelve a los <b>${fN(r.tof.ms,1)} ms</b>.<div class="task">¿A cuántos metros está el coche vecino? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+        acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? metros" aria-label="Distancia al coche, en metros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+      return {no:'Fase 1 · Reto 2 de 2',head:'Tu cálculo',title:'¿Qué tan cerrado puede girar?',
+        teach:`Las ruedas delanteras se giran <b>${fN(r.rad.g,0)}°</b> y el coche mide <b>${fN(VEH.L,2)} m</b> entre ejes.<div class="task">¿Qué radio tiene el círculo que recorre el eje trasero, en metros? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+        acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? metros" aria-label="Radio de giro, en metros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 3',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 3',head:'Tu ajuste',title:'Que entre sin tocar a nadie',
+      teach:`Situación: <b>${r.esc.desc}</b>. Meta: sin tocar a un vecino, en ${r.esc.nMax===1?'<b>una sola maniobra</b>':'<b>'+r.esc.nMax+' maniobras o menos</b>'}, con al menos 15 cm libres al terminar y sin pedir más del 90 % del giro del volante.${r.esc.tPasoMax?` Alguien espera detrás: la pasada no puede pasar de ${fN(r.esc.tPasoMax,0)} s.`:''}<div class="why"><b>Ojo:</b> si pasas rápido el sensor se equivoca y frena tarde; con poco volante no cabe; y si te detienes mal, la «S» roza a un vecino. ${tri('d_try2',RETOS.fallos2,4)}</div>`,
+      acts:`${slidersHTML(r,['r2V','r2S','r2A'])}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla este sistema',
+      teach:`Este coche no logra estacionarse. Mira cada cuánto pita el sensor, el radio frente al hueco mínimo y dónde paró.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Corto» y mira cómo cambian las maniobras al girar menos el volante.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula') return PAR_BIEN;
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {esc:r.esc.id,kmh:r.kmh,vol:r.vol,a:r.a}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {esc:c.esc,kmh:c.kmh,vol:c.vol,a:c.a}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&m===EST.modo&&!EST.autoRunning) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso2('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  SIM.t=0; SIM.salto=true; reiniciaCalculo(); ponVista('todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2V:['kmh',txtV,'vr2V'],r2S:['vol',txtS,'vr2S'],r2A:['a',txtA,'vr2A']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=+t.value; GUIA.r2.validado=false; el(m[2]).textContent=m[1](GUIA.r2[m[0]]); reiniciaCalculo(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,10000); };
+  TOUR.timer=setTimeout(avanza,10000);
+}
+
+
+/* ===================== 20. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del «objeto» (ancho × alto en metros) quepa entera en ese hueco, y
+   la proyección se desplaza para centrarla en él. Además el objeto nunca pasa de cierta fracción del alto del lienzo. Durante la pasada la cámara acompaña al coche
+   un poco por delante; en cuanto frena, se queda mirando el hueco. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const _anc=V3(3.5,0.3,-2.2);
+function anclaAccion(){
+  const C=CALC, e=SIM.e, S=C?C.esc.S:7;
+  if(C&&e){ if(e.fase<=1) return V3(clamp(e.x+3.2,-3,S+4),0.3,-2.6); return V3(S/2+0.2,0.3,-2.4); }
+  return V3(S/2,0.3,-2.4);
+}
+function anclaCerca(){ const e=SIM.e; return e?V3(e.x+1.2,0.3,WZ(e.y)*0.55-0.9):V3(3,0.3,-2.4); }
+const VISTAS={
+  todo:{dir:[-0.20,0.76,0.62],anc:anclaAccion,obj:()=>({w:7.4,h:4.0}),fov:34,tope:0.80},
+  cenital:{dir:[0,1,0.07],anc:anclaAccion,obj:()=>({w:8.6,h:5.0}),fov:30,tope:0.86},
+  cerca:{dir:[-0.34,0.52,0.78],anc:anclaCerca,obj:()=>({w:6.4,h:3.5}),fov:36,tope:0.80},
+};
+const CAM={off:V3(3,6,-5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?(VISTAS[v].fov+8):VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V3(V.dir[0],V.dir[1],V.dir[2]).normalize().multiplyScalar(D),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur; controls.enabled=true;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ SIM.salto=true; pasaCam(1); }
+}
+const _ancAct=V3(3.5,0.3,-2.4); let _ancInit=false;
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc(), snap=SIM.salto||!_ancInit;
+  if(snap){ _ancAct.copy(P); _ancInit=true; } else _ancAct.lerp(P,1-Math.exp(-dt/0.55));
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=snap?1:1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*(snap?1:k); camera.updateProjectionMatrix(); }
+    camera.position.copy(_ancAct).add(CAM.off); controls.target.copy(_ancAct);
+  } else if(CAM.previo){ const dP=_ancAct.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=_ancAct.clone(); SIM.salto=false;
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un «tic» muy suave por cada pitido del sensor durante la pasada, el pitido de proximidad de los sensores de parking al maniobrar (más seguido cuanto más cerca del vecino)
+   y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination); }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    tic:()=>tono(3200,0.014,0.010),
+    bip:(urgente)=>tono(urgente?1900:1100,urgente?0.16:0.07,0.035,'square'),
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo del escenario avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven el coche, el cono, los pulsos y la huella, y se dibujan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, nFrames=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  aplicaEscena(dtS,dtSim,dt);
+  pasaCam(dt);
+  if(nFrames++%3===0) llenaS0();
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: el coche rueda frente a los vecinos, el sensor pita y el hueco se va midiendo antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.t=TOUR_PASOS[0].t0(CALC); SIM.salto=true;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin suelo ni contexto (calle, acera, seto) sobre magenta puro y se toma la caja de los píxeles que no son magenta.
+ *  solo: 'coche' pinta únicamente el coche que se estaciona; por defecto, los tres coches y todo lo que se dibuja sobre la calle. */
+function mideObjeto(solo){
+  const ocultos=[]; const oculta=o=>{ if(o.visible){ o.visible=false; ocultos.push(o); } };
+  scene.traverse(o=>{ if(o.userData&&o.userData.fondo) oculta(o); });
+  if(solo==='coche'){ for(const o of MUNDO.children) if(o!==EGO) oculta(o); }
+  else for(const o of MUNDO.children){ const k=o.userData&&o.userData.clave; if(k==='calle'||k==='acera'||k==='seto') oculta(o); }
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{sub:GUIA.r1.sub,ans:GUIA.r1.sub===0?GUIA.r1.tof.res:GUIA.r1.rad.res}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,kmh:GUIA.r2.kmh,vol:GUIA.r2.vol,a:GUIA.r2.a,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false};
+    return {esc:C.esc.id,kmh:C.prm.kmh,vol:C.prm.vol,a:C.prm.a,Sreal:C.Sreal,Sest:C.sen.ok?C.sen.Sest:null,R:C.R,ok:C.ok,causa:C.causa,n:C.n,hmin:C.hmin,tPaso:C.tPaso,T:C.L.T,cumple:C.cumple,todo:cumpleTodo(C)}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,kmh:GUIA.r2.kmh,vol:GUIA.r2.vol,a:GUIA.r2.a},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s,Math.max(s,0.5)); },
+  salta:(t)=>{ SIM.t=clamp(t,0,CALC.L.T-0.06); SIM.salto=true; aplicaEscena(0.001,0.001,1.0); pasaCam(1); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso2(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso2('quiz'); iniciaQuiz(); } },
+  setAjusta:(kmh,vol,a)=>{ const r=GUIA.r2; if(r){ r.kmh=kmh; r.vol=vol; r.a=a; r.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(id)=>{ const r=GUIA.r2; if(r){ r.esc=escPorId(id); reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); SIM.t=0; pintaHUD(); pintaDockFijo(); },
+  tiempoHasta:(f)=>{ const C=CALC; return f==='paro'?C.tParo:(f==='fin'?C.L.T-LIM.tFinal:(f==='tramo1'?tTramo(C,1,0.5):0)); },
+});
+instalaDiag('estacionamiento-automatico-paralelo',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{coche:EGO,vecinoA:VEC_A,vecinoB:VEC_B,huella:TRAIL.mesh,conoLateral:CONO_LAT.grupo,calle:SUELO}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-estacionamiento-automatico-paralelo.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
+

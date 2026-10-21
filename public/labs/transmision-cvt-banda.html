@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Transmisión CVT de banda: relación continua, presión y deslizamiento — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08161F;--panel:rgba(7,20,28,.88);--line:#21495C;--ink:#EAF4F8;
+    --dim:#9BB8C4;--accent:#5BC8FF;--accent2:#A8E2FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#5BC8FF;--cR:#FFA445;--cE:#3DDC97;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#0f2733;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#173748}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#8ad8ff}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#5BC8FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-top{display:flex;gap:6px;align-items:stretch}
+  .vol{flex:0 0 76px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);position:relative;min-height:76px}
+  .vol canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-fig{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#0f2733;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(91,200,255,.38);background:rgba(91,200,255,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(91,200,255,.55),0 0 24px 6px rgba(91,200,255,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-top{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · la caja de cambios sin escalones</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-top">
+    <div class="vol" id="gVol" title="Las dos poleas, a escala: la de entrada (motor) y la de salida (ruedas)"><canvas></canvas></div>
+    <div class="dk-fig">
+      <div class="fg"><div class="fl" id="l_f1">Relación</div><b id="f_1">—</b></div>
+      <div class="fg"><div class="fl" id="l_f2">Motor</div><b id="f_2">—</b></div>
+      <div class="fg"><div class="fl" id="l_f3">Consumo</div><b id="f_3">—</b></div>
+      <div class="fg"><div class="fl" id="l_f4">Uso apriete</div><b id="f_4">—</b></div>
+      <div class="fg"><div class="fl" id="l_f5">Patinaje</div><b id="f_5">—</b></div>
+      <div class="fg"><div class="fl" id="l_f6">Rendimiento</div><b id="f_6">—</b></div>
+    </div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Mapa de consumo del motor: dónde gasta menos</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Motor <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Gasolina <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Cuánto del apriete se usa <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — TRANSMISIÓN CVT DE BANDA: RELACIÓN CONTINUA, PRESIÓN Y DESLIZAMIENTO
+   (Autotrónica · mecanica-156)
+
+   Dos poleas de diámetro variable unidas por una banda metálica de empuje. Al acercar o separar las mitades cónicas de cada polea, la
+   banda rueda a otro radio y la relación i = Rs/Rp cambia sin escalones. La banda transmite por fricción: el aceite a presión aprieta las
+   poleas con una fuerza axial F_ax = F_t·cosβ/(2μ) y, si falta, patina. Un motor de gasolina con su mapa de consumo y la carga de la
+   ruta cierran el modelo: relación, presión, deslizamiento, bomba y consumo son un único modelo, en un bloque puro que un script de
+   Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Transmisión CVT de banda de empuje: física pura (sin three). SI salvo donde se diga. ----
+   Dos poleas de garganta variable (cada una, dos mitades cónicas de semiángulo β) unidas por una banda metálica de empuje de longitud
+   fija L. Con el radio de rodadura de la primaria Rp y el de la secundaria Rs, la relación continua es i = ω_primaria/ω_secundaria = Rs/Rp
+   y la longitud de la banda (tangentes exteriores) fija el par (Rp, Rs) para cada i. La banda no tiene dientes: transmite por FRICCIÓN, y
+   la fuerza de apriete axial que hace falta para llevar la fuerza tangencial F_t sin patinar es F_ax = F_t·cosβ / (2·μ). La presión de
+   aceite en el cilindro de la secundaria da F_ap = p·A_s; u = F_ax/F_ap es el uso de la capacidad. Detrás va un motor de gasolina de 1,6 L
+   con consumo por la recta de Willans (pérdidas mecánicas + bombeo) y la carga de la ruta (rodadura + aire + pendiente). */
+const G=9.80665, DOSPI=Math.PI*2, RAD=Math.PI/180, RPM=Math.PI/30;     // RPM: rad/s por rpm
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>t*t*(3-2*t);
+
+/* ---- La transmisión (cifras de orden de magnitud de una CVT de banda de empuje de un compacto) ---- */
+const CVT={Rmin:0.0230, Rmax:0.0600, C:0.1700, beta:11*RAD, Wb:0.024, mu:0.09, As:3.2e-3, iMin:0.40, iMax:2.60,
+  eta0:0.970, kEta:0.015,        // rendimiento mecánico de la banda: 0,970 − 0,015·(ln i)²
+  s0:0.002,                      // creep: s = s0·u/(1−u) (microdeslizamiento; curva didáctica)
+  sMax:0.30,                     // por encima de u = 1 la banda patina: se acota a 30 %
+  pMin:0.5e6, pMax:7.0e6,        // presión de línea que el mando permite (Pa)
+  Q0:5.0e-5, kLeak:3.0e-11, etaB:0.60 };   // bomba: caudal de control 3 L/min, fugas ∝ p, rendimiento 0,60
+/* ---- La longitud de banda y la geometría de las dos poleas ---- */
+function longitudBanda(Rp,Rs){
+  const a=Math.asin(clamp((Rs-Rp)/CVT.C,-1,1));
+  return 2*CVT.C*Math.cos(a)+Rp*(Math.PI-2*a)+Rs*(Math.PI+2*a);
+}
+const LBANDA=longitudBanda(CVT.Rmin,CVT.iMax*CVT.Rmin*0.9999);     // la banda se corta para que la relación máxima (2,6) quepa justo
+/** Para una relación i: radios de rodadura, ángulos de abrazamiento y tramos rectos (bisección sobre la longitud fija). */
+function geom(i){
+  i=clamp(i,CVT.iMin,CVT.iMax);
+  let lo=0.005, hi=0.12;
+  for(let k=0;k<90;k++){ const m=(lo+hi)/2; if(longitudBanda(m,i*m)<LBANDA) lo=m; else hi=m; }
+  const Rp=(lo+hi)/2, Rs=i*Rp, al=Math.asin((Rs-Rp)/CVT.C);
+  return {i,Rp,Rs,alfa:al,thp:Math.PI-2*al,ths:Math.PI+2*al,tramo:CVT.C*Math.cos(al),L:longitudBanda(Rp,Rs)};
+}
+/** Recorrido de la banda (plano de las poleas): centros en (0,0) y (C,0). n puntos por vuelta {x,y,tx,ty,s}. Sentido antihorario. */
+function trazadoBanda(Rp,Rs,n){
+  const C=CVT.C, al=Math.asin((Rs-Rp)/C), pts=[];
+  const Lt=C*Math.cos(al), Lp=Rp*(Math.PI-2*al), Ls=Rs*(Math.PI+2*al), L=2*Lt+Lp+Ls;
+  for(let k=0;k<n;k++){
+    const s=k/n*L; let x,y,tx,ty;
+    if(s<Lt){                                  // tramo inferior: de la primaria a la secundaria (la normal exterior apunta a −π/2 − α)
+      const ang=-Math.PI/2-al;
+      x=Rp*Math.cos(ang)+s*Math.cos(al); y=Rp*Math.sin(ang)-s*Math.sin(al); tx=Math.cos(al); ty=-Math.sin(al);
+    } else if(s<Lt+Ls){                        // arco de la secundaria (de abajo a arriba por la derecha)
+      const th=(s-Lt)/Rs, ang=-Math.PI/2-al+th; x=C+Rs*Math.cos(ang); y=Rs*Math.sin(ang); tx=-Math.sin(ang); ty=Math.cos(ang);
+    } else if(s<2*Lt+Ls){                      // tramo superior: de la secundaria a la primaria
+      const u=s-Lt-Ls, ang=Math.PI/2+al; x=C+Rs*Math.cos(ang)-u*Math.cos(al); y=Rs*Math.sin(ang)-u*Math.sin(al); tx=-Math.cos(al); ty=-Math.sin(al);
+    } else {                                   // arco de la primaria (de arriba a abajo por la izquierda)
+      const th=(s-2*Lt-Ls)/Rp, ang=Math.PI/2+al+th; x=Rp*Math.cos(ang); y=Rp*Math.sin(ang); tx=-Math.sin(ang); ty=Math.cos(ang);
+    }
+    pts.push({x,y,tx,ty,s});
+  }
+  return {pts,L,Lt,Lp,Ls};
+}
+const etaMec=i=>CVT.eta0-CVT.kEta*Math.pow(Math.log(i),2);
+/** Microdeslizamiento: s = s0·u/(1−u) hasta u = 1; por encima, la banda patina (acotado). */
+const creep=u=>u>=1?CVT.sMax:Math.min(CVT.sMax,CVT.s0*u/(1-u));
+/** Bomba de aceite: caudal de control + fugas ∝ p; potencia hidráulica p·Q y de accionamiento p·Q/η. */
+function bomba(p){ const Q=CVT.Q0+CVT.kLeak*p; return {Q,Phid:p*Q,P:p*Q/CVT.etaB}; }
+/** Fuerza de apriete axial (por polea) que evita el deslizamiento con fuerza tangencial F_t: F_ax = F_t·cosβ/(2μ). */
+const apriete=Ft=>Ft*Math.cos(CVT.beta)/(2*CVT.mu);
+/** Capacidad de par de una polea de radio R con apriete F: T_cap = 2·μ·R·F/cosβ. */
+const parCapacidad=(R,F)=>2*CVT.mu*R*F/Math.cos(CVT.beta);
+
+/* ---- El coche y la ruta ---- */
+const VEH={m:1450, Crr:0.012, CdA:0.66, rho:1.20, rw:0.31, FD:3.50, etaFD:0.97};
+function carga(v,pend){                     // v en m/s, pend en %: fuerza en la rueda y potencia
+  const th=Math.atan(pend/100), Fr=VEH.m*G*VEH.Crr*Math.cos(th), Fa=0.5*VEH.rho*VEH.CdA*v*v, Fp=VEH.m*G*Math.sin(th), F=Fr+Fa+Fp;
+  return {Fr,Fa,Fp,F,P:F*v};
+}
+const nSec=v=>v/VEH.rw*VEH.FD/RPM;           // rpm del eje secundario a la velocidad v
+const nMotorPara=(v,i)=>nSec(v)*i;           // rpm del motor sin deslizamiento
+
+/* ---- El motor: gasolina 1,6 L de aspiración natural. Consumo por Willans: combustible = (P_e + P_pérdidas)/η_i ---- */
+const MOTOR={Vd:1.6e-3, nRal:900, nMax:6200, Tpk:150, nTpk:4200, wT:3300, kT:0.55, LHV:43.0e6, rhoC:745,
+  etaI:0.400, xEnr:0.85, kEnr:0.30};
+const Tmax=n=>MOTOR.Tpk*(1-MOTOR.kT*Math.pow((n-MOTOR.nTpk)/MOTOR.wT,2));            // N·m a plena carga
+const fmep=n=>45e3+22e3*(n/1000)+1.2e3*Math.pow(n/1000,2);                          // fricción (Pa)
+const pmep=x=>60e3*Math.pow(Math.max(0,1-x),1.3);                                    // bombeo por estrangulamiento (Pa)
+const etaInd=n=>MOTOR.etaI*(1-0.06*Math.pow((n-3200)/3000,2));
+const enriquece=x=>1+MOTOR.kEnr*Math.pow(Math.max(0,(x-MOTOR.xEnr)/(1-MOTOR.xEnr)),2);
+/** Estado del motor en (n rpm, T N·m): potencia, pérdidas, combustible, BSFC (g/kWh). */
+function motorEn(n,T){
+  const w=n*RPM, Pe=T*w, x=T/Tmax(n);
+  const Ppe=(fmep(n)+pmep(Math.min(x,1)))*MOTOR.Vd*(n/60)/2;                      // potencia de pérdidas (fricción + bombeo)
+  const Pf=(Pe+Ppe)/etaInd(n)*enriquece(x);                                        // potencia en el combustible
+  const md=Pf/MOTOR.LHV;                                                           // kg/s
+  return {n,T,w,Pe,x,Ppe,Pf,md,bsfc:Pe>0?md/Pe*3.6e9:Infinity,etaB:Pe/Pf};
+}
+const bsfc=(n,T)=>motorEn(n,T).bsfc;
+
+/* ---- Un punto de funcionamiento en régimen: velocidad, pendiente, relación y presión de línea ---- */
+function punto(v,pend,i,p){
+  const g=geom(i), c=carga(v,pend), ws=v/VEH.rw*VEH.FD, Ps=c.P/VEH.etaFD, Ts=Ps/ws;
+  const Ft=Ts/g.Rs, Fax=apriete(Ft), Fap=p*CVT.As, u=Fax/Fap, s=creep(u), pat=u>=1;
+  const eM=etaMec(g.i), Pin=Ps/(eM*(1-s)), bp=bomba(p), Pe=Pin+bp.P;
+  const wp=g.i*ws/(1-s), ne=wp/RPM, Te=Pe/wp, m=motorEn(ne,Te);
+  const lper100=(1000*m.md/MOTOR.rhoC)/v*1e5;                                      // L/100 km
+  return {v,pend,i:g.i,g,c,ws,wp,ne,ns:ws/RPM,Ps,Ts,Ft,Fax,Fap,u,s,pat,eM,Pin,bomba:bp,Pe,Te,m,Pf:m.Pf,md:m.md,
+    lper100,etaTrans:Ps/Pe,etaTot:c.P/m.Pf,tmax:Tmax(ne),
+    finMotor:ne<MOTOR.nRal||ne>MOTOR.nMax, ahoga:Te>Tmax(ne)*0.98, bajo:ne<MOTOR.nRal, alto:ne>MOTOR.nMax};
+}
+/** Presión que deja el uso de la capacidad en u: p = F_ax/(u·A_s), acotada al rango del mando. */
+function presionPara(v,pend,i,u){
+  const g=geom(i), c=carga(v,pend), Ts=c.P/VEH.etaFD/(v/VEH.rw*VEH.FD);
+  return clamp(apriete(Ts/g.Rs)/(u*CVT.As),CVT.pMin,CVT.pMax);
+}
+const U_OBJ=0.80, U_MAX=0.85, TOL=0.05;      // uso objetivo del apriete «justo» · tope de uso del reto · margen de consumo del reto
+/** Relación y presión de mínimo consumo para una velocidad y una pendiente: barrido fino de i con el apriete «justo» en cada una. */
+function optimo(v,pend,{n=480}={}){
+  let mejor=null;
+  for(let k=0;k<=n;k++){
+    const i=CVT.iMin*Math.pow(CVT.iMax/CVT.iMin,k/n), p=presionPara(v,pend,i,U_OBJ), r=punto(v,pend,i,p);
+    if(r.finMotor||r.ahoga||r.u>U_MAX) continue;
+    if(!mejor||r.lper100<mejor.lper100) mejor=r;
+  }
+  return mejor;
+}
+/** Rango de relaciones que el motor admite (entre ralentí y régimen máximo) a la velocidad v. */
+function rangoRelacion(v){ const ns=nSec(v); return [Math.max(CVT.iMin,MOTOR.nRal/ns),Math.min(CVT.iMax,MOTOR.nMax/ns)]; }
+
+/* ---- Escenarios del reto ---- */
+const ESCENARIOS=[
+  {id:'llano',nombre:'Autovía en llano',desc:'80 km/h por una carretera plana',kmh:80,pend:0},
+  {id:'subida',nombre:'Subida con carga',desc:'60 km/h en una cuesta del 6 %',kmh:60,pend:6},
+  {id:'rapido',nombre:'Autopista rápida',desc:'110 km/h con una leve subida del 2 %',kmh:110,pend:2},
+  {id:"ciudad",nombre:"Ciudad con repecho",desc:"45 km/h en una cuesta del 3 %",kmh:45,pend:3},
+];
+const escPorId=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[0];
+/** El veredicto del reto: sin patinar (con margen), motor dentro de sus límites y consumo a menos de TOL del mínimo posible. */
+function evalua(esc,i,p,opIn){
+  const v=esc.kmh/3.6, r=punto(v,esc.pend,i,p), op=opIn||optimo(v,esc.pend);
+  const c={patina:r.u<=U_MAX, motor:!r.finMotor&&!r.ahoga, consumo:r.lper100<=op.lper100*(1+TOL)};
+  return {r,op,c,ok:c.patina&&c.motor&&c.consumo};
+}
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.82;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.6;
+scene.fog=new THREE.Fog('#1b3a4e',30,90);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(4.2,3.2,8.5);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(0,1.5,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.1); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-4.5,10,6.0); LUZ.sol.target.position.set(0,1.2,-1.0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-7,right:7,top:7,bottom:-7,near:1,far:34});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.4); LUZ.rim.position.set(-3,4,-9); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: el aceite a presión, el escape y los bordes de la plataforma.
+   En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco técnico
+   (retícula fina, viñeta, sectores radiales en las poleas) dibujadas como objetos, no como ruido. */
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+/** Polea: 24 sectores de pulido alterno (se ve girar) y un aro más oscuro cerca del borde. u = vuelta, v = del cubo al borde. */
+function texPolea(){
+  const W=512,H=128,c=cv(W,H),x=c.getContext('2d');
+  const NS=24;
+  for(let k=0;k<NS;k++){ const a=Math.round(W*k/NS), b=Math.round(W*(k+1)/NS), t=0.5+0.5*Math.sin(k*2.1)*0.0;
+    x.fillStyle=k%2?'#8f9ca6':'#a9b6bf'; x.fillRect(a,0,b-a,H); }
+  const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(0,0,0,0.22)'); g.addColorStop(0.18,'rgba(0,0,0,0)'); g.addColorStop(0.85,'rgba(255,255,255,0.0)'); g.addColorStop(1,'rgba(0,0,0,0.30)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='rgba(20,40,50,0.55)'; for(let k=0;k<NS;k+=1){ const a=Math.round(W*k/NS); x.fillRect(a-1,0,2,H); }     // la línea de cada sector
+  x.fillStyle='#5BC8FF'; x.fillRect(0,0,6,H);                                        // la marca de referencia: sólo ella cambia de color
+  return tex(c,{srgb:true,flip:false});
+}
+/** Banda de empuje: cada repetición es un elemento (placa de acero con su hendidura). u = a lo largo de la banda, v = a lo ancho. */
+function texBanda(){
+  const W=64,H=64,c=cv(W,H),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,W,0); g.addColorStop(0,'#59636b'); g.addColorStop(0.5,'#a8b2b9'); g.addColorStop(1,'#59636b');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='rgba(8,14,18,0.82)'; x.fillRect(0,0,6,H);                              // la junta entre elementos
+  x.fillStyle='rgba(8,14,18,0.35)'; x.fillRect(0,H*0.44,W,H*0.12);                    // la ranura central (el paquete de anillos de acero)
+  return tex(c,{srgb:true});
+}
+const T_PLAT=texPlataforma(), T_POL=texPolea(), T_BAN=texBanda();
+const FUND=P3.pielFundicion({px:256,semilla:31,manchas:0.06,relieve:2.2,celda:18});
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  polea: fis({color:'#ffffff',map:T_POL,metalness:0.85,roughness:0.34,clearcoat:0.15,clearcoatRoughness:0.3,envMapIntensity:0.8}),
+  poleaD: fis({color:'#8fa0aa',map:T_POL,metalness:0.9,roughness:0.34}),
+  vidrio: fis({color:'#7fb9d2',metalness:0,roughness:0.06,clearcoat:1,clearcoatRoughness:0.04,transparent:true,opacity:0.13,depthWrite:false,side:THREE.DoubleSide,envMapIntensity:0.7}),
+  banda: fis({color:'#b9c3ca',map:T_BAN,metalness:0.8,roughness:0.42,side:THREE.DoubleSide,emissive:'#ff3b2f',emissiveIntensity:0}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  eje: pbr({color:'#c3c9cf',metalness:0.95,roughness:0.22}),
+  aceite: fis({color:'#ffb347',metalness:0,roughness:0.12,transparent:true,opacity:0.50,depthWrite:false,emissive:'#ff7a00',emissiveIntensity:0.1,clearcoat:1,side:THREE.DoubleSide}),
+  carcasa: pbr({color:'#1b2a33',metalness:0.7,roughness:0.42}),
+  bloque: pbr({color:'#6f7b85',map:FUND.map,roughnessMap:FUND.roughnessMap,normalMap:FUND.normalMap,normalScale:new THREE.Vector2(0.6,0.6),metalness:0.55,roughness:1.0}),
+  bloqueD: pbr({color:'#3c474f',map:FUND.map,roughnessMap:FUND.roughnessMap,normalMap:FUND.normalMap,normalScale:new THREE.Vector2(0.6,0.6),metalness:0.55,roughness:1.0}),
+  tapa: fis({color:'#c8452a',metalness:0.4,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.2}),
+  escape: pbr({color:'#5b3a2e',metalness:0.8,roughness:0.5,emissive:'#ff4a12',emissiveIntensity:0}),
+  volante: pbr({color:'#b9c0c6',metalness:0.9,roughness:0.3}),
+};
+M.alu=M.eje; M.hierro=M.acero;
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+
+/* ===================== 6. LA TRANSMISIÓN =====================
+   Escala: 1 unidad de la escena = 10 cm (los radios reales de 23 a 60 mm salen de 0,23 a 0,60). Dos poleas de ejes paralelos a Z, la de
+   entrada (primaria, abajo a la izquierda) y la de salida (secundaria, arriba a la derecha), unidas por la banda; cada polea es un par de
+   mitades cónicas (semiángulo β = 11°). La mitad cercana a la cámara es de cristal para ver la banda posada en la garganta. El eje de las
+   poleas se dibuja ×1,6 (AX) para que se note el vaivén de las mitades: el ángulo real de 11° se conserva en las fórmulas y se dibuja ×1,6.
+   Los giros se muestran en cámara lenta ×1/40 (mismo factor en motor, poleas, banda y salida: la relación entre ellos es exacta). */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const U=10, AX=1.6, TILT=52*RAD, K_LENTO=40, NEL=90;
+const C10=CVT.C*U, TB=Math.tan(CVT.beta)*AX, R0=CVT.Rmin*U;
+const RIM=0.67, HUBR=0.17, ESPES=0.30, ESP_BANDA=0.15;
+const POS_P=V3(-0.55,0.92,0), POS_S=POS_P.clone().add(V3(Math.cos(TILT)*C10,Math.sin(TILT)*C10,0));
+const wf=r=>AX*(r-R0)*Math.tan(CVT.beta);                    // altura de la cara cónica sobre el plano de referencia (hacia afuera)
+
+/* una mitad de polea: cara cónica pulida, borde achaflanado, trasera plana y manguito del cubo. Eje del torno = +Y local (= hacia afuera). */
+function geoMitad(){
+  const rs=0.10, wB=wf(RIM)+ESPES;
+  const perfil=[[rs,wf(HUBR)],[HUBR,wf(HUBR)],[HUBR,wf(HUBR)],[RIM-0.03,wf(RIM-0.03)],[RIM,wf(RIM)+0.03],[RIM,wf(RIM)+0.03],[RIM,wB-0.05],[RIM-0.05,wB],[RIM-0.05,wB],
+    [0.34,wB],[0.34,wB],[0.26,wB+0.07],[0.26,wB+0.07],[0.26,wB+0.55],[0.26,wB+0.55],[rs,wB+0.55]];
+  return P3.revolucion(perfil,{seg:72});
+}
+const GEO_MITAD=geoMitad();
+const PUL={p:null,s:null};
+/** Una polea completa. Todo lo que gira va dentro de `spin`; las mitades se deslizan en Z con la relación. */
+function construyePolea(clave,material){
+  const grupo=new THREE.Group(), spin=new THREE.Group(); grupo.add(spin); grupo.userData.clave=clave;
+  const lejos=malla(GEO_MITAD.clone(),M.polea); lejos.rotation.x=-Math.PI/2;                       // +Y local → −Z
+  const cerca=new THREE.Group(); cerca.rotation.x=Math.PI/2;                                        // +Y local → +Z
+  const vid=malla(GEO_MITAD.clone(),M.vidrio,{sombra:false}); vid.renderOrder=3; cerca.add(vid);
+  const aro=new THREE.Mesh(new THREE.TorusGeometry(RIM-0.005,0.014,8,96),M.eje); aro.rotation.x=Math.PI/2; aro.position.y=wf(RIM)+0.03; cerca.add(aro);
+  const wB=wf(RIM)+ESPES;
+  const cam=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.50,40,1,true),M.aceite); cam.position.y=wB+0.34; cam.renderOrder=4; cerca.add(cam);
+  const tapa=malla(new THREE.CylinderGeometry(0.30,0.30,0.06,40),M.carcasa); tapa.position.y=wB+0.62; cerca.add(tapa);
+  const eje=malla(new THREE.CylinderGeometry(0.10,0.10,2.9,28).rotateX(Math.PI/2),M.eje); eje.position.z=-0.15;
+  spin.add(lejos,cerca,eje);
+  const arol=new THREE.Mesh(new THREE.TorusGeometry(RIM-0.005,0.014,8,96),M.eje); arol.position.z=-(0); lejos.add(arol); arol.rotation.x=0; arol.position.set(0,wf(RIM)+0.03,0); arol.rotation.x=Math.PI/2;
+  return {grupo,spin,lejos,cerca,cam};
+}
+PUL.p=construyePolea('polea-p'); PUL.s=construyePolea('polea-s');
+
+/* La línea de centros (primaria en el origen, secundaria a C10 en X) va inclinada TILT: la banda vive en ese plano. */
+const CVT_G=new THREE.Group(); CVT_G.position.copy(POS_P); CVT_G.rotation.z=TILT; MUNDO.add(CVT_G);
+CVT_G.add(PUL.p.grupo); PUL.s.grupo.position.x=C10; CVT_G.add(PUL.s.grupo);
+// que el cilindro de la secundaria no se vea girado con la inclinación: las piezas sin simetría se sostienen aparte (nada se rompe, son de revolución)
+
+/* ---- la banda: una sección trapecial (cada flanco sigue el cono) barrida por el recorrido exacto de la banda ---- */
+const BANDA={N:260,mesh:null,geo:null,Rp:-1,Rs:-1,fase:0};
+(function(){
+  const N=BANDA.N, nv=(N+1)*8, idx=[];
+  for(let k=0;k<N;k++) for(let f=0;f<4;f++){ const a=k*8+f*2, b=a+1, c=(k+1)*8+f*2, d=c+1; idx.push(a,c,b, b,c,d); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(nv*3),3));
+  g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nv*3),3));
+  const uv=new Float32Array(nv*2);
+  for(let k=0;k<=N;k++) for(let f=0;f<4;f++) for(let s=0;s<2;s++){ const j=k*8+f*2+s; uv[j*2]=k/N*NEL; uv[j*2+1]=s; }
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2)); g.setIndex(idx);
+  BANDA.geo=g; BANDA.mesh=new THREE.Mesh(g,M.banda); BANDA.mesh.castShadow=true; BANDA.mesh.receiveShadow=true; BANDA.mesh.frustumCulled=false;
+  BANDA.mesh.userData.clave='banda'; CVT_G.add(BANDA.mesh);
+  T_BAN.wrapS=THREE.RepeatWrapping; T_BAN.wrapT=THREE.ClampToEdgeWrapping;
+})();
+/** Reconstruye la banda para los radios (m) de rodadura Rp y Rs. */
+function actualizaBanda(Rp,Rs){
+  const N=BANDA.N, tr=trazadoBanda(Rp,Rs,N), P=BANDA.geo.attributes.position.array, Nn=BANDA.geo.attributes.normal.array;
+  const bv=Math.atan(TB), sbv=Math.sin(bv), cbv=Math.cos(bv), hw0=AX*CVT.Wb*U/2, hwO=hw0+ESP_BANDA/2*TB, hwI=hw0-ESP_BANDA/2*TB, t2=ESP_BANDA/2;
+  for(let k=0;k<=N;k++){
+    const q=tr.pts[k%N], px=q.x*U, py=q.y*U, nx=q.ty, ny=-q.tx;
+    const ox=px+nx*t2, oy=py+ny*t2, ix=px-nx*t2, iy=py-ny*t2;
+    const V=[[ox,oy,-hwO, nx,ny,0],[ox,oy,hwO, nx,ny,0],                     // cara exterior
+             [ix,iy,-hwI, -nx,-ny,0],[ix,iy,hwI, -nx,-ny,0],                // cara interior
+             [ix,iy,hwI, -sbv*nx,-sbv*ny,cbv],[ox,oy,hwO, -sbv*nx,-sbv*ny,cbv],     // flanco +z (de dentro a fuera)
+             [ix,iy,-hwI, -sbv*nx,-sbv*ny,-cbv],[ox,oy,-hwO, -sbv*nx,-sbv*ny,-cbv]]; // flanco −z
+    for(let j=0;j<8;j++){ const o=(k*8+j)*3, v=V[j]; P[o]=v[0]; P[o+1]=v[1]; P[o+2]=v[2]; Nn[o]=v[3]; Nn[o+1]=v[4]; Nn[o+2]=v[5]; }
+  }
+  BANDA.geo.attributes.position.needsUpdate=true; BANDA.geo.attributes.normal.needsUpdate=true; BANDA.geo.computeBoundingSphere();
+  BANDA.Rp=Rp; BANDA.Rs=Rs;
+}
+/** Coloca las mitades de cada polea según su radio de rodadura: la cara pasa a Wb/2 del plano de la banda justo en R. */
+function colocaMitades(R10,P){
+  const off=AX*(CVT.Wb*U/2)-AX*(R10-R0)*Math.tan(CVT.beta);
+  P.lejos.position.z=-off; P.cerca.position.z=off;
+}
+
+/* ---- el motor, al fondo, sobre el mismo eje que la polea de entrada ---- */
+const MOT=new THREE.Group(); MOT.position.copy(POS_P); MUNDO.add(MOT); MOT.userData.clave='motor';
+const cilZ=(r1,r2,len,seg=32)=>new THREE.CylinderGeometry(r1,r2,len,seg).rotateX(Math.PI/2);
+const MOTOR3={vol:null,esc:[],bloque:null};
+(function(){
+  // volante de inercia con su corona de arranque (gira con el motor)
+  const vol=new THREE.Group(); vol.position.z=-1.55; MOT.add(vol); MOTOR3.vol=vol;
+  const disco=malla(cilZ(0.70,0.70,0.16,48),M.volante); vol.add(disco);
+  const cor=P3.engrane({z:60,m:0.026,ancho:0.12}); const corona=malla(cor.geo,M.acero); vol.add(corona);
+  const cubo=malla(cilZ(0.22,0.22,0.26,28),M.eje); vol.add(cubo);
+  const marca=malla(new THREE.BoxGeometry(0.10,0.34,0.02),new THREE.MeshBasicMaterial({color:'#5BC8FF',toneMapped:false}),{sombra:false}); marca.position.set(0,0.46,0.09); vol.add(marca);
+  for(let k=0;k<6;k++){ const a=k/6*DOSPI, ag=malla(cilZ(0.075,0.075,0.17,16),M.bloqueD); ag.position.set(Math.cos(a)*0.42,Math.sin(a)*0.42,0); vol.add(ag); }
+  // bloque, culata, tapa de balancines y cárter
+  const bloque=malla(new RoundedBoxGeometry(2.1,1.45,2.2,3,0.07),M.bloque); bloque.position.set(0,0.12,-2.95); MOT.add(bloque); MOTOR3.bloque=bloque;
+  const culata=malla(new RoundedBoxGeometry(2.0,0.45,2.15,3,0.05),M.bloqueD); culata.position.set(0,1.07,-2.95); MOT.add(culata);
+  const tapa=malla(new RoundedBoxGeometry(1.5,0.28,1.85,3,0.07),M.tapa); tapa.position.set(0,1.45,-2.95); MOT.add(tapa);
+  for(let k=0;k<4;k++){ const nerv=malla(new THREE.BoxGeometry(1.52,0.06,0.07),M.tapa); nerv.position.set(0,1.62,-2.95-0.72+k*0.48); MOT.add(nerv); }
+  const carter=malla(new RoundedBoxGeometry(1.6,0.34,1.9,3,0.07),M.bloqueD); carter.position.set(0,-0.77,-2.95); MOT.add(carter);
+  const campana=malla(cilZ(0.92,0.92,0.34,48),M.bloqueD); campana.position.set(0,0,-1.78); MOT.add(campana);
+  // admisión (a la izquierda): cuatro tubos hasta el colector
+  const col=malla(cilZ(0.12,0.12,1.8,20),M.eje); col.position.set(-1.45,1.0,-2.95); MOT.add(col);
+  for(let k=0;k<4;k++){ const z=-2.95-0.72+k*0.48; const c=new THREE.CatmullRomCurve3([V3(-1.45,1.0,z),V3(-1.25,1.0,z),V3(-1.12,1.07,z),V3(-1.0,1.07,z)]);
+    const tubo=malla(new THREE.TubeGeometry(c,12,0.065,10,false),M.eje); MOT.add(tubo); }
+  // escape (a la derecha): cuatro tubos que se juntan; se ponen al rojo con la carga
+  const escCol=malla(cilZ(0.10,0.10,1.9,20),M.escape); escCol.position.set(1.45,0.62,-2.95); MOT.add(escCol); MOTOR3.esc.push(escCol);
+  for(let k=0;k<4;k++){ const z=-2.95-0.72+k*0.48; const c=new THREE.CatmullRomCurve3([V3(1.0,1.05,z),V3(1.18,1.0,z),V3(1.38,0.85,z),V3(1.45,0.62,z)]);
+    const tubo=malla(new THREE.TubeGeometry(c,12,0.06,10,false),M.escape,{recibe:false}); MOT.add(tubo); MOTOR3.esc.push(tubo); }
+  const salida=malla(cilZ(0.09,0.09,1.4,20).translate(0,0,0),M.escape); salida.position.set(1.45,0.62,-4.45); MOT.add(salida); MOTOR3.esc.push(salida);
+  // eje del cigüeñal hasta el volante, y los soportes
+  const pie1=malla(new RoundedBoxGeometry(0.5,0.3,0.8,2,0.05),M.carcasa); pie1.position.set(-0.85,-1.0,-2.2); MOT.add(pie1);
+  const pie2=malla(new RoundedBoxGeometry(0.5,0.3,0.8,2,0.05),M.carcasa); pie2.position.set(0.85,-1.0,-2.2); MOT.add(pie2);
+})();
+
+/* ---- la salida: eje de la secundaria hacia las ruedas, con su brida (lo que sigue, la reductora final y las ruedas, no se dibuja) ---- */
+const SAL=new THREE.Group(); SAL.position.copy(POS_S); MUNDO.add(SAL); SAL.userData.clave='salida';
+const SAL3={pinon:null};
+(function(){
+  const pin=new THREE.Group(); pin.position.z=1.28; SAL.add(pin); SAL3.pinon=pin;
+  pin.add(malla(cilZ(0.10,0.10,0.30,24),M.eje));
+  const brida=malla(cilZ(0.24,0.24,0.09,32),M.eje); brida.position.z=0.16; pin.add(brida);
+  for(let k=0;k<6;k++){ const a=k/6*DOSPI, tn=malla(cilZ(0.034,0.034,0.10,12),M.carcasa); tn.position.set(Math.cos(a)*0.165,Math.sin(a)*0.165,0.19); pin.add(tn); }
+  const marca=malla(new THREE.BoxGeometry(0.06,0.13,0.02),new THREE.MeshBasicMaterial({color:'#5BC8FF',toneMapped:false}),{sombra:false}); marca.position.set(0,0.17,0.215); pin.add(marca);
+})();
+// el eje primario hasta el volante
+{ const ep=malla(cilZ(0.10,0.10,2.0,24),M.eje); ep.position.copy(POS_P); ep.position.z=-1.0; MUNDO.add(ep); }
+
+/* ---- la plataforma de pruebas ---- */
+const PLATAF=malla(new RoundedBoxGeometry(13.0,0.30,9.6,3,0.06),M.plinto,{sombra:false,recibe:true}); PLATAF.position.set(0.8,-0.15,-1.0); PLATAF.userData.fondo=true; MUNDO.add(PLATAF);
+{ const canto=malla(new THREE.BoxGeometry(13.1,0.05,9.7),M.canto,{sombra:false}); canto.position.set(0.8,-0.33,-1.0); canto.userData.fondo=true; MUNDO.add(canto);
+  const nx=new THREE.Mesh(new THREE.BoxGeometry(13.0,0.02,0.03),M.neon), nz=nx.clone(); nx.position.set(0.8,0.012,3.78); nz.position.set(0.8,0.012,-5.78); nx.userData.fondo=true; nz.userData.fondo=true; MUNDO.add(nx,nz); }
+// apoyos de las dos poleas sobre la plataforma
+function pedestal(pos){ const g=new THREE.Group(); const base=malla(new RoundedBoxGeometry(1.5,0.12,0.9,2,0.04),M.carcasa); base.position.set(pos.x,0.06,pos.z); g.add(base);
+  const pie=malla(new RoundedBoxGeometry(0.3,Math.max(0.2,pos.y-0.1),0.34,2,0.04),M.carcasa); pie.position.set(pos.x,0.12+Math.max(0.2,pos.y-0.1)/2,pos.z); g.add(pie); return g; }
+MUNDO.add(pedestal(V3(POS_P.x,POS_P.y-0.30,0.92)));
+scene.background=fondoDegradado('#07151e','#1b4256','#4d7f98'); scene.fog.color.set('#2a5b73'); scene.fog.near=34; scene.fog.far=110;
+
+/* ===================== 11. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo alimenta la escena, el dock y las cifras. Lo que el alumno (o el recorrido, o el reto) PIDE —relación y presión— se
+   alcanza con un retardo suave (ACT: la transmisión no cambia de golpe, las mitades de las poleas tardan en deslizarse); con lo que
+   hay AHORA se calcula el punto de funcionamiento completo (punto()) en cada cuadro. El reloj SIM.t es el tiempo de la escena (s) y
+   avanza dt·velocidad: mueve las poleas, la banda, el volante, y el cursor y la ventana de las gráficas. Modos: «Recorrido»,
+   «Probar» (mandos libres) y «Reto». */
+const EST={modo:'tour',kmh:80,pend:0,i:0.75,p:3.0e6,rauto:true,pauto:true,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const ACT={i:1.0,p:3.0e6};
+const SIM={t:0,e:null,salto:true,th:{p:0,s:0},ver:0};
+const HIST={t:[],ne:[],ns:[],l:[],u:[],T:[],ult:-1};
+let CALC=null;
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {kmh:EST.kmh,pend:EST.pend,i:EST.i,p:EST.p,rauto:EST.rauto,pauto:EST.pauto};
+}
+const _opt=new Map();
+function optimoCache(v,pend){ const k=v.toFixed(3)+'|'+pend; let o=_opt.get(k); if(!o){ o=optimo(v,pend); _opt.set(k,o); } return o; }
+/** Lo que se pide ahora: relación y presión objetivo (las automáticas salen del modelo). */
+function objetivo(pr){
+  const v=pr.kmh/3.6, op=optimoCache(v,pr.pend);
+  const i=pr.rauto?op.i:clamp(pr.i,CVT.iMin,CVT.iMax);
+  const p=pr.pauto?presionPara(v,pr.pend,i,U_OBJ):clamp(pr.p,CVT.pMin,CVT.pMax);
+  return {v,pend:pr.pend,i,p,op};
+}
+function reiniciaCalculo(){
+  const pr=paramsActuales(); CALC={pr,obj:objetivo(pr)}; SIM.ver++;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+/** Salta de golpe a lo pedido (al cambiar de paso o de modo): sin retardo ni historial. */
+function saltaAlObjetivo(){
+  if(!CALC) reiniciaCalculo(); ACT.i=CALC.obj.i; ACT.p=CALC.obj.p; SIM.salto=true; limpiaHist();
+}
+function limpiaHist(){ for(const k of ['t','ne','ns','l','u','T']) HIST[k].length=0; HIST.ult=-1; }
+
+/* ---- lo que se ve ---- */
+let slipK=0, ultAviso=false, cargaK=0;
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;
+  const C=CALC; if(!C) return;
+  const o=C.obj;
+  if(SIM.salto){ ACT.i=o.i; ACT.p=o.p; }
+  else { ACT.i=Math.exp(Math.log(ACT.i)+(Math.log(o.i)-Math.log(ACT.i))*(1-Math.exp(-dtSim/0.55)));
+         ACT.p=ACT.p+(o.p-ACT.p)*(1-Math.exp(-dtSim/0.30)); }
+  ACT.i=clamp(ACT.i,CVT.iMin,CVT.iMax);
+  SIM.t+=dtSim;
+  const e=punto(o.v,o.pend,ACT.i,ACT.p); SIM.e=e; const g=e.g;
+  // ---- las poleas cambian de tamaño: la banda y las mitades siguen el radio de rodadura ----
+  if(Math.abs(g.Rp-BANDA.Rp)>2e-6||Math.abs(g.Rs-BANDA.Rs)>2e-6){ actualizaBanda(g.Rp,g.Rs); colocaMitades(g.Rp*U,PUL.p); colocaMitades(g.Rs*U,PUL.s); }
+  // ---- los giros, en cámara lenta ×1/40 (mismo factor para todo) ----
+  const wp=e.wp/K_LENTO, wsd=e.ws/K_LENTO;
+  SIM.th.p+=wp*dtSim; SIM.th.s+=wsd*dtSim;
+  PUL.p.spin.rotation.z=SIM.th.p; PUL.s.spin.rotation.z=SIM.th.s;
+  MOTOR3.vol.rotation.z=SIM.th.p; SAL3.pinon.rotation.z=SIM.th.s;
+  BANDA.fase+=wp*g.Rp*U*dtSim*NEL/(g.L*U); T_BAN.offset.x=-(BANDA.fase%1);
+  // ---- el aceite a presión: de ámbar a rojo y más brillante ----
+  const kp=clamp((ACT.p-CVT.pMin)/(CVT.pMax-CVT.pMin),0,1);
+  M.aceite.color.setRGB(1.0,mezcla(0.78,0.26,kp),mezcla(0.30,0.10,kp)); M.aceite.emissive.setRGB(1.0,mezcla(0.55,0.12,kp),0.02); M.aceite.emissiveIntensity=0.15+1.1*kp; M.aceite.opacity=0.42+0.3*kp;
+  // ---- la banda patina: se pone al rojo ----
+  const sl=clamp((e.u-0.88)/0.12,0,1);
+  slipK+=(sl-slipK)*clamp(dtR*10,0,1);
+  M.banda.emissiveIntensity=slipK*(0.55+0.35*Math.sin(performance.now()*0.014));
+  const hay=e.u>=0.97; if(hay&&!ultAviso&&!EST.pausa&&typeof sonido!=='undefined') sonido.aviso(); ultAviso=hay;
+  // ---- el escape se pone al rojo con la carga del motor ----
+  const kc=clamp((e.m.x-0.35)/0.65,0,1); cargaK+=(kc-cargaK)*clamp(dtR*5,0,1);
+  M.escape.emissiveIntensity=2.4*Math.pow(cargaK,1.6);
+  // ---- el historial de las gráficas: 20 muestras por segundo de tiempo de la escena ----
+  if(SIM.salto) limpiaHist();
+  if(HIST.ult<0||SIM.t-HIST.ult>=0.05||SIM.t<HIST.ult){ if(SIM.t<HIST.ult) limpiaHist(); HIST.ult=SIM.t;
+    HIST.t.push(SIM.t); HIST.ne.push(e.ne); HIST.ns.push(e.ns); HIST.l.push(e.lper100); HIST.u.push(e.u); HIST.T.push(e.Te);
+    while(HIST.t.length&&SIM.t-HIST.t[0]>VENTANA+1){ for(const k of ['t','ne','ns','l','u','T']) HIST[k].shift(); } }
+}
+const VENTANA=30;       // segundos de historial que muestran las gráficas
+const AVISO_U=0.97;
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const FRASE='Cambias el tamaño de dos poleas para que el motor gire siempre a su velocidad más eficiente.';
+/* mandos: la relación en escala logarítmica (0,40 a 2,60); el apriete de 0,5 a 7,0 MPa; la velocidad de 20 a 140 km/h; la pendiente de 0 a 10 % */
+const iDeU=u=>CVT.iMin*Math.pow(CVT.iMax/CVT.iMin,u/100), uDeI=i=>100*Math.log(i/CVT.iMin)/Math.log(CVT.iMax/CVT.iMin);
+const txtI=i=>fN(i,2), txtP=p=>fN(p/1e6,1)+' MPa', txtV=k=>fN(k,0)+' km/h', txtG=g=>fN(g,0)+' %';
+function cursorHTML(id,rotulo,valor,min,max,step,val,m1,m2,aria,extra=''){
+  return `<div class="cg"><div class="cl"><div>${rotulo}</div><b id="v${id}">${valor}</b></div><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${aria}" ${extra}>
+    <div class="marcas"><span>${m1}</span><span>${m2}</span></div></div>`;
+}
+const slI=(id,i,dis)=>cursorHTML(id,'Tamaño de las poleas <em class="gr">(relación)</em>',txtI(i),0,100,1,Math.round(uDeI(i)),'motor tranquilo','motor revolucionado','Relación de la transmisión, de 0,40 a 2,60',dis?'disabled':'');
+const slP=(id,p,dis)=>cursorHTML(id,'Apriete del aceite <em class="gr">(presión)</em>',txtP(p),5,70,1,Math.round(p/1e5),'suelto','fuerte','Presión del aceite que aprieta las poleas, de 0,5 a 7,0 megapascales',dis?'disabled':'');
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · transmisión CVT</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='probar') h+=`<p class="intro">Una <b>banda de acero</b> une dos poleas. Al cambiar su tamaño cambia la «marcha» sin escalones; el <b>aceite</b> aprieta la banda para que no patine.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Situación del camino</div><div class="seg" id="segEsc">${ESCENARIOS.map(k=>`<button class="b ${(EST.kmh===k.kmh&&EST.pend===k.pend)?'on':''}" data-esc="${k.id}">${k.nombre.split(' ')[0]}</button>`).join('')}</div></div>
+    ${cursorHTML('sV','Velocidad del coche',txtV(EST.kmh),20,140,5,EST.kmh,'20','140','Velocidad del coche en kilómetros por hora')}
+    ${cursorHTML('sG','Pendiente del camino',txtG(EST.pend),0,10,1,EST.pend,'llano','10 %','Pendiente en por ciento')}
+    <div class="cg"><div class="cl">Quién elige la relación</div><div class="seg" id="segRA"><button class="b ${EST.rauto?'':'on'}" data-ra="0">Yo</button><button class="b ${EST.rauto?'on':''}" data-ra="1">El sistema</button></div></div>
+    ${slI('sI',EST.rauto&&CALC?CALC.obj.i:EST.i,EST.rauto)}
+    <div class="cg"><div class="cl">Quién elige el apriete</div><div class="seg" id="segPA"><button class="b ${EST.pauto?'':'on'}" data-pa="0">Yo</button><button class="b ${EST.pauto?'on':''}" data-pa="1">El justo</button></div></div>
+    ${slP('sP',EST.pauto&&CALC?CALC.obj.p:EST.p,EST.pauto)}
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else if(EST.modo==='reto') h+=htmlGuia();
+  const e=SIM.e, g=e?e.g:geom(1);
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">i = ω_entrada / ω_salida = R_s / R_p</div>
+    <div class="fl">La banda mide siempre lo mismo, así que si una polea crece la otra encoge. Ahora: R_p = <b>${fN(g.Rp*1000,1)} mm</b>, R_s = <b>${fN(g.Rs*1000,1)} mm</b>, i = <b>${fN(g.i,2)}</b> (de ${fN(CVT.iMin,2)} a ${fN(CVT.iMax,2)}).</div>
+    <div class="formula">F_apriete = F_t · cos β / (2 · μ)</div>
+    <div class="fl">La banda se agarra por fricción, no por dientes. F_t es la fuerza con que tira la banda (par ÷ radio), β = ${fN(CVT.beta/RAD,0)}° es la mitad del ángulo de la garganta y μ = ${fN(CVT.mu,2)} la fricción del acero con aceite.${e?` Ahora hace falta <b>${fN(e.Fax/1000,1)} kN</b> y el aceite da <b>${fN(e.Fap/1000,1)} kN</b> (p · A, con A = ${fN(CVT.As*1e4,0)} cm²).`:''}</div>
+    <div class="formula">u = F_necesaria / (p · A) · s = 0,002 · u / (1 − u)</div>
+    <div class="fl">u es cuánto de la capacidad se usa; al acercarse a 1 el patinaje s se dispara y la banda patina.</div>
+    <div class="formula">consumo = (P_motor + P_pérdidas) / (η_i · poder calorífico)</div>
+    <div class="fl">A pocas vueltas el motor «bombea» menos pero pide más par; a muchas vueltas pierde por fricción. En medio está su punto más eficiente.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Todo se calcula en <b>régimen</b> (velocidad constante); el cambio de relación se ve con un retardo de 0,55 s que no afecta a las cifras finales.</li>
+    <li>El eje de las poleas se dibuja <b>×${fN(AX,1)}</b> y las dos mitades se mueven simétricas; los giros van en <b>cámara lenta ×1/${K_LENTO}</b>.</li>
+    <li>El apriete se calcula sobre la polea de <b>salida</b>; el equilibrio de fuerzas entre poleas, la fuerza centrífuga del aceite y las vibraciones no se modelan.</li>
+    <li>El motor, la bomba y el rendimiento de la banda son <b>modelos didácticos</b> de orden de magnitud, no los de un fabricante.</li>
+  </ul><div class="src">Textos de referencia (a verificar): Bonsen et al., <i>Push belt CVT</i> (Van Doorne) · Bosch, <i>Automotive Handbook</i> · Heywood, <i>Internal Combustion Engine Fundamentals</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; const k=escPorId(b.dataset.esc); EST.kmh=k.kmh; EST.pend=k.pend; pintaHUD(); re(); });
+  H.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; if(b.dataset.ra==='0'&&EST.rauto&&CALC) EST.i=CALC.obj.i; EST.rauto=b.dataset.ra==='1'; pintaHUD(); re(); });
+  H.querySelectorAll('[data-pa]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; if(b.dataset.pa==='0'&&EST.pauto&&CALC) EST.p=CALC.obj.p; EST.pauto=b.dataset.pa==='1'; pintaHUD(); re(); });
+  const lig=(id,campo,f,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=f(+e.value); el('v'+id).textContent=fmt(EST[campo]); re(); }; };
+  lig('sV','kmh',x=>x,txtV); lig('sG','pend',x=>x,txtG); lig('sI','i',iDeU,txtI); lig('sP','p',x=>x*1e5,txtP);
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; L.fondo=null; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LMAPA=lienzo('gFu'), LRPM=lienzo('gTr'), LCON=lienzo('gFr'), LUSO=lienzo('gSp'), LESQ=lienzo('gVol');
+const COL={ne:'#58d6ff',ns:'rgba(200,215,225,0.6)',con:'#ffc15a',uso:'#58d6ff',peligro:'rgba(244,71,94,0.20)',pelLin:'#ff6b7c',margen:'rgba(255,209,102,0.7)',opt:'#7dffb0'};
+const GRID='rgba(160,200,220,0.10)', EJE='#3f6a80', TXT='#8eb3c5';
+/** ¿Se puede enseñar ya el punto óptimo? En el reto, sólo tras validar (regla: no regalar la respuesta). */
+const muestraOptimo=()=>EST.modo!=='reto'||(GUIA.paso==='ajusta'&&!!GUIA.r2&&GUIA.r2.validado);
+/* ---- el mapa de consumo del motor: colores por tramos (g/kWh), línea de plena carga y el punto de funcionamiento ---- */
+const NMIN=800, NMAX=6400, TMAXV=160;
+const NIVELES=[[245,'#2fd6c2'],[260,'#5bd67d'],[285,'#b9d64a'],[320,'#f0b13a'],[380,'#e2662c'],[480,'#a8283a'],[1e9,'#6a1a2c']];
+function colorBsfc(b){ for(const [lim,c] of NIVELES) if(b<=lim) return c; return NIVELES[NIVELES.length-1][1]; }
+function fondoMapa(L,X0,X1,Y0,Y1){
+  if(L.fondo&&L.fondo.w===L.w&&L.fondo.h===L.h&&L.fondo.dpr===L.dpr) return L.fondo.c;
+  const c=document.createElement('canvas'); c.width=Math.round(L.w*L.dpr); c.height=Math.round(L.h*L.dpr); const g=c.getContext('2d'); g.setTransform(L.dpr,0,0,L.dpr,0,0);
+  const paso=3, nx=Math.ceil((X1-X0)/paso), ny=Math.ceil((Y1-Y0)/paso);
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+    const px=X0+i*paso, py=Y0+j*paso, n=NMIN+(px+paso/2-X0)/(X1-X0)*(NMAX-NMIN), T=TMAXV*(1-(py+paso/2-Y0)/(Y1-Y0));
+    if(T>Tmax(n)){ g.fillStyle='#0b1822'; }
+    else g.fillStyle=colorBsfc(bsfc(n,Math.max(0.5,T)));
+    g.fillRect(px,py,Math.min(paso,X1-px),Math.min(paso,Y1-py));
+  }
+  L.fondo={c,w:L.w,h:L.h,dpr:L.dpr}; return c;
+}
+function pintaMapa(){
+  const x=abre(LMAPA), Wd=LMAPA.w, Hd=LMAPA.h, e=SIM.e; if(!e) return;
+  const X0=30, X1=Wd-8, Y0=6, Y1=Hd-16, Xn=n=>X0+(n-NMIN)/(NMAX-NMIN)*(X1-X0), Yt=T=>Y1-T/TMAXV*(Y1-Y0);
+  x.drawImage(fondoMapa(LMAPA,X0,X1,Y0,Y1),0,0,LMAPA.w,LMAPA.h);
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip();
+  // plena carga
+  x.strokeStyle='rgba(255,255,255,0.9)'; x.lineWidth=1.6; x.beginPath(); for(let k=0;k<=60;k++){ const n=NMIN+(NMAX-NMIN)*k/60, y=Yt(Tmax(n)); k?x.lineTo(Xn(n),y):x.moveTo(Xn(n),y); } x.stroke();
+  // límites del motor: ralentí y régimen máximo
+  raya(x,Xn(MOTOR.nRal),Y0,Xn(MOTOR.nRal),Y1,COL.pelLin,1,[4,3]); raya(x,Xn(MOTOR.nMax),Y0,Xn(MOTOR.nMax),Y1,COL.pelLin,1,[4,3]);
+  const opt=muestraOptimo();
+  if(opt){      // la curva de potencia constante (todas las relaciones posibles) y el mejor punto
+    const Pe=e.Pe; x.strokeStyle='rgba(255,255,255,0.75)'; x.lineWidth=1.2; x.setLineDash([5,3]); x.beginPath(); let ini=false;
+    for(let k=0;k<=80;k++){ const n=NMIN+(NMAX-NMIN)*k/80, T=Pe/(n*RPM); if(T>TMAXV*1.02) continue; const px=Xn(n), py=Yt(T); ini?x.lineTo(px,py):x.moveTo(px,py); ini=true; } x.stroke(); x.setLineDash([]);
+    const op=CALC&&CALC.obj.op;
+    if(op){ const px=Xn(op.ne), py=Yt(op.Te); x.strokeStyle=COL.opt; x.lineWidth=2; x.beginPath(); x.arc(px,py,7,0,DOSPI); x.stroke(); txt(x,'mejor',px+9,py+3,COL.opt,9.5,'left','700'); }
+  }
+  if(enCalcula()){ x.restore(); txt(x,'(en este cálculo el punto no se muestra)',(X0+X1)/2,(Y0+Y1)/2,'rgba(255,255,255,0.85)',10,'center','600'); el('t_fu').textContent=''; return; }
+  // el rastro de los últimos 4 s y el punto de ahora
+  const n0=HIST.t.length; for(let k=Math.max(0,n0-80);k<n0;k+=2){ const a=(k-(n0-80))/80; if(a<0) continue; x.fillStyle='rgba(255,255,255,'+(0.10+0.45*a).toFixed(2)+')'; x.beginPath(); x.arc(Xn(clamp(HIST.ne[k],NMIN,NMAX)),Yt(clamp(HIST.ne[k]?motorTorque(k):0,0,TMAXV)),2,0,DOSPI); x.fill(); }
+  const px=Xn(clamp(e.ne,NMIN,NMAX)), py=Yt(clamp(e.Te,0,TMAXV));
+  x.fillStyle='#fff'; x.beginPath(); x.arc(px,py,5.5,0,DOSPI); x.fill(); x.strokeStyle='#08161F'; x.lineWidth=2; x.stroke();
+  x.strokeStyle='rgba(255,255,255,0.85)'; x.lineWidth=1.5; x.beginPath(); x.arc(px,py,9.5,0,DOSPI); x.stroke();
+  x.restore();
+  for(const n of [1000,2000,3000,4000,5000,6000]) { raya(x,Xn(n),Y1,Xn(n),Y1+3,EJE); txt(x,String(n/1000)+'k',Xn(n),Hd-3,TXT,8.5,'center','500'); }
+  for(const T of [0,50,100,150]) { raya(x,X0-3,Yt(T),X0,Yt(T),EJE); txt(x,String(T),X0-5,Yt(T)+3,TXT,8.5,'right','500'); }
+  txt(x,'N·m',X0+3,Y0+9,'rgba(255,255,255,0.85)',8.5,'left','700'); txt(x,'rpm',X1,Hd-3,TXT,8.5,'right','600');
+  el('t_fu').textContent=fN(e.m.bsfc,0)+' g/kWh';
+}
+const motorTorque=k=>{ // par del motor en la muestra k del historial: se reconstruye con la potencia y el régimen guardados
+  return HIST.T&&HIST.T[k]!==undefined?HIST.T[k]:0; };
+function pintaLeyMapa(){
+  el('leyFu').innerHTML=[[245,'#2fd6c2','≤245'],[285,'#b9d64a','≤285'],[320,'#f0b13a','≤320'],[380,'#e2662c','≤380'],[480,'#a8283a','≤480']].map(([_,c,t])=>`<span class="lg"><i class="bl" style="--c:${c}"></i>${t}</span>`).join('')+`<span class="lg">g/kWh · línea blanca: plena carga</span>`;
+}
+/* ---- gráficas de tira: los últimos 30 s del mismo reloj ---- */
+function ejeTiempo(x,X0,X1,Hd){ const t1=SIM.t, t0=t1-VENTANA; for(let s=0;s<=VENTANA;s+=10){ const px=X0+(s/VENTANA)*(X1-X0); raya(x,px,Hd-14,px,Hd-11,EJE); txt(x,s===VENTANA?'ahora':'−'+(VENTANA-s)+' s',px,Hd-3,TXT,8.5,s===VENTANA?'right':(s===0?'left':'center'),'500'); } return t=>X0+(t-t0)/VENTANA*(X1-X0); }
+function serieTira(x,X,Y,arr,col,w,dash){ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); let ini=false; for(let k=0;k<HIST.t.length;k+=1){ const px=X(HIST.t[k]); if(px<-2) continue; const py=Y(arr[k]); ini?x.lineTo(px,py):x.moveTo(px,py); ini=true; } x.stroke(); x.setLineDash([]); }
+function pintaRPM(){
+  const x=abre(LRPM), Wd=LRPM.w, Hd=LRPM.h, e=SIM.e; if(!e) return;
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, RM=7000, Y=v=>Y1-clamp(v,0,RM)/RM*(Y1-Y0);
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip(); const X=ejeTiempo(x,X0,X1,Hd);
+  x.fillStyle=COL.peligro; x.fillRect(X0,Y(MOTOR.nMax),X1-X0,Y(RM)-Y(MOTOR.nMax)+Y0-Y(RM)); x.fillRect(X0,Y(MOTOR.nRal),X1-X0,Y1-Y(MOTOR.nRal));
+  if(enCalcula()){ x.restore(); txt(x,'lo calculas tú',(X0+X1)/2,(Y0+Y1)/2,TXT,10,'center','600'); el('t_pw').textContent=''; return; }
+  serieTira(x,X,Y,HIST.ns,COL.ns,1.2,[4,3]); serieTira(x,X,Y,HIST.ne,COL.ne,2);
+  x.restore();
+  for(const v of [0,3000,6000]){ raya(x,X0-3,Y(v),X0,Y(v),EJE); txt(x,String(v/1000)+'k',X0-5,Y(v)+3,TXT,8.5,'right','500'); }
+  txt(x,'rpm',X0+3,Y0+8,TXT,8.5,'left','600'); el('t_pw').textContent=fN(e.ne,0)+' rpm';
+}
+function pintaConsumo(){
+  const x=abre(LCON), Wd=LCON.w, Hd=LCON.h, e=SIM.e; if(!e) return;
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14; let top=12; for(const v of HIST.l) if(isFinite(v)&&v>top) top=Math.min(40,Math.ceil(v/5)*5);
+  const Y=v=>Y1-clamp(v,0,top)/top*(Y1-Y0);
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip(); const X=ejeTiempo(x,X0,X1,Hd);
+  const op=CALC&&CALC.obj.op; if(op&&muestraOptimo()){ raya(x,X0,Y(op.lper100),X1,Y(op.lper100),COL.opt,1.2,[5,3]); }
+  serieTira(x,X,Y,HIST.l,COL.con,2);
+  x.restore();
+  for(const v of [0,top/2,top]){ raya(x,X0-3,Y(v),X0,Y(v),EJE); txt(x,fN(v,0),X0-5,Y(v)+3,TXT,8.5,'right','500'); }
+  txt(x,'L/100 km',X0+3,Y0+8,TXT,8.5,'left','600'); el('t_fr').textContent=fN(e.lper100,1)+' L/100 km';
+}
+function pintaUso(){
+  const x=abre(LUSO), Wd=LUSO.w, Hd=LUSO.h, e=SIM.e; if(!e) return;
+  const X0=30, X1=Wd-6, Y0=4, Y1=Hd-14, RM=130, Y=v=>Y1-clamp(v,0,RM)/RM*(Y1-Y0);
+  x.save(); x.beginPath(); x.rect(X0,Y0,X1-X0,Y1-Y0); x.clip(); const X=ejeTiempo(x,X0,X1,Hd+2);
+  x.fillStyle=COL.peligro; x.fillRect(X0,Y(RM),X1-X0,Y(100)-Y(RM));
+  serieTira(x,X,Y,HIST.u.map(v=>v*100),COL.uso,1.8);
+  x.restore();
+  raya(x,X0,Y(100),X1,Y(100),COL.pelLin,1,[4,3]); raya(x,X0,Y(U_MAX*100),X1,Y(U_MAX*100),COL.margen,1,[4,3]);
+  for(const v of [0,50,100]){ raya(x,X0-3,Y(v),X0,Y(v),EJE); txt(x,v+'%',X0-5,Y(v)+3,TXT,8.5,'right','500'); }
+  txt(x,'patina',X1-3,Y(100)-3,COL.pelLin,8.5,'right','600'); txt(x,'margen',X1-3,Y(U_MAX*100)+10,COL.margen,8.5,'right','600');
+  el('t_sp').textContent=e.pat?'patina':fN(e.u*100,0)+' % de la capacidad';
+}
+/* ---- el esquema de las dos poleas, a escala: lo mismo que se ve en 3D ---- */
+function pintaEsquema(){
+  const x=abre(LESQ), Wd=LESQ.w, Hd=LESQ.h, e=SIM.e; if(!e) return; const g=e.g;
+  const cx1=Wd*0.28, cx2=Wd*0.74, cy=Hd/2-3, ks=Math.min(Wd*0.26/CVT.Rmax,(Hd/2-8)/CVT.Rmax), r1=g.Rp*ks, r2=g.Rs*ks, d=cx2-cx1;
+  x.strokeStyle='rgba(180,205,220,0.30)'; x.lineWidth=1; x.setLineDash([2,3]); x.beginPath(); x.arc(cx1,cy,CVT.Rmax*ks,0,DOSPI); x.stroke(); x.beginPath(); x.arc(cx2,cy,CVT.Rmax*ks,0,DOSPI); x.stroke(); x.setLineDash([]);
+  x.fillStyle='rgba(88,214,255,0.22)'; x.strokeStyle='#58d6ff'; x.lineWidth=1.6; x.beginPath(); x.arc(cx1,cy,r1,0,DOSPI); x.fill(); x.stroke();
+  x.fillStyle='rgba(255,193,90,0.20)'; x.strokeStyle='#ffc15a'; x.beginPath(); x.arc(cx2,cy,r2,0,DOSPI); x.fill(); x.stroke();
+  const sa=(r2-r1)/d, ca=Math.sqrt(1-sa*sa); x.strokeStyle='rgba(200,215,225,0.75)'; x.lineWidth=1.3;
+  for(const s of [-1,1]){ x.beginPath(); x.moveTo(cx1-r1*sa,cy+s*r1*ca); x.lineTo(cx2-r2*sa,cy+s*r2*ca); x.stroke(); }
+  txt(x,'motor',cx1,Hd-2,'#58d6ff',8.5,'center','700'); txt(x,'ruedas',cx2,Hd-2,'#ffc15a',8.5,'center','700');
+}
+function pintaDockFijo(){
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?'Probando':(enCalcula()?'Un solo instante':(enDiagnostico()?'Averigua la falla':(GUIA.r2?GUIA.r2.esc.nombre:'Reto'))));
+  pintaLeyMapa();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  lab(1,'Relación'); lab(2,'Motor'); lab(3,'Consumo'); lab(4,'Uso apriete'); lab(5,'Patinaje'); lab(6,'Rendimiento');
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const e=SIM.e; if(!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d===undefined?1:d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t='';
+  el('p_sub').textContent=fN(e.v*3.6,0)+' km/h · '+(e.pend>0?'cuesta '+fN(e.pend,0)+' %':'llano');
+  set('f_1',fN(e.i,2)); _cl('f_1','');
+  if(enCalcula()){ set('f_2','<small>lo calculas tú</small>'); _cl('f_2','oculto'); } else { set('f_2',sm(e.ne,'rpm',0)); _cl('f_2',e.finMotor||e.ahoga?'bad':''); }
+  set('f_3',sm(e.lper100,'L/100',1)); _cl('f_3','');
+  set('f_4',sm(e.u*100,'%',0)); _cl('f_4',e.pat?'bad':(e.u>U_MAX?'warn':''));
+  set('f_5',sm(e.s*100,'%',1)); _cl('f_5',e.pat?'bad':(e.s>0.012?'warn':''));
+  set('f_6',sm(e.etaTrans*100,'%',0)); _cl('f_6','');
+  if(enDiagnostico()||enCalcula()){ cl=''; t=''; }
+  else if(e.pat){ cl='mal'; t='La banda patina: el aceite no aprieta lo bastante para este esfuerzo.'; }
+  else if(e.ahoga){ cl='mal'; t='El motor se ahoga: a tan pocas vueltas no da el par que pide el camino.'; }
+  else if(e.alto){ cl='mal'; t='El motor está pasado de vueltas.'; }
+  else if(e.bajo){ cl='mal'; t='El motor bajó de su ralentí: se calaría.'; }
+  else if(e.u>U_MAX){ cl='ojo'; t='Casi patina: queda muy poco margen de seguridad.'; }
+  else if(e.u<0.45&&e.Fap>1.5e4){ cl='ojo'; t='Aprietas de más: la bomba gasta potencia que podría mover el coche.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaMapa(); pintaRPM(); pintaConsumo(); pintaUso(); pintaEsquema(); }
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×0,25'],[0.5,'×0,5'],[1,'×1']];
+const VISTAS_BARRA=[['todo','Todo'],['frente','De frente'],['costado','De costado'],['motor','El motor']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const e=SIM.e, est=el('tEst'); if(!e) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,0)+' s';
+  el('tLento').textContent='giros a cámara lenta ×1/'+fN(K_LENTO/EST.vel,0);
+  let t,c;
+  if(e.pat){ t='la banda patina'; c='#ff6a55'; }
+  else if(e.ahoga||e.finMotor){ t='motor fuera de rango'; c='#ff6a55'; }
+  else if(e.u>U_MAX){ t='casi patina'; c='#ffd88a'; }
+  else { t='banda firme'; c='#3DDC97'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const _w=new THREE.Vector3();
+const posPolea=P=>()=>P.grupo.getWorldPosition(new THREE.Vector3());
+const posMotor=()=>MOT.localToWorld(V3(0,0.6,-2.95));
+const posSalida=()=>SAL.localToWorld(V3(0,0,1.5));
+const ANCLAS=[
+  ['Polea de entrada (la mueve el motor)',posPolea(PUL.p)],
+  ['Polea de salida (va a las ruedas)',posPolea(PUL.s)],
+  ['Banda de acero de empuje',()=>{ const g=SIM.e?SIM.e.g:geom(1); return CVT_G.localToWorld(V3(C10*0.5,-(g.Rp+g.Rs)/2*Math.cos(g.alfa)*U,0.0)); }],
+  ['Aceite a presión que aprieta',()=>PUL.s.grupo.localToWorld(V3(0,0,PUL.s.cerca.position.z+0.55+0.5))],
+  ['Motor de gasolina',posMotor],
+  ['Salida hacia las ruedas',posSalida],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(168,226,255,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  'polea-p':'Polea de entrada: la mueve el motor. Son dos mitades cónicas que se acercan o se separan; la banda rueda más cerca o más lejos del centro, y por eso «cambia de tamaño»',
+  'polea-s':'Polea de salida: lleva el giro a las ruedas. Cuando la de entrada encoge, esta crece (la banda mide siempre lo mismo)',
+  banda:'Banda de empuje: cientos de placas de acero apiladas que se empujan unas a otras. No tiene dientes: se agarra a las poleas por fricción. Se pone roja si patina',
+  motor:'El motor de gasolina, al fondo. Su escape se pone al rojo cuando trabaja a plena carga',
+  salida:'Eje de salida: sigue hacia la reductora final y las ruedas',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis) continue; if(h.object.material===M.vidrio) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+/* ===================== 18. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: las dos poleas y la banda,
+   cómo cambiar el tamaño cambia la «marcha», el punto donde el motor gasta menos, la banda que patina si falta apriete, la bomba
+   que gasta si sobra y tu turno. Cada paso lleva la cámara a su pieza y la señala con un aro. Las cifras de la prosa salen del motor. */
+const TOUR={paso:0,auto:false,timer:null};
+const focoBanda=()=>ANCLAS[2][1](), focoPolP=()=>ANCLAS[0][1](), focoPolS=()=>ANCLAS[1][1](), focoAceite=()=>ANCLAS[3][1](), focoMotor=()=>ANCLAS[4][1]();
+const PAR_BIEN={kmh:80,pend:0,i:0.75,p:3.0e6,rauto:true,pauto:true};
+const pnt=(k,g,i,p)=>punto(k/3.6,g,i,p);
+const TOUR_PASOS=[
+  {t:'Una caja de cambios sin escalones',vista:'todo',foco:focoBanda,par:PAR_BIEN,
+   x:()=>'Esta transmisión no tiene marchas: tiene <b>dos poleas</b> unidas por una <b>banda de acero</b>. El motor (al fondo) mueve la polea de abajo y la de arriba lleva el giro a las ruedas. Ya está funcionando: la banda gira y el aceite la aprieta.'},
+  {t:'Cambiar el tamaño es cambiar de marcha',vista:'frente',foco:focoPolP,par:{kmh:40,pend:0,i:2.2,p:3.0e6,rauto:false,pauto:true},
+   x:()=>{ const e=pnt(40,0,2.2,presionPara(40/3.6,0,2.2,U_OBJ)); return 'Cada polea son <b>dos mitades en forma de cono</b>. Al acercarlas, la banda se sube y la polea «crece»; al separarlas, «encoge». Con la de entrada chica y la de salida grande, el motor da <b>'+fN(2.2,1)+' vueltas</b> por cada vuelta de las ruedas (aquí '+fN(e.ne,0)+' rpm): la marcha corta de una bici, para arrancar y subir.'; }},
+  {t:'Al revés: marcha larga',vista:'frente',foco:focoPolS,par:{kmh:90,pend:0,i:0.55,p:3.0e6,rauto:false,pauto:true},
+   x:()=>{ const e=pnt(90,0,0.55,presionPara(90/3.6,0,0.55,U_OBJ)); return 'Ahora la polea de entrada es grande y la de salida chica: el motor da sólo <b>'+fN(0.55,2)+' vueltas</b> por cada vuelta de las ruedas ('+fN(e.ne,0)+' rpm a 90 km/h). Se va rápido sin forzar el motor. Y entre una y otra hay <b>infinitas</b> posiciones, sin tirones.'; }},
+  {t:'El motor tiene un punto dulce',vista:'motor',foco:focoMotor,par:PAR_BIEN,
+   x:()=>{ const o=optimoCache(80/3.6,0); return 'Un motor no gasta igual a todas las vueltas: hay un punto donde da la fuerza que se le pide con la menor gasolina. En el <b>mapa del panel</b> es la zona verde. El sistema escoge la relación para llevar el motor justo ahí: <b>'+fN(o.ne,0)+' rpm</b> y <b>'+fN(o.lper100,1)+' L/100 km</b> a 80 km/h.'; }},
+  {t:'Sin apretar, la banda patina',vista:'frente',foco:focoBanda,par:{kmh:60,pend:6,rauto:true,pauto:false,p:1.5e6},
+   x:()=>{ const o=optimoCache(60/3.6,6), e=punto(60/3.6,6,o.i,1.5e6); return 'La banda no tiene dientes: se sujeta como un lápiz entre dos dedos. El <b>aceite a presión</b> aprieta las poleas. En esta subida hacen falta <b>'+fN(e.Fax/1000,1)+' kN</b> y con ese aceite sólo hay <b>'+fN(e.Fap/1000,1)+' kN</b>: la banda <b>patina</b> y se pone roja.'; }},
+  {t:'Apretar de más también cuesta',vista:'todo',foco:focoAceite,par:{kmh:80,pend:0,rauto:true,pauto:false,p:7.0e6},
+   x:()=>{ const o=optimoCache(80/3.6,0), e=punto(80/3.6,0,o.i,7.0e6), j=punto(80/3.6,0,o.i,presionPara(80/3.6,0,o.i,U_OBJ)); return '¿Entonces siempre al máximo? No: la <b>bomba</b> que da la presión también la mueve el motor. Con '+fN(7.0,1)+' MPa gasta <b>'+fN(e.bomba.P,0)+' W</b> (con el apriete justo, '+fN(j.bomba.P,0)+' W) y el consumo sube de '+fN(j.lper100,2)+' a <b>'+fN(e.lper100,2)+' L/100 km</b>.'; }},
+  {t:'Tu turno',vista:'todo',foco:null,par:PAR_BIEN,
+   x:()=>'Tú decides la <b>relación</b> y el <b>apriete</b>. Pulsa «Probar yo» para jugar libremente, o ve al «Reto»: llevar una carga a cierta velocidad sin que patine y con el menor consumo.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x()}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms,snap){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); if(snap){ SIM.salto=true; } ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 19. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (¿a cuántas vueltas gira el motor con esta relación y esta velocidad?), 2 · Ajusta (relación y apriete para una
+   ruta: sin patinar con margen, motor dentro de sus límites y a menos de 5 % del consumo mínimo posible; la ventana es INTERIOR en la
+   relación y en el apriete, y las cifras del veredicto y la mejor relación sólo aparecen al validar) y 3 · Diagnostica (¿qué le pasa a
+   esta transmisión?, sólo con lo que se ve en el dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Calcula: las vueltas del motor ---------- */
+const CASOS_1=[{kmh:72,i:1.0},{kmh:90,i:0.6},{kmh:54,i:1.5},{kmh:108,i:0.5},{kmh:36,i:2.0},{kmh:80,i:0.8},{kmh:63,i:1.2}];
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.kmh+'|'+GUIA.r1.i; let c; do{ c=pickOne(CASOS_1); }while(c.kmh+'|'+c.i===p); GUIA.r1=Object.assign({},c,{res:nMotorPara(c.kmh/3.6,c.i)}); }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.res;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe las vueltas por minuto del motor (rpm).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-ok)<=0.02*ok){
+    RETOS.fallos1=0; sonido.bien();
+    const ms=r.kmh/3.6, wr=ms/VEH.rw;
+    feedback('good','¡Correcto! ✓',`${fN(r.kmh,0)} km/h ÷ 3,6 = ${fN(ms,1)} m/s. Las ruedas giran ${fN(ms,1)} ÷ ${fN(VEH.rw,2)} = ${fN(wr,1)} rad/s; la reductora final (×${fN(VEH.FD,1)}) deja el eje de salida a ${fN(wr*VEH.FD,1)} rad/s = ${fN(wr*VEH.FD/RPM,0)} rpm; y el motor gira ${fN(r.i,2)} veces eso: <b>${fN(ok,0)} rpm</b>.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal();
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: vueltas de la rueda = velocidad ÷ radio; × reductora = salida; × relación = motor; y rad/s a rpm se multiplica por 30/π.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',(v>ok*2?'Te quedó un número muy grande: ¿pasaste los km/h a m/s (÷ 3,6) y de rad/s a rpm (× 30/π)? ':'')+`Empieza por las vueltas de la rueda. (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta la relación y el apriete ---------- */
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id);
+  GUIA.r2={esc:e,i:1.8,p:1.0e6,validado:false,res:null,intentos:0};
+  reiniciaCalculo(); pintaHUD();
+}
+const evCache=new Map();
+function evaluaC(esc,i,p){ const k=esc.id; let op=evCache.get(k); if(!op){ op=optimo(esc.kmh/3.6,esc.pend); evCache.set(k,op); } return evalua(esc,i,p,op); }
+/** Rangos que cumplen todo con el otro mando como está (se muestran sólo tras acertar). */
+function rangoMando(r,cual){
+  let a=null,b=null;
+  for(let k=0;k<=130;k++){ const i=cual==='i'?iDeU(k*100/130):r.i, p=cual==='p'?(0.5+6.5*k/130)*1e6:r.p; if(evaluaC(r.esc,i,p).ok){ const x=cual==='i'?i:p; if(a===null) a=x; b=x; } }
+  return a===null?null:[a,b];
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, V=evaluaC(E,r.i,r.p), m=V.r, op=V.op; r.res=V; r.validado=true; r.intentos++; RETOS.intentos++;
+  const cifras=`Motor a <b>${fN(m.ne,0)} rpm</b> y <b>${fN(m.Te,0)} N·m</b>; uso del apriete <b>${fN(m.u*100,0)} %</b> (tope ${fN(U_MAX*100,0)} %); gasta <b>${fN(m.lper100,2)} L/100 km</b> y lo mínimo posible aquí es <b>${fN(op.lper100,2)}</b> (margen ${fN(TOL*100,0)} %).`;
+  if(V.ok){
+    RETOS.fallos2=0; sonido.bien(); const ri=rangoMando(r,'i'), rp=rangoMando(r,'p');
+    feedback('good','¡Lo conseguiste! ✓',`${cifras} Con tu apriete, cualquier relación entre <b>${ri?fN(ri[0],2)+' y '+fN(ri[1],2):'—'}</b> habría servido; con tu relación, cualquier apriete entre <b>${rp?fN(rp[0]/1e6,1)+' y '+fN(rp[1]/1e6,1)+' MPa':'—'}</b>. Más suelto patina; más fuerte gasta en la bomba; y a pocas vueltas el motor se ahoga, a muchas gasta de más: la ventana está en el interior.`,true);
+    reiniciaCalculo(); pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(!V.c.patina) msg+=(m.pat?'La banda <b>patina</b>: ':'La banda queda <b>sin margen</b>: ')+'el aceite no aprieta lo bastante para este esfuerzo. ';
+    if(!V.c.motor) msg+=m.ahoga?'El motor <b>se ahoga</b>: a esas vueltas no da el par que pide el camino. ':(m.alto?'El motor está <b>pasado de vueltas</b>. ':'El motor bajó de su <b>ralentí</b>. ');
+    if(V.c.patina&&V.c.motor&&!V.c.consumo) msg+=(m.ne>op.ne*1.1?'Gasta de más porque el motor va <b>muy revolucionado</b>. ':(m.ne<op.ne*0.9?'Gasta de más porque el motor va <b>forzado a pocas vueltas</b>. ':'Gasta de más porque la <b>bomba</b> trabaja con una presión mayor que la necesaria. '));
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia la ruta.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); reiniciaCalculo(); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'patina',esc:'subida',i:1.15,p:2.0e6},
+  {k:'ahoga',esc:'llano',i:0.42,p:4.5e6},
+  {k:'revoluciona',esc:'llano',i:1.20,p:2.5e6},
+  {k:'aprieta',esc:'llano',i:0.60,p:6.8e6},
+];
+const NOMBRE_DX={patina:'La banda patina',ahoga:'El motor va ahogado',revoluciona:'El motor va muy revolucionado',aprieta:'El aceite aprieta de más'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira el uso del apriete (¿pasa de 100 %?), las vueltas del motor y su par frente a la línea blanca del mapa, y el gasto.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='patina') return 'El uso del apriete pasa de 100 %: el esfuerzo de la subida pide más fuerza de la que el aceite da, y la banda patina. Las vueltas del motor suben sin que el coche gane velocidad.';
+  if(k==='ahoga') return 'La relación es tan larga que el motor gira a pocas vueltas y la subida le pide más par del que puede dar (la línea blanca del mapa): se ahoga.';
+  if(k==='revoluciona') return 'La banda aprieta bien y el motor da lo que se le pide, pero a muchas vueltas: más fricción interna y más gasolina. Una relación más larga lo llevaría a la zona verde del mapa.';
+  return 'El motor está en buenas vueltas, pero el uso del apriete es muy bajo: el aceite sujeta mucho más de lo necesario, y la bomba que lo presuriza gasta potencia que sale de la gasolina.';
+}
+function noEs(k){
+  if(k==='patina') return 'Mira el uso del apriete: aquí no llega al 100 %.';
+  if(k==='ahoga') return 'Mira el mapa: el punto del motor no está en el límite de par.';
+  if(k==='revoluciona') return 'Mira las vueltas del motor: aquí no están por las nubes.';
+  return 'Mira el uso del apriete: aquí no es tan bajo.';
+}
+const QUIZ=[
+  {q:'Para que el motor gire más despacio a la misma velocidad del coche, ¿cómo deben quedar las poleas?',ok:'La de entrada (la del motor) grande y la de salida chica',mal:['La de entrada chica y la de salida grande','Las dos del mismo tamaño','Da igual: el motor siempre gira lo mismo']},
+  {q:'Si el aceite aprieta poco la banda, ¿qué pasa?',ok:'La banda patina: se pierde potencia y se desgasta',mal:['Nada, sólo se ahorra aceite','El motor gira más despacio','El coche frena solo']},
+  {q:'¿Por qué no conviene apretar la banda siempre al máximo?',ok:'La bomba de aceite gasta potencia del motor y sube el consumo',mal:['Porque las poleas se hacen más pequeñas','Porque la banda se estira y cambia la relación sola','No hay razón: apretar más siempre es mejor']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  if(act&&act.indexOf('dx-')===0){ diagnostica(act.slice(3)); return; }
+  if(act&&act.indexOf('quiz-')===0&&act!=='quiz-sig'){ respondeQuiz(+act.slice(5)); return; }
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v':
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2','Las ruedas giran a <b>velocidad ÷ radio</b> (en rad/s, con la velocidad en m/s = km/h ÷ 3,6). La reductora final multiplica por '+fN(VEH.FD,1)+'.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2','El motor gira la relación <b>i</b> veces lo que gira el eje de salida; para pasar de rad/s a rpm multiplica por 30/π.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarAjusta(); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿A cuántas vueltas gira el motor?',
+      teach:`El coche va a <b>${fN(r.kmh,0)} km/h</b> con las ruedas de radio ${fN(VEH.rw,2)} m, la reductora final de ×${fN(VEH.FD,1)} y la transmisión en relación <b>${fN(r.i,2)}</b>.<div class="task">¿A cuántas rpm gira el motor? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? rpm" aria-label="Vueltas por minuto del motor"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando la ruta…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Que no patine y gaste lo mínimo',
+      teach:`Ruta: <b>${r.esc.desc}</b>. Meta: que la banda no patine (con margen), que el motor no se ahogue ni se pase de vueltas y que gaste a menos de ${fN(TOL*100,0)} % del mínimo posible.<div class="why"><b>Ojo:</b> a pocas vueltas el motor se ahoga, a muchas gasta de más; con poco apriete patina y con mucho la bomba gasta. ${tri('d_try2',RETOS.fallos2,4)}</div>`,
+      acts:`${slI('r2I',r.i,false)}${slP('r2P',r.p,false)}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua qué falla en esta transmisión',
+      teach:`Esta transmisión no trabaja bien. Mira el uso del apriete, las vueltas del motor frente al mapa y el gasto del panel.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Subida» y deja que el sistema escoja la relación mientras tú bajas el apriete.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula'&&GUIA.r1) return {kmh:GUIA.r1.kmh,pend:0,i:GUIA.r1.i,p:3.0e6,rauto:false,pauto:true};
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {kmh:r.esc.kmh,pend:r.esc.pend,i:r.i,p:r.p,rauto:false,pauto:false}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx, E=escPorId(c.esc); return {kmh:E.kmh,pend:E.pend,i:c.i,p:c.p,rauto:false,pauto:false}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6,true); pintaBarras(); return; }
+  reiniciaCalculo(); SIM.salto=true; ponVista('todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2I:['i',iDeU,txtI,'vr2I'],r2P:['p',x=>x*1e5,txtP,'vr2P']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=m[1](+t.value); GUIA.r2.validado=false; el(m[3]).textContent=m[2](GUIA.r2[m[0]]); reiniciaCalculo(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6,true); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 20. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del «objeto» (ancho × alto en
+   unidades) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él. Además el objeto nunca pasa del `tope` del alto
+   del lienzo. Cada vista es una dirección (azimut desde el frente, elevación) hacia un punto fijo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const CENTRO=V3((POS_P.x+POS_S.x)/2,(POS_P.y+POS_S.y)/2,0);
+const VISTAS={
+  todo:{az:-28,el:14,tgt:()=>CENTRO.clone().add(V3(0,0,-0.2)),obj:{w:3.1,h:3.0},fov:36,tope:0.74},
+  frente:{az:0,el:4,tgt:()=>CENTRO.clone(),obj:{w:2.9,h:3.0},fov:36,tope:0.74},
+  costado:{az:-86,el:8,tgt:()=>V3(0,1.55,-1.5),obj:{w:6.9,h:3.2},fov:36,tope:0.74},
+  motor:{az:-38,el:14,tgt:()=>V3(POS_P.x,1.0,-2.7),obj:{w:4.4,h:3.6},fov:36,tope:0.74},
+};
+const CAM={off:V3(5,3,8),auto:true,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?(VISTAS[v].fov+8):VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], fov=fovVista(v), D=distanciaFit(V.obj.w,V.obj.h,fov,V.tope), az=V.az*RAD, ev=V.el*RAD;
+  return {off:V3(Math.sin(az)*Math.cos(ev),Math.sin(ev),Math.cos(az)*Math.cos(ev)).multiplyScalar(D),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur; controls.enabled=true;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ SIM.salto=true; pasaCam(1); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.tgt(), snap=SIM.salto;
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=snap?1:1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*(snap?1:k); camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P);
+  }
+  SIM.salto=false;
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un zumbido grave cuyo tono sigue a las vueltas del motor (muy atenuado), el aviso de patinaje (dos pitidos) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=60; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(30+q*90,t,0.15); zg.gain.setTargetAtTime(on&&q>0?0.010:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    aviso:()=>{ tono(1500,0.09,0.05,'square'); setTimeout(()=>tono(1500,0.09,0.05,'square'),130); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo de la escena avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven las poleas, la banda, el volante, las lecturas
+   y la ventana de las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  aplicaEscena(dtS,dtSim,dt);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(SIM.e&&!EST.pausa?clamp(SIM.e.ne/6200,0,1):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: las poleas giran, la banda corre y el aceite ya aprieta, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.salto=true;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta.
+ *  solo: 'cvt' pinta únicamente las poleas con su banda; por defecto, también el motor y la salida. */
+function mideObjeto(solo){
+  const ocultos=[]; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  if(solo==='cvt'){ for(const o of MUNDO.children) if(o!==CVT_G&&o.visible){ o.visible=false; ocultos.push(o); } }
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{c:RETOS.fallos1,a:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{kmh:GUIA.r1.kmh,i:GUIA.r1.i,ans:GUIA.r1.res}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,i:GUIA.r2.i,p:GUIA.r2.p,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const e=SIM.e; if(!e) return {activo:false};
+    return {kmh:e.v*3.6,pend:e.pend,i:e.i,p:ACT.p,Rp:e.g.Rp,Rs:e.g.Rs,ne:e.ne,Te:e.Te,u:e.u,s:e.s,lper100:e.lper100,etaTrans:e.etaTrans,pat:e.pat,ahoga:e.ahoga,bsfc:e.m.bsfc,Pbomba:e.bomba.P}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  /** Sólo para pruebas: ¿cumple (i, p) el reto de la ruta sorteada? No cambia el estado. */
+  veredicto(i,p){ const r=GUIA.r2; if(!r) return null; const V=evaluaC(r.esc,i,p); return {ok:V.ok,c:V.c}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,i:GUIA.r2.i,p:GUIA.r2.p,res:GUIA.r2.res&&{ok:GUIA.r2.res.ok,c:GUIA.r2.res.c}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s,Math.max(s,0.5)); },
+  salta:(t)=>{ SIM.t=Math.max(0,t); SIM.salto=true; aplicaEscena(0.001,0.001,1.0); pasaCam(1); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001,true); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(ii,pp)=>{ const r=GUIA.r2; if(r){ r.i=ii; r.p=pp; r.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(id)=>{ const r=GUIA.r2; if(r){ r.esc=escPorId(id); reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('transmision-cvt-banda',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{cvt:CVT_G,motor:MOT,salida:SAL,banda:BANDA.mesh}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-transmision-cvt-banda.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
