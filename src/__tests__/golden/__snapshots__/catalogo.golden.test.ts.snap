@@ -1726,6 +1726,28 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un convertidor de par multiplica el par mientras la turbina va más lenta que el impulsor: con SR = ωt/ωi = 0 la relación de par vale 2,2 y cae a 1 en el punto de acoplamiento (SR = 0,85), con η = SR·TR. El motor se asienta donde su curva corta a la parábola k·ω²: con el calado diseñado a 2 400 rpm el coche de 1 500 kg hace 0 a 50 km/h en 3,80 s y el aceite recibe 64,8 kJ; con el calado en 1 600 rpm tarda 4,63 s y recibe 36,1 kJ, y con 3 200 rpm tarda 3,29 s pero recibe 92,9 kJ. El embrague de puenteo corta el deslizamiento a costa de la multiplicación, y el planetario (solar 20, satélite 10, corona 40) da 3 : 1 con la corona fija y 1 : 1 al unir solar y portasatélites. Las curvas del convertidor son correlaciones didácticas, no CFD.",
     "titulo": "Convertidor de Par y Transmisión Automática",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-141",
+    "modulo": "Dinámica del Vehículo",
+    "orden": 141,
+    "simuladorHtml": "/labs/frenos-disco-fade-termico.html",
+    "teoria": "Al frenar, la carga pasa al eje delantero: F_f/F = (b + z·h)/L. Con μ = 0,90 el reparto que bloquea los dos ejes a la vez es β* = 0,739 (74 : 26); con 60 : 40 el trasero se bloquea primero a 0,69 g. Cada frenada convierte ½·m·v² en calor: desde 160 km/h son unos 1 480 kJ por frenada (unos 1 055 kJ al disco delantero), y con un disco delantero de 300 mm la quinta frenada seguida lo lleva a 580 °C, donde la pastilla pierde un 31 % de fricción y la distancia sube de 109 m a 119 m. Un disco de 260 mm llega a 704 °C y pierde 37 %; uno de 340 mm se queda en 480 °C y pierde 18 %. El disco se trata como masa concentrada con convección y radiación, comprobada contra la solución exacta con h constante. Es un modelo didáctico sin ABS, no un ensayo de homologación.",
+    "titulo": "Frenos de Disco: Reparto de Frenado y Fade Térmico",
+  },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-142",
+    "modulo": "Autotrónica",
+    "orden": 142,
+    "simuladorHtml": "/labs/mild-hybrid-48v-start-stop.html",
+    "teoria": "Un motor de gasolina al ralentí quema combustible sin mover el coche. En el ciclo urbano de este laboratorio (1,33 km, 75 s con el motor apagado) un coche convencional gasta 9,08 L/100 km; con start-stop gasta 7,88 (13 %), y con un alternador-arrancador de 48 V que recupera al frenar hasta 12 kW y asiste 1,2 kW baja a 7,07 L/100 km (22 %). El BSG arranca el motor caliente en 0,48 s con 1,3 kJ eléctricos; el motor se modela con la línea de Willans (combustible = (P + P_fricción)/η_i), el paquete de 10 A·h como V_oc(SOC) con R = 40 mΩ y todo el ciclo cierra su balance de energía. El óptimo está en el interior: un umbral de parada de unos 6 km/h (donde el embrague se abre) y una asistencia que deja el SOC final en 60 %. Es un modelo didáctico casi estático, no un ensayo de homologación.",
+    "titulo": "Mild Hybrid de 48 V y Start-Stop: el Alternador-Arrancador",
+  },
 ]
 `;
 
@@ -1908,6 +1930,8 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-139",
   "mecanica-14",
   "mecanica-140",
+  "mecanica-141",
+  "mecanica-142",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

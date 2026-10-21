@@ -5160,6 +5160,100 @@ Primero calculas la relación de una marcha con la ecuación de Willis; luego el
     "titulo": "Convertidor de Par y Transmisión Automática",
     "videoUrl": "",
   },
+  "mecanica-141": {
+    "acento": "#FF8A4C",
+    "aplicaciones": [
+      {
+        "area": "Descensos de montaña y remolques",
+        "ejemplo": "Frenar sin pausa calienta los discos hasta que la pastilla pierde fricción; por eso se usa el freno motor.",
+      },
+      {
+        "area": "Competición y vehículos de emergencia",
+        "ejemplo": "Se ajusta el reparto y se dimensionan discos ventilados para repetir frenadas fuertes sin perder eficacia.",
+      },
+    ],
+    "bienvenida": "Un coche frena a fondo cinco veces seguidas y la rueda delantera está cortada para que veas el disco ventilado, la pinza y las pastillas.
+Verás cómo el peso se va al eje delantero al frenar, y cómo el disco se pone al rojo mientras la pastilla pierde fricción.
+Primero predices qué eje se bloquea; luego eliges el reparto y el tamaño del disco para frenar varias veces sin perder eficacia; y al final diagnosticas un freno por lo que miden sus ruedas.",
+    "codigo": "MEC-141",
+    "conceptos": [
+      {
+        "descripcion": "Al frenar, el eje delantero soporta más peso y el trasero menos: el reparto ideal cambia con la deceleración, F_f/F = (b + z·h)/L.",
+        "icono": "⚖️",
+        "nombre": "Transferencia de carga",
+      },
+      {
+        "descripcion": "Toda la energía ½·m·v² se vuelve calor en discos y pastillas; un disco más grande tiene más masa y sube menos de temperatura.",
+        "icono": "🔥",
+        "nombre": "Del movimiento al calor",
+      },
+      {
+        "descripcion": "La fricción de la pastilla cae cuando el disco se calienta, y las frenadas sucesivas necesitan más distancia.",
+        "icono": "📉",
+        "nombre": "Fade",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Predice qué eje se bloquea primero con un reparto fijo y una adherencia dada.",
+      "Elige el reparto y el diámetro del disco para soportar la serie de frenadas sin fade excesivo y sin bloquear primero el trasero.",
+      "Diagnostica qué falla tiene un freno a partir de lo que miden las ruedas.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Frenos de Disco: Reparto de Frenado y Fade Térmico",
+    "videoUrl": "",
+  },
+  "mecanica-142": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Muchos coches con motor de gasolina de gama media llevan red de 48 V y alternador-arrancador de correa para cumplir las normas de emisiones.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Si el start-stop deja de funcionar, lo más común es una batería de 12 V débil o un nivel de carga bajo en el paquete de 48 V.",
+      },
+    ],
+    "bienvenida": "Abre el banco y mira el motor en corte: un cilindro con su pistón, la correa y, pegado a ella, el alternador-arrancador de 48 V (BSG). Cuando el coche se detiene, el motor se apaga; al soltar el freno, el BSG lo vuelve a arrancar en menos de medio segundo.
+
+Cambia el tráfico y activa o desactiva el start-stop: en el ciclo urbano apagar el motor ahorra un 13 % de combustible, y con la recuperación al frenar y la asistencia al acelerar el ahorro llega al 22 %. Pero la batería es finita: si recuperas poco y asistes mucho, se vacía.
+
+Tu misión es hallar el ajuste que gasta lo mínimo y deja la batería como empezó. La respuesta no está escrita: sale de la física, y el óptimo no está en los extremos.",
+    "codigo": "MEC-142",
+    "conceptos": [
+      {
+        "descripcion": "El motor al ralentí quema combustible sin mover el coche; apagarlo en cada parada lo evita, siempre que haya batería y el motor esté caliente.",
+        "icono": "⏹️",
+        "nombre": "Start-stop",
+      },
+      {
+        "descripcion": "Con 48 V el BSG da hasta 12 kW con corrientes manejables y sin pasar el límite de 60 V de protección.",
+        "icono": "🔋",
+        "nombre": "Red de 48 V",
+      },
+      {
+        "descripcion": "Al frenar, el BSG trabaja de generador y guarda en el paquete energía que antes se perdía como calor en los frenos.",
+        "icono": "♻️",
+        "nombre": "Frenado regenerativo",
+      },
+      {
+        "descripcion": "La energía que falta o sobra en la batería al final del ciclo se valora en combustible para poder comparar ajustes de forma justa.",
+        "icono": "⚖️",
+        "nombre": "Consumo equivalente",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el motor, el BSG y el paquete de 48 V, y mira cómo se apaga y se rearranca en cada parada.",
+      "Compara el ciclo con y sin start-stop en tráfico fluido, urbano y denso.",
+      "En el laboratorio guiado, predice el ahorro, fija el umbral de parada y la asistencia, y deja el SOC final en 60 %.",
+      "Diagnostica una falla por sus síntomas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica · apagar el motor en cada semáforo y recuperar la energía del freno",
+    "titulo": "Mild Hybrid de 48 V y Start-Stop: el Alternador-Arrancador",
+    "videoUrl": "",
+  },
   "mecanica-15": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -20706,6 +20800,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-139": [],
   "mecanica-14": [],
   "mecanica-140": [],
+  "mecanica-141": [],
+  "mecanica-142": [],
   "mecanica-15": [],
   "mecanica-16": [],
   "mecanica-17": [],
@@ -21081,6 +21177,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-139",
   "mecanica-14",
   "mecanica-140",
+  "mecanica-141",
+  "mecanica-142",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

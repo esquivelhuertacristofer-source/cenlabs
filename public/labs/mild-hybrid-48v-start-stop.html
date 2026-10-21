@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Mild Hybrid de 48 V y Start-Stop — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1C18;--panel:rgba(8,22,20,.86);--line:#244A3F;--ink:#ECF6F0;
+    --dim:#9CB8AE;--accent:#8BD94E;--accent2:#C3F08F;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#8BD94E;--cR:#FFB347;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#10252e;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#16323d}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#58d6e3}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7CC4FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#10252e;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · mild hybrid de 48 V · start-stop</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Ciclo urbano</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Motor</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">BSG</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Batería 48 V</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Carga (SOC)</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Combustible</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Ahorro</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Potencias en el ciclo</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Carga (SOC) <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Combustible <span id="t_fr">mL</span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp">Velocidad y motor <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — MILD HYBRID DE 48 V Y SISTEMA START-STOP
+   (Autotrónica · mecanica-142)
+
+   Un motor de gasolina de cuatro cilindros en corte, con su alternador-arrancador por correa (BSG) de 48 V, la batería
+   de ión-litio, el convertidor DC-DC y las cargas de 12 V. Un ciclo urbano sintético con paradas hace que el motor se
+   apague, se rearranque, frene (el BSG recupera) y acelere (el BSG asiste). El ciclo, el motor (línea de Willans), el
+   arranque (J·dω/dt), la batería (V_oc·I − R·I²) y el balance de energía son un único modelo, en un bloque puro que un
+   script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Mild hybrid de 48 V y start-stop: física pura (sin three). Unidades SI salvo donde se diga. ---- */
+const DOSPI=Math.PI*2, G=9.80665, RHO=1.2;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>t*t*(3-2*t);
+const LHV=32.0e6;            // J por litro de gasolina (0,745 kg/L · 43 MJ/kg)
+
+/* Motor de gasolina de 1,5 L: línea de Willans. La potencia al freno es la indicada menos la de fricción y bombeo:
+   P_b = η_i·P_comb − P_fr(n), con P_fr = fmep(n)·V_d·n/120. */
+const MOT={Vd:1.5e-3,etaI:0.38,nRal:850,Jm:0.19};
+const fmep=n=>{const s=n/1000;return (1.00+0.35*s+0.10*s*s)*1e5;};          // Pa
+const pFric=n=>fmep(n)*MOT.Vd*(n/120);                                         // W
+const pCombustible=(Pb,n)=>(Math.max(Pb,0)+pFric(n))/MOT.etaI;                 // W de combustible
+
+/* Alternador-arrancador por correa (BSG), 48 V: par y potencia máximos medidos EN EL CIGÜEÑAL; pérdidas del
+   conjunto máquina+inversor L(P) = L0·tanh(P/60) + L1·P + L2·P². */
+const BSG={Tmax:55,Pmax:12e3,L0:150,L1:0.04,L2:7e-6,Jr:0.0035,i:2.83};
+const perdidaBSG=P=>{P=Math.abs(P);return P<1e-9?0:BSG.L0*Math.tanh(P/60)+BSG.L1*P+BSG.L2*P*P;};
+
+/* Batería de 13 celdas de ión-litio, 10 Ah: Voc lineal en el SOC, resistencia interna fija. */
+const BAT={Q:10,R:0.040,Imax:250,Ichg:200,Smin:0.35,Smax:0.80,S0:0.60};
+const vocDe=s=>39.5+14*s;
+const eChem=s=>BAT.Q*3600*(39.5*s+7*s*s);                                     // J, integral de Voc·dQ
+const corriente=(Pt,s)=>{const V=vocDe(s),d=V*V-4*BAT.R*Pt;return d<0?NaN:(V-Math.sqrt(d))/(2*BAT.R);};
+const pTermDe=(I,s)=>vocDe(s)*I-BAT.R*I*I;
+const pDescMax=s=>pTermDe(BAT.Imax,s);        // W que puede entregar
+const pCargaMax=s=>-pTermDe(-BAT.Ichg,s);     // W que puede aceptar
+
+/* Vehículo (compacto de 1 350 kg) y cargas de 12 V; el convertidor de CC baja de 48 a 12 V. */
+const VEH={m:1350,kRot:0.04,CdA:0.62,Crr:0.011,rw:0.30,etaDL:0.92,P12:450,etaDC:0.94,etaAlt:0.62};
+const MARCHAS=[[12,13.0],[25,7.6],[40,5.2],[60,3.9],[1e9,3.1]];               // [hasta km/h, relación total]
+const V_EMB=6/3.6;                                                              // por debajo: embrague abierto
+const regimen=v=>{let i=3.1;const k=v*3.6;for(const [lim,r] of MARCHAS){if(k<lim){i=r;break;}}return Math.max(MOT.nRal,v/VEH.rw*i*60/DOSPI);};
+/* Condiciones para que el motor se apague (start-stop) */
+const SS={SOCmin:0.35,Tmin:60,P12max:1200};
+
+/* ---- Ciclo urbano SINTÉTICO (no es WLTP ni NEDC): [duración s, velocidad final km/h], con paradas de 3 a 22 s ---- */
+const SEG=[[6,0],[12,45],[10,45],[9,0],[14,0],[8,30],[5,30],[6,0],[3,0],[13,50],[16,50],[6,20],[6,40],[8,0],[22,0],[10,35],[6,35],[7,0],[9,0],[14,55],[12,55],[10,0],[5,0]];
+const PERFILES={fluido:{nombre:'Fluido',kDec:0.8,kAcc:0.8,kStop:0.6},urbano:{nombre:'Urbano',kDec:1,kAcc:1,kStop:1},denso:{nombre:'Denso',kDec:1.5,kAcc:1.3,kStop:1.5}};
+const _cache={};
+function generaCiclo(perfil,dt){
+  dt=dt||0.1; const P=PERFILES[perfil||'urbano'], k=(perfil||'urbano')+'|'+dt; if(_cache[k]) return _cache[k];
+  const segs=[]; let v0=0,t0=0;
+  for(const [d0,v1] of SEG){
+    let d=d0; if(v1<v0) d=d0/P.kDec; else if(v1>v0) d=d0/P.kAcc; else if(v1===0) d=d0*P.kStop;
+    segs.push({t0,t1:t0+d,v0:v0/3.6,v1:v1/3.6}); t0+=d; v0=v1;
+  }
+  const T=t0, N=Math.round(T/dt)+1, v=new Float64Array(N), a=new Float64Array(N), x=new Float64Array(N);
+  let j=0;
+  for(let i=0;i<N;i++){ const t=Math.min(i*dt,T); while(j<segs.length-1&&t>segs[j].t1) j++; const s=segs[j], u=clamp((t-s.t0)/(s.t1-s.t0),0,1); v[i]=s.v0+(s.v1-s.v0)*suave(u); }
+  for(let i=0;i<N;i++){ const im=Math.max(0,i-1), ip=Math.min(N-1,i+1); a[i]=(v[ip]-v[im])/((ip-im)*dt); if(i>0) x[i]=x[i-1]+0.5*(v[i]+v[i-1])*dt; }
+  const paradas=[]; let ini=-1; for(let i=0;i<N;i++){ const q=v[i]<0.05; if(q&&ini<0) ini=i; if((!q||i===N-1)&&ini>=0){ paradas.push({t0:ini*dt,t1:i*dt,d:(i-ini)*dt}); ini=-1; } }
+  return (_cache[k]={dt,N,T,v,a,x,paradas,dist:x[N-1],perfil:perfil||'urbano'});
+}
+
+/* ---- Arranque con el BSG: J·dω/dt = T_bsg − T_res(ω,θ),  T_res = T0(T_motor)·(1 + r·cos 2θ) + c_v·ω ---- */
+const T0frio=Tc=>9+14*Math.exp(-(Tc-20)/45);                                    // N·m, par de arrastre medio del motor
+const CV_ARR=0.045;                                                              // N·m·s/rad, parte viscosa
+function arranque(o){
+  o=o||{}; const Tc=o.Tc!==undefined?o.Tc:90, ripple=o.ripple!==undefined?o.ripple:0.6, nF=o.nF||MOT.nRal, Tm=o.Tmax||BSG.Tmax;
+  const J=o.J||(MOT.Jm+BSG.Jr*BSG.i*BSG.i), wF=nF*DOSPI/60, T0=T0frio(Tc), dt=2e-4, tmax=3;
+  let th=0,w=0,t=0,Emec=0,Eel=0; const tr={t:[0],w:[0],Tb:[Math.min(Tm,BSG.Pmax/1)],Tr:[T0*(1+ripple)]}; let paso=0;
+  const Tb=w_=>Math.min(Tm,BSG.Pmax/Math.max(w_,1));
+  const Tr=(th_,w_)=>T0*(1+ripple*Math.cos(2*th_))+CV_ARR*w_;
+  const f=(th_,w_)=>[w_,(Tb(w_)-Tr(th_,w_))/J];
+  while(w<wF&&t<tmax){
+    const [k1t,k1w]=f(th,w), [k2t,k2w]=f(th+0.5*dt*k1t,w+0.5*dt*k1w), [k3t,k3w]=f(th+0.5*dt*k2t,w+0.5*dt*k2w), [k4t,k4w]=f(th+dt*k3t,w+dt*k3w);
+    const wn=w+dt/6*(k1w+2*k2w+2*k3w+k4w), tn=th+dt/6*(k1t+2*k2t+2*k3t+k4t);
+    const Pm=Tb(w)*w; Emec+=Pm*dt; Eel+=(Pm+perdidaBSG(Pm))*dt;
+    w=wn; th=tn; t+=dt; paso++;
+    if(paso%100===0){ tr.t.push(t); tr.w.push(w); tr.Tb.push(Tb(w)); tr.Tr.push(Tr(th,w)); }
+  }
+  const fallo=w<wF;
+  if(!fallo){ // corrige el último paso: interpola hasta ω = ω_f
+    tr.t.push(t); tr.w.push(w); tr.Tb.push(Tb(w)); tr.Tr.push(Tr(th,w)); }
+  return {t:fallo?Infinity:t,Eel,Emec,fallo,J,wF,T0,tr,Tmax:Tm};
+}
+/* Forma cerrada con ripple = 0 y par constante: ω(t) = (A/c_v)(1 − e^(−c_v t/J)),  A = T − T0 */
+function tArranqueCerrado(Tc,Tm,J,nF){
+  Tm=Tm||BSG.Tmax; J=J||(MOT.Jm+BSG.Jr*BSG.i*BSG.i); const wF=(nF||MOT.nRal)*DOSPI/60, A=Tm-T0frio(Tc);
+  const x=1-CV_ARR*wF/A; return x<=0?Infinity:-(J/CV_ARR)*Math.log(x);
+}
+const T_MIN_ON=2.0, P_REARR=500;   // s, W: tiempo mínimo con el motor encendido y demanda de tracción que lo rearranca
+const E_PEN=20e3;     // J de combustible (≈ 0,6 mL): enriquecimiento de los primeros ciclos y arrastre del aceite tras cada rearranque
+
+/* ---- Un paso de resolución de potencia, y la simulación del ciclo ---- */
+function biseca(fn,hasta,obj){ // mayor x en [0,hasta] con fn(x) <= obj  (fn creciente)
+  if(fn(hasta)<=obj) return hasta; if(obj<=0) return 0; let lo=0,hi=hasta; for(let k=0;k<26;k++){ const m=0.5*(lo+hi); if(fn(m)<=obj) lo=m; else hi=m; } return lo;
+}
+function simula(par,cic,opt){
+  opt=opt||{}; const dt=cic.dt, N=cic.N, mEq=VEH.m*(1+VEH.kRot);
+  const conv=!!par.conv, ss=!!par.ss&&!conv;
+  const pReg=conv?0:Math.max(0,par.pReg||0), pBoost=conv?0:Math.max(0,par.pBoost||0), vOff=Math.max(0,par.vOff||0)/3.6;
+  const P12=par.P12!==undefined?par.P12:VEH.P12, Tc=par.Tc!==undefined?par.Tc:90;
+  let s=par.s0!==undefined?par.s0:BAT.S0; const s0=s;
+  const arr=arranque({Tc}), Est=arr.Eel, tSt=arr.t, nSt=Math.max(1,Math.round(tSt/dt)); let cSt=0;
+  const traza=!!opt.traza; const T={};
+  if(traza){ for(const k of ['n','st','Pb','Pm','Pe','Pbat','Pfb','soc','fuelL','Pf','I']) T[k]=new Float32Array(N); T.ev=[]; }
+  let on=true, tOn=9, ultEv=-1e9, Eres=0, nArr=0, tOff=0, tSatR=0, tSatB=0, smin=s, smax=s, Ereg=0, Eboost=0, Efb=0;
+  let Ef=0,Qeng=0,EpeOut=0,Ew=0,Einer=0,Eaero=0,Erod=0,Edl=0,EbsgL=0,Eaux=0,Estr=0,ERI=0,EvocI=0,Ealt=0,E12=0;
+  const nOkSS=ss&&Tc>=SS.Tmin&&P12<=SS.P12max;
+  for(let i=0;i<N;i++){
+    const v=cic.v[i], a=cic.a[i];
+    const Paero=0.5*RHO*VEH.CdA*v*v*v, Prod=VEH.m*G*VEH.Crr*(v>0.01?1:0)*v, Piner=mEq*a*v, Pw=Piner+Paero+Prod;
+    const Pcr=Pw>=0?Pw/VEH.etaDL:Pw*VEH.etaDL;
+    const parado=v<0.05, decel=a<-0.05;
+    const okSS=nOkSS&&s>=SS.SOCmin;
+    let ev=0;
+    if(ss){
+      /* parada: en el ciclo (v = 0) o al rodar por debajo del umbral con el pedal suelto; tiempo mínimo encendido para no oscilar */
+      if(on){ tOn+=dt; if(okSS&&tOn>=T_MIN_ON&&(parado||(decel&&v<=vOff))){ on=false; ev=-1; } }
+      else if(!okSS||Pw>P_REARR){ on=true; ev=1; tOn=0; }
+    }
+    if(ev===1){ nArr++; cSt=nSt; ultEv=i*dt; if(traza) T.ev.push(i*dt); }
+    let Pstart=0; if(cSt>0){ Pstart=Est/(nSt*dt); cSt--; }
+    const emb=on&&v>=V_EMB, n=on?(emb?regimen(v):MOT.nRal):0;
+    let Pb=0,Pf=0,PeOut=0,Pm_s=0,Pe_bsg=0,Pfb=0,Pq=0,Palt=0,aux48=0,Pres=0;
+    if(!conv) aux48=P12/VEH.etaDC; else Palt=P12/VEH.etaAlt;
+    if(on){
+      const Pveh=emb?Pcr:Math.max(Pcr,0), Pfbf=emb?0:Math.max(-Pcr,0);
+      if(conv){
+        const X=Pveh+Palt;
+        if(X>=0){ Pb=X; Pf=pCombustible(Pb,n); PeOut=Pb; Pfb=Pfbf; Pq=(1-MOT.etaI)*Pf+pFric(n); }
+        else { const D=Math.min(pFric(n),-X); PeOut=-D; Pf=0; Pfb=-X-D+Pfbf; Pq=D; }
+      } else if(Pveh>=0){
+        let Pm=0;
+        if(emb&&pBoost>0&&Pveh>0){
+          if(s>BAT.Smin){
+            Pm=Math.min(pBoost,Pveh,BSG.Pmax);
+            const cap=pDescMax(s)*0.999-aux48-Pstart;
+            Pm=biseca(x=>x+perdidaBSG(x),Pm,Math.max(cap,0));
+          } else tSatB+=dt;
+        }
+        Pb=Pveh-Pm; Pf=pCombustible(Pb,n); PeOut=Pb; Pfb=Pfbf; Pq=(1-MOT.etaI)*Pf+pFric(n);
+        Pm_s=Pm; Pe_bsg=Pm>0?Pm+perdidaBSG(Pm):0; if(Pm>0) Eboost+=Pe_bsg*dt;
+      } else {
+        const D=Math.min(pFric(n),-Pveh), R=-Pveh-D; let Pg=0;
+        if(R>0&&pReg>0){
+          if(s<BAT.Smax){
+            Pg=Math.min(R,pReg,BSG.Pmax);
+            const cap=pCargaMax(s)*0.999+aux48+Pstart;
+            Pg=biseca(x=>x-perdidaBSG(x),Pg,Math.max(cap,0));
+          } else tSatR+=dt;
+        }
+        PeOut=-D; Pf=0; Pq=D; Pfb=R-Pg; Pm_s=-Pg; Pe_bsg=Pg>0?-(Pg-perdidaBSG(Pg)):0; if(Pg>0) Ereg+=-Pe_bsg*dt;
+      }
+    } else { Pfb=Math.max(-Pcr,0); Pres=Math.max(Pcr,0); tOff+=dt; }
+    // pulso de arranque: combustible de enriquecimiento (todo acaba en calor del motor)
+    const pulsoF=ev===1?E_PEN/dt:0;
+    let Pt=conv?0:Pe_bsg+aux48+Pstart, I=0;
+    if(!conv){ I=corriente(Pt,s); if(!isFinite(I)) I=pDescMax(s)>0?BAT.Imax:0; EvocI+=vocDe(s)*I*dt; ERI+=BAT.R*I*I*dt; s-=I*dt/(3600*BAT.Q); }
+    if(s<smin) smin=s; if(s>smax) smax=s;
+    // acumuladores del balance
+    Ef+=(Pf+pulsoF)*dt; Qeng+=(Pq+pulsoF)*dt; EpeOut+=PeOut*dt;
+    Ew+=Pw*dt; Einer+=Piner*dt; Eaero+=Paero*dt; Erod+=Prod*dt; Edl+=(Pcr-Pw)*dt; Efb+=Pfb*dt; Eres+=Pres*dt;
+    EbsgL+=(Pm_s!==0?perdidaBSG(Pm_s):0)*dt; Eaux+=aux48*dt; Estr+=Pstart*dt; Ealt+=Palt*dt; E12+=P12*dt;
+    if(traza){
+      let nn=n; const te=i*dt-ultEv; if(ss&&on&&ultEv>-1&&te>=0&&te<tSt&&arr.tr.t.length>1){ // durante el arranque: el régimen sale de la integración del arranque
+        const q=arr.tr; let k=1; while(k<q.t.length-1&&q.t[k]<te) k++; const f=(te-q.t[k-1])/Math.max(1e-9,q.t[k]-q.t[k-1]); nn=(q.w[k-1]+(q.w[k]-q.w[k-1])*clamp(f,0,1))*60/DOSPI; }
+      T.n[i]=nn; T.st[i]=!on?0:(ss&&te>=0&&te<tSt?2:1); T.Pb[i]=PeOut; T.Pm[i]=Pm_s; T.Pe[i]=Pe_bsg; T.Pbat[i]=Pt; T.Pfb[i]=Pfb; T.soc[i]=s; T.fuelL[i]=Ef/LHV; T.Pf[i]=Pf; T.I[i]=I;
+    }
+  }
+  const km=cic.dist/1000, L=Ef/LHV;
+  const dEchemNum=-EvocI;                                   // variación de energía química (integral explícita)
+  const balance={Ef,Qeng,EpeOut,Ew,Einer,Eaero,Erod,Edl,EbsgL,Eaux,Estr,ERI,EvocI,Ealt,E12,Efb,Eres,
+    // Ef = Qeng + Ew + Edl + Ealt − Σ(Pt) ... se cierra con la forma explícita:
+    resid:Ef-(Qeng+Ew+Edl-EvocI+ERI+Eaux+Estr+EbsgL+Efb+Ealt-Eres)};
+  return {fuelL:L,L100:L/km*100,km,socEnd:s,socMin:smin,socMax:smax,tOff,nArr,tSatR,tSatB,Ereg,Eboost,Efb,balance,traza:traza?T:null,
+    dEchem:eChem(s)-eChem(s0),dEchemNum,arr,dt,N,Ef};
+}
+
+/* ---- Reto: el consumo mínimo que cumple las condiciones, hallado por barrido + refinamiento ---- */
+const RETO_SOC={tol:0.02,satMax:1.0,tolFeq:0.008};
+const C_EQ=2.3;    // J de combustible que ahorra cada J de energía química gastado en asistencia: η_BSG·η_bat/η_i
+/* consumo equivalente: el combustible más el valor de la energía que falta (o sobra) en la batería al final del ciclo */
+const feq=r=>r.L100+(eChem(BAT.S0)-eChem(r.socEnd))*C_EQ/LHV/r.km*100;
+function cumple(r){ return r.tSatR+r.tSatB<=RETO_SOC.satMax && Math.abs(r.socEnd-BAT.S0)<=RETO_SOC.tol; }
+function evaluaReto(par,perfil,P12){
+  const cic=generaCiclo(perfil,0.1), r=simula(Object.assign({ss:true,P12},par),cic);
+  const conv=simula({conv:true,P12},cic);
+  return {L100:r.L100,Feq:feq(r),Lconv:conv.L100,ahorro:1-r.L100/conv.L100,socEnd:r.socEnd,socMin:r.socMin,socMax:r.socMax,tSatR:r.tSatR,tSatB:r.tSatB,ok:cumple(r),nArr:r.nArr,tOff:r.tOff};
+}
+const RANGOS={vOff:[0,25],pReg:[1,12],pBoost:[0,10]};     // km/h, kW, kW
+function optimo(perfil,P12){
+  const cic=generaCiclo(perfil,0.1); let mejor=null;
+  const prueba=(vo,pr,pb)=>{ const r=simula({ss:true,vOff:vo,pReg:pr*1e3,pBoost:pb*1e3,P12},cic); if(cumple(r)&&(!mejor||feq(r)<mejor.Feq)) mejor={vOff:vo,pReg:pr,pBoost:pb,L100:r.L100,Feq:feq(r),socEnd:r.socEnd}; return r; };
+  for(let vo=0;vo<=25;vo+=2.5) for(let pr=4;pr<=12;pr+=4) for(let pb=0;pb<=6;pb+=0.5) prueba(vo,pr,pb);
+  if(!mejor) return null;
+  for(const [h1,h2,h3] of [[1.25,1,0.25],[0.6,0.5,0.12],[0.3,0.25,0.06]]){
+    for(let k=0;k<2;k++){ const b=mejor;
+      for(const d of [-1,1]){ prueba(clamp(b.vOff+d*h1,0,25),b.pReg,b.pBoost); prueba(b.vOff,clamp(b.pReg+d*h2*2,1,12),b.pBoost); prueba(b.vOff,b.pReg,clamp(b.pBoost+d*h3,0,10)); }
+      for(const d1 of [-1,1]) for(const d3 of [-1,1]) prueba(clamp(b.vOff+d1*h1,0,25),b.pReg,clamp(b.pBoost+d3*h3,0,10)); }
+  }
+  return mejor;
+}
+/* Semillas del reto: perfil de conducción y carga eléctrica distintos en cada partida */
+const ESCENARIOS=[{perfil:'urbano',P12:450},{perfil:'fluido',P12:450},{perfil:'denso',P12:450},{perfil:'urbano',P12:800},{perfil:'denso',P12:700}];
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.7;
+scene.fog=new THREE.Fog('#2a5468',16,48);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(-3.2,3.6,7.4);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0.2,1.5,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.6); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-4.5,9,6.5); LUZ.sol.target.position.set(0.2,1.0,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-5,right:5,top:5,bottom:-3,near:1,far:30});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.5); LUZ.rim.position.set(-3,4,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.55); scene.add(LUZ.hemi);
+LUZ.cabina=new THREE.PointLight('#ffb070',0,5,2); LUZ.cabina.position.set(-0.4,2.5,0.3); scene.add(LUZ.cabina);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las partículas de refrigerante, el calentador resistivo y los bordes
+   de la plataforma. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.35,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta, vetas de las celdas) dibujadas como objetos, no como ruido. */
+
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texCeldas(){
+  const W=256,H=128,c=cv(W,H),x=c.getContext('2d'); x.fillStyle='#16303a'; x.fillRect(0,0,W,H);
+  for(let j=0;j<4;j++) for(let i=0;i<8;i++){ const g=x.createLinearGradient(0,j*32,0,j*32+28); g.addColorStop(0,'#2d6c80'); g.addColorStop(1,'#1d4757');
+    x.fillStyle=g; x.fillRect(i*32+3,j*32+3,26,26); x.fillStyle='rgba(255,255,255,0.18)'; x.fillRect(i*32+3,j*32+3,26,2); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_PLAT=texPlataforma(), T_CELDAS=texCeldas();
+T_PLAT.repeat.set(1,1);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  aluminio: pbr({color:'#cfd9df',metalness:0.92,roughness:0.34}),
+  aleta: pbr({color:'#8fa9b4',metalness:0.9,roughness:0.4,transparent:true,opacity:0.30,side:THREE.DoubleSide,depthWrite:false}),
+  aletaCorte: pbr({color:'#7fc9d6',metalness:0.5,roughness:0.3,transparent:true,opacity:0.30,depthWrite:false,emissive:'#1f6f80',emissiveIntensity:0.15,side:THREE.DoubleSide}),
+  acero: pbr({color:'#aeb7bf',metalness:0.9,roughness:0.3}),
+  cobre: pbr({color:'#c9794a',metalness:0.95,roughness:0.28}),
+  laton: pbr({color:'#d2ae58',metalness:0.9,roughness:0.3}),
+  carcasa: fis({color:'#3d6f86',metalness:0.55,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.2,side:THREE.DoubleSide}),
+  carcasaInt: pbr({color:'#1c3541',metalness:0.5,roughness:0.5,side:THREE.DoubleSide}),
+  rotor: pbr({color:'#5d6f7a',metalness:0.85,roughness:0.28}),
+  iman: pbr({color:'#d6dde2',metalness:0.8,roughness:0.25}),
+  espiral: pbr({color:'#d8a65a',metalness:0.88,roughness:0.28}),
+  espiral2: pbr({color:'#8fb0bf',metalness:0.88,roughness:0.28}),
+  goma: pbr({color:'#15191c',metalness:0.1,roughness:0.75}),
+  negro: pbr({color:'#0f1417',metalness:0.5,roughness:0.4}),
+  vidrio: fis({color:'#9fd7e6',metalness:0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.03,transparent:true,opacity:0.10,envMapIntensity:1.6,side:THREE.DoubleSide,depthWrite:false}),
+  conducto: fis({color:'#6d8791',metalness:0.1,roughness:0.15,clearcoat:0.8,transparent:true,opacity:0.20,side:THREE.DoubleSide,depthWrite:false}),
+  tubo: pbr({color:'#ffffff',vertexColors:true,metalness:0.0,roughness:0.45,envMapIntensity:0.25,transparent:true,opacity:0.55,depthWrite:false}),
+  carter: pbr({color:'#223b46',metalness:0.7,roughness:0.4}),
+  asiento: pbr({color:'#2d3f4a',roughness:0.85,metalness:0}),
+  piel: pbr({color:'#e0b89c',roughness:0.6,metalness:0}),
+  ropa: pbr({color:'#e9743a',roughness:0.8,metalness:0}),
+  aire: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  ref: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  celdas: pbr({color:'#ffffff',map:T_CELDAS,metalness:0.4,roughness:0.5}),
+  placaFria: pbr({color:'#52d0e6',emissive:'#1d8fa5',emissiveIntensity:0.7,metalness:0.3,roughness:0.4}),
+  resist: pbr({color:'#5b4742',metalness:0.5,roughness:0.5,emissive:'#ff3b10',emissiveIntensity:0}),
+  glowCab: new THREE.MeshBasicMaterial({color:'#ffb070',transparent:true,opacity:0.09,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una bobina con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+
+/** Funde las mallas ESTÁTICAS de un grupo en una malla por material (y por «clave» de pieza, para que el rótulo y el
+ *  tooltip sigan sabiendo de qué pieza son). Las que se mueven, las instanciadas, las de material múltiple y el fondo se
+ *  quedan como están. */
+function fusionaPartes(grupo,excluir){
+  excluir=excluir||[]; grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map(), viejas=[];
+  const fuera=o=>{ for(let p=o;p&&p!==grupo;p=p.parent) if(excluir.includes(p)||(p.userData&&p.userData.fondo===true)) return true; return false; };
+  grupo.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||fuera(o)||o.userData.noFusion) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    const clave=o.userData.clave||'', ro=o.renderOrder||0;
+    const mete=(mat,geo)=>{ const k=mat.uuid+'|'+clave; if(!por.has(k)) por.set(k,{mat,clave,gs:[],ro}); por.get(k).gs.push(geo); };
+    if(Array.isArray(o.material)){
+      const grupos=g.groups&&g.groups.length?g.groups:[{start:0,count:g.attributes.position.count,materialIndex:0}];
+      for(const gr of grupos){ const mat=o.material[gr.materialIndex]; if(!mat) continue; const sub=new THREE.BufferGeometry();
+        for(const nom of ['position','normal','uv']){ const at=g.attributes[nom]; sub.setAttribute(nom,new THREE.BufferAttribute(at.array.slice(gr.start*at.itemSize,(gr.start+gr.count)*at.itemSize),at.itemSize)); }
+        mete(mat,sub); }
+      g.dispose();
+    } else mete(o.material,g);
+    viejas.push(o); });
+  for(const o of viejas){ o.parent.remove(o); }
+  for(const [,{mat,clave,gs,ro}] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent&&!(mat.blending===THREE.AdditiveBlending); me.receiveShadow=true; me.renderOrder=ro; if(clave) me.userData.clave=clave; grupo.add(me);
+  }
+}
+
+
+/* ===================== 6. EL BANCO: PLATAFORMA, SUELO Y FONDO ===================== */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+{
+  const g=new RoundedBoxGeometry(5.0,0.16,2.9,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0.30,-0.08,-0.28); PLATAFORMA.add(p);
+  const sh=new THREE.Shape(); const w=2.5,h=1.45,r=0.08; sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0.30,0.002,-0.28); PLATAFORMA.add(n);
+}
+{
+  const d=malla(new THREE.CircleGeometry(30,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(70,150,120,0.50)','rgba(20,60,50,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.y=-0.17; d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.y=-0.165; s.userData.fondo=true; MUNDO.add(s);
+}
+scene.background=fondoDegradado('#0a1c1d','#1f4a46','#7fb39c'); scene.fog.color.set('#2d5f55');
+
+/* Materiales propios de este banco */
+const TX_RAY=P3.texturaRayado({fondo:'#aab8bd',linea:'#74858c',lineas:3,grueso:0.10,porUnidad:5,grano:0.03});
+const T_FUND=P3.pielFundicion({px:256,semilla:23,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(2,2);
+const nF=new THREE.Vector2(0.22,0.22);
+const cutM=(c,extra)=>pbr(Object.assign({color:c,map:TX_RAY,metalness:0.35,roughness:0.55,side:THREE.DoubleSide},extra||{}));
+const M2={
+  corteBloque: cutM('#9db0bd'), corteCulata: cutM('#c4d0d8'), corteCarter: cutM('#7f95a3'), cortePiston: cutM('#e3e8ec'), corteEstator: cutM('#8fa3b3'),
+  fundicion: pbr({color:'#6d7e89',map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:nF,metalness:0.55,roughness:0.6}),
+  fundicionClara: pbr({color:'#a4b3bc',map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:nF,metalness:0.7,roughness:0.5}),
+  camisa: pbr({color:'#aab4bb',metalness:0.85,roughness:0.22,side:THREE.BackSide}),
+  interior: pbr({color:'#26343c',metalness:0.5,roughness:0.55,side:THREE.DoubleSide}),
+  pistonAl: pbr({color:'#d7dde1',metalness:0.9,roughness:0.28}),
+  acero2: pbr({color:'#9aa7ad',metalness:0.9,roughness:0.26}),
+  biela: pbr({color:'#7f8c93',metalness:0.88,roughness:0.34}),
+  ciguenal: pbr({color:'#6d7b83',metalness:0.88,roughness:0.32}),
+  aceite: pbr({color:'#d9a43a',transparent:true,opacity:0.5,roughness:0.15,metalness:0,depthWrite:false}),
+  gas: new THREE.MeshBasicMaterial({color:'#6ec6ff',transparent:true,opacity:0.18,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,blending:THREE.AdditiveBlending}),
+  plenum: fis({color:'#8fd0ff',metalness:0,roughness:0.08,clearcoat:1,transparent:true,opacity:0.16,side:THREE.DoubleSide,depthWrite:false}),
+  escape: pbr({color:'#5d666e',metalness:0.85,roughness:0.38,emissive:'#ff4a10',emissiveIntensity:0}),
+  cable48: pbr({color:'#e0a61a',metalness:0.1,roughness:0.5}), cable12: pbr({color:'#2fa8cf',metalness:0.1,roughness:0.5}),
+  cableNeg: pbr({color:'#1c2226',metalness:0.1,roughness:0.6}),
+  correa: pbr({color:'#ffffff',metalness:0.0,roughness:0.85}),
+  lata: fis({color:'#a8c3b8',metalness:0.1,roughness:0.12,clearcoat:1,transparent:true,opacity:0.22,depthWrite:false}),
+  carga: new THREE.MeshBasicMaterial({color:'#8bd94e',transparent:true,opacity:0.85,toneMapped:false}),
+  iman2: pbr({color:'#c9d3da',metalness:0.8,roughness:0.28}), imanN: pbr({color:'#d4524a',metalness:0.6,roughness:0.4}), imanS: pbr({color:'#4d86d6',metalness:0.6,roughness:0.4}),
+  bobina: pbr({color:'#c27a42',metalness:0.85,roughness:0.36,emissive:'#ffb703',emissiveIntensity:0}),
+  led12: new THREE.MeshBasicMaterial({color:'#47d1ff',toneMapped:false}),
+};
+M2.corteBloque.map=TX_RAY;
+
+/* ===================== 7. UTILIDADES DE FORMA ===================== */
+function ex2(pts,depth,z0,huecos){
+  const sh=new THREE.Shape(pts.map(p=>new THREE.Vector2(p[0],p[1])));
+  for(const h of huecos||[]) sh.holes.push(new THREE.Path(h.map(p=>new THREE.Vector2(p[0],p[1]))));
+  const g=new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:8}); g.translate(0,0,z0); return sana(g);
+}
+const arcoP=(cx,cy,r,a0,a1,n)=>{const o=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;o.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return o;};
+const rad=g=>g*Math.PI/180;
+const addTo=(grp,geo,mat,opt)=>{const m=malla(geo,mat,opt); grp.add(m); return m;};
+
+/* ===================== 8. EL MOTOR: UN CILINDRO EN CORTE (z = 0 es el plano de corte) =====================
+   Motor de cuatro cilindros en línea. Se corta por el plano que contiene el eje del cilindro 1 y es perpendicular al
+   cigüeñal: se ve el cilindro, el pistón (cortado por la mitad), la biela, el cigüeñal y la culata con sus válvulas y
+   sus levas. Los otros tres cilindros están detrás, dentro del bloque. */
+const YC=0.98, R_MAN=0.085, L_BIE=0.30, R_BORE=0.12, Y_DECK=1.44, RC=0.215, ZB=-1.3;
+const ENG=new THREE.Group(); ENG.position.set(-0.20,0,0); MUNDO.add(ENG);
+const EV={};   // piezas móviles del motor
+{
+  const dyBore=Math.sqrt(RC*RC-R_BORE*R_BORE), yB=YC+dyBore, aL=Math.atan2(dyBore,-R_BORE);
+  // paredes del bloque a izquierda y derecha del cilindro (cara de corte rayada) y su cuerpo hacia atrás
+  // izquierda y derecha
+  const arcoL=arcoP(0,YC,RC,Math.PI,aL,10), arcoR=arcoP(0,YC,RC,Math.PI-aL,0,10);
+  const L=[[-0.42,0.60],[-RC,0.60],...arcoL,[-R_BORE,Y_DECK],[-0.42,Y_DECK]];
+  const Rr=[[RC,0.60],[0.42,0.60],[0.42,Y_DECK],[R_BORE,Y_DECK],...arcoR];
+  for(const pts of [L,Rr]){
+    const g=ex2(pts,-ZB,ZB,null); const m=malla(g,[M2.corteBloque,M2.fundicion]); ENG.add(m); }
+  // relleno detrás de la media camisa y fondo de la cámara del cigüeñal
+  addTo(ENG,new THREE.BoxGeometry(2*R_BORE+0.002,Y_DECK-yB,-ZB-R_BORE+0.002),M2.fundicion,{sombra:false}).position.set(0,(Y_DECK+yB)/2,(ZB-R_BORE)/2);
+  addTo(ENG,new THREE.BoxGeometry(0.84,0.84,0.02),M2.fundicion,{sombra:false}).position.set(0,1.02,ZB);
+  // media camisa (superficie bruñida del cilindro, vista desde dentro)
+  { const g=new THREE.CylinderGeometry(R_BORE,R_BORE,Y_DECK-yB+0.001,36,1,true,Math.PI/2,Math.PI); const m=malla(g,M2.camisa,{sombra:false}); m.position.set(0,(Y_DECK+yB)/2,0); ENG.add(m); }
+  // sombrerete (tapa) del cojinete de bancada: medio anillo bajo el cigüeñal
+  { const pts=[...arcoP(0,YC,RC+0.075,Math.PI,2*Math.PI,18),...arcoP(0,YC,RC,2*Math.PI,Math.PI,18)];
+    addTo(ENG,ex2(pts,-ZB,ZB,null),[M2.corteBloque,M2.fundicion]); }
+  // cárter (U) con su aceite
+  { const U=[[-0.36,0.62],[-0.30,0.30],[0.30,0.30],[0.36,0.62],[0.33,0.62],[0.27,0.33],[-0.27,0.33],[-0.33,0.62]];
+    addTo(ENG,ex2(U,-ZB,ZB,null),[M2.corteCarter,M2.fundicion]);
+    addTo(ENG,new THREE.BoxGeometry(0.72,0.30,0.02),M2.interior,{sombra:false}).position.set(0,0.46,ZB);
+    const ac=addTo(ENG,new THREE.BoxGeometry(0.50,0.07,-ZB-0.02),M2.aceite,{sombra:false,recibe:false}); ac.position.set(0,0.375,ZB/2); ac.renderOrder=2;
+    for(const sx of [-1,1]) addTo(ENG,new THREE.BoxGeometry(0.06,0.04,-ZB),M2.fundicion).position.set(sx*0.385,0.60,ZB/2); }
+  // culata: cinco piezas con la cara de corte rayada; el hueco entre la pieza baja y la alta es el conducto
+  { const bajoI=[[-0.42,Y_DECK],[-R_BORE,Y_DECK],[-R_BORE,1.465],[-0.088,1.503],[-0.42,1.600]];
+    const bajoD=[[R_BORE,Y_DECK],[0.42,Y_DECK],[0.42,1.600],[0.088,1.503],[R_BORE,1.465]];
+    const alto=[[-0.42,1.670],[-0.078,1.560],[-0.062,1.522],[0.062,1.522],[0.078,1.560],[0.42,1.670],[0.42,1.82],[-0.42,1.82]];
+    for(const p of [bajoI,bajoD,alto]) addTo(ENG,ex2(p,-ZB,ZB,null),[M2.corteCulata,M2.fundicionClara]);
+    // junta de culata
+    addTo(ENG,new THREE.BoxGeometry(0.84,0.012,-ZB),pbr({color:'#252b2f',roughness:0.8}),{sombra:false}).position.set(0,Y_DECK+0.002,ZB/2);
+    // conducto de admisión (izquierda) y de escape (derecha): los fondos
+    addTo(ENG,new THREE.BoxGeometry(0.02,0.07,-ZB),M2.interior,{sombra:false}).position.set(-0.42,1.635,ZB/2);
+    addTo(ENG,new THREE.BoxGeometry(0.02,0.07,-ZB),M2.interior,{sombra:false}).position.set(0.42,1.635,ZB/2);
+    // colector de admisión: cámara de aire detrás del cilindro 1 y tobera de entrada
+    const pl=addTo(ENG,new RoundedBoxGeometry(0.16,0.30,0.95,3,0.03),M2.plenum,{sombra:false,recibe:false}); pl.position.set(-0.52,1.64,-0.70); pl.renderOrder=3;
+    const tob=addTo(ENG,new THREE.CylinderGeometry(0.04,0.04,0.1,16),M2.acero2); tob.position.set(-0.52,1.64,-0.14); tob.rotation.x=Math.PI/2; }
+  // escape: tubo que sale del conducto derecho, baja y se va hacia atrás
+  { const cur=new THREE.CatmullRomCurve3([V3(0.40,1.635,0),V3(0.58,1.635,0),V3(0.70,1.55,0),V3(0.72,1.20,-0.01),V3(0.72,0.78,-0.08),V3(0.72,0.62,-0.50)],false,'centripetal');
+    const t=malla(new THREE.TubeGeometry(cur,60,0.026,12,false),M2.escape,{sombra:false}); ENG.add(t); EV.escape=t; }
+}
+/* ---- el pistón (media pieza cortada), el bulón, la biela y el cigüeñal ---- */
+{
+  const per=[[0,0.07],[0.116,0.07],[0.116,0.052],[0.108,0.048],[0.116,0.040],[0.116,0.030],[0.108,0.026],[0.116,0.018],[0.116,0.008],[0.108,0.004],[0.113,-0.005],[0.113,-0.095],[0.098,-0.095],[0.098,-0.025],[0.07,-0.012],[0,-0.012]];
+  const mr=P3.mediaRevolucion(per,{seg:40});
+  const pis=new THREE.Group();
+  const cu=malla(mr.cuerpo,M2.pistonAl); pis.add(cu);
+  const co=malla(mr.corte,M2.cortePiston,{sombra:false}); pis.add(co);
+  const bul=malla(new THREE.CylinderGeometry(0.024,0.024,0.105,20),M2.acero2); bul.rotation.x=Math.PI/2; bul.position.set(0,-0.045,-0.052); pis.add(bul);
+  ENG.add(pis); EV.pistonG=pis;
+  // biela: contorno plano (I) con ojo de pie y de cabeza
+  const L=L_BIE, ojoP=arcoP(0,L,0.038,0,2*Math.PI,20), ojoPi=arcoP(0,L,0.021,0,2*Math.PI,16).reverse(), ojoC=arcoP(0,0,0.062,0,2*Math.PI,28), ojoCi=arcoP(0,0,0.043,0,2*Math.PI,22).reverse();
+  const g1=ex2(ojoP,0.055,-0.0275,[ojoPi]), g2=ex2(ojoC,0.055,-0.0275,[ojoCi]);
+  const viga=ex2([[-0.042,0.05],[0.042,0.05],[0.024,L-0.03],[-0.024,L-0.03]],0.055,-0.0275,null);
+  const nervio=ex2([[-0.012,0.07],[0.012,0.07],[0.008,L-0.05],[-0.008,L-0.05]],0.075,-0.0375,null);
+  const bie=new THREE.Group(); bie.add(malla(g1,M2.biela),malla(g2,M2.biela),malla(viga,M2.biela),malla(nervio,M2.biela)); ENG.add(bie); EV.bielaG=bie;
+  // cigüeñal: contrapeso, brazo, muñequilla y eje (que sale hacia delante y sostiene la polea)
+  const cig=new THREE.Group(); cig.position.set(0,YC,0);
+  const cw=[...arcoP(0,-0.01,0.165,rad(212),rad(328),16),[0.05,0.0],[-0.05,0.0]];
+  cig.add(malla(ex2(cw,0.10,-0.05,null),M2.ciguenal));
+  cig.add(malla(ex2([...arcoP(0,0,0.075,0,2*Math.PI,24)],0.12,-0.06,null),M2.ciguenal));
+  cig.add(malla(ex2([[-0.034,0],[0.034,0],[0.03,R_MAN],[-0.03,R_MAN]],0.10,-0.05,null),M2.ciguenal));
+  cig.add(malla(ex2([...arcoP(0,R_MAN,0.052,0,2*Math.PI,22)],0.10,-0.05,null),M2.ciguenal));
+  const pin=malla(new THREE.CylinderGeometry(0.043,0.043,0.13,20),M2.acero2); pin.rotation.x=Math.PI/2; pin.position.set(0,R_MAN,0); cig.add(pin);
+  const eje=malla(new THREE.CylinderGeometry(0.046,0.046,0.58-ZB,24),M2.acero2); eje.rotation.x=Math.PI/2; eje.position.z=(0.58+ZB)/2; cig.add(eje);
+  ENG.add(cig); EV.cig=cig;
+}
+/* ---- válvulas, levas y bujía ---- */
+{
+  const lobulo=(r0,Lm,w)=>{ const pts=[]; for(let i=0;i<72;i++){ const th=-Math.PI+i/72*DOSPI; const a=th*180/Math.PI; const b=Math.abs(a)<w?Math.pow(Math.cos(Math.PI*a/(2*w)),2):0; const r=r0+Lm*b; pts.push([r*Math.sin(th),-r*Math.cos(th)]); } return pts; };
+  EV.LIFT_MAX=0.034;
+  EV.camAdm=new THREE.Group(); EV.camEsc=new THREE.Group();
+  const defs=[{k:'adm',s:-1,cam:EV.camAdm,w:61},{k:'esc',s:1,cam:EV.camEsc,w:57}];
+  EV.val={};
+  for(const d of defs){
+    const ang=rad(16)*(-d.s)*-1; // inclinación del eje: la admisión se abre hacia -x
+    const dir=V3(-Math.sin(rad(16))*(d.s<0?1:-1),Math.cos(rad(16)),0);
+    const seat=V3(d.s*0.088,1.503,0.013);
+    const v=new THREE.Group(); v.position.copy(seat);
+    v.rotation.z=(d.s<0?1:-1)*rad(16);
+    const cab=malla(P3.revolucion([[0,0.012],[0.044,0.004],[0.046,-0.004],[0.03,-0.012],[0.012,0.02],[0.01,0.1]],{seg:24}),M2.acero2); cab.rotation.x=0; v.add(cab);
+    const vas=malla(new THREE.CylinderGeometry(0.0095,0.0095,0.34,10),M2.acero2); vas.position.y=0.17; v.add(vas);
+    const copa=malla(new THREE.CylinderGeometry(0.03,0.03,0.016,16),M.laton); copa.position.y=0.34; v.add(copa);
+    ENG.add(v); EV.val[d.k]={g:v,seat,dir,w:d.w};
+    // leva: centro sobre la copa
+    const cpos=seat.clone().addScaledVector(dir,0.34+0.008+0.046); d.cam.position.copy(cpos); d.cam.position.z=0.013;
+    d.cam.add(malla(ex2(lobulo(0.046,EV.LIFT_MAX,d.w),0.055,-0.0275,null),M2.biela));
+    d.cam.add(malla(ex2(arcoP(0,0,0.016,0,DOSPI,12).slice(0,12),0.07,-0.035,null),M2.acero2));
+    ENG.add(d.cam); EV.val[d.k].cpos=cpos;
+  }
+  // bujía
+  const bj=new THREE.Group(); bj.position.set(0,1.62,0.013);
+  bj.add(malla(new THREE.CylinderGeometry(0.019,0.019,0.18,6),M.acero));
+  const ais=malla(P3.revolucion([[0,0.0],[0.017,0],[0.017,0.07],[0.011,0.09],[0.011,0.15],[0.006,0.16],[0,0.16]],{seg:20}),pbr({color:'#e8e6dc',roughness:0.3})); ais.position.y=0.07; bj.add(ais);
+  const bor=malla(new THREE.CylinderGeometry(0.008,0.008,0.05,10),M.acero); bor.position.y=0.25; bj.add(bor);
+  ENG.add(bj);
+  // gas del cilindro: media columna entre la corona del pistón y la cámara
+  const gg=new THREE.CylinderGeometry(R_BORE*0.985,R_BORE*0.985,1,28,1,false,Math.PI/2,Math.PI);
+  const gas=new THREE.Mesh(gg,M2.gas.clone()); gas.renderOrder=4; gas.castShadow=false; ENG.add(gas); EV.gas=gas;
+  const gl=new THREE.PointLight('#ff9a3c',0,1.4,2); gl.position.set(0,1.42,0.15); ENG.add(gl); EV.luzGas=gl;
+}
+
+/* ===================== 9. LA CORREA SERPENTINA, LAS POLEAS Y EL ALTERNADOR-ARRANCADOR (BSG) ===================== */
+const ZP=0.54;                                      // plano de la correa
+const POL={cig:{c:V3(-0.20,YC,ZP),R:0.19}, bsg:{c:V3(-0.99,1.62,ZP),R:0.0672}, ten:{c:V3(-0.86,0.70,ZP),R:0.046}};
+const GIRO={cig:new THREE.Group(),bsg:new THREE.Group(),ten:new THREE.Group()};
+{
+  for(const k of ['cig','bsg','ten']){ GIRO[k].position.copy(POL[k].c); MUNDO.add(GIRO[k]); }
+  // polea del cigüeñal: aro poly-V, cubo y cinco radios (se ve a su través el mecanismo)
+  const R=POL.cig.R, per=[[R-0.025,-0.036],[R,-0.036],[R,-0.026],[R-0.006,-0.02],[R,-0.014],[R-0.006,-0.008],[R,-0.002],[R-0.006,0.004],[R,0.01],[R-0.006,0.016],[R,0.022],[R,0.036],[R-0.025,0.036]];
+  const aro=malla(P3.revolucion(per,{seg:72}),M.acero); aro.rotation.x=Math.PI/2; GIRO.cig.add(aro);
+  const cubo=malla(P3.revolucion([[0,-0.04],[0.065,-0.04],[0.07,-0.03],[0.07,0.05],[0.04,0.07],[0,0.07]],{seg:32}),M.acero); cubo.rotation.x=Math.PI/2; GIRO.cig.add(cubo);
+  for(let i=0;i<5;i++){ const a=i/5*DOSPI; const r=malla(new THREE.BoxGeometry(R-0.07,0.028,0.022),M.acero); r.position.set(Math.cos(a)*(R+0.07)/2*0.92,Math.sin(a)*(R+0.07)/2*0.92,0); r.rotation.z=a; GIRO.cig.add(r); }
+  const marca=malla(new THREE.BoxGeometry(0.03,0.012,0.04),new THREE.MeshBasicMaterial({color:'#ffb703',toneMapped:false}),{sombra:false}); marca.position.set(R-0.045,0,0.03); GIRO.cig.add(marca);
+  // polea del BSG
+  const Rb=POL.bsg.R;
+  const pb=malla(P3.revolucion([[0,-0.03],[Rb-0.004,-0.03],[Rb,-0.02],[Rb,0.03],[Rb-0.004,0.034],[0,0.034]],{seg:40}),M.acero); pb.rotation.x=Math.PI/2; GIRO.bsg.add(pb);
+  const tb=malla(new THREE.TorusGeometry(Rb*0.55,0.006,6,24),new THREE.MeshBasicMaterial({color:'#8bd94e',toneMapped:false}),{sombra:false}); tb.position.z=0.036; GIRO.bsg.add(tb);
+  // tensor
+  const pt=malla(P3.revolucion([[0,-0.03],[POL.ten.R,-0.03],[POL.ten.R,0.03],[0,0.03]],{seg:28}),M.acero); pt.rotation.x=Math.PI/2; GIRO.ten.add(pt);
+  const brazo=malla(new RoundedBoxGeometry(0.46,0.05,0.04,2,0.01),M.carter); brazo.position.set(-0.86+0.15,0.70+0.0,ZP-0.06); brazo.rotation.z=-0.1; MUNDO.add(brazo);
+  const muelleT=malla(new THREE.CylinderGeometry(0.05,0.05,0.07,18),M.negro); muelleT.rotation.x=Math.PI/2; muelleT.position.set(-0.55,0.66,ZP-0.06); MUNDO.add(muelleT);
+}
+/* correa: envolvente convexa de las tres poleas, recorrida como una curva cerrada; su textura de nervios se desplaza */
+const CORREA=(function(){
+  const pts=[];
+  for(const k of ['cig','bsg','ten']){ const p=POL[k]; for(let i=0;i<48;i++){ const a=i/48*DOSPI; pts.push([p.c.x+(p.R+0.004)*Math.cos(a),p.c.y+(p.R+0.004)*Math.sin(a)]); } }
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const low=[]; for(const p of pts){ while(low.length>=2&&cross(low[low.length-2],low[low.length-1],p)<=0) low.pop(); low.push(p); }
+  const up=[]; for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  up.pop(); low.pop(); const hull=low.concat(up);
+  // remuestreo uniforme por longitud de arco
+  const cur=new THREE.CatmullRomCurve3(hull.map(p=>V3(p[0],p[1],0)),true,'centripetal',0.2);
+  const g=new THREE.TubeGeometry(cur,420,0.0095,8,true); sana(g);
+  const c=cv(256,16),x=c.getContext('2d'); x.fillStyle='#16191b'; x.fillRect(0,0,256,16); x.fillStyle='#3d464b'; for(let i=0;i<16;i++) x.fillRect(i*16+2,0,6,16);
+  const t=tex(c,{srgb:true}); t.repeat.set(70,1); t.anisotropy=4;
+  const m=pbr({color:'#ffffff',map:t,roughness:0.8,metalness:0.05});
+  const mesh=malla(g,m,{sombra:false}); mesh.scale.z=3.4; mesh.position.z=ZP; MUNDO.add(mesh);
+  return {mesh,tex:t,len:cur.getLength()};
+})();
+/* BSG: carcasa, estátor ranurado con devanado y rotor de imanes visto de frente (corte perpendicular al eje) */
+const BSGG=new THREE.Group(); BSGG.position.set(POL.bsg.c.x,POL.bsg.c.y,0); MUNDO.add(BSGG);
+const BSG_V={};
+{
+  const Zc=0.34;   // cara de corte
+  const cuerpo=malla(P3.revolucion([[0.0,0.0],[0.205,0.0],[0.21,0.02],[0.21,Zc-0.16],[0.205,Zc-0.15],[0.0,Zc-0.15]],{seg:56}),M.carcasa); cuerpo.rotation.x=Math.PI/2; cuerpo.position.z=0.0; BSGG.add(cuerpo);
+  // estátor: corona con 12 ranuras abiertas al entrehierro
+  const N=12,Ro=0.2,Ri=0.128,Rr=0.118; const hole=[];
+  for(let k=0;k<N;k++){ const a0=k/N*DOSPI, w=DOSPI/N; const pts=[[a0+0.04*w,Ri],[a0+0.26*w,Ri],[a0+0.30*w,Ri+0.012],[a0+0.30*w,Ri+0.040],[a0+0.70*w,Ri+0.040],[a0+0.70*w,Ri+0.012],[a0+0.74*w,Ri],[a0+0.96*w,Ri]];
+    // dientes: el contorno interior pasa por Ri en el diente y se hunde en la ranura
+    hole.push(...[[a0,Ri],[a0+0.18*w,Ri],[a0+0.22*w,Ri+0.045],[a0+0.78*w,Ri+0.045],[a0+0.82*w,Ri],[a0+w,Ri]]); }
+  const hp=hole.map(([a,r])=>[r*Math.cos(a),r*Math.sin(a)]).reverse();
+  const outer=arcoP(0,0,Ro,0,DOSPI,56); outer.pop();
+  const est=ex2(outer,0.06,Zc-0.06,[hp]);
+  const mEst=malla(est,[M2.corteEstator,M.carcasaInt]); BSGG.add(mEst);
+  // bobinas de cobre en las ranuras (tres fases en tres colores de brillo)
+  const bob=new THREE.InstancedMesh(new THREE.BoxGeometry(0.052,0.026,0.07),M2.bobina,N); const m4=new THREE.Matrix4();
+  for(let k=0;k<N;k++){ const a=(k+0.5)/N*DOSPI, r=Ri+0.026; m4.compose(V3(r*Math.cos(a),r*Math.sin(a),Zc-0.025),new THREE.Quaternion().setFromAxisAngle(V3(0,0,1),a),V3(1,1,1)); bob.setMatrixAt(k,m4); }
+  bob.castShadow=false; BSGG.add(bob); BSG_V.bob=bob;
+  // rotor
+  const rot=new THREE.Group(); rot.position.z=Zc-0.03; BSGG.add(rot);
+  rot.add(malla(ex2(arcoP(0,0,Rr-0.012,0,DOSPI,40),0.07,-0.035,[arcoP(0,0,0.03,0,DOSPI,16).reverse()]),M2.corteEstator));
+  for(let k=0;k<8;k++){ const a0=k/8*DOSPI+0.04, a1=(k+1)/8*DOSPI-0.04; const pts=[...arcoP(0,0,Rr,a0,a1,6),...arcoP(0,0,Rr-0.024,a1,a0,6)];
+    rot.add(malla(ex2(pts,0.07,-0.035,null),k%2?M2.imanS:M2.imanN)); }
+  BSG_V.rotor=rot;
+  // eje del BSG hasta la polea
+  const e=malla(new THREE.CylinderGeometry(0.02,0.02,ZP-0.05,14),M.acero); e.rotation.x=Math.PI/2; e.position.z=(ZP+0.05)/2-0.0; e.position.z=(Zc+ZP)/2-0.05; BSGG.add(e);
+  // inversor/convertidor integrado: caja con aletas encima de la carcasa
+  const inv=malla(new RoundedBoxGeometry(0.17,0.09,0.17,3,0.02),M.negro); inv.position.set(0.0,0.255,0.09); BSGG.add(inv);
+  for(let i=0;i<5;i++) addTo(BSGG,new THREE.BoxGeometry(0.012,0.04,0.15),M.aluminio).position.set(-0.06+i*0.03,0.32,0.09);
+  // soporte (ménsula) a la culata
+  const mens=malla(new RoundedBoxGeometry(0.56,0.12,0.045,2,0.01),M.carter); mens.position.set(0.30,-0.08,0.04); mens.rotation.z=-0.18; BSGG.add(mens);
+}
+BSGG.userData.id='bsg'; ENG.userData.id='motor';
+
+/* ===================== 10. LA BATERÍA DE 48 V, EL CONVERTIDOR DC-DC, LA DE 12 V Y LAS CARGAS ===================== */
+const PACK=new THREE.Group(); MUNDO.add(PACK);
+const NCEL=26, PACK_X0=-1.04, PACK_DX=0.165, PACK_ALTO=0.24;
+const CELDAS=(function(){
+  addTo(PACK,new RoundedBoxGeometry(2.42,0.07,0.80,3,0.02),M.carter).position.set(-0.10,0.035,-0.12);
+  for(const sz of [-1,1]) addTo(PACK,new RoundedBoxGeometry(2.42,0.34,0.035,2,0.01),M.carter).position.set(-0.10,0.17,-0.12+sz*0.40);
+  for(const sx of [-1,1]) addTo(PACK,new RoundedBoxGeometry(0.035,0.34,0.84,2,0.01),M.carter).position.set(-0.10+sx*1.205,0.17,-0.12);
+  const lata=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.056,0.056,PACK_ALTO,18),M2.lata,NCEL), fill=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.047,0.047,PACK_ALTO,16),M2.carga,NCEL), tapa=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.058,0.058,0.014,18),M.acero,NCEL);
+  const m4=new THREE.Matrix4(), q=new THREE.Quaternion();
+  for(let i=0;i<NCEL;i++){ const x=PACK_X0+(i%13)*PACK_DX, z=-0.12+(i<13?0.13:-0.13), y=0.07+PACK_ALTO/2;
+    m4.compose(V3(x,y,z),q,V3(1,1,1)); lata.setMatrixAt(i,m4); tapa.setMatrixAt(i,m4.compose(V3(x,0.07+PACK_ALTO+0.007,z),q,V3(1,1,1))); }
+  lata.renderOrder=3; lata.castShadow=false; tapa.castShadow=true; PACK.add(lata,tapa,fill);
+  // barras de cobre de la serie 13S (dos hileras unidas en un extremo) y bornes
+  for(const z of [0.01,-0.25]) addTo(PACK,new THREE.BoxGeometry(2.08,0.012,0.022),M.cobre).position.set(PACK_X0+6*PACK_DX,0.07+PACK_ALTO+0.02,z);
+  for(const [x,c] of [[PACK_X0-0.14,'#e0a61a'],[PACK_X0-0.14,'#2a2f33']]) { const b=addTo(PACK,new THREE.CylinderGeometry(0.03,0.03,0.05,14),pbr({color:c,metalness:0.4,roughness:0.5})); b.position.set(x,0.34,c==='#e0a61a'?0.12:-0.30); }
+  // letrero de rejilla en la cara frontal del soporte: marca de 48 V con un neón
+  addTo(PACK,new THREE.BoxGeometry(0.30,0.012,0.012),M.neon,{sombra:false}).position.set(-0.85,0.335,0.285);
+  return {lata,fill,m4,q};
+})();
+function ponCeldas(soc){
+  const {fill,m4,q}=CELDAS, h=Math.max(0.02,soc)*PACK_ALTO;
+  for(let i=0;i<NCEL;i++){ const x=PACK_X0+(i%13)*PACK_DX, z=-0.12+(i<13?0.13:-0.13); m4.compose(V3(x,0.07+h/2,z),q,V3(1,Math.max(0.02,soc),1)); fill.setMatrixAt(i,m4); }
+  fill.instanceMatrix.needsUpdate=true;
+}
+/* convertidor DC-DC 48→12 V */
+const DCDC=new THREE.Group(); DCDC.position.set(0.74,0.05,-0.22); MUNDO.add(DCDC);
+{
+  addTo(DCDC,new RoundedBoxGeometry(0.48,0.30,0.38,3,0.035),M.carcasa).position.set(0,0.37,0);
+  for(let i=0;i<9;i++) addTo(DCDC,new THREE.BoxGeometry(0.014,0.07,0.32),M.aluminio).position.set(-0.19+i*0.0475,0.56,0);
+  addTo(DCDC,new THREE.BoxGeometry(0.30,0.015,0.015),M.neon,{sombra:false}).position.set(0,0.47,0.195);
+  for(const [x,c] of [[-0.24,'#e0a61a'],[0.24,'#2fa8cf']]) { const b=addTo(DCDC,new THREE.CylinderGeometry(0.026,0.026,0.06,14),pbr({color:c,roughness:0.5})); b.position.set(x,0.40,0.0); b.rotation.z=Math.PI/2; }
+}
+DCDC.userData.id='dcdc';
+/* batería de plomo de 12 V */
+const BAT12=P3.bateriaAutomocion({plomo:M.acero,aluminio:M.aluminio,acero:M.acero,cobre:M.cobre,laton:M.laton,negro:M.negro},{ancho:0.40,alto:0.30,fondo:0.24});
+BAT12.position.set(1.38,0.0,0.18); MUNDO.add(BAT12); BAT12.userData.id='bat12';
+/* cargas de 12 V: ventilador de radiador en su marco, que gira con la potencia consumida */
+const CARGA=new THREE.Group(); CARGA.position.set(1.38,0.98,-0.22); MUNDO.add(CARGA);
+{
+  const marco=new RoundedBoxGeometry(0.62,0.62,0.07,3,0.03);
+  addTo(CARGA,marco,M.carter).position.z=-0.05;
+  const aro=addTo(CARGA,new THREE.TorusGeometry(0.265,0.014,10,48),M.aluminio); aro.position.z=0.0;
+  for(const [x,y] of [[-1,-1],[1,-1],[-1,1],[1,1]]) { const b=addTo(CARGA,new THREE.CylinderGeometry(0.02,0.02,0.09,10),M.acero); b.position.set(x*0.27,y*0.27,0); b.rotation.x=Math.PI/2; }
+  const rot=new THREE.Group(); rot.position.z=0.02; CARGA.add(rot);
+  for(let i=0;i<7;i++){ const a=i/7*DOSPI; const g=new THREE.BoxGeometry(0.2,0.075,0.008,4,1,1); const p=g.attributes.position; for(let k=0;k<p.count;k++) p.setZ(k,p.getZ(k)+p.getY(k)*0.55); g.computeVertexNormals(); sana(g);
+    const b=malla(g,M.negro); b.position.set(Math.cos(a)*0.13,Math.sin(a)*0.13,0); b.rotation.z=a; rot.add(b); }
+  { const cb=malla(new THREE.CylinderGeometry(0.06,0.06,0.05,24),M.carcasa); cb.rotation.x=Math.PI/2; rot.add(cb); }
+  CARGA.userData.rotor=rot;
+  // soporte de la carga hasta el convertidor
+  addTo(CARGA,new THREE.BoxGeometry(0.05,0.9,0.05),M.aluminio).position.set(0,-0.62,-0.06);
+  addTo(CARGA,new THREE.BoxGeometry(0.34,0.03,0.2),M.carter).position.set(0,-0.18,-0.05);
+  const led=addTo(CARGA,new THREE.BoxGeometry(0.07,0.015,0.015),M2.led12,{sombra:false}); led.position.set(-0.17,-0.30,0.03);
+}
+/* ---- cables: tres recorridos de potencia, con partículas que van en el sentido de la corriente ---- */
+function cable(pts,mat,r){ const cur=new THREE.CatmullRomCurve3(pts.map(p=>V3(...p)),false,'centripetal'); const m=malla(new THREE.TubeGeometry(cur,80,r||0.017,8,false),mat,{sombra:false}); MUNDO.add(m); return cur; }
+const CAB_BSG=cable([[POL.bsg.c.x,1.92,0.10],[-1.22,1.98,0.10],[-1.42,1.60,0.14],[-1.42,0.60,0.30],[-1.20,0.34,0.14],[-1.04,0.34,0.12]],M2.cable48);
+const CAB_PCK=cable([[0.22,0.34,0.12],[0.40,0.40,0.04],[0.56,0.64,-0.06],[0.62,0.40,-0.21]],M2.cable48);   // pack → DC-DC (entrada)
+const CAB_12=cable([[0.98,0.45,-0.12],[1.10,0.62,-0.12],[1.38,0.70,-0.22],[1.38,0.80,-0.22]],M2.cable12);   // DC-DC → carga
+cable([[0.98,0.40,-0.05],[1.12,0.32,0.05],[1.25,0.30,0.18]],M2.cable12);                                     // DC-DC → batería de 12 V
+cable([[-1.04,0.34,-0.30],[-1.30,0.34,-0.44],[-1.55,0.5,-0.2],[-1.42,1.20,0.0],[-1.20,1.90,0.10]],M2.cableNeg,0.012);
+const CABLES=[CAB_BSG,CAB_PCK,CAB_12];
+
+/* ---- fusión de lo estático: pocas llamadas de dibujo, mismo aspecto. Cada pieza lleva su «clave» para el rótulo ---- */
+const etiqueta=(g,k)=>g.traverse(o=>{ if(o.isMesh) o.userData.clave=k; });
+etiqueta(ENG,'motor'); etiqueta(BSGG,'bsg'); etiqueta(PACK,'bateria'); etiqueta(DCDC,'dcdc'); etiqueta(BAT12,'bat12'); etiqueta(CARGA,'carga');
+for(const g of [GIRO.cig,GIRO.bsg,GIRO.ten,CORREA.mesh]) etiqueta(g,'correa');
+const MOVILES=[PLATAFORMA,CORREA.mesh,GIRO.cig,GIRO.bsg,GIRO.ten,EV.pistonG,EV.bielaG,EV.cig,EV.val.adm.g,EV.val.esc.g,EV.camAdm,EV.camEsc,EV.gas,EV.escape,EV.luzGas,BSG_V.rotor,BSG_V.bob,CELDAS.lata,CELDAS.fill,CARGA.userData.rotor];
+fusionaPartes(MUNDO,MOVILES);
+for(const g of [EV.pistonG,EV.bielaG,EV.cig,EV.val.adm.g,EV.val.esc.g,EV.camAdm,EV.camEsc,BSG_V.rotor,CARGA.userData.rotor,GIRO.cig,GIRO.bsg,GIRO.ten]) fusionaPartes(g);
+// lo pequeño que se mueve no proyecta sombra: ahorra llamadas de dibujo
+for(const g of [EV.val.adm.g,EV.val.esc.g,EV.camAdm,EV.camEsc,EV.bielaG,EV.pistonG,GIRO.cig,GIRO.bsg,GIRO.ten,BSG_V.rotor,CARGA.userData.rotor,CORREA.mesh,EV.escape]) g.traverse(o=>{ if(o.isMesh) o.castShadow=false; });
+CELDAS.lata.castShadow=false; CELDAS.fill.castShadow=false;
+// los auxiliares pequeños no proyectan sombra (llamadas de dibujo): sólo el motor y la batería de 48 V
+MUNDO.traverse(o=>{ if(o.isMesh&&['bsg','dcdc','bat12','carga'].includes(o.userData.clave)) o.castShadow=false; });
+
+/* ===================== 11. PARTÍCULAS DEL FLUJO DE ENERGÍA ===================== */
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _col=new THREE.Color();
+function instancias(n,geo,mat){ const im=new THREE.InstancedMesh(geo,mat,n); im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3).fill(1),3); im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false; im.renderOrder=5; MUNDO.add(im); return im; }
+const ESF=new THREE.SphereGeometry(1,8,6);
+const NPAR=34, PART=CABLES.map(()=>instancias(NPAR,ESF,M.aire));
+
+
+/* ===================== 12. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t es
+   el tiempo del CICLO urbano (s) y avanza dt·velocidad; mueve el motor, la correa, el BSG, los flujos de energía, la
+   carga de la batería y el cursor de todas las gráficas. Los giros visuales van a 1/40 de la velocidad real y, en cada
+   arranque del motor, el reloj se frena solo (cámara lenta rotulada) para que se vea. */
+const EST={modo:'marcha',perfil:'urbano',ss:true,vOff:6,pReg:12,pBoost:1.2,P12:450,vel:4,pausa:REDUCIDO,autoRunning:false,vista:'banco',rot:false};
+const SIM={t:0,phi:0,nVis:0,bsg:0,fan:0,flujo:[0,0,0],calc:null,ver:0,warp:1,ultSt:0,gasT:0,disparo:0,ev:null};
+const VISC=1/40;                 // los giros visuales van a 1/40 de la velocidad real
+const NOMBRE_PERFIL={fluido:'Fluido',urbano:'Urbano',denso:'Denso'};
+let CALC=null;
+const aKW=w=>w/1000;
+
+/** Lo que corre ahora: en «En marcha», lo que digan los mandos; en el laboratorio guiado, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='guia'){ const p=guiaParams(); if(p) return p; }
+  return {perfil:EST.perfil,ss:EST.ss,vOff:EST.vOff,pReg:EST.pReg*1e3,pBoost:EST.pBoost*1e3,P12:EST.P12,Tc:90,arranque:false};
+}
+/** Recalcula el modelo completo: el ciclo, el coche convencional, el mismo coche sin start-stop y la estrategia elegida. */
+function calcula(p){
+  const cic=generaCiclo(p.perfil,0.1);
+  const tc=p.Tc!==undefined?p.Tc:90;
+  const run=simula({ss:p.ss,vOff:p.vOff,pReg:p.pReg,pBoost:p.pBoost,P12:p.P12,Tc:tc,s0:p.s0},cic,{traza:true});
+  const conv=simula({conv:true,P12:p.P12},cic,{traza:true});
+  const sin=p.ss?simula({ss:false,pReg:p.pReg,pBoost:p.pBoost,P12:p.P12,Tc:tc,s0:p.s0},cic,{traza:true}):run;
+  const arr=arranque({Tc:tc});
+  return {p,cic,run,conv,sin,arr,ahorro:1-run.L100/conv.L100,ahorroSS:p.ss?1-run.L100/sin.L100:0};
+}
+function reiniciaCalculo(){
+  const prev=CALC; CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  if(!prev||prev.cic!==CALC.cic) SIM.t=Math.min(SIM.t,CALC.cic.T-0.01);
+  SIM.ev=CALC.run.traza.ev;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+
+/* ---- el estado del sistema en el instante t: sale de las trazas de la simulación del ciclo ---- */
+function estadoEn(t){
+  const C=CALC; if(!C) return null;
+  if(C.p.arranque){   // modo «arranque en bucle»: parado, motor apagado, arranque con el BSG y ralentí
+    const tA=C.arr.t, P=1.0+tA+1.6, u=t%P, a=C.arr.tr;
+    if(u<1.0) return {i:0,v:0,n:0,st:0,Pb:0,Pm:0,Pe:0,Pbat:C.p.P12/VEH.etaDC,soc:BAT.S0,fuel:0,Pf:0,u,fase:'off',tA};
+    if(u<1.0+tA){ const te=u-1.0; let k=1; while(k<a.t.length-1&&a.t[k]<te) k++; const f=clamp((te-a.t[k-1])/Math.max(1e-9,a.t[k]-a.t[k-1]),0,1);
+      const w=a.w[k-1]+(a.w[k]-a.w[k-1])*f, Tb=a.Tb[k-1]+(a.Tb[k]-a.Tb[k-1])*f, Pm=Tb*w;
+      return {i:0,v:0,n:w*60/DOSPI,st:2,Pb:0,Pm,Pe:Pm+perdidaBSG(Pm),Pbat:Pm+perdidaBSG(Pm)+C.p.P12/VEH.etaDC,soc:BAT.S0,fuel:0,Pf:0,u,fase:'arr',tA,te}; }
+    return {i:0,v:0,n:MOT.nRal,st:1,Pb:0,Pm:0,Pe:0,Pbat:C.p.P12/VEH.etaDC,soc:BAT.S0,fuel:0,Pf:pCombustible(0,MOT.nRal),u,fase:'ral',tA};
+  }
+  const R=C.run, T=R.traza, i=clamp(Math.floor(t/R.dt),0,R.N-1);
+  return {i,v:C.cic.v[i],n:T.n[i],st:T.st[i],Pb:T.Pb[i],Pm:T.Pm[i],Pe:T.Pe[i],Pbat:T.Pbat[i],soc:T.soc[i],fuel:T.fuelL[i],Pf:T.Pf[i],Pfb:T.Pfb[i],u:t};
+}
+/** Factor de cámara lenta: alrededor de cada rearranque el reloj se frena a 1/5. */
+function warpEn(t){
+  const C=CALC; if(!C||C.p.arranque) return 1; const ev=SIM.ev||[];
+  for(const e of ev) if(t>=e-0.5&&t<=e+1.7) return 0.2;
+  return 1;
+}
+
+/* ===================== 13. LO QUE SE VE ===================== */
+const _pos=V3(0,0,0), _sc=V3(1,1,1);
+function fasePistonesGas(phiDeg){ // etapa del ciclo de cuatro tiempos a partir del ángulo de 0 a 720°
+  if(phiDeg<180) return 'exp'; if(phiDeg<360) return 'esc'; if(phiDeg<540) return 'adm'; return 'comp'; }
+const COL_GAS={adm:new THREE.Color('#5fb6ff'),comp:new THREE.Color('#9fd6ff'),comp2:new THREE.Color('#ffe08a'),exp:new THREE.Color('#ff8a2a'),esc:new THREE.Color('#c0794a'),apag:new THREE.Color('#586b78')};
+const _cg=new THREE.Color(), _cg2=new THREE.Color();
+function levanta(phiDeg,centro,w){ let d=((phiDeg-centro+360)%720+720)%720-360; const a=d/2; const b=Math.abs(a)<w?Math.pow(Math.cos(Math.PI*a/(2*w)),2):0; return {a,b}; }
+
+function aplicaEscena(dtS,dtSim){
+  const C=CALC; if(!C) return;
+  let t0=SIM.t;
+  if(C.p.arranque){ SIM.t=(SIM.t+dtSim)%(1.0+C.arr.t+1.6+1e-9); } else { SIM.t+=dtSim; if(SIM.t>=C.cic.T-0.05) SIM.t=0; }
+  const e=estadoEn(SIM.t); if(!e) return;
+  SIM.warp=warpEn(SIM.t);
+  // régimen visible: sube con la traza y baja con una constante de tiempo (el motor tarda en pararse)
+  if(e.n>=SIM.nVis||SIM.t<t0) SIM.nVis=e.n; else SIM.nVis+= (e.n-SIM.nVis)*(1-Math.exp(-dtSim/0.35));
+  if(SIM.nVis<1) SIM.nVis=0;
+  const w=SIM.nVis*DOSPI/60;                     // rad/s reales
+  SIM.phi+=w*VISC*dtS;
+  // ---- cigüeñal, pistón y biela (biela-manivela exacta) ----
+  const phi=SIM.phi%DOSPI, phi4=(SIM.phi%(2*DOSPI)), phiDeg=phi4*180/Math.PI;
+  EV.cig.rotation.z=-phi;
+  const px=R_MAN*Math.sin(phi), py=YC+R_MAN*Math.cos(phi), yp=YC+R_MAN*Math.cos(phi)+Math.sqrt(L_BIE*L_BIE-px*px);
+  EV.pistonG.position.set(0,yp,0);
+  EV.bielaG.position.set(px,py,0); EV.bielaG.rotation.z=Math.asin(px/L_BIE);
+  // ---- válvulas y levas, con la misma fase de 720° ----
+  const ia=levanta(phiDeg,467,61), ie=levanta(phiDeg,260,57);
+  for(const [k,q] of [['adm',ia],['esc',ie]]){ const V=EV.val[k]; V.g.position.copy(V.seat).addScaledVector(V.dir,-EV.LIFT_MAX*q.b); (k==='adm'?EV.camAdm:EV.camEsc).rotation.z=-q.a*Math.PI/180; }
+  // ---- gas del cilindro: color por etapa (y combustión sólo si hay combustible) ----
+  const quema=e.st===1&&e.Pf>0&&e.Pb>=0&&e.n>300;
+  const corona=yp+0.07, top=1.495, h=Math.max(0.012,top-corona);
+  EV.gas.scale.set(1,h,1); EV.gas.position.set(0,corona+h/2,0);
+  const et=fasePistonesGas(phiDeg), gm=EV.gas.material;
+  if(e.n<5){ gm.color.copy(COL_GAS.apag); gm.opacity=0.10; }
+  else if(et==='adm'){ gm.color.copy(COL_GAS.adm); gm.opacity=0.14; }
+  else if(et==='comp'){ const f=clamp((phiDeg-540)/180,0,1); gm.color.copy(COL_GAS.comp).lerp(COL_GAS.comp2,quema?f*f:0); gm.opacity=0.16+0.12*f; }
+  else if(et==='exp'){ if(quema){ const f=clamp(phiDeg/180,0,1); gm.color.copy(COL_GAS.exp).lerp(COL_GAS.esc,f); gm.opacity=0.72-0.42*f; } else { gm.color.copy(COL_GAS.comp); gm.opacity=0.12; } }
+  else { if(quema){ gm.color.copy(COL_GAS.esc); gm.opacity=0.22; } else { gm.color.copy(COL_GAS.adm); gm.opacity=0.10; } }
+  EV.luzGas.intensity=(quema&&et==='exp')?1.6*(1-clamp(phiDeg/180,0,1)):0;
+  // escape: se calienta con el combustible quemado
+  const calor=e.n>5?clamp(e.Pf/9000,0,1):0; M2.escape.emissiveIntensity+=((quema?0.05+0.30*calor:0)-M2.escape.emissiveIntensity)*clamp(dtS*3,0,1);
+  // ---- poleas, correa y BSG ----
+  GIRO.cig.rotation.z=-phi; GIRO.bsg.rotation.z=-phi*POL.cig.R/POL.bsg.R; GIRO.ten.rotation.z=-phi*POL.cig.R/POL.ten.R;
+  BSG_V.rotor.rotation.z=-phi*POL.cig.R/POL.bsg.R;
+  CORREA.tex.offset.x+=(w*VISC*POL.cig.R)*dtS/CORREA.len*70;
+  const potBSG=clamp(Math.abs(e.Pe)/10000,0,1);
+  M2.bobina.emissiveIntensity+=((potBSG*2.2)-M2.bobina.emissiveIntensity)*clamp(dtS*6,0,1);
+  M2.bobina.emissive.set(e.Pe<0?'#8bd94e':'#ffb703');
+  // ---- batería: nivel de las celdas ----
+  ponCeldas(e.soc); M2.carga.color.set(e.soc<BAT.Smin?'#ff6a5a':(e.soc<0.45?'#ffb703':'#8bd94e'));
+  // ---- cargas de 12 V ----
+  SIM.fan+=(C.p.P12/450)*10*dtS; CARGA.userData.rotor.rotation.z=SIM.fan;
+  // ---- flujos de energía: partículas en el sentido de la corriente ----
+  const P48=C.p.P12/VEH.etaDC, flujos=[
+    {P:Math.abs(e.Pe),dir:e.Pe<0?1:-1,col:e.Pe<0?'#8bd94e':'#ffb703',max:12000},     // BSG ↔ batería (curva: BSG → batería)
+    {P:P48,dir:1,col:'#ffb703',max:1500},                                              // batería → convertidor
+    {P:C.p.P12,dir:1,col:'#47d1ff',max:1500},                                           // convertidor → carga
+  ];
+  flujos.forEach((F,k)=>{
+    const im=PART[k], cur=CABLES[k]; const act=F.P>15; const v=0.05+0.45*Math.sqrt(clamp(F.P/F.max,0,1));
+    SIM.flujo[k]=(SIM.flujo[k]+F.dir*v*dtS+1)%1; _col.set(F.col);
+    for(let i=0;i<NPAR;i++){ const u=((i/NPAR+SIM.flujo[k])%1+1)%1; cur.getPointAt(u,_pos); const g=act?0.015+0.012*clamp(F.P/F.max,0,1):0;
+      _m4.compose(_pos,_q0,_sc.set(g,g,g)); im.setMatrixAt(i,_m4); im.setColorAt(i,_col); }
+    im.instanceMatrix.needsUpdate=true; im.instanceColor.needsUpdate=true; });
+  SIM.e=e;
+}
+
+
+/* ===================== 14. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 66 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  banco:{dir:V3(-0.30,0.24,1),anc:()=>V3(0.18,0.98,-0.1),toff:V3(0,0,0),obj:()=>({w:innerWidth<innerHeight*0.9?3.35:3.05,h:2.2}),fov:34,tope:0.66},
+  motor:{dir:V3(-0.22,0.16,1),anc:()=>V3(-0.30,1.20,0),toff:V3(0,0,0),obj:()=>({w:1.55,h:1.95}),fov:34,tope:0.66},
+  bsg:{dir:V3(-0.10,0.10,1),anc:()=>V3(-0.62,1.28,0.35),toff:V3(0,0,0),obj:()=>({w:1.9,h:1.45}),fov:34,tope:0.66},
+  bateria:{dir:V3(-0.24,0.62,1),anc:()=>V3(0.30,0.28,-0.1),toff:V3(0,0,0),obj:()=>({w:3.25,h:1.35}),fov:34,tope:0.66},
+};
+const CAM={off:V3(-1.5,1.2,6),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 15. EL HUD (izquierda) ===================== */
+const ocultaCombustible=()=>EST.modo==='guia'&&GUIA.paso==='decide'&&!(GUIA.r2&&GUIA.r2.validado);   // el consumo, mientras se ajusta la estrategia
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enPredice=()=>EST.modo==='guia'&&GUIA.paso==='predice';
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · mild hybrid de 48 V</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>¿Cuánto ahorra apagar el motor en cada semáforo?</h2>
+    <p class="intro">Un <b>alternador-arrancador</b> de 48 V apaga y rearranca el motor, <b>recupera</b> energía al frenar y <b>asiste</b> al acelerar. Cambia la estrategia y mira el ciclo urbano.</p></div>`;
+  } else h+=`<h2>Calcula, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Start-stop</div><div class="seg" id="segSS"><button class="b ${EST.ss?'on':''}" data-ss="1">Activo</button><button class="b ${!EST.ss?'on':''}" data-ss="0">Apagado</button></div></div>
+    <div class="cg"><div class="cl">Tráfico</div><div class="seg" id="segPerfil">${Object.keys(NOMBRE_PERFIL).map(k=>`<button class="b ${EST.perfil===k?'on':''}" data-perfil="${k}">${NOMBRE_PERFIL[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Umbral de parada</div><b id="vU">${fN(EST.vOff,1)} km/h</b></div><input type="range" id="rU" min="0" max="25" step="0.5" value="${EST.vOff}" aria-label="Velocidad por debajo de la cual se apaga el motor al rodar">
+      <div class="marcas"><span>0</span><span>25</span></div></div>
+    <div class="cg"><div class="cl"><div>Límite de regeneración</div><b id="vR">${fN(EST.pReg,1)} kW</b></div><input type="range" id="rR" min="1" max="12" step="0.5" value="${EST.pReg}" aria-label="Potencia máxima de regeneración en kilovatios">
+      <div class="marcas"><span>1</span><span>12</span></div></div>
+    <div class="cg"><div class="cl"><div>Asistencia (boost)</div><b id="vB">${fN(EST.pBoost,2)} kW</b></div><input type="range" id="rB" min="0" max="10" step="0.05" value="${EST.pBoost}" aria-label="Potencia máxima de asistencia en kilovatios">
+      <div class="marcas"><span>0</span><span>10</span></div></div>
+    <div class="cg"><div class="cl"><div>Cargas de 12 V</div><b id="vL">${fN(EST.P12)} W</b></div><input type="range" id="rL" min="200" max="1400" step="50" value="${EST.P12}" aria-label="Potencia de las cargas de 12 voltios">
+      <div class="marcas"><span>200</span><span>1 400</span></div></div>
+    <div class="fila"><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">P<sub>comb</sub> = (P<sub>b</sub> + P<sub>fr</sub>(n)) / η<sub>i</sub> · P<sub>fr</sub> = fmep·V<sub>d</sub>·n/120</div>
+    <div class="fl"><b>Motor</b>: línea de Willans de 1,5 L con η<sub>i</sub> = ${fN(MOT.etaI,2)}; al ralentí (${fN(MOT.nRal)} rpm) quema ${fN(pCombustible(0,MOT.nRal)/LHV*3600,2)} L/h. Con el pie levantado y el motor acoplado, el combustible se corta.</div>
+    <div class="formula">J·dω/dt = T<sub>BSG</sub> − T<sub>res</sub>(ω,θ) · t<sub>arr</sub> ≈ J·ω<sub>f</sub> / (T<sub>BSG</sub> − T̄<sub>res</sub>)</div>
+    <div class="formula">P<sub>t</sub> = V<sub>oc</sub>·I − R·I² · dSOC = −I·dt / (3600·Q)</div>
+    <div class="fl">El balance del ciclo cierra con ${fN(Math.abs(CALC?CALC.run.balance.resid/CALC.run.balance.Ef:0)*100,6)} % de residuo: combustible = calor del motor + rueda + tren + frenos + pérdidas del BSG y de la batería + cargas de 12 V + arranques.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Ciclo urbano <b>sintético</b> de 217 s y 1,3 km con seis paradas de 4 a 23 s: no es un WLTP ni un NEDC, y el ahorro de otro ciclo será distinto.</li>
+    <li>Cada instante es un equilibrio de potencias (cuasi-estático); el motor sigue una recta de Willans con η<sub>i</sub> constante; el arranque arrastra el motor hasta ${fN(MOT.nRal)} rpm sin contar la ayuda de la combustión.</li>
+    <li>Batería con V<sub>oc</sub> lineal en el SOC y resistencia fija; sin temperatura ni envejecimiento. El alternador convencional rinde ${fN(VEH.etaAlt*100)} %.</li>
+    <li>Los giros se ven a 1/40 de la velocidad real y el reloj se frena a 1/5 en cada rearranque. No es CFD, FEM ni una certificación de consumo.</li>
+  </ul><div class="src">Guzzella y Sciarretta, <i>Vehicle Propulsion Systems</i> · Heywood, <i>Internal Combustion Engine Fundamentals</i> · Willans (1888).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-ss]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.ss=b.dataset.ss==='1'; pintaHUD(); re(); });
+  H.querySelectorAll('[data-perfil]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.perfil=b.dataset.perfil; SIM.t=0; pintaHUD(); re(); });
+  const lig=(id,campo,ev,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=+e.value; el(ev).textContent=fmt(EST[campo]); re(); }; };
+  lig('rU','vOff','vU',v=>fN(v,1)+' km/h'); lig('rR','pReg','vR',v=>fN(v,1)+' kW'); lig('rB','pBoost','vB',v=>fN(v,2)+' kW'); lig('rL','P12','vL',v=>fN(v)+' W');
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 16. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#7f9a8f',t?11:14,'center','500'); };
+const COL={motor:'#ffb347',bsg:'#8bd94e',bat:'#59c7f2',conv:'#93a8a0',sin:'#ffb703',run:'#8bd94e',v:'#9cb8ae'};
+const GRID='rgba(160,210,190,0.10)', EJE='#3f6a5d', TXT='#8eb3a5';
+/** Ejes de tiempo del ciclo: devuelve funciones de escala. */
+function ejeT(Wd,X0,X1){ const T=CALC.cic.T; return t=>X0+t/T*(X1-X0); }
+function bandasApagado(x,X,Y0,Y1){ const T=CALC.run.traza.st, dt=CALC.run.dt, N=CALC.run.N; let ini=-1;
+  for(let i=0;i<=N;i++){ const off=i<N&&T[i]===0; if(off&&ini<0) ini=i; if(!off&&ini>=0){ x.fillStyle='rgba(60,120,170,0.20)'; x.fillRect(X(ini*dt),Y0,X(i*dt)-X(ini*dt),Y1-Y0); ini=-1; } } }
+function cursor(x,X,Y0,Y1){ const px=X(SIM.t); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+
+/* ---- Potencias del ciclo (o, en el arranque, el par del BSG frente al resistente) ---- */
+function pintaPot(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-8, Y0=8, Y1=Hd-16;
+  if(C.p.arranque){ pintaArranque(x,Wd,Hd); return; }
+  const T=C.run.traza, N=C.run.N, dt=C.run.dt, X=ejeT(Wd,X0,X1);
+  let mx=4,mn=-4; for(let i=0;i<N;i+=2){ mx=Math.max(mx,T.Pb[i]/1e3,T.Pm[i]/1e3,T.Pbat[i]/1e3); mn=Math.min(mn,T.Pb[i]/1e3,T.Pm[i]/1e3,T.Pbat[i]/1e3); }
+  mx=Math.ceil(mx/5)*5; mn=Math.floor(mn/5)*5; const Y=v=>Y1-(v-mn)/(mx-mn)*(Y1-Y0);
+  bandasApagado(x,X,Y0,Y1);
+  x.__uy=undefined; for(let v=mn;v<=mx;v+=5){ raya(x,X0,Y(v),X1,Y(v),v===0?'rgba(200,230,215,0.35)':GRID); (Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11&&(x.__uy=Y(v),1)&&txt(x,String(v).replace('-','−'),X0-4,Y(v)+3,TXT,8.5,'right','500')); }
+  for(let t=0;t<=C.cic.T;t+=50) { raya(x,X(t),Y1,X(t),Y1+3,EJE); txt(x,String(t),X(t),Hd-3,TXT,8.5,'center','500'); }
+  txt(x,'kW',X0+4,Y0+8,TXT,8.5,'left','600'); txt(x,'s',X1,Hd-3,TXT,8.5,'right','600');
+  const traza=(arr,col,w,f)=>{ x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<N;i++){ const px=X(i*dt), py=Y(arr[i]/1e3*(f||1)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); };
+  traza(T.Pbat,COL.bat,1.2); traza(T.Pm,COL.bsg,1.7); traza(T.Pb,COL.motor,1.4);
+  cursor(x,X,Y0,Y1);
+  el('t_fu').textContent='t = '+fN(SIM.t,0)+' s';
+}
+function pintaLeyPot(){
+  const C=CALC;
+  el('leyFu').innerHTML=C&&C.p.arranque?`<span class="lg"><i style="--c:${COL.bsg}"></i>par del BSG</span><span class="lg"><i style="--c:${COL.motor}"></i>par resistente medio</span><span class="lg"><i class="dash" style="--c:#ff7a6a"></i>con la compresión</span>`
+   :`<span class="lg"><i style="--c:${COL.motor}"></i>motor al freno</span><span class="lg"><i style="--c:${COL.bsg}"></i>BSG (+ asiste, − genera)</span><span class="lg"><i style="--c:${COL.bat}"></i>batería (+ descarga)</span><span class="lg"><i class="bl" style="--c:rgba(60,120,170,.55)"></i>motor apagado</span>`;
+  el('t_fuT').textContent=C&&C.p.arranque?'Par en el cigüeñal':'Potencias en el ciclo';
+}
+function pintaArranque(x,Wd,Hd){
+  const C=CALC, X0=34, X1=Wd-10, Y0=10, Y1=Hd-18, nmax=1000, X=n=>X0+n/nmax*(X1-X0), mxT=90, Y=T=>Y1-T/mxT*(Y1-Y0);
+  x.__uy=undefined; for(let T=0;T<=mxT;T+=30){ raya(x,X0,Y(T),X1,Y(T),GRID); (Math.abs(Y(T)-(x.__uy===undefined?-99:x.__uy))>=11&&(x.__uy=Y(T),1)&&txt(x,String(T),X0-4,Y(T)+3,TXT,8.5,'right','500')); }
+  for(const n of [0,250,500,750,1000]) txt(x,fN(n),X(n),Hd-4,TXT,8.5,'center','500');
+  txt(x,'N·m',X0+4,Y0+8,TXT,8.5,'left','600'); txt(x,'rpm',X1,Hd-4,TXT,8.5,'right','600');
+  raya(x,X(MOT.nRal),Y0,X(MOT.nRal),Y1,'rgba(255,255,255,0.35)',1,[3,3]); txt(x,'ralentí',X(MOT.nRal)-3,Y0+8,TXT,8.5,'right','600');
+  const T0=T0frio(C.p.Tc), Tb=n=>Math.min(BSG.Tmax,BSG.Pmax/Math.max(1,n*DOSPI/60));
+  x.strokeStyle=COL.bsg; x.lineWidth=2; x.beginPath(); for(let n=0;n<=nmax;n+=10){ const px=X(n),py=Y(Tb(n)); n?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  x.strokeStyle=COL.motor; x.lineWidth=2; x.beginPath(); for(let n=0;n<=nmax;n+=10){ const px=X(n),py=Y(T0+CV_ARR*n*DOSPI/60); n?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  x.setLineDash([3,3]); x.strokeStyle='#ff7a6a'; x.lineWidth=1.2; x.beginPath(); for(let n=0;n<=nmax;n+=10){ const w=n*DOSPI/60, px=X(n),py=Y(T0*1.6+CV_ARR*w); n?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]);
+  // punto del arranque en curso: el régimen del reloj
+  const e=SIM.e; if(e&&e.n>0&&e.n<=MOT.nRal+1){ const px=X(e.n); x.fillStyle='#fff'; x.beginPath(); x.arc(px,Y(Tb(e.n)),3.6,0,DOSPI); x.fill(); }
+  el('t_fu').textContent='temperatura del motor '+fN(C.p.Tc)+' °C';
+}
+/* ---- SOC de la batería ---- */
+function pintaSOC(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC; if(!C) return;
+  if(C.p.arranque){ sinDatos(x,Wd,Hd,'—'); return; }
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, X=ejeT(Wd,X0,X1), T=C.run.traza, N=C.run.N, dt=C.run.dt, lo=0.25, hi=0.9, Y=s=>Y1-(s-lo)/(hi-lo)*(Y1-Y0);
+  x.fillStyle='rgba(139,217,78,0.07)'; x.fillRect(X0,Y(BAT.Smax),X1-X0,Y(BAT.Smin)-Y(BAT.Smax));
+  x.__uy=undefined; for(const s of [0.3,0.5,0.7,0.9]){ raya(x,X0,Y(s),X1,Y(s),GRID); (Math.abs(Y(s)-(x.__uy===undefined?-99:x.__uy))>=11&&(x.__uy=Y(s),1)&&txt(x,String(Math.round(s*100)),X0-3,Y(s)+3,TXT,8.5,'right','500')); }
+  raya(x,X0,Y(BAT.Smin),X1,Y(BAT.Smin),'rgba(255,106,90,0.55)',1,[3,3]); raya(x,X0,Y(BAT.Smax),X1,Y(BAT.Smax),'rgba(255,106,90,0.55)',1,[3,3]);
+  raya(x,X0,Y(BAT.S0),X1,Y(BAT.S0),'rgba(255,255,255,0.35)',1,[2,3]);
+  x.strokeStyle=COL.bsg; x.lineWidth=1.8; x.beginPath(); for(let i=0;i<N;i+=2){ const px=X(i*dt), py=Y(clamp(T.soc[i],lo,hi)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  const i=SIM.e?SIM.e.i:0; x.fillStyle='#fff'; x.beginPath(); x.arc(X(i*dt),Y(clamp(T.soc[i],lo,hi)),3.4,0,DOSPI); x.fill();
+  cursor(x,X,Y0,Y1);
+  txt(x,'%',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_pw').textContent=fN(C.run.socEnd*100,1)+' %';
+}
+/* ---- combustible acumulado ---- */
+function pintaCombustible(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC; if(!C) return;
+  if(C.p.arranque){ sinDatos(x,Wd,Hd,'—'); return; }
+  if(ocultaCombustible()){ sinDatos(x,Wd,Hd,'se muestra al validar'); el('t_fr').textContent=''; return; }
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, X=ejeT(Wd,X0,X1), dt=C.run.dt, N=C.run.N;
+  const mx=Math.ceil(C.conv.fuelL*1000/50)*50, Y=v=>Y1-v/mx*(Y1-Y0);
+  x.__uy=undefined; for(let v=0;v<=mx;v+=mx/4){ raya(x,X0,Y(v),X1,Y(v),GRID); (Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11&&(x.__uy=Y(v),1)&&txt(x,fN(v),X0-3,Y(v)+3,TXT,8.5,'right','500')); }
+  const lin=(R,col,w,dash)=>{ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<N;i+=2){ const px=X(i*dt), py=Y(R.traza.fuelL[i]*1000); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]); };
+  lin(C.conv,COL.conv,1.4,[4,3]); if(C.p.ss) lin(C.sin,COL.sin,1.5); lin(C.run,COL.run,2);
+  cursor(x,X,Y0,Y1);
+  txt(x,'mL',X0+4,Y0+8,TXT,8.5,'left','600');
+  const ley=[['convencional',COL.conv]].concat(C.p.ss?[['sin start-stop',COL.sin]]:[]).concat([[C.p.ss?'con start-stop':'mild hybrid',COL.run]]); if(Hd>=104) ley.forEach(([t,c],k)=>{ const yy=Y1-6-(ley.length-1-k)*10; raya(x,X1-78,yy-3,X1-68,yy-3,c,2); txt(x,t,X1-65,yy,TXT,8.5,'left','500'); });
+  el('t_fr').textContent='mL';
+}
+/* ---- velocidad y estado del motor ---- */
+function pintaVel(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  if(C.p.arranque){ sinDatos(x,Wd,Hd,'—'); return; }
+  const X0=26, X1=Wd-6, Y0=4, Yb=Hd-16, Y1=Hd-9, X=ejeT(Wd,X0,X1), N=C.cic.N, dt=C.cic.dt, vmax=60, Y=v=>Yb-(v)/vmax*(Yb-Y0);
+  x.__uy=undefined; for(const v of [0,20,40,60]){ raya(x,X0,Y(v),X1,Y(v),GRID); (Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11&&(x.__uy=Y(v),1)&&txt(x,String(v),X0-3,Y(v)+3,TXT,8.5,'right','500')); }
+  x.fillStyle='rgba(156,184,174,0.16)'; x.beginPath(); x.moveTo(X(0),Y(0)); for(let i=0;i<N;i+=2) x.lineTo(X(i*dt),Y(C.cic.v[i]*3.6)); x.lineTo(X(C.cic.T),Y(0)); x.closePath(); x.fill();
+  x.strokeStyle=COL.v; x.lineWidth=1.4; x.beginPath(); for(let i=0;i<N;i+=2){ const px=X(i*dt), py=Y(C.cic.v[i]*3.6); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  // franja del estado del motor: verde = encendido, azul oscuro = apagado, y una marca en cada rearranque
+  const st=C.run.traza.st; for(let i=0;i<N;i+=1){ x.fillStyle=st[i]===0?'rgba(60,120,170,0.75)':'rgba(139,217,78,0.85)'; x.fillRect(X(i*dt),Yb+3,Math.max(1,X((i+1)*dt)-X(i*dt)+0.5),5); }
+  for(const e of C.run.traza.ev){ raya(x,X(e),Y0,X(e),Yb+8,'rgba(255,183,3,0.55)',1); }
+  cursor(x,X,Y0,Y1+2);
+  txt(x,'km/h',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_sp').textContent=fN(C.run.nArr)+' rearranques · apagado '+fN(C.run.tOff,0)+' s';
+}
+
+function pintaDockFijo(){
+  const C=CALC, gu=EST.modo==='guia';
+  el('p_mode').textContent=gu?'Laboratorio guiado':'Ciclo urbano · '+NOMBRE_PERFIL[EST.perfil];
+  pintaLeyPot();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  if(enDiagnostico()){ lab(1,'Temp. del motor'); lab(2,'Carga (SOC)'); lab(3,'Cargas de 12 V'); lab(4,'Tensión de 48 V'); lab(5,'Motor'); lab(6,'Start-stop'); }
+  else if(enPredice()){ lab(1,'Régimen'); lab(2,'Par del BSG'); lab(3,'Potencia mec.'); lab(4,'Temp. del motor'); lab(5,'Estado'); lab(6,'Energía'); }
+  else { lab(1,'Motor'); lab(2,'BSG'); lab(3,'Batería 48 V'); lab(4,'Carga (SOC)'); lab(5,'Combustible'); lab(6,'Ahorro hasta ahora'); }
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u)=>fN(v)+'<small> '+u+'</small>', sg=(v,d,u)=>(v>=0?'+':'−')+fN(Math.abs(v),d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t='';
+  if(enDiagnostico()){
+    const D=GUIA.dx; set('f_1',sm(D.Tc,'°C')); set('f_2',fN(D.s0*100,1)+'<small> %</small>'); set('f_3',sm(D.P12,'W')); set('f_4',fN(vocDe(D.s0),1)+'<small> V</small>'); set('f_5','encendido'); set('f_6','no se apaga');
+    for(const i of [1,2,3,4,5,6]) _cl('f_'+i,''); Av.className='dk-aviso'; Av.textContent=''; el('p_sub').textContent='el coche está parado y el motor sigue encendido'; return; }
+  el('p_sub').textContent=C.p.arranque?'':fN(e.v*3.6,0)+' km/h · t = '+fN(SIM.t,0)+' s';
+  if(enPredice()){
+    set('f_1',sm(e.n,'rpm')); set('f_2',sm(Math.min(BSG.Tmax,BSG.Pmax/Math.max(1,e.n*DOSPI/60)),'N·m')); set('f_3',sg(e.Pm/1e3,1,'kW')); set('f_4',sm(C.p.Tc,'°C'));
+    set('f_5',e.fase==='arr'?'arrancando':(e.fase==='off'?'apagado':'ralentí')); set('f_6','¿?'); _cl('f_6','oculto'); for(const i of [1,2,3,4,5]) _cl('f_'+i,''); Av.className='dk-aviso'; Av.textContent=''; return; }
+  const apag=e.st===0;
+  set('f_1',apag?'apagado':sm(e.n,'rpm')); _cl('f_1',apag?'warn':'');
+  set('f_2',Math.abs(e.Pm)<5?'<small>—</small>':sg(e.Pm/1e3,1,'kW')); _cl('f_2','');
+  set('f_3',sg(e.Pbat/1e3,1,'kW')); _cl('f_3','');
+  set('f_4',fN(e.soc*100,1)+'<small> %</small>'); _cl('f_4',e.soc<BAT.Smin+0.01||e.soc>BAT.Smax-0.01?'warn':'');
+  if(ocultaCombustible()){ set('f_5','¿?'); _cl('f_5','oculto'); set('f_6','¿?'); _cl('f_6','oculto'); }
+  else {
+    set('f_5',fN(e.fuel*1000,1)+'<small> mL</small>'); _cl('f_5','');
+    const cf=C.conv.traza.fuelL[e.i]; const a=cf>0.0003?1-e.fuel/cf:0; set('f_6',cf>0.0003?fN(a*100,0)+'<small> %</small>':'—'); _cl('f_6','');
+  }
+  const ss=C.p.ss&&!C.p.arranque;
+  if(C.p.ss&&(C.p.P12>SS.P12max||C.p.Tc<SS.Tmin)){ cl='mal'; t=C.p.P12>SS.P12max?'Con más de '+fN(SS.P12max)+' W en 12 V el start-stop se inhibe: el motor no se apaga.':'El motor está frío: el start-stop se inhibe.'; }
+  else if(ss&&C.run.tSatR+C.run.tSatB>1){ cl='ojo'; t=C.run.tSatR>C.run.tSatB?'La batería se llena: parte de la regeneración se pierde en los frenos.':'La batería llega al mínimo: la asistencia se recorta para protegerla.'; }
+  else if(apag){ cl='bien'; t='Motor apagado: no quema nada y las cargas de 12 V salen de la batería de 48 V.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaPot(); pintaSOC(); pintaCombustible(); pintaVel(); }
+
+
+/* ===================== 17. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[1,'×1'],[2,'×2'],[4,'×4'],[8,'×8']];
+el('vbar').innerHTML=[['banco','Banco'],['motor','Motor'],['bsg','BSG'],['bateria','Batería']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad del ciclo">${VEL.map(([v,t])=>`<option value="${v}">ciclo ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent=C.p.arranque?'arranque en bucle':'t = '+fN(SIM.t,0)+' s';
+  el('tLento').textContent=SIM.warp<1?'cámara lenta ×1/5 · giros a 1/40':'giros a 1/40 de la velocidad real';
+  let t,c;
+  if(e.st===0){ t='motor apagado: 0 L/h'; c='#59a8e8'; }
+  else if(e.st===2){ t='el BSG arranca el motor'; c='#ffb703'; }
+  else if(e.Pm<-200){ t='frenando: el BSG recupera '+fN(-e.Pm/1e3,1)+' kW'; c='#8bd94e'; }
+  else if(e.Pm>200){ t='el BSG asiste con '+fN(e.Pm/1e3,1)+' kW'; c='#ffb703'; }
+  else if(e.Pf<=0&&e.n>300){ t='corte de inyección: 0 L/h'; c='#9fd6ff'; }
+  else { t='motor encendido'; c='#8bd94e'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 18. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Alternador-arrancador (BSG) de 48 V',()=>V3(-0.99,1.90,0.30)],
+  ['Correa serpentina',()=>V3(-0.62,1.28,0.54)],
+  ['Pistón y biela (corte)',()=>V3(-0.20,1.30,0.05)],
+  ['Culata: válvulas y levas',()=>V3(-0.20,1.90,0.05)],
+  ['Batería de 48 V (13 celdas en serie)',()=>V3(-0.30,0.36,0.30)],
+  ['Convertidor DC-DC 48 → 12 V',()=>V3(0.74,0.80,-0.22)],
+  ['Batería de 12 V',()=>V3(1.38,0.34,0.18)],
+  ['Cargas de 12 V (ventilador)',()=>V3(1.38,1.34,-0.22)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(195,240,143,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  motor:'Motor de gasolina de cuatro cilindros en línea, cortado por el plano del cilindro 1. El gas cambia de color con cada tiempo: admisión, compresión, expansión y escape. Gira a 1/40 de su velocidad real',
+  bsg:'Alternador-arrancador por correa (BSG) de 48 V, visto de frente: estátor con devanado y rotor de imanes. Arranca el motor, recupera energía al frenar y asiste al acelerar',
+  correa:'Correa serpentina: une el cigüeñal, el BSG y el tensor. Transmite par en los dos sentidos, según el BSG motorice o genere',
+  bateria:'Batería de ión-litio de 48 V: 13 celdas en serie, 2 en paralelo. La altura verde es la carga (SOC); el consumo y la regeneración la suben y la bajan',
+  dcdc:'Convertidor DC-DC: baja de 48 a 12 V con un rendimiento de 94 % y alimenta las cargas del coche, incluso con el motor apagado',
+  bat12:'Batería de plomo de 12 V: respaldo de las cargas y de la electrónica',
+  carga:'Cargas de 12 V del coche (aquí un ventilador): su consumo sale del convertidor y, con el motor apagado, de la batería de 48 V',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||p===PLATAFORMA||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||h.object.renderOrder===5||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; if(o===ENG) return 'motor'; if(o===BSGG) return 'bsg'; if(o===CORREA.mesh||o===GIRO.cig||o===GIRO.bsg||o===GIRO.ten) return 'correa'; if(o===PACK) return 'bateria'; if(o===DCDC) return 'dcdc'; if(o===BAT12) return 'bat12'; if(o===CARGA) return 'carga'; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 19. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 20. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Calcula (cuánto tarda el BSG en arrancar el motor, con la aceleración angular), 2 · Ajusta (el umbral de
+   parada, el límite de regeneración y la asistencia para consumir lo mínimo sin saturar la batería: el consumo sólo
+   aparece al validar, y el óptimo es INTERIOR: apagar el motor demasiado pronto pierde regeneración, y asistir de más
+   vacía la batería) y 3 · Diagnostica (¿por qué el motor no se apaga en la parada?, sólo con lo que se ve en el dock)
+   y cierra con un quiz de tres preguntas. Cuatro validaciones fallidas cambian el escenario. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+const OPT={};
+const optimoDe=(perfil,P12)=>{ const k=perfil+'|'+P12; return OPT[k]||(OPT[k]=optimo(perfil,P12)); };
+
+/* ---------- Fase 1 · Calcula el tiempo de arranque ---------- */
+const TEMPS1=[90,75,60,45];
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.Tc; let Tc; do{ Tc=pickOne(TEMPS1); }while(Tc===p);
+  const J=MOT.Jm+BSG.Jr*BSG.i*BSG.i, wF=MOT.nRal*DOSPI/60, Tres=T0frio(Tc)+CV_ARR*wF/2;
+  GUIA.r1={Tc,J,wF,Tres,T:BSG.Tmax,ans:J*wF/(BSG.Tmax-Tres)}; }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkPredice(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el tiempo en segundos (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(0.04,0.06*ok)){
+    RETO.fallos1=0; sonido.bien();
+    const a=CALC.arr, tbe=(E_PEN+C_EQ*a.Eel)/pCombustible(0,MOT.nRal);
+    feedback('good','¡Correcto! ✓',`t = J·ω<sub>f</sub> / (T − T̄<sub>res</sub>) = ${fN(r.J,3)}·${fN(r.wF,1)} / (${fN(r.T)} − ${fN(r.Tres,1)}) = <b>${fN(ok,2)} s</b>. Integrando el arranque completo, con el vaivén del par resistente en cada compresión, el modelo da <b>${fN(a.t,2)} s</b> y ${fN(a.Eel/1e3,2)} kJ eléctricos. Un rearranque también cuesta ${fN(E_PEN/1e3)} kJ de combustible de enriquecimiento: apagar el motor sólo compensa si la parada dura más de unos <b>${fN(tbe,0)} s</b>.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal(); const d=v>ok?'alto':'bajo';
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: ω en rad/s (rpm·2π/60) y el par que acelera es el del BSG menos el resistente.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,2)} s) está ${d}. Pasa las rpm a rad/s y usa la aceleración angular α = (T − T̄<sub>res</sub>)/J. (intentos fallidos: ${RETO.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETO.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta la estrategia ---------- */
+function prepararDecide(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.perfil===GUIA.r2.perfil&&e.P12===GUIA.r2.P12&&RETO.resiembras>0);
+  GUIA.r2={perfil:e.perfil,P12:e.P12,vOff:14,pReg:6,pBoost:0,validado:false,res:null,opt:null,intentos:0};
+  reiniciaCalculo(); pintaHUD(); pintaChips();
+}
+function estadoRestricciones(){
+  const C=CALC; if(!C||!GUIA.r2) return null; const R=C.run, dS=(R.socEnd-BAT.S0)*100, sat=R.tSatR+R.tSatB;
+  return {socEnd:R.socEnd,okSOC:Math.abs(R.socEnd-BAT.S0)<=RETO_SOC.tol,sat,okSat:sat<=RETO_SOC.satMax,dS};
+}
+function pintaChips(){
+  const c=estadoRestricciones(), e1=el('chipSoc'), e2=el('chipSat'); if(!c||!e1||!e2) return;
+  e1.className='chip '+(c.okSOC?'ok':'mal'); e1.innerHTML=`SOC final <b>${fN(c.socEnd*100,1)} %</b> <small>(debe quedar entre ${fN((BAT.S0-RETO_SOC.tol)*100)} y ${fN((BAT.S0+RETO_SOC.tol)*100)} %)</small>`;
+  e2.className='chip '+(c.okSat?'ok':'mal'); e2.innerHTML=`Batería saturada <b>${fN(c.sat,1)} s</b> <small>(máx. ${fN(RETO_SOC.satMax)} s)</small>`;
+}
+function validarDecide(){
+  const r=GUIA.r2; if(!r) return;
+  const par={vOff:r.vOff,pReg:r.pReg*1e3,pBoost:r.pBoost*1e3}, R=evaluaReto(par,r.perfil,r.P12), opt=optimoDe(r.perfil,r.P12);
+  r.res=R; r.opt=opt; r.validado=true; r.intentos++; RETO.intentos++;
+  const lim=opt.Feq*(1+RETO_SOC.tolFeq), okFuel=R.Feq<=lim, ok=R.ok&&okFuel;
+  reiniciaCalculo();
+  const base=`Consumes <b>${fN(R.L100,2)} L/100 km</b> (un coche convencional, ${fN(R.Lconv,2)}): ahorras el <b>${fN(R.ahorro*100,0)} %</b>. Consumo equivalente (con la batería al final del ciclo): ${fN(R.Feq,2)} L/100 km; el límite era <b>${fN(lim,2)}</b>.`;
+  if(ok){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Lo conseguiste! ✓',`${base} La mejor combinación que encuentra el motor es un umbral de <b>${fN(opt.vOff,1)} km/h</b>, ${fN(opt.pReg,1)} kW de regeneración y ${fN(opt.pBoost,2)} kW de asistencia. El umbral es interior: por encima de unos 6 km/h el motor ya no quema nada al frenar (corte de inyección) y apagarlo sólo hace perder regeneración; por debajo, el embrague se abre y el ralentí sí gasta.`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    let msg=base+' ';
+    if(!R.ok){
+      if(Math.abs(R.socEnd-BAT.S0)>RETO_SOC.tol) msg+=R.socEnd<BAT.S0?'La batería termina descargada: asististe con más energía de la que recuperaste. ':'La batería termina cargada de más: sobra energía que podías gastar en asistencia. ';
+      if(R.tSatR+R.tSatB>RETO_SOC.satMax) msg+=R.tSatR>R.tSatB?'La batería se llenó y parte de la regeneración se perdió en los frenos. ':'La batería llegó al mínimo y la asistencia se recortó. ';
+    } else {
+      if(r.pReg<opt.pReg-1.5) msg+='Recuperas poca energía al frenar: con un límite de regeneración mayor sobra energía para asistir. ';
+      else if(r.vOff>opt.vOff+4) msg+='Apagas el motor cuando aún gira arrastrado por las ruedas: ahí no quema nada y pierdes regeneración. ';
+      else if(r.vOff<opt.vOff-4) msg+='Dejas el motor al ralentí en la última rodada antes de parar: ahí sí gasta. ';
+      else msg+='Estás cerca: afina la asistencia hasta que el SOC termine donde empezó. ';
+    }
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia el escenario.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETO.fallos2}/4)`,true); pintaHUD(); pintaChips(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'soc',Tc:90,s0:0.31,P12:450},
+  {k:'frio',Tc:38,s0:0.62,P12:450},
+  {k:'carga',Tc:90,s0:0.62,P12:1350},
+];
+const NOMBRE_DX={soc:'Batería de 48 V descargada',frio:'Motor frío',carga:'Demasiada carga de 12 V'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara cada lectura con su condición (SOC ≥ 35 %, motor ≥ 60 °C, cargas de 12 V ≤ 1 200 W).',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='soc') return `Con el SOC por debajo de ${fN(SS.SOCmin*100)} % no queda energía de sobra para rearrancar con el BSG ni para sostener las cargas con el motor apagado: la ECU deja el motor encendido hasta que el alternador-arrancador lo recargue.`;
+  if(k==='frio') return `Con el motor por debajo de ${fN(SS.Tmin)} °C el par resistente es mucho mayor (aceite espeso) y el catalizador aún no ha llegado a su temperatura: apagar y rearrancar gastaría más de lo que ahorra.`;
+  return `Con más de ${fN(SS.P12max)} W en 12 V (luneta, ventilador, desempañador) el convertidor descargaría la batería de 48 V en pocos segundos de parada: la ECU mantiene el motor encendido para que el BSG genere.`;
+}
+function noEs(k){
+  if(k==='soc') return 'La carga de la batería de 48 V está por encima del mínimo: mira las otras lecturas.';
+  if(k==='frio') return 'La temperatura del motor ya es suficiente: mira las otras lecturas.';
+  return 'Las cargas de 12 V están dentro de lo que el convertidor aguanta: mira las otras lecturas.';
+}
+const QUIZ=[
+  {q:'Un coche de 1 350 kg frena de 50 km/h hasta pararse. ¿Qué energía cinética hay disponible para recuperar?',ok:'≈ 0,036 kWh (130 kJ)',mal:['≈ 0,36 kWh','≈ 0,0036 kWh','≈ 3,6 kWh']},
+  {q:'¿Por qué, con el pie levantado a 30 km/h y el motor acoplado, el motor no consume combustible?',ok:'La ECU corta la inyección y las ruedas lo arrastran',mal:['Porque el BSG lo mueve con la batería','Porque el motor se apaga solo','Porque el ralentí no gasta']},
+  {q:'¿Por qué rearrancar el motor en una parada de 2 s gasta más de lo que ahorra?',ok:'Cada rearranque cuesta energía y combustible que no se compensan en tan poco tiempo apagado',mal:['Porque el BSG consume 12 kW todo el tiempo','Porque el motor frío no arranca nunca','Porque la batería de 12 V se descarga']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='guia'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','La aceleración angular es α = (T − T̄res)/J. Parte de cero y llega a ω<sub>f</sub> con α constante: t = ω<sub>f</sub>/α.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','ω<sub>f</sub> = n·2π/60 con n = 850 rpm. Usa el J y el par resistente medio que te da el enunciado.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarDecide(); break;
+    case 'dx-soc': diagnostica('soc'); break; case 'dx-frio': diagnostica('frio'); break; case 'dx-carga': diagnostica('carga'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Cuánto tarda el BSG en arrancar el motor?',
+      teach:`Motor a <b>${fN(r.Tc)} °C</b>. Inercia del conjunto <b>${fN(r.J,3)} kg·m²</b>; par del BSG <b>${fN(r.T)} N·m</b>; par resistente medio <b>${fN(r.Tres,1)} N·m</b>.<div class="task">¿Cuántos segundos tarda en llevarlo de 0 a 850 rpm? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? segundos" aria-label="Tiempo de arranque en segundos"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:`Consumir lo mínimo sin saturar la batería`,
+      teach:`Tráfico <b>${NOMBRE_PERFIL[r.perfil].toLowerCase()}</b>, cargas de 12 V de <b>${fN(r.P12)} W</b>. Termina el ciclo con la carga donde empezó y sin recortar la regeneración ni la asistencia. El consumo se conoce al validar.<div class="why"><b>El objetivo:</b> quedar a menos del 0,8 % del mínimo que el motor encuentra. ${tri('d_try2',RETO.fallos2,4)}</div><div class="chips"><span class="chip" id="chipSoc"></span><span class="chip" id="chipSat"></span></div>`,
+      acts:`<div class="cg"><div class="cl"><div>Umbral de parada</div><b id="v2U">${fN(r.vOff,1)} km/h</b></div><input type="range" id="r2U" min="0" max="25" step="0.5" value="${r.vOff}" aria-label="Umbral de parada"></div>
+        <div class="cg"><div class="cl"><div>Límite de regeneración</div><b id="v2R">${fN(r.pReg,1)} kW</b></div><input type="range" id="r2R" min="1" max="12" step="0.5" value="${r.pReg}" aria-label="Límite de regeneración"></div>
+        <div class="cg"><div class="cl"><div>Asistencia (boost)</div><b id="v2B">${fN(r.pBoost,2)} kW</b></div><input type="range" id="r2B" min="0" max="10" step="0.05" value="${r.pBoost}" aria-label="Asistencia"></div>
+        <button class="b primary" data-act="validar">▶ Validar el consumo</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué no se apaga',
+      teach:`El coche lleva parado varios segundos y el motor sigue encendido. Lee el dock: temperatura, carga, cargas de 12 V y tensión.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b>, elige tráfico «denso» y apaga el start-stop: mira cuánto combustible regalas en cada parada.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1; return {perfil:'urbano',ss:true,vOff:6,pReg:12e3,pBoost:1.2e3,P12:450,Tc:r.Tc,arranque:true}; }
+  if(GUIA.paso==='decide'&&GUIA.r2){ const r=GUIA.r2; return {perfil:r.perfil,ss:true,vOff:r.vOff,pReg:r.pReg*1e3,pBoost:r.pBoost*1e3,P12:r.P12,Tc:90}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {perfil:'urbano',ss:true,vOff:6,pReg:12e3,pBoost:1.2e3,P12:c.P12,Tc:c.Tc,s0:c.s0}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  el('feedback').classList.remove('show'); SIM.t=0; reiniciaCalculo(); ponVista(EST.vista,0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='decide') return;
+  const m={r2U:['vOff','v2U',v=>fN(v,1)+' km/h'],r2R:['pReg','v2R',v=>fN(v,1)+' kW'],r2B:['pBoost','v2B',v=>fN(v,2)+' kW']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=+t.value; GUIA.r2.validado=false; el(m[1]).textContent=m[2](+t.value); reiniciaCalculo(); pintaChips(); });
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+function saltaA(t){ SIM.t=clamp(t,0,CALC.cic.T-1); SIM.nVis=0; const e=estadoEn(SIM.t); if(e) SIM.nVis=e.n; }
+function buscaInstante(f,desde){ const R=CALC.run, T=R.traza; for(let i=Math.floor((desde||0)/R.dt);i<R.N;i++) if(f(T,i)) return i*R.dt; return 0; }
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), prev={perfil:EST.perfil,ss:EST.ss,vOff:EST.vOff,pReg:EST.pReg,pBoost:EST.pBoost,P12:EST.P12,vista:EST.vista,vel:EST.vel,pausa:EST.pausa};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } reiniciaCalculo(); pintaBarras(); };
+  try{
+    fija({perfil:'urbano',ss:true,vOff:6,pReg:12,pBoost:1.2,P12:450,vel:4,pausa:false}); ponVista('banco'); saltaA(0);
+    showToast('Paso 1 · Con el start-stop activo, el motor <b>se apaga</b> en cada parada (franja azul en la gráfica) y las cargas de 12 V salen de la batería de 48 V.',8200);
+    await espera(8800);
+    ponVista('motor'); saltaA(buscaInstante((T,i)=>T.st[i]===2,5)-2.5);
+    showToast('Paso 2 · Al soltar el freno el <b>BSG</b> gira el cigüeñal por la correa en menos de medio segundo. El reloj se frena a 1/5 para que lo veas.',8200);
+    await espera(9400);
+    ponVista('bsg'); saltaA(buscaInstante((T,i)=>T.Pm[i]<-3500&&T.st[i]===1,10)-0.5);
+    showToast('Paso 3 · Al frenar, el motor deja de quemar combustible y el BSG <b>genera</b>: la energía cinética carga la batería (flujo verde).',8200);
+    await espera(8800);
+    saltaA(buscaInstante((T,i)=>T.Pm[i]>1000&&T.st[i]===1,15)-0.5);
+    showToast('Paso 4 · Al acelerar, el BSG <b>asiste</b> con la energía guardada: el motor carga menos y quema menos (flujo ámbar).',8200);
+    await espera(8800);
+    ponVista('bateria'); saltaA(0);
+    showToast('Paso 5 · La altura verde de las celdas es la carga: baja con las cargas de 12 V y las asistencias, y sube con cada frenada.',8600);
+    await espera(9000);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); reiniciaCalculo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un zumbido grave del motor cuya altura sigue al régimen (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=60; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(rpm)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(30+rpm/30,t,0.15); zg.gain.setTargetAtTime(on&&rpm>0?0.012:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·velocidad en cada cuadro (y a 1/5 en cada rearranque), y con ESE tiempo se mueven el
+   motor, la correa, el BSG, los flujos de energía y la carga de la batería, y se pintan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const arr=CALC&&CALC.p.arranque, dtS=EST.pausa?0:dt*SIM.warp, dtSim=dtS*(arr?0.25:EST.vel);
+  aplicaEscena(dtS,dtSim);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(SIM.e&&!EST.pausa?SIM.nVis:0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando: el coche acelera a 45 km/h con el motor encendido, el BSG asiste y enseguida frena y recupera;
+   el motor se apagará solo en la primera parada. */
+disposicion();
+reiniciaCalculo();
+SIM.t=15; { const e=estadoEn(SIM.t); SIM.nVis=e.n; }
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('banco',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+if(innerWidth>=640) setTimeout(()=>showToast('El motor se apaga solo en cada parada y el BSG lo <b>rearranca</b> al soltar el freno. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' cualquier pieza para saber qué es.',5600),700);
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{Tc:GUIA.r1.Tc,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{perfil:GUIA.r2.perfil,P12:GUIA.r2.P12,vOff:GUIA.r2.vOff,pReg:GUIA.r2.pReg,pBoost:GUIA.r2.pBoost,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const R=C.run;
+    return {perfil:C.p.perfil,ss:C.p.ss,L100:R.L100,Lconv:C.conv.L100,Lsin:C.sin.L100,ahorro:C.ahorro,ahorroSS:C.ahorroSS,socEnd:R.socEnd,socMin:R.socMin,socMax:R.socMax,nArr:R.nArr,tOff:R.tOff,tSatR:R.tSatR,tSatB:R.tSatB,tArr:C.arr.t,resid:R.balance.resid/R.balance.Ef}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,warp:SIM.warp,n:SIM.nVis,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{perfil:GUIA.r2.perfil,P12:GUIA.r2.P12,opt:GUIA.r2.opt,res:GUIA.r2.res},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s); },
+  salta:(t)=>{ saltaA(t); aplicaEscena(0.001,0.001); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  paso:(p)=>{ if(EST.modo!=='guia') setMode('guia',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setDecide:(vOff,pReg,pBoost)=>{ const r=GUIA.r2; if(r){ r.vOff=vOff; r.pReg=pReg; r.pBoost=pBoost; r.validado=false; reiniciaCalculo(); pintaHUD(); pintaChips(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('mild-hybrid-48v-start-stop',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{motor:ENG,bsg:BSGG,bateria:PACK,dcdc:DCDC,bat12:BAT12,carga:CARGA,correa:CORREA.mesh}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-mild-hybrid-48v-start-stop.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
