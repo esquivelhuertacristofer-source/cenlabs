@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-147",
+  titulo: "El Neumático: Curva de Pacejka, Círculo de Fricción y Límite de Adherencia",
+  subtitulo: "Dinámica del vehículo · cuánta fuerza da una llanta antes de resbalar",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Descubres cuánta fuerza puede dar una llanta antes de resbalar. Una llanta toca el suelo sólo con una huella del tamaño de una mano, y de ahí sale toda la fuerza para frenar y para girar.
+
+Un recorrido paso a paso te lo enseña con una llanta sobre una cinta de pruebas: qué es el resbalamiento al frenar, qué es el desvío al girar y por qué frenar y girar a la vez se reparten un solo agarre. Después cambias el piso, la carga y la presión y miras cómo se encoge o crece el límite.
+
+Tu misión: tomar una curva mojada frenando lo justo. Si frenas poco, sales demasiado rápido; si frenas mucho, la llanta se queda sin agarre para girar. La respuesta no está escrita: sale de la física.`,
+  conceptos: [
+    { icono: '🛞', nombre: 'Resbalamiento', descripcion: 'Al frenar, la llanta gira más lento que el suelo. Con un poco de resbalamiento da su fuerza máxima; con demasiado, la fuerza baja.' },
+    { icono: '↗️', nombre: 'Ángulo de desvío', descripcion: 'Al girar, la llanta apunta un poco distinto de hacia donde va. Ese ángulo produce la fuerza lateral, hasta un máximo.' },
+    { icono: '⭕', nombre: 'Círculo de fricción', descripcion: 'La llanta tiene un solo agarre que reparte entre frenar y girar: la fuerza total no puede salirse de la elipse.' },
+    { icono: '⚖️', nombre: 'Carga, presión y piso', descripcion: 'Con agua o hielo el límite se encoge; con más carga el agarre crece menos que el peso; la presión cambia el tamaño de la huella.' },
+  ],
+  mision: [
+    'Sigue el recorrido de siete pasos y mira cómo cambian la huella, las flechas de fuerza y la elipse.',
+    'En Explorar, cambia el piso, la carga y la presión, y compara las curvas de frenar y de girar.',
+    'En el reto, calcula la velocidad máxima en una curva mojada y ajusta cuánto frenar sin pasar el límite.',
+    'Diagnostica por qué una llanta rinde mal (piso mojado, presión baja o sobrecarga) y contesta la pregunta de cierre.',
+  ],
+  aplicaciones: [
+    { area: 'Seguridad vial', ejemplo: 'Los sistemas ABS y de control de estabilidad trabajan justo en el pico de la curva de la llanta, para frenar sin bloquearla y sin perder el agarre lateral.' },
+    { area: 'Taller y mantenimiento', ejemplo: 'La presión y la carga cambian el tamaño de la huella y el agarre: revisar la presión en frío y no sobrecargar el vehículo es mantenimiento de seguridad.' },
+  ],
+};
+
+export default briefing;

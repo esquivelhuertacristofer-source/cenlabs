@@ -1759,6 +1759,28 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un radar FMCW de 77 GHz emite un chirp de pendiente S = B/T_c y mide cada eco como una frecuencia de batido f_b = 2SR/c; una FFT de rango y otra de Doppler (sobre N chirps) dan distancia y velocidad. Con B = 1 GHz la celda de distancia mide 15 cm, y con T_c = 40 µs y N = 128 el radar llega a 120 m, mide hasta ±24,3 m/s sin ambigüedad y distingue 0,38 m/s. Ningún mando mejora todo a la vez: B grande afina la distancia pero acorta el alcance, T_c corto sube la velocidad máxima pero resta muestras, y N alto afina la velocidad hasta chocar con los 131 072 muestras de memoria y los 8 ms de ciclo. Un peatón de 1 m² a 100 m devuelve −22 dB de relación señal-ruido por muestra; sólo la integración de las FFT y un CA-CFAR con umbral de 11,6 dB sobre el ruido (P_fa = 10⁻⁶) lo sacan del ruido, y la ventana de Hann baja los lóbulos laterales a cambio de 1,8 dB de señal.",
     "titulo": "Radar FMCW de 77 GHz: Distancia y Velocidad con FFT",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-146",
+    "modulo": "Autotrónica",
+    "orden": 146,
+    "simuladorHtml": "/labs/termica-bateria-placa-fria.html",
+    "teoria": "Cargar un módulo de 12 celdas de 80 A·h de 10 a 80 % en 19,1 min exige 240 A por celda (3C): el módulo genera hasta 890 W de calor (I²R más calor entrópico, unos 72 W por celda) y, sin refrigerar, una celda que empieza a 35 °C llega a 47 °C y el sistema de gestión (BMS) recorta la corriente: la carga se alarga a 56 min. Con una placa fría y 8 L/min de agua-glicol entrando a 15 °C, la celda más caliente se queda en 38,5 °C y la carga dura los 19,1 min ideales; la bomba gasta 27 W y el enfriador 124 W. El flujo pasa de laminar a turbulento hacia Re ≈ 3 000, la convección de la placa se multiplica por más de 8 y por eso la bomba pasa de 5,8 W a 5 L/min a 49,7 W a 10 L/min: el óptimo está en el interior, no en los extremos. Modelo didáctico de un módulo con una temperatura por celda (ε-NTU, Gnielinski, balance de energía que cierra al redondeo); no es CFD ni certificación y la aceleración térmica no se modela.",
+    "titulo": "Gestión Térmica de una Batería de VE: Placa Fría y Carga Rápida",
+  },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-147",
+    "modulo": "Dinámica del Vehículo",
+    "orden": 147,
+    "simuladorHtml": "/labs/neumatico-pacejka-friccion.html",
+    "teoria": "Una llanta toca el suelo con una huella de unos 146 cm² (7,1 × 20,5 cm con 3,5 kN y 2,4 bar), y ahí se juega todo. La fórmula mágica de Pacejka da, en seco, un pico de 3,5 kN al frenar con 11 % de resbalamiento y de 3,22 kN al girar con 8,5° de desvío; pasado el pico la fuerza cae (con la llanta bloqueada, 2,3 kN). En mojado el límite baja a 2,38 kN (μ = 0,68) y en hielo a 0,35 kN. Frenar y girar comparten un solo agarre, la elipse de fricción: con el 60 % del frenado máximo sólo queda el 80 % de la fuerza lateral. Doblar la carga de 3,5 a 7 kN eleva el pico lateral apenas ×1,68 (sensibilidad de carga), y la huella sigue a A = carga/presión. Es un modelo didáctico con parámetros de libro, sin aquaplaning, temperatura ni transferencia de carga.",
+    "titulo": "El Neumático: Curva de Pacejka, Círculo de Fricción y Límite de Adherencia",
+  },
 ]
 `;
 
@@ -1944,6 +1966,8 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-141",
   "mecanica-142",
   "mecanica-143",
+  "mecanica-146",
+  "mecanica-147",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

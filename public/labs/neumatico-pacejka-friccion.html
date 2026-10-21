@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · El Neumático: Pacejka, Círculo de Fricción y Límite de Adherencia — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1216;--panel:rgba(9,16,20,.87);--line:#2B414C;--ink:#EEF4F6;
+    --dim:#A2B5BE;--accent:#FFB020;--accent2:#FFD27A;--hv:#4FD2F5;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cX:#FF8A3D;--cY:#4FD2F5;--cU:#FFD54A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#10252e;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#16323d}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#241500;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#241500;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ffc554}
+  .b.auto{border-color:rgba(79,210,245,.6);color:var(--hv);background:rgba(79,210,245,.08);font-weight:600}
+  .b.auto:hover{background:rgba(79,210,245,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#241500}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#FFB020;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#241500}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(79,210,245,.35);background:rgba(79,210,245,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- el recorrido guiado: una tarjeta que se lee primero ---- */
+  .modebar{grid-template-columns:repeat(3,1fr)}
+  .tour{border:1px solid rgba(255,176,32,.5);background:rgba(255,176,32,.07);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .dots{display:flex;gap:4px}.tour .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}.tour .dots i.on{background:var(--accent)}.tour .dots i.ok{background:#8a6a1c}
+  .tour .mira{font-size:12px;line-height:1.45;color:var(--accent2);border-left:2px solid var(--accent);padding-left:9px}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .hud h2.frase{font-size:18.5px;line-height:1.22}
+  .glos{font-size:11.5px;color:var(--dim);line-height:1.45}
+  .glos b{color:var(--ink);font-weight:600}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(79,210,245,.08);color:#ffd88a;border:1px solid rgba(79,210,245,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#10252e;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .t-sp,body.movil #gSp{display:none}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-recorrido">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Dinámica del vehículo · la llanta · agarre y límite</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Fuerza al frenar</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Fuerza al girar</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Agarre usado</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Resbalamiento</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Desvío</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Huella</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Frenar y girar a la vez</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Frenar · % resbala <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Girar · ° de desvío <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp">Más carga, ¿más agarre? <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — EL NEUMÁTICO: CURVA DE PACEJKA, CÍRCULO DE FRICCIÓN Y LÍMITE DE ADHERENCIA
+   (Dinámica del vehículo · mecanica-147)
+
+   Una llanta de ensayo gira sobre una cinta móvil, como en un banco de pruebas de neumáticos. Su deslizamiento y su ángulo
+   de desvío salen de un barrido (o de los mandos); la fuerza que da sale de la fórmula mágica de Pacejka y de la elipse de
+   fricción, en un bloque puro que un script de Node extrae TAL CUAL y verifica. La huella, las flechas de fuerza, la
+   elipse dibujada sobre la cinta y las gráficas del dock usan el mismo estado en cada cuadro.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- La llanta: fórmula mágica de Pacejka, elipse de fricción y carga vertical. Unidades SI salvo donde se diga. ---- */
+const DOSPI=Math.PI*2, G=9.80665, RAD=Math.PI/180;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>t*t*(3-2*t);
+
+/* Fórmula mágica de Pacejka: F = D·sen(C·atan(B·x − E·(B·x − atan(B·x)))). Con C > 1 y E < 1 el argumento del seno recorre
+   todo el intervalo hasta π/2 y el pico de la curva vale EXACTAMENTE D. */
+const mf=(x,B,C,E,D)=>{const bx=B*x;return D*Math.sin(C*Math.atan(bx-E*(bx-Math.atan(bx))));};
+/** Abscisa del pico: el argumento B·x(1−E) + E·atan(B·x) crece sin parar y debe valer tan(π/2C). Bisección. */
+function xPico(B,C,E){
+  const t=Math.tan(Math.PI/(2*C)), f=x=>B*x*(1-E)+E*Math.atan(B*x);
+  let a=0,b=1;
+  while(f(b)<t&&b<1e6) b*=2;
+  for(let i=0;i<200;i++){ const m=(a+b)/2; if(f(m)<t) a=m; else b=m; }
+  return (a+b)/2;
+}
+
+/* Pisos. mux, muy: coeficiente de adherencia máximo (longitudinal y lateral) de una llanta nueva a la carga y presión nominales;
+   (B, C, E) de cada eje. Valores didácticos de libro, no de un fabricante: seco ≈ 1,0 · mojado ≈ 0,68 · nieve ≈ 0,30 · hielo ≈ 0,10. */
+const SUP={
+  seco:  {nombre:'Seco',  mux:1.00,muy:0.92,Bx:14.0,Cx:1.65,Ex: 0.3,By:10.5,Cy:1.45,Ey:-0.6},
+  mojado:{nombre:'Mojado',mux:0.68,muy:0.62,Bx:12.0,Cx:1.60,Ex:-0.2,By: 9.0,Cy:1.55,Ey:-0.6},
+  nieve: {nombre:'Nieve', mux:0.30,muy:0.28,Bx: 8.0,Cx:1.60,Ex: 0.3,By: 6.3,Cy:1.70,Ey:-0.2},
+  hielo: {nombre:'Hielo', mux:0.10,muy:0.09,Bx: 6.5,Cx:1.70,Ex: 0.8,By: 5.2,Cy:1.80,Ey: 0.0},
+};
+const PISOS=['seco','mojado','nieve','hielo'];
+/* Carga vertical y presión */
+const FZ0=3500;                  // N, carga nominal de una llanta de un coche de 1 400 kg
+const DMU=-0.16;                 // sensibilidad de carga: μ cae 16 % al duplicar la carga
+const P_OPT=2.4, KP=0.25, KS=0.35; // bar: presión óptima; caída de μ ∝ (Δp/p)²; rigidez que sube con la presión
+const ANCHO=0.205;               // m, ancho de la banda de rodadura (205/55 R16)
+const R_LLANTA=0.316;            // m, radio bajo carga
+
+/** Construye la llanta: pico de fuerza y posición del pico en cada eje, rigideces y huella, para un piso, una carga y una presión. */
+const _cacheN={}; let _nCacheN=0;
+function llanta(piso,Fz,p){
+  Fz=Math.round(clamp(Fz,500,12000)); p=Math.round(clamp(p,0.8,4)*100)/100;   // al newton y a la centésima de bar: la caché no crece sin fin con el barrido de carga
+  const k=piso+'|'+Fz+'|'+p; if(_cacheN[k]) return _cacheN[k];
+  if(++_nCacheN>800){ for(const q in _cacheN) delete _cacheN[q]; _nCacheN=0; }
+  const S=SUP[piso], fl=Math.max(0.4,1+DMU*(Fz-FZ0)/FZ0), fp=1-KP*Math.pow((p-P_OPT)/P_OPT,2), fs=1+KS*(p-P_OPT)/P_OPT;
+  const Dx=S.mux*fl*fp*Fz, Dy=S.muy*fl*fp*Fz, Bx=S.Bx*fs, By=S.By*fs;
+  const kp=xPico(Bx,S.Cx,S.Ex), ap=xPico(By,S.Cy,S.Ey), area=Fz/(p*1e5);
+  return (_cacheN[k]={piso,Fz,p,fl,fp,fs,Dx,Dy,Bx,By,Cx:S.Cx,Cy:S.Cy,Ex:S.Ex,Ey:S.Ey,kp,ap,tp:Math.tan(ap),
+    area,largo:area/ANCHO,Cka:Bx*S.Cx*Dx,Caa:By*S.Cy*Dy,muEfX:Dx/Fz,muEfY:Dy/Fz});
+}
+/** Curvas PURAS (un solo eje): fuerza de frenado/tracción según el deslizamiento κ y fuerza lateral según la deriva α (rad). */
+const fxPuro=(N,kap)=>Math.sign(kap)*mf(Math.abs(kap),N.Bx,N.Cx,N.Ex,N.Dx);
+const fyPuro=(N,alf)=>Math.sign(alf)*mf(Math.abs(alf),N.By,N.Cy,N.Ey,N.Dy);
+
+/** Deslizamiento combinado por ELIPSE DE FRICCIÓN. Los deslizamientos se normalizan con el de su pico (sx = κ/κ_pico,
+    sy = tan α/tan α_pico); la fuerza sigue la dirección del deslizamiento y su módulo recorre la curva pura de cada eje
+    en s = |(sx, sy)|. Así (Fx/Fx_pico)² + (Fy/Fy_pico)² ≤ 1 siempre, con igualdad en s = 1. */
+function fuerzas(N,kap,alf){
+  const sx=kap/N.kp, sy=Math.tan(alf)/N.tp, s=Math.hypot(sx,sy);
+  if(s<1e-14) return {Fx:0,Fy:0,s:0,sx:0,sy:0,u:0,ux:0,uy:0};
+  const fx=mf(s*N.kp,N.Bx,N.Cx,N.Ex,N.Dx), fy=mf(Math.atan(s*N.tp),N.By,N.Cy,N.Ey,N.Dy);
+  const Fx=sx/s*fx, Fy=sy/s*fy, ux=Fx/N.Dx, uy=Fy/N.Dy;
+  return {Fx,Fy,s,sx,sy,ux,uy,u:Math.hypot(ux,uy)};
+}
+/** Inversa: ¿qué deslizamiento y deriva producen la fuerza pedida (Fx, Fy)? Existe en la rama ascendente si la fuerza cae dentro de la elipse. */
+function inversa(N,Fx,Fy){
+  const ux=Math.abs(Fx)/N.Dx, uy=Math.abs(Fy)/N.Dy, r=Math.hypot(ux,uy);
+  if(r<1e-12) return {kap:0,alf:0,ok:true};
+  if(r>=1) return {kap:Math.sign(Fx||1)*N.kp*1.3,alf:Math.sign(Fy||1)*Math.atan(N.tp*1.3),ok:false};
+  const fxn=s=>mf(s*N.kp,N.Bx,N.Cx,N.Ex,1), fyn=s=>mf(Math.atan(s*N.tp),N.By,N.Cy,N.Ey,1);
+  const g=s=>{const a=fxn(s),b=fyn(s);return (ux>0?(ux/a)*(ux/a):0)+(uy>0?(uy/b)*(uy/b):0)-1;};
+  let lo=1e-9,hi=1; for(let i=0;i<200;i++){ const m=(lo+hi)/2; if(g(m)>0) lo=m; else hi=m; }
+  const s=(lo+hi)/2, c=ux>0?ux/fxn(s):0, sn=uy>0?uy/fyn(s):0;
+  return {kap:Math.sign(Fx)*s*c*N.kp,alf:Math.sign(Fy)*Math.atan(s*sn*N.tp),ok:true,s};
+}
+/** Fuerza máxima en una dirección: la elipse de semiejes (Dx, Dy). */
+const fuerzaMaxDir=(N,ang)=>1/Math.hypot(Math.cos(ang)/N.Dx,Math.sin(ang)/N.Dy);
+/** Fuerza lateral que queda cuando ya se usa una fracción de la fuerza de frenado máxima. */
+const lateralRestante=(N,Fx)=>N.Dy*Math.sqrt(Math.max(0,1-(Fx/N.Dx)*(Fx/N.Dx)));
+/** Fuerza máxima (pico) por eje en función de la carga: la sensibilidad de carga la vuelve cóncava. */
+const picoDeCarga=(piso,Fz,p,eje)=>{const N=llanta(piso,Fz,p);return eje==='x'?N.Dx:N.Dy;};
+/** Calor que se genera en la huella por deslizar: P = |Fx|·V_desl,x + |Fy|·V_desl,y (W). V: velocidad del vehículo (m/s). */
+const potenciaFriccion=(F,kap,alf,V)=>Math.abs(F.Fx)*V*Math.abs(kap)+Math.abs(F.Fy)*V*Math.abs(Math.sin(alf));
+
+/* ---- Reto: tomar una curva mojada FRENANDO un poco. Un cuarto de coche (masa m = Fz/g) recorre un arco de radio R y
+   longitud S a deceleración constante a. Hace falta Fx = m·a y Fy = m·v²/R; ninguna de las dos puede sacar al punto de la elipse. ---- */
+const MARGEN=0.04;               // la demanda no puede pasar del 96 % del límite
+const ESCENARIOS=[
+  {id:'a',R:55,v0:60,vs:40,S:38,Fz:3400,p:2.4,etq:'Carga normal'},
+  {id:'b',R:48,v0:54,vs:37,S:30,Fz:4300,p:2.4,etq:'Coche cargado'},
+  {id:'c',R:70,v0:68,vs:44,S:50,Fz:3000,p:2.0,etq:'Llantas algo bajas'},
+];
+function ventanaManiobra(esc){
+  const N=llanta('mojado',esc.Fz,esc.p), m=esc.Fz/G, v0=esc.v0/3.6, vs=esc.vs/3.6, ay0=v0*v0/esc.R;
+  const amin=(v0*v0-vs*vs)/(2*esc.S);
+  const lat=ay0*m/N.Dy, amax=N.Dx/m*Math.sqrt(Math.max(0,(1-MARGEN)*(1-MARGEN)-lat*lat));
+  return {N,m,v0,vs,ay0,amin,amax,latRatio:lat,existe:amax>amin};
+}
+/** Qué pasa con una deceleración a: el agarre usado en la entrada (el peor punto) y la velocidad de salida. */
+function evaluaManiobra(esc,a){
+  const W=ventanaManiobra(esc), v02=W.v0*W.v0;
+  const rho0=Math.hypot(W.m*a/W.N.Dx,W.m*W.ay0/W.N.Dy);
+  const v2f=v02-2*a*esc.S, vf=Math.sqrt(Math.max(0,v2f)), seParaAntes=v2f<=0;
+  const okAgarre=rho0<=1-MARGEN, okSalida=vf<=W.vs+1e-9;
+  return {W,rho0,vf,seParaAntes,okAgarre,okSalida,ok:okAgarre&&okSalida,pocoFreno:!okSalida,demasiado:!okAgarre};
+}
+/** Traza de la maniobra: la demanda (Fx, Fy) a lo largo del arco hasta salir o hasta parar. */
+function trazaManiobra(esc,a,n){
+  n=n||80; const W=ventanaManiobra(esc), v02=W.v0*W.v0, sMax=a>1e-9?Math.min(esc.S,v02/(2*a)):esc.S, out=[];
+  for(let i=0;i<=n;i++){ const s=sMax*i/n, v=Math.sqrt(Math.max(0,v02-2*a*s)), t=a>1e-9?(W.v0-v)/a:s/Math.max(W.v0,1e-9);
+    out.push({s,v,t,Fx:W.m*a,Fy:W.m*v*v/esc.R,ay:v*v/esc.R}); }
+  return out;
+}
+
+/* ---- Diagnóstico: tres causas con síntomas medibles. Se lee la huella, el agarre máximo al frenar (por kN de peso),
+   la rigidez al girar y el deslizamiento del pico; la causa (piso, presión o carga) queda oculta. ---- */
+const CASOS_DX=[
+  {k:'mojado',piso:'mojado',Fz:3500,p:2.4},
+  {k:'presion',piso:'seco',Fz:3500,p:1.5},
+  {k:'carga',piso:'seco',Fz:6400,p:2.4},
+];
+function sintomas(c){
+  const N=llanta(c.piso,c.Fz,c.p);
+  return {areaCm2:N.area*1e4,muX:N.muEfX,rigidez:N.Caa*RAD,picoPct:N.kp*100,N};
+}
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.7;
+scene.fog=new THREE.Fog('#2a3a44',14,44);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(-2.4,1.6,3.6);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0,0.4,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff3e4',2.7); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-3.6,7.5,5.2); LUZ.sol.target.position.set(0,0.3,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-3,right:3,top:3.4,bottom:-2,near:1,far:30});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#9fc2dc',0.85); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#ffb36b',1.4); LUZ.rim.position.set(-3,4,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#b4cfe0','#1c2830',0.55); scene.add(LUZ.hemi);
+
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las flechas de fuerza, la elipse de fricción y los bordes de la plataforma. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.35,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: manchas lentas de tono y marcas propias de un banco de
+   ensayos (retícula, marcas transversales de la cinta) dibujadas como objetos, no como ruido. */
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#33414a'); g.addColorStop(1,'#161f25');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(255,176,32,0.07)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(255,176,32,0.20)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+/* La cinta: 1,2 m de largo por tile. Manchas lentas de asfalto, cuatro marcas transversales por tile (cada 0,30 m: sirven
+   para LEER la velocidad de la cinta frente a la de la llanta), dos líneas de borde y una línea central discontinua (la
+   dirección de avance, para leer el ángulo de desvío). */
+function texCinta(){
+  const W=1024,H=512,c=cv(W,H),x=c.getContext('2d');
+  x.fillStyle='#b9bec2'; x.fillRect(0,0,W,H);
+  let s=11; const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; };
+  for(let i=0;i<46;i++){ const px=rnd()*W, py=rnd()*H, r=40+rnd()*110, d=rnd()<0.5?0:255, g=x.createRadialGradient(px,py,0,px,py,r);
+    g.addColorStop(0,'rgba('+d+','+d+','+d+','+(0.05+rnd()*0.06)+')'); g.addColorStop(1,'rgba('+d+','+d+','+d+',0)');
+    for(const ox of [-W,0,W]){ x.save(); x.translate(ox,0); x.fillStyle=g; x.fillRect(px-r,py-r,2*r,2*r); x.restore(); } }
+  x.fillStyle='rgba(255,255,255,0.55)';
+  for(let i=0;i<4;i++){ x.fillRect(i*W/4-3,0,6,H); }
+  x.fillStyle='rgba(255,255,255,0.85)'; x.fillRect(0,22,W,7); x.fillRect(0,H-29,W,7);
+  x.fillStyle='rgba(255,226,140,0.95)'; for(let i=0;i<8;i++) x.fillRect(i*W/8+8,H/2-4,W/8*0.5,8);
+  const t=tex(c,{srgb:true}); t.repeat.set(2,1); return t;
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+/* El transportador: marcas cada 5° (más largas cada 10°) alrededor de la dirección de avance, adelante y atrás. Sin números. */
+function texTransportador(){
+  const W=1024,c=cv(W),x=c.getContext('2d'); x.clearRect(0,0,W,W); const C=W/2;
+  for(const base of [0,180]) for(let a=-30;a<=30;a+=2.5){
+    const th=(base+a)*Math.PI/180, mayor=a%10===0, r0=C*(mayor?0.86:0.90), r1=C*0.95;
+    x.strokeStyle=mayor?'rgba(255,255,255,0.95)':'rgba(255,255,255,0.55)'; x.lineWidth=mayor?7:4;
+    x.beginPath(); x.moveTo(C+r0*Math.cos(th),C-r0*Math.sin(th)); x.lineTo(C+r1*Math.cos(th),C-r1*Math.sin(th)); x.stroke(); }
+  x.strokeStyle='rgba(255,255,255,0.55)'; x.lineWidth=5; x.beginPath(); x.arc(C,C,C*0.95,-30*Math.PI/180,30*Math.PI/180); x.stroke(); x.beginPath(); x.arc(C,C,C*0.95,150*Math.PI/180,210*Math.PI/180); x.stroke();
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.repeat.set(1,1); return t;
+}
+const T_PLAT=texPlataforma(), T_CINTA=texCinta(), T_TRANS=texTransportador();
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1217',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#ffb020',toneMapped:false}),
+  aluminio: pbr({color:'#aeb7bd',metalness:0.85,roughness:0.42,envMapIntensity:0.6}),
+  acero: pbr({color:'#aeb7bf',metalness:0.9,roughness:0.3}),
+  bastidor: fis({color:'#3b4852',metalness:0.55,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.2}),
+  bastidor2: pbr({color:'#252d33',metalness:0.5,roughness:0.5}),
+  naranja: fis({color:'#e8892a',metalness:0.4,roughness:0.35,clearcoat:0.9,clearcoatRoughness:0.2}),
+  goma: pbr({color:'#202528',metalness:0.1,roughness:0.82}),
+  negro: pbr({color:'#101417',metalness:0.5,roughness:0.4}),
+  llantaAl: pbr({color:'#cdd4d9',metalness:0.92,roughness:0.28}),
+  celda: fis({color:'#2f7be8',metalness:0.6,roughness:0.3,clearcoat:0.8,emissive:'#1a58b8',emissiveIntensity:0.15}),
+  marca: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  cinta: fis({color:'#4d5359',map:T_CINTA,roughness:0.85,metalness:0.0,clearcoat:0.0,clearcoatRoughness:0.5,envMapIntensity:0.35}),
+  rodillo: pbr({color:'#15191c',metalness:0.3,roughness:0.6}),
+  huella: new THREE.MeshBasicMaterial({color:'#34d399',transparent:true,opacity:0.88,depthWrite:false,toneMapped:false}),
+  huellaBorde: new THREE.LineBasicMaterial({color:'#ffffff',transparent:true,opacity:0.85,toneMapped:false}),
+  fx: new THREE.MeshBasicMaterial({color:'#ff8a3d',toneMapped:false,depthTest:false,transparent:true}),
+  fy: new THREE.MeshBasicMaterial({color:'#4fd2f5',toneMapped:false,depthTest:false,transparent:true}),
+  fr: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false,depthTest:false,transparent:true}),
+  anillo: new THREE.MeshBasicMaterial({color:'#ffd54a',transparent:true,opacity:0.95,side:THREE.DoubleSide,depthWrite:false,toneMapped:false}),
+  relleno: new THREE.MeshBasicMaterial({color:'#ffd54a',transparent:true,opacity:0.10,side:THREE.DoubleSide,depthWrite:false,toneMapped:false}),
+  cuna: new THREE.MeshBasicMaterial({color:'#ffb020',transparent:true,opacity:0.30,side:THREE.DoubleSide,depthWrite:false,toneMapped:false}),
+  linea: new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.9,toneMapped:false}),
+  lineaLlanta: new THREE.MeshBasicMaterial({color:'#ffb020',transparent:true,opacity:0.95,toneMapped:false}),
+  transp: new THREE.MeshBasicMaterial({map:T_TRANS,transparent:true,depthWrite:false,toneMapped:false}),
+  polvo: new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.5,depthWrite:false,toneMapped:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Funde las mallas ESTÁTICAS de un grupo en una malla por material (y por «clave» de pieza, para que el rótulo y el tooltip sigan
+ *  sabiendo de qué pieza son). Las que se mueven, las instanciadas y el fondo se quedan como están. */
+function fusionaPartes(grupo,excluir){
+  excluir=excluir||[]; grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map(), viejas=[];
+  const fuera=o=>{ for(let p=o;p&&p!==grupo;p=p.parent) if(excluir.includes(p)||(p.userData&&p.userData.fondo===true)) return true; return false; };
+  grupo.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||fuera(o)||o.userData.noFusion) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    const clave=o.userData.clave||'', ro=o.renderOrder||0;
+    const mete=(mat,geo)=>{ const k=mat.uuid+'|'+clave; if(!por.has(k)) por.set(k,{mat,clave,gs:[],ro}); por.get(k).gs.push(geo); };
+    if(Array.isArray(o.material)){
+      const grupos=g.groups&&g.groups.length?g.groups:[{start:0,count:g.attributes.position.count,materialIndex:0}];
+      for(const gr of grupos){ const mat=o.material[gr.materialIndex]; if(!mat) continue; const sub=new THREE.BufferGeometry();
+        for(const nom of ['position','normal','uv']){ const at=g.attributes[nom]; sub.setAttribute(nom,new THREE.BufferAttribute(at.array.slice(gr.start*at.itemSize,(gr.start+gr.count)*at.itemSize),at.itemSize)); }
+        mete(mat,sub); }
+      g.dispose();
+    } else mete(o.material,g);
+    viejas.push(o); });
+  for(const o of viejas){ o.parent.remove(o); }
+  for(const [,{mat,clave,gs,ro}] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent&&!(mat.blending===THREE.AdditiveBlending); me.receiveShadow=true; me.renderOrder=ro; if(clave) me.userData.clave=clave; grupo.add(me);
+  }
+}
+const addTo=(grp,geo,mat,opt)=>{const m=malla(geo,mat,opt); grp.add(m); return m;};
+const clave=(o,k)=>{ o.traverse(q=>{ if(q.isMesh) q.userData.clave=k; }); return o; };
+
+/* ===================== 6. EL BANCO: PLATAFORMA, CINTA DE ENSAYO Y SUELO ===================== */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+{
+  const g=new RoundedBoxGeometry(3.5,0.14,2.1,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0,-0.27,0); PLATAFORMA.add(p);
+  const sh=new THREE.Shape(); const w=1.70,h=1.0,r=0.08; sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.011,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0,-0.197,0); PLATAFORMA.add(n);
+}
+{
+  const d=malla(new THREE.CircleGeometry(30,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(255,170,60,0.16)','rgba(30,40,50,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.y=-0.345; d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:0.38}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.y=-0.34; s.userData.fondo=true; MUNDO.add(s);
+}
+scene.background=fondoDegradado('#0b1216','#1f2c35','#6b7f8a'); scene.fog.color.set('#27353f');
+
+/* La máquina de la cinta: cuerpo, rieles, rodillos y la banda. La banda se mueve hacia −X (la llanta «avanza» hacia +X). */
+const BELT_L=2.4, BELT_W=0.90, ROLL=[];
+const BANCO=new THREE.Group(); MUNDO.add(BANCO);
+{
+  const cuerpo=addTo(BANCO,new RoundedBoxGeometry(BELT_L+0.30,0.20,BELT_W+0.16,3,0.03),M.bastidor); cuerpo.position.set(0,-0.115,0);
+  for(const sz of [-1,1]){ const r=addTo(BANCO,new RoundedBoxGeometry(BELT_L+0.32,0.07,0.07,2,0.02),M.aluminio); r.position.set(0,0.0,sz*(BELT_W/2+0.035)); }
+  for(const sx of [-1,1]){ const ro=addTo(BANCO,new THREE.CylinderGeometry(0.105,0.105,BELT_W+0.02,28),M.rodillo); ro.rotation.x=Math.PI/2; ro.position.set(sx*(BELT_L/2),-0.105,0); ROLL.push(ro); ro.userData.noFusion=true; }
+  const fr=addTo(BANCO,new THREE.BoxGeometry(BELT_L*0.9,0.012,0.012),M.neon,{sombra:false,recibe:false}); fr.position.set(0,-0.15,BELT_W/2+0.085);
+}
+const BELT=malla(new THREE.PlaneGeometry(BELT_L,BELT_W),M.cinta,{sombra:false,recibe:true}); BELT.rotation.x=-Math.PI/2; BELT.position.y=0.001; BELT.userData.clave='cinta'; MUNDO.add(BELT);
+{ // línea fija de la dirección de avance (referencia del ángulo de desvío)
+  const l=malla(new THREE.BoxGeometry(1.5,0.002,0.008),M.linea,{sombra:false,recibe:false}); l.position.set(0,0.004,0); l.userData.clave='angulo'; MUNDO.add(l);
+}
+
+/* ===================== 7. LA LLANTA, LA HORQUILLA Y EL MARCO DE CARGA ===================== */
+const R_W=R_LLANTA, B_W=ANCHO;
+const YAW=new THREE.Group(); MUNDO.add(YAW);            // gira alrededor del eje vertical que pasa por el centro de la huella
+const HOLD=new THREE.Group(); HOLD.position.y=R_W; YAW.add(HOLD);
+const ORI=new THREE.Group(); ORI.rotation.y=Math.PI/2; HOLD.add(ORI);
+const SPIN=new THREE.Group(); ORI.add(SPIN);            // gira alrededor del eje de la llanta (x local = −z del mundo)
+{
+  const tire=P3.neumatico({goma:M.goma,negro:M.negro,aluminio:M.llantaAl,acero:M.acero},{dExt:2*R_W,dLlanta:0.406,ancho:B_W,tacos:36,radios:5});
+  clave(tire,'llanta'); SPIN.add(tire);
+  // marcas de pintura blanca en la banda: se ve cuánto gira la llanta frente a la cinta
+  for(let i=0;i<3;i++){ const a=i*Math.PI*2/3, m=malla(new THREE.BoxGeometry(B_W*0.55,0.004,0.03),M.marca,{sombra:false,recibe:false});
+    m.position.set(0,Math.cos(a)*(R_W+0.0105),Math.sin(a)*(R_W+0.0105)); m.rotation.x=-a; m.userData.clave='llanta'; SPIN.add(m); }
+  fusionaPartes(SPIN);
+}
+const FORK=new THREE.Group(); YAW.add(FORK);            // horquilla, columna y celda de carga: giran con la llanta
+let CELDA;
+{
+  const eje=addTo(FORK,new THREE.CylinderGeometry(0.026,0.026,B_W+0.17,18),M.acero); eje.rotation.x=Math.PI/2; eje.position.y=R_W;
+  for(const sz of [-1,1]){ const b=addTo(FORK,new RoundedBoxGeometry(0.06,0.36,0.034,2,0.012),M.bastidor); b.position.set(0,R_W+0.18,sz*(B_W/2+0.075)); const t=addTo(FORK,new THREE.CylinderGeometry(0.04,0.04,0.045,20),M.aluminio); t.rotation.x=Math.PI/2; t.position.set(0,R_W,sz*(B_W/2+0.095)); }
+  addTo(FORK,new RoundedBoxGeometry(0.07,0.06,B_W+0.21,2,0.015),M.bastidor).position.set(0,R_W+0.37,0);
+  addTo(FORK,new THREE.CylinderGeometry(0.032,0.032,0.10,18),M.acero).position.set(0,R_W+0.45,0);
+  CELDA=addTo(FORK,new THREE.CylinderGeometry(0.058,0.058,0.13,28),M.celda); CELDA.position.set(0,R_W+0.55,0);
+  for(const dy of [-0.075,0.075]) addTo(FORK,new THREE.CylinderGeometry(0.07,0.07,0.018,28),M.aluminio).position.set(0,R_W+0.55+dy,0);
+  clave(FORK,'horquilla'); CELDA.userData.clave='celda';
+  fusionaPartes(FORK,[CELDA]);
+}
+const MARCO=new THREE.Group(); MUNDO.add(MARCO);        // columna en C y cilindro que carga la llanta (no gira)
+{
+  const col=addTo(MARCO,new RoundedBoxGeometry(0.14,1.72,0.14,3,0.02),M.bastidor); col.position.set(-0.05,0.66,-0.66);
+  addTo(MARCO,new RoundedBoxGeometry(0.16,0.14,0.80,3,0.02),M.bastidor).position.set(-0.05,1.45,-0.28);
+  addTo(MARCO,new RoundedBoxGeometry(0.30,0.08,0.30,3,0.015),M.bastidor2).position.set(-0.05,-0.19,-0.66);
+  const cil=P3.cilindroHidraulico({acero:M.acero,aluminio:M.aluminio},{d:0.15,carrera:0.20,vastago:0.05,tirantes:4,horquilla:false,tomas:false});
+  cil.position.set(0,1.17,0); MARCO.add(cil);
+  addTo(MARCO,new THREE.CylinderGeometry(0.026,0.026,0.30,18),M.acero).position.set(0,0.94,0);
+  const franja=addTo(MARCO,new THREE.BoxGeometry(0.145,0.03,0.145),M.naranja); franja.position.set(-0.05,1.22,-0.66);
+  clave(MARCO,'cilindro'); fusionaPartes(MARCO);
+}
+
+/* ===================== 8. LA HUELLA, LAS FLECHAS DE FUERZA, LA ELIPSE Y EL TRANSPORTADOR ===================== */
+const KF=0.12;                                         // m por kN: la escala de las flechas y de la elipse sobre la cinta
+const PATCH=new THREE.Group(); YAW.add(PATCH);
+const PATCH_M=malla(new THREE.PlaneGeometry(1,1),M.huella,{sombra:false,recibe:false}); PATCH_M.rotation.x=-Math.PI/2; PATCH_M.position.y=0.006; PATCH_M.renderOrder=2; PATCH_M.userData.clave='huella'; PATCH.add(PATCH_M);
+const PATCH_B=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1,1)),M.huellaBorde); PATCH_B.rotation.x=-Math.PI/2; PATCH_B.position.y=0.008; PATCH_B.renderOrder=3; PATCH.add(PATCH_B);
+function flecha(mat,y,fino){
+  const g=new THREE.Group(); g.position.y=y;
+  const gr=fino?0.0065:0.0125, ax=new THREE.CylinderGeometry(gr,gr,1,10); ax.rotateZ(-Math.PI/2); ax.translate(0.5,0,0);
+  const sh=new THREE.Mesh(ax,mat); sh.renderOrder=8; g.add(sh);
+  const co=new THREE.ConeGeometry(fino?0.026:0.042,0.085,16); co.rotateZ(-Math.PI/2); co.translate(0.0425,0,0);
+  const hd=new THREE.Mesh(co,mat); hd.renderOrder=8; g.add(hd);
+  g.userData={sh,hd}; clave(g,'flecha'); return g;
+}
+const FL={fx:flecha(M.fx,0.022),fy:flecha(M.fy,0.022),fr:flecha(M.fr,0.040,true)};
+for(const k in FL) YAW.add(FL[k]);
+function ponFlecha(f,len,ang){            // len en metros, ang: rotación en Y
+  const ok=len>0.012; f.visible=ok; if(!ok) return;
+  const hl=Math.min(0.085,len*0.55), sl=Math.max(0.001,len-hl);
+  f.rotation.y=ang; f.userData.sh.scale.x=sl; f.userData.hd.position.x=sl; f.userData.hd.scale.setScalar(hl/0.085);
+}
+const RING=new THREE.Group(); YAW.add(RING);                       // la elipse de fricción, en fuerza (KF m por kN)
+{
+  const an=new THREE.Mesh(new THREE.RingGeometry(0.975,1,160),M.anillo); an.rotation.x=-Math.PI/2; an.position.y=0.010; an.renderOrder=4;
+  const re=new THREE.Mesh(new THREE.CircleGeometry(1,96),M.relleno); re.rotation.x=-Math.PI/2; re.position.y=0.009; re.renderOrder=1;
+  RING.add(an,re); RING.userData={an,re}; clave(RING,'elipse');
+}
+{ // la línea del plano de la llanta (ámbar) y el transportador con su cuña de desvío
+  const l=malla(new THREE.BoxGeometry(1.5,0.002,0.008),M.lineaLlanta,{sombra:false,recibe:false}); l.position.set(0,0.006,0); l.userData.clave='angulo'; YAW.add(l);
+}
+const TRANS=malla(new THREE.PlaneGeometry(1.45,1.45),M.transp,{sombra:false,recibe:false}); TRANS.rotation.x=-Math.PI/2; TRANS.position.y=0.003; TRANS.renderOrder=1; TRANS.userData.clave='angulo'; MUNDO.add(TRANS);
+const CUNA_N=28, CUNA_G=new THREE.BufferGeometry(); CUNA_G.setAttribute('position',new THREE.BufferAttribute(new Float32Array((CUNA_N+2)*3),3));
+{ const idx=[]; for(let i=0;i<CUNA_N;i++) idx.push(0,i+1,i+2); CUNA_G.setIndex(idx); }
+const CUNA=new THREE.Mesh(CUNA_G,M.cuna); CUNA.position.y=0.0045; CUNA.renderOrder=2; CUNA.frustumCulled=false; CUNA.userData.clave='angulo'; MUNDO.add(CUNA);
+let cunaAng=NaN;
+function ponCuna(a){                     // a: ángulo de desvío en rad; el sector va de la dirección de avance al plano de la llanta
+  if(Math.abs(a-cunaAng)<1e-5) return; cunaAng=a; const p=CUNA_G.attributes.position, r=0.62;
+  p.setXYZ(0,0,0,0); for(let i=0;i<=CUNA_N;i++){ const th=a*i/CUNA_N; p.setXYZ(i+1,r*Math.cos(th),0,-r*Math.sin(th)); }
+  p.needsUpdate=true; CUNA.visible=Math.abs(a)>0.004;
+}
+
+/* ===================== 9. SALPICADURA Y HUMO: lo que sale de la huella ===================== */
+const NPAR=90, PART=new THREE.InstancedMesh(new THREE.SphereGeometry(1,14,9),M.polvo,NPAR); PART.instanceMatrix.setUsage(THREE.DynamicDrawUsage); PART.frustumCulled=false; PART.renderOrder=6;
+{ const c=new THREE.Color('#ffffff'); for(let i=0;i<NPAR;i++){ PART.setColorAt(i,c); } PART.instanceColor.setUsage(THREE.DynamicDrawUsage); MUNDO.add(PART); }
+const PAR=[]; for(let i=0;i<NPAR;i++) PAR.push({x:0,y:-9,z:0,vx:0,vy:0,vz:0,vida:0,vida0:1,r:0.02,tipo:0});
+let parSig=0;
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _sc=V3(1,1,1), _col=new THREE.Color();
+
+/** El piso cambia el aspecto de la cinta (no la física: ésa sale de SUP). */
+const ASPECTO={
+  seco:  {color:'#4d5359',rough:0.86,clear:0.0,metal:0.0,env:0.35,part:'#cfd2d4',nombre:'asfalto seco'},
+  mojado:{color:'#2b343c',rough:0.10,clear:1.0,metal:0.0,env:1.1,part:'#bcd6ea',nombre:'asfalto mojado'},
+  nieve: {color:'#dfe7ee',rough:0.88,clear:0.0,metal:0.0,env:0.5,part:'#ffffff',nombre:'nieve'},
+  hielo: {color:'#8fc6e0',rough:0.06,clear:1.0,metal:0.05,env:1.3,part:'#e4f4fb',nombre:'hielo'},
+};
+const _cT=new THREE.Color(), _cA=new THREE.Color();
+function aplicaAspecto(piso,k){                          // k: 0..1, cuánto se acerca al destino (suavizado)
+  const A=ASPECTO[piso]; _cA.set(A.color); M.cinta.color.lerp(_cA,k);
+  M.cinta.roughness+=(A.rough-M.cinta.roughness)*k; M.cinta.clearcoat+=(A.clear-M.cinta.clearcoat)*k; M.cinta.metalness+=(A.metal-M.cinta.metalness)*k; M.cinta.envMapIntensity+=(A.env-M.cinta.envMapIntensity)*k;
+  M.polvo.color.lerp(_cT.set(A.part),k);
+}
+
+/** Vista «Huella»: la llanta se vuelve casi transparente para ver la huella que hay debajo. */
+let llantaFantasma=false;
+function fantasmaLlanta(on){
+  if(on===llantaFantasma) return; llantaFantasma=on;
+  for(const m of [M.goma,M.llantaAl,M.negro,M.acero]){ if(m===M.acero) continue; m.transparent=on; m.opacity=on?0.26:1; m.depthWrite=!on; m.needsUpdate=true; }
+}
+
+
+/* ===================== 12. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (ST) alimenta la escena, el dock y las cifras: en cada cuadro se toman el piso, la carga, la presión y
+   los dos deslizamientos (del barrido, de los mandos o de la maniobra del reto), se calcula la fuerza con la física de arriba
+   y con ESE estado se mueven la llanta, la cinta, la huella, las flechas y la elipse, y se pintan las gráficas. El reloj
+   SIM.t avanza dt·velocidad. Lo que se ve va a 1/10 de la velocidad real (la cinta real corre a 72 km/h). */
+const V_ENS=20;                  // m/s, velocidad de la cinta en el ensayo
+const VISC=1/10;                 // lo que se ve va a 1/10 de la velocidad real
+const EST={modo:'recorrido',sup:'seco',Fz:3500,p:2.4,demo:'ciclo',auto:true,sb:0,al:0,fzAuto:false,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'banco',rot:false};
+const SIM={t:0,st:null,hist:[],ver:0,acc:0,cunaOk:0,limVisto:true};
+const NOMBRE_PISO={seco:'Seco',mojado:'Mojado',nieve:'Nieve',hielo:'Hielo'};
+const tri=u=>suave(1-Math.abs(2*u-1));       // 0 → 1 → 0 suave
+const PER={frenar:6,girar:7,ambos:8,ciclo:21};
+/** El barrido de demostración: frenar (0 → 100 % → 0), girar (0 → 20° → 0) o las dos cosas a la vez (deriva fija y frenado creciente). */
+function demoEn(t,tipo){
+  if(tipo==='frenar'){ const u=(t%PER.frenar)/PER.frenar; return {sb:Math.pow(tri(u),2.6),al:0,fase:'frenar'}; }
+  if(tipo==='girar'){ const u=(t%PER.girar)/PER.girar; return {sb:0,al:20*tri(u),fase:'girar'}; }
+  if(tipo==='ambos'){ const u=(t%PER.ambos)/PER.ambos; return {sb:0.7*Math.pow(tri(u),1.6),al:9,fase:'ambos'}; }
+  const u=t%PER.ciclo; if(u<PER.frenar) return demoEn(u,'frenar'); if(u<PER.frenar+PER.girar) return demoEn(u-PER.frenar,'girar'); return demoEn(u-PER.frenar-PER.girar,'ambos');
+}
+const FASE_TXT={frenar:'frenando recto',girar:'girando sin frenar',ambos:'girando y frenando a la vez',manual:'tú mandas',quieto:'parada'};
+
+/** Entradas del cuadro: de dónde salen el piso, la carga, la presión y los dos deslizamientos según el modo. */
+function entradas(){
+  const t=SIM.t;
+  if(EST.modo==='reto'&&typeof GUIA!=='undefined'){
+    if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1, d=demoEn(t,'girar'); return {piso:'mojado',Fz:r.Fz,p:r.p,sb:d.sb,al:d.al,V:V_ENS,fase:d.fase}; }
+    if(GUIA.paso==='decide'&&GUIA.r2) return maniobraEn(t);
+    if(GUIA.dx){ const c=GUIA.dx, d=demoEn(t,'ciclo'); return {piso:c.piso,Fz:c.Fz,p:c.p,sb:d.sb,al:d.al,V:V_ENS,fase:d.fase}; }
+  }
+  const Fz=EST.fzAuto?4300+2500*Math.sin(t*0.55):EST.Fz;
+  if(EST.auto){ const d=demoEn(t,EST.demo); return {piso:EST.sup,Fz,p:EST.p,sb:d.sb,al:d.al,V:V_ENS,fase:d.fase}; }
+  return {piso:EST.sup,Fz,p:EST.p,sb:EST.sb,al:EST.al,V:V_ENS,fase:'manual'};
+}
+/** La maniobra del reto, a cámara lenta ×1/3: el cuarto de coche recorre el arco frenando y la llanta tiene que dar Fx = m·a y Fy = m·v²/R. */
+function maniobraEn(t){
+  const r=GUIA.r2, esc=r.esc, T=trazaManiobra(esc,r.a,100), dur=T[T.length-1].t, lento=3, lazo=dur*lento+1.6, u=t%lazo, tau=Math.min(u/lento,dur);
+  let k=1; while(k<T.length-1&&T[k].t<tau) k++; const A=T[k-1], B=T[k], f=clamp((tau-A.t)/Math.max(1e-9,B.t-A.t),0,1);
+  const v=A.v+(B.v-A.v)*f, N=llanta('mojado',esc.Fz,esc.p), m=esc.Fz/G, q=inversa(N,-m*r.a,m*v*v/esc.R);
+  return {piso:'mojado',Fz:esc.Fz,p:esc.p,sb:-q.kap,al:q.alf/RAD,V:Math.max(v,0.5),fase:'maniobra',man:{v,tau,dur,s:A.s+(B.s-A.s)*f,ok:q.ok}};
+}
+/** Todo lo que se sabe de la llanta en este instante. */
+function calculaEstado(){
+  const e=entradas(), N=llanta(e.piso,e.Fz,e.p), kap=-e.sb, alf=e.al*RAD, f=fuerzas(N,kap,alf);
+  return {e,N,piso:e.piso,Fz:N.Fz,p:N.p,sb:e.sb,al:e.al,kap,alf,f,V:e.V,fase:e.fase,man:e.man||null,
+    Pcal:potenciaFriccion(f,kap,alf,e.V),desliza:f.s>1.0001};
+}
+const limiteVisible=()=>!(EST.modo==='reto'&&typeof GUIA!=='undefined'&&GUIA.paso==='decide'&&GUIA.r2&&!GUIA.r2.validado);
+
+/* ===================== 13. LO QUE SE VE ===================== */
+const COL_U=[new THREE.Color('#34d399'),new THREE.Color('#ffd54a'),new THREE.Color('#ff5a4a')];
+const _cu=new THREE.Color();
+function colorUso(u,desl){ if(desl) return _cu.copy(COL_U[2]); if(u<0.6) return _cu.copy(COL_U[0]).lerp(COL_U[1],u/0.6*0.35); if(u<0.95) return _cu.copy(COL_U[1]).lerp(COL_U[0],0.35*(1-(u-0.6)/0.35)); return _cu.copy(COL_U[1]).lerp(COL_U[2],(u-0.95)/0.05); }
+function emite(x,z,tipo,vx,vy,vz,vida,r){
+  const p=PAR[parSig]; parSig=(parSig+1)%NPAR; p.x=x; p.y=0.02; p.z=z; p.vx=vx; p.vy=vy; p.vz=vz; p.vida=p.vida0=vida; p.r=r; p.tipo=tipo; }
+let pisoVis=null, pisoK=1;
+function aplicaEscena(dtS,dtSim){
+  SIM.t+=dtSim;
+  const ST=calculaEstado(); SIM.st=ST; const N=ST.N, f=ST.f;
+  // la cinta se mueve hacia −X; la llanta gira (1 − resbalamiento) de lo que giraría rodando sin deslizar
+  const vv=ST.V*VISC;
+  T_CINTA.offset.x+=vv*dtS/1.2; for(const r of ROLL) r.rotateY(vv/0.105*dtS);
+  SPIN.rotation.x+=vv*(1-ST.sb)/R_W*dtS;
+  YAW.rotation.y=ST.alf; ponCuna(ST.alf);
+  // el aspecto del piso (suave) y el brillo de la celda de carga
+  if(pisoVis!==ST.piso){ pisoVis=ST.piso; pisoK=0; }
+  aplicaAspecto(ST.piso,REDUCIDO?1:Math.min(1,(SIM.dtReal||0.016)*6));
+  CELDA.material.emissiveIntensity=0.10+0.5*clamp(ST.Fz/7000,0,1.2);
+  // la huella: tamaño real (A = Fz/p) y color por el agarre usado
+  const lim=limiteVisible();
+  PATCH_M.scale.set(N.largo,B_W*0.97,1); PATCH_B.scale.set(N.largo,B_W*0.97,1);
+  if(lim) M.huella.color.copy(colorUso(f.u,ST.desliza)); else M.huella.color.set('#8fa6b3');
+  // las flechas de fuerza: 1 kN = KF metros
+  ponFlecha(FL.fx,Math.abs(f.Fx)/1000*KF,f.Fx>=0?0:Math.PI);
+  ponFlecha(FL.fy,Math.abs(f.Fy)/1000*KF,f.Fy>=0?Math.PI/2:-Math.PI/2);
+  ponFlecha(FL.fr,Math.hypot(f.Fx,f.Fy)/1000*KF,Math.atan2(f.Fy,f.Fx));
+  // la elipse de fricción sobre la cinta: semiejes en fuerza
+  RING.visible=lim; RING.scale.set(N.Dx/1000*KF,1,N.Dy/1000*KF);
+  if(lim){ const rojo=ST.desliza||f.u>0.97; M.anillo.color.set(rojo?'#ff5a4a':'#ffd54a'); M.relleno.color.set(rojo?'#ff5a4a':'#ffd54a'); }
+  // salpicadura (mojado, nieve, hielo) y humo (cuando desliza)
+  const L=N.largo, cx=-L/2*Math.cos(ST.alf), cz=L/2*Math.sin(ST.alf), nx=Math.sin(ST.alf), nz=Math.cos(ST.alf);
+  const tasaPolvo=ST.piso==='seco'?0:(ST.piso==='mojado'?26:(ST.piso==='nieve'?20:8))*(0.35+0.65*clamp(ST.V/V_ENS,0,1));
+  const tasaHumo=f.s>1.6?8+14*clamp(f.s-1.6,0,1.5):0;
+  if(!EST.pausa&&!REDUCIDO){ SIM.acc+=(tasaPolvo+tasaHumo)*dtS; let hum=tasaHumo/(tasaPolvo+tasaHumo+1e-9);
+    while(SIM.acc>=1){ SIM.acc-=1; const humo=Math.random()<hum, lado=Math.random()<0.5?-1:1, ox=(Math.random()-0.5)*0.05;
+      if(humo) emite(cx+ox,cz+(Math.random()-0.5)*B_W*0.8,1,-vv*0.7+(Math.random()-0.5)*0.08,0.20+Math.random()*0.15,(Math.random()-0.5)*0.12,0.9+Math.random()*0.4,0.020+Math.random()*0.016);
+      else emite(cx+ox+nx*lado*B_W*0.45,cz+nz*lado*B_W*0.45,0,-vv*0.5+(Math.random()-0.2)*0.15,0.35+Math.random()*0.55,lado*(0.35+Math.random()*0.5),0.55+Math.random()*0.35,0.012+Math.random()*0.012); } }
+  for(let i=0;i<NPAR;i++){ const p=PAR[i];
+    if(p.vida>0&&!EST.pausa){ p.vida-=dtS; p.x+=p.vx*dtS; p.y+=p.vy*dtS; p.z+=p.vz*dtS; if(p.tipo===0){ p.vy-=2.4*dtS; if(p.y<0.004){ p.y=0.004; p.vy=0; p.vx*=0.6; p.vz*=0.6; } } else { p.vx*=0.96; p.vz*=0.96; } }
+    const a=p.vida>0?p.vida/p.vida0:0, s=p.tipo===1?p.r*(1.8-0.8*a):p.r*(0.5+0.5*a);
+    _m4.compose(V3(p.x,p.y,p.z),_q0,_sc.set(a>0?s:0.0001,a>0?s:0.0001,a>0?s:0.0001)); PART.setMatrixAt(i,_m4); }
+  PART.instanceMatrix.needsUpdate=true; M.polvo.opacity=ST.desliza?0.30:0.50;
+  // huella histórica de la elipse (el rastro del punto en la gráfica)
+  const H=SIM.hist, ult=H[H.length-1], px=Math.abs(f.Fx), py=Math.abs(f.Fy);
+  if(!ult||Math.hypot(ult.x-px,ult.y-py)>8||SIM.ver!==SIM.verH){ if(SIM.ver!==SIM.verH){ H.length=0; SIM.verH=SIM.ver; } H.push({x:px,y:py}); if(H.length>110) H.shift(); }
+}
+
+/* ===================== 14. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 66 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  banco:{dir:V3(-0.62,0.40,1),anc:()=>V3(0.05,0.62,0),toff:V3(0,0,0),obj:()=>({w:innerWidth<innerHeight*0.9?2.5:2.35,h:2.25}),fov:32,tope:0.66},
+  huella:{dir:V3(-0.45,0.22,1),anc:()=>V3(0,0.10,0),toff:V3(0,0,0),obj:()=>({w:0.95,h:0.62}),fov:32,tope:0.66},
+  cenit:{dir:V3(-0.10,1,0.34),anc:()=>V3(0,0.25,0),toff:V3(0,0,0),obj:()=>({w:innerWidth<innerHeight*0.9?2.1:2.9,h:2.2}),fov:32,tope:0.80},
+  lado:{dir:V3(0,0.12,1),anc:()=>V3(0,0.62,0),toff:V3(0,0,0),obj:()=>({w:2.0,h:2.1}),fov:32,tope:0.66},
+};
+const CAM={off:V3(-1.5,1.2,6),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?44:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; fantasmaLlanta(v==='huella'); CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 15. EL HUD (izquierda) ===================== */
+const enRetoPaso=p=>EST.modo==='reto'&&typeof GUIA!=='undefined'&&GUIA.paso===p;
+const enDiagnostico=()=>enRetoPaso('diag')&&!GUIA.dxOk;
+const enPredice=()=>enRetoPaso('predice');
+const enDecide=()=>enRetoPaso('decide');
+const kN=(N,d=2)=>fN(N/1000,d);
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Dinámica del vehículo · la llanta</div>`;
+  if(EST.modo==='recorrido'){ const P=TOUR[TOURI.i]; h+=`<h2 class="${P.frase?'frase':''}">${P.titulo}</h2><p class="intro">${P.texto}</p></div>`; }
+  else if(EST.modo==='explorar') h+=`<h2>Explora la llanta</h2><p class="intro">Cambia el piso, la carga y la presión. El barrido automático recorre frenar, girar y las dos cosas a la vez; o pon tú el frenado y el giro.</p></div>`;
+  else h+=`<h2>Calcula, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='recorrido'?'on':''}" data-mode="recorrido"><i>➜</i>Recorrido</button><button class="b ${EST.modo==='explorar'?'on':''}" data-mode="explorar"><i>◎</i>Explorar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='recorrido') h+=htmlTour();
+  else if(EST.modo==='explorar') h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Piso</div><div class="seg" id="segPiso">${PISOS.map(k=>`<button class="b ${EST.sup===k?'on':''}" data-piso="${k}">${NOMBRE_PISO[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Carga sobre la llanta</div><b id="vF">${fN(EST.Fz/1000,1)} kN</b></div><input type="range" id="rF" min="1500" max="7000" step="100" value="${EST.Fz}" aria-label="Carga sobre la llanta en kilonewtons">
+      <div class="marcas"><span>1,5</span><span>7</span></div></div>
+    <div class="cg"><div class="cl"><div>Presión de inflado</div><b id="vP">${fN(EST.p,1)} bar</b></div><input type="range" id="rP" min="1.4" max="3.2" step="0.1" value="${EST.p}" aria-label="Presión de inflado en bar">
+      <div class="marcas"><span>1,4</span><span>3,2</span></div></div>
+    <div class="cg"><div class="cl"><div>Frenado (cuánto resbala)</div><b id="vB">${fN(EST.auto?0:EST.sb*100)} %</b></div><input type="range" id="rB" min="0" max="100" step="1" value="${Math.round(EST.sb*100)}" aria-label="Resbalamiento al frenar en porcentaje">
+      <div class="marcas"><span>0</span><span>100</span></div></div>
+    <div class="cg"><div class="cl"><div>Giro (cuánto se desvía)</div><b id="vG">${fN(EST.auto?0:EST.al,1)} °</b></div><input type="range" id="rG" min="0" max="20" step="0.5" value="${EST.al}" aria-label="Ángulo de desvío en grados">
+      <div class="marcas"><span>0</span><span>20</span></div></div>
+    <div class="fila"><button class="b ${EST.auto?'on':''}" id="btnAuto">${EST.auto?'Barrido automático: sí':'Barrido automático: no'}</button></div></div>`;
+  else h+=htmlGuia();
+  const N=SIM.st?SIM.st.N:llanta(EST.sup,EST.Fz,EST.p);
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">F = D·sen( C·atan( B·x − E·(B·x − atan(B·x)) ) ) · D = μ·F<sub>z</sub></div>
+    <div class="fl"><b>Fórmula mágica de Pacejka.</b> x es el resbalamiento (al frenar) o el ángulo de desvío (al girar). En el piso elegido, la llanta da un pico de <b>${kN(N.Dx)} kN</b> al frenar (a ${fN(N.kp*100,1)} % de resbalamiento) y de <b>${kN(N.Dy)} kN</b> al girar (a ${fN(Math.atan(N.tp)/RAD,1)}°).</div>
+    <div class="formula">(F<sub>x</sub>/D<sub>x</sub>)² + (F<sub>y</sub>/D<sub>y</sub>)² ≤ 1</div>
+    <div class="fl"><b>Elipse de fricción.</b> La fuerza al frenar y la fuerza al girar comparten el mismo agarre; el borde de la elipse es el límite.</div>
+    <div class="formula">μ(F<sub>z</sub>) = μ₀·[1 + dμ·(F<sub>z</sub> − F<sub>z0</sub>)/F<sub>z0</sub>] · A = F<sub>z</sub>/p</div>
+    <div class="fl"><b>Carga y presión.</b> Con dμ = ${fN(DMU,2)} el agarre por kN baja al cargar más. La huella de ahora mide <b>${fN(N.area*1e4,0)} cm²</b> (${fN(N.largo*100,1)} × ${fN(ANCHO*100,1)} cm).</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Una sola llanta de ensayo sobre una cinta. El cuarto de coche del reto no tiene transferencia de carga entre ruedas ni suspensión.</li>
+    <li>Fórmula de Pacejka con parámetros <b>didácticos</b> de libro (no de un fabricante). El agarre del mojado es el de un ensayo a velocidad moderada: <b>no hay aquaplaning</b> ni efecto de la velocidad.</li>
+    <li>Frenar y girar a la vez se combina con la <b>elipse de fricción</b> a partir de las dos curvas puras; no son las funciones de peso completas de Pacejka. Sin temperatura ni desgaste.</li>
+    <li>La presión y la carga actúan con correlaciones sencillas. Lo que se ve va a 1/10 de la velocidad real. No es CFD, FEM ni un ensayo normalizado.</li>
+  </ul><div class="src">Pacejka, <i>Tire and Vehicle Dynamics</i> · Milliken y Milliken, <i>Race Car Vehicle Dynamics</i> · Kamm (1934), círculo de fricción.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo==='reto'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-tour]').forEach(b=>b.onclick=()=>accionTour(b.dataset.tour));
+  H.querySelectorAll('[data-piso]').forEach(b=>b.onclick=()=>{ EST.sup=b.dataset.piso; SIM.ver++; pintaHUD(); pintaDockFijo(); });
+  const lig=(id,campo,ev,fmt,man)=>{ const e=el(id); if(e) e.oninput=()=>{ EST[campo]=+e.value; EST.fzAuto=false; if(man) EST.auto=false; el(ev).textContent=fmt(EST[campo]); SIM.ver++; if(man){ const b=el('btnAuto'); if(b){ b.classList.remove('on'); b.textContent='Barrido automático: no'; } } }; };
+  lig('rF','Fz','vF',v=>fN(v/1000,1)+' kN'); lig('rP','p','vP',v=>fN(v,1)+' bar');
+  const rb=el('rB'), rg=el('rG');
+  if(rb) rb.oninput=()=>{ EST.auto=false; EST.sb=+rb.value/100; el('vB').textContent=fN(rb.value)+' %'; const b=el('btnAuto'); b.classList.remove('on'); b.textContent='Barrido automático: no'; };
+  if(rg) rg.oninput=()=>{ EST.auto=false; EST.al=+rg.value; el('vG').textContent=fN(rg.value,1)+' °'; const b=el('btnAuto'); b.classList.remove('on'); b.textContent='Barrido automático: no'; };
+  if(el('btnAuto')) el('btnAuto').onclick=()=>{ EST.auto=!EST.auto; if(EST.auto) EST.demo='ciclo'; pintaHUD(); };
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+/** Con el barrido automático, los controles de frenado y giro siguen al barrido (se actualizan sin repintar el HUD). */
+function sincronizaMandos(){
+  const S=SIM.st; if(!S||EST.modo!=='explorar'||!EST.auto) return;
+  const rb=el('rB'), rg=el('rG'); if(!rb||!rg) return;
+  rb.value=Math.round(S.sb*100); rg.value=S.al; el('vB').textContent=fN(S.sb*100)+' %'; el('vG').textContent=fN(S.al,1)+' °';
+}
+
+/* ===================== 16. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LTR=lienzo('gTr'), LFR=lienzo('gFr'), LSP=lienzo('gSp');
+const txtAncho=(x,t)=>{ x.font='500 8px '+FUENTE; return x.measureText(t).width; };
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#7f939d',t?11:14,'center','500'); };
+const COL={x:'#ff8a3d',y:'#4fd2f5',u:'#ffd54a',ref:'#8da2ad',bad:'#ff5a4a',good:'#34d399'};
+const GRID='rgba(170,200,215,0.10)', EJE='#4b6674', TXT='#93abb8';
+const PISO_COL={seco:'#cfd8dd',mojado:'#6fb6ff',nieve:'#e6f1ff',hielo:'#8fe3ff'};
+/** Marcas de un eje: valores «redondos» con su etiqueta, sin amontonarse. */
+function ejeY(x,X0,X1,Y,v0,v1,paso,fmt){ x.__uy=undefined; for(let v=v0;v<=v1+1e-9;v+=paso){ raya(x,X0,Y(v),X1,Y(v),v===0?'rgba(200,220,230,0.35)':GRID); if(Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11){ x.__uy=Y(v); txt(x,fmt(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } } }
+
+/* ---- Frenar y girar a la vez: la elipse de fricción ---- */
+function pintaElipse(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, S=SIM.st; if(!S) return;
+  const lim=limiteVisible(), Nr=PISOS.map(p=>llanta(p,S.Fz,S.p));
+  const dem=S.man?S.f:null;
+  const X0=30, Xr=Math.min(Wd-8,Wd*0.66), Y0=8, Y1=Hd-17, mxX=Nr[0].Dx*1.07/1000, mxY=Nr[0].Dy*1.12/1000;
+  const k=Math.min((Xr-X0)/mxX,(Y1-Y0)/mxY), X=v=>X0+v*k, Y=v=>Y1-v*k;
+  // retícula cada kN
+  for(let v=0;v<=mxX+1e-9;v+=1){ raya(x,X(v),Y1,X(v),Y1+3,EJE); raya(x,X(v),Y0,X(v),Y1,v===0?'rgba(200,220,230,0.35)':GRID); txt(x,fN(v),X(v),Hd-4,TXT,8.5,'center','500'); }
+  x.__uy=undefined; for(let v=0;v<=mxY+1e-9;v+=1){ raya(x,X0,Y(v),Xr,Y(v),v===0?'rgba(200,220,230,0.35)':GRID); if(Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11){ x.__uy=Y(v); txt(x,fN(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } }
+  txt(x,'kN',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'frenar →',Xr,Hd-4,TXT,8.5,'right','600'); txt(x,'girar ↑',X0+22,Y0+8,TXT,8.5,'left','600');
+  const cuarto=(N,col,w,rell)=>{ x.beginPath(); for(let a=0;a<=90;a+=2){ const r=a*RAD, px=X(N.Dx/1000*Math.cos(r)), py=Y(N.Dy/1000*Math.sin(r)); a?x.lineTo(px,py):x.moveTo(px,py); }
+    if(rell){ x.lineTo(X(0),Y(0)); x.closePath(); x.fillStyle=rell; x.fill(); } x.strokeStyle=col; x.lineWidth=w; x.stroke(); };
+  if(lim){
+    let ultX=1e9; Nr.forEach((N,i)=>{ if(PISOS[i]===S.piso) return; x.setLineDash([3,3]); cuarto(N,PISO_COL[PISOS[i]]+'88',1.1); x.setLineDash([]); const lx=X(N.Dx/1000)-2; if(ultX-lx>36&&N.Dx/1000*k>14){ txt(x,NOMBRE_PISO[PISOS[i]].toLowerCase(),lx,Y(0)-3,PISO_COL[PISOS[i]]+'cc',8,'right','500'); ultX=lx-txtAncho(x,NOMBRE_PISO[PISOS[i]].toLowerCase()); } });
+    cuarto(S.N,S.f.u>0.97||S.desliza?COL.bad:COL.u,2.2,'rgba(255,213,74,0.10)');
+  } else txt(x,'el límite se muestra al validar',X0+8,Y0+22,'#7f939d',10,'left','500');
+  // el rastro y el punto de trabajo
+  const Hh=SIM.hist; if(Hh.length>1){ for(let i=1;i<Hh.length;i++){ x.strokeStyle='rgba(255,255,255,'+(0.06+0.5*i/Hh.length)+')'; x.lineWidth=1.3; x.beginPath(); x.moveTo(X(Hh[i-1].x/1000),Y(Hh[i-1].y/1000)); x.lineTo(X(Hh[i].x/1000),Y(Hh[i].y/1000)); x.stroke(); } }
+  const px=X(Math.abs(S.f.Fx)/1000), py=Y(Math.abs(S.f.Fy)/1000);
+  raya(x,px,py,px,Y1,COL.x+'aa',1,[2,3]); raya(x,px,py,X0,py,COL.y+'aa',1,[2,3]); raya(x,X0,Y1,px,py,'rgba(255,255,255,0.7)',1.5);
+  x.fillStyle='#fff'; x.beginPath(); x.arc(px,py,3.8,0,DOSPI); x.fill(); x.strokeStyle=COL.u; x.lineWidth=1.5; x.stroke();
+  // lo que queda para girar si ya se está frenando: la lección de la elipse, en una barra (100 % = todo el agarre lateral de ESTA llanta)
+  if(lim&&Wd>260){ const bx=Xr+16, bw=Math.min(22,(Wd-bx-62)), rest=lateralRestante(S.N,Math.abs(S.f.Fx))/S.N.Dy, usado=Math.abs(S.f.Fy)/S.N.Dy, Yb0=Y0+14, Yr=Y1-(Y1-Yb0)*rest, Yu=Y1-(Y1-Yb0)*Math.min(1,usado);
+    if(bw>8){ x.strokeStyle='rgba(200,220,230,0.5)'; x.lineWidth=1; x.strokeRect(bx,Yb0,bw,Y1-Yb0); x.fillStyle='rgba(79,210,245,0.35)'; x.fillRect(bx+1,Yr,bw-2,Y1-Yr);
+      raya(x,bx-3,Yu,bx+bw+3,Yu,COL.y,2); txt(x,'queda para girar',bx-2,Y0+8,TXT,8.5,'left','500'); txt(x,fN(rest*100,0)+' %',bx+bw+5,Math.max(Yb0+9,Math.min(Y1-3,Yr+4)),COL.y,9.5,'left','700'); } }
+  const dm=S.man; el('t_fu').textContent=dm?'demanda de la curva':(lim?'el borde es el límite':'');
+}
+function pintaLeyFu(){
+  const lim=limiteVisible();
+  el('leyFu').innerHTML=lim?`<span class="lg"><i style="--c:${COL.u}"></i>límite de esta llanta</span><span class="lg"><i class="dash" style="--c:#8da2ad"></i>otros pisos</span><span class="lg"><i style="--c:#fff"></i>fuerza ahora</span>`
+    :`<span class="lg"><i style="--c:#fff"></i>fuerza que pide la curva</span>`;
+}
+/* ---- Frenar: fuerza frente al resbalamiento ---- */
+function pintaFrenar(){
+  const x=abre(LTR), Wd=LTR.w, Hd=LTR.h, S=SIM.st; if(!S) return; const N=S.N, ref=llanta('seco',S.Fz,S.p);
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, mx=Math.max(ref.Dx,N.Dx)*1.1/1000, X=v=>X0+v*(X1-X0), Y=v=>Y1-v/mx*(Y1-Y0);
+  ejeY(x,X0,X1,Y,0,mx,1,v=>fN(v));
+  for(const v of [0,0.25,0.5,0.75,1]) txt(x,fN(v*100),X(v),Hd-3,TXT,8.5,'center','500');
+  x.fillStyle='rgba(255,90,74,0.07)'; x.fillRect(X(N.kp),Y0,X1-X(N.kp),Y1-Y0);
+  const curva=(Nn,col,w,dash)=>{ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<=100;i++){ const s=i/100, px=X(s), py=Y(fxPuro(Nn,s)/1000); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]); };
+  if(S.piso!=='seco') curva(ref,'rgba(190,205,215,0.40)',1.1,[3,3]);
+  curva(N,COL.x,2);
+  x.fillStyle=COL.u; x.save(); x.translate(X(N.kp),Y(N.Dx/1000)); x.rotate(Math.PI/4); x.fillRect(-3,-3,6,6); x.restore();
+  if(Wd>150){ txt(x,'pico',X(N.kp)+6,Y(N.Dx/1000)-3,COL.u,8.5,'left','600'); if(X1-X(N.kp)>34) txt(x,'resbala',X1-3,Y0+9,'#ff9a8f',8.5,'right','600'); }
+  const ox=X(S.sb), oy=Y(Math.abs(S.f.Fx)/1000);
+  raya(x,ox,oy,ox,Y1,'rgba(255,255,255,0.35)',1,[2,3]); x.fillStyle='#fff'; x.beginPath(); x.arc(ox,oy,3.5,0,DOSPI); x.fill(); x.strokeStyle=COL.x; x.lineWidth=1.4; x.stroke();
+  txt(x,'kN',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_pw').textContent='';
+}
+/* ---- Girar: fuerza frente al ángulo de desvío ---- */
+function pintaGirar(){
+  const x=abre(LFR), Wd=LFR.w, Hd=LFR.h, S=SIM.st; if(!S) return; const N=S.N, ref=llanta('seco',S.Fz,S.p);
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, mx=Math.max(ref.Dy,N.Dy)*1.1/1000, amax=22, X=a=>X0+a/amax*(X1-X0), Y=v=>Y1-v/mx*(Y1-Y0);
+  ejeY(x,X0,X1,Y,0,mx,1,v=>fN(v));
+  for(const a of [0,5,10,15,20]) txt(x,String(a),X(a),Hd-3,TXT,8.5,'center','500');
+  const apk=Math.atan(N.tp)/RAD; x.fillStyle='rgba(255,90,74,0.07)'; x.fillRect(X(apk),Y0,X1-X(apk),Y1-Y0);
+  const curva=(Nn,col,w,dash)=>{ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<=110;i++){ const a=i*amax/110, px=X(a), py=Y(fyPuro(Nn,a*RAD)/1000); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]); };
+  if(S.piso!=='seco') curva(ref,'rgba(190,205,215,0.40)',1.1,[3,3]);
+  curva(N,COL.y,2);
+  x.fillStyle=COL.u; x.save(); x.translate(X(apk),Y(N.Dy/1000)); x.rotate(Math.PI/4); x.fillRect(-3,-3,6,6); x.restore();
+  if(Wd>150){ txt(x,'pico',X(apk)+6,Y(N.Dy/1000)-3,COL.u,8.5,'left','600'); if(X1-X(apk)>34) txt(x,'resbala',X1-3,Y0+9,'#ff9a8f',8.5,'right','600'); }
+  const ox=X(Math.min(S.al,amax)), oy=Y(Math.abs(S.f.Fy)/1000);
+  raya(x,ox,oy,ox,Y1,'rgba(255,255,255,0.35)',1,[2,3]); x.fillStyle='#fff'; x.beginPath(); x.arc(ox,oy,3.5,0,DOSPI); x.fill(); x.strokeStyle=COL.y; x.lineWidth=1.4; x.stroke();
+  txt(x,'kN',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_fr').textContent='';
+}
+/* ---- Más carga, ¿más agarre? ---- */
+function pintaCarga(){
+  const x=abre(LSP), Wd=LSP.w, Hd=LSP.h, S=SIM.st; if(!S) return;
+  const X0=26, X1=Wd-6, Y0=5, Y1=Hd-14, zmax=7.5, ymx=llanta(S.piso,zmax*1000,S.p).Dy*1.08/1000, X=z=>X0+(z-1)/(zmax-1)*(X1-X0), Y=v=>Y1-v/ymx*(Y1-Y0);
+  ejeY(x,X0,X1,Y,0,ymx,1,v=>fN(v));
+  for(const z of [1,2,3,4,5,6,7]) txt(x,String(z),X(z),Hd-3,TXT,8.5,'center','500');
+  const D=z=>llanta(S.piso,z*1000,S.p).Dy/1000, z0=FZ0/1000, d0=D(z0);
+  raya(x,X(1),Y(d0/z0*1),X(zmax),Y(d0/z0*zmax),'rgba(190,205,215,0.55)',1.1,[4,3]);
+  x.strokeStyle=COL.y; x.lineWidth=2; x.beginPath(); for(let i=0;i<=60;i++){ const z=1+(zmax-1)*i/60, px=X(z), py=Y(D(z)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  if(enDiagnostico()){ txt(x,'la carga se descubre al diagnosticar',(X0+X1)/2,(Y0+Y1)/2,'#7f939d',10,'center','500'); el('t_sp').textContent=''; return; }
+  const z=S.Fz/1000, px=X(z), py=Y(D(z)), pp=Y(d0/z0*z);
+  raya(x,px,py,px,pp,'rgba(255,90,74,0.8)',1.4); x.fillStyle='#fff'; x.beginPath(); x.arc(px,py,3.5,0,DOSPI); x.fill(); x.strokeStyle=COL.y; x.lineWidth=1.4; x.stroke();
+  if(Hd>=62&&Wd>180){ txt(x,'si fuera proporcional',X(zmax)-4,Math.max(Y0+8,Y(d0/z0*zmax)+(Y(d0/z0*zmax)<Y0+12?12:-4)),'#9db0ba',8.5,'right','500'); }
+  txt(x,'kN',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'carga (kN)',X1,Hd-3,TXT,8.5,'right','600');
+  el('t_sp').textContent=fN(D(z)*1000/S.Fz,2)+' kN de agarre por kN de carga';
+}
+
+function pintaDockFijo(){
+  const gu=EST.modo==='reto';
+  el('p_mode').textContent=EST.modo==='recorrido'?'Recorrido':(gu?'Reto':'Explorar');
+  pintaLeyFu();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  if(enDiagnostico()){ lab(1,'Huella'); lab(2,'Agarre al frenar'); lab(3,'Rigidez al girar'); lab(4,'Pico del frenado'); lab(5,'Huella normal'); lab(6,'Rigidez normal'); }
+  else if(enPredice()){ lab(1,'Máx. al girar'); lab(2,'Carga'); lab(3,'Presión'); lab(4,'Piso'); lab(5,'Desvío'); lab(6,'Fuerza al girar'); }
+  else if(enDecide()){ lab(1,'Fuerza al frenar'); lab(2,'Fuerza al girar'); lab(3,'Agarre usado'); lab(4,'Resbalamiento'); lab(5,'Desvío'); lab(6,'Velocidad'); }
+  else { lab(1,'Fuerza al frenar'); lab(2,'Fuerza al girar'); lab(3,'Agarre usado'); lab(4,'Resbalamiento'); lab(5,'Desvío'); lab(6,'Huella'); }
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const S=SIM.st; if(!S) return; const f=S.f, set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const un=(v,u,d)=>fN(v,d||0)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t='';
+  if(enDiagnostico()){
+    const s=sintomas(GUIA.dx), ref=sintomas({piso:'seco',Fz:FZ0,p:P_OPT});
+    set('f_1',un(s.areaCm2,'cm²')); set('f_2',fN(s.muX,2)+'<small> kN/kN</small>'); set('f_3',un(s.rigidez,'N/°')); set('f_4',un(s.picoPct,'%',1)); set('f_5',un(ref.areaCm2,'cm²')); set('f_6',un(ref.rigidez,'N/°'));
+    for(const i of [1,2,3,4,5,6]) _cl('f_'+i,i>4?'oculto':''); Av.className='dk-aviso'; Av.textContent=''; el('p_sub').textContent='la llanta no rinde como debería'; return; }
+  el('p_sub').textContent=NOMBRE_PISO[S.piso]+' · '+fN(S.Fz/1000,1)+' kN · '+fN(S.p,1)+' bar';
+  if(enPredice()){
+    set('f_1',un(S.N.Dy/1000,'kN',2)); set('f_2',un(S.Fz/1000,'kN',1)); set('f_3',un(S.p,'bar',1)); set('f_4','mojado'); set('f_5',un(S.al,'°',1)); set('f_6',un(Math.abs(f.Fy)/1000,'kN',2));
+    for(const i of [1,2,3,4,5,6]) _cl('f_'+i,''); Av.className='dk-aviso'; Av.textContent=''; return; }
+  const lim=limiteVisible();
+  set('f_1',un(Math.abs(f.Fx)/1000,'kN',2)); _cl('f_1',''); set('f_2',un(Math.abs(f.Fy)/1000,'kN',2)); _cl('f_2','');
+  if(lim){ set('f_3',fN(f.u*100,0)+'<small> %</small>'); _cl('f_3',S.desliza||f.u>0.97?'bad':(f.u>0.8?'warn':'')); } else { set('f_3','¿?'); _cl('f_3','oculto'); }
+  set('f_4',un(S.sb*100,'%')); _cl('f_4',''); set('f_5',un(S.al,'°',1)); _cl('f_5','');
+  if(enDecide()&&S.man){ set('f_6',un(S.man.v*3.6,'km/h')); _cl('f_6',''); } else { set('f_6',un(S.N.area*1e4,'cm²')); _cl('f_6',''); }
+  if(lim&&S.desliza){ cl='mal'; t='Pasaste el pico: la llanta resbala y da menos fuerza que en el pico.'; }
+  else if(lim&&f.u>0.9){ cl='ojo'; t='Casi en el límite: poco agarre de sobra para frenar o girar más.'; }
+  else if(lim&&S.fase==='ambos'&&f.u>0.5){ cl='bien'; t='Al frenar, la fuerza para girar baja: el agarre es uno solo y se reparte.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaElipse(); pintaFrenar(); pintaGirar(); pintaCarga(); }
+
+/* ===================== 17. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'×0,5'],[1,'×1'],[2,'×2']];
+el('vbar').innerHTML=[['banco','Llanta'],['huella','Huella'],['cenit','Desde arriba'],['lado','De lado']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la animación">${VEL.map(([v,t])=>`<option value="${v}">animación ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const S=SIM.st, est=el('tEst'); if(!S) return;
+  el('tReloj').textContent='flechas: 1 kN = '+fN(KF*100,0)+' cm';
+  el('tLento').textContent='cámara lenta ×1/10';
+  let t,c;
+  if(S.desliza){ t='la llanta resbala'; c='#ff5a4a'; }
+  else if(S.fase==='maniobra'){ t='entrando en la curva y frenando'; c='#ffd54a'; }
+  else { t=FASE_TXT[S.fase]||'en marcha'; c=S.fase==='ambos'?'#ffd54a':(S.fase==='girar'?'#4fd2f5':(S.fase==='frenar'?'#ff8a3d':'#9fb3bd')); }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 18. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Llanta de ensayo',()=>V3(0.02,0.50,0.10)],
+  ['Cinta móvil: hace de suelo',()=>V3(0.80,0.0,0.40)],
+  ['Huella: donde la goma toca la cinta',()=>V3(0,0.01,0.12)],
+  ['Celda de carga: mide el peso sobre la llanta',()=>V3(0,1.02,0)],
+  ['Cilindro que aprieta la llanta',()=>V3(0,1.42,0)],
+  ['Transportador: ángulo de desvío',()=>V3(0.46,0.0,-0.40)],
+  ['Flecha naranja: fuerza al frenar',()=>V3(-0.16,0.03,0.0)],
+  ['Elipse amarilla: el límite de la llanta',()=>V3(0.0,0.012,SIM.st?SIM.st.N.Dy/1000*KF:0.36),()=>limiteVisible()],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(255,210,122,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,vis],i)=>{ ROT.els[i].d.textContent=t; if(vis&&!vis()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  llanta:'La llanta de ensayo: goma con dibujo sobre un aro de aluminio. Toda la fuerza hacia el suelo pasa por una huella del tamaño de una mano',
+  horquilla:'Horquilla y columna que sujetan la llanta. Giran con ella cuando se le da ángulo de desvío',
+  celda:'Celda de carga: mide con qué fuerza vertical se aprieta la llanta contra la cinta',
+  cilindro:'Cilindro que empuja la llanta hacia abajo con la carga elegida (el peso que le tocaría en un coche)',
+  cinta:'Cinta móvil que hace de suelo. Corre hacia atrás a 72 km/h de verdad (se ve a 1/10). Las rayas blancas sirven para medir cuánto resbala la llanta',
+  huella:'Huella: el único trozo de goma que toca el suelo. Su área es la carga entre la presión. Verde: sobra agarre. Amarillo: casi al límite. Rojo: resbala',
+  flecha:'Fuerza que el suelo hace sobre la llanta. Naranja: al frenar. Azul: al girar. Blanca: la suma de las dos',
+  elipse:'Elipse amarilla: el límite de fuerza de esta llanta, dibujado sobre la cinta. La flecha blanca nunca puede salirse',
+  angulo:'Transportador: ángulo entre hacia dónde va la cinta (línea blanca) y hacia dónde apunta la llanta (línea ámbar). Es el ángulo de desvío',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||p===PLATAFORMA||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||h.object.renderOrder===6||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ return h&&h.object.userData&&h.object.userData.clave?h.object.userData.clave:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 19. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 20. EL RECORRIDO GUIADO Y EL RETO =====================
+   Primero un recorrido paso a paso (empieza solo, desde el segundo cero) que explica con palabras sencillas qué es el
+   resbalamiento, el desvío, la elipse de fricción, el piso y la carga. Después «Explorar» (mandos libres) y «Reto» en tres fases:
+   1 · Calcula (la velocidad máxima en una curva mojada sin frenar), 2 · Ajusta (cuánto frenar en la curva sin pasar el
+   límite: la ventana es INTERIOR —frenar poco no baja la velocidad, frenar mucho le quita a la llanta el agarre para girar—
+   y el límite sólo aparece al validar) y 3 · Diagnostica (¿mojado, presión baja o sobrecarga?, sólo con los síntomas del dock),
+   y cierra con un quiz de tres preguntas. Tres validaciones fallidas cambian el escenario. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- El recorrido: siete pasos, cada uno con su cámara y su barrido ---------- */
+const TOUR=[
+  {frase:true,titulo:'Descubres cuánta fuerza puede dar una llanta antes de resbalar.',
+   texto:'Una llanta toca el suelo solo con una huella del tamaño de una mano, y de ahí sale toda la fuerza para frenar y girar. Aquí la ves trabajar sobre una cinta de pruebas, en cámara lenta.',
+   mira:'Mira las flechas de colores: cada una es una fuerza. Se miden en kN (1 kN es el peso de unos 100 kg).',preset:{sup:'seco',demo:'ciclo',vista:'banco',fz:false}},
+  {titulo:'Frenar: la llanta resbala un poco',
+   texto:'Al frenar, la llanta gira más lento que la cinta; a esa diferencia se le llama <b>resbalamiento</b>. Con un poco de resbalamiento da su máxima fuerza; con demasiado, la fuerza baja.',
+   mira:'En la gráfica «Frenar», el punto sube hasta un pico y luego baja.',preset:{demo:'frenar',vista:'banco',fz:false}},
+  {titulo:'Girar: la llanta se ladea',
+   texto:'Al girar, la llanta apunta un poco distinto de hacia donde va; ese ángulo es el <b>desvío</b>. Más desvío da más fuerza hacia el lado, hasta un máximo.',
+   mira:'Mira el transportador sobre la cinta y la flecha azul.',preset:{demo:'girar',vista:'cenit',fz:false}},
+  {titulo:'Frenar y girar a la vez',
+   texto:'La llanta tiene un solo agarre y lo reparte. Si frenas más mientras giras, queda menos para girar. El borde de la <b>elipse amarilla</b> es su límite: la flecha blanca no puede salirse.',
+   mira:'En «Frenar y girar a la vez», la barra azul es lo que queda para girar.',preset:{demo:'ambos',vista:'cenit',fz:false}},
+  {titulo:'Piso mojado: el límite se encoge',
+   texto:'Con agua hay menos agarre: la elipse se hace más pequeña y el pico llega con más resbalamiento. Una curva fácil en seco se vuelve peligrosa.',
+   mira:'Compara la elipse con las de otros pisos (líneas punteadas).',preset:{sup:'mojado',demo:'ciclo',vista:'banco',fz:false}},
+  {titulo:'Carga y presión',
+   texto:'Si cargas la llanta al doble, el agarre <b>no</b> se duplica. Y con poca presión la huella crece y la llanta responde más blanda.',
+   mira:'Mira la huella bajo la llanta (se ve a través). Abajo, la línea punteada es lo que pasaría si el agarre fuera proporcional a la carga.',preset:{demo:'girar',vista:'huella',fz:true}},
+  {titulo:'Ahora te toca',
+   texto:'Explora tú mismo cambiando piso, carga y presión, o pasa al reto: tomarás una curva mojada frenando lo justo, sin pasar el límite de la llanta.',
+   mira:'',preset:{fz:false,demo:'ciclo',vista:'banco'},final:true},
+];
+const TOURI={i:0};
+function aplicaPasoTour(){
+  const P=TOUR[TOURI.i].preset; if(P.sup) EST.sup=P.sup; EST.demo=P.demo; EST.auto=true; EST.fzAuto=!!P.fz; EST.p=P_OPT; if(!P.fz) EST.Fz=FZ0; SIM.t=0; SIM.ver++;
+  if(P.vista&&P.vista!==EST.vista) ponVista(P.vista,0.9);
+}
+function htmlTour(){
+  const P=TOUR[TOURI.i], n=TOUR.length;
+  const dots=TOUR.map((_,k)=>`<i class="${k===TOURI.i?'on':(k<TOURI.i?'ok':'')}"></i>`).join('');
+  const bot=P.final?`<div class="tb"><button class="b" data-tour="explorar">Explorar</button><button class="b primary" data-tour="reto">Ir al reto →</button></div>`
+    :`<div class="tb"><button class="b" data-tour="prev" ${TOURI.i===0?'disabled':''}>← Anterior</button><button class="b primary" data-tour="next">Siguiente →</button></div><button class="salta" data-tour="skip">Saltar el recorrido</button>`;
+  return `<div class="retoBox tour"><div class="tn"><span>Paso ${TOURI.i+1} de ${n}</span><span class="dots">${dots}</span></div>${P.mira?`<div class="mira">${P.mira}</div>`:''}${bot}</div>`;
+}
+function accionTour(a){
+  if(a==='next'&&TOURI.i<TOUR.length-1) TOURI.i++;
+  else if(a==='prev'&&TOURI.i>0) TOURI.i--;
+  else if(a==='skip'||a==='explorar'){ setMode('explorar'); return; }
+  else if(a==='reto'){ setMode('reto'); return; }
+  aplicaPasoTour(); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+
+/* ---------- Fase 1 · Calcula la velocidad máxima ---------- */
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.esc.id; let e; do{ e=pickOne(ESCENARIOS); }while(e.id===p);
+  const N=llanta('mojado',e.Fz,e.p), m=e.Fz/G; GUIA.r1={esc:e,Fz:e.Fz,p:e.p,R:e.R,N,m,ans:Math.sqrt(N.Dy/m*e.R)*3.6}; }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkPredice(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la velocidad en kilómetros por hora (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(1.5,0.05*ok)){
+    RETO.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`v = √(F·R / m) = √(${kN(r.N.Dy)} kN · ${fN(r.R)} m / ${fN(r.m,0)} kg) = <b>${fN(ok,1)} km/h</b>. Es el máximo <b>sin frenar</b>. Si además frenas, parte del agarre se va en frenar y la curva se toma más despacio: eso es lo que ajustarás ahora.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal(); const d=v>ok?'alta':'baja';
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: la fuerza lateral máxima sostiene al coche en la curva (F = m·v²/R) y la masa de esta llanta es su carga entre g.'); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',`Tu velocidad (${fN(v,1)} km/h) sale ${d}. Usa la fuerza «Máx. al girar» del dock, la masa m = carga / 9,81 y pasa el resultado de m/s a km/h. (intentos fallidos: ${RETO.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETO.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta cuánto frenar en la curva ---------- */
+function prepararDecide(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id&&RETO.resiembras>0);
+  GUIA.r2={esc:e,a:0.5,validado:false,res:null,intentos:0}; SIM.t=0; SIM.ver++; SIM.hist.length=0;
+  pintaHUD(); pintaDockFijo();
+}
+function validarDecide(){
+  const r=GUIA.r2; if(!r) return;
+  const R=evaluaManiobra(r.esc,r.a), W=R.W; r.res=R; r.validado=true; r.intentos++; RETO.intentos++; SIM.t=0; SIM.hist.length=0; SIM.ver++;
+  const uso=`En la entrada la curva te pedía el <b>${fN(R.rho0*100,0)} %</b> del agarre de la llanta (lo máximo permitido es ${fN((1-MARGEN)*100,0)} %) y saliste a <b>${fN(R.vf*3.6,0)} km/h</b> (debías salir a ${fN(r.esc.vs)} o menos).`;
+  if(R.ok){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Lo conseguiste! ✓',`${uso} Frenaste a ${fN(r.a,1)} m/s². La ventana de frenado era de <b>${fN(W.amin,2)}</b> a <b>${fN(W.amax,2)} m/s²</b>: con menos no bajas la velocidad a tiempo y con más la llanta ya no tiene agarre para girar. Está en el interior, no en los extremos.`,true);
+    paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal(); let msg=uso+' ';
+    if(R.demasiado) msg+='Frenaste tanto que a la llanta no le sobró agarre para girar: el coche se abriría de la curva.';
+    else msg+='Frenaste poco: sales demasiado rápido y la siguiente recta te encuentra pasado.';
+    if(RETO.fallos2>=3){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Tres validaciones sin lograrlo',msg+' Cambia el escenario.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+` (validaciones fallidas: ${RETO.fallos2}/3)`,true); pintaHUD(); pintaDockFijo(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const NOMBRE_DX={mojado:'Piso mojado',presion:'Presión baja',carga:'Sobrecarga'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k)); SIM.t=0; SIM.ver++; SIM.hist.length=0;
+  pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: la huella dice cuánta goma toca el suelo, el agarre por kN dice si hay agua o sobrecarga, y la rigidez al girar distingue una llanta blanda de una sobrecargada.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  const s=sintomas(CASOS_DX.find(c=>c.k===k));
+  if(k==='mojado') return `La huella es normal (${fN(s.areaCm2,0)} cm²) pero el agarre por kN cae a ${fN(s.muX,2)} (en seco es 1,00): es el piso, no la llanta. El agua baja el límite de la elipse.`;
+  if(k==='presion') return `La huella creció a ${fN(s.areaCm2,0)} cm² (A = carga/presión) y la rigidez al girar bajó a ${fN(s.rigidez,0)} N/° (lo normal son 856): la llanta está blanda porque le falta presión.`;
+  return `La huella creció a ${fN(s.areaCm2,0)} cm² pero la rigidez subió a ${fN(s.rigidez,0)} N/° y el agarre por kN bajó a ${fN(s.muX,2)}: la llanta lleva demasiada carga y, por la sensibilidad de carga, rinde menos por cada kN.`;
+}
+function noEs(k){
+  if(k==='mojado') return 'La huella es mucho más grande de lo normal; el agua no cambia el tamaño de la huella.';
+  if(k==='presion') return 'Compara la rigidez al girar con la normal: ¿una llanta blanda tendría la misma rigidez o más?';
+  return 'Compara la rigidez al girar con la normal: una llanta sobrecargada no se vuelve más blanda.';
+}
+const QUIZ=[
+  {q:'Una llanta frena en el pico de su curva. Si frena todavía más hasta bloquearse, ¿qué pasa con la fuerza de frenado?',ok:'Baja: pasado el pico la llanta pierde agarre',mal:['Sigue subiendo hasta el máximo','Se queda igual','Se vuelve cero de golpe']},
+  {q:'Un coche va en curva y frena fuerte. ¿Qué le pasa a la fuerza lateral que puede dar la llanta?',ok:'Disminuye: el agarre es uno solo y se reparte entre frenar y girar',mal:['Aumenta, porque la llanta se aprieta más','No cambia: frenar y girar son independientes','Se duplica']},
+  {q:'Un coche cargado lleva el doble de peso sobre cada llanta. ¿Qué pasa con el agarre máximo?',ok:'Aumenta, pero menos del doble (sensibilidad de carga)',mal:['Se duplica exactamente','No cambia','Se reduce a la mitad']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; SIM.t=0; SIM.ver++; SIM.hist.length=0;
+  if(EST.modo==='reto'){ ponVista(p==='predice'?'cenit':'banco',0.8); pintaHUD(); pintaDockFijo(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','Lo que sostiene al coche en la curva es la fuerza lateral de la llanta: F = m·v²/R. La masa que carga esta llanta es m = carga / g (con g = 9,81 m/s²).'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','Despeja: v = √(F·R/m), con F en newtons (1 kN = 1 000 N) y v en m/s. Para pasar a km/h, multiplica por 3,6.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarDecide(); break;
+    case 'dx-mojado': diagnostica('mojado'); break; case 'dx-presion': diagnostica('presion'); break; case 'dx-carga': diagnostica('carga'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿A qué velocidad máxima se toma la curva?',
+      teach:`Piso <b>mojado</b>. Esta llanta carga <b>${fN(r.Fz/1000,1)} kN</b> (un cuarto del coche) y la curva tiene <b>${fN(r.R)} m</b> de radio. Sin frenar, ¿cuál es la velocidad máxima sin resbalar?<div class="task">Respuesta en km/h. ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? km/h" aria-label="Velocidad máxima en kilómetros por hora"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      const e=r.esc;
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Frenar en la curva sin pasar el límite',
+      teach:`Curva mojada de <b>${fN(e.R)} m</b> de radio. Entras a <b>${fN(e.v0)} km/h</b> y tienes <b>${fN(e.S)} m</b> de curva para bajar a <b>${fN(e.vs)} km/h o menos</b>. Elige cuánto frenar y mira lo que pide la llanta. El límite se conoce al validar.<div class="why"><b>Pista:</b> frenar poco no baja la velocidad a tiempo; frenar mucho le quita a la llanta el agarre para girar. ${tri('d_try2',RETO.fallos2,3)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Frenado en la curva</div><b id="v2A">${fN(r.a,1)} m/s²</b></div><input type="range" id="r2A" min="0" max="6" step="0.1" value="${r.a}" aria-label="Frenado en la curva en metros por segundo al cuadrado"><div class="marcas"><span>0</span><span>6</span></div></div>
+        <button class="b primary" data-act="validar">▶ Validar el frenado</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué esta llanta rinde mal',
+      teach:`Esta llanta da menos agarre de lo normal. Lee las cifras del dock y compáralas con las de una llanta normal.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Explorar</b>, pon hielo y mira cuánto se encoge la elipse: con tan poco agarre, frenar y girar a la vez es imposible.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  EST.modo=m;
+  if(m==='reto'){ if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); } }
+  else if(m==='recorrido'){ TOURI.i=0; aplicaPasoTour(); }
+  else { EST.auto=true; EST.demo='ciclo'; EST.fzAuto=false; EST.sup='seco'; EST.Fz=FZ0; EST.p=P_OPT; }
+  document.body.classList.toggle('m-recorrido',m==='recorrido'); document.body.classList.toggle('m-explorar',m==='explorar'); document.body.classList.toggle('m-reto',m==='reto');
+  el('feedback').classList.remove('show'); SIM.t=0; SIM.ver++; SIM.hist.length=0;
+  ponVista(m==='reto'?(GUIA.paso==='predice'?'cenit':'banco'):(m==='recorrido'?TOUR[0].preset.vista:'banco'),0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||t.id!=='r2A'||!GUIA.r2||GUIA.paso!=='decide') return;
+  GUIA.r2.a=+t.value; GUIA.r2.validado=false; el('v2A').textContent=fN(+t.value,1)+' m/s²'; SIM.hist.length=0; SIM.ver++; });
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un chirrido de goma, muy atenuado, que sólo suena cuando la llanta pasa el pico y resbala; y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,ch=null,cg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      ch=ctx.createOscillator(); cg=ctx.createGain(); ch.type='sawtooth'; ch.frequency.value=700; cg.gain.value=0; const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1200; bp.Q.value=2; ch.connect(bp); bp.connect(cg); cg.connect(master); ch.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    chirrido:(nivel)=>{ if(!ctx||!ch) return; const t=ctx.currentTime; ch.frequency.setTargetAtTime(620+380*nivel,t,0.1); cg.gain.setTargetAtTime(on&&nivel>0?0.010*Math.min(1,nivel+0.3):0,t,0.1); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function') ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven la llanta, la cinta, la huella, las flechas y la
+   elipse, y se pintan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt*EST.vel; SIM.dtReal=dt;
+  aplicaEscena(dtS,dtS);
+  pasaCam(dt);
+  if(t-tSon>0.3){ tSon=t; const S=SIM.st; sonido.chirrido(S&&S.desliza&&!EST.pausa?clamp((S.f.s-1)/1.2,0,1):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); sincronizaMandos(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido ya en el paso 1: la llanta frena sobre la cinta, las flechas de fuerza se mueven y el
+   punto recorre la curva. El alumno sólo tiene que leer una frase y pulsar «Siguiente». */
+disposicion();
+aplicaCalidad();
+aplicaPasoTour();
+SIM.t=1.2;
+pintaHUD();
+aplicaEscena(0.02,0.02);
+aplicaAspecto('seco',1);
+pintaBarras();
+ponVista('banco',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOURI.i,fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{id:GUIA.r1.esc.id,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{id:GUIA.r2.esc.id,a:GUIA.r2.a,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const S=SIM.st; if(!S) return {activo:false}; const N=S.N, f=S.f;
+    return {piso:S.piso,Fz:S.Fz,p:S.p,sb:S.sb,al:S.al,Fx:f.Fx,Fy:f.Fy,u:f.u,s:f.s,Dx:N.Dx,Dy:N.Dy,kp:N.kp,ap:N.ap,area:N.area,largo:N.largo,desliza:S.desliza,fase:S.fase,
+      hueco:{largo:PATCH_M.scale.x,ancho:PATCH_M.scale.y},anillo:{x:RING.scale.x,z:RING.scale.z},yaw:YAW.rotation.y,spin:SPIN.rotation.x,cinta:T_CINTA.offset.x}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{id:GUIA.r2.esc.id,a:GUIA.r2.a,validado:GUIA.r2.validado,res:GUIA.r2.res},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  tour:(i)=>{ TOURI.i=clamp(i,0,TOUR.length-1); setMode('recorrido',true); TOURI.i=clamp(i,0,TOUR.length-1); aplicaPasoTour(); pintaHUD(); pintaDockFijo(); },
+  pon:(o)=>{ Object.assign(EST,o); SIM.ver++; SIM.hist.length=0; pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s); },
+  salta:(t)=>{ SIM.t=t; aplicaEscena(0.001,0.001); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setDecide:(a)=>{ const r=GUIA.r2; if(r){ r.a=a; r.validado=false; SIM.hist.length=0; SIM.ver++; pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; SIM.ver++; pintaHUD(); pintaDockFijo(); },
+  fija:(sb,al)=>{ EST.auto=false; EST.sb=sb; EST.al=al; },
+});
+instalaDiag('neumatico-pacejka-friccion',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{llanta:SPIN,horquilla:FORK,cinta:BELT,huella:PATCH,elipse:RING,marco:MARCO,banco:BANCO}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-neumatico-pacejka-friccion.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

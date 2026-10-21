@@ -5297,6 +5297,108 @@ Primero calculas esa frecuencia de batido; luego eliges ancho de banda, duració
     "titulo": "Radar FMCW de 77 GHz: Distancia y Velocidad con FFT",
     "videoUrl": "",
   },
+  "mecanica-146": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción eléctrica",
+        "ejemplo": "Los coches eléctricos con carga rápida llevan placas frías con líquido bajo los módulos de la batería para no pasar de 40 °C al cargar.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Si la carga rápida es más lenta de lo normal, una causa común es poco caudal o aire en el circuito de refrigeración de la batería.",
+      },
+    ],
+    "bienvenida": "Vas a enfriar la batería de un coche eléctrico para que cargue rápido sin sobrecalentarse. Al abrir el laboratorio ya se está cargando: son 12 celdas, como pilas grandes, y cada una cambia de color según su temperatura.
+
+Cargar rápido hace pasar mucha corriente y las celdas se calientan. Bajo ellas hay una placa de metal con un tubo por donde corre líquido frío, que se lleva el calor hasta un enfriador. Un recorrido guiado te lo explica paso a paso, sin palabras técnicas.
+
+Después tendrás un reto: un día caluroso, una carga rápida y un límite de temperatura. Tú eliges cuánto líquido pasa y qué tan frío entra. Con poco líquido las celdas se pasan de calor; con demasiado, la bomba gasta de más; y si el líquido es muy frío, las celdas sufren. La respuesta no está escrita: sale de la física, y el mejor ajuste está en el medio.",
+    "codigo": "MEC-146",
+    "conceptos": [
+      {
+        "descripcion": "Cuanta más corriente pasa por una celda, más se calienta: el calor crece con el cuadrado de la corriente.",
+        "icono": "🔥",
+        "nombre": "Calor al cargar",
+      },
+      {
+        "descripcion": "Una placa de metal con un tubo de líquido frío bajo las celdas se lleva el calor; con más caudal enfría mejor, pero la bomba gasta más.",
+        "icono": "🧊",
+        "nombre": "Placa fría",
+      },
+      {
+        "descripcion": "De 15 a 35 °C las celdas están bien. Muy calientes o muy frías, el sistema de la batería recorta la corriente y la carga tarda más.",
+        "icono": "🌡️",
+        "nombre": "Zona buena de temperatura",
+      },
+      {
+        "descripcion": "La bomba y el enfriador gastan electricidad: el mejor ajuste cumple los límites gastando lo menos posible.",
+        "icono": "⚖️",
+        "nombre": "Gasto de enfriar",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el recorrido guiado: mira cómo se calientan las celdas y cómo la placa fría se lleva el calor.",
+      "En «Probar», cambia el caudal y la temperatura del líquido y mira qué le pasa a la celda más caliente y a la diferencia entre celdas.",
+      "En el reto, calcula cuánto sube la temperatura del líquido y ajusta caudal y temperatura para cargar a tiempo, sin pasar de 40 °C y gastando lo mínimo.",
+      "Diagnostica por qué baja la corriente permitida y contesta las preguntas de cierre.",
+    ],
+    "subtitulo": "Autotrónica · enfriar la batería de un coche eléctrico para que cargue rápido sin sobrecalentarse",
+    "titulo": "Gestión Térmica de una Batería de VE: Placa Fría y Carga Rápida",
+    "videoUrl": "",
+  },
+  "mecanica-147": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Seguridad vial",
+        "ejemplo": "Los sistemas ABS y de control de estabilidad trabajan justo en el pico de la curva de la llanta, para frenar sin bloquearla y sin perder el agarre lateral.",
+      },
+      {
+        "area": "Taller y mantenimiento",
+        "ejemplo": "La presión y la carga cambian el tamaño de la huella y el agarre: revisar la presión en frío y no sobrecargar el vehículo es mantenimiento de seguridad.",
+      },
+    ],
+    "bienvenida": "Descubres cuánta fuerza puede dar una llanta antes de resbalar. Una llanta toca el suelo sólo con una huella del tamaño de una mano, y de ahí sale toda la fuerza para frenar y para girar.
+
+Un recorrido paso a paso te lo enseña con una llanta sobre una cinta de pruebas: qué es el resbalamiento al frenar, qué es el desvío al girar y por qué frenar y girar a la vez se reparten un solo agarre. Después cambias el piso, la carga y la presión y miras cómo se encoge o crece el límite.
+
+Tu misión: tomar una curva mojada frenando lo justo. Si frenas poco, sales demasiado rápido; si frenas mucho, la llanta se queda sin agarre para girar. La respuesta no está escrita: sale de la física.",
+    "codigo": "MEC-147",
+    "conceptos": [
+      {
+        "descripcion": "Al frenar, la llanta gira más lento que el suelo. Con un poco de resbalamiento da su fuerza máxima; con demasiado, la fuerza baja.",
+        "icono": "🛞",
+        "nombre": "Resbalamiento",
+      },
+      {
+        "descripcion": "Al girar, la llanta apunta un poco distinto de hacia donde va. Ese ángulo produce la fuerza lateral, hasta un máximo.",
+        "icono": "↗️",
+        "nombre": "Ángulo de desvío",
+      },
+      {
+        "descripcion": "La llanta tiene un solo agarre que reparte entre frenar y girar: la fuerza total no puede salirse de la elipse.",
+        "icono": "⭕",
+        "nombre": "Círculo de fricción",
+      },
+      {
+        "descripcion": "Con agua o hielo el límite se encoge; con más carga el agarre crece menos que el peso; la presión cambia el tamaño de la huella.",
+        "icono": "⚖️",
+        "nombre": "Carga, presión y piso",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el recorrido de siete pasos y mira cómo cambian la huella, las flechas de fuerza y la elipse.",
+      "En Explorar, cambia el piso, la carga y la presión, y compara las curvas de frenar y de girar.",
+      "En el reto, calcula la velocidad máxima en una curva mojada y ajusta cuánto frenar sin pasar el límite.",
+      "Diagnostica por qué una llanta rinde mal (piso mojado, presión baja o sobrecarga) y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Dinámica del vehículo · cuánta fuerza da una llanta antes de resbalar",
+    "titulo": "El Neumático: Curva de Pacejka, Círculo de Fricción y Límite de Adherencia",
+    "videoUrl": "",
+  },
   "mecanica-15": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -20846,6 +20948,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-141": [],
   "mecanica-142": [],
   "mecanica-143": [],
+  "mecanica-146": [],
+  "mecanica-147": [],
   "mecanica-15": [],
   "mecanica-16": [],
   "mecanica-17": [],
@@ -21224,6 +21328,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-141",
   "mecanica-142",
   "mecanica-143",
+  "mecanica-146",
+  "mecanica-147",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",
