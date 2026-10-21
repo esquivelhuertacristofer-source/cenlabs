@@ -5297,6 +5297,59 @@ Primero calculas esa diferencia de tonos; luego eliges ancho de banda, duración
     "titulo": "Radar FMCW de 77 GHz: Distancia y Velocidad con FFT",
     "videoUrl": "",
   },
+  "mecanica-144": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción y transporte",
+        "ejemplo": "Los camiones, autobuses y muchos coches diésel modernos llevan SCR con AdBlue para cumplir las normas Euro VI.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Si el testigo de AdBlue se enciende, lo común es un inyector tapado por cristales, una urea de mala calidad o un catalizador envejecido.",
+      },
+    ],
+    "bienvenida": "Controlas cuánto líquido AdBlue inyectas para limpiar el humo de un diésel. Al abrir el laboratorio ya está funcionando: el motor suelta un gas dañino, el NOx (puntos rojos), y un recorrido de seis pasos te lo explica sin siglas sin definir.
+
+El AdBlue es agua con urea. Se rocía en el escape, el calor lo convierte en amoníaco y el catalizador lo guarda en sus paredes (se pintan de azul) y lo hace reaccionar con el NOx hasta dejar nitrógeno y agua.
+
+Pero hay que acertar: si inyectas poco, el NOx pasa; si inyectas mucho, sobra amoníaco y se escapa; y si el escape está frío, la urea se pega en cristales.
+
+Tu misión es hallar el ajuste que deja salir poco NOx y poco amoníaco sin gastar de más. La respuesta no está escrita: sale de la física, y no está en los extremos.",
+    "codigo": "MEC-144",
+    "conceptos": [
+      {
+        "descripcion": "Óxidos de nitrógeno que suelta un motor diésel. Irritan los pulmones y forman smog; por eso se limpian antes de salir al aire.",
+        "icono": "🔴",
+        "nombre": "NOx",
+      },
+      {
+        "descripcion": "Agua con urea al 32,5 %. No es combustible: se rocía en el escape y, con calor, se vuelve amoníaco.",
+        "icono": "💧",
+        "nombre": "AdBlue",
+      },
+      {
+        "descripcion": "El catalizador guarda amoníaco en sus paredes. Cuanto más caliente está, menos puede guardar, y si sobra se escapa por el tubo.",
+        "icono": "🔵",
+        "nombre": "Amoníaco guardado",
+      },
+      {
+        "descripcion": "El catalizador sólo limpia bien en un rango de temperatura: muy frío la urea cristaliza, muy caliente el amoníaco se quema.",
+        "icono": "🌡️",
+        "nombre": "Ventana de temperatura",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el recorrido paso a paso: el humo sucio, el AdBlue, el amoníaco, el catalizador y la salida.",
+      "En «Probar», mueve la dosis y la temperatura mínima para inyectar, y mira cómo cambian el NOx y el amoníaco que salen.",
+      "En el reto, calcula los litros de AdBlue por hora y luego ajusta dosis, temperatura y calentamiento para cumplir el límite de NOx sin pasarte de amoníaco.",
+      "Diagnostica una falla por sus lecturas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica · cuánto AdBlue inyectar para limpiar el humo de un diésel",
+    "titulo": "Postratamiento SCR con AdBlue: NOx, dosificación y amoníaco residual",
+    "videoUrl": "",
+  },
   "mecanica-145": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -5441,6 +5494,59 @@ Tu misión: tomar una curva mojada frenando lo justo. Si frenas poco, sales dema
     ],
     "subtitulo": "Dinámica del vehículo · cuánta fuerza da una llanta antes de resbalar",
     "titulo": "El Neumático: Curva de Pacejka, Círculo de Fricción y Límite de Adherencia",
+    "videoUrl": "",
+  },
+  "mecanica-148": {
+    "acento": "#3DDC97",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Los coches eléctricos e híbridos mezclan motor y discos de forma que el conductor sólo nota un pedal; de ello depende gran parte de su autonomía en ciudad.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Con la batería llena o fría el freno regenerativo se reduce y el pedal se siente distinto; es un síntoma normal que conviene saber distinguir de un fallo.",
+      },
+    ],
+    "bienvenida": "Aquí decides cuánto frena el motor y cuánto los frenos, para devolverle energía a la batería. Un coche eléctrico se acerca a una línea de parada y el recorrido guiado te lo explica paso a paso.
+
+Lo verde es energía que vuelve a la batería; lo naranja se pierde como calor en los discos. Cambia el reparto y mira cuánto vuelve en cada frenada.
+
+Pero el motor no siempre puede: con la batería casi llena, a poca velocidad o si las ruedas patinan, los discos tienen que ayudar.
+
+Tu misión es parar antes de la línea, sin que ninguna rueda patine y recuperando la mayor energía posible. La respuesta no está escrita: sale de la física y no está en los extremos.",
+    "codigo": "MEC-148",
+    "conceptos": [
+      {
+        "descripcion": "Al frenar, el motor funciona como generador y devuelve a la batería parte de la energía del movimiento.",
+        "icono": "🔋",
+        "nombre": "Frenado regenerativo",
+      },
+      {
+        "descripcion": "Convierten la energía en calor. Completan lo que el motor no puede dar y paran el coche del todo.",
+        "icono": "🛑",
+        "nombre": "Frenos de disco",
+      },
+      {
+        "descripcion": "Al frenar el peso se va hacia delante: las ruedas de atrás agarran menos y un eje que pide demasiado patina.",
+        "icono": "⚖️",
+        "nombre": "Reparto entre ejes",
+      },
+      {
+        "descripcion": "Par, potencia, carga de la batería y baja velocidad fijan cuánto puede frenar el motor en cada instante.",
+        "icono": "📉",
+        "nombre": "Límites del motor",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el recorrido guiado: mira dónde va la energía y por qué el motor a veces no puede frenar solo.",
+      "Prueba el pedal, el reparto, la carga de la batería y el suelo, y observa cuánta energía vuelve.",
+      "En el reto, predice cuándo patina el eje del motor y diseña una frenada que cumpla las cuatro condiciones.",
+      "Diagnostica un fallo por sus síntomas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica · decidir cuánto frena el motor y cuánto los frenos para devolver energía a la batería",
+    "titulo": "Frenado Regenerativo Mezclado: el Motor y los Frenos Juntos",
     "videoUrl": "",
   },
   "mecanica-15": {
@@ -20992,9 +21098,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-141": [],
   "mecanica-142": [],
   "mecanica-143": [],
+  "mecanica-144": [],
   "mecanica-145": [],
   "mecanica-146": [],
   "mecanica-147": [],
+  "mecanica-148": [],
   "mecanica-15": [],
   "mecanica-16": [],
   "mecanica-17": [],
@@ -21373,9 +21481,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-141",
   "mecanica-142",
   "mecanica-143",
+  "mecanica-144",
   "mecanica-145",
   "mecanica-146",
   "mecanica-147",
+  "mecanica-148",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Frenado Regenerativo Mezclado — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0F12;--panel:rgba(10,15,18,.88);--line:#25343a;--ink:#EEF4F3;
+    --dim:#A3B8B6;--accent:#3DDC97;--accent2:#9CF0C8;--hv:#FFD166;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#4CC9F0;--cR:#FFB347;--cE:#FF6B3D;--cG:#C8D6E2;--cM:#3DDC97;--cD:#FF8A4C;--cB:#4CC9F0;--cP:#8E9BA6;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05070a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1a2027;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#14261e}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#04170e;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#04170e;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#7bf0bb}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#04170e}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#5fe3a8;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f8a85;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f948f;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04170e}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0d1217;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(43,51,60,.8);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(43,51,60,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg .fl i{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}.cl-L{background:var(--cF)}.cl-R{background:var(--cR)}.cl-M{background:var(--cM)}.cl-D{background:var(--cD)}.cl-B{background:var(--cB)}
+  .hgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px 11px}
+  .hgrid .cl{font-size:9.5px}.hgrid .cl b{font-size:12px}
+  .cg.off{opacity:.4;pointer-events:none}
+  .cg .cl em{color:#7d9792}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f8a85}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{flex-shrink:0;letter-spacing:0;text-transform:none;font-size:11px;color:#9fbab4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(43,51,60,.8);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c9c4;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#1a2027;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfe0dc;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,20,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(11,14,18,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(14,17,21,.92);border:1px solid rgba(95,227,168,.5);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(14,17,21,.84);border:1px solid rgba(95,227,168,.4);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:11px 14px 9px}.hud h2{font-size:16.5px}.hud .intro{font-size:12px;line-height:1.4} .fg b{font-size:14px} .fg{padding:2px 7px} .cg input[type=range]{height:14px} .dk-row{min-height:96px} .dk-g.sp{min-height:84px} .modebar .b{padding:5px 4px} .seg .b{padding:5px 2px} .b.auto{padding:7px 8px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(11,14,18,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:80px} body.movil .dk-g.sp{min-height:84px} body.movil .dk-row{min-height:112px} body.movil .dk-aviso{display:none}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .hud{overflow-x:hidden} body.movil .hmandos>*,body.movil .hgrid>*{min-width:0} body.movil .hmandos{grid-template-columns:minmax(0,1fr)} body.movil .hgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} body.movil .seg{overflow:hidden} body.movil .seg .b{min-width:0;font-size:11px;padding:5px 1px;white-space:normal;line-height:1.15} body.movil .fila{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)} body.movil .fila .b{min-width:0;white-space:normal}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  .leyF{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--dim)}
+  .leyF i{display:inline-block;width:64px;height:7px;border-radius:4px;background:linear-gradient(90deg,#8b9298,#c2a15f 20%,#4f6fa6 38%,#8a1c10 55%,#ff3a10 72%,#ff9a28 88%,#ffd070)}
+  body.movil .leyF{display:none} body.movil .toast{display:none}
+  .dk-cuatro{display:flex;gap:4px;flex-wrap:wrap}
+  .chips{display:flex;flex-direction:column;gap:4px}
+  .chip{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{font-variant-numeric:tabular-nums;color:var(--ink)}
+  .chip.ok{border-color:rgba(52,211,153,.5);color:#a7f3d0}.chip.ok b{color:#a7f3d0}
+  .chip.no{border-color:rgba(244,71,94,.5);color:#ffb3bd}.chip.no b{color:#ffb3bd}
+  /* ---- claridad: la frase de la práctica, el recorrido y la leyenda de colores ---- */
+  .hud .queHaces{font-size:14px;line-height:1.42;color:var(--ink);font-weight:500;border-left:3px solid var(--accent);padding-left:10px}
+  .hud .queHaces b{color:var(--accent2);font-weight:600}
+  .tourBox{border:1px solid rgba(95,227,168,.4);background:rgba(61,220,151,.06);border-radius:12px;padding:11px 12px 10px;display:flex;flex-direction:column;gap:8px}
+  .tourBox .tp{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
+  .tourBox .dots{display:flex;gap:4px}
+  .tourBox .dots i{width:16px;height:4px;border-radius:3px;background:var(--line)}
+  .tourBox .dots i.on{background:var(--accent)} .tourBox .dots i.ok{background:rgba(61,220,151,.55)}
+  .tourBox h3{font-size:16px;line-height:1.22;color:var(--ink)}
+  .tourBox .tx{font-size:13.2px;line-height:1.5;color:#d3e2de}
+  .tourBox .tx b{color:#fff}
+  .tourBox .tb{display:flex;gap:6px}.tourBox .tb .b{flex:1}
+  .tourBox .salta{align-self:center;background:none;border:0;color:var(--dim);font-size:11.5px;text-decoration:underline;cursor:pointer;font-family:inherit}
+  .legc{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11.5px;color:#cfe0dc}
+  .legc span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .legc i{display:inline-block;width:11px;height:11px;border-radius:3px;background:var(--c)}
+  .tourBox.fin .tb{flex-direction:column}
+  .pasos.dos{grid-template-columns:repeat(3,1fr)}
+  body.movil .tourBox{padding:8px 10px;gap:6px} body.movil .tourBox h3{font-size:14.5px} body.movil .tourBox .tx{font-size:12.2px;line-height:1.42}
+  body.movil .hud .queHaces{font-size:12.6px;line-height:1.36}
+  body.movil .legc{font-size:10.8px}
+  @media (max-height:820px){ .hud .queHaces{font-size:13px;line-height:1.36} .tourBox{padding:9px 11px 8px;gap:6px} .tourBox .tx{font-size:12.5px;line-height:1.42} .tourBox h3{font-size:15px} }
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-tour">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · frenado de un coche eléctrico</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Una frenada</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Velocidad</div><b id="f_v">—</b></div>
+    <div class="fg"><div class="fl">Frenada</div><b id="f_z">—</b></div>
+    <div class="fg"><div class="fl">Falta a la línea</div><b id="f_d">—</b></div>
+    <div class="fg"><div class="fl"><i class="cl-M"></i>A la batería</div><b id="f_q">—</b></div>
+    <div class="fg"><div class="fl"><i class="cl-D"></i>Calor en frenos</div><b id="f_h">—</b></div>
+    <div class="fg"><div class="fl"><i class="cl-B"></i>Batería</div><b id="f_s">—</b></div>
+    <div class="fg"><div class="fl">Motor frena</div><b id="f_m">—</b></div>
+    <div class="fg"><div class="fl">Limita al motor</div><b id="f_l">—</b></div>
+    <div class="fg"><div class="fl">Ida y vuelta</div><b id="f_e">—</b></div>
+  </div>
+  <div class="dk-tit t-fu">¿Quién frena en cada momento? <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFza"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"><span class="lg"><i class="bl" style="--c:#3DDC97"></i>motor</span><span class="lg"><i class="bl" style="--c:#FF8A4C"></i>discos</span><span class="lg"><i class="bl" style="--c:#8E9BA6"></i>rodadura y aire</span><span class="lg"><i style="--c:#FFFFFF"></i>lo que sientes</span><span class="lg"><i class="dash" style="--c:#C8D6E2"></i>lo que pide el pedal</span></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Reparto por eje <span id="t_re"></span></div><div class="dk-g tr" id="gRep"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Límite del motor <span id="t_lm"></span></div><div class="dk-g fr" id="gLim"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp">¿A dónde va la energía? <span id="t_en"></span></div>
+  <div class="dk-g sp" id="gEn"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — FRENADO REGENERATIVO MEZCLADO (brake blending) EN UN VE
+   (Autotrónica · mecanica-148)
+
+   Un coche eléctrico en transparencia (batería en el suelo, motor y reducción en un eje, cuatro
+   discos) frena hasta una línea de parada. El pedal pide una deceleración; el coche la reparte entre
+   el MOTOR (que, al frenar, funciona como generador y devuelve energía a la batería) y los DISCOS (que
+   la pierden en calor). El bloque de física —que un script de Node extrae TAL CUAL y verifica— da los
+   cuatro techos del motor (par, potencia, batería, baja velocidad), la transferencia de carga, la
+   adherencia de cada eje, el retardo del freno hidráulico, la corriente y la carga de la batería y el
+   balance de energía de toda la frenada, que cierra a ~1e-15.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre.
+
+   Un coche eléctrico frena hasta detenerse. El pedal pide una deceleración z (en g);
+   de ella sale la FUERZA DE FRENADO que hay que dar en las ruedas, F = m·g·z − (rodadura + aire).
+   Esa fuerza se MEZCLA entre dos frenos:
+   1) El MOTOR, funcionando como generador, en UN solo eje (el motriz). Lo que puede dar tiene cuatro
+      techos: el par máximo del motor, su potencia máxima, la potencia que la batería admite (corriente
+      máxima de carga, que baja a cero cuando la batería se llena) y la velocidad (por debajo de unos
+      km/h el motor ya no frena bien y suelta poco a poco).
+   2) Los DISCOS, en los dos ejes, con un reparto delante/detrás φ. Responden con un retardo τ.
+   Cada eje sólo puede dar μ·N (N cambia con la deceleración: transferencia de carga). Si la suma de lo que
+   se le pide a un eje lo supera, ese eje «se agarrota»: da μ·N y el coche frena menos.
+   Toda la energía cinética se reparte, y la suma cierra a ~1e-15: calor en los discos + energía mecánica
+   del motor (que se divide en pérdidas del tren, pérdida en la resistencia de la batería y energía química
+   guardada) + rodadura y aire. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI, G=9.80665, RAD=Math.PI/180;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const suave=t=>{ t=clamp(t,0,1); return t*t*(3-2*t); };
+
+/* ---------- 1.1 El coche ----------
+   a: distancia del centro de masa al eje delantero; b = L − a al trasero. h: altura del centro de masa.
+   rw: radio dinámico de la rueda. Un turismo eléctrico de unos 1 850 kg, con la batería en el suelo (h baja). */
+const VEH={ m:1850, L:2.80, a:1.44, h:0.52, rw:0.34, Cd:0.26, A:2.30, rho:1.2, Crr:0.010 };
+VEH.b=VEH.L-VEH.a;
+
+/* ---------- 1.2 El tren motriz ----------
+   ig: reducción motor–rueda. Tmax: par máximo del motor en el eje del motor. Pmax: potencia máxima en el eje del motor.
+   etaG, etaM, etaI: rendimientos de la reducción, del motor y del inversor (constantes: simplificación declarada). */
+const TREN={ ig:9.0, Tmax:320, Pmax:90e3, etaG:0.975, etaM:0.93, etaI:0.97 };
+TREN.etaCadena=TREN.etaG*TREN.etaM*TREN.etaI;
+
+/* ---------- 1.3 La batería ----------
+   96 celdas en serie con V_oc(s) = 3,35 + 0,75·s por celda (didáctica, tipo NMC), R interna de todo el paquete, capacidad Q.
+   Corriente máxima de carga Ilim0 hasta el 80 % de carga y luego baja LINEAL hasta 0 en el 100 %. */
+const BAT={ ns:96, Q:210, R:0.060, Ilim0:240, sTaper:0.80, v0c:3.35, kc:0.75 };
+const vocDe=s=>BAT.ns*(BAT.v0c+BAT.kc*clamp(s,0,1));
+const ilimDe=s=>BAT.Ilim0*clamp((1-s)/(1-BAT.sTaper),0,1);
+/** Potencia en bornes que la batería admite con la corriente máxima de carga a esa carga: (V_oc + R·I)·I. */
+const pdcMaxDe=s=>{ const I=ilimDe(s); return (vocDe(s)+BAT.R*I)*I; };
+/** Corriente de carga para una potencia en bornes P: R·I² + V_oc·I − P = 0. */
+const corrienteCarga=(P,voc)=>P<=0?0:2*P/(voc+Math.sqrt(voc*voc+4*BAT.R*P));      // forma estable de la raíz de R·I² + V_oc·I − P = 0
+/** Rendimiento de la batería al descargar con potencia en bornes P: V_borne/V_oc = 1 − I·R/V_oc. */
+const etaDescarga=(P,voc)=>{ if(P<=0) return 1; const d=voc*voc-4*BAT.R*P; if(d<0) return 0; const I=(voc-Math.sqrt(d))/(2*BAT.R); return 1-I*BAT.R/voc; };
+
+/* ---------- 1.4 Lo que el motor puede frenar: los cuatro techos ---------- */
+const V_BAJA=3/3.6;                                             // por debajo de 3 km/h no hay frenado eléctrico útil
+const fVel=(v,vb)=>v>=vb?1:(v<=V_BAJA?0:suave((v-V_BAJA)/Math.max(vb-V_BAJA,1e-6)));
+/** Fuerza en las ruedas que cada techo permite (N) y el que manda. vb: velocidad a la que el motor empieza a soltar. */
+function limitesRegen(v,soc,vb){
+  const vv=Math.max(v,0.3);
+  const par=TREN.Tmax*TREN.ig/(VEH.rw*TREN.etaG);
+  const pot=TREN.Pmax/(TREN.etaG*vv);
+  const bat=pdcMaxDe(soc)/(TREN.etaCadena*vv);
+  const f=fVel(v,vb), base=Math.min(par,pot,bat);
+  let cual=pot<par&&pot<=bat?'potencia':(bat<par&&bat<pot?'bateria':'par');
+  if(f<0.999) cual='velocidad';
+  return { par, pot, bat, f, base, lim:f*base, cual };
+}
+
+/* ---------- 1.5 Cargas y reparto ideal ---------- */
+const cargasEje=z=>{ const W=VEH.m*G; return { Nf:W*(VEH.b+z*VEH.h)/VEH.L, Nr:W*(VEH.a-z*VEH.h)/VEH.L }; };
+/** Reparto ideal: fracción de la fuerza de frenado que debe ir delante. */
+const fracIdeal=z=>(VEH.b+z*VEH.h)/VEH.L;
+/** Curva ideal en el plano (F_f, F_r)/(m·g): cada punto es una deceleración z. */
+const puntoIdeal=z=>({ ff:z*fracIdeal(z), fr:z*(1-fracIdeal(z)) });
+/** Deceleración (g) a la que patinaría el eje motriz si SÓLO el motor frenara (sin resistencias). */
+const zSoloMotor=(mu,eje)=>eje==='R'?mu*VEH.a/(VEH.L+mu*VEH.h):mu*VEH.b/(VEH.L-mu*VEH.h);
+
+/** Equilibrio del coche con lo que se pide a cada eje (DF delante, DR detrás, en N) y la resistencia Fres:
+    un eje no da más que μ·N, y N depende de la deceleración que sale. Cuatro casos cerrados. */
+function equilibrio(DF,DR,Fres,mu){
+  const W=VEH.m*G, k=mu*VEH.h/VEH.L;
+  let z=(DF+DR+Fres)/W, Ff=DF, Fr=DR, limF=false, limR=false;
+  const ok1=()=>{ const c=cargasEje(z); return DF<=mu*c.Nf*(1+1e-12)&&DR<=mu*c.Nr*(1+1e-12); };
+  if(!ok1()){
+    const z2=(mu*W*VEH.b/VEH.L+DR+Fres)/(W*(1-k)), c2=cargasEje(z2);
+    if(DF>=mu*c2.Nf&&DR<=mu*c2.Nr){ z=z2; Ff=mu*c2.Nf; Fr=DR; limF=true; }
+    else {
+      const z3=(DF+mu*W*VEH.a/VEH.L+Fres)/(W*(1+k)), c3=cargasEje(z3);
+      if(DR>=mu*c3.Nr&&DF<=mu*c3.Nf){ z=z3; Fr=mu*c3.Nr; Ff=DF; limR=true; }
+      else { z=mu+Fres/W; const c4=cargasEje(z); Ff=mu*c4.Nf; Fr=mu*c4.Nr; limF=limR=true; }
+    }
+  }
+  const c=cargasEje(z);
+  return { z, Ff, Fr, limF, limR, Nf:c.Nf, Nr:c.Nr, uF:c.Nf>0?Ff/(mu*c.Nf):0, uR:c.Nr>0?Fr/(mu*c.Nr):0 };
+}
+
+/** Distancia de parada si la deceleración fuese exactamente la pedida (pedal que sube lineal en tRamp y luego constante). */
+function distIdeal(v0,z,tRamp){
+  const a=z*G, v1=v0-a*tRamp/2, d1=v0*tRamp-a*tRamp*tRamp/6;
+  return d1+v1*v1/(2*a);
+}
+
+/* ---------- 1.6 Una frenada hasta parar ----------
+   Mandos: rho (parte del frenado que se le pide al motor), phi (parte de los DISCOS que va delante), vb (velocidad a la que el
+   motor empieza a soltar), eje ('R' o 'F': el eje que mueve el motor), mu, soc0, v0, zped.
+   Cada paso: fuerza pedida → lo que el motor puede (techos) → el resto a los discos (con retardo τ) → equilibrio con la adherencia →
+   potencia en las ruedas → batería (corriente, carga) → energía. La velocidad se integra con z constante dentro del paso; todas las
+   potencias usan la velocidad media del paso, de modo que la energía cierra exacta. */
+function serie(p){
+  const o=Object.assign({ v0:80/3.6, zped:0.40, rho:0.6, phi:0.65, vb:15/3.6, mu:0.9, soc0:0.60, eje:'R', dt:0.04, tRamp:0.35, tau:0.10, res:true, motor:true },p);
+  let mult=1; for(;;){ const S=serieN(o,mult); if(!S.truncada||mult>=64) return S; mult*=2; }
+}
+function serieN(o,mult){
+  const W=VEH.m*G, dt=o.dt, NM=Math.ceil((o.v0/(Math.max(Math.min(o.zped,o.mu),0.05)*G)*1.6+o.tRamp+4)*mult/dt)+8;
+  const A=()=>new Float32Array(NM);
+  const S={ o, n:0, t:A(), v:A(), x:A(), z:A(), zc:A(), Freq:A(), Freg:A(), FfrF:A(), FfrR:A(), Flim:A(), soc:A(), I:A(), Pw:A(), Pdc:A(), uF:A(), uR:A(), cq:A(), cfr:A(), cls:A(), cres:A(), lim:new Uint8Array(NM), cual:new Uint8Array(NM) };
+  const NOM=['par','potencia','bateria','velocidad','ninguno'];
+  let t=0, x=0, v=o.v0, soc=o.soc0, Ffr=0, i=0;
+  const E={ E0:0.5*VEH.m*o.v0*o.v0, fr:0, frF:0, frR:0, reg:0, res:0, cad:0, bat:0, q:0, dc:0, tReg:0, tLimF:0, tLimR:0, tLimAmbos:0, I2:0, Imax:0, zdip:0, zmin:9, socMed:0, nMed:0 };
+  while(i<NM-2&&v>1e-9){
+    const zc=o.zped*Math.min(1,t/o.tRamp);
+    const Fres=o.res?VEH.Crr*W+0.5*VEH.rho*VEH.Cd*VEH.A*v*v:0;
+    const Freq=Math.max(0,W*zc-Fres);
+    const L=limitesRegen(v,soc,o.vb);
+    const Fregc=o.motor?Math.min(o.rho*Freq,L.lim):0;
+    const cmd=Freq-Fregc;
+    Ffr+=(cmd-Ffr)*(o.tau>0?1-Math.exp(-dt/o.tau):1);
+    const mF=o.eje==='F'?Fregc:0, mR=o.eje==='R'?Fregc:0;
+    const DF=mF+o.phi*Ffr, DR=mR+(1-o.phi)*Ffr;
+    const eq=equilibrio(DF,DR,Fres,o.mu);
+    const sF=DF>1e-9?eq.Ff/DF:1, sR=DR>1e-9?eq.Fr/DR:1;
+    const Freg=Fregc*(o.eje==='F'?sF:sR), FfrF=o.phi*Ffr*sF, FfrR=(1-o.phi)*Ffr*sR;
+    const z=eq.z;
+    let dtp=dt, vN=v;
+    const dv=z*G*dt;
+    if(z*G>0&&v-dv<=0){ dtp=v/(z*G); vN=0; } else vN=v-dv;
+    const dx=(v+vN)/2*dtp, vm=(v+vN)/2;
+    // batería
+    const voc=vocDe(soc), Pw=Freg*vm, Pdc=Pw*TREN.etaCadena, I=corrienteCarga(Pdc,voc);
+    // registro (estado al inicio del paso)
+    const lim=(eq.limF?1:0)|(eq.limR?2:0);
+    S.t[i]=t; S.v[i]=v; S.x[i]=x; S.z[i]=z; S.zc[i]=zc; S.Freq[i]=Freq; S.Freg[i]=Freg; S.FfrF[i]=FfrF; S.FfrR[i]=FfrR; S.Flim[i]=L.lim; S.soc[i]=soc; S.I[i]=I; S.Pw[i]=Freg*v; S.Pdc[i]=Freg*v*TREN.etaCadena; S.uF[i]=eq.uF; S.uR[i]=eq.uR; S.lim[i]=lim; S.cq[i]=E.q; S.cfr[i]=E.fr; S.cls[i]=E.cad+E.bat; S.cres[i]=E.res;
+    S.cual[i]=o.rho*Freq<=L.lim*(1+1e-9)?4:NOM.indexOf(L.cual);
+    i++;
+    // energía
+    E.fr+=(FfrF+FfrR)*dx; E.frF+=FfrF*dx; E.frR+=FfrR*dx; E.reg+=Freg*dx; E.res+=Fres*dx;
+    E.cad+=(Pw-Pdc)*dtp; E.bat+=I*I*BAT.R*dtp; E.q+=voc*I*dtp; E.dc+=Pdc*dtp; E.I2+=I*dtp;
+    if(Freg>1e-6) E.tReg+=dtp;
+    if(t>o.tRamp+0.5&&t<9e8){ E.zdip=Math.max(E.zdip,zc-z); }
+    if(eq.limF&&eq.limR) E.tLimAmbos+=dtp; else if(eq.limF) E.tLimF+=dtp; else if(eq.limR) E.tLimR+=dtp;
+    E.Imax=Math.max(E.Imax,I);
+    soc+=I*dtp/(BAT.Q*3600);
+    t+=dtp; x+=dx; v=vN;
+  }
+  S.t[i]=t; S.v[i]=0; S.x[i]=x; S.zc[i]=o.zped; S.soc[i]=soc; S.uF[i]=0; S.uR[i]=0; S.cq[i]=E.q; S.cfr[i]=E.fr; S.cls[i]=E.cad+E.bat; S.cres[i]=E.res; i++;
+  S.n=i; S.tTot=t; S.E=E; S.truncada=v>1e-9;
+  // resumen
+  const Pdcm=E.tReg>0?E.dc/E.tReg:0, vocM=vocDe((o.soc0+soc)/2);
+  S.res={ dist:x, tStop:t, E0:E.E0, Efr:E.fr, EfrF:E.frF, EfrR:E.frR, Ereg:E.reg, Eres:E.res, Ecad:E.cad, Ebat:E.bat, Eq:E.q, soc1:soc,
+    recFrac:E.q/E.E0, regFrac:E.reg+E.fr>0?E.reg/(E.reg+E.fr):0,
+    etaIdaVuelta:E.reg>0?(E.q/E.reg)*etaDescarga(Pdcm,vocM)*TREN.etaCadena:0,
+    zdip:E.zdip, tLim:E.tLimF+E.tLimR+E.tLimAmbos, tLimF:E.tLimF, tLimR:E.tLimR, tLimAmbos:E.tLimAmbos, Imax:E.Imax, cierre:E.E0-(E.fr+E.reg+E.res) };
+  return S;
+}
+/** Muestra la serie en el instante t (interpolación lineal). */
+function muestrea(S,t){
+  t=clamp(t,0,S.tTot); let lo=0,hi=S.n-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(S.t[m]<=t) lo=m; else hi=m; }
+  const t0=S.t[lo], t1=S.t[hi], u=t1>t0?(t-t0)/(t1-t0):0, L=a=>a[lo]+(a[hi]-a[lo])*u;
+  return { t, i:lo, v:L(S.v), x:L(S.x), z:L(S.z), zc:L(S.zc), Freq:L(S.Freq), Freg:L(S.Freg), FfrF:L(S.FfrF), FfrR:L(S.FfrR), Flim:L(S.Flim), soc:L(S.soc), I:L(S.I), Pw:L(S.Pw), Pdc:L(S.Pdc), uF:L(S.uF), uR:L(S.uR), cq:L(S.cq), cfr:L(S.cfr), cls:L(S.cls), cres:L(S.cres), lim:S.lim[lo], cual:S.cual[lo] };
+}
+
+/* ---------- 1.7 El reto: parar en la línea devolviendo la mayor energía posible ----------
+   Tres mandos: cuánto frena el motor (ρ), cómo se reparten los discos (φ) y a qué velocidad el motor suelta (vb).
+   Cuatro criterios A LA VEZ: (1) se detiene antes de la línea, (2) ningún eje supera la adherencia, (3) a la batería vuelve al
+   menos una fracción de la energía de la frenada, (4) el pedal no «se hunde» al pasar el relevo (la deceleración no baja
+   más de dipMax g). La solución es una ventana INTERIOR: con poco motor no se recupera; con mucho se agarrota el eje motriz; con el
+   relevo tarde se pierde energía y con el relevo temprano el pedal se hunde. */
+const RHO_MIN=0, RHO_MAX=1, PHI_MIN=0.30, PHI_MAX=0.95, VB_MIN=8, VB_MAX=40;
+function evaluaReto(sc,rho,phi,vbKmh){
+  const S=serie(Object.assign({},sc.base,{rho,phi,vb:vbKmh/3.6})), r=S.res;
+  const m={ S, r, dist:r.dist, rec:r.recFrac, dip:r.zdip, tLim:r.tLim,
+    okF:r.dist<=sc.Dobj, okA:r.tLim<=0.02, okE:r.recFrac>=sc.recMin, okP:r.zdip<=sc.dipMax };
+  m.ok=m.okF&&m.okA&&m.okE&&m.okP; return m;
+}
+function ventanaReto(sc,pr,pp,pv){
+  const celdas=[];
+  for(let a=RHO_MIN;a<=RHO_MAX+1e-9;a+=pr) for(let b=PHI_MIN;b<=PHI_MAX+1e-9;b+=pp) for(let c=VB_MIN;c<=VB_MAX+1e-9;c+=pv){
+    const rho=Math.round(a*1000)/1000, phi=Math.round(b*1000)/1000, vb=Math.round(c*10)/10, m=evaluaReto(sc,rho,phi,vb);
+    celdas.push({ rho, phi, vb, ok:m.ok, okA:m.okA, okP:m.okP, okF:m.okF, rec:m.rec }); }
+  return celdas;
+}
+/** Escenarios del reto, ya buscados y comprobados (el script de verificación recalcula cada ventana con ventanaReto y exige que coincidan). */
+const ESCENARIOS=[
+  { v0:36, mu:0.6, zped:0.35, soc0:0.5, eje:'R', Dobj:17, recMin:0.57, ventana:{ rhoMin:0.7, rhoMax:0.78, phiMin:0.7, phiMax:0.95, vbMin:13, vbMax:34, cuenta:203, eMax:0.6402, centro:{ rho:0.74, phi:0.9, vb:20 } } },
+  { v0:40, mu:0.5, zped:0.35, soc0:0.88, eje:'R', Dobj:21, recMin:0.42, ventana:{ rhoMin:0.5, rhoMax:0.56, phiMin:0.7, phiMax:0.8, vbMin:11, vbMax:40, cuenta:137, eMax:0.4723, centro:{ rho:0.54, phi:0.8, vb:22 } } },
+  { v0:40, mu:0.6, zped:0.4, soc0:0.65, eje:'F', Dobj:19, recMin:0.57, ventana:{ rhoMin:0.7, rhoMax:0.78, phiMin:0.35, phiMax:0.5, vbMin:16, vbMax:35, cuenta:158, eMax:0.6393, centro:{ rho:0.74, phi:0.4, vb:22 } } },
+  { v0:45, mu:0.5, zped:0.35, soc0:0.65, eje:'F', Dobj:26, recMin:0.52, ventana:{ rhoMin:0.64, rhoMax:0.7, phiMin:0.35, phiMax:0.45, vbMin:13, vbMax:40, cuenta:161, eMax:0.5826, centro:{ rho:0.66, phi:0.4, vb:23 } } },
+  { v0:45, mu:0.6, zped:0.35, soc0:0.65, eje:'R', Dobj:26, recMin:0.57, ventana:{ rhoMin:0.7, rhoMax:0.78, phiMin:0.7, phiMax:0.95, vbMin:13, vbMax:40, cuenta:303, eMax:0.644, centro:{ rho:0.74, phi:0.85, vb:23 } } },
+  { v0:36, mu:0.8, zped:0.4, soc0:0.8, eje:'R', Dobj:16, recMin:0.63, ventana:{ rhoMin:0.78, rhoMax:0.88, phiMin:0.45, phiMax:0.95, vbMin:16, vbMax:31, cuenta:377, eMax:0.7057, centro:{ rho:0.84, phi:0.8, vb:21 } } },
+  { v0:40, mu:0.5, zped:0.3, soc0:0.35, eje:'R', Dobj:24, recMin:0.56, ventana:{ rhoMin:0.68, rhoMax:0.76, phiMin:0.7, phiMax:0.9, vbMin:11, vbMax:39, cuenta:259, eMax:0.6285, centro:{ rho:0.72, phi:0.85, vb:20 } } },
+  { v0:36, mu:0.5, zped:0.35, soc0:0.88, eje:'F', Dobj:17, recMin:0.52, ventana:{ rhoMin:0.64, rhoMax:0.7, phiMin:0.35, phiMax:0.45, vbMin:13, vbMax:34, cuenta:117, eMax:0.5816, centro:{ rho:0.66, phi:0.4, vb:21 } } }
+];
+let _ultEsc=-1;
+function generaReto(rnd){
+  let k; do{ k=Math.floor(rnd()*ESCENARIOS.length); }while(ESCENARIOS.length>1&&k===_ultEsc);
+  _ultEsc=k; const e=ESCENARIOS[k];
+  return { idx:k, base:{ v0:e.v0/3.6, mu:e.mu, zped:e.zped, soc0:e.soc0, eje:e.eje }, v0:e.v0, mu:e.mu, zped:e.zped, soc0:e.soc0, eje:e.eje, Dobj:e.Dobj, recMin:e.recMin, dipMax:0.05, ventana:e.ventana };
+}
+
+/* ---------- 1.8 Diagnóstico: ¿qué falla en este coche? ----------
+   Tres fallos con firma distinta: la batería casi llena (el motor casi no frena), el motor frena demasiado en el eje
+   trasero (se agarrota) y el relevo demasiado temprano... o tardío (el pedal se hunde al final). */
+function generaDx(rnd){
+  const pick=a=>a[Math.floor(rnd()*a.length)];
+  const tipo=pick(['bateria','agarre','relevo']);
+  if(tipo==='bateria') return { tipo, rho:0.80, phi:0.65, vb:15, mu:0.8, soc0:0.985+rnd()*0.01, eje:'R' };
+  if(tipo==='agarre') return { tipo, rho:0.95, phi:0.50, vb:15, mu:0.40, soc0:0.55, eje:'R' };
+  return { tipo, rho:0.75, phi:0.80, vb:8, mu:0.90, soc0:0.55, eje:'R' };
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.98;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.localClippingEnabled=true;                   // el corte de la rueda y de la pinza es un plano de recorte
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.55,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.78;
+scene.fog=new THREE.Fog('#0b1117',9,48);
+
+const camera=new THREE.PerspectiveCamera(32,innerWidth/innerHeight,0.05,300);
+camera.position.set(-0.55,0.62,1.5);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=0.35; controls.maxDistance=34; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(0.02,0.33,0.04);
+
+/* Luz de estudio: una principal cálida desde arriba y delante con sombra suave (su cámara de sombras sólo cubre la rueda),
+   un relleno frío azul, un contraluz ámbar bajo y una hemisférica. El disco caliente pone su propia luz naranja. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff0dc',2.5); LUZ.sol.castShadow=true; LUZ.sol.position.set(-1.6,3.4,2.6); LUZ.sol.target.position.set(0,0.3,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.012;
+Object.assign(LUZ.sol.shadow.camera,{left:-0.9,right:0.9,top:0.9,bottom:-0.9,near:1,far:9});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#7fb6ff',1.0); LUZ.relleno.position.set(3.2,1.8,-2.6); scene.add(LUZ.relleno);
+LUZ.contra=new THREE.DirectionalLight('#ffb36b',0.8); LUZ.contra.position.set(2.2,0.8,3.2); scene.add(LUZ.contra);
+LUZ.hemi=new THREE.HemisphereLight('#9fc4e8','#14100c',0.5); scene.add(LUZ.hemi);
+LUZ.calor=new THREE.PointLight('#ff6a1a',0,1.5,2); scene.add(LUZ.calor);              // la luz del propio disco: sube con la temperatura
+LUZ.calorT=new THREE.PointLight('#ff5a10',0,1.2,2); scene.add(LUZ.calorT);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: el disco y las pastillas al rojo, las flechas de fuerza. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.46,0.34,1.45); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y de rugosidad.
+   El disco lleva las marcas concéntricas del torneado; el asfalto, remiendos y juntas de alquitrán. */
+const DOSPI_=Math.PI*2;
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+let _sem=7; const alea=()=>{ _sem=(_sem*16807)%2147483647; return _sem/2147483647; };
+function trazoP(x,W,H,pts,estilo,ancho){
+  x.strokeStyle=estilo; x.lineWidth=ancho; x.lineCap='round'; x.lineJoin='round';
+  for(const dx of [-W,0,W]) for(const dy of [-H,0,H]){ x.beginPath(); pts.forEach((p,i)=>i?x.lineTo(p[0]+dx,p[1]+dy):x.moveTo(p[0]+dx,p[1]+dy)); x.stroke(); }
+}
+function andar(x0,y0,n,paso,giro){ const p=[[x0,y0]]; let a=alea()*DOSPI_; for(let i=0;i<n;i++){ a+=(alea()-0.5)*giro; p.push([p[i][0]+Math.cos(a)*paso,p[i][1]+Math.sin(a)*paso]); } return p; }
+/** Asfalto: gris azulado oscuro con parches, juntas de alquitrán y manchas de aceite. Una baldosa = 6 m. */
+function texAsfalto(){
+  const W=512,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(5,3,3),f2=fbmP(17,2,2);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), m=f2(i/W*2,j/W*2), o=(j*W+i)*4, v=(0.62+(n-0.5)*0.34)*255, ac=(m-0.5)*26;
+    im.data[o]=v*0.60+ac*0.4; im.data[o+1]=v*0.66; im.data[o+2]=v*0.76-ac*0.3; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  for(let k=0;k<5;k++){ const px=alea()*W, py=alea()*W, w=70+alea()*110, h=50+alea()*90, claro=k%2===0;
+    x.save(); x.filter='blur(3px)'; x.fillStyle=claro?'rgba(150,165,180,0.08)':'rgba(8,12,18,0.20)';
+    for(const dx of [-W,0,W]) for(const dy of [-W,0,W]) x.fillRect(px+dx,py+dy,w,h); x.restore(); }
+  for(let k=0;k<4;k++){ const px=alea()*W, py=alea()*W, r=20+alea()*34; for(const dx of [-W,0,W]) for(const dy of [-W,0,W]){ const g=x.createRadialGradient(px+dx,py+dy,0,px+dx,py+dy,r); g.addColorStop(0,'rgba(4,8,14,0.32)'); g.addColorStop(0.7,'rgba(30,40,70,0.12)'); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(px+dx-r,py+dy-r,2*r,2*r); } }
+  for(let k=0;k<3;k++){ const p=andar(alea()*W,alea()*W,9,34,1.1); trazoP(x,W,W,p,'rgba(6,8,12,0.42)',2.0); trazoP(x,W,W,p,'rgba(120,140,160,0.10)',1.0); }
+  return tex(c,{srgb:true});
+}
+/** Hachurado técnico a 45° de las caras de corte: fino y de bajo contraste (se desvanece por mipmaps al alejarse). */
+function texHachurado(){
+  const W=128,c=cv(W),x=c.getContext('2d');
+  x.fillStyle='#c9d2d0'; x.fillRect(0,0,W,W); x.strokeStyle='rgba(60,80,78,0.50)'; x.lineWidth=2.2;
+  for(let k=-W;k<=W*2;k+=10){ x.beginPath(); x.moveTo(k,0); x.lineTo(k-W,W); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texPunto(){
+  const c=cv(64),x=c.getContext('2d'), g=x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.35,'rgba(255,255,255,0.55)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,64,64); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; return t;
+}
+/** Cara del disco (anillo con UV planares: (x/R+1)/2): torneado concentrico fino y una banda de fricción algo más clara. */
+function texDiscoCara(){
+  const W=512,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(31,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const u=(i+0.5)/W*2-1, v=(j+0.5)/W*2-1, r=Math.hypot(u,v), o=(j*W+i)*4;
+    const surco=0.5+0.5*Math.sin(r*W*0.5*1.9), lento=f(i/W*3,j/W*3), banda=(r>0.60&&r<0.985)?1:0, base=(0.62+0.10*banda)*(0.93+0.07*surco)*(0.95+0.10*lento);
+    const v8=Math.max(0,Math.min(255,base*255)); im.data[o]=v8*0.98; im.data[o+1]=v8; im.data[o+2]=v8*1.03; im.data[o+3]=255; }
+  x.putImageData(im,0,0); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+/** Perfil radial del brillo: la pista de fricción (60–100 % del radio) brilla más que la zona del cubo. */
+function texBrilloRadial(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const u=(i+0.5)/W*2-1, v=(j+0.5)/W*2-1, r=Math.hypot(u,v), o=(j*W+i)*4;
+    const p=r<0.55?0.45:(r<0.72?0.45+0.55*suave((r-0.55)/0.17):(r<0.93?1.0:1.0-0.28*suave((r-0.93)/0.07)));
+    const ang=Math.atan2(v,u), cal=1+0.07*Math.sin(ang*3+r*5), g=Math.max(0,Math.min(255,p*cal*255)); im.data[o]=im.data[o+1]=im.data[o+2]=g; im.data[o+3]=255; }
+  x.putImageData(im,0,0); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const T_ASF=texAsfalto(), T_HACH=texHachurado(), T_PUNTO=texPunto(), T_DCARA=texDiscoCara(), T_BRILLO=texBrilloRadial();
+const PIEL=P3.pielFundicion({px:256,semilla:11,celda:30,relieve:2.4});
+T_HACH.repeat.set(5,5);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const ZCORTE=0.045;                                                    // la rueda y la pinza se cortan aquí (se quita lo de fuera)
+const PLANO_CORTE=new THREE.Plane(new THREE.Vector3(0,0,-1),ZCORTE);
+const M={
+  asfalto: pbr({color:'#8791a0',map:T_ASF,roughness:0.88,metalness:0.0,envMapIntensity:0.3}),
+  estudio: fis({color:'#1b2127',roughness:0.8,metalness:0.0,envMapIntensity:0.3}),
+  corte: pbr({color:'#b9c3c1',map:T_HACH,roughness:0.6,metalness:0.0,emissive:'#1b2322',emissiveIntensity:0.45,side:THREE.DoubleSide}),
+  corteRojo: pbr({color:'#c99a9a',map:T_HACH,roughness:0.55,metalness:0.0,emissive:'#3a1d1d',emissiveIntensity:0.5,side:THREE.DoubleSide}),
+  cortePastilla: pbr({color:'#7a6a60',map:T_HACH,roughness:0.7,metalness:0.0,emissive:'#2a211b',emissiveIntensity:0.5,side:THREE.DoubleSide}),
+  acero: pbr({color:'#b6bec6',metalness:0.92,roughness:0.30}),
+  aceroOsc: pbr({color:'#6b747d',metalness:0.88,roughness:0.40}),
+  cubo: pbr({color:'#4a5259',metalness:0.5,roughness:0.66,envMapIntensity:0.35}),
+  cromo: pbr({color:'#d9dde2',metalness:1.0,roughness:0.14}),
+  fundicion: pbr({color:'#566067',map:PIEL.map,roughnessMap:PIEL.roughnessMap,normalMap:PIEL.normalMap,normalScale:new THREE.Vector2(0.5,0.5),metalness:0.55,roughness:0.78}),
+  goma: pbr({color:'#14171a',metalness:0.0,roughness:0.86,side:THREE.DoubleSide,clippingPlanes:[PLANO_CORTE],clipShadows:true,envMapIntensity:0.35}),
+  llantaInt: pbr({color:'#79818a',metalness:0.7,roughness:0.62,side:THREE.DoubleSide,clippingPlanes:[PLANO_CORTE],clipShadows:true,envMapIntensity:0.5}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  pinturaRoja: fis({color:'#c1121f',metalness:0.45,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  friccion: pbr({color:'#2a2523',metalness:0.1,roughness:0.92}),
+  soporte: pbr({color:'#7b838b',metalness:0.85,roughness:0.42}),
+  carbono: fis({color:'#20262c',metalness:0.45,roughness:0.34,clearcoat:1,clearcoatRoughness:0.12}),
+  contrapeso: pbr({color:'#9aa6ad',metalness:0.7,roughness:0.5}),
+  manguera: pbr({color:'#0f1112',metalness:0.0,roughness:0.6}),
+};
+/** Disco: cuatro materiales con el mismo estado térmico (se actualizan juntos). La cara con mapa de brillo radial; el resto, sin mapa. */
+const T_DISCO=[];
+function matDisco(conMapa){
+  const m=pbr({color:'#9aa1a8',map:conMapa?T_DCARA:null,roughness:0.46,metalness:0.88,emissive:'#000000',emissiveIntensity:0,emissiveMap:conMapa?T_BRILLO:null,side:THREE.DoubleSide});
+  T_DISCO.push(m); return m;
+}
+M.discoCara=matDisco(true); M.discoBorde=matDisco(false);
+M.discoBorde.map=PIEL.map; M.discoBorde.normalMap=PIEL.normalMap; M.discoBorde.normalScale=new THREE.Vector2(0.4,0.4);
+M.discoCorte=M.corte.clone(); M.discoCorte.color.set('#a9b3b9');
+scene.background=fondoDegradado('#0c1419','#16212a','#06090c');
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z), V2=(x,y)=>new THREE.Vector2(x,y);
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 tacos cuesta 3 llamadas. */
+function fusiona(grupo,sombra=true){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    P3.sanaNormales(G);
+    const me=new THREE.Mesh(G,mat); me.castShadow=sombra; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+const mezcla=(a,b,t)=>a+(b-a)*t;
+
+
+/* ===================== 6. EL SUELO =====================
+   Marco de la rueda: z hacia fuera del coche (el lado izquierdo que vemos), x hacia atrás (el coche avanza hacia −x) y
+   arriba. El origen del grupo EJE es el centro de la rueda; el suelo está a RT por debajo. La rueda gira con z creciente
+   (el techo avanza hacia −x) y el suelo corre hacia +x, a la velocidad de rodadura. */
+const RT=VEH.rw;                                                              // radio del neumático (y radio dinámico)
+const SUELO=new THREE.Group(); scene.add(SUELO);
+const piso=new THREE.Mesh(new THREE.PlaneGeometry(60,60),M.asfalto); piso.rotation.x=-Math.PI/2; piso.position.y=0; piso.receiveShadow=true; piso.userData.pieza='asfalto'; SUELO.add(piso);
+T_ASF.repeat.set(30,30);                                                        // 60 m / 2 m por baldosa
+function avanzaSuelo(s){ const o=T_ASF.offset.x-s/2; T_ASF.offset.x=((o%1)+1)%1; }
+
+/* ===================== 7. LA RUEDA CORTADA =====================
+   Neumático, llanta y cubo giran con la rueda; el disco gira con ellos; la pinza, la mangueta y las pastillas no giran.
+   Un plano de recorte en z = ZCORTE quita la mitad de fuera de la rueda y deja ver el interior; las caras de corte
+   llevan el rayado técnico. Todo en metros, a escala real. */
+const EJE=new THREE.Group(); EJE.position.set(0,RT,0); scene.add(EJE);
+const RUEDA=new THREE.Group(); EJE.add(RUEDA);                                  // lo que gira
+const FIJO=new THREE.Group(); EJE.add(FIJO);                                    // lo que no gira
+const PIEZAS={};
+/** Pieza de revolución con eje z (la lathe de three gira en torno a y: se rota). Perfil en [r, z]. arco opcional. */
+function rev(perfil,mat,{seg=72,fase=0,arco=Math.PI*2,sombra=true}={}){
+  const g=P3.revolucion(perfil,{seg,fase,arco}); const m=new THREE.Mesh(g,mat); m.rotation.x=Math.PI/2; m.castShadow=sombra; m.receiveShadow=true; return m;
+}
+/** Rectángulo plano en un plano que contiene al eje z: ancho w a lo largo de la dirección radial del ángulo a, alto h a lo largo de z. UV en metros para el rayado. */
+function rectRadial(w,h,a,mat,cx,cz){
+  const g=new THREE.PlaneGeometry(w,h); const uv=g.attributes.uv, p=g.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,p.getX(i)+cx,p.getY(i)+cz);
+  const m=new THREE.Mesh(g,mat); const er=V3(Math.cos(a),Math.sin(a),0), ez=V3(0,0,1), et=V3().crossVectors(er,ez);
+  m.matrixAutoUpdate=false; m.matrix.makeBasis(er,ez,et); m.matrix.setPosition(er.x*cx,er.y*cx,cz); m.receiveShadow=true; return m;
+}
+
+/* --- neumático (casco hueco de revolución) y su sección --- */
+(function(){
+  const ext=[[0.222,-0.105],[0.245,-0.1125],[0.285,-0.113],[0.315,-0.108],[0.3235,-0.088],[0.325,-0.070],[0.325,0.070],[0.3235,0.088],[0.315,0.108],[0.285,0.113],[0.245,0.1125],[0.222,0.105]];
+  const int=[[0.2185,0.100],[0.241,0.1045],[0.279,0.105],[0.301,0.100],[0.3030,0.082],[0.3030,0.062],[0.3030,-0.062],[0.3030,-0.082],[0.301,-0.100],[0.279,-0.105],[0.241,-0.1045],[0.2185,-0.100]];
+  const neu=rev(ext.concat(int),M.goma,{seg:96}); neu.userData.pieza='neumatico'; RUEDA.add(neu); PIEZAS.neumatico=neu;
+  // dibujo de la banda: cuatro ranuras circunferenciales (anillos finos de fondo oscuro, sobre la banda)
+  const rn=new THREE.Group();
+  for(const z of [-0.052,-0.017,0.017,0.052]){ const r=rev([[0.3252,z-0.0045],[0.3252,z+0.0045],[0.3238,z+0.0045],[0.3238,z-0.0045]],new THREE.MeshBasicMaterial({color:'#050607',side:THREE.DoubleSide,clippingPlanes:[PLANO_CORTE]}),{seg:96}); r.castShadow=false; rn.add(r); }
+  RUEDA.add(rn);
+  // sección de la banda en el plano de corte: anillo de goma (r 0,303–0,325)
+  const cap=new THREE.Mesh(new THREE.RingGeometry(0.303,0.325,96),M.corte.clone()); cap.material.color.set('#4b5259'); cap.material.emissive.set('#101418'); cap.position.z=ZCORTE; cap.renderOrder=2;
+  cap.geometry.attributes.uv.array.forEach((v,i,a)=>{ a[i]=cap.geometry.attributes.position.array[(i>>1)*3+(i&1)]; }); RUEDA.add(cap);
+  // llanta: aro de drop-center
+  const e2=[[0.2290,-0.1090],[0.2210,-0.1010],[0.2165,-0.0900],[0.2040,-0.0600],[0.2040,0.0500],[0.2165,0.0800],[0.2210,0.1000],[0.2290,0.1090]];
+  const i2=[[0.2250,0.1090],[0.2170,0.0990],[0.2125,0.0800],[0.2000,0.0500],[0.2000,-0.0600],[0.2125,-0.0900],[0.2170,-0.1000],[0.2250,-0.1090]];
+  const aro=rev(e2.concat(i2),M.llantaInt,{seg:96}); aro.userData.pieza='llanta'; RUEDA.add(aro);
+  const cap2=new THREE.Mesh(new THREE.RingGeometry(0.1999,0.2041,96),M.corte.clone()); cap2.position.z=ZCORTE; cap2.renderOrder=2;
+  cap2.geometry.attributes.uv.array.forEach((v,i,a)=>{ a[i]=cap2.geometry.attributes.position.array[(i>>1)*3+(i&1)]; }); RUEDA.add(cap2);
+  // contrapesos de equilibrado, pegados a la pared interior del aro (marcan el giro) y la base de la válvula
+  const cw=new THREE.Group();
+  for(const [a,z,l] of [[0.35,-0.040,0.060],[2.5,-0.040,0.045],[4.55,-0.040,0.075],[1.45,0.020,0.04]]){ const b=new THREE.Mesh(new THREE.BoxGeometry(0.0075,l,0.012),M.contrapeso); b.position.set(Math.cos(a)*0.1975,Math.sin(a)*0.1975,z); b.rotation.z=a; cw.add(b); }
+  const val=new THREE.Mesh(new THREE.CylinderGeometry(0.0055,0.0055,0.030,14),M.acero); val.rotation.x=Math.PI/2; val.position.set(Math.cos(1.0)*0.2,Math.sin(1.0)*0.2,0.0); val.rotation.set(0,0,0); val.rotation.z=1.0+Math.PI/2; val.position.z=-0.01; cw.add(val);
+  const cwf=fusiona(cw,false); cwf.userData.pieza='llanta'; RUEDA.add(cwf);
+})();
+
+/* --- cubo, espárragos y tuercas --- */
+(function(){
+  const g=new THREE.Group();
+  const cubo=rev([[0.0,0.010],[0.064,0.010],[0.064,0.048],[0.058,0.0525],[0.040,0.0525],[0.036,0.058],[0.0,0.058]],M.cubo,{seg:48}); g.add(cubo);
+  for(let i=0;i<5;i++){ const a=i/5*DOSPI+0.3, x=Math.cos(a)*0.0525, y=Math.sin(a)*0.0525;
+    const es=new THREE.Mesh(new THREE.CylinderGeometry(0.0062,0.0062,0.046,12),M.acero); es.rotation.x=Math.PI/2; es.position.set(x,y,0.044); g.add(es);
+    const tu=new THREE.Mesh(new THREE.CylinderGeometry(0.0105,0.0105,0.014,6),M.acero); tu.rotation.x=Math.PI/2; tu.position.set(x,y,0.0575); g.add(tu); }
+  const f=fusiona(g,false); f.userData.pieza='cubo'; RUEDA.add(f);
+})();
+
+/* ===================== 8. EL DISCO VENTILADO =====================
+   Dos pistas (z de 0,005 a 0,014 y de −0,014 a −0,005), 36 aletas rectas entre ellas, campana hacia fuera. Se dibuja a
+   300 mm y se escala en el plano según el diámetro elegido (el espesor no cambia). Una cuña de recorte FIJA en el
+   mundo —entre el ángulo de la pinza y 54° más— deja ver la sección de las pistas y las aletas girando. */
+const RO=0.15, RI=0.09, ZP=[0.005,0.014];
+const ANG_PINZA=135*RAD, ANG_CUNA=62*RAD;
+const DISCO3={ gr:new THREE.Group(), vanes:null, k:1, caps:[], capGr:new THREE.Group() };
+RUEDA.add(DISCO3.gr);
+/** Planos de la cuña: lo que queda entre a1 y a2 (en sentido antihorario) se recorta. Planos por el eje de la rueda, en coordenadas de mundo. */
+const CUNA=(function(){
+  const n=(a)=>V3(-Math.sin(a),Math.cos(a),0);                                    // tangente antihoraria
+  const c0=V3(0,RT,0);
+  const p1=new THREE.Plane(n(ANG_PINZA).negate(),0), p2=new THREE.Plane(n(ANG_PINZA+ANG_CUNA),0);
+  p1.constant=-p1.normal.dot(c0); p2.constant=-p2.normal.dot(c0);
+  return [p1,p2];
+})();
+for(const m of T_DISCO){ m.clippingPlanes=CUNA; m.clipIntersection=true; m.clipShadows=true; }
+(function(){
+  const g=DISCO3.gr;
+  // caras de las pistas (anillos con UV planares) en los cuatro planos
+  const cara=(z,s)=>{ const m=new THREE.Mesh(new THREE.RingGeometry(RI,RO,128,1),M.discoCara); m.position.z=z; m.castShadow=s; m.receiveShadow=true; return m; };
+  for(const [z,s] of [[ZP[1],true],[ZP[0],false],[-ZP[0],false],[-ZP[1],false]]) g.add(cara(z,s));
+  // cantos exteriores e interiores de cada pista
+  const banda=(r,z0,z1)=>{ const m=rev([[r,z0],[r,z1]],M.discoBorde,{seg:128,sombra:false}); return m; };
+  g.add(banda(RO,ZP[0],ZP[1]),banda(RO,-ZP[1],-ZP[0]),banda(RI,ZP[0],ZP[1]),banda(RI,-ZP[1],-ZP[0]));
+  // aletas: 36 cajas radiales entre las pistas
+  const N=36, geo=new THREE.BoxGeometry(RO-RI-0.002,0.0042,2*ZP[0]+0.0008);
+  const im=new THREE.InstancedMesh(geo,M.discoBorde,N), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), s=V3(1,1,1);
+  for(let i=0;i<N;i++){ const a=(i+0.5)/N*DOSPI+0.07, r=(RO+RI)/2; q.setFromAxisAngle(V3(0,0,1),a); m4.compose(V3(Math.cos(a)*r,Math.sin(a)*r,0),q,s); im.setMatrixAt(i,m4); }
+  im.castShadow=false; im.receiveShadow=true; im.frustumCulled=false; g.add(im); DISCO3.vanes=im;
+  g.userData.pieza='disco'; im.userData.pieza='aletas';
+  // campana (gorro) del disco, hasta el cubo
+  const camp=rev([[0.0905,0.0],[0.0905,0.018],[0.0800,0.038],[0.0800,0.0495],[0.0560,0.0495],[0.0560,0.0455],[0.0765,0.0455],[0.0765,0.0395],[0.0865,0.020],[0.0865,0.0]],M.fundicion,{seg:96,sombra:false});
+  camp.userData.pieza='campana'; RUEDA.add(camp);
+  // cinco orejas de la campana con sus taladros (se ven en el borde del cubo)
+  const og=new THREE.Group();
+  for(let i=0;i<5;i++){ const a=i/5*DOSPI+0.3, o=new THREE.Mesh(new THREE.CylinderGeometry(0.0125,0.0125,0.005,16),M.fundicion); o.rotation.x=Math.PI/2; o.position.set(Math.cos(a)*0.0525,Math.sin(a)*0.0525,0.0475); og.add(o); }
+  RUEDA.add(fusiona(og,false));
+})();
+/* Secciones fijas de las pistas, en los dos planos de la cuña (rayado de hierro). Se rehacen al cambiar el diámetro. */
+function construyeCaps(k){
+  while(DISCO3.capGr.children.length){ const c=DISCO3.capGr.children.pop(); c.geometry.dispose(); }
+  for(const a of [ANG_PINZA,ANG_PINZA+ANG_CUNA]){
+    for(const [z0,z1] of [[ZP[0],ZP[1]],[-ZP[1],-ZP[0]]]){ const r=rectRadial((RO-RI)*k,z1-z0,a,M.discoCorte,(RO+RI)/2*k,(z0+z1)/2); r.userData.pieza='disco'; DISCO3.capGr.add(r); }
+  }
+}
+FIJO.add(DISCO3.capGr); construyeCaps(1);
+let PINZA_REF=null;                                                           // se asigna al crear la pinza
+function ajustaDisco(d){
+  const k=d/0.30; if(Math.abs(k-DISCO3.k)<1e-5) return; DISCO3.k=k;
+  DISCO3.gr.scale.set(k,k,1); construyeCaps(k);
+  if(PINZA_REF){ const dx=(k-1)*RO; PINZA_REF.position.set(Math.cos(ANG_PINZA)*dx,Math.sin(ANG_PINZA)*dx,0); }
+}
+
+/* ===================== 9. LA PINZA FLOTANTE, LAS PASTILLAS Y LOS PISTONES =====================
+   La pinza se corta por el plano radial–axial del ángulo ANG_PINZA y se deja la mitad que NO está bajo la cuña: la sección
+   queda a la vista, con el rayado, y se ve la C que abraza el disco, el pistón en el brazo interior (la pinza flota: sólo
+   empuja por dentro y el brazo exterior tira de la pastilla de fuera), las dos pastillas y el líquido de frenos. */
+const PINZA=new THREE.Group(); PINZA.rotation.z=ANG_PINZA; FIJO.add(PINZA); PINZA_REF=PINZA;
+const FLUIDO_MAT=new THREE.MeshStandardMaterial({color:'#7a4a08',emissive:'#ff9a00',emissiveIntensity:0.15,metalness:0,roughness:0.35,transparent:true,opacity:0.92});
+(function(){
+  const sh=new THREE.Shape();
+  const P=[[0.078,-0.075],[0.168,-0.075],[0.168,0.052],[0.078,0.052],[0.078,0.031],[0.150,0.031],[0.150,-0.031],[0.140,-0.031],[0.140,-0.060],[0.100,-0.060],[0.100,-0.031],[0.078,-0.031]];
+  P.forEach(([x,y],i)=>i?sh.lineTo(x,y):sh.moveTo(x,y)); sh.closePath();
+  const geo=new THREE.ExtrudeGeometry(sh,{depth:0.045,bevelEnabled:false,steps:1});
+  geo.rotateX(Math.PI/2); P3.sanaNormales(geo);
+  const cuerpo=new THREE.Mesh(geo,[M.corteRojo,M.pinturaRoja]); cuerpo.castShadow=true; cuerpo.receiveShadow=true; cuerpo.userData.pieza='pinza'; PINZA.add(cuerpo);
+  // nervios y tornillos de la pinza (sobre el puente, en la parte de atrás)
+  const ex=new THREE.Group();
+  for(const z of [-0.040,0.018]){ const t=new THREE.Mesh(new THREE.CylinderGeometry(0.0095,0.0095,0.012,6),M.acero); t.rotation.x=0; t.position.set(0.159,-0.020,z); t.rotation.z=Math.PI/2; ex.add(t); }
+  const sang=new THREE.Mesh(new THREE.CylinderGeometry(0.0055,0.008,0.028,10),M.acero); sang.position.set(0.172,-0.022,-0.05); sang.rotation.z=Math.PI/2; ex.add(sang);
+  const exf=fusiona(ex,false); exf.userData.pieza='pinza'; PINZA.add(exf);
+  // pastillas: material de fricción + soporte de chapa, en media anchura, con la sección en y = 0
+  const lado=(sg)=>{
+    const f=new THREE.Mesh(new THREE.BoxGeometry(0.059,0.0425,0.011),[M.friccion,M.friccion,M.cortePastilla,M.friccion,M.friccion,M.friccion]);
+    f.position.set(0.1175,-0.02125,sg*(0.014+0.0055)); f.castShadow=false; f.receiveShadow=true; f.userData.pieza='pastilla'; PINZA.add(f);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.063,0.0425,0.004),[M.soporte,M.soporte,M.corte,M.soporte,M.soporte,M.soporte]);
+    b.position.set(0.1175,-0.02125,sg*(0.025+0.002)); b.castShadow=false; b.userData.pieza='pastilla'; PINZA.add(b);
+    return f; };
+  PIEZAS.pastillaExt=lado(1); PIEZAS.pastillaInt=lado(-1);
+  // pistón (media cañería cromada) y su sección
+  const pis=P3.revolucion([[0,-0.054],[0.0195,-0.054],[0.0195,-0.031],[0,-0.031]],{seg:36,fase:-Math.PI/2,arco:Math.PI});
+  const pm=new THREE.Mesh(pis,M.cromo); pm.rotation.x=Math.PI/2; pm.position.set(0.12,0,0); pm.castShadow=false; pm.userData.pieza='piston'; PINZA.add(pm);
+  // la sección del pistón: rectángulo en el plano y = 0 (ancho en x, alto en z)
+  const pg=new THREE.PlaneGeometry(0.039,0.023); const uv=pg.attributes.uv, pp=pg.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,pp.getX(i),pp.getY(i));
+  const pr=new THREE.Mesh(pg,M.corte); pr.matrixAutoUpdate=false; pr.matrix.makeBasis(V3(1,0,0),V3(0,0,1),V3(0,-1,0)); pr.matrix.setPosition(0.12,0,-0.0425); PINZA.add(pr);
+  // líquido de frenos detrás del pistón: ámbar, brilla con la presión
+  const fl=new THREE.Mesh(new THREE.BoxGeometry(0.038,0.0195,0.006),FLUIDO_MAT);
+  fl.position.set(0.12,-0.00975,-0.057); fl.userData.pieza='liquido'; PINZA.add(fl);
+  PIEZAS.liquido=fl;
+  // las secciones de las pistas en el plano de la pinza (el disco está en medio de las pastillas): ya las pone el disco
+})();
+
+/* --- mangueta (fundición) con el soporte de la pinza y los brazos hacia la suspensión --- */
+(function(){
+  const sh=new THREE.Shape();
+  sh.moveTo(-0.115,-0.05); sh.lineTo(-0.075,-0.115); sh.lineTo(-0.05,-0.16); sh.lineTo(0.04,-0.16); sh.lineTo(0.08,-0.10); sh.lineTo(0.12,-0.04);
+  sh.lineTo(0.12,0.045); sh.lineTo(0.075,0.11); sh.lineTo(0.05,0.158); sh.lineTo(-0.045,0.158); sh.lineTo(-0.082,0.10); sh.lineTo(-0.115,0.045); sh.closePath();
+  const hole=new THREE.Path(); hole.absarc(0,0,0.064,0,Math.PI*2,true); sh.holes.push(hole);
+  const geo=new THREE.ExtrudeGeometry(sh,{depth:0.024,bevelEnabled:true,bevelThickness:0.004,bevelSize:0.004,bevelSegments:2});
+  P3.sanaNormales(geo);
+  const m=new THREE.Mesh(geo,M.fundicion); m.position.z=-0.098; m.castShadow=true; m.receiveShadow=true; m.userData.pieza='mangueta'; FIJO.add(m);
+  // cojinete del cubo (anillo oscuro) y su tapa
+  const rod=rev([[0.040,-0.074],[0.066,-0.074],[0.066,-0.014],[0.040,-0.014]],M.aceroOsc,{seg:48,sombra:false}); rod.userData.pieza='mangueta'; FIJO.add(rod);
+  const soporte=new THREE.Group();
+  for(const sg of [1,-1]){ const b=new THREE.Mesh(new THREE.BoxGeometry(0.034,0.014,0.030),M.fundicion); b.position.set(0.118,sg*0.047,-0.060); b.rotation.z=0; soporte.add(b); }
+  const sf=fusiona(soporte,false); sf.userData.pieza='mangueta'; FIJO.add(sf);
+})();
+
+/* ===================== 10. CALOR: color y luz del disco =====================
+   El color sale de la temperatura del modelo: por debajo de 450 °C el hierro sólo toma los colores de revenido (paja,
+   violeta, azul); por encima empieza a emitir: rojo oscuro, cereza, naranja, amarillo. Es la escala de un cuerpo caliente
+   (puntos de Draper y siguientes), no una cámara térmica. */
+const C_REV=[[130,'#9aa1a8'],[230,'#cdb277'],[290,'#a07e7c'],[340,'#86a0c8'],[420,'#98a3ae'],[470,'#868d94']].map(([T,c])=>[T,new THREE.Color(c)]);
+const C_INC=[[390,0,0,0,0],[440,0.75,0.04,0.0,0.40],[520,1.0,0.11,0.0,1.05],[600,1.0,0.20,0.015,1.7],[700,1.0,0.34,0.04,2.3],[800,1.0,0.50,0.09,2.9],[950,1.0,0.70,0.24,3.5]];
+const _c1=new THREE.Color(), _c2=new THREE.Color();
+function colorHierro(T,out){
+  if(T<=C_REV[0][0]) return out.copy(C_REV[0][1]);
+  for(let i=1;i<C_REV.length;i++){ if(T<=C_REV[i][0]){ const u=(T-C_REV[i-1][0])/(C_REV[i][0]-C_REV[i-1][0]); return out.copy(C_REV[i-1][1]).lerp(C_REV[i][1],u); } }
+  return out.copy(C_REV[C_REV.length-1][1]);
+}
+function incandescencia(T,out){
+  if(T<=C_INC[0][0]){ out.setRGB(0,0,0); return 0; }
+  for(let i=1;i<C_INC.length;i++){ if(T<=C_INC[i][0]){ const a=C_INC[i-1], b=C_INC[i], u=(T-a[0])/(b[0]-a[0]); out.setRGB(a[1]+(b[1]-a[1])*u,a[2]+(b[2]-a[2])*u,a[3]+(b[3]-a[3])*u); return a[4]+(b[4]-a[4])*u; } }
+  const z=C_INC[C_INC.length-1]; out.setRGB(z[1],z[2],z[3]); return z[4];
+}
+const BASE_DISCO=new THREE.Color('#9aa1a8');
+function calientaDisco(T){
+  const inten=incandescencia(T,_c2); colorHierro(T,_c1);
+  const osc=1-0.62*clamp((T-330)/250,0,1);                                    // el óxido oscurece el hierro caliente
+  for(const m of T_DISCO){ m.color.copy(_c1).multiplyScalar(osc); m.emissive.copy(_c2); m.emissiveIntensity=inten*(m.emissiveMap?1:0.78); }
+  // pastillas: más frías que el disco; el soporte casi no brilla
+  const ip=incandescencia(Math.max(0,T-70),_c2); M.friccion.emissive.copy(_c2); M.friccion.emissiveIntensity=ip*0.8;
+  LUZ.calor.intensity=clamp((T-430)/380,0,1)*0.55; LUZ.calorT.intensity=clamp((T-430)/380,0,1)*0.30;
+  LUZ.calor.color.setRGB(1,0.30+0.35*clamp((T-600)/400,0,1),0.05); LUZ.calorT.color.copy(LUZ.calor.color);
+  return inten;
+}
+LUZ.calor.position.set(0.0,RT+0.02,0.30); LUZ.calorT.position.set(0.02,RT+0.0,-0.20);
+
+/* ===================== 11. CHISPAS: el polvo de pastilla incandescente =====================
+   Un solo Points de 150 partículas sale tangente al disco por el borde de salida de las pastillas, con la velocidad
+   dibujada de la superficie y la gravedad. La tasa sigue la potencia que frena el eje mostrado. */
+const NCH=150;
+const CHI={ pos:new Float32Array(NCH*3), vel:new Float32Array(NCH*3), vida:new Float32Array(NCH), col:new Float32Array(NCH*3), cur:0, acum:0 };
+const GEO_CHI=new THREE.BufferGeometry(); GEO_CHI.setAttribute('position',new THREE.BufferAttribute(CHI.pos,3)); GEO_CHI.setAttribute('color',new THREE.BufferAttribute(CHI.col,3));
+for(let i=0;i<NCH;i++){ CHI.pos[i*3+1]=-5; CHI.vida[i]=0; }
+const PUNTOS=new THREE.Points(GEO_CHI,new THREE.PointsMaterial({size:0.011,map:T_PUNTO,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true,opacity:0.95,toneMapped:false}));
+PUNTOS.frustumCulled=false; PUNTOS.userData.pieza='chispas'; PUNTOS.raycast=()=>{}; EJE.add(PUNTOS);
+function emiteChispas(dt,tasa,vSup,ro){
+  CHI.acum+=tasa*dt; let n=Math.floor(CHI.acum); CHI.acum-=n;
+  while(n-->0){ const i=CHI.cur; CHI.cur=(CHI.cur+1)%NCH; const b=i*3, a=ANG_PINZA+0.015+Math.random()*0.03, r=ro*(0.62+0.36*Math.random());
+    CHI.pos[b]=Math.cos(a)*r; CHI.pos[b+1]=Math.sin(a)*r; CHI.pos[b+2]=(Math.random()-0.5)*0.03;
+    const tx=-Math.sin(a), ty=Math.cos(a), v=vSup*(0.55+0.7*Math.random());              // sale por el lado antihorario con la velocidad de la superficie
+    CHI.vel[b]=tx*v+(Math.random()-0.5)*0.30; CHI.vel[b+1]=ty*v+(Math.random()-0.5)*0.30+0.15; CHI.vel[b+2]=(Math.random()-0.5)*0.40;
+    CHI.vida[i]=0.35+Math.random()*0.5;
+    const c=Math.random(); CHI.col[b]=1.0; CHI.col[b+1]=0.45+0.4*c; CHI.col[b+2]=0.10+0.5*c*c; }
+}
+function pasaChispas(dt){
+  for(let i=0;i<NCH;i++){ if(CHI.vida[i]<=0){ CHI.pos[i*3+1]=-5; continue; } const b=i*3; CHI.vida[i]-=dt;
+    CHI.vel[b+1]-=4.5*dt; CHI.pos[b]+=CHI.vel[b]*dt; CHI.pos[b+1]+=CHI.vel[b+1]*dt; CHI.pos[b+2]+=CHI.vel[b+2]*dt; CHI.vel[b]*=1-0.9*dt; CHI.vel[b+1]*=1-0.9*dt;
+    if(CHI.pos[b+1]<-RT+0.005){ CHI.pos[b+1]=-RT+0.005; CHI.vel[b+1]*=-0.3; } }
+  GEO_CHI.attributes.position.needsUpdate=true; GEO_CHI.attributes.color.needsUpdate=true;
+}
+
+
+
+/* ===================== 12. EL COCHE EN TRANSPARENCIA =====================
+   Vista de costado a escala (batalla 2,80 m): el casco en cristal con su silueta marcada; la batería plana en el suelo
+   (su nivel verde ES la carga); el motor en media sección sobre el eje motriz, con su inversor y los cables de alta
+   tensión; los cuatro discos; y, junto a cada rueda, una barra en el suelo con lo que frena ese eje: verde lo que pone el
+   motor, naranja lo que ponen los discos y una marca blanca en el límite de adherencia (μ·N). Las barras valen N/9000 de metro.
+   El cabeceo se dibuja ×4 (real: menos de 1° por g). La energía que vuelve a la batería se ve como puntos verdes que
+   siguen el cable; el calor de los discos, como puntos naranjas que suben. */
+const COCHE=new THREE.Group(); scene.add(COCHE);
+const XF=-VEH.a, XR=VEH.b, ZRU=0.80, MORRO=-2.16;
+const CC={ pitch:null, body:null, ruedas:[], dm:{F:[],R:[]}, bar:{}, mot:null, rotor:null, bobinas:null, inversor:null, cable:null, fill:null, cuerpoBat:null, ruta:[], eje:null, matCarga:null };
+const KB=1/9000;                                                           // m de barra por newton
+
+/* --- el casco: cristal con su silueta --- */
+(function(){
+  const sh=new THREE.Shape();
+  const arco=(cx,cy,r,a0,a1)=>sh.absarc(cx,cy,r,a0,a1,false);
+  sh.moveTo(-2.14,0.40); sh.lineTo(-2.16,0.62); sh.quadraticCurveTo(-2.05,0.76,-1.62,0.80); sh.lineTo(-1.06,0.90);
+  sh.quadraticCurveTo(-0.72,1.03,-0.40,1.37); sh.quadraticCurveTo(-0.05,1.48,0.52,1.46); sh.quadraticCurveTo(1.08,1.40,1.34,1.03);
+  sh.lineTo(1.90,0.98); sh.quadraticCurveTo(2.28,0.96,2.32,0.72); sh.lineTo(2.32,0.42); sh.lineTo(1.86,0.30);
+  arco(XR,RT,0.42,0.2,Math.PI-0.2); sh.lineTo(XF+0.41,0.30);
+  arco(XF,RT,0.42,0.2,Math.PI-0.2); sh.lineTo(-2.00,0.30); sh.closePath();
+  const geo=new THREE.ExtrudeGeometry(sh,{depth:1.62,bevelEnabled:true,bevelThickness:0.06,bevelSize:0.06,bevelSegments:3}); geo.translate(0,0,-0.81); P3.sanaNormales(geo);
+  const vidrio=new THREE.MeshPhysicalMaterial({color:'#6f93b0',metalness:0.1,roughness:0.10,transparent:true,opacity:0.16,depthWrite:false,side:THREE.DoubleSide,envMapIntensity:1.1,clearcoat:1,clearcoatRoughness:0.05});
+  const pitch=new THREE.Group(); pitch.position.set(0,VEH.h,0); CC.pitch=pitch; COCHE.add(pitch);
+  const body=new THREE.Group(); body.position.y=-VEH.h; CC.body=body; pitch.add(body);
+  const casco=new THREE.Mesh(geo,vidrio); casco.renderOrder=3; casco.userData.pieza='casco'; body.add(casco);
+  const bordes=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.ShapeGeometry(sh,24)),new THREE.LineBasicMaterial({color:'#9cc4e4',transparent:true,opacity:0.8}));
+  const b1=bordes.clone(); b1.position.z=0.87; const b2=bordes.clone(); b2.position.z=-0.87; body.add(b1,b2);
+  // ventanas
+  const win=new THREE.Shape(); win.moveTo(-0.92,0.97); win.quadraticCurveTo(-0.64,1.04,-0.36,1.31); win.quadraticCurveTo(-0.04,1.40,0.52,1.38); win.quadraticCurveTo(1.0,1.34,1.22,1.03); win.lineTo(-0.92,0.97);
+  const wm=new THREE.Mesh(new THREE.ShapeGeometry(win),new THREE.MeshBasicMaterial({color:'#a9cdea',transparent:true,opacity:0.13,depthWrite:false,side:THREE.DoubleSide}));
+  for(const z of [0.88,-0.88]){ const w=wm.clone(); w.position.set(0,0,z); body.add(w); }
+  // faros y luces: dos manchas emisivas (la proa se lee desde la vista de entrada)
+  const faro=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.07,0.30),new THREE.MeshBasicMaterial({color:'#8fb6d4'}));
+  for(const z of [0.62,-0.62]){ const f=faro.clone(); f.position.set(-2.14,0.60,z); body.add(f); }
+  const luz=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.34),new THREE.MeshBasicMaterial({color:'#ff2a3a',toneMapped:false}));
+  for(const z of [0.60,-0.60]){ const f=luz.clone(); f.position.set(2.31,0.80,z); f.userData.pieza='luzfreno'; body.add(f); CC.luz=CC.luz||[]; CC.luz.push(f); }
+})();
+
+/* --- la batería: caja plana con su nivel de carga --- */
+(function(){
+  const g=new THREE.Group(); g.userData.pieza='bateria';
+  const LX=2.30, LZ=1.30, X0=0.10, Y0=0.16, H=0.14;
+  const caja=new THREE.Mesh(new THREE.BoxGeometry(LX,H,LZ),new THREE.MeshPhysicalMaterial({color:'#243540',metalness:0.55,roughness:0.42,transparent:true,opacity:0.50,depthWrite:false,side:THREE.DoubleSide,envMapIntensity:0.8}));
+  caja.position.set(X0,Y0+H/2,0); caja.renderOrder=2; caja.userData.pieza='bateria'; g.add(caja);
+  // marco de la caja
+  const marco=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(LX,H,LZ)),new THREE.LineBasicMaterial({color:'#6fd6ff',transparent:true,opacity:0.65}));
+  marco.position.copy(caja.position); g.add(marco);
+  // el nivel de carga: una losa verde translúcida que crece con la carga de la batería
+  CC.matCarga=new THREE.MeshStandardMaterial({color:'#2fd68c',emissive:'#1fbf78',emissiveIntensity:0.55,metalness:0.1,roughness:0.35,transparent:true,opacity:0.82,depthWrite:false});
+  const fill=new THREE.Mesh(new THREE.BoxGeometry(LX-0.06,H-0.03,LZ-0.06),CC.matCarga); fill.geometry.translate(0,(H-0.03)/2,0);
+  fill.position.set(X0,Y0+0.015,0); fill.userData.pieza='carga'; g.add(fill); CC.fill=fill;
+  // paredes entre módulos
+  const NM=9, pared=new THREE.InstancedMesh(new THREE.BoxGeometry(0.014,H-0.01,LZ-0.04),new THREE.MeshStandardMaterial({color:'#0f171c',metalness:0.5,roughness:0.5}),NM), m4=new THREE.Matrix4();
+  for(let i=0;i<NM;i++){ m4.makeTranslation(X0-LX/2+LX*(i+1)/(NM+1),Y0+H/2,0); pared.setMatrixAt(i,m4); }
+  pared.castShadow=false; g.add(pared);
+  CC.body.add(g); CC.bat={ g, X0, LX, LZ, Y0, H };
+})();
+
+/* --- el motor en media sección, el inversor y los cables --- */
+const MM={ chapa:pbr({color:'#8793a0',metalness:0.82,roughness:0.40}), acero:pbr({color:'#b7c0c8',metalness:0.9,roughness:0.32}), negro:pbr({color:'#1a1f24',metalness:0.5,roughness:0.5}),
+  cobre:pbr({color:'#c9774a',metalness:0.9,roughness:0.36,emissive:'#000000',emissiveIntensity:0}), aluminio:pbr({color:'#aab4bd',metalness:0.85,roughness:0.34,side:THREE.DoubleSide}),
+  imanN:pbr({color:'#2f6fd0',metalness:0.5,roughness:0.4}), imanS:pbr({color:'#c8382f',metalness:0.5,roughness:0.4}),
+  inversor:pbr({color:'#e8731c',metalness:0.5,roughness:0.42,emissive:'#ff7a10',emissiveIntensity:0}), cable:pbr({color:'#ff7a1a',metalness:0.2,roughness:0.5,emissive:'#ff5a00',emissiveIntensity:0.15}) };
+const MOT=new THREE.Group(); COCHE.add(MOT);
+(function(){
+  const LM=0.22, RE=0.17, RI=0.108;
+  const est=P3.nucleoRanurado(MM,{rExt:RE,rInt:RI,ranuras:36,largo:LM,hacia:'dentro'}); est.position.z=-LM/2; est.userData.pieza='motor'; est.traverse(o=>{ o.userData.pieza='motor'; }); MOT.add(est);
+  // cobre en las ranuras: 36 bobinas cortas alrededor (se encienden en verde al regenerar)
+  const bob=new THREE.InstancedMesh(new THREE.BoxGeometry(0.020,0.036,LM+0.06),MM.cobre,36), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler();
+  for(let i=0;i<36;i++){ const a=(i+0.0)/36*DOSPI, r=RI+0.030; e.set(0,0,a); q.setFromEuler(e); m4.compose(V3(Math.cos(a)*r,Math.sin(a)*r,0),q,V3(1,1,1)); bob.setMatrixAt(i,m4); }
+  bob.userData.pieza='bobinas'; MOT.add(bob); CC.bobinas=bob;
+  const rot=new THREE.Group(); rot.userData.pieza='rotor';
+  const rt=P3.rotorImanes(MM,{r:0.100,largo:LM*0.96,polos:8,dEje:0.040,imanN:MM.imanN,imanS:MM.imanS}); rt.position.z=-LM*0.48; rt.traverse(o=>{ o.userData.pieza='rotor'; }); rot.add(rt);
+  MOT.add(rot); CC.rotor=rot;
+  // eje y reducción
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,1.62,20),MM.acero); eje.rotation.x=Math.PI/2; eje.userData.pieza='eje'; MOT.add(eje);
+  const red=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.10,32),MM.aluminio); red.rotation.x=Math.PI/2; red.position.z=-0.17; red.userData.pieza='reduccion'; MOT.add(red);
+  // carcasa trasera (lado de dentro del coche) y media carcasa de fondo
+  const tapa=new THREE.Mesh(new THREE.CylinderGeometry(RE+0.012,RE+0.012,0.02,48),MM.aluminio); tapa.rotation.x=Math.PI/2; tapa.position.z=-LM/2-0.012; tapa.userData.pieza='motor'; MOT.add(tapa);
+  // inversor encima
+  const inv=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.095,0.28),MM.inversor); inv.position.set(0,RE+0.075,0.0); inv.castShadow=true; inv.userData.pieza='inversor'; MOT.add(inv); CC.inversor=inv;
+  const aleta=new THREE.Group(); for(let i=0;i<7;i++){ const a=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.030,0.26),MM.aluminio); a.position.set(-0.12+i*0.04,RE+0.138,0); aleta.add(a); } MOT.add(fusiona(aleta,false));
+  MOT.userData.pieza='motor';
+})();
+/** Pone el motor en el eje motriz y rehace el cable de alta tensión y la ruta de la energía. */
+function colocaMotor(eje){
+  if(CC.eje===eje) return; CC.eje=eje;
+  const xA=eje==='R'?XR:XF, s=eje==='R'?1:-1;
+  MOT.position.set(xA,RT,0);
+  if(CC.cable){ COCHE.remove(CC.cable); CC.cable.geometry.dispose(); CC.cable=null; }
+  const pts=[V3(xA,RT+0.24,0.05),V3(xA-s*0.12,RT+0.34,0.08),V3(xA-s*0.40,0.52,0.10),V3(xA-s*0.62,0.46,0.10),V3(xA-s*0.82,0.34,0.10)];
+  const cur=new THREE.CatmullRomCurve3(pts);
+  const tubo=new THREE.Mesh(new THREE.TubeGeometry(cur,32,0.016,10,false),MM.cable); tubo.userData.pieza='cable'; tubo.castShadow=true; COCHE.add(tubo); CC.cable=tubo;
+  // ruta de los puntos verdes: de la rueda al motor, al inversor, por el cable y dentro de la batería
+  const ruta=new THREE.CatmullRomCurve3([V3(xA,RT,0.74),V3(xA,RT,0.16),V3(xA,RT+0.14,0.06),V3(xA,RT+0.26,0.05),V3(xA-s*0.12,RT+0.34,0.08),V3(xA-s*0.40,0.52,0.10),V3(xA-s*0.62,0.46,0.10),V3(xA-s*0.82,0.30,0.10),V3(xA-s*1.35,0.25,0.10)],false,'centripetal');
+  CC.ruta=ruta.getPoints(80);
+}
+
+/* --- las cuatro ruedas, con su disco --- */
+function matDiscoCoche(){ const m=pbr({color:'#8b9298',roughness:0.52,metalness:0.88,emissive:'#000000',emissiveIntensity:0,side:THREE.DoubleSide}); return m; }
+(function(){
+  const rueda=(d,eje,lado)=>{
+    const gr=new THREE.Group(), rot=new THREE.Group(); gr.add(rot);
+    const goma=pbr({color:'#15181a',roughness:0.8,metalness:0}); const neu=rev([[0.222,-0.105],[0.245,-0.1125],[0.285,-0.113],[0.315,-0.108],[0.3235,-0.088],[0.325,-0.070],[0.325,0.070],[0.3235,0.088],[0.315,0.108],[0.285,0.113],[0.245,0.1125],[0.222,0.105],[0.2185,0.100],[0.241,0.1045],[0.279,0.105],[0.301,0.100],[0.3030,0.082],[0.3030,-0.082],[0.301,-0.100],[0.279,-0.105],[0.241,-0.1045],[0.2185,-0.100]],goma,{seg:72});
+    neu.userData.pieza='neumatico'; rot.add(neu);
+    const aro=rev([[0.2290,-0.1090],[0.2210,-0.1010],[0.2165,-0.0900],[0.2040,-0.0600],[0.2040,0.0500],[0.2165,0.0800],[0.2210,0.1000],[0.2290,0.1090],[0.2250,0.1090],[0.2170,0.0990],[0.2125,0.0800],[0.2000,0.0500],[0.2000,-0.0600],[0.2125,-0.0900],[0.2170,-0.1000],[0.2250,-0.1090]],M.llanta,{seg:72}); aro.userData.pieza='llanta'; rot.add(aro);
+    const radios=new THREE.Group(); for(let i=0;i<5;i++){ const a=i/5*DOSPI; const r=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.034,0.014),M.llanta); r.position.set(Math.cos(a)*0.115,Math.sin(a)*0.115,0.105); r.rotation.z=a; radios.add(r); }
+    const plato=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.016,24),M.llanta); plato.rotation.x=Math.PI/2; plato.position.z=0.108; radios.add(plato);
+    const rf=fusiona(radios); rf.userData.pieza='llanta'; rot.add(rf);
+    const dm=matDiscoCoche(); const cara=new THREE.Mesh(new THREE.RingGeometry(0.09*d,0.15*d,64),dm); cara.position.z=0.014; cara.userData.pieza='disco'; rot.add(cara);
+    const borde=rev([[0.15*d,-0.014],[0.15*d,0.014]],dm,{seg:64}); borde.userData.pieza='disco'; rot.add(borde);
+    const camp=rev([[0.0905,0.0],[0.0905,0.018],[0.0800,0.038],[0.0800,0.0495],[0.0,0.0495]],M.fundicion,{seg:48}); rot.add(camp);
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.085,0.06,0.055),M.pinturaRoja); p.position.set(0.12*d,0.04,-0.012); p.userData.pieza='pinza'; gr.add(p);
+    gr.position.set(eje==='F'?XF:XR,RT,lado*ZRU); if(lado<0) gr.rotation.y=Math.PI;
+    gr.userData={rot,dm,lado}; COCHE.add(gr); CC.ruedas.push(gr); CC.dm[eje].push(dm); return gr;
+  };
+  rueda(1,'F',1); rueda(1,'F',-1); rueda(0.87,'R',1); rueda(0.87,'R',-1);
+})();
+
+/* --- barras de fuerza en el suelo, una por eje --- */
+(function(){
+  const base=(x0)=>{
+    const g=new THREE.Group(); g.position.set(x0,0.04,1.02); COCHE.add(g);
+    const mk=(col)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(1,0.07,0.10),new THREE.MeshBasicMaterial({color:col,toneMapped:false,transparent:true,opacity:0.96})); m.geometry.translate(0.5,0,0); g.add(m); return m; };
+    const reg=mk('#3DDC97'), dis=mk('#FF8A4C');
+    const lim=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.20,0.035),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false})); g.add(lim);
+    const riel=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.012,0.12),new THREE.MeshBasicMaterial({color:'#2a3a42',toneMapped:false,transparent:true,opacity:0.6})); riel.geometry.translate(0.75,-0.04,0); g.add(riel);
+    reg.userData.pieza='barraM'; dis.userData.pieza='barraD'; lim.userData.pieza='marcaMu'; riel.userData.pieza='riel';
+    return { g, reg, dis, lim };
+  };
+  CC.bar.F=base(XF); CC.bar.R=base(XR);
+})();
+
+/* --- el camino: marcas laterales, línea de parada, postes cada 5 m --- */
+const CAM={ postes:null, linea:null, bordes:[] };
+(function(){
+  const NP=8;
+  const g1=new THREE.CylinderGeometry(0.035,0.04,0.55,10).toNonIndexed(); g1.translate(0,0.275,0);
+  const banda=new THREE.BoxGeometry(0.075,0.09,0.012).toNonIndexed();
+  const mk=(g,c,dz)=>{ const n=g.attributes.position.count, col=new Float32Array(n*3); for(let i=0;i<n;i++){ col[i*3]=c[0]; col[i*3+1]=c[1]; col[i*3+2]=c[2]; } g.setAttribute('color',new THREE.BufferAttribute(col,3)); return g; };
+  const bandaA=mk(banda.clone(),[1,0.6,0.24]); bandaA.translate(0,0.40,0.04);
+  const bandaB=mk(banda.clone(),[1,0.6,0.24]); bandaB.translate(0,0.40,-0.04);
+  const unir=(a,b)=>{ const g=new THREE.BufferGeometry(); for(const k of ['position','normal','uv','color']){ const A=a.attributes[k].array, B=b.attributes[k].array, C=new Float32Array(A.length+B.length); C.set(A); C.set(B,A.length); g.setAttribute(k,new THREE.BufferAttribute(C,a.attributes[k].itemSize)); } return g; };
+  const geoA=unir(mk(g1.clone(),[0.87,0.91,0.93]),bandaA), geoB=unir(mk(g1.clone(),[0.87,0.91,0.93]),bandaB);
+  const mat=pbr({color:'#ffffff',roughness:0.5,metalness:0.1,emissive:'#4a5a60',emissiveIntensity:0.5,vertexColors:true});
+  CAM.postes=new THREE.Group(); SUELO.add(CAM.postes);
+  CAM.lista=[];
+  for(let k=0;k<NP;k++) for(const z of [-3.3,3.3]){ const p=new THREE.Mesh(z>0?geoB:geoA,mat); p.castShadow=false; p.userData.pieza='poste'; CAM.postes.add(p); CAM.lista.push({p,k,z}); }
+  // bordes de la calzada: líneas continuas y bordillo
+  const lin=new THREE.MeshBasicMaterial({color:'#e9eef0',toneMapped:false,transparent:true,opacity:0.85});
+  for(const z of [-2.55,2.55]){ const l=new THREE.Mesh(new THREE.PlaneGeometry(80,0.14),lin); l.rotation.x=-Math.PI/2; l.position.set(0,0.006,z); SUELO.add(l); }
+  const bord=pbr({color:'#4b555c',roughness:0.85,metalness:0.05});
+  for(const z of [-3.05,3.05]){ const l=new THREE.Mesh(new THREE.BoxGeometry(80,0.09,0.32),bord); l.position.set(0,0.045,z); l.receiveShadow=true; SUELO.add(l); }
+  // la línea de parada: una franja ancha blanca con brillo, y una segunda, más tenue, que la enmarca
+  const lm=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false,fog:false});
+  const ln=new THREE.Mesh(new THREE.PlaneGeometry(0.55,5.1),lm); ln.rotation.x=-Math.PI/2; ln.position.y=0.012; ln.userData.pieza='linea'; SUELO.add(ln); CAM.linea=ln;
+  const lt=new THREE.Mesh(new THREE.PlaneGeometry(1.6,5.1),new THREE.MeshBasicMaterial({color:'#3DDC97',toneMapped:false,transparent:true,opacity:0.16,depthWrite:false,fog:false})); lt.rotation.x=-Math.PI/2; lt.position.set(0.55,0.010,0); ln.add(lt);
+})();
+
+/* ===================== 12b. PARTÍCULAS: LA ENERGÍA QUE VUELVE Y EL CALOR QUE SE PIERDE =====================
+   Verdes: siguen el cable de la rueda a la batería; su número sigue a la potencia que entra a la batería (P_dc / 80 kW).
+   Naranjas: salen de cada disco; su ritmo sigue a la potencia de fricción de ese eje. Es una ilustración de las
+   POTENCIAS del modelo, no una simulación de partículas. */
+const NV=140, NO=160;
+const PV={ u:new Float32Array(NV), pos:new Float32Array(NV*3), col:new Float32Array(NV*3), act:0 };
+const GEO_V=new THREE.BufferGeometry(); GEO_V.setAttribute('position',new THREE.BufferAttribute(PV.pos,3)); GEO_V.setAttribute('color',new THREE.BufferAttribute(PV.col,3));
+for(let i=0;i<NV;i++){ PV.u[i]=i/NV; PV.pos[i*3+1]=-5; }
+const PTS_V=new THREE.Points(GEO_V,new THREE.PointsMaterial({size:0.052,map:T_PUNTO,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true,opacity:1,toneMapped:false}));
+PTS_V.frustumCulled=false; PTS_V.userData.pieza='energia'; PTS_V.raycast=()=>{}; COCHE.add(PTS_V);
+const PO={ pos:new Float32Array(NO*3), vel:new Float32Array(NO*3), vida:new Float32Array(NO), col:new Float32Array(NO*3), cur:0, acum:[0,0,0,0] };
+const GEO_O=new THREE.BufferGeometry(); GEO_O.setAttribute('position',new THREE.BufferAttribute(PO.pos,3)); GEO_O.setAttribute('color',new THREE.BufferAttribute(PO.col,3));
+for(let i=0;i<NO;i++){ PO.pos[i*3+1]=-5; }
+const PTS_O=new THREE.Points(GEO_O,new THREE.PointsMaterial({size:0.040,map:T_PUNTO,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true,opacity:1,toneMapped:false}));
+PTS_O.frustumCulled=false; PTS_O.userData.pieza='calor'; PTS_O.raycast=()=>{}; COCHE.add(PTS_O);
+function pasaEnergia(dt,Pdc,vis){
+  const act=Math.min(NV,Math.round(NV*clamp(Pdc/80e3,0,1)*1.0));
+  for(let i=0;i<NV;i++){
+    const on=i<act&&vis&&CC.ruta.length>0; const b=i*3;
+    if(!on){ PV.pos[b+1]=-5; continue; }
+    PV.u[i]+=dt*(0.28+0.55*clamp(Pdc/80e3,0,1)); if(PV.u[i]>=1) PV.u[i]-=1;
+    const k=PV.u[i]*(CC.ruta.length-1), i0=Math.floor(k), p0=CC.ruta[i0], p1=CC.ruta[Math.min(i0+1,CC.ruta.length-1)], f=k-i0;
+    PV.pos[b]=p0.x+(p1.x-p0.x)*f; PV.pos[b+1]=p0.y+(p1.y-p0.y)*f; PV.pos[b+2]=p0.z+(p1.z-p0.z)*f+((i*37%11)-5)*0.0045;
+    const e=0.55+0.45*Math.sin(PV.u[i]*6.28*2+i); PV.col[b]=0.25*e; PV.col[b+1]=1.0*e; PV.col[b+2]=0.62*e;
+  }
+  GEO_V.attributes.position.needsUpdate=true; GEO_V.attributes.color.needsUpdate=true;
+}
+function emiteCalor(dt,eje,lado,P){
+  const idx=(eje==='F'?0:2)+(lado>0?0:1), x=eje==='F'?XF:XR;
+  PO.acum[idx]+=dt*clamp(P/9e3,0,1)*20;
+  let n=Math.floor(PO.acum[idx]); PO.acum[idx]-=n;
+  while(n-->0){ const i=PO.cur; PO.cur=(PO.cur+1)%NO; const b=i*3, a=Math.random()*DOSPI, r=0.07+0.08*Math.random();
+    PO.pos[b]=x+Math.cos(a)*r; PO.pos[b+1]=RT+Math.sin(a)*r; PO.pos[b+2]=lado*(ZRU+0.12+Math.random()*0.03);
+    PO.vel[b]=(Math.random()-0.5)*0.25+0.25; PO.vel[b+1]=0.30+Math.random()*0.35; PO.vel[b+2]=lado*(0.05+Math.random()*0.15);
+    PO.vida[i]=0.8+Math.random()*0.8; const c=Math.random(); PO.col[b]=1.0; PO.col[b+1]=0.40+0.35*c; PO.col[b+2]=0.08+0.25*c*c; }
+}
+function pasaCalor(dt){
+  for(let i=0;i<NO;i++){ const b=i*3; if(PO.vida[i]<=0){ PO.pos[b+1]=-5; continue; }
+    PO.vida[i]-=dt; PO.pos[b]+=PO.vel[b]*dt; PO.pos[b+1]+=PO.vel[b+1]*dt; PO.pos[b+2]+=PO.vel[b+2]*dt; PO.vel[b+1]*=1-0.4*dt;
+    const f=clamp(PO.vida[i],0,1); PO.col[b+0]=f; PO.col[b+1]=Math.min(PO.col[b+1],0.75)*f; PO.col[b+2]*=f; }
+  GEO_O.attributes.position.needsUpdate=true; GEO_O.attributes.color.needsUpdate=true;
+}
+
+/* ===================== 13. SONIDO (sintetizado) =====================
+   El zumbido del motor eléctrico al regenerar (sube con la velocidad y con lo que frena el motor), el roce de los discos
+   y el siseo del aire. Es un adorno: nada del modelo depende de él. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,osc=null,og=null,osc2=null,og2=null,ruido=null,fl=null,ng=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=300; og=ctx.createGain(); og.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400; osc.connect(lp); lp.connect(og); og.connect(master); osc.start();
+      osc2=ctx.createOscillator(); osc2.type='triangle'; osc2.frequency.value=1500; og2=ctx.createGain(); og2.gain.value=0; osc2.connect(og2); og2.connect(master); osc2.start();
+      const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate), d=buf.getChannelData(0); let ult=0; for(let i=0;i<d.length;i++){ ult=(ult+0.02*(Math.random()*2-1))/1.02; d[i]=ult*3.5; }
+      ruido=ctx.createBufferSource(); ruido.buffer=buf; ruido.loop=true; fl=ctx.createBiquadFilter(); fl.type='bandpass'; fl.frequency.value=900; fl.Q.value=0.8; ng=ctx.createGain(); ng.gain.value=0; ruido.connect(fl); fl.connect(ng); ng.connect(master); ruido.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(vel,regen,fric){ if(!ctx) return; const t=ctx.currentTime, u=clamp(vel,0,1), r=clamp(regen,0,1), f=clamp(fric,0,1);
+    osc.frequency.setTargetAtTime(220+1500*u,t,0.1); og.gain.setTargetAtTime(on?0.004+0.030*r*(0.3+0.7*u):0,t,0.12);
+    osc2.frequency.setTargetAtTime(1500+500*u,t,0.05); og2.gain.setTargetAtTime(on?0.010*f*f*u:0,t,0.08);
+    fl.frequency.setTargetAtTime(500+700*u,t,0.1); ng.gain.setTargetAtTime(on?0.006+0.030*u*u:0,t,0.1); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return og?og.gain.value:0; }, get freq(){ return osc?osc.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+colocaMotor('R');
+
+
+/* ===================== 14. EL ESTADO Y EL RELOJ =====================
+   EST son los mandos (lo que pide el alumno). De ellos sale UNA frenada (SER) que se recalcula sólo si cambia algún mando; la
+   escena, las barras de fuerza, el nivel de la batería, las cifras y las gráficas del dock leen la MISMA serie en el MISMO
+   instante SIM.t. La rueda se dibuja a 1/12 de su giro real; el camino (suelo, postes y línea de parada) va a la velocidad real. */
+const KVIS=1/12, TPAUSA=1.6, T_RAMPA=0.35;
+const EST={modo:'tour',rho:0.60,phi:0.65,vb:15,zped:0.35,mu:0.90,soc0:0.55,v0:60,eje:'R',vel:1,pausa:REDUCIDO,vista:'coche',rot:false,autoRunning:false};
+const SIM={t:0.5,th:0,vueltas:0};
+let SER=null, SERclave='', ST=null;
+const NOM_LIM=['su par','su potencia','la batería','baja velocidad','ninguno'];
+/** Lo que se calcula ahora: en el recorrido, lo que pida el paso; en «Probar», los mandos; en el reto, lo que pida el paso del reto. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return { rho:EST.rho, phi:EST.phi, vb:EST.vb, zped:EST.zped, mu:EST.mu, soc0:EST.soc0, v0:EST.v0, eje:EST.eje };
+}
+function aseguraSerie(){
+  const q=paramsActuales(), key=[q.rho.toFixed(3),q.phi.toFixed(3),q.vb.toFixed(1),q.zped.toFixed(3),q.mu.toFixed(3),q.soc0.toFixed(3),q.v0.toFixed(1),q.eje,q.D||0].join('|');
+  if(key===SERclave&&SER) return false;
+  SERclave=key;
+  const S=serie({ rho:q.rho, phi:q.phi, vb:q.vb/3.6, zped:q.zped, mu:q.mu, soc0:q.soc0, v0:q.v0/3.6, eje:q.eje });
+  SER={ q, S, dL:q.D||Math.round(distIdeal(q.v0/3.6,q.zped,T_RAMPA)*1.04+0.5) };
+  SIM.t=Math.min(SIM.t,S.tTot+TPAUSA);
+  colocaMotor(q.eje);
+  return true;
+}
+/** El instante actual de la serie con sus cifras derivadas. */
+function calcula(){
+  aseguraSerie();
+  const S=SER.S, m=muestrea(S,SIM.t), q=SER.q, W=VEH.m*G;
+  const frenando=m.Freq>30&&m.v>0.05;
+  const FF=(q.eje==='F'?m.Freg:0)+m.FfrF, FR=(q.eje==='R'?m.Freg:0)+m.FfrR;
+  ST={ q, S, m, frenando, W, dL:SER.dL, FF, FR, c:cargasEje(m.z), res:S.res,
+    limite:m.lim?'el agarre':(frenando?NOM_LIM[m.cual]:'—') };
+  return ST;
+}
+const clamp01=x=>Math.max(0,Math.min(1,x));
+const _tc=new THREE.Color();
+/** Temperatura de dibujo del disco a partir de la POTENCIA de fricción que le entra: sólo da el brillo; no es una temperatura medida. */
+const tVis=P=>110+640*Math.pow(clamp01(P/22000),0.8);
+/** Pone el modelo en la escena. */
+function aplicaEscena(dtS,dtR){
+  if(!EST.pausa&&dtS>0){ aseguraSerie(); SIM.t+=dtS; if(SIM.t>=SER.S.tTot+TPAUSA){ SIM.t=0; SIM.vueltas++; } }
+  const S=calcula(), m=S.m, v=m.v, q=S.q;
+  const wv=v/RT*KVIS;
+  if(dtS>0) SIM.th+=wv*dtS;
+  RUEDA.rotation.z=SIM.th;
+  const hero=EST.vista==='freno';
+  EJE.visible=hero; COCHE.visible=!hero;
+  // el camino va a la velocidad real
+  if(dtS>0) avanzaSuelo(v*dtS);
+  const off=((m.x%5)+5)%5;
+  for(const o of CAM.lista) o.p.position.set(-20+5*o.k+off,0,o.z);
+  CAM.linea.position.x=MORRO-S.dL+m.x; CAM.linea.visible=Math.abs(CAM.linea.position.x)<26;
+  const PfF=m.FfrF*v/2, PfR=m.FfrR*v/2;
+  if(hero){
+    ajustaDisco(0.30);
+    const inten=calientaDisco(tVis(PfF));
+    FLUIDO_MAT.emissiveIntensity=0.15+1.4*clamp01((m.FfrF+m.FfrR)/(S.W*0.45));
+    if(dtS>0&&!EST.pausa) emiteChispas(dtS,clamp01((tVis(PfF)-300)/450)*Math.min(70,6+PfF*0.002),v/RT*KVIS*0.13,RO*DISCO3.k);
+    if(dtS>0) pasaChispas(dtS);
+    void inten;
+  } else {
+    // discos del coche: brillo por potencia de fricción
+    for(const [lista,P] of [[CC.dm.F,PfF],[CC.dm.R,PfR]]) for(const mm of lista){ colorHierro(tVis(P),_c1); const i=incandescencia(tVis(P),_c2); mm.color.copy(_c1); mm.emissive.copy(_c2); mm.emissiveIntensity=i; }
+    const g=clamp01(m.Pdc/80e3);
+    for(const r of CC.ruedas){ const k=r.userData.lado*(r.position.x<0?1:1); void k; r.userData.rot.rotation.z=(r.userData.lado>0?1:-1)*SIM.th; r.visible=!(EST.vista==='motor'&&r.userData.lado>0); }
+    if(dtS>0) CC.rotor.rotation.z+=wv*dtS*3;
+    MM.cobre.emissive.setRGB(0.10,1.0,0.55); MM.cobre.emissiveIntensity=g*1.5;
+    MM.inversor.emissiveIntensity=0.05+g*1.2; MM.cable.emissiveIntensity=0.12+g*1.6;
+    const pulso=0.8+0.2*Math.sin(SIM.t*7);
+    CC.fill.scale.y=Math.max(0.03,clamp01(m.soc)); CC.matCarga.emissiveIntensity=0.40+0.9*clamp01(m.I/BAT.Ilim0)*pulso;
+    CC.matCarga.color.setHSL(0.40-0.06*(1-clamp01(m.soc)),0.62,0.50);
+    CC.pitch.rotation.z=m.z*3.0*4*RAD;
+    for(const l of CC.luz) l.material.color.setRGB(1,0.16,0.22).multiplyScalar(0.25+0.75*clamp01(m.z/0.5));
+    // barras de fuerza
+    for(const e of ['F','R']){ const B=CC.bar[e], reg=(q.eje===e?m.Freg:0), dis=e==='F'?m.FfrF:m.FfrR, N=e==='F'?S.c.Nf:S.c.Nr;
+      B.reg.scale.x=Math.max(0.0001,reg*KB); B.dis.scale.x=Math.max(0.0001,dis*KB); B.dis.position.x=reg*KB; B.reg.visible=reg*KB>0.004; B.dis.visible=dis*KB>0.004;
+      B.lim.position.x=q.mu*N*KB; const sobre=(m.lim&(e==='F'?1:2))!==0; B.lim.material.color.set(sobre?'#ff3b4e':'#ffffff'); B.lim.scale.y=sobre?1.25:1; }
+    pasaEnergia(dtS,m.Pdc,true);
+    emiteCalor(dtS,'F',1,PfF); emiteCalor(dtS,'F',-1,PfF); emiteCalor(dtS,'R',1,PfR); emiteCalor(dtS,'R',-1,PfR);
+    if(dtS>0) pasaCalor(dtS);
+  }
+  LUZ.calor.visible=LUZ.calorT.visible=hero;
+  return S;
+}
+
+/* ===================== 15. CÁMARAS ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+/** Desplaza el centro de la proyección al centro del hueco libre: el objeto queda en medio de lo que se ve, sin mover la cámara. */
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const TG=V3(-Math.sin(ANG_PINZA),Math.cos(ANG_PINZA),0);
+/** Cada vista: dirección desde el objetivo, objetivo, campo de visión, la caja que debe verse entera y qué fracción del hueco debe llenar. */
+const VISTAS={
+  freno: {dir:V3(-0.50,0.26,1.0),t:V3(0.0,RT,-0.01),fov:32,c:V3(0.0,RT,-0.03),m:V3(0.325,0.325,0.075),fill:0.86},
+  coche: {dir:V3(1.70,0.62,0.55),t:V3(-0.02,0.66,0),fov:30,c:V3(-0.02,0.74,0),m:V3(2.30,0.78,0.92),fill:0.92,ancho:0.97},
+  get motor(){ const s=CC.eje==='R'?1:-1, xA=CC.eje==='R'?XR:XF; return {dir:V3(-0.30*s,0.34,1.0),t:V3(xA-s*0.32,0.40,0.04),fov:28,c:V3(xA-s*0.34,0.42,0.04),m:V3(0.98,0.34,0.30),fill:0.80,ancho:0.96}; },
+};
+const _cam=new THREE.PerspectiveCamera(34,1,0.1,400);
+/** Distancia a la que la caja de la vista llena la fracción pedida del alto (o el 94 % del ancho) del hueco libre. */
+function encuadre(v){
+  const V=VISTAS[v]||VISTAS.coche, H=huecoLibre(), hh=Math.max(120,H.y1-H.y0), ww=Math.max(160,H.x1-H.x0), dir=V.dir.clone().normalize();
+  _cam.fov=V.fov; _cam.aspect=innerWidth/innerHeight; _cam.updateProjectionMatrix();
+  const esq=[]; for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]) esq.push(V3(V.c.x+sx*V.m.x,V.c.y+sy*V.m.y,V.c.z+sz*V.m.z));
+  let lo=0.3, hi=40;
+  for(let it=0;it<24;it++){
+    const d=(lo+hi)/2; _cam.position.copy(V.t).addScaledVector(dir,d); _cam.lookAt(V.t); _cam.updateMatrixWorld(true); _cam.matrixWorldInverse.copy(_cam.matrixWorld).invert();
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; for(const q of esq){ const p=q.clone().project(_cam); x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
+    const pw=(x1-x0)/2*innerWidth, ph=(y1-y0)/2*innerHeight, f=Math.max(ph/hh/V.fill,pw/ww/(V.ancho||0.94));
+    if(f>1) lo=d; else hi=d;
+  }
+  const d=(lo+hi)/2; return {pos:V.t.clone().addScaledVector(dir,d),target:V.t.clone(),fov:V.fov};
+}
+const CAMT={on:false,u:0,dur:1,o0:V3(),o1:V3(),t0:V3(),t1:V3(),f0:34,f1:34};
+function ponVista(v,dur){
+  EST.vista=v; const d=dur===undefined?(REDUCIDO?0.001:1.1):dur, e=encuadre(v);
+  const c=v==='coche'?3.8:(v==='motor'?2.2:0.9); Object.assign(LUZ.sol.shadow.camera,{left:-c,right:c,top:c,bottom:-c}); LUZ.sol.shadow.camera.updateProjectionMatrix();
+  Object.assign(CAMT,{on:true,u:0,dur:d,o0:camera.position.clone(),o1:e.pos,t0:controls.target.clone(),t1:e.target,f0:camera.fov,f1:e.fov});
+  if(typeof pintaBarras==='function') pintaBarras();
+}
+function pasaCam(dt){
+  if(CAMT.on){
+    CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+    camera.position.lerpVectors(CAMT.o0,CAMT.o1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+    camera.fov=CAMT.f0+(CAMT.f1-CAMT.f0)*e; camera.updateProjectionMatrix();
+    if(CAMT.u>=1) CAMT.on=false;
+  }
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+
+/* ===================== 16. EL HUD (izquierda) =====================
+   Lo primero que se lee es UNA frase que dice qué hace el alumno. Después, un recorrido paso a paso que arranca solo
+   (la escena ya está viva detrás) y que explica cada idea con palabras de todos los días ANTES de usar el término técnico. */
+const palPedal=z=>z<0.25?'suave':(z<0.40?'media':(z<0.60?'fuerte':'a fondo'));
+const NOM_SUELO=[['Seco',0.90],['Mojado',0.50],['Nieve',0.25]];
+const LEYENDA=`<div class="legc"><span><i style="--c:#3DDC97"></i>motor: energía que vuelve</span><span><i style="--c:#FF8A4C"></i>discos: calor perdido</span></div>`;
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · coche eléctrico</div><h2>Frenado regenerativo mezclado</h2>
+  <p class="queHaces">Decides <b>cuánto frena el motor</b> y <b>cuánto los frenos</b>, para devolverle energía a la batería.</p></div>`;
+  h+=`<div class="modebar" role="group" aria-label="Modo"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>②</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>③</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">${LEYENDA}
+    <div class="hgrid">
+      <div class="cg"><div class="cl"><div>Fuerza del pedal</div><b id="vZ"></b></div><input type="range" id="rZ" min="0.15" max="0.80" step="0.01" value="${EST.zped}" aria-label="Fuerza del pedal de freno, en g"></div>
+      <div class="cg"><div class="cl"><div>Cuánto frena el motor</div><b id="vR"></b></div><input type="range" id="rR" min="0" max="1" step="0.01" value="${EST.rho}" aria-label="Porcentaje del frenado que se le pide al motor"></div>
+      <div class="cg"><div class="cl"><div>Discos delante · detrás</div><b id="vP"></b></div><input type="range" id="rP" min="${PHI_MIN}" max="${PHI_MAX}" step="0.01" value="${EST.phi}" aria-label="Reparto de los frenos de disco entre el eje delantero y el trasero"></div>
+      <div class="cg"><div class="cl"><div>El motor suelta a</div><b id="vB"></b></div><input type="range" id="rB" min="${VB_MIN}" max="${VB_MAX}" step="1" value="${EST.vb}" aria-label="Velocidad a la que el motor empieza a soltar el freno, en kilómetros por hora"></div>
+      <div class="cg"><div class="cl"><div>Carga de la batería</div><b id="vS"></b></div><input type="range" id="rS" min="0.10" max="1" step="0.01" value="${EST.soc0}" aria-label="Carga de la batería, en porcentaje"></div>
+      <div class="cg"><div class="cl"><div>Velocidad inicial</div><b id="vV"></b></div><input type="range" id="rV" min="30" max="120" step="5" value="${EST.v0}" aria-label="Velocidad al empezar a frenar, en kilómetros por hora"></div>
+    </div>
+    <div class="seg" id="segMu" role="group" aria-label="Estado del suelo">${NOM_SUELO.map(([n,m])=>`<button class="b ${Math.abs(EST.mu-m)<0.01?'on':''}" data-mu="${m}">${n}</button>`).join('')}</div>
+    <div class="seg" id="segEje" role="group" aria-label="Ruedas que mueve el motor"><button class="b ${EST.eje==='R'?'on':''}" data-eje="R">Motor atrás</button><button class="b ${EST.eje==='F'?'on':''}" data-eje="F">Motor delante</button></div>
+    <div class="fila"><button class="b auto" id="btnAuto">Ver el recorrido otra vez</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dPal"><summary>Palabras que se usan</summary><div class="cuerpo">
+    <div class="fl"><b>Frenado regenerativo</b>: al frenar, el motor funciona como una dinamo y carga la batería.</div>
+    <div class="fl"><b>Frenos de disco</b>: la pastilla roza el disco y la energía se vuelve calor, que se pierde.</div>
+    <div class="fl"><b>Frenado mezclado</b>: el coche reparte la frenada entre los dos sin que lo notes.</div>
+    <div class="fl"><b>Agarre</b> (adherencia): lo máximo que un eje puede frenar sin patinar. Depende del suelo y del peso que carga.</div>
+    <div class="fl"><b>g</b>: unidad de frenada. 1 g es la aceleración de la gravedad (${fN(G,1)} m/s²).</div>
+  </div></details>
+  <details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl"><b>Fuerza que hay que frenar</b>: la que pide el pedal menos la resistencia de rodadura y del aire.</div>
+    <div class="formula">F = m·g·z − (C<sub>rr</sub>·m·g + ½·ρ·C<sub>d</sub>·A·v²)</div>
+    <div class="fl"><b>Lo que el motor puede dar</b>: el menor de cuatro techos, por la ganancia de la velocidad baja f<sub>v</sub>.</div>
+    <div class="formula">F<sub>par</sub> = T<sub>máx</sub>·i/(r·η<sub>g</sub>) ,  F<sub>pot</sub> = P<sub>máx</sub>/(η<sub>g</sub>·v)<br>F<sub>bat</sub> = (V<sub>oc</sub> + R·I<sub>lím</sub>)·I<sub>lím</sub>/(η·v)<br>F<sub>mot</sub> = f<sub>v</sub>(v)·mín(F<sub>par</sub>, F<sub>pot</sub>, F<sub>bat</sub>)</div>
+    <div class="fl"><b>Batería</b>: el motor entrega P<sub>dc</sub> = η·F·v y la corriente sale de R·I² + V<sub>oc</sub>·I = P<sub>dc</sub>. La corriente máxima de carga baja a 0 entre el 80 y el 100 % de carga.</div>
+    <div class="fl"><b>Agarre y carga por eje</b>: al frenar a z, el peso se va hacia delante. Un eje no da más que μ·N.</div>
+    <div class="formula">N<sub>f</sub> = m·g·(b + z·h)/L ,  N<sub>r</sub> = m·g·(a − z·h)/L<br>sólo el motor trasero: z = μ·a/(L + μ·h)</div>
+    <div class="fl"><b>Energía</b>: ½·m·v₀² = calor en discos + energía en las ruedas del motor + rodadura y aire; y la del motor = pérdidas del tren + pérdidas en la batería + energía guardada.</div>
+  </div></details>
+  <details id="dSim"><summary>Qué simplifica</summary><div class="cuerpo"><ul class="no">
+    <li>Rendimientos del motor, del inversor y de la reducción constantes (0,975 · 0,93 · 0,97). Un motor real cambia con el par y la velocidad.</li>
+    <li>Batería de 96 celdas con V<sub>oc</sub>(carga) lineal y una resistencia fija; sin temperatura ni envejecimiento. No hay descarga: sólo se recupera.</li>
+    <li>Los discos responden con un retardo de 0,10 s; no se modelan el servofreno, el ABS ni el calentamiento del disco. El brillo del disco muestra la potencia de fricción, no una temperatura medida.</li>
+    <li>El eje que llega a μ·N «se agarrota» y da μ·N; sin ABS. Suelo plano y recto; el cabeceo se dibuja ×4 y la rueda a 1/12 de su giro real.</li>
+  </ul><div class="src">Gillespie, <i>Fundamentals of Vehicle Dynamics</i> · Limpert, <i>Brake Design and Safety</i> · Ehsani et al., <i>Modern Electric, Hybrid Electric and Fuel Cell Vehicles</i> · ECE R13-H.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='tour'&&EST.modo!=='probar'); enlazaHUD(); etiquetas(); ajustaHoja();
+}
+function etiquetas(){
+  const set=(id,t)=>{ const e=el(id); if(e) e.textContent=t; };
+  set('vZ',fN(EST.zped,2)+' g · '+palPedal(EST.zped)); set('vR',fN(EST.rho*100,0)+' %'); set('vP',fN(EST.phi*100,0)+' · '+fN(100-EST.phi*100,0)); set('vB',fN(EST.vb,0)+' km/h'); set('vS',fN(EST.soc0*100,0)+' %'); set('vV',fN(EST.v0,0)+' km/h');
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-eje]').forEach(b=>b.onclick=()=>{ EST.eje=b.dataset.eje; pintaHUD(); pintaDockFijo(); });
+  H.querySelectorAll('[data-mu]').forEach(b=>b.onclick=()=>{ EST.mu=+b.dataset.mu; pintaHUD(); });
+  const lig=(id,fn)=>{ const r=el(id); if(r) r.oninput=()=>{ fn(+r.value); etiquetas(); }; };
+  lig('rZ',v=>{ EST.zped=v; }); lig('rR',v=>{ EST.rho=v; }); lig('rP',v=>{ EST.phi=v; }); lig('rB',v=>{ EST.vb=v; }); lig('rS',v=>{ EST.soc0=v; }); lig('rV',v=>{ EST.v0=v; });
+  if(el('btnAuto')) el('btnAuto').onclick=()=>setMode('tour',true);
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 17. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+Math.max(9,size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function punto(x,px,py,r,col){ x.fillStyle=col; x.beginPath(); x.arc(px,py,r,0,DOSPI); x.fill(); x.strokeStyle='#fff'; x.lineWidth=1.2; x.stroke(); }
+const LFZ=lienzo('gFza'), LRE=lienzo('gRep'), LLM=lienzo('gLim'), LEN=lienzo('gEn');
+const C_M='#3DDC97', C_D='#FF8A4C', C_B='#4CC9F0', C_P='#8E9BA6', C_ID='#FFFFFF', C_MAL='#FF4D5A', C_GRIS='#92B3AE', C_OK='#34d399';
+const GRID='rgba(146,179,174,0.13)', EJE_C='#3a5a58', TXT='#8fb0aa';
+/** Lo que el dock NO debe enseñar todavía. */
+const enPredice=()=>EST.modo==='reto'&&GUIA.paso==='predice';
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.phase===2&&!GUIA.dxOk&&GUIA.paso==='diag';
+const enDecide=()=>EST.modo==='reto'&&GUIA.paso==='decide';
+/* ---- ¿Quién frena en cada momento? : fuerza (en g) de motor, discos y resistencias, apiladas ---- */
+function pintaFuerzas(){
+  const S=ST; if(!S) return; const x=abre(LFZ), Wd=LFZ.w, Hd=LFZ.h, Sr=S.S, m=S.m, W=S.W, n=Sr.n, tm=Sr.tTot;
+  const X0=26, X1=Wd-8, Y0=10, Y1=Hd-14, ym=Math.max(0.5,Math.ceil(Sr.o.zped*1.3*10)/10);
+  const X=t=>X0+t/tm*(X1-X0), Y=g=>Y1-g/ym*(Y1-Y0);
+  for(let g=0.2;g<ym;g+=0.2){ raya(x,X0,Y(g),X1,Y(g),GRID); txt(x,fN(g,1),X0-3,Y(g)+3,TXT,9,'right','500'); }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,EJE_C); raya(x,X0,Y0,X0,Y1,EJE_C);
+  const dt=tm>20?5:(tm>8?2:1); for(let t=0;t<=tm+1e-6;t+=dt){ raya(x,X(t),Y1,X(t),Y1+3,EJE_C); txt(x,fN(t,0),X(t),Hd-2,TXT,9,'center','500'); }
+  const paso=Math.max(1,Math.floor(n/260));
+  const capa=(f0,f1,col)=>{ x.fillStyle=col; x.beginPath(); let primero=true; for(let i=0;i<n;i+=paso){ const px=X(Sr.t[i]); if(primero){ x.moveTo(px,Y(f1(i))); primero=false; } else x.lineTo(px,Y(f1(i))); }
+    for(let i=n-1;i>=0;i-=paso){ x.lineTo(X(Sr.t[i]),Y(f0(i))); } x.closePath(); x.fill(); };
+  const reg=i=>Sr.Freg[i]/W, fr=i=>(Sr.FfrF[i]+Sr.FfrR[i])/W, tot=i=>Sr.z[i];
+  capa(()=>0,reg,'rgba(61,220,151,0.78)');
+  capa(reg,i=>reg(i)+fr(i),'rgba(255,138,76,0.80)');
+  capa(i=>reg(i)+fr(i),tot,'rgba(142,155,166,0.55)');
+  // lo que pide el pedal (punteado) y lo que sientes (blanca)
+  x.strokeStyle='rgba(200,214,226,0.9)'; x.lineWidth=1.3; x.setLineDash([4,3]); x.beginPath(); for(let i=0;i<n;i+=paso){ const px=X(Sr.t[i]), py=Y(Sr.zc[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]);
+  x.strokeStyle='#ffffff'; x.lineWidth=2; x.beginPath(); for(let i=0;i<n;i+=paso){ const px=X(Sr.t[i]), py=Y(tot(i)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  raya(x,X(Math.min(m.t,tm)),Y0,X(Math.min(m.t,tm)),Y1,'rgba(255,255,255,0.7)',1.2);
+  punto(x,X(Math.min(m.t,tm)),Y(m.z),3.6,'#ffffff');
+  txt(x,'s',X1,Hd-2,TXT,9,'right','500'); txt(x,'g',X0+2,Y0+8,TXT,9,'left','500');
+  const r=S.res, dip=r.zdip; const t_=el('t_fu'); const tx=enDiagnostico()?'':(dip>0.02?'se hunde −'+fN(dip,2)+' g':'');
+  if(t_.textContent!==tx) t_.textContent=tx;
+}
+/* ---- Reparto delante · detrás: plano F_f–F_r (en m·g), curva ideal, límites de agarre y el recorrido de la frenada ---- */
+function pintaReparto(){
+  const S=ST; if(!S) return; const x=abre(LRE), Wd=LRE.w, Hd=LRE.h, q=S.q, m=S.m, W=S.W, Sr=S.S;
+  const X0=22, X1=Wd-6, Y0=14, Y1=Hd-14, XM=0.80, YM=0.40;
+  const X=f=>X0+f/XM*(X1-X0), Y=f=>Y1-f/YM*(Y1-Y0);
+  for(const z of [0.2,0.4,0.6,0.8]){ raya(x,X(z),Y(0),X(Math.max(0,z-YM)),Y(Math.min(YM,z)),'rgba(146,179,174,0.15)',1,[2,3]); if(z<=XM+0.001) txt(x,fN(z,1),X(z),Hd-3,TXT,9,'center','500'); }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,EJE_C); raya(x,X0,Y0,X0,Y1,EJE_C);
+  txt(x,'delante →',X1,Y1-4,TXT,9,'right','500'); txt(x,'detrás',X0+2,Y0-3,TXT,9,'left','500');
+  if(!enPredice()){
+    txt(x,'ideal',X(0.50),Y(0.115),C_ID,9,'left','700');
+    // límites de agarre del suelo actual: delantero (cian) y trasero (ámbar)
+    const mu=q.mu; x.setLineDash([4,3]); x.lineWidth=1.3;
+    x.strokeStyle='rgba(76,201,240,0.75)'; x.beginPath(); for(let i=0;i<=24;i++){ const z=i/24*1.1, ff=mu*(VEH.b+z*VEH.h)/VEH.L, fr=z-ff; (i?x.lineTo:x.moveTo).call(x,X(ff),Y(Math.max(0,fr))); } x.stroke();
+    x.strokeStyle='rgba(255,179,71,0.8)'; x.beginPath(); for(let i=0;i<=24;i++){ const z=i/24*1.1, fr=mu*(VEH.a-z*VEH.h)/VEH.L, ff=z-fr; (i?x.lineTo:x.moveTo).call(x,X(ff),Y(fr)); } x.stroke(); x.setLineDash([]);
+    // curva ideal
+    x.strokeStyle=C_ID; x.lineWidth=2; x.beginPath(); for(let i=0;i<=40;i++){ const z=i/40*1.1, p=puntoIdeal(z); i?x.lineTo(X(p.ff),Y(p.fr)):x.moveTo(X(p.ff),Y(p.fr)); } x.stroke();
+  }
+  // el recorrido de esta frenada y el punto de ahora
+  const n=Sr.n, paso=Math.max(1,Math.floor(n/200));
+  x.strokeStyle='rgba(124,240,190,0.85)'; x.lineWidth=1.6; x.beginPath(); let ini=true;
+  for(let i=0;i<n-1;i+=paso){ if(Sr.Freq[i]<30) continue; const ff=((q.eje==='F'?Sr.Freg[i]:0)+Sr.FfrF[i])/W, fr=((q.eje==='R'?Sr.Freg[i]:0)+Sr.FfrR[i])/W; if(ini){ x.moveTo(X(ff),Y(fr)); ini=false; } else x.lineTo(X(ff),Y(fr)); } x.stroke();
+  if(S.frenando&&S.FF+S.FR>0.02*W) punto(x,X(S.FF/W),Y(S.FR/W),4,m.lim?C_MAL:'#ffffff');
+  const t_=el('t_re'); if(t_.textContent!=='') t_.textContent='';
+}
+/* ---- Lo que puede dar el motor: los techos frente a la velocidad, lo que se le pide y lo que da ---- */
+function pintaLimites(){
+  const S=ST; if(!S) return; const x=abre(LLM), Wd=LLM.w, Hd=LLM.h, q=S.q, m=S.m, W=S.W, Sr=S.S;
+  const X0=26, X1=Wd-6, Y0=12, Y1=Hd-14, VM=Math.max(60,Math.ceil(q.v0*1.05/20)*20), YM=0.60;
+  const X=v=>X0+v/VM*(X1-X0), Y=f=>Y1-f/YM*(Y1-Y0);
+  for(const f of [0.2,0.4]){ raya(x,X0,Y(f),X1,Y(f),GRID); txt(x,fN(f,1),X0-3,Y(f)+3,TXT,9,'right','500'); }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,EJE_C); raya(x,X0,Y0,X0,Y1,EJE_C);
+  for(let v=20;v<VM;v+=20){ raya(x,X(v),Y1,X(v),Y1+3,EJE_C); txt(x,fN(v),X(v),Hd-2,TXT,9,'center','500'); }
+  const soc=m.soc, vb=q.vb/3.6;
+  const curva=(fn,col,dash,w,rel)=>{ x.strokeStyle=col; x.lineWidth=w||1.2; x.setLineDash(dash||[]); x.beginPath(); let p=true; for(let v=2;v<=VM;v+=2){ const L=limitesRegen(v/3.6,soc,vb), f=fn(L)/W; if(f>YM*1.5){ p=true; continue; } p?x.moveTo(X(v),Y(Math.min(f,YM))):x.lineTo(X(v),Y(Math.min(f,YM))); p=false; } x.stroke(); x.setLineDash([]); };
+  // la región que el motor puede dar (verde translúcido)
+  x.fillStyle='rgba(61,220,151,0.17)'; x.beginPath(); x.moveTo(X(0),Y(0)); for(let v=0;v<=VM;v+=2){ const L=limitesRegen(Math.max(v,0.1)/3.6,soc,vb); x.lineTo(X(v),Y(Math.min(YM,L.lim/W))); } x.lineTo(X(VM),Y(0)); x.closePath(); x.fill();
+  curva(L=>L.par,'rgba(76,201,240,0.8)',[4,3]); curva(L=>L.pot,'rgba(255,209,102,0.85)',[4,3]); curva(L=>L.bat,'rgba(180,140,255,0.9)',[2,3]);
+  x.strokeStyle=C_M; x.lineWidth=1.8; x.beginPath(); for(let v=0;v<=VM;v+=2){ const L=limitesRegen(Math.max(v,0.1)/3.6,soc,vb), f=Math.min(YM,L.lim/W); v?x.lineTo(X(v),Y(f)):x.moveTo(X(v),Y(f)); } x.stroke();
+  // lo que se le pide y lo que da, a lo largo de la frenada
+  const n=Sr.n, paso=Math.max(1,Math.floor(n/160));
+  x.strokeStyle='rgba(255,138,76,0.95)'; x.lineWidth=1.5; x.setLineDash([3,3]); x.beginPath(); let ini=true;
+  for(let i=0;i<n-1;i+=paso){ if(Sr.Freq[i]<30) continue; const px=X(Sr.v[i]*3.6), py=Y(Math.min(YM,q.rho*Sr.Freq[i]/W)); if(ini){ x.moveTo(px,py); ini=false; } else x.lineTo(px,py); } x.stroke(); x.setLineDash([]);
+  x.strokeStyle='#ffffff'; x.lineWidth=2; x.beginPath(); ini=true;
+  for(let i=0;i<n-1;i+=paso){ if(Sr.Freq[i]<30) continue; const px=X(Sr.v[i]*3.6), py=Y(Math.min(YM,Sr.Freg[i]/W)); if(ini){ x.moveTo(px,py); ini=false; } else x.lineTo(px,py); } x.stroke();
+  if(S.frenando) punto(x,X(m.v*3.6),Y(Math.min(YM,m.Freg/W)),4,'#ffffff');
+  txt(x,'km/h →',X1,Y1-4,TXT,9,'right','500'); txt(x,'fuerza/peso',X0+2,Y0-2,TXT,9,'left','500');
+  const t_=el('t_lm'); const tx=enDiagnostico()?'':'techo '+fN(limitesRegen(Math.max(m.v,0.5),soc,vb).lim/W,2)+' g'; if(t_.textContent!==tx) t_.textContent=tx;
+}
+/* ---- ¿A dónde va la energía? : barra de la energía de la frenada que se va llenando ---- */
+function pintaEnergia(){
+  const S=ST; if(!S) return; const x=abre(LEN), Wd=LEN.w, Hd=LEN.h, m=S.m, r=S.res, E0=r.E0;
+  const X0=6, X1=Wd-6, Yb=6, Hb=Math.min(22,Hd*0.36);
+  x.fillStyle='rgba(255,255,255,0.07)'; x.fillRect(X0,Yb,X1-X0,Hb);
+  const segs=[[m.cq,C_M,'a la batería'],[m.cls,C_P,'pérdidas motor y batería'],[m.cfr,C_D,'calor en discos'],[m.cres,'#5b6a75','rodadura y aire']];
+  let px=X0; for(const [E,col] of segs){ const w=E/E0*(X1-X0); x.fillStyle=col; x.fillRect(px,Yb,w,Hb); px+=w; }
+  x.strokeStyle='rgba(255,255,255,0.35)'; x.lineWidth=1; x.strokeRect(X0+0.5,Yb+0.5,X1-X0-1,Hb);
+  const fila=(i,xx,yy)=>{ const [E,col,n]=segs[i]; x.fillStyle=col; x.fillRect(xx,yy-8,9,9); txt(x,fN(E/E0*100,0)+' % '+n,xx+13,yy,'#cfe0dc',10,'left','500'); };
+  const y1=Yb+Hb+13, y2=y1+13, mid=(X1-X0)/2+X0-4;
+  fila(0,X0,y1); fila(2,mid,y1); fila(1,X0,y2); fila(3,mid,y2);
+  const t_=el('t_en'); const tx=enPredice()?'':'ida y vuelta '+fN(r.etaIdaVuelta*100,0)+' %'; if(t_.textContent!==tx) t_.textContent=tx;
+}
+function pintaDockFijo(){
+  const md=EST.modo;
+  el('p_mode').textContent=md==='reto'?'Reto':(md==='tour'?'Recorrido':'Una frenada');
+  pintaSub();
+}
+function pintaSub(){
+  const S=ST; if(!S) return; const q=S.q, ocu=enDiagnostico();
+  const parts=[fN(q.v0)+' km/h',q.eje==='R'?'motor atrás':'motor delante',ocu?'batería ¿?':'batería '+fN(S.m.soc*100,0)+' %'];
+  const t=parts.join(' · '); const e=el('p_sub'); if(e.textContent!==t) e.textContent=t;
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const S=ST; if(!S) return; const m=S.m, q=S.q, r=S.res, set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; }, oc=enPredice(), dg=enDiagnostico();
+  set('f_v',fN(m.v*3.6,0)+'<small> km/h</small>');
+  set('f_z',(S.frenando?fN(m.z,2):'—')+'<small> g</small>'); _cl('f_z',S.frenando&&m.lim?'warn':'');
+  const falta=S.dL-m.x, parado=m.v<0.05&&m.t>1;
+  set('f_d',oc?'¿?':(parado&&falta<0?fN(-falta,1)+'<small> m de más</small>':fN(Math.max(0,falta),1)+'<small> m</small>')); _cl('f_d',oc?'oculto':(parado&&falta<0?'bad':''));
+  set('f_q',fN(m.cq/1000,0)+'<small> kJ</small>'); _cl('f_q',oc?'oculto':''); if(oc) set('f_q','¿?');
+  set('f_h',fN(m.cfr/1000,0)+'<small> kJ</small>'); if(oc) set('f_h','¿?'); _cl('f_h',oc?'oculto':'');
+  set('f_s',dg?'¿?':fN(m.soc*100,1)+'<small> %</small>'); _cl('f_s',dg?'oculto':'');
+  const tot=m.Freg+m.FfrF+m.FfrR, pm=tot>1?m.Freg/tot*100:0;
+  set('f_m',S.frenando?(oc?'¿?':fN(pm,0)+'<small> %</small>'):'—'); _cl('f_m',oc?'oculto':'');
+  const lim=oc||dg?'¿?':S.limite;
+  set('f_l',lim); _cl('f_l',oc||dg?'oculto':(m.lim?'bad':(S.frenando&&m.cual<4?'warn':'')));
+  set('f_e',oc?'¿?':fN(r.etaIdaVuelta*100,0)+'<small> %</small>'); _cl('f_e',oc?'oculto':'');
+  pintaSub();
+  const Av=el('aviso'); let cl='', t='';
+  if(!oc&&!dg&&S.frenando&&m.lim){ cl='mal'; t='El eje '+((m.lim&2)?'trasero':'delantero')+' llega al límite de agarre: esas ruedas patinarían.'; }
+  else if(!oc&&!dg&&S.frenando&&m.cual===2&&m.Freg<q.rho*m.Freq*0.8){ cl='ojo'; t='La batería admite poca carga: el motor frena menos y los discos hacen el resto.'; }
+  else if(!oc&&!dg&&m.t>T_RAMPA+0.5&&m.zc-m.z>0.025&&S.frenando){ cl='ojo'; t='El pedal se hunde: los discos tardan en tomar el relevo del motor.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+
+/* ===================== 18. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.1,'×1/10'],[0.3,'×1/3'],[1,'×1'],[3,'×3'],[10,'×10']];
+el('vbar').innerHTML=[['coche','Coche'],['motor','Motor y batería'],['freno','Freno']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad del tiempo de la escena">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(Math.abs(+sel.value-EST.vel)>1e-9) sel.value=String(EST.vel);
+  const lab=(VEL.find(v=>Math.abs(v[0]-EST.vel)<1e-9)||[0,'×'+EST.vel])[1];
+  el('tLento').textContent=(EST.vel<1?'cámara lenta '+lab:(EST.vel>1?'tiempo acelerado '+lab:'tiempo real'))+' · giro dibujado ×1/12';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const S=ST, e=el('tEst'); if(!S) return;
+  el('tReloj').textContent='t = '+fN(Math.min(SIM.t,S.S.tTot),1)+' s';
+  let t, c='#5eead4'; const m=S.m;
+  if(EST.pausa){ t='en pausa'; c='#92B3AE'; }
+  else if(m.v<0.05&&m.t>1){ t='parado'; c='#92B3AE'; }
+  else if(S.frenando){ t='frenando'; c=m.lim?'#FF4D5A':(m.zc-m.z>0.025&&m.t>T_RAMPA+0.5?'#FFB347':'#3DDC97'); }
+  else t='rodando';
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 19. RÓTULOS Y TOOLTIP ===================== */
+const pE=(a,r,z)=>V3(Math.cos(a)*r,RT+Math.sin(a)*r,z);
+const ANCLAS_FRENO=[
+  ['Pista de fricción',()=>pE(200*RAD,0.12*DISCO3.k,0.014),()=>true],
+  ['Aletas de ventilación',()=>pE((ANG_PINZA+ANG_CUNA*0.55),0.12*DISCO3.k,0.0),()=>true],
+  ['Pinza flotante',()=>pE(ANG_PINZA-0.05,0.166+(DISCO3.k-1)*RO,-0.02),()=>true],
+  ['Pastilla',()=>pE(ANG_PINZA-0.04,0.12*DISCO3.k,0.02),()=>true],
+  ['Campana y cubo',()=>V3(0.0,RT-0.01,0.052),()=>true],
+  ['Llanta (corte)',()=>V3(-0.02,RT+0.202,ZCORTE),()=>true],
+  ['Neumático (corte)',()=>V3(Math.cos(-0.5)*0.314,RT+Math.sin(-0.5)*0.314,ZCORTE),()=>true],
+  ['Mangueta',()=>V3(-0.05,RT-0.17,-0.086),()=>true],
+];
+const ANCLAS_COCHE=[
+  ['Batería: su nivel verde es la carga',()=>V3(CC.bat.X0-0.5,0.30,0.55),()=>true],
+  ['Motor en corte',()=>V3(MOT.position.x,RT+0.05,0.12),()=>true],
+  ['Inversor',()=>V3(MOT.position.x,RT+0.27,0.05),()=>true],
+  ['Cable de alta tensión',()=>V3(MOT.position.x-(CC.eje==='R'?1:-1)*0.42,0.53,0.10),()=>true],
+  ['Disco y pinza delanteros',()=>V3(XF,RT,0.84),()=>true],
+  ['Barra de fuerza del eje',()=>V3(XR+0.55,0.08,1.02),()=>true],
+  ['Marca de agarre máximo',()=>V3(XF+0.55,0.14,1.02),()=>true],
+  ['Línea de parada',()=>V3(CAM.linea.position.x,0.02,1.4),()=>CAM.linea.visible],
+];
+const ANCLAS_MOTOR=[
+  ['Estátor (cobre en las ranuras)',()=>V3(MOT.position.x,RT+0.14,0.12),()=>true],
+  ['Rotor de imanes',()=>V3(MOT.position.x,RT,0.12),()=>true],
+  ['Inversor',()=>V3(MOT.position.x,RT+0.27,0.05),()=>true],
+  ['Cable de alta tensión',()=>V3(MOT.position.x-(CC.eje==='R'?1:-1)*0.42,0.53,0.10),()=>true],
+  ['Batería: su nivel verde es la carga',()=>V3(MOT.position.x-(CC.eje==='R'?1:-1)*0.80,0.30,0.55),()=>true],
+  ['Reducción',()=>V3(MOT.position.x,RT,-0.17),()=>true],
+];
+let ANCLAS=ANCLAS_FRENO;
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<8;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(255,184,120,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ if(!ROT.on) ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  ANCLAS=EST.vista==='coche'?ANCLAS_COCHE:(EST.vista==='motor'?ANCLAS_MOTOR:ANCLAS_FRENO);
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,ok],i)=>{ if(!ok()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y,t}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[ix+(lado>0?4:0)]; if(!e) return; e.d.textContent=c.t; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  casco:'El coche, en transparencia. Al frenar, el morro baja: aquí se dibuja ×4',
+  bateria:'La batería, plana en el suelo. Su nivel verde es la carga: sube un poco con cada frenada',
+  carga:'Nivel de carga de la batería. Casi llena, ya no admite más energía: el motor frena menos',
+  motor:'Motor eléctrico en media sección. Al frenar actúa de dinamo: la rueda lo gira y él produce electricidad',
+  rotor:'Rotor con imanes enterrados en V. Gira con las ruedas a través de la reducción',
+  bobinas:'Cobre del estátor: se enciende en verde cuanta más electricidad genera',
+  eje:'Eje que une el motor con las dos ruedas del mismo lado',
+  reduccion:'Reducción: baja las vueltas del motor a las de la rueda (9 a 1)',
+  inversor:'Inversor: convierte la corriente alterna que genera el motor en continua para cargar la batería',
+  cable:'Cable de alta tensión (naranja): lleva la energía del inversor a la batería',
+  energia:'Cada punto verde es energía que vuelve a la batería. Hay más cuanta más potencia entra',
+  calor:'Calor que se pierde en los discos: cuanto más frenan los discos, más sale',
+  barraM:'Lo que frena el motor en este eje. 1 m de barra = 9 kN',
+  barraD:'Lo que frenan los discos en este eje',
+  marcaMu:'Agarre máximo del eje (μ·N): si la barra llega hasta aquí, esas ruedas patinan. Se pone roja',
+  riel:'Regla de las barras: 1 m = 9 kN de fuerza de frenado',
+  linea:'Línea de parada: el coche debe detenerse antes de ella',
+  poste:'Poste cada 5 m: marcan la distancia recorrida',
+  luzfreno:'Luz de freno: más viva cuanto más fuerte frena el coche',
+  disco:'Disco de freno: la pastilla lo roza y la energía se vuelve calor. Su brillo muestra la potencia de fricción, no una temperatura medida',
+  pinza:'Pinza del freno de disco',
+  neumatico:'Neumático: de él sale la fuerza de frenado, hasta μ·N',
+  llanta:'Llanta de aluminio',
+  aletas:'Aletas de ventilación: el aire que la rueda empuja entre las pistas enfría el disco',
+  campana:'Campana del disco: une la pista con el cubo',
+  pastilla:'Pastilla: material de fricción sobre un soporte de chapa',
+  piston:'Pistón de la pinza: la presión del líquido lo empuja contra la pastilla',
+  liquido:'Líquido de frenos: brilla más cuanto mayor es la fuerza de los discos',
+  mangueta:'Mangueta de fundición: sostiene el cubo, la pinza y la suspensión',
+  cubo:'Cubo con cinco espárragos y tuercas',
+  asfalto:'Asfalto: corre hacia atrás a la velocidad real del coche',
+  chispas:'Polvo de pastilla incandescente que sale por el borde de salida del disco',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const lista=[EJE,COCHE,SUELO].filter(g=>g.visible);
+  const hits=RAY.intersectObjects(lista,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; for(let o=h.object;o;o=o.parent){ if(o.userData&&o.userData.pieza) return o.userData.pieza; } return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 20. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); ponVista(EST.vista,0.001); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); ponVista(EST.vista,0.001); centraEnHueco(); });
+
+
+/* ===================== 21. EL RECORRIDO Y EL RETO =====================
+   RECORRIDO (arranca solo): siete pasos que explican, con palabras de todos los días, qué es el frenado mezclado; cada paso
+   pone la escena en el caso que cuenta. «PROBAR»: los mandos libres. «RETO»: tres fases —1 · Predice (a cuántos g patinarían las ruedas
+   del motor si sólo él frenara), 2 · Diseña (parar antes de la línea devolviendo la energía pedida sin que patine ningún eje y sin que
+   el pedal se hunda; la solución es una ventana interior) y 3 · Diagnostica (¿batería llena, motor que patina o relevo brusco?)— y
+   cierra con un quiz de tres preguntas. Varios intentos fallidos cambian el escenario (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,preparando:false,dx:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0,orden:null,dzp:0.45};
+const NOM_DX={bateria:'La batería está casi llena',agarre:'El motor frena demasiado atrás',relevo:'El relevo a los discos es brusco'};
+const nomSuelo=mu=>mu>=0.85?'seco':(mu>=0.45?'mojado':'con nieve');
+const nomEje=e=>e==='R'?'de atrás':'de delante';
+
+/* ---------- El recorrido ---------- */
+const BASE_T={ rho:0.60, phi:0.65, vb:15, zped:0.35, mu:0.90, soc0:0.55, v0:60, eje:'R' };
+const TOUR_PASOS=[
+  {t:'El coche frena y guarda energía', vista:'coche', ley:true, p:{},
+   x:'Un coche eléctrico se acerca a una línea de parada. Lo <b>verde</b> es energía que vuelve a la batería; lo <b>naranja</b> es energía que se pierde como calor en los frenos de disco.'},
+  {t:'El motor se vuelve dinamo', vista:'motor', ley:true, p:{},
+   x:'Al frenar, las ruedas giran el motor y éste produce electricidad en vez de gastarla. A eso se le llama <b>frenado regenerativo</b>. La electricidad sube por el cable naranja hasta la batería.'},
+  {t:'Dos frenos, un solo pedal', vista:'coche', ley:true, p:{},
+   x:'Las barras junto a cada rueda muestran quién frena: <b>verde</b>, el motor; <b>naranja</b>, los discos. El coche las mezcla para que tú sólo notes un pedal. La marca blanca es el <b>agarre</b> máximo de ese eje: lo más que puede frenar sin patinar.'},
+  {t:'A veces el motor no puede', vista:'coche', ley:false, p:{soc0:0.97,rho:0.85},
+   x:'Aquí la batería está al 97 %: casi no admite más carga. El motor frena muy poco y los discos hacen casi todo. El motor tiene además un límite de fuerza, de potencia y de velocidad.'},
+  {t:'Sólo un eje recupera', vista:'coche', ley:false, p:{rho:1.0,phi:0.50,mu:0.50,zped:0.40,v0:50},
+   x:'El motor mueve sólo las ruedas de atrás. Al frenar, el peso se va hacia delante y atrás agarra menos: si el motor frena demasiado, esas ruedas patinan (la marca blanca se pone roja).'},
+  {t:'Al final, los discos toman el relevo', vista:'coche', ley:false, p:{rho:0.75,phi:0.80,vb:8,zped:0.45,v0:50},
+   x:'Casi parado, el motor ya no frena bien y suelta poco a poco. Si los discos tardan en tomar el relevo, el pedal «se hunde»: mira cómo baja la línea blanca de abajo.'},
+  {t:'Ahora te toca a ti', vista:'coche', ley:false, fin:true, p:{},
+   x:'Ya sabes lo básico. En <b>Probar</b> mueves los mandos libremente; en el <b>Reto</b> tienes que parar antes de la línea devolviendo la mayor energía posible.'},
+];
+const TOUR={i:0};
+function tourParams(){ const s=TOUR_PASOS[TOUR.i]; return Object.assign({},BASE_T,s.p); }
+function htmlTour(){
+  const s=TOUR_PASOS[TOUR.i], n=TOUR_PASOS.length;
+  const dots=TOUR_PASOS.map((_,i)=>`<i class="${i===TOUR.i?'on':(i<TOUR.i?'ok':'')}"></i>`).join('');
+  const bot=s.fin
+    ?`<div class="tb"><button class="b primary" data-act="tour-probar">Probar libremente</button><button class="b" data-act="tour-reto">Ir al reto</button></div><button class="salta" data-act="tour-prev">← Volver al paso anterior</button>`
+    :`<div class="tb"><button class="b" data-act="tour-prev" ${TOUR.i===0?'disabled':''}>← Atrás</button><button class="b primary" data-act="tour-next" id="btnTourNext">Siguiente →</button></div><button class="salta" data-act="tour-skip">Saltar el recorrido</button>`;
+  return `<div class="tourBox${s.fin?' fin':''}"><div class="tp"><span>Paso ${TOUR.i+1} de ${n}</span><span class="dots">${dots}</span></div><h3>${s.t}</h3><div class="tx">${s.x}</div>${s.ley?LEYENDA:''}${bot}</div>`;
+}
+function tourVa(i){
+  TOUR.i=Math.max(0,Math.min(TOUR_PASOS.length-1,i)); SERclave=''; SIM.t=0.5; pintaHUD(); pintaDockFijo(); ponVista(TOUR_PASOS[TOUR.i].vista,0.9);
+}
+
+/* ---------- Fase 1 · Predice ---------- */
+function sorteaCaso1(){
+  let c; do{ c={mu:pickOne([0.5,0.6,0.7,0.8,0.9]),eje:pickOne(['R','R','F'])}; }while(GUIA.r1&&GUIA.r1.mu===c.mu&&GUIA.r1.eje===c.eje);
+  c.ans=zSoloMotor(c.mu,c.eje); GUIA.r1=c;
+}
+const leeNum=s=>{ const raw=String(s||'').trim().replace(/\s| /g,'').replace(',','.').replace(/g$/i,''); return parseFloat(raw); };
+function checkPredice(){
+  const v=leeNum((el('ansV')||{}).value), r=GUIA.r1;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la frenada en g (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  const ok=r.ans, tol=Math.max(0.015,0.03*ok);
+  if(Math.abs(v-ok)<=tol){
+    RETO.fallos1=0; sonido.bien();
+    const otro=zSoloMotor(r.mu,r.eje==='R'?'F':'R');
+    feedback('good','¡Correcto! ✓',`Si sólo frena el motor ${nomEje(r.eje)}, esas ruedas patinan a z = μ·${r.eje==='R'?'a':'b'}/(L ${r.eje==='R'?'+':'−'} μ·h) = <b>${fN(ok,2)} g</b>. Con el motor ${r.eje==='R'?'delante':'atrás'} serían ${fN(otro,2)} g. Por eso el motor no puede hacer todo el frenado: el resto lo ponen los discos de los dos ejes.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal();
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1();
+      feedback('bad','Tres intentos fallidos','Cambia el caso. Plantea el equilibrio del eje del motor: la fuerza de frenado m·g·z debe igualar μ por el peso que carga ese eje, que cambia con z.'); pintaHUD(); pintaDockFijo();
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,2)} g) está ${v>ok?'alto':'bajo'}. Recuerda que al frenar el peso se va hacia delante, así que el eje de atrás carga menos que parado. (intentos fallidos: ${RETO.fallos1}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallos1;
+    }
+  }
+}
+
+/* ---------- Fase 2 · Diseña ---------- */
+function prepararDecide(){
+  GUIA.preparando=true; GUIA.r2=null; SERclave='';
+  setTimeout(()=>{
+    const sc=generaReto(Math.random);
+    GUIA.r2={sc,rho:0.30,phi:0.60,vb:12,intentos:0,res:null};
+    GUIA.preparando=false; SERclave=''; SIM.t=0.5; pintaHUD(); pintaDockFijo();
+  },20);
+}
+function validaDecide(){
+  const r=GUIA.r2; if(!r||GUIA.preparando) return;
+  const e=evaluaReto(r.sc,r.rho,r.phi,r.vb); r.res=e; RETO.intentos++; r.intentos++;
+  if(e.ok){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Cumple los cuatro! ✓',`Con el motor al ${fN(r.rho*100,0)} % del frenado, discos ${fN(r.phi*100,0)} : ${fN(100-r.phi*100,0)} y el relevo a ${fN(r.vb,0)} km/h: te detienes a ${fN(e.dist,1)} m (línea a ${fN(r.sc.Dobj,0)} m), a la batería vuelve el ${fN(e.rec*100,0)} % de la energía, ningún eje patina y el pedal baja como mucho ${fN(e.dip,2)} g. Con poco motor se tira energía; con demasiado patina el eje motriz; el relevo temprano hunde el pedal y el tardío desperdicia energía.`,true);
+    paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    const f=[];
+    if(!e.okF) f.push(`te detienes a ${fN(e.dist,1)} m y la línea está a ${fN(r.sc.Dobj,0)} m`);
+    if(!e.okA) f.push(`un eje llega al límite de agarre durante ${fN(e.tLim,1)} s: esas ruedas patinan`);
+    if(!e.okE) f.push(`a la batería vuelve el ${fN(e.rec*100,0)} % de la energía y se pide al menos el ${fN(r.sc.recMin*100,0)} %`);
+    if(!e.okP) f.push(`el pedal se hunde ${fN(e.dip,2)} g (tope ${fN(r.sc.dipMax,2)} g)`);
+    const msg='Falla: '+f.join('; ')+'.';
+    if(RETO.fallos2>=5){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cinco intentos sin lograrlo',msg+' Cambia el escenario: la velocidad y el suelo son otros.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+` (intentos: ${RETO.fallos2}/5)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.tipo; let d; do{ d=generaDx(Math.random); }while(d.tipo===p);
+  GUIA.dx=d; GUIA.dxOk=false; GUIA.dzp=0.45; GUIA.orden=barajar(['bateria','agarre','relevo']); SERclave=''; SIM.t=0.5;
+  pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.tipo){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro coche: mira cuánto verde hay en la gráfica de arriba, si la marca de un eje se pone roja y si la línea blanca baja al final.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(d){
+  const S=serie({rho:d.rho,phi:d.phi,vb:d.vb/3.6,zped:GUIA.dzp,mu:d.mu,soc0:d.soc0,v0:50/3.6,eje:d.eje}), r=S.res;
+  if(d.tipo==='bateria') return `Batería casi llena: al ${fN(d.soc0*100,0)} % admite una corriente de carga muy baja, y el motor sólo pudo dar el ${fN(r.regFrac*100,0)} % del frenado aunque se le pedía el ${fN(d.rho*100,0)} %. Los discos hicieron el resto y casi todo se perdió en calor.`;
+  if(d.tipo==='agarre') return `El motor frena demasiado atrás: se le pedía el ${fN(d.rho*100,0)} % del frenado sobre un suelo con μ = ${fN(d.mu,2)}, y el eje de atrás llegó a su límite de agarre durante ${fN(r.tLim,1)} s. Habría que pedirle menos al motor y cargar más los discos de delante.`;
+  return `Relevo brusco: el motor soltó el freno a ${fN(d.vb,0)} km/h, muy cerca de la parada, y los discos no llegaron a tiempo; el pedal se hundió ${fN(r.zdip,2)} g. Subir la velocidad de relevo lo suaviza, a cambio de recuperar algo menos de energía.`;
+}
+function noEs(k){
+  if(k==='bateria') return 'Con la batería casi llena el motor casi no aportaría nada desde el principio: aquí el motor sí frena, pero por otra razón.';
+  if(k==='agarre') return 'Si el eje de atrás llegara al límite de agarre, la marca de ese eje se pondría roja en la escena: no ocurre aquí.';
+  return 'Si el relevo fuera brusco, la línea blanca de la gráfica de arriba bajaría al final de la frenada: aquí hay otro fallo.';
+}
+const QUIZ=[
+  {q:'Cuando el coche frena de forma regenerativa, ¿qué hace el motor eléctrico?',ok:'Funciona como una dinamo: las ruedas lo giran y carga la batería',mal:['Se apaga, y los frenos de disco hacen todo el trabajo','Gira al revés para empujar al coche hacia atrás','Convierte el calor de los discos otra vez en electricidad']},
+  {q:'Con la batería casi llena, ¿por qué frena menos el motor?',ok:'La batería admite muy poca corriente de carga: no hay dónde guardar la energía',mal:['El motor se debilita cuando la batería está cargada','Los discos lo bloquean para ahorrar pastillas','La energía se guarda mejor en los neumáticos']},
+  {q:'Si el motor mueve sólo las ruedas de atrás, ¿por qué no puede hacer todo el frenado?',ok:'Al frenar el peso se va hacia delante: atrás se agarra menos y esas ruedas patinarían',mal:['Porque el motor trasero siempre es más débil que el delantero','Porque los discos de atrás no se pueden desconectar','Porque la batería está delante y está lejos del eje']},
+  {q:'A baja velocidad el motor suelta el freno. ¿Qué hay que cuidar en ese relevo?',ok:'Que los discos tomen el relevo a tiempo; si no, el pedal se siente hundido',mal:['Que los discos suelten antes que el motor','Que el coche acelere un poco para suavizar la parada','Nada: el relevo nunca se nota en el pedal']},
+  {q:'La energía va de las ruedas a la batería y luego otra vez a las ruedas. ¿Qué ocurre?',ok:'Se pierde una parte en el motor, el inversor y la batería: sólo vuelve una fracción',mal:['Vuelve toda, porque la energía no se pierde','Se duplica, porque la batería la amplifica','Se pierde toda, porque el motor no puede generar']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; GUIA.quizSel=barajar([0,1,2,3,4]).slice(0,3); cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizSel[GUIA.quizN]], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=2;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<2){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto') pintaHUD(); }
+function handleAction(act,btn){
+  switch(act){
+    case 'tour-next': tourVa(TOUR.i+1); break;
+    case 'tour-prev': tourVa(TOUR.i-1); break;
+    case 'tour-skip': case 'tour-probar': setMode('probar'); break;
+    case 'tour-reto': setMode('reto'); break;
+    case 'check-v': checkPredice(); break;
+    case 'hint-v': {
+      const r=GUIA.r1, fr=r?(r.eje==='R'?'N<sub>r</sub> = m·g·(a − z·h)/L':'N<sub>f</sub> = m·g·(b + z·h)/L'):'';
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2',`Una rueda patina cuando la fuerza de frenado llega a μ por el peso que carga ese eje. Al frenar a z (en g), el eje del motor carga ${fr}.`); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2',`Si sólo frena el motor, toda la fuerza m·g·z es de ese eje: m·g·z = μ·${fr}. Despeja z.`); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break; }
+    case 'validar': validaDecide(); break;
+    case 'dx-bateria': diagnostica('bateria'); break;
+    case 'dx-agarre': diagnostica('agarre'); break;
+    case 'dx-relevo': diagnostica('relevo'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso del reto ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Cuánto puede frenar sólo el motor?',
+      teach:`Imagina que sólo frena el motor, que mueve las ruedas <b>${nomEje(r.eje)}</b>, sobre suelo con agarre <b>μ = ${fN(r.mu,2)}</b>. Datos: entre ejes ${fN(VEH.L,2)} m; el centro de masa está a ${fN(VEH.a,2)} m del eje delantero y a ${fN(VEH.h,2)} m del suelo. (1 g es la frenada de la gravedad; a 0,5 g se para de 36 km/h en ${fN(10*10/(2*0.5*G),0)} m.)<div class="task">¿A cuántos <b>g</b> empiezan a patinar esas ruedas? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? g" aria-label="Frenada en g a la que patinan las ruedas del motor"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2;
+      if(GUIA.preparando||!r) return {no:'Fase 2 · Reto 2',head:'Tu diseño',title:'Preparando la pista…',teach:'Calculando el escenario.',acts:''};
+      const sc=r.sc, e=r.res, chip=(ok,t,v)=>`<div class="chip ${e?(ok?'ok':'no'):''}"><span>${t}</span><b>${v}</b></div>`;
+      return {no:'Fase 2 · Reto 2',head:'Tu diseño',title:'Para antes de la línea y devuelve energía',
+      teach:`Vienes a <b>${fN(sc.v0)} km/h</b> y la línea está a <b>${fN(sc.Dobj)} m</b>. El pedal está fijo (${fN(sc.zped,2)} g), el suelo está ${nomSuelo(sc.mu)} (μ = ${fN(sc.mu,2)}), la batería al ${fN(sc.soc0*100,0)} % y el motor mueve las ruedas <b>${nomEje(sc.eje)}</b>. Cumple las <b>cuatro a la vez</b>. ${tri('d_try2',RETO.fallos2,5)}<div class="chips">
+        ${chip(e&&e.okF,'Para antes de la línea','≤ '+fN(sc.Dobj,0)+' m'+(e?' · '+fN(e.dist,1):''))}
+        ${chip(e&&e.okA,'Ningún eje patina','sin límite de agarre'+(e?' · '+fN(e.tLim,1)+' s':''))}
+        ${chip(e&&e.okE,'Energía a la batería','≥ '+fN(sc.recMin*100,0)+' %'+(e?' · '+fN(e.rec*100,0)+' %':''))}
+        ${chip(e&&e.okP,'Pedal sin hundirse','≤ '+fN(sc.dipMax,2)+' g'+(e?' · '+fN(e.dip,2):''))}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Cuánto frena el motor</div><b id="v2R">${fN(r.rho*100,0)} %</b></div><input type="range" id="r2R" min="0" max="1" step="0.01" value="${r.rho}" aria-label="Porcentaje del frenado que se le pide al motor"></div>
+        <div class="cg"><div class="cl"><div>Discos delante · detrás</div><b id="v2P">${fN(r.phi*100,0)} · ${fN(100-r.phi*100,0)}</b></div><input type="range" id="r2P" min="${PHI_MIN}" max="${PHI_MAX}" step="0.01" value="${r.phi}" aria-label="Reparto de los discos entre delante y detrás"></div>
+        <div class="cg"><div class="cl"><div>El motor suelta a</div><b id="v2B">${fN(r.vb,0)} km/h</b></div><input type="range" id="r2B" min="${VB_MIN}" max="${VB_MAX}" step="1" value="${r.vb}" aria-label="Velocidad a la que el motor empieza a soltar el freno"></div>
+        <button class="b primary" data-act="validar">▶ Validar el diseño</button>`}; }
+    case 'diag': { const ord=GUIA.orden||['bateria','agarre','relevo'];
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua el fallo de este coche',
+      teach:`No sabes cómo está ajustado. Cambia la fuerza del pedal y mira: cuánto verde hay en la gráfica de arriba, si la marca de un eje se pone roja y si la línea blanca baja al final.<div class="task">¿Qué le pasa a este coche? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Fuerza del pedal</div><b id="vdZ">${fN(GUIA.dzp,2)} g · ${palPedal(GUIA.dzp)}</b></div><input type="range" id="rdZ" min="0.20" max="0.60" step="0.01" value="${GUIA.dzp}" aria-label="Fuerza del pedal de freno"></div>`
+        +ord.map(k=>`<button class="b" data-act="dx-${k}">${NOM_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de 3',head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<2?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Predijiste, diseñaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de 3 en el quiz. Vuelve a <b>Probar</b> y busca el ajuste que más energía devuelve a la batería en tu suelo favorito: sube el motor hasta que la marca del eje se ponga roja y retrocede un poco.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Predice','Diseña','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en la escena en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1; return Object.assign({},BASE_T,{ rho:0.5, phi:0.6, zped:0.30, mu:r.mu, soc0:0.6, v0:50, eje:r.eje }); }
+  if(GUIA.paso==='decide'&&GUIA.r2&&!GUIA.preparando){ const r=GUIA.r2, sc=r.sc; return { rho:r.rho, phi:r.phi, vb:r.vb, zped:sc.zped, mu:sc.mu, soc0:sc.soc0, v0:sc.v0, eje:sc.eje, D:sc.Dobj }; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const d=GUIA.dx; return { rho:d.rho, phi:d.phi, vb:d.vb, zped:GUIA.dzp, mu:d.mu, soc0:d.soc0, v0:50, eje:d.eje }; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&m===EST.modo) return;
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); } }
+  else if(m==='tour'){ EST.modo='tour'; TOUR.i=0; }
+  else EST.modo='probar';
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  SERclave=''; SIM.t=0.5; pintaHUD(); pintaDockFijo(); pintaBarras(); ponVista(EST.modo==='tour'?TOUR_PASOS[0].vista:(EST.vista==='freno'?'freno':'coche'),0.6);
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t) return;
+  if(GUIA.r2&&(t.id==='r2R'||t.id==='r2P'||t.id==='r2B')){ const r=GUIA.r2;
+    if(t.id==='r2R'){ r.rho=+t.value; el('v2R').textContent=fN(r.rho*100,0)+' %'; }
+    if(t.id==='r2P'){ r.phi=+t.value; el('v2P').textContent=fN(r.phi*100,0)+' · '+fN(100-r.phi*100,0); }
+    if(t.id==='r2B'){ r.vb=+t.value; el('v2B').textContent=fN(r.vb,0)+' km/h'; }
+    r.res=null; }
+  if(t.id==='rdZ'){ GUIA.dzp=+t.value; el('vdZ').textContent=fN(GUIA.dzp,2)+' g · '+palPedal(GUIA.dzp); }
+});
+
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo de la escena avanza dt·(velocidad elegida) en cada cuadro, y con ESE tiempo se leen la serie de frenadas, el giro
+   de la rueda, el brillo del disco, las flechas del coche, las cifras y las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.vel,dt);
+  pasaCam(dt);
+  if(ST) sonido.actualiza(EST.pausa?0:ST.m.v/33,EST.pausa||!ST.frenando?0:clamp01(ST.m.Freg/(ST.W*0.4)),EST.pausa||!ST.frenando?0:clamp01((ST.m.FfrF+ST.m.FfrR)/(ST.W*0.4)));
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.05&&seVe(el('panel'))){ tLienzo=t; pintaFuerzas(); pintaReparto(); pintaLimites(); pintaEnergia(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre en el recorrido: el coche ya va frenando hacia la línea, con los puntos verdes subiendo por el cable a la batería y el
+   calor naranja saliendo de los discos. Es el gancho: el alumno ve las dos energías antes de tocar nada. */
+disposicion();
+aplicaCalidad();
+pintaHUD();
+SERclave=''; aseguraSerie();
+aplicaEscena(0,0);
+pintaBarras();
+ponVista('coche',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Extensión en pantalla de lo que SE VE de la rueda: vértices que el recorte no quita, proyectados con la cámara actual. */
+function extensionVisible(raiz){
+  const q=new THREE.Vector3(), M4=new THREE.Matrix4(); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9, n=0;
+  camera.updateMatrixWorld(true); raiz.updateMatrixWorld(true);
+  raiz.traverse(o=>{
+    if(!o.isMesh||o.isInstancedMesh||!o.geometry||!o.geometry.attributes.position) return;
+    for(let p=o;p;p=p.parent) if(!p.visible) return;
+    const pos=o.geometry.attributes.position, paso=Math.max(1,Math.floor(pos.count/1500)), mats=Array.isArray(o.material)?o.material:[o.material], planos=mats[0].clippingPlanes||[], inter=!!mats[0].clipIntersection;
+    for(let i=0;i<pos.count;i+=paso){
+      q.fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);
+      if(planos.length){ const dentro=planos.map(pl=>pl.distanceToPoint(q)>=0); const recortado=inter?dentro.every(d=>!d):dentro.some(d=>!d); if(recortado) continue; }
+      q.project(camera); if(q.z>1) continue; const px=(q.x+1)/2*innerWidth, py=(1-q.y)/2*innerHeight;
+      x0=Math.min(x0,px); x1=Math.max(x1,px); y0=Math.min(y0,py); y1=Math.max(y1,py); n++;
+    } });
+  void M4; return {x0:Math.round(x0),x1:Math.round(x1),y0:Math.round(y0),y1:Math.round(y1),alto:+((y1-y0)/innerHeight).toFixed(3),ancho:+((x1-x0)/innerWidth).toFixed(3),n};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tourPaso:TOUR.i,fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{mu:GUIA.r1.mu,eje:GUIA.r1.eje}:null,r2:GUIA.r2?{rho:GUIA.r2.rho,phi:GUIA.r2.phi,vb:GUIA.r2.vb,mu:GUIA.r2.sc.mu,v0:GUIA.r2.sc.v0,Dobj:GUIA.r2.sc.Dobj,eje:GUIA.r2.sc.eje,ventana:GUIA.r2.sc.ventana}:null,dx:GUIA.dx?GUIA.dx.tipo:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const S=ST; if(!S) return {activo:false}; const m=S.m, r=S.res;
+    return {t:m.t,v:m.v,x:m.x,z:m.z,zc:m.zc,Freg:m.Freg,FfrF:m.FfrF,FfrR:m.FfrR,Pdc:m.Pdc,I:m.I,soc:m.soc,lim:m.lim,cual:m.cual,frenando:S.frenando,
+      rho:S.q.rho,phi:S.q.phi,vb:S.q.vb,mu:S.q.mu,eje:S.q.eje,dist:r.dist,rec:r.recFrac,regFrac:r.regFrac,dip:r.zdip,tLim:r.tLim,eta:r.etaIdaVuelta,cierre:r.cierre,Dlinea:S.dL}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,th:SIM.th,t:SIM.t}; },
+  /** Rectángulo en pantalla (px) de lo visible del objeto y su alto como fracción del alto del lienzo. */
+  objeto(){ return extensionVisible(EST.vista==='freno'?EJE:COCHE); },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2,dx:GUIA.dx}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  setMode:(m)=>setMode(m,true),
+  tour:(i)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(i); },
+  pon:(o)=>{ Object.assign(EST,o); if(EST.modo!=='probar') setMode('probar',true); SERclave=''; pintaHUD(); pintaDockFijo(); pintaBarras(); aplicaEscena(0,0); },
+  ir:(t)=>{ aseguraSerie(); SIM.t=Math.max(0,Math.min(t,SER.S.tTot+TPAUSA-0.01)); aplicaEscena(0,0); },
+  avanza:(s)=>{ for(let t=0;t<s;t+=0.05) aplicaEscena(Math.min(0.05,s-t)*EST.vel*2,0.05); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  linea:()=>{ const q=CAM.linea.getWorldPosition(new THREE.Vector3()), pr=q.clone().project(camera); return {x:CAM.linea.position.x,vis:CAM.linea.visible,y:CAM.linea.position.y,mundo:[q.x,q.y,q.z],pant:[(pr.x+1)/2*innerWidth,(1-pr.y)/2*innerHeight,pr.z],padre:CAM.linea.parent===SUELO,suelo:SUELO.visible,nombre:CAM.linea.material.type}; },
+  fisica:()=>({serie,evaluaReto,generaReto,zSoloMotor,limitesRegen}),
+  r2:()=>GUIA.r2,
+  resuelve2:()=>{ const r=GUIA.r2; if(!r) return null; const c=r.sc.ventana.centro; r.rho=c.rho; r.phi=c.phi; r.vb=c.vb; pintaHUD(); validaDecide(); return [r.rho,r.phi,r.vb]; },
+});
+instalaDiag('frenado-regenerativo-mezclado',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{coche:COCHE,rueda:EJE,suelo:SUELO,chispas:PUNTOS}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-frenado-regenerativo-mezclado.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

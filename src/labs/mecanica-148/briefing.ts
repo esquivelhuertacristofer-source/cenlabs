@@ -1,0 +1,35 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-148",
+  titulo: "Frenado Regenerativo Mezclado: el Motor y los Frenos Juntos",
+  subtitulo: "Autotrónica · decidir cuánto frena el motor y cuánto los frenos para devolver energía a la batería",
+  acento: "#3DDC97",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Aquí decides cuánto frena el motor y cuánto los frenos, para devolverle energía a la batería. Un coche eléctrico se acerca a una línea de parada y el recorrido guiado te lo explica paso a paso.
+
+Lo verde es energía que vuelve a la batería; lo naranja se pierde como calor en los discos. Cambia el reparto y mira cuánto vuelve en cada frenada.
+
+Pero el motor no siempre puede: con la batería casi llena, a poca velocidad o si las ruedas patinan, los discos tienen que ayudar.
+
+Tu misión es parar antes de la línea, sin que ninguna rueda patine y recuperando la mayor energía posible. La respuesta no está escrita: sale de la física y no está en los extremos.`,
+  conceptos: [
+    { icono: '🔋', nombre: 'Frenado regenerativo', descripcion: 'Al frenar, el motor funciona como generador y devuelve a la batería parte de la energía del movimiento.' },
+    { icono: '🛑', nombre: 'Frenos de disco', descripcion: 'Convierten la energía en calor. Completan lo que el motor no puede dar y paran el coche del todo.' },
+    { icono: '⚖️', nombre: 'Reparto entre ejes', descripcion: 'Al frenar el peso se va hacia delante: las ruedas de atrás agarran menos y un eje que pide demasiado patina.' },
+    { icono: '📉', nombre: 'Límites del motor', descripcion: 'Par, potencia, carga de la batería y baja velocidad fijan cuánto puede frenar el motor en cada instante.' },
+  ],
+  mision: [
+    'Sigue el recorrido guiado: mira dónde va la energía y por qué el motor a veces no puede frenar solo.',
+    'Prueba el pedal, el reparto, la carga de la batería y el suelo, y observa cuánta energía vuelve.',
+    'En el reto, predice cuándo patina el eje del motor y diseña una frenada que cumpla las cuatro condiciones.',
+    'Diagnostica un fallo por sus síntomas y contesta la pregunta de cierre.',
+  ],
+  aplicaciones: [
+    { area: 'Automoción', ejemplo: 'Los coches eléctricos e híbridos mezclan motor y discos de forma que el conductor sólo nota un pedal; de ello depende gran parte de su autonomía en ciudad.' },
+    { area: 'Taller y diagnóstico', ejemplo: 'Con la batería llena o fría el freno regenerativo se reduce y el pedal se siente distinto; es un síntoma normal que conviene saber distinguir de un fallo.' },
+  ],
+};
+
+export default briefing;
