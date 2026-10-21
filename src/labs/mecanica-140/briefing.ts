@@ -1,0 +1,27 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-140",
+  titulo: "Convertidor de Par y Transmisión Automática",
+  subtitulo: "Dinámica del Vehículo",
+  acento: "#2A9D8F",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: 'Un coche arranca con el pedal a fondo y el freno puesto: el motor no se ahoga porque entre él y la caja hay un convertidor de par, con aceite que pasa de un rotor a otro.\nVerás el corte con el impulsor, la turbina y el estator, el aceite que circula y el planetario de la caja con los dientes que dicen los números.\nPrimero calculas la relación de una marcha con la ecuación de Willis; luego eliges cuánto debe calar el convertidor y a qué velocidad cerrar el embrague para llegar a 50 km/h a tiempo sin recalentar el aceite; al final diagnosticas una falla con lo que mide un banco.',
+  conceptos: [
+    { icono: '🌀', nombre: 'Relación de par', descripcion: 'El estator hace que, con la turbina lenta, el par de salida sea mayor que el de entrada; se reduce a 1 al acercarse al acoplamiento y la eficiencia vale η = SR·TR.' },
+    { icono: '🔒', nombre: 'Embrague de puenteo', descripcion: 'Une impulsor y turbina para que no haya deslizamiento ni calor, pero también quita la multiplicación de par: cuándo cerrarlo es un compromiso.' },
+    { icono: '⚙️', nombre: 'Planetario de Willis', descripcion: 'Zs·ωs + Zr·ωr = (Zs + Zr)·ωc: con la corona fija sale una reducción; con solar y portasatélites unidos todo gira junto.' },
+  ],
+  mision: [
+    'Calcula la relación de la primera marcha del planetario a partir de sus dientes.',
+    'Elige el calado del convertidor y la velocidad de puenteo para cumplir el tiempo de 0 a 50 km/h sin pasar del calor que aguanta el aceite.',
+    'Diagnostica qué falla tiene un convertidor con lo que miden en el banco.',
+  ],
+  aplicaciones: [
+    { area: 'Automóviles con caja automática', ejemplo: 'Casi todas las cajas automáticas de turismo usan un convertidor con embrague de puenteo para arrancar suave y ahorrar combustible en carretera.' },
+    { area: 'Maquinaria pesada', ejemplo: 'Camiones, autobuses y cargadores usan convertidores por la multiplicación de par al arrancar con mucha carga.' },
+  ],
+};
+
+export default briefing;

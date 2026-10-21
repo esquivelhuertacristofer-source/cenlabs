@@ -1,0 +1,62 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-132',
+  titulo: 'Climatiza un Vehículo Eléctrico: Bomba de Calor de R134a y Autonomía',
+  subtitulo: 'Autotrónica · ciclo de refrigerante, COP y autonomía a bajo cero',
+  acento: '#2FC4D4',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Delante tienes el circuito de climatización de un coche eléctrico, abierto en corte: el compresor de espiral con su motor, la bobina de la cabina, la válvula de expansión y la bobina exterior. Fuera nieva, y el refrigerante ya está circulando.
+
+El tubo y las partículas van coloreados por fase: azul líquido, blanco mezcla, naranja vapor. Un punto blanco viaja con el refrigerante por el diagrama p–h del panel, construido con la ecuación de estado de Peng–Robinson, y las presiones, la temperatura de descarga y el régimen del compresor salen del mismo modelo.
+
+Un calentador resistivo convierte cada kWh eléctrico en 1 kWh de calor. Una bomba de calor lo transporta desde el aire de fuera, y con una cantidad de energía bastante menor llega a la cabina más calor del que se paga. Pero el aire que mueves por las bobinas no es gratis: los ventiladores gastan con el cubo del caudal.
+
+Calcula el máximo que permite la física, ajusta los caudales para gastar lo mínimo a bajo cero y diagnostica una bomba de calor que no rinde. Cada kWh que ahorras es autonomía.`,
+  conceptos: [
+    {
+      icono: '🧪',
+      nombre: 'Ecuación de estado de Peng–Robinson',
+      descripcion: 'Con Tc = 374,21 K, Pc = 4,059 MPa y ω = 0,3268, la saturación sale de igualar la fugacidad del líquido y del vapor. Da p_sat(0 °C) = 0,292 MPa y p_sat(50 °C) = 1,321 MPa, a menos del 0,5 % de las tablas de NIST; las entalpías de vapor quedan hasta un 1,4 % por encima.',
+    },
+    {
+      icono: '🔄',
+      nombre: 'Ciclo de compresión de vapor y COP',
+      descripcion: 'Compresión con rendimiento isentrópico, condensación, expansión a entalpía constante y evaporación. El COP de calefacción es (h₂ − h₃)/(h₂ − h₁) y siempre queda por debajo del de Carnot T_c/(T_c − T_f).',
+    },
+    {
+      icono: '❄️',
+      nombre: 'Por qué cae el COP con el frío',
+      descripcion: 'Al bajar la temperatura exterior sube la relación de presiones, el vapor es menos denso y el compresor trabaja más por kilogramo y mueve menos masa. A −20 °C el régimen se acerca a las 9 000 rpm y la descarga a 130 °C.',
+    },
+    {
+      icono: '🔋',
+      nombre: 'Del COP a la autonomía',
+      descripcion: 'La potencia del clima se suma a la de tracción F·v/η, y la autonomía es la energía útil dividida entre esa suma por la velocidad. A 60 km/h y −10 °C, 3,17 kW resistivos o 1,60 kW de bomba de calor separan unos 82 km.',
+    },
+  ],
+  mision: [
+    'OBSERVA el circuito en corte: sigue el refrigerante desde el compresor hasta la bobina de la cabina, la válvula y la bobina exterior, y compara con el punto del diagrama p–h.',
+    'CAMBIA entre bomba de calor, calentador resistivo y aire acondicionado, y baja la temperatura exterior hasta −20 °C para ver cómo se hunde el COP.',
+    'PREDICE el COP máximo de Carnot entre dos temperaturas y compáralo con el del ciclo real.',
+    'RETO · Ajusta el aire de la cabina, el del exterior y el subenfriamiento para calentar a bajo cero gastando lo mínimo, sin pasar de 9 000 rpm ni de 130 °C de descarga.',
+    'DIAGNOSTICA una bomba de calor que no rinde (escarcha, falta de refrigerante o poco aire en la cabina) a partir de las presiones, el sobrecalentamiento, el subenfriamiento y la descarga.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Vehículos eléctricos',
+      ejemplo: 'Muchos coches eléctricos montan una bomba de calor para no perder en invierno hasta un tercio de la autonomía con un calentador resistivo. Los sistemas actuales usan R1234yf o CO₂, con el mismo ciclo que aquí.',
+    },
+    {
+      area: 'Gestión térmica de la batería',
+      ejemplo: 'El mismo circuito alimenta un enfriador (chiller) que quita calor a la batería durante la carga rápida y la calienta a bajas temperaturas.',
+    },
+    {
+      area: 'Climatización de edificios',
+      ejemplo: 'Una bomba de calor aire-agua doméstica funciona con el mismo ciclo y se dimensiona con el mismo compromiso entre salto de presión y consumo de ventiladores.',
+    },
+  ],
+};
+
+export default briefing;

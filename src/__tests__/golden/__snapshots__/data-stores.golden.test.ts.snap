@@ -4649,6 +4649,64 @@ Primero calculas una distancia de parada, luego ajustas el umbral de disparo par
     "titulo": "ADAS: Radar, Cámara y Frenado Autónomo (AEB)",
     "videoUrl": "",
   },
+  "mecanica-132": {
+    "acento": "#2FC4D4",
+    "aplicaciones": [
+      {
+        "area": "Vehículos eléctricos",
+        "ejemplo": "Muchos coches eléctricos montan una bomba de calor para no perder en invierno hasta un tercio de la autonomía con un calentador resistivo. Los sistemas actuales usan R1234yf o CO₂, con el mismo ciclo que aquí.",
+      },
+      {
+        "area": "Gestión térmica de la batería",
+        "ejemplo": "El mismo circuito alimenta un enfriador (chiller) que quita calor a la batería durante la carga rápida y la calienta a bajas temperaturas.",
+      },
+      {
+        "area": "Climatización de edificios",
+        "ejemplo": "Una bomba de calor aire-agua doméstica funciona con el mismo ciclo y se dimensiona con el mismo compromiso entre salto de presión y consumo de ventiladores.",
+      },
+    ],
+    "bienvenida": "Delante tienes el circuito de climatización de un coche eléctrico, abierto en corte: el compresor de espiral con su motor, la bobina de la cabina, la válvula de expansión y la bobina exterior. Fuera nieva, y el refrigerante ya está circulando.
+
+El tubo y las partículas van coloreados por fase: azul líquido, blanco mezcla, naranja vapor. Un punto blanco viaja con el refrigerante por el diagrama p–h del panel, construido con la ecuación de estado de Peng–Robinson, y las presiones, la temperatura de descarga y el régimen del compresor salen del mismo modelo.
+
+Un calentador resistivo convierte cada kWh eléctrico en 1 kWh de calor. Una bomba de calor lo transporta desde el aire de fuera, y con una cantidad de energía bastante menor llega a la cabina más calor del que se paga. Pero el aire que mueves por las bobinas no es gratis: los ventiladores gastan con el cubo del caudal.
+
+Calcula el máximo que permite la física, ajusta los caudales para gastar lo mínimo a bajo cero y diagnostica una bomba de calor que no rinde. Cada kWh que ahorras es autonomía.",
+    "codigo": "MEC-132",
+    "conceptos": [
+      {
+        "descripcion": "Con Tc = 374,21 K, Pc = 4,059 MPa y ω = 0,3268, la saturación sale de igualar la fugacidad del líquido y del vapor. Da p_sat(0 °C) = 0,292 MPa y p_sat(50 °C) = 1,321 MPa, a menos del 0,5 % de las tablas de NIST; las entalpías de vapor quedan hasta un 1,4 % por encima.",
+        "icono": "🧪",
+        "nombre": "Ecuación de estado de Peng–Robinson",
+      },
+      {
+        "descripcion": "Compresión con rendimiento isentrópico, condensación, expansión a entalpía constante y evaporación. El COP de calefacción es (h₂ − h₃)/(h₂ − h₁) y siempre queda por debajo del de Carnot T_c/(T_c − T_f).",
+        "icono": "🔄",
+        "nombre": "Ciclo de compresión de vapor y COP",
+      },
+      {
+        "descripcion": "Al bajar la temperatura exterior sube la relación de presiones, el vapor es menos denso y el compresor trabaja más por kilogramo y mueve menos masa. A −20 °C el régimen se acerca a las 9 000 rpm y la descarga a 130 °C.",
+        "icono": "❄️",
+        "nombre": "Por qué cae el COP con el frío",
+      },
+      {
+        "descripcion": "La potencia del clima se suma a la de tracción F·v/η, y la autonomía es la energía útil dividida entre esa suma por la velocidad. A 60 km/h y −10 °C, 3,17 kW resistivos o 1,60 kW de bomba de calor separan unos 82 km.",
+        "icono": "🔋",
+        "nombre": "Del COP a la autonomía",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "OBSERVA el circuito en corte: sigue el refrigerante desde el compresor hasta la bobina de la cabina, la válvula y la bobina exterior, y compara con el punto del diagrama p–h.",
+      "CAMBIA entre bomba de calor, calentador resistivo y aire acondicionado, y baja la temperatura exterior hasta −20 °C para ver cómo se hunde el COP.",
+      "PREDICE el COP máximo de Carnot entre dos temperaturas y compáralo con el del ciclo real.",
+      "RETO · Ajusta el aire de la cabina, el del exterior y el subenfriamiento para calentar a bajo cero gastando lo mínimo, sin pasar de 9 000 rpm ni de 130 °C de descarga.",
+      "DIAGNOSTICA una bomba de calor que no rinde (escarcha, falta de refrigerante o poco aire en la cabina) a partir de las presiones, el sobrecalentamiento, el subenfriamiento y la descarga.",
+    ],
+    "subtitulo": "Autotrónica · ciclo de refrigerante, COP y autonomía a bajo cero",
+    "titulo": "Climatiza un Vehículo Eléctrico: Bomba de Calor de R134a y Autonomía",
+    "videoUrl": "",
+  },
   "mecanica-133": {
     "acento": "#38BDF8",
     "aplicaciones": [
@@ -4949,6 +5007,57 @@ Primero calculas a cuántas rpm gira una rueda; luego eliges el tipo de diferenc
     "titulo": "Diferencial y Reparto de Par en Curva",
     "videoUrl": "",
   },
+  "mecanica-139": {
+    "acento": "#3FA7FF",
+    "aplicaciones": [
+      {
+        "area": "Taller de alineación",
+        "ejemplo": "Ajustar convergencia, caída y avance corrige el desgaste en el borde de la llanta y el volante que no regresa.",
+      },
+      {
+        "area": "Diseño de dirección",
+        "ejemplo": "Elegir el brazo y la barra del trapecio decide cuánto se arrastran las llantas en maniobras de estacionamiento.",
+      },
+    ],
+    "bienvenida": "Mira el eje delantero desde arriba: en una curva la rueda interior gira más que la exterior. Las líneas luminosas son las perpendiculares de las ruedas; si no se cortan en el eje trasero, las llantas se arrastran.
+
+Cambia el brazo y la barra del trapecio, la caída, el avance y la convergencia. El dock te dice el error de Ackermann, el par que devuelve el volante y cuánto arrastra cada llanta en línea recta.
+
+Tu misión es pensar como alineador: calcular un ángulo, afinar el trapecio hasta que el error baje del límite y diagnosticar un desgaste por sus síntomas.",
+    "codigo": "MEC-139",
+    "conceptos": [
+      {
+        "descripcion": "cot δe − cot δi = t/L: las perpendiculares de las ruedas se cortan en el eje trasero.",
+        "icono": "📐",
+        "nombre": "Ackermann",
+      },
+      {
+        "descripcion": "Brazos, barra y cremallera forman un cuadrilátero que sólo aproxima la ley ideal.",
+        "icono": "🔧",
+        "nombre": "Trapecio",
+      },
+      {
+        "descripcion": "El pivote inclinado crea un brazo de arrastre y el par que devuelve el volante al centro.",
+        "icono": "↩️",
+        "nombre": "Avance",
+      },
+      {
+        "descripcion": "En recta hay una convergencia con el menor arrastre lateral, y no suele ser cero.",
+        "icono": "🛞",
+        "nombre": "Caída y convergencia",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa la curva de las ruedas y dónde se cortan sus perpendiculares.",
+      "En el laboratorio guiado, calcula el ángulo que pide el trapecio.",
+      "Afina la barra de acoplamiento hasta bajar el error de Ackermann del límite.",
+      "Diagnostica un desgaste por sus síntomas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Dinámica del Vehículo · por qué las dos ruedas no giran lo mismo y por qué una llanta se gasta de un lado",
+    "titulo": "Geometría de Dirección y Alineación: Ackermann, caída, avance y convergencia",
+    "videoUrl": "",
+  },
   "mecanica-14": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -5007,6 +5116,49 @@ En el modo Ajuste vas a extraer n e Is de solo dos mediciones — así se caract
     ],
     "subtitulo": "Electrónica · Caracterización de dispositivos",
     "titulo": "Curva I–V del diodo: trazador y ajuste exponencial",
+  },
+  "mecanica-140": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automóviles con caja automática",
+        "ejemplo": "Casi todas las cajas automáticas de turismo usan un convertidor con embrague de puenteo para arrancar suave y ahorrar combustible en carretera.",
+      },
+      {
+        "area": "Maquinaria pesada",
+        "ejemplo": "Camiones, autobuses y cargadores usan convertidores por la multiplicación de par al arrancar con mucha carga.",
+      },
+    ],
+    "bienvenida": "Un coche arranca con el pedal a fondo y el freno puesto: el motor no se ahoga porque entre él y la caja hay un convertidor de par, con aceite que pasa de un rotor a otro.
+Verás el corte con el impulsor, la turbina y el estator, el aceite que circula y el planetario de la caja con los dientes que dicen los números.
+Primero calculas la relación de una marcha con la ecuación de Willis; luego eliges cuánto debe calar el convertidor y a qué velocidad cerrar el embrague para llegar a 50 km/h a tiempo sin recalentar el aceite; al final diagnosticas una falla con lo que mide un banco.",
+    "codigo": "MEC-140",
+    "conceptos": [
+      {
+        "descripcion": "El estator hace que, con la turbina lenta, el par de salida sea mayor que el de entrada; se reduce a 1 al acercarse al acoplamiento y la eficiencia vale η = SR·TR.",
+        "icono": "🌀",
+        "nombre": "Relación de par",
+      },
+      {
+        "descripcion": "Une impulsor y turbina para que no haya deslizamiento ni calor, pero también quita la multiplicación de par: cuándo cerrarlo es un compromiso.",
+        "icono": "🔒",
+        "nombre": "Embrague de puenteo",
+      },
+      {
+        "descripcion": "Zs·ωs + Zr·ωr = (Zs + Zr)·ωc: con la corona fija sale una reducción; con solar y portasatélites unidos todo gira junto.",
+        "icono": "⚙️",
+        "nombre": "Planetario de Willis",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "Calcula la relación de la primera marcha del planetario a partir de sus dientes.",
+      "Elige el calado del convertidor y la velocidad de puenteo para cumplir el tiempo de 0 a 50 km/h sin pasar del calor que aguanta el aceite.",
+      "Diagnostica qué falla tiene un convertidor con lo que miden en el banco.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Convertidor de Par y Transmisión Automática",
+    "videoUrl": "",
   },
   "mecanica-15": {
     "acento": "#2A9D8F",
@@ -20544,13 +20696,16 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-13": [],
   "mecanica-130": [],
   "mecanica-131": [],
+  "mecanica-132": [],
   "mecanica-133": [],
   "mecanica-134": [],
   "mecanica-135": [],
   "mecanica-136": [],
   "mecanica-137": [],
   "mecanica-138": [],
+  "mecanica-139": [],
   "mecanica-14": [],
+  "mecanica-140": [],
   "mecanica-15": [],
   "mecanica-16": [],
   "mecanica-17": [],
@@ -20916,13 +21071,16 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-13",
   "mecanica-130",
   "mecanica-131",
+  "mecanica-132",
   "mecanica-133",
   "mecanica-134",
   "mecanica-135",
   "mecanica-136",
   "mecanica-137",
   "mecanica-138",
+  "mecanica-139",
   "mecanica-14",
+  "mecanica-140",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Climatización y Bomba de Calor del Vehículo Eléctrico — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08202A;--panel:rgba(7,22,30,.86);--line:#1D4250;--ink:#EAF4F1;
+    --dim:#93AFC9;--accent:#2FC4D4;--accent2:#8FE3EE;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#8FE3EE;--cR:#FFB347;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#10252e;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#16323d}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#58d6e3}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7CC4FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#10252e;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · climatización · bomba de calor del vehículo eléctrico</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Bomba de calor</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">COP</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Potencia eléctrica</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Calor a la cabina</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">P alta / baja (bar)</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Compresor</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">T de descarga</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu">Diagrama p–h del R134a <span id="t_fu">Peng–Robinson</span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Potencia <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">COP y ambiente <span>°C ext.</span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp">Autonomía <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — CLIMATIZACIÓN Y BOMBA DE CALOR DEL VEHÍCULO ELÉCTRICO
+   (Autotrónica · mecanica-132)
+
+   Un circuito de R134a en corte: compresor eléctrico de espiral, intercambiador de la cabina, válvula de
+   expansión e intercambiador exterior. El refrigerante recorre el circuito coloreado por fase y, con el mismo
+   reloj, un punto recorre el diagrama p–h. Las propiedades salen de la ecuación de estado de Peng–Robinson
+   (saturación por igualdad de fugacidad); el ciclo, el compresor, los ventiladores y la autonomía son un único
+   modelo. Esa física está en un bloque puro que un script de Node extrae TAL CUAL y verifica contra NIST.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/B(?=(d{3})+(?!d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ===================== FÍSICA: R134a con Peng–Robinson + ciclo + vehículo =====================
+   Todo en SI (K, Pa, J, kg). Estado de referencia IIR: h = 200 kJ/kg y s = 1 kJ/(kg·K) para el líquido
+   saturado a 0 °C (como las tablas de libro y NIST). */
+const RG=8.314462618, MM=0.102032, RS=RG/MM;            // constante universal, masa molar (kg/mol) y R específica
+const FL={Tc:374.21,Pc:4.059e6,w:0.3268};
+const SQ2=Math.SQRT2;
+FL.b=0.07780*RG*FL.Tc/FL.Pc; FL.ac=0.45724*RG*RG*FL.Tc*FL.Tc/FL.Pc;
+FL.k=0.37464+1.54226*FL.w-0.26992*FL.w*FL.w;
+/* cp ideal polinómico (J/mol/K): Reid–Prausnitz–Poling, cp = a + bT + cT² (T en K) */
+const CP0={a:19.4006,b:0.258531,c:-1.29665e-4};
+function aT(T){ const al=Math.pow(1+FL.k*(1-Math.sqrt(T/FL.Tc)),2); return {a:FL.ac*al, da:-FL.ac*FL.k*Math.sqrt(al)/Math.sqrt(T*FL.Tc)}; }
+/** Raíces del cúbico de Z a (T,P): ZL (líquido) y ZV (vapor); n = número de raíces físicas. */
+function raicesZ(T,P){
+  const {a}=aT(T), A=a*P/((RG*T)*(RG*T)), B=FL.b*P/(RG*T);
+  const c2=-(1-B), c1=A-3*B*B-2*B, c0=-(A*B-B*B-B*B*B);
+  const p=c1-c2*c2/3, q=2*c2*c2*c2/27-c2*c1/3+c0, d=q*q/4+p*p*p/27, off=-c2/3;
+  let rs;
+  if(d>0){ const s=Math.sqrt(d), u=Math.cbrt(-q/2+s), v=Math.cbrt(-q/2-s); rs=[u+v+off]; }
+  else { const r=Math.sqrt(-p*p*p/27), ph=Math.acos(Math.max(-1,Math.min(1,-q/(2*r)))), m=2*Math.cbrt(r);
+    rs=[0,1,2].map(k=>m*Math.cos((ph+2*Math.PI*k)/3)+off); }
+  rs=rs.filter(z=>z>B+1e-12).sort((x,y)=>x-y);
+  return {ZL:rs[0],ZV:rs[rs.length-1],A,B,n:rs.length};
+}
+function lnFi(Z,A,B){ return Z-1-Math.log(Z-B)-A/(2*SQ2*B)*Math.log((Z+(1+SQ2)*B)/(Z+(1-SQ2)*B)); }
+/** Presión de saturación por igualdad de fugacidad (lnφ_L = lnφ_V): Newton sobre ln P (d lnφ/d lnP = Z−1). */
+function psat(T){
+  let P=FL.Pc*Math.exp(5.373*(1+FL.w)*(1-FL.Tc/T));
+  for(let i=0;i<100;i++){
+    const r=raicesZ(T,P);
+    if(r.n<2||Math.abs(r.ZV-r.ZL)<1e-9){ P*=(r.ZV>0.5? 1.15:0.87); continue; }
+    const f=lnFi(r.ZL,r.A,r.B)-lnFi(r.ZV,r.A,r.B);
+    const dl=-f/(r.ZL-r.ZV);
+    P*=Math.exp(Math.max(-0.5,Math.min(0.5,dl)));
+    if(Math.abs(f)<1e-13) break;
+  }
+  return P;
+}
+/** Desviación respecto al gas ideal a (T,P,Z): h−h_ig y s−s_ig(T,P), en J/mol y J/mol/K. */
+function desv(T,P,Z){
+  const {a,da}=aT(T), B=FL.b*P/(RG*T), L=Math.log((Z+(1+SQ2)*B)/(Z+(1-SQ2)*B));
+  return {h:RG*T*(Z-1)+(T*da-a)/(2*SQ2*FL.b)*L, s:RG*Math.log(Z-B)+da/(2*SQ2*FL.b)*L};
+}
+const T0=273.15, P0=1e5;
+const h0=T=>(CP0.a*(T-T0)+CP0.b/2*(T*T-T0*T0)+CP0.c/3*(T*T*T-T0*T0*T0))/MM;
+const s0=(T,P)=>(CP0.a*Math.log(T/T0)+CP0.b*(T-T0)+CP0.c/2*(T*T-T0*T0))/MM-RS*Math.log(P/P0);
+function crudo(T,P,fase){ const r=raicesZ(T,P), Z=fase==='L'?r.ZL:r.ZV, d=desv(T,P,Z);
+  return {Z, h:h0(T)+d.h/MM, s:s0(T,P)+d.s/MM, rho:P/(Z*RS*T)}; }
+const _ps0=psat(T0), _r0=crudo(T0,_ps0,'L');
+const H_REF=200e3-_r0.h, S_REF=1000-_r0.s;               // cero IIR
+function estado(T,P,fase){ const e=crudo(T,P,fase); return {T,P,Z:e.Z,rho:e.rho,h:e.h+H_REF,s:e.s+S_REF}; }
+const _cacheSat=new Map();
+function sat(T){ const k=Math.round(T*1000); let r=_cacheSat.get(k); if(r) return r;
+  const P=psat(T), L=estado(T,P,'L'), V=estado(T,P,'V'); r={T,P,L,V,hf:L.h,hg:V.h,sf:L.s,sg:V.s};
+  if(_cacheSat.size>4000) _cacheSat.clear(); _cacheSat.set(k,r); return r; }
+function tsat(P){ let lo=230,hi=370; for(let i=0;i<50;i++){ const m=(lo+hi)/2; if(psat(m)<P) lo=m; else hi=m; } return (lo+hi)/2; }
+const vapor=(T,P)=>estado(T,P,'V'), liquido=(T,P)=>estado(T,P,'L');
+function tDeSV(P,s){ let lo=tsat(P)-0.01,hi=lo+160; for(let i=0;i<34;i++){ const m=(lo+hi)/2; if(vapor(m,P).s<s) lo=m; else hi=m; } return (lo+hi)/2; }
+function tDeHV(P,h){ let lo=tsat(P)-0.01,hi=lo+200; for(let i=0;i<34;i++){ const m=(lo+hi)/2; if(vapor(m,P).h<h) lo=m; else hi=m; } return (lo+hi)/2; }
+
+/* ===================== EL CICLO =====================
+   Tev, Tcd: temperaturas de saturación (K); sh, sc: sobrecalentamiento y subenfriamiento (K); eta: rendimiento isentrópico. */
+function ciclo(Tev,Tcd,sh,sc,eta){
+  const se=sat(Tev), sc_=sat(Tcd), Pe=se.P, Pc=sc_.P;
+  const e1=vapor(Tev+sh,Pe);
+  const T2s=tDeSV(Pc,e1.s), e2s=vapor(T2s,Pc);
+  const h2=e1.h+(e2s.h-e1.h)/eta, T2=tDeHV(Pc,h2), e2=vapor(T2,Pc);
+  const e3=liquido(Tcd-sc,Pc);
+  const h4=e3.h, x4=(h4-se.hf)/(se.hg-se.hf);
+  return {Tev,Tcd,Pe,Pc,e1,e2s,e2,e3,h4,x4,qEv:e1.h-h4,qCd:e2.h-e3.h,w:e2.h-e1.h,wis:e2s.h-e1.h,
+          copC:(e1.h-h4)/(e2.h-e1.h),copH:(e2.h-e3.h)/(e2.h-e1.h),rp:Pc/Pe,se,sc:sc_};
+}
+
+/* ===================== COMPRESOR, VENTILADORES Y CABINA ===================== */
+const COMP={Vd:34e-6,Nmax:9000/60,c:0.03,gam:1.12,etaMax:0.72,rpD:3.4,k:0.14,etaMotor:0.92,etaInv:0.96};
+const etaVol=(rp)=>Math.max(0.2,1-COMP.c*(Math.pow(rp,1/COMP.gam)-1));
+const etaIs=(rp)=>Math.max(0.35,COMP.etaMax-COMP.k*Math.pow(Math.log(rp/COMP.rpD),2));
+const HX={UAcab0:240,UAext0:420,Cair0:140,Cext0:520,Pcab0:70,Pext0:130};
+const PEN_SC=0.043;
+const CAB={UA:100,Tset:295.15,Pocup:100};
+const demanda=(Tamb)=>Math.max(400,CAB.UA*(CAB.Tset-Tamb)-CAB.Pocup);
+const demandaFrio=(Tamb)=>Math.max(400,CAB.UA*(Tamb-CAB.Tset)+600+CAB.Pocup);   // 600 W de carga solar
+
+/** Calefacción con bomba de calor para una demanda Q (W) a Tamb (K). fc, fe: caudales relativos de aire de la
+ *  cabina y exterior; sc: subenfriamiento (K); sh: sobrecalentamiento (K). opt.uaE: fracción del UA exterior que queda
+ *  (escarcha); opt.carga: fracción del caudal másico que pasa por la válvula (falta de refrigerante).
+ *  Si el compresor no alcanza (régimen > Nmax) el caudal se limita y el calor entregado cae por debajo de Q. */
+function calefaccion(Tamb,Q,fc,fe,sc,sh,opt){
+  sh=sh===undefined?5:sh; opt=opt||{}; const uaE=opt.uaE===undefined?1:opt.uaE, carga=opt.carga===undefined?1:opt.carga;
+  const Ca=HX.Cair0*fc, epsC=1-Math.exp(-HX.UAcab0*Math.pow(fc,0.6)/Ca);
+  const TcdSat=CAB.Tset+Q/(epsC*Ca)+3+PEN_SC*sc*sc;   // la zona de subenfriamiento ocupa área del condensador
+  const Ce=HX.Cext0*fe, epsE=1-Math.exp(-HX.UAext0*uaE*Math.pow(fe,0.6)/Ce);
+  let Tev=Tamb-8, c;
+  for(let it=0;it<80;it++){ c=ciclo(Tev,TcdSat,sh,sc,etaIs(sat(TcdSat).P/sat(Tev).P));
+    const m=carga*Q/c.qCd, Qev=m*c.qEv, Tn=Tamb-Qev/(epsE*Ce); if(Math.abs(Tn-Tev)<1e-4) break; Tev=0.35*Tev+0.65*Tn; }
+  const rp=c.rp, eta=etaIs(rp), ev=etaVol(rp);
+  let m=carga*Q/c.qCd; const Nreq=m/c.e1.rho/(COMP.Vd*ev), cap=Nreq>COMP.Nmax; if(cap) m*=COMP.Nmax/Nreq;
+  const N=Math.min(Nreq,COMP.Nmax), Qdel=m*c.qCd;
+  const Wsh=m*c.w, Wel=Wsh/(COMP.etaMotor*COMP.etaInv);
+  const Pfan=HX.Pcab0*Math.pow(fc,3)+HX.Pext0*Math.pow(fe,3);
+  const Ptot=Wel+Pfan;
+  return {Tamb,Q,Qdel,fc,fe,sc,sh,Tcd:TcdSat,Tev,c,rp,eta,etaVol:ev,m,N,Nrpm:N*60,Nreq:Nreq*60,sobre:cap,Qev:m*c.qEv,Wsh,Wel,Pfan,Ptot,COP:Qdel/Ptot,COPc:c.copH,T2:c.e2.T};
+}
+/** Refrigeración (A/C): el evaporador de cabina quita Q; el condensador exterior cede al ambiente. */
+function refrigeracion(Tamb,Q,fc,fe,sc,sh){
+  sh=sh===undefined?5:sh;
+  const Ca=HX.Cair0*fc, epsC=1-Math.exp(-HX.UAcab0*Math.pow(fc,0.6)/Ca);
+  const TevSat=CAB.Tset-Q/(epsC*Ca)-3;
+  const Ce=HX.Cext0*fe, epsE=1-Math.exp(-HX.UAext0*Math.pow(fe,0.6)/Ce);
+  let Tcd=Tamb+10, c; const penSC=PEN_SC*sc*sc;
+  for(let it=0;it<80;it++){ c=ciclo(TevSat,Tcd,sh,sc,etaIs(sat(Tcd).P/sat(TevSat).P));
+    const m=Q/c.qEv, Qcd=m*c.qCd, Tn=Tamb+Qcd/(epsE*Ce)+penSC; if(Math.abs(Tn-Tcd)<1e-4) break; Tcd=0.35*Tcd+0.65*Tn; }
+  const rp=c.rp, eta=etaIs(rp), ev=etaVol(rp), m=Q/c.qEv, N=m/c.e1.rho/(COMP.Vd*ev);
+  const Wsh=m*c.w, Wel=Wsh/(COMP.etaMotor*COMP.etaInv);
+  const Pfan=HX.Pcab0*Math.pow(fc,3)+HX.Pext0*Math.pow(fe,3);
+  const Ptot=Wel+Pfan;
+  return {Tamb,Q,Qdel:Q,fc,fe,sc,sh,Tcd,Tev:TevSat,c,rp,eta,etaVol:ev,m,N,Nrpm:N*60,Nreq:N*60,sobre:N>COMP.Nmax,Qcd:m*c.qCd,Qev:Q,Wsh,Wel,Pfan,Ptot,COP:Q/Ptot,COPc:c.copC,T2:c.e2.T};
+}
+const LIM_T2=273.15+130;
+/** Mejor combinación (fc,fe,sc) por búsqueda por coordenadas con paso decreciente, respetando régimen y temperatura
+ *  de descarga. Devuelve el cálculo completo del mínimo de potencia eléctrica. */
+function optimoCalef(Tamb,Q){
+  const lim={fc:[0.4,1.8],fe:[0.4,1.8],sc:[0,14]};
+  const ev=(x)=>{ const r=calefaccion(Tamb,Q,x.fc,x.fe,x.sc); return (r.sobre||r.T2>LIM_T2)?null:r; };
+  let x={fc:1,fe:1,sc:5}, best=ev(x);
+  if(!best){ for(const f of [1.3,0.8,1.6]){ x={fc:f,fe:f,sc:5}; best=ev(x); if(best) break; } if(!best) return null; }
+  let paso={fc:0.3,fe:0.3,sc:3};
+  for(let ronda=0;ronda<5;ronda++){
+    let mejoro=true, guard=0;
+    while(mejoro&&guard++<12){ mejoro=false;
+      for(const k of ['fc','fe','sc']) for(const sg of [1,-1]){ const y=Object.assign({},x); y[k]=clamp(x[k]+sg*paso[k],lim[k][0],lim[k][1]); if(y[k]===x[k]) continue;
+        const r=ev(y); if(r&&r.Ptot<best.Ptot-1e-9){ x=y; best=r; mejoro=true; } } }
+    paso={fc:paso.fc/2,fe:paso.fe/2,sc:paso.sc/2};
+  }
+  return best;
+}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ===================== VEHÍCULO Y AUTONOMÍA ===================== */
+const VEH={m:1850,Crr:0.010,CdA:0.62,eta:0.88,Ebat:62e3*3600,uso:0.90,g:9.81};
+const rhoAire=(T)=>101325/(287.05*T);
+function potTraccion(vKmh,Tamb){ const v=vKmh/3.6, F=VEH.m*VEH.g*VEH.Crr+0.5*rhoAire(Tamb)*VEH.CdA*v*v; return F*v/VEH.eta; }
+/** Autonomía (km) a velocidad constante con una potencia de clima Pclima (W). */
+function autonomia(vKmh,Tamb,Pclima){ const P=potTraccion(vKmh,Tamb)+Pclima; return VEH.Ebat*VEH.uso/P*(vKmh/3.6)/1000; }
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.7;
+scene.fog=new THREE.Fog('#2a5468',16,48);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(-3.2,3.6,7.4);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0.2,1.5,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.6); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-4.5,9,6.5); LUZ.sol.target.position.set(0.2,1.0,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-5,right:5,top:5,bottom:-3,near:1,far:30});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.5); LUZ.rim.position.set(-3,4,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.55); scene.add(LUZ.hemi);
+LUZ.cabina=new THREE.PointLight('#ffb070',0,5,2); LUZ.cabina.position.set(-0.4,2.5,0.3); scene.add(LUZ.cabina);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las partículas de refrigerante, el calentador resistivo y los bordes
+   de la plataforma. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.35,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta, vetas de las celdas) dibujadas como objetos, no como ruido. */
+const DOSPI=Math.PI*2;
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texCeldas(){
+  const W=256,H=128,c=cv(W,H),x=c.getContext('2d'); x.fillStyle='#16303a'; x.fillRect(0,0,W,H);
+  for(let j=0;j<4;j++) for(let i=0;i<8;i++){ const g=x.createLinearGradient(0,j*32,0,j*32+28); g.addColorStop(0,'#2d6c80'); g.addColorStop(1,'#1d4757');
+    x.fillStyle=g; x.fillRect(i*32+3,j*32+3,26,26); x.fillStyle='rgba(255,255,255,0.18)'; x.fillRect(i*32+3,j*32+3,26,2); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_PLAT=texPlataforma(), T_CELDAS=texCeldas();
+T_PLAT.repeat.set(1,1);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  aluminio: pbr({color:'#cfd9df',metalness:0.92,roughness:0.34}),
+  aleta: pbr({color:'#8fa9b4',metalness:0.9,roughness:0.4,transparent:true,opacity:0.30,side:THREE.DoubleSide,depthWrite:false}),
+  aletaCorte: pbr({color:'#7fc9d6',metalness:0.5,roughness:0.3,transparent:true,opacity:0.30,depthWrite:false,emissive:'#1f6f80',emissiveIntensity:0.15,side:THREE.DoubleSide}),
+  acero: pbr({color:'#aeb7bf',metalness:0.9,roughness:0.3}),
+  cobre: pbr({color:'#c9794a',metalness:0.95,roughness:0.28}),
+  laton: pbr({color:'#d2ae58',metalness:0.9,roughness:0.3}),
+  carcasa: fis({color:'#3d6f86',metalness:0.55,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.2,side:THREE.DoubleSide}),
+  carcasaInt: pbr({color:'#1c3541',metalness:0.5,roughness:0.5,side:THREE.DoubleSide}),
+  rotor: pbr({color:'#5d6f7a',metalness:0.85,roughness:0.28}),
+  iman: pbr({color:'#d6dde2',metalness:0.8,roughness:0.25}),
+  espiral: pbr({color:'#d8a65a',metalness:0.88,roughness:0.28}),
+  espiral2: pbr({color:'#8fb0bf',metalness:0.88,roughness:0.28}),
+  goma: pbr({color:'#15191c',metalness:0.1,roughness:0.75}),
+  negro: pbr({color:'#0f1417',metalness:0.5,roughness:0.4}),
+  vidrio: fis({color:'#9fd7e6',metalness:0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.03,transparent:true,opacity:0.10,envMapIntensity:1.6,side:THREE.DoubleSide,depthWrite:false}),
+  conducto: fis({color:'#6d8791',metalness:0.1,roughness:0.15,clearcoat:0.8,transparent:true,opacity:0.20,side:THREE.DoubleSide,depthWrite:false}),
+  tubo: pbr({color:'#ffffff',vertexColors:true,metalness:0.0,roughness:0.45,envMapIntensity:0.25,transparent:true,opacity:0.55,depthWrite:false}),
+  carter: pbr({color:'#223b46',metalness:0.7,roughness:0.4}),
+  asiento: pbr({color:'#2d3f4a',roughness:0.85,metalness:0}),
+  piel: pbr({color:'#e0b89c',roughness:0.6,metalness:0}),
+  ropa: pbr({color:'#e9743a',roughness:0.8,metalness:0}),
+  aire: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  ref: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  celdas: pbr({color:'#ffffff',map:T_CELDAS,metalness:0.4,roughness:0.5}),
+  placaFria: pbr({color:'#52d0e6',emissive:'#1d8fa5',emissiveIntensity:0.7,metalness:0.3,roughness:0.4}),
+  resist: pbr({color:'#5b4742',metalness:0.5,roughness:0.5,emissive:'#ff3b10',emissiveIntensity:0}),
+  glowCab: new THREE.MeshBasicMaterial({color:'#ffb070',transparent:true,opacity:0.09,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t, suave=t=>t*t*(3-2*t);
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una bobina con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+
+/** Funde las mallas ESTÁTICAS de un grupo en una malla por material (menos llamadas de dibujo). Las que se mueven, las
+ *  instanciadas y las de material múltiple se quedan como están. */
+function fusionaPartes(grupo,excluir){
+  excluir=excluir||[]; grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map(), viejas=[];
+  const fuera=o=>{ for(let p=o;p&&p!==grupo;p=p.parent) if(excluir.includes(p)) return true; return false; };
+  grupo.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||Array.isArray(o.material)||fuera(o)||o.userData.noFusion) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); viejas.push(o); });
+  for(const o of viejas){ o.parent.remove(o); }
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent&&!(mat.blending===THREE.AdditiveBlending); me.receiveShadow=true; me.renderOrder=viejas.find(v=>v.material===mat).renderOrder||0; grupo.add(me);
+  }
+}
+
+
+/* ===================== 6. EL BANCO: PLATAFORMA, SUELO Y FONDO ===================== */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+{
+  const g=new RoundedBoxGeometry(6.6,0.16,3.0,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0.1,-0.08,0); PLATAFORMA.add(p);
+  // el plano superior lleva la retícula: UV propias de la cara +Y de la caja redondeada
+  // borde luminoso (neón fino) alrededor de la plataforma
+  const sh=new THREE.Shape(); const w=3.3,h=1.5,r=0.08; sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0.1,0.002,0); PLATAFORMA.add(n);
+}
+// suelo difuso del estudio: disco con degradado radial que se funde con el fondo, y recoge la sombra
+{
+  const d=malla(new THREE.CircleGeometry(30,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(60,120,140,0.55)','rgba(20,50,64,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.y=-0.17; d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.y=-0.165; s.userData.fondo=true; MUNDO.add(s);
+}
+function aplicaAmbiente(Tamb){
+  // el fondo cambia con la temperatura exterior: frío azulado y claro, calor ámbar
+  const f=clamp((Tamb-263.15)/(313.15-263.15),0,1);
+  const c=(a,b)=>new THREE.Color(a).lerp(new THREE.Color(b),f);
+  const arriba=c('#0c2a3d','#27506b').getStyle(), medio=c('#2f6a85','#5d8aa0').getStyle(), abajo=c('#9ccbe0','#d9b88b').getStyle();
+  scene.background=fondoDegradado(arriba,medio,abajo); scene.fog.color.set(c('#3a7590','#7aa0b0'));
+}
+
+/* ===================== 7. EL CIRCUITO: TRAZADO DEL REFRIGERANTE =====================
+   Una sola curva cerrada recorre, en el sentido de la calefacción: compresor → bobina de la cabina (condensador)
+   → válvula de expansión → bobina exterior (evaporador) → compresor. Las partículas, el color del tubo y el punto del
+   diagrama p–h leen la MISMA abscisa u de esa curva. */
+const RT=0.034, YC=0.62;
+const TRAZADO=(function(){
+  const pts=[V3(0.40,YC,0)], n=80;
+  for(let i=0;i<=n;i++){ const t=i/n, env=suave(clamp(t/0.14,0,1))*suave(clamp((1-t)/0.14,0,1)), a=DOSPI*2.4*t;
+    pts.push(V3(0.70+0.90*t,YC+0.19*env*Math.sin(a),0.19*env*Math.cos(a))); }
+  pts.push(V3(1.90,YC,0));
+  const cat=new THREE.CatmullRomCurve3(pts,false,'centripetal');
+  const WP=[]; const w=(x,y,z,lab)=>WP.push({p:V3(x,y,z),lab});
+  w(1.90,YC,0,'cOut'); w(2.45,YC,0); w(2.45,2.76,0); w(2.45,2.76,0.42);
+  const hP=[[1.66,2.76],[1.34,2.60],[1.66,2.44],[1.34,2.28],[1.66,2.12],[1.34,1.96]];
+  hP.forEach(([x,y],k)=>{ const a=(k%2===0)?0.42:-0.42; w(x,y,a,k===0?'h0':undefined); w(x,y,-a,k===5?'h1':undefined); });
+  w(1.34,1.96,0.60); w(1.34,1.20,0.60); w(0.55,1.20,0.60,'v0'); w(0.05,1.20,0.60,'v1'); w(-0.50,1.20,0.60); w(-0.50,1.30,0.60); w(-0.92,1.30,0.60);
+  for(let k=0;k<10;k++){ const x=(k%2===0)?-0.92:-1.20, y=1.30-0.11*k, a=(k%2===0)?0.42:-0.42; w(x,y,a,k===0?'e0':undefined); w(x,y,-a,k===9?'e1':undefined); }
+  w(-1.20,0.31,0.60); w(0.10,0.31,0.60); w(0.10,YC,0.60); w(0.10,YC,0); w(0.40,YC,0);
+  // se quitan duplicados consecutivos (los puntos de pasada que coinciden con la entrada)
+  const P=[]; for(const o of WP){ if(P.length&&P[P.length-1].p.distanceTo(o.p)<1e-6){ if(o.lab) P[P.length-1].lab=o.lab; continue; } P.push(o); }
+  const path=new THREE.CurvePath(); path.add(cat);
+  let cursor=P[0].p.clone();
+  for(let i=1;i<P.length-1;i++){
+    const a=P[i-1].p,b=P[i].p,c=P[i+1].p, d1=b.clone().sub(a), d2=c.clone().sub(b), l1=d1.length(), l2=d2.length(); d1.normalize(); d2.normalize();
+    if(d1.angleTo(d2)<1e-4) continue;
+    const r=Math.min(0.075,0.46*l1,0.46*l2), pA=b.clone().addScaledVector(d1,-r), pB=b.clone().addScaledVector(d2,r);
+    path.add(new THREE.LineCurve3(cursor.clone(),pA)); path.add(new THREE.QuadraticBezierCurve3(pA,b.clone(),pB)); cursor=pB;
+  }
+  path.add(new THREE.LineCurve3(cursor.clone(),P[P.length-1].p.clone()));
+  const N=2400, pos=new Float32Array((N+1)*3);
+  for(let i=0;i<=N;i++){ const q=path.getPointAt(i/N); pos.set([q.x,q.y,q.z],i*3); }
+  const uDe=(x,y,z)=>{ let best=0,bd=1e9; for(let i=0;i<=N;i++){ const d=(pos[i*3]-x)**2+(pos[i*3+1]-y)**2+(pos[i*3+2]-z)**2; if(d<bd){ bd=d; best=i; } } return best/N; };
+  const U={}; for(const o of P) if(o.lab) U[o.lab]=uDe(o.p.x,o.p.y,o.p.z);
+  U.cIn=0; U.cOut=uDe(1.90,YC,0);
+  return {path,N,pos,U,len:path.getLength()};
+})();
+const U_=TRAZADO.U;
+/** Punto del trazado en la abscisa u (0..1) → vector reutilizable. */
+const _tp=V3(0,0,0);
+function puntoEn(u,out){ out=out||_tp; u=((u%1)+1)%1; const f=u*TRAZADO.N, i=Math.min(TRAZADO.N-1,Math.floor(f)), t=f-i, p=TRAZADO.pos;
+  return out.set(mezcla(p[i*3],p[i*3+3],t),mezcla(p[i*3+1],p[i*3+4],t),mezcla(p[i*3+2],p[i*3+5],t)); }
+
+// el tubo de vidrio con color de vértice por fase (se repinta cuando cambia el ciclo)
+const NTUB=1500, TUBO=(function(){
+  const g=new THREE.TubeGeometry(TRAZADO.path,NTUB,RT,10,false); sana(g);
+  const n=g.attributes.position.count; g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(n*3).fill(1),3));
+  const m=malla(g,M.tubo,{sombra:false,recibe:false}); m.renderOrder=2; MUNDO.add(m); return m; })();
+
+/* ===================== 8. COMPRESOR ELÉCTRICO DE ESPIRAL (en corte) ===================== */
+const COMPRESOR=new THREE.Group(); MUNDO.add(COMPRESOR);
+COMPRESOR.position.set(1.15,YC,0);
+const COMP_G={};
+{
+  const L=1.0, R=0.32;
+  // carcasa: media camisa trasera (z<0), con grosor, y las dos tapas completas
+  const cil=(r,l,seg,a0,aL,open)=>new THREE.CylinderGeometry(r,r,l,seg,1,open,a0,aL);
+  const sh=malla(cil(R,L,64,Math.PI/2,Math.PI,true),M.carcasa); sh.rotation.z=Math.PI/2; COMPRESOR.add(sh);
+  const sh2=malla(cil(R-0.03,L,64,Math.PI/2,Math.PI,true),M.carcasaInt); sh2.rotation.z=Math.PI/2; COMPRESOR.add(sh2);
+  // bordes del corte (cantos planos): dos placas finas en el plano z=0
+  const canto=malla(new THREE.BoxGeometry(L,0.03,0.012),M.aletaCorte); for(const s of [1,-1]){ const c=canto.clone(); c.position.set(0,s*(R-0.015),0); COMPRESOR.add(c); }
+  // tapas torneadas con chaflán (suave, sin aristas vivas) y los puertos
+  const tapa=(x,dir)=>{ const perfil=[[0,0],[R*0.97,0],[R*1.02,0.012],[R*1.02,0.05],[R*0.93,0.075],[R*0.40,0.095],[R*0.18,0.15],[0,0.15]];
+    const m=malla(P3.revolucion(perfil,{seg:56}),M.carcasa); m.rotation.z=-dir*Math.PI/2; m.position.x=x; COMPRESOR.add(m); };
+  tapa(-L/2,-1); tapa(L/2,1);
+  // puertos de aspiración y descarga (bridas de acero)
+  for(const [x,d] of [[-L/2-0.14,-1],[L/2+0.14,1]]){ const b=malla(new THREE.CylinderGeometry(0.075,0.075,0.12,24),M.acero); b.rotation.z=Math.PI/2; b.position.x=x+d*0.0; COMPRESOR.add(b);
+    const f=malla(new THREE.CylinderGeometry(0.105,0.105,0.03,24),M.acero); f.rotation.z=Math.PI/2; f.position.x=x+d*0.075; COMPRESOR.add(f); }
+  // estátor: media corona de chapas y las cabezas de bobina de cobre
+  const est=malla(cil(0.262,0.46,48,Math.PI/2,Math.PI,true),M.acero); est.rotation.z=Math.PI/2; est.position.x=-0.04; COMPRESOR.add(est);
+  const est2=malla(cil(0.232,0.46,48,Math.PI/2,Math.PI,true),M.carcasaInt); est2.rotation.z=Math.PI/2; est2.position.x=-0.04; COMPRESOR.add(est2);
+  for(const s of [-1,1]){ const tg=new THREE.TorusGeometry(0.245,0.028,10,40,Math.PI); tg.rotateZ(-Math.PI/2); tg.rotateY(Math.PI/2); const t=malla(tg,M.cobre); t.position.x=-0.04+s*0.245; COMPRESOR.add(t); }
+  // rotor con imanes (grupo que gira) y eje
+  const rot=new THREE.Group(); rot.position.x=-0.04; COMPRESOR.add(rot);
+  const rc=malla(new THREE.CylinderGeometry(0.135,0.135,0.40,40),M.rotor); rc.rotation.z=Math.PI/2; rot.add(rc);
+  for(let i=0;i<8;i++){ const a=i/8*DOSPI; const im=malla(new THREE.BoxGeometry(0.34,0.03,0.07),M.iman); im.position.set(0,Math.cos(a)*0.137,Math.sin(a)*0.137); im.rotation.x=-a; rot.add(im); }
+  const eje=malla(new THREE.CylinderGeometry(0.04,0.04,0.86,20),M.acero); eje.rotation.z=Math.PI/2; eje.position.x=0.12; rot.add(eje);
+  COMP_G.rotor=rot;
+  // espirales: la fija (gris azulado) y la orbitante (ámbar) al fondo, hacia la descarga
+  const espiral=(fase,ancho)=>{ const o=[],i=[]; for(let k=0;k<=70;k++){ const th=k/70*DOSPI*1.75, r=0.02+0.022*th; o.push(new THREE.Vector2(Math.cos(th+fase)*(r+ancho/2),Math.sin(th+fase)*(r+ancho/2))); i.push(new THREE.Vector2(Math.cos(th+fase)*(r-ancho/2),Math.sin(th+fase)*(r-ancho/2))); }
+    const s=new THREE.Shape([...o,...i.reverse()]); return sana(new THREE.ExtrudeGeometry(s,{depth:0.20,bevelEnabled:false,curveSegments:2})); };
+  const fija=malla(espiral(0,0.018),M.espiral2); fija.rotation.y=Math.PI/2; fija.position.set(0.27,0,0); COMPRESOR.add(fija);
+  const orb=new THREE.Group(); orb.position.set(0.27,0,0); COMPRESOR.add(orb);
+  const orbE=malla(espiral(Math.PI,0.018),M.espiral); orbE.rotation.y=Math.PI/2; orb.add(orbE); COMP_G.orb=orb;
+  // inversor integrado: caja con aletas de disipación y el cable trifásico naranja
+  const inv=malla(new RoundedBoxGeometry(0.55,0.17,0.40,3,0.03),M.negro); inv.position.set(0.05,R+0.07,-0.02); COMPRESOR.add(inv);
+  for(let i=0;i<9;i++){ const a=malla(new THREE.BoxGeometry(0.012,0.06,0.34),M.aluminio); a.position.set(-0.17+i*0.0425,R+0.18,-0.02); COMPRESOR.add(a); }
+  const cab=malla(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(-0.2,R+0.1,0.18),V3(-0.35,R+0.12,0.4),V3(-0.7,0.1,0.55)]),24,0.022,8),new THREE.MeshStandardMaterial({color:'#e07a1f',roughness:0.5})); COMPRESOR.add(cab);
+  // patas de fijación
+  for(const x of [-0.34,0.34]){ const p=malla(new RoundedBoxGeometry(0.18,0.06,0.30,2,0.015),M.carter); p.position.set(x,-R-0.02,-0.0); COMPRESOR.add(p); }
+}
+
+/* ===================== 9. INTERCAMBIADORES: BOBINA DE LA CABINA (H) Y EXTERIOR (E) ===================== */
+const FIN_G=new THREE.BoxGeometry(1,1,1);
+function paqueteAletas(cx,cy,cz,w,h,z0,z1,n){
+  const im=new THREE.InstancedMesh(FIN_G,M.aleta,n), m4=new THREE.Matrix4(), q=new THREE.Quaternion();
+  for(let i=0;i<n;i++){ const z=cz+mezcla(z0,z1,i/(n-1)); m4.compose(V3(cx,cy,z),q,V3(w,h,0.005)); im.setMatrixAt(i,m4); }
+  im.castShadow=false; im.receiveShadow=false; im.renderOrder=1; MUNDO.add(im); return im; }
+// aletas en la mitad trasera; la delantera queda abierta para ver los tubos y la cara de corte
+paqueteAletas(1.50,2.38,0,0.62,1.00,-0.42,0.0,13);
+paqueteAletas(-1.06,0.82,0,0.74,1.20,-0.42,0.0,13);
+{
+  const marco=(cx,cy,w,h)=>{ const g=new THREE.Group();
+    for(const [x,y,ww,hh] of [[0,h/2,w+0.06,0.03],[0,-h/2,w+0.06,0.03],[-w/2,0,0.03,h],[w/2,0,0.03,h]]){ const b=malla(new THREE.BoxGeometry(ww,hh,0.05),M.aluminio); b.position.set(x,y,0.01); g.add(b); }
+    const corte=malla(new THREE.BoxGeometry(w,h,0.004),M.aletaCorte,{sombra:false}); corte.position.z=0.012; corte.renderOrder=1; g.add(corte);
+    g.position.set(cx,cy,0); return g; };
+  MUNDO.add(marco(1.50,2.38,0.62,1.00)); MUNDO.add(marco(-1.06,0.82,0.74,1.20));
+}
+
+// conducto de la cabina (humo translúcido), con el frente abierto; la rueda del soplador es de flujo radial
+const DUCTO=new THREE.Group(); MUNDO.add(DUCTO);
+{
+  for(const y of [1.80,2.92]){ const p=malla(new THREE.BoxGeometry(1.60,0.025,1.0),M.conducto,{sombra:false}); p.position.set(1.52,y,0); DUCTO.add(p); }
+  const fondo=malla(new THREE.BoxGeometry(1.60,1.12,0.025),M.conducto,{sombra:false}); fondo.position.set(1.52,2.36,-0.50); DUCTO.add(fondo);
+  for(const [y,z] of [[1.80,0.5],[2.92,0.5],[1.80,-0.5],[2.92,-0.5]]){ const r=malla(new THREE.BoxGeometry(1.60,0.03,0.03),M.aluminio); r.position.set(1.52,y,z); DUCTO.add(r); }
+  // calentador resistivo PTC: panal oscuro con varillas que se ponen al rojo
+  const ptc=new THREE.Group(); DUCTO.add(ptc);
+  for(const [y,hh] of [[1.88,0.03],[2.86,0.03]]){ const rl=malla(new THREE.BoxGeometry(0.05,hh,0.9),M.negro); rl.position.set(1.02,y,0); ptc.add(rl); }
+  for(const z of [-0.44,0.44]){ const rl=malla(new THREE.BoxGeometry(0.05,1.0,0.03),M.negro); rl.position.set(1.02,2.37,z); ptc.add(rl); }
+  const varillas=new THREE.InstancedMesh(new THREE.BoxGeometry(0.03,0.026,0.86),M.resist,16), m4=new THREE.Matrix4();
+  for(let i=0;i<16;i++){ m4.makeTranslation(1.02,1.90+i*0.062,0); varillas.setMatrixAt(i,m4); } varillas.castShadow=false; ptc.add(varillas);
+  DUCTO.userData.ptc=varillas;
+  // soplador: rueda de jaula de ardilla (eje z) vista de frente
+  const sop=new THREE.Group(); sop.position.set(2.02,2.36,0); DUCTO.add(sop);
+  const alab=new THREE.InstancedMesh(new THREE.BoxGeometry(0.018,0.1,0.80),M.aluminio,28);
+  for(let i=0;i<28;i++){ const a=i/28*DOSPI; m4.compose(V3(Math.cos(a)*0.30,Math.sin(a)*0.30,0),new THREE.Quaternion().setFromAxisAngle(V3(0,0,1),a+0.6),V3(1,1,1)); alab.setMatrixAt(i,m4); }
+  sop.add(alab);
+  for(const z of [-0.41,0.41]){ const d=malla(P3.revolucion([[0,0],[0.31,0],[0.32,0.012],[0.32,0.03],[0.1,0.03],[0.1,0.05],[0,0.05]],{seg:48}),M.carcasa); d.rotation.x=Math.PI/2; d.position.z=z; sop.add(d); }
+  const eje=malla(new THREE.CylinderGeometry(0.03,0.03,1.0,16),M.acero); eje.rotation.x=Math.PI/2; sop.add(eje);
+  DUCTO.userData.soplador=sop;
+  const caja=malla(new RoundedBoxGeometry(0.34,0.36,0.30,3,0.04),M.negro); caja.position.set(2.02,2.36,-0.62); DUCTO.add(caja);
+}
+
+// ventilador exterior (eje vertical) sobre la bobina E, con su virola y sus puntales
+const VENT_E=new THREE.Group(); VENT_E.position.set(-1.06,1.60,0); MUNDO.add(VENT_E);
+{
+  const rotor=new THREE.Group(); VENT_E.add(rotor);
+  for(let i=0;i<7;i++){ const a=i/7*DOSPI; const g=new THREE.BoxGeometry(0.30,0.012,0.13,6,1,1);
+    const p=g.attributes.position; for(let k=0;k<p.count;k++){ p.setY(k,p.getY(k)+p.getX(k)*0.35*(p.getZ(k)>0?1:-1)*0.5); } g.computeVertexNormals(); sana(g);
+    const b=malla(g,M.acero); b.position.set(Math.cos(a)*0.2,0,Math.sin(a)*0.2); b.rotation.y=-a; rotor.add(b); }
+  const cubo=malla(P3.revolucion([[0,-0.04],[0.06,-0.04],[0.075,-0.02],[0.075,0.04],[0.03,0.07],[0,0.075]],{seg:32}),M.negro); rotor.add(cubo);
+  VENT_E.userData.rotor=rotor;
+  const vir=malla(new THREE.TorusGeometry(0.385,0.022,10,56),M.aluminio); vir.rotation.x=Math.PI/2; VENT_E.add(vir);
+  for(let i=0;i<4;i++){ const a=i/4*DOSPI+0.4; const p=malla(new THREE.BoxGeometry(0.40,0.018,0.018),M.negro); p.position.set(Math.cos(a)*0.19,-0.01,Math.sin(a)*0.19); p.rotation.y=-a; VENT_E.add(p); }
+  const mot=malla(new THREE.CylinderGeometry(0.075,0.075,0.07,20),M.carcasa); mot.position.y=-0.065; VENT_E.add(mot);
+  // zócalo del conjunto: bandeja inferior bajo la bobina
+  const bn=malla(new RoundedBoxGeometry(0.90,0.06,0.62,2,0.015),M.carter); bn.position.set(-1.06,0.16,0); MUNDO.add(bn);
+}
+
+{ const pata=(x,z)=>{ const p=malla(new THREE.BoxGeometry(0.05,0.17,0.05),M.aluminio); p.position.set(x,0.085,z); MUNDO.add(p); };
+  for(const x of [-1.38,-0.74]) for(const z of [-0.26,0.26]) pata(x,z);
+  const peana=malla(new RoundedBoxGeometry(1.30,0.10,0.62,3,0.02),M.carter); peana.position.set(1.15,0.15,0); MUNDO.add(peana);
+  for(const x of [0.7,1.6]){ const r=malla(new THREE.BoxGeometry(0.07,0.20,0.5),M.carter); r.position.set(x,0.25,0); MUNDO.add(r); }
+  const mont=(x,z,y0,y1)=>{ const p=malla(new THREE.BoxGeometry(0.045,y1-y0,0.045),M.aluminio); p.position.set(x,(y0+y1)/2,z); MUNDO.add(p); };
+  mont(0.80,-0.55,0,1.80); mont(2.30,-0.55,0,1.80); mont(-1.62,-0.58,0,1.88); mont(0.66,-0.58,0,1.88); }
+
+/* ===================== 10. VÁLVULA DE EXPANSIÓN ELECTRÓNICA ===================== */
+const VALVULA=new THREE.Group(); VALVULA.position.set(0.30,1.20,0.60); MUNDO.add(VALVULA);
+{
+  const cuerpo=malla(P3.revolucion([[0,-0.30],[0.05,-0.30],[0.085,-0.26],[0.085,-0.1],[0.11,-0.07],[0.11,0.07],[0.085,0.1],[0.085,0.26],[0.05,0.30],[0,0.30]],{seg:36}),M.laton); cuerpo.rotation.z=Math.PI/2; VALVULA.add(cuerpo);
+  const act=malla(P3.revolucion([[0,0],[0.07,0],[0.075,0.02],[0.075,0.15],[0.06,0.17],[0.06,0.22],[0,0.22]],{seg:32}),M.negro); act.position.y=0.10; VALVULA.add(act);
+  const aro=malla(new THREE.TorusGeometry(0.076,0.012,8,32),new THREE.MeshStandardMaterial({color:'#3fb6c9',emissive:'#1e8da1',emissiveIntensity:0.6,roughness:0.4})); aro.rotation.x=Math.PI/2; aro.position.y=0.15; VALVULA.add(aro);
+  const aguja=malla(new THREE.CylinderGeometry(0.014,0.014,0.2,12),M.acero); aguja.position.y=0.03; VALVULA.add(aguja); VALVULA.userData.aguja=aguja;
+}
+
+/* ===================== 11. CABINA (corte) Y BATERÍA ===================== */
+const CABINA=new THREE.Group(); MUNDO.add(CABINA);
+{
+  const prof=new THREE.Shape(); prof.moveTo(-1.70,1.90); prof.lineTo(0.72,1.90); prof.lineTo(0.72,2.38); prof.lineTo(0.12,3.10); prof.lineTo(-1.15,3.16); prof.lineTo(-1.62,2.48); prof.lineTo(-1.70,2.20); prof.closePath();
+  const ext=(s,prof2,depth)=>{ const g=new THREE.ExtrudeGeometry(prof2,{depth,bevelEnabled:true,bevelThickness:0.02,bevelSize:0.02,bevelSegments:2,curveSegments:8}); g.translate(0,0,-depth/2); return sana(g); };
+  const cris=malla(ext(0,prof,1.1),M.vidrio,{sombra:false,recibe:false}); cris.renderOrder=3; CABINA.add(cris);
+  // volumen de aire de la cabina: más pequeño, aditivo, su color es la temperatura del aire
+  const aireP=new THREE.Shape(); const k=0.93, cx=-0.5, cy=2.5; for(const [i,[x,y]] of [[-1.70,1.90],[0.72,1.90],[0.72,2.38],[0.12,3.10],[-1.15,3.16],[-1.62,2.48],[-1.70,2.20]].entries()){ const px=cx+(x-cx)*k, py=cy+(y-cy)*k; if(i===0) aireP.moveTo(px,py); else aireP.lineTo(px,py); } aireP.closePath();
+  const glow=malla(ext(0,aireP,0.95),M.glowCab,{sombra:false,recibe:false}); glow.renderOrder=0; CABINA.add(glow); CABINA.userData.glow=glow;
+  // suelo de la cabina
+  const suelo=malla(new RoundedBoxGeometry(2.46,0.06,1.1,2,0.02),M.carter); suelo.position.set(-0.49,1.87,0); CABINA.add(suelo);
+  // asiento: cojín y respaldo con perfil redondeado; ocupante con cabeza, torso y brazo
+  const coj=malla(new RoundedBoxGeometry(0.55,0.14,0.55,3,0.05),M.asiento); coj.position.set(-0.85,2.05,0); CABINA.add(coj);
+  const resp=malla(new RoundedBoxGeometry(0.14,0.72,0.52,3,0.05),M.asiento); resp.position.set(-1.12,2.42,0); resp.rotation.z=-0.12; CABINA.add(resp);
+  const torso=malla(new THREE.CapsuleGeometry(0.15,0.30,6,16),M.ropa); torso.position.set(-0.93,2.50,0); torso.rotation.z=-0.1; CABINA.add(torso);
+  const cab=malla(new THREE.SphereGeometry(0.115,24,18),M.piel); cab.position.set(-0.86,2.93,0); CABINA.add(cab);
+  const brazo=malla(new THREE.CapsuleGeometry(0.055,0.40,5,12),M.ropa); brazo.position.set(-0.58,2.50,0.17); brazo.rotation.z=-1.2; CABINA.add(brazo);
+  const muslo=malla(new THREE.CapsuleGeometry(0.07,0.38,5,12),M.ropa); muslo.position.set(-0.62,2.16,0.12); muslo.rotation.z=1.5; CABINA.add(muslo);
+  // salpicadero y rejilla de salida del aire
+  const sal=malla(new RoundedBoxGeometry(0.36,0.42,1.0,3,0.05),M.carter); sal.position.set(0.50,2.12,0); CABINA.add(sal);
+  const volante=malla(new THREE.TorusGeometry(0.16,0.022,10,32),M.negro); volante.position.set(0.20,2.64,0); volante.rotation.set(0,Math.PI/2,0.5); CABINA.add(volante);
+}
+{
+  // paquete de baterías (detrás), con placa fría y su resplandor
+  const g=new THREE.Group(); g.position.set(0.12,0.15,-1.08); MUNDO.add(g);
+  const b=malla(new RoundedBoxGeometry(4.5,0.30,0.74,3,0.05),M.celdas); const t=T_CELDAS.clone(); t.repeat.set(6,1); t.needsUpdate=true; b.material=M.celdas.clone(); b.material.map=t; g.add(b);
+  const pf=malla(new THREE.BoxGeometry(4.5,0.02,0.20),M.placaFria); pf.position.set(0,0.165,0); g.add(pf); g.userData.placa=pf;
+  const tapa=malla(new RoundedBoxGeometry(4.56,0.05,0.80,3,0.02),M.carter); tapa.position.set(0,-0.14,0); g.add(tapa);
+}
+
+/* ---- fusión de lo estático: menos llamadas de dibujo, mismo aspecto ---- */
+const ESTRUCTURA=new THREE.Group(); MUNDO.add(ESTRUCTURA);
+for(const o of [...MUNDO.children]){ if(o===PLATAFORMA||o===TUBO||o===ESTRUCTURA||o===COMPRESOR||o===VALVULA||o===VENT_E||o===DUCTO||o===CABINA||o.isInstancedMesh||(o.userData&&o.userData.fondo)) continue; ESTRUCTURA.add(o); }
+fusionaPartes(ESTRUCTURA);
+fusionaPartes(COMPRESOR,[COMP_G.rotor,COMP_G.orb]); fusionaPartes(COMP_G.rotor); fusionaPartes(COMP_G.orb);
+fusionaPartes(VENT_E,[VENT_E.userData.rotor]); fusionaPartes(VENT_E.userData.rotor);
+fusionaPartes(DUCTO,[DUCTO.userData.soplador,DUCTO.userData.ptc]); fusionaPartes(DUCTO.userData.soplador);
+fusionaPartes(VALVULA,[VALVULA.userData.aguja]); fusionaPartes(CABINA);
+
+/* ===================== 12. PARTÍCULAS ===================== */
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _col=new THREE.Color();
+function instancias(n,geo,mat,rad){ const im=new THREE.InstancedMesh(geo,mat,n); im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3).fill(1),3); im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false; im.renderOrder=4; MUNDO.add(im); return im; }
+const ESF=new THREE.SphereGeometry(1,8,6);
+const NREF=260, PART_REF=instancias(NREF,ESF,M.ref);
+const PART_CAB=instancias(90,ESF,M.aire), PART_EXT=instancias(110,ESF,M.aire), NIEVE=instancias(150,ESF,M.aire);
+// semillas deterministas (el mismo reloj en cada carga)
+function rng(s){ return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+const R_=rng(20241021);
+const SEM_CAB=Array.from({length:90},()=>({f:R_(),z:(R_()-0.5)*0.8,y:(R_()-0.5)*0.9,v:0.8+R_()*0.5}));
+const SEM_EXT=Array.from({length:110},()=>({f:R_(),a:R_()*DOSPI,r:Math.sqrt(R_()),v:0.8+R_()*0.5}));
+const SEM_NIEVE=Array.from({length:150},()=>({x:(R_()-0.5)*7.6,z:(R_()-0.5)*5.2,f:R_(),v:0.7+R_()*0.6,s:R_()*DOSPI}));
+
+
+/* ===================== 10. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t
+   avanza con el tiempo de pantalla (×velocidad) y mueve las partículas, el punto del diagrama p–h, el compresor y los
+   ventiladores. */
+const EST={modo:'marcha',clima:'calor',Tamb:263.15,fc:1,fe:1,sc:5,vKmh:60,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'banco',rot:false};
+const SIM={t:0,fase:0,rotor:0,orb:0,fanE:0,sop:0,calc:null,ver:0};
+const NOMBRE_CLIMA={calor:'Bomba de calor',resist:'Resistivo (PTC)',frio:'Aire acond.'};
+const aC=T=>T-273.15;
+const V_REF_ESCALA=40;   // los giros visuales van a 1/40 de la velocidad real del compresor
+let CALC=null;
+
+/** Lo que corre ahora: en «En marcha», lo que digan los mandos; en el laboratorio guiado, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='guia'){ const p=guiaParams(); if(p) return p; }
+  return {clima:EST.clima,Tamb:EST.Tamb,fc:EST.fc,fe:EST.fe,sc:EST.sc,vKmh:EST.vKmh};
+}
+/** Recalcula el modelo completo para los parámetros dados y deja listos la tabla de estados y los colores. */
+function calcula(p){
+  const T=p.Tamb, clima=p.clima, vK=p.vKmh||60;
+  let r=null, Q, Pclima, Pres;
+  if(p.fijo){   // ciclo impuesto por sus temperaturas de saturación (pregunta de predicción)
+    const c=ciclo(p.fijo.Tev,p.fijo.Tcd,5,5,etaIs(sat(p.fijo.Tcd).P/sat(p.fijo.Tev).P)); Q=3000;
+    const m=Q/c.qCd, ev=etaVol(c.rp), N=m/c.e1.rho/(COMP.Vd*ev), Wsh=m*c.w, Wel=Wsh/(COMP.etaMotor*COMP.etaInv);
+    r={Tamb:T,Q,Qdel:Q,fc:1,fe:1,sc:5,sh:5,Tcd:p.fijo.Tcd,Tev:p.fijo.Tev,c,rp:c.rp,eta:etaIs(c.rp),etaVol:ev,m,N,Nrpm:N*60,Nreq:N*60,sobre:N>COMP.Nmax,Qev:m*c.qEv,Wsh,Wel,Pfan:200,Ptot:Wel+200,COP:Q/(Wel+200),COPc:c.copH,T2:c.e2.T};
+    Pclima=r.Ptot; Pres=Q+70; return cierra({p,clima:'calor',T,Q,r,Pclima,Pres,fijo:true,vK});
+  }
+  if(clima==='frio'){ Q=demandaFrio(T); r=refrigeracion(T,Q,p.fc,p.fe,p.sc); Pclima=r.Ptot; }
+  else { Q=demanda(T); if(clima==='calor'){ r=calefaccion(T,Q,p.fc,p.fe,p.sc,p.sh,p.falla); Pclima=r.Ptot; } else Pclima=Q+HX.Pcab0*Math.pow(p.fc,3); }
+  Pres=Q+HX.Pcab0*Math.pow(p.fc,3);
+  const o=cierra({p,clima,T,Q,r,Pclima,Pres,vK});
+  if(clima==='resist') o.alt=calefaccion(T,Q,p.fc,p.fe,p.sc);
+  return o;
+}
+function cierra(o){
+  const {T,vK}=o;
+  o.aut={hp:autonomia(vK,T,o.Pclima),res:autonomia(vK,T,o.Pres),sin:autonomia(vK,T,0)};
+  o.Ptr=potTraccion(vK,T);
+  o.tabla=o.r?construyeTabla(o.r.c,o.clima==='frio'):null;
+  if(o.tabla) pintaColores(o); else pintaTuboNeutro();
+  return o;
+}
+
+/* ---- tabla de estados a lo largo del trazado ---- */
+const NLUT=500;
+function estadoDe(c,n){ return n===1?{h:c.e1.h,p:c.Pe,T:c.e1.T}:n===2?{h:c.e2.h,p:c.Pc,T:c.e2.T}:n===3?{h:c.e3.h,p:c.Pc,T:c.e3.T}:{h:c.h4,p:c.Pe,T:c.Tev}; }
+function construyeTabla(c,frio){
+  const S=n=>estadoDe(c,n), u=U_;
+  const calor=[[0,u.cOut,1,2,'comp'],[u.cOut,u.h0,2,2,'tub'],[u.h0,u.h1,2,3,'cond'],[u.h1,u.v0,3,3,'tub'],[u.v0,u.v1,3,4,'valv'],[u.v1,u.e0,4,4,'tub'],[u.e0,u.e1,4,1,'evap'],[u.e1,1,1,1,'tub']];
+  const f=[[0,u.cOut,2,1,'comp'],[u.cOut,u.h0,1,1,'tub'],[u.h0,u.h1,1,4,'evap'],[u.h1,u.v0,4,4,'tub'],[u.v0,u.v1,4,3,'valv'],[u.v1,u.e0,3,3,'tub'],[u.e0,u.e1,3,2,'cond'],[u.e1,1,2,2,'tub']];
+  return (frio?f:calor).map(([a,b,sa,sb,k])=>({ua:a,ub:b,A:S(sa),B:S(sb),k}));
+}
+const lg=Math.log;
+/** Estado (h,p,T-aprox) en la abscisa u del trazado según la tabla. */
+function estadoEn(tab,u,c){
+  u=((u%1)+1)%1;
+  for(const s of tab){ if(u>=s.ua&&u<=s.ub+1e-9){ const f=s.ub>s.ua?(u-s.ua)/(s.ub-s.ua):0;
+    return {h:mezcla(s.A.h,s.B.h,f),p:Math.exp(mezcla(lg(s.A.p),lg(s.B.p),f)),k:s.k,f}; } }
+  const s=tab[tab.length-1]; return {h:s.B.h,p:s.B.p,k:'tub',f:1};
+}
+/* Colores por fase: líquido azul, mezcla blanca-cian, vapor de frío celeste a rojo según T */
+const C_LIQ=new THREE.Color('#2f7dff'), C_LIQ2=new THREE.Color('#62b4ff'), C_MEZ=new THREE.Color('#d9f3ff'), C_V0=new THREE.Color('#9fe3ff'), C_V1=new THREE.Color('#ffd27a'), C_V2=new THREE.Color('#ff8a3a'), C_V3=new THREE.Color('#ff3b22');
+function colorVapor(T,out){ const t=aC(T); if(t<=0) return out.copy(C_V0); if(t<40) return out.copy(C_V0).lerp(C_V1,t/40); if(t<85) return out.copy(C_V1).lerp(C_V2,(t-40)/45); return out.copy(C_V2).lerp(C_V3,clamp((t-85)/40,0,1)); }
+function propsEn(c,h,p){   // saturación a p por interpolación en ln p entre los dos niveles de presión del ciclo
+  const f=c.Pc>c.Pe*1.0001?clamp((lg(p)-lg(c.Pe))/(lg(c.Pc)-lg(c.Pe)),0,1):0;
+  return {hf:mezcla(c.se.hf,c.sc.hf,f),hg:mezcla(c.se.hg,c.sc.hg,f),Ts:mezcla(c.Tev,c.Tcd,f)};
+}
+const _c1=new THREE.Color();
+function colorFase(c,h,p,out){
+  const s=propsEn(c,h,p);
+  if(h<=s.hf){ const sub=clamp((s.hf-h)/25e3,0,1); return out.copy(C_LIQ).lerp(C_LIQ2,1-sub*0.8); }
+  if(h<s.hg){ const x=(h-s.hf)/(s.hg-s.hf); colorVapor(s.Ts,_c1); return out.copy(C_LIQ2).lerp(C_MEZ,clamp(x*2.2,0,1)).lerp(_c1,clamp((x-0.45)*1.8,0,1)); }
+  const T=tDeHV(p,h); return colorVapor(T,out);
+}
+function pintaColores(o){
+  const c=o.r.c, tab=o.tabla, lut=new Float32Array((NLUT+1)*3), col=new THREE.Color();
+  for(let i=0;i<=NLUT;i++){ const e=estadoEn(tab,i/NLUT,c); colorFase(c,e.h,e.p,col); lut.set([col.r,col.g,col.b],i*3); }
+  o.lut=lut;
+  const ca=TUBO.geometry.attributes.color, nR=11, nRing=NTUB+1; let k=0;
+  for(let i=0;i<nRing;i++){ const j=Math.round(i/NTUB*NLUT)*3; for(let r=0;r<nR;r++){ ca.setXYZ(k++,lut[j]*0.9,lut[j+1]*0.9,lut[j+2]*0.9); } }
+  ca.needsUpdate=true;
+}
+function pintaTuboNeutro(){ const ca=TUBO.geometry.attributes.color; for(let i=0;i<ca.count;i++) ca.setXYZ(i,0.42,0.5,0.56); ca.needsUpdate=true; }
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  aplicaAmbiente(CALC.T);
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+  dirty.cop=true;
+}
+const dirty={cop:true};
+
+/* ===================== 11. LO QUE SE VE ===================== */
+const _pos=V3(0,0,0), _sc=V3(1,1,1);
+const lut3=(lut,u,out)=>{ const j=Math.round(((u%1)+1)%1*NLUT)*3; return out.setRGB(lut[j],lut[j+1],lut[j+2]); };
+const TEMP_AIRE=[[250,'#a9d9ff'],[273.15,'#e4f4ff'],[291,'#ffe9cc'],[303,'#ffc58a'],[333,'#ff9a52']].map(([t,c])=>[t,new THREE.Color(c)]);
+function colorAire(T,out){ const a=TEMP_AIRE; if(T<=a[0][0]) return out.copy(a[0][1]); for(let i=1;i<a.length;i++) if(T<=a[i][0]) return out.copy(a[i-1][1]).lerp(a[i][1],(T-a[i-1][0])/(a[i][0]-a[i-1][0])); return out.copy(a[a.length-1][1]); }
+
+function aplicaEscena(dt){
+  const C=CALC; if(!C) return;
+  SIM.t+=dt;
+  const r=C.r, activo=!!r, frio=C.clima==='frio';
+  // régimen visual del compresor (a 1/40) y velocidades de los ventiladores
+  const rpm=activo?r.Nrpm:0, wC=rpm/60*DOSPI/V_REF_ESCALA;
+  SIM.rotor+=wC*dt; SIM.orb+=wC*dt;
+  COMP_G.rotor.rotation.x=SIM.rotor;
+  COMP_G.orb.position.set(0.27,0.022*Math.sin(SIM.orb),0.022*Math.cos(SIM.orb));
+  const wE=(activo?EST_fe(C):0)*7.5, wS=EST_fc(C)*8.5;
+  SIM.fanE+=wE*dt; SIM.sop+=wS*dt;
+  VENT_E.userData.rotor.rotation.y=SIM.fanE; DUCTO.userData.soplador.rotation.z=-SIM.sop;
+  // refrigerante
+  const flujo=activo?clamp(r.m/0.016,0.25,2.4):0, dir=frio?-1:1;
+  SIM.fase+=dir*0.040*flujo*dt;
+  if(activo){
+    const lut=C.lut, col=_col;
+    for(let i=0;i<NREF;i++){ const u=((i/NREF+SIM.fase)%1+1)%1; puntoEn(u,_pos);
+      const e=estadoEn(C.tabla,u,r.c); const vap=e.h>propsEn(r.c,e.h,e.p).hg, liq=e.h<propsEn(r.c,e.h,e.p).hf;
+      const rad=liq?0.021:(vap?0.027:0.025);
+      _m4.compose(_pos,_q0,_sc.set(rad,rad,rad)); PART_REF.setMatrixAt(i,_m4); lut3(lut,u,col); PART_REF.setColorAt(i,col); }
+  } else { for(let i=0;i<NREF;i++){ _m4.compose(_pos,_q0,_sc.set(0,0,0)); PART_REF.setMatrixAt(i,_m4); } }
+  PART_REF.instanceMatrix.needsUpdate=true; PART_REF.instanceColor.needsUpdate=true;
+  // válvula: la apertura sigue al caudal
+  VALVULA.userData.aguja.position.y=0.03+0.07*clamp(flujo-1,-0.6,1);
+  // calentador resistivo
+  const ptc=C.clima==='resist'; M.resist.emissiveIntensity+=((ptc?2.6:0)-M.resist.emissiveIntensity)*clamp(dt*4,0,1);
+  // aire de la cabina: sale del soplador, atraviesa la bobina (o el PTC) y llega a la cabina
+  const Ca=HX.Cair0*C.p.fc, Qc=C.clima==='frio'?-C.Q:C.Q, Taire=CAB.Tset+Qc/Ca;
+  const qaire=colorAire(clamp(Taire,255,345),new THREE.Color()), cpre=colorAire(CAB.Tset,new THREE.Color());
+  const vc=0.17*C.p.fc;
+  for(let i=0;i<SEM_CAB.length;i++){ const s=SEM_CAB[i], f=(s.f+SIM.t*vc*s.v)%1, x=2.00-f*3.35;
+    const fuera=x<0.72, y=2.36+s.y*(fuera?0.55:0.9)+(fuera?clamp((0.72-x)*0.42,0,0.7)*(0.5+s.f):0), z=s.z*(fuera?1.0:0.9);
+    const g=Math.pow(Math.sin(Math.PI*f),0.6)*0.024*(1+0.4*s.v);
+    _m4.compose(_pos.set(x,y,z),_q0,_sc.set(g,g,g)); PART_CAB.setMatrixAt(i,_m4);
+    PART_CAB.setColorAt(i,x>1.85?cpre:qaire); }
+  PART_CAB.instanceMatrix.needsUpdate=true; PART_CAB.instanceColor.needsUpdate=true;
+  // aire exterior: sube por la bobina; sólo si el ventilador exterior trabaja
+  const Ce=HX.Cext0*C.p.fe, dTe=activo?(frio?r.Qcd:-r.Qev)/Ce:0, Tsal=C.T+dTe;
+  const cIn=colorAire(C.T,new THREE.Color()), cOut=colorAire(clamp(Tsal,235,345),new THREE.Color());
+  const ve=0.20*C.p.fe;
+  for(let i=0;i<SEM_EXT.length;i++){ const s=SEM_EXT[i], f=(s.f+SIM.t*ve*s.v)%1, y=0.04+f*2.35;
+    const w=f<0.14?1+(0.14-f)/0.14*1.6:(f>0.62?1+(f-0.62)*1.6:1), rr=s.r*0.33*w;
+    const g=activo?Math.pow(Math.sin(Math.PI*f),0.5)*0.02:0;
+    _m4.compose(_pos.set(-1.06+Math.cos(s.a)*rr*1.05,y,Math.sin(s.a)*rr*0.9),_q0,_sc.set(g,g,g)); PART_EXT.setMatrixAt(i,_m4);
+    PART_EXT.setColorAt(i,_col.copy(cIn).lerp(cOut,clamp((f-0.28)/0.2,0,1))); }
+  PART_EXT.instanceMatrix.needsUpdate=true; PART_EXT.instanceColor.needsUpdate=true;
+  // nieve: sólo con el ambiente cerca o por debajo de 2 °C
+  const nieva=C.T<=275.5;
+  for(let i=0;i<SEM_NIEVE.length;i++){ const s=SEM_NIEVE[i], f=(s.f+SIM.t*0.07*s.v)%1, y=4.4-f*4.5, g=nieva?0.011*(0.7+0.5*s.v):0;
+    _m4.compose(_pos.set(s.x+Math.sin(SIM.t*0.6+s.s)*0.12,y,s.z+Math.cos(SIM.t*0.5+s.s)*0.12),_q0,_sc.set(g,g,g)); NIEVE.setMatrixAt(i,_m4); }
+  NIEVE.instanceMatrix.needsUpdate=true;
+  // cabina: color del volumen de aire según el modo
+  const warm=!frio; CABINA.userData.glow.material.color.set(warm?'#ffb26b':'#8fe0ff');
+  LUZ.cabina.color.set(warm?'#ffb070':'#9fe6ff'); LUZ.cabina.intensity=1.1;
+  // el punto de referencia del diagrama p–h (una partícula marcada) usa la misma abscisa
+  SIM.uRef=((SIM.fase%1)+1)%1;
+}
+const EST_fe=C=>C.clima==='resist'?0:C.p.fe, EST_fc=C=>C.p.fc;
+
+/* ===================== 12. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 66 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  banco:{dir:V3(-0.30,0.22,1),anc:()=>V3(0.28,1.55,0),toff:V3(0,0,0),obj:()=>({w:4.55,h:3.55}),fov:34,tope:0.64},
+  compresor:{dir:V3(-0.25,0.20,1),anc:()=>V3(1.15,0.80,0.05),toff:V3(0,0,0),obj:()=>({w:1.8,h:1.3}),fov:34,tope:0.64},
+  cabina:{dir:V3(-0.22,0.12,1),anc:()=>V3(0.48,2.30,0),toff:V3(0,0,0),obj:()=>({w:4.5,h:1.75}),fov:34,tope:0.64},
+  exterior:{dir:V3(-0.40,0.55,1),anc:()=>V3(-1.05,0.95,0),toff:V3(0,0,0),obj:()=>({w:1.6,h:2.1}),fov:34,tope:0.66},
+};
+const CAM={off:V3(-1.5,1.2,6),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+const ocultaP=()=>EST.modo==='guia'&&GUIA.paso==='predice';      // el COP real, mientras se pide calcular el de Carnot
+const ocultaDec=()=>EST.modo==='guia'&&GUIA.paso==='decide'&&!(GUIA.r2&&GUIA.r2.validado);   // la potencia, mientras se ajusta
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · climatización</div>`;
+  if(EST.modo==='marcha'){
+    if(EST.clima==='frio') h+=`<h2>¿Cuánto cuesta enfriar un coche eléctrico a ${fN(aC(EST.Tamb))} °C?</h2>
+    <p class="intro">El mismo circuito funciona <b>al revés</b>: la bobina de la cabina se vuelve evaporador (el refrigerante sale <b>azul</b> y frío) y la exterior, condensador (<b>naranja</b> y caliente). El calor sale de la cabina y se tira fuera.</p></div>`;
+    else h+=`<h2>¿Cuánto cuesta calentar un coche eléctrico a ${fN(aC(EST.Tamb))} °C?</h2>
+    <p class="intro">El refrigerante recorre el circuito coloreado por fase: <b>azul</b> líquido, <b>naranja</b> vapor. La bomba de calor <b>mueve</b> calor del aire exterior a la cabina; el calentador resistivo lo <b>fabrica</b>.</p></div>`;
+  } else h+=`<h2>Predice, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Sistema</div><div class="seg" id="segClima">${Object.keys(NOMBRE_CLIMA).map(k=>`<button class="b ${EST.clima===k?'on':''}" data-clima="${k}">${{calor:'Bomba de calor',resist:'Resistivo',frio:'A/C'}[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Temperatura exterior</div><b id="vT">${fN(aC(EST.Tamb))} °C</b></div><input type="range" id="rT" min="-20" max="40" step="1" value="${aC(EST.Tamb)}" aria-label="Temperatura exterior en grados Celsius">
+      <div class="marcas"><span>−20</span><span>0</span><span>40</span></div></div>
+    <div class="cg"><div class="cl"><div>Aire de la cabina</div><b id="vC">×${fN(EST.fc,2)}</b></div><input type="range" id="rC" min="0.4" max="1.8" step="0.05" value="${EST.fc}" aria-label="Caudal de aire de la cabina">
+      <div class="marcas"><span>poco</span><span>mucho</span></div></div>
+    <div class="cg"><div class="cl"><div>Ventilador exterior</div><b id="vE">×${fN(EST.fe,2)}</b></div><input type="range" id="rE" min="0.4" max="1.8" step="0.05" value="${EST.fe}" aria-label="Caudal del ventilador exterior">
+      <div class="marcas"><span>poco</span><span>mucho</span></div></div>
+    <div class="cg"><div class="cl"><div>Subenfriamiento</div><b id="vS">${fN(EST.sc,1)} K</b></div><input type="range" id="rS" min="0" max="14" step="0.5" value="${EST.sc}" aria-label="Subenfriamiento del líquido en kelvin">
+      <div class="marcas"><span>0</span><span>14</span></div></div>
+    <div class="cg"><div class="cl"><div>Velocidad del coche</div><b id="vV">${fN(EST.vKmh)} km/h</b></div><input type="range" id="rV" min="40" max="120" step="5" value="${EST.vKmh}" aria-label="Velocidad del coche en kilómetros por hora">
+      <div class="marcas"><span>40</span><span>120</span></div></div>
+    <div class="fila"><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  const ps0=sat(273.15), ps50=sat(323.15);
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">P = RT/(v−b) − a(T)/(v²+2bv−b²)<br>a = 0,45724·R²T<sub>c</sub>²/P<sub>c</sub> · [1+κ(1−√T<sub>r</sub>)]²</div>
+    <div class="fl"><b>Saturación</b> por igualdad de fugacidad, ln φ<sub>L</sub> = ln φ<sub>V</sub>, con T<sub>c</sub> = 374,21 K, P<sub>c</sub> = 4,059 MPa y ω = 0,3268. El motor da p<sub>sat</sub>(0 °C) = <b>${fN(ps0.P/1e5,3)} bar</b> y p<sub>sat</sub>(50 °C) = <b>${fN(ps50.P/1e5,3)} bar</b> (NIST: 2,928 y 13,179 bar).</div>
+    <div class="formula">h = h<sub>gi</sub>(T) + RT(Z−1) + (T·a′ − a)/(2√2·b) · ln[(Z+(1+√2)B)/(Z+(1−√2)B)]</div>
+    <div class="formula">COP<sub>cal</sub> = (h₂−h₃)/(h₂−h₁) · h₄ = h₃ · h₂ = h₁ + (h₂ₛ−h₁)/η<sub>is</sub></div>
+    <div class="fl">P<sub>el</sub> = ṁ·(h₂−h₁)/(η<sub>mot</sub>·η<sub>inv</sub>) + P<sub>ventiladores</sub>, con P<sub>vent</sub> ∝ caudal³. La autonomía a velocidad constante es E<sub>útil</sub>/(P<sub>tracción</sub>+P<sub>clima</sub>)·v.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Régimen permanente: el ciclo se resuelve para la demanda de la cabina, sin transitorio de calentamiento. La demanda es UA·(22 °C − T<sub>ext</sub>) − 100 W de ocupante, con UA = 100 W/K.</li>
+    <li>Intercambiadores por efectividad-NTU con UA ∝ caudal<sup>0,6</sup>; caídas de presión nulas; la zona de subenfriamiento ocupa área del condensador (+0,043·sc² K).</li>
+    <li>Compresor: ηis con un máximo en la relación de presiones de diseño del espiral (3,4), ηv por espacio muerto, máximo 9 000 rpm. No hay escarcha, deshielo ni válvula de 4 vías (se invierte el sentido).</li>
+    <li>R134a con cp ideal polinómico de libro; las entalpías de vapor de Peng–Robinson quedan ≈ 1 % por encima de NIST. Los giros visuales van a 1/40 de la real. No es CFD ni una certificación.</li>
+  </ul><div class="src">Peng y Robinson (1976) · Poling, Prausnitz y O'Connell, <i>The Properties of Gases and Liquids</i> · NIST WebBook, R134a (Tillner-Roth y Baehr).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-clima]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; const k=b.dataset.clima; if(k===EST.clima) return;
+    if(k==='frio'&&EST.Tamb<288) EST.Tamb=308.15; if(k!=='frio'&&EST.Tamb>293) EST.Tamb=263.15; EST.clima=k; pintaHUD(); re(); });
+  const lig=(id,campo,ev,fmt,conv)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=conv?conv(+e.value):+e.value; el(ev).textContent=fmt(EST[campo]); re(); }; };
+  lig('rT','Tamb','vT',v=>fN(aC(v))+' °C',v=>v+273.15); lig('rC','fc','vC',v=>'×'+fN(v,2)); lig('rE','fe','vE',v=>'×'+fN(v,2)); lig('rS','sc','vS',v=>fN(v,1)+' K'); lig('rV','vKmh','vV',v=>fN(v)+' km/h');
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LPH=lienzo('gFu'), LPW=lienzo('gTr'), LCP=lienzo('gFr'), LAU=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#6f87a0',t?11:14,'center','500'); };
+const rgbCss=(c)=>'rgb('+Math.round(c.r*255)+','+Math.round(c.g*255)+','+Math.round(c.b*255)+')';
+
+/* ---- Diagrama p–h: la campana de saturación de Peng–Robinson y el ciclo vivo ---- */
+let DOMO=null;
+function domo(){ if(DOMO) return DOMO; const L=[],R=[]; for(let t=-45;t<=100;t+=3.5){ const s=sat(273.15+t); L.push([s.hf/1e3,s.P/1e5]); R.push([s.hg/1e3,s.P/1e5]); } DOMO={L,R}; return DOMO; }
+const PH={h0:150,h1:490,p0:0.7,p1:45};
+function pintaPh(){
+  const x=abre(LPH), Wd=LPH.w, Hd=LPH.h, C=CALC; if(!C) return;
+  const X0=36, X1=Wd-8, Y0=8, Y1=Hd-20, X=h=>X0+(h-PH.h0)/(PH.h1-PH.h0)*(X1-X0), Y=p=>Y1-(lg(p)-lg(PH.p0))/(lg(PH.p1)-lg(PH.p0))*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d6270'); raya(x,X0,Y0,X0,Y1,'#3d6270');
+  for(const p of [1,2,5,10,20,40]){ raya(x,X0,Y(p),X1,Y(p),'rgba(143,200,214,0.10)'); txt(x,String(p),X0-4,Y(p)+3,'#7fa3b0',8.5,'right','500'); }
+  for(const h of [200,300,400]){ raya(x,X(h),Y0,X(h),Y1,'rgba(143,200,214,0.07)'); txt(x,String(h),X(h),Hd-6,'#7fa3b0',8.5,'center','500'); }
+  txt(x,'bar',X0-4,Y0+6,'#7fa3b0',8.5,'right','600'); txt(x,'h (kJ/kg)',X1,Hd-6,'#7fa3b0',8.5,'right','600');
+  const D=domo(); x.beginPath(); D.L.forEach(([h,p],i)=>{ i?x.lineTo(X(h),Y(p)):x.moveTo(X(h),Y(p)); }); for(let i=D.R.length-1;i>=0;i--) x.lineTo(X(D.R[i][0]),Y(D.R[i][1])); x.closePath();
+  const gr=x.createLinearGradient(0,Y0,0,Y1); gr.addColorStop(0,'rgba(120,200,230,0.10)'); gr.addColorStop(1,'rgba(120,200,230,0.20)'); x.fillStyle=gr; x.fill();
+  x.strokeStyle='rgba(160,225,240,0.75)'; x.lineWidth=1.3; x.stroke();
+  txt(x,'líquido',X(215),Y(30),'rgba(120,175,255,0.9)',9,'center','600'); txt(x,'vapor',X(440),Y(6),'rgba(255,200,130,0.9)',9,'center','600'); txt(x,'mezcla',X(305),Y(2.3),'rgba(190,230,245,0.85)',9,'center','600');
+  if(!C.r){ sinDatos(x,Wd,Hd,'el calentador resistivo no usa refrigerante'); return; }
+  const c=C.r.c, K=(h,p)=>[X(h/1e3),Y(p/1e5)];
+  // isentrópica 1→2s (tenue) y ciclo coloreado por fase
+  x.setLineDash([3,3]); x.strokeStyle='rgba(220,235,240,0.35)'; x.lineWidth=1; x.beginPath(); { const a=K(c.e1.h,c.Pe), b=K(c.e2s.h,c.Pc); x.moveTo(a[0],a[1]); x.lineTo(b[0],b[1]); } x.stroke(); x.setLineDash([]);
+  const NS=160; let prev=null; x.lineWidth=2.8; x.lineCap='round';
+  for(let i=0;i<=NS;i++){ const u=i/NS, e=estadoEn(C.tabla,u,c), q=K(e.h,e.p); if(prev){ const j=Math.round(u*NLUT)*3; x.strokeStyle=`rgb(${Math.round(C.lut[j]*255)},${Math.round(C.lut[j+1]*255)},${Math.round(C.lut[j+2]*255)})`; x.beginPath(); x.moveTo(prev[0],prev[1]); x.lineTo(q[0],q[1]); x.stroke(); } prev=q; }
+  x.lineCap='butt';
+  const num=[[c.e1,c.Pe,'1'],[c.e2,c.Pc,'2'],[c.e3,c.Pc,'3'],[{h:c.h4},c.Pe,'4']];
+  for(const [e,p,n] of num){ const q=K(e.h,p); x.fillStyle='#071a22'; x.beginPath(); x.arc(q[0],q[1],6.5,0,DOSPI); x.fill(); x.strokeStyle='#8fe3ee'; x.lineWidth=1.2; x.stroke(); txt(x,n,q[0],q[1]+3.3,'#e9fbff',9,'center','700'); }
+  // punto del reloj (la misma abscisa u que la partícula marcada) y su estela
+  for(let k=7;k>=0;k--){ const e=estadoEn(C.tabla,SIM.uRef-(C.clima==='frio'?-1:1)*k*0.006,c), q=K(e.h,e.p); x.fillStyle=`rgba(255,255,255,${0.62-k*0.07})`; x.beginPath(); x.arc(q[0],q[1],k?2.4-k*0.15:3.8,0,DOSPI); x.fill(); }
+  el('t_fu').textContent=C.fijo?'ciclo propuesto':(C.clima==='frio'?'refrigeración':'calefacción');
+}
+function pintaLeyPh(){
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:#2f7dff"></i>líquido</span><span class="lg"><i class="bl" style="--c:#d9f3ff"></i>mezcla</span><span class="lg"><i class="bl" style="--c:#9fe3ff"></i>vapor frío</span><span class="lg"><i class="bl" style="--c:#ff7a30"></i>vapor caliente</span><span class="lg"><i class="dash" style="--c:#c8d6e6"></i>compresión ideal</span>`;
+}
+/* ---- Potencias: el calor útil frente a la energía eléctrica ---- */
+function pintaPot(){
+  const x=abre(LPW), Wd=LPW.w, Hd=LPW.h, C=CALC; if(!C) return;
+  if(ocultaDec()){ sinDatos(x,Wd,Hd,'se muestra al validar'); return; }
+  const X0=6, X1=Wd-6, Y0=14, Y1=Hd-18;
+  const Q=C.fijo?C.Q:C.Q, fr=C.clima==='frio';
+  const mx=Math.max(Q,C.Pres,C.Pclima)*1.12/1000, Y=v=>Y1-v/mx*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d6270');
+  const barras=[];
+  if(fr){ barras.push({n:'Frío',partes:[[Q/1000,'#8fe0ff']]}, {n:'Eléctrica',partes:[[C.r.Wel/1000,'#2FC4D4'],[C.r.Pfan/1000,'#FFB347']]}); }
+  else if(C.clima==='resist'){ barras.push({n:'Resistivo',partes:[[C.Pres/1000,'#ff6a3a']]}); const a=C.alt; if(a) barras.push({n:'B. de calor',partes:[[a.Wel/1000,'#2FC4D4'],[a.Pfan/1000,'#FFB347']]}); }
+  else { barras.push({n:'Resistivo',partes:[[C.Pres/1000,'#ff6a3a']]}, {n:'B. de calor',partes:[[C.r.Wel/1000,'#2FC4D4'],[C.r.Pfan/1000,'#FFB347']]}); }
+  const n=barras.length, bw=Math.min(54,(X1-X0)/n-18);
+  barras.forEach((b,i)=>{ const cx=X0+(i+0.5)*(X1-X0)/n; let acc=0; for(const [v,col] of b.partes){ x.fillStyle=col; x.fillRect(cx-bw/2,Y(acc+v),bw,Y(acc)-Y(acc+v)); acc+=v; }
+    txt(x,fN(acc,2),cx,Y(acc)-4,'#e9fbff',10,'center','700'); txt(x,b.n,cx,Hd-5,'#9fc2cf',9.5,'center','600'); });
+  el('t_pw').innerHTML=fr?'':'<b style="color:#2FC4D4">■</b> comp. <b style="color:#FFB347">■</b> vent.';
+}
+/* ---- COP según el ambiente, con los mandos actuales ---- */
+let CURVA=null;
+function calculaCurva(){
+  const C=CALC; if(!C||C.fijo){ CURVA=null; return; }
+  const p=C.p, fr=C.clima==='frio', pts=[], a=fr?20:-20, b=fr?44:15;
+  for(let T=a;T<=b+1e-9;T+=(b-a)/18){ const Tk=T+273.15; let r;
+    if(fr) r=refrigeracion(Tk,demandaFrio(Tk),p.fc,p.fe,p.sc); else r=calefaccion(Tk,demanda(Tk),p.fc,p.fe,p.sc);
+    pts.push({T,COP:r.COP,lim:r.sobre||r.T2>LIM_T2}); }
+  CURVA={a,b,pts,fr};
+}
+function pintaCop(){
+  const x=abre(LCP), Wd=LCP.w, Hd=LCP.h, C=CALC; if(!C) return;
+  if(ocultaDec()){ sinDatos(x,Wd,Hd,'se muestra al validar'); return; }
+  if(dirty.cop){ calculaCurva(); dirty.cop=false; }
+  if(!CURVA){ sinDatos(x,Wd,Hd); return; }
+  const X0=22, X1=Wd-6, Y0=8, Y1=Hd-16, mx=Math.max(4,Math.ceil(Math.max(...CURVA.pts.map(q=>q.COP))+0.4)), X=T=>X0+(T-CURVA.a)/(CURVA.b-CURVA.a)*(X1-X0), Y=v=>Y1-v/mx*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d6270'); raya(x,X0,Y0,X0,Y1,'#3d6270');
+  for(let v=1;v<=mx;v++){ raya(x,X0,Y(v),X1,Y(v),'rgba(143,200,214,0.08)'); txt(x,String(v),X0-3,Y(v)+3,'#7fa3b0',8.5,'right','500'); }
+  const marcas=CURVA.fr?[20,30,40]:[-20,-10,0,10]; for(const T of marcas){ txt(x,String(T).replace('-','−'),X(T),Hd-3,'#7fa3b0',8.5,'center','500'); }
+  if(!CURVA.fr) raya(x,X0,Y(1),X1,Y(1),'rgba(255,106,58,0.9)',1.2,[4,3]);
+  // tramo en que el compresor no llega o la descarga pasa de 130 °C
+  for(let i=1;i<CURVA.pts.length;i++){ const p0=CURVA.pts[i-1], p1=CURVA.pts[i]; if(p0.lim||p1.lim){ x.fillStyle='rgba(244,71,94,0.16)'; x.fillRect(X(p0.T),Y0,X(p1.T)-X(p0.T),Y1-Y0); } }
+  x.strokeStyle='#2FC4D4'; x.lineWidth=2; x.beginPath(); CURVA.pts.forEach((q,i)=>{ i?x.lineTo(X(q.T),Y(q.COP)):x.moveTo(X(q.T),Y(q.COP)); }); x.stroke();
+  if(C.r&&!ocultaDec()){ const T=clamp(aC(C.T),CURVA.a,CURVA.b); x.fillStyle='#fff'; x.beginPath(); x.arc(X(T),Y(C.r.COP),3.6,0,DOSPI); x.fill(); x.strokeStyle='#2FC4D4'; x.lineWidth=1.4; x.stroke(); }
+  txt(x,CURVA.fr?'COP de refrigeración':'resistivo = 1',X1-2,Y(1)-3,'#ff8a5c',8.5,'right','600');
+}
+/* ---- Autonomía ---- */
+function pintaAut(){
+  const x=abre(LAU), Wd=LAU.w, Hd=LAU.h, C=CALC; if(!C) return;
+  if(ocultaDec()){ sinDatos(x,Wd,Hd,'se muestra al validar'); el('t_sp').textContent=''; return; }
+  const fr=C.clima==='frio', filas=[['Sin climatización',C.aut.sin,'#7fa3b0']];
+  if(!fr) filas.push(['Calentador resistivo',C.aut.res,'#ff6a3a']);
+  filas.push([fr?'Aire acondicionado':'Bomba de calor',fr?C.aut.hp:(C.clima==='resist'?autonomia(C.vK,C.T,(C.alt?C.alt.Ptot:C.Pclima)):C.aut.hp),'#2FC4D4']);
+  const X0=104, X1=Wd-34, mx=C.aut.sin*1.02, bh=Math.min(16,(Hd-8)/filas.length-5);
+  filas.forEach(([n,v,col],i)=>{ const y=6+i*(bh+7); txt(x,n,X0-6,y+bh*0.78,'#9fc2cf',9.5,'right','600'); x.fillStyle='rgba(255,255,255,0.05)'; x.fillRect(X0,y,X1-X0,bh); x.fillStyle=col; x.fillRect(X0,y,Math.max(2,(X1-X0)*v/mx),bh); txt(x,fN(v,0)+' km',X0+(X1-X0)*v/mx+4,y+bh*0.78,'#e9fbff',9.5,'left','700'); });
+  el('t_sp').textContent=fN(C.vK)+' km/h · '+fN(aC(C.T))+' °C';
+}
+
+function pintaDockFijo(){
+  const gu=EST.modo==='guia', C=CALC;
+  el('p_mode').textContent=gu?'Laboratorio guiado':NOMBRE_CLIMA[EST.clima];
+  el('p_sub').textContent=C?('demanda de la cabina '+fN(C.Q/1000,2)+' kW'):'';
+  pintaLeyPh();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  if(enDiagnostico()){ lab(1,'Presión alta'); lab(2,'Presión baja'); lab(3,'Sobrecalent.'); lab(4,'Subenfriam.'); lab(5,'T de descarga'); lab(6,'Calor a la cabina'); }
+  else { lab(1,'COP'); lab(2,'Potencia eléctrica'); lab(3,C&&C.clima==='frio'?'Frío en la cabina':'Calor a la cabina'); lab(4,'P alta / baja (bar)'); lab(5,'Compresor'); lab(6,'T de descarga'); }
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC; if(!C) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; }, r=C.r;
+  const sm=(v,u)=>fN(v)+'<small> '+u+'</small>';
+  if(enDiagnostico()){
+    const D=GUIA.dxRes;
+    if(D){ set('f_1',fN(D.c.Pc/1e5,1)+'<small> bar</small>'); set('f_2',fN(D.c.Pe/1e5,2)+'<small> bar</small>'); set('f_3',fN(D.sh,0)+'<small> K</small>'); set('f_4',fN(D.scm,0)+'<small> K</small>'); set('f_5',fN(aC(D.c.e2.T),0)+'<small> °C</small>'); set('f_6',fN(D.Qdel/1000,2)+'<small> kW</small>'); }
+    for(const i of [1,2,3,4,5,6]) _cl('f_'+i,''); const A1=el('aviso'); A1.className='dk-aviso'; A1.textContent=''; return; }
+  if(!r){ set('f_1','1,00'); set('f_2',fN(C.Pclima/1000,2)+'<small> kW</small>'); set('f_3',fN(C.Q/1000,2)+'<small> kW</small>'); set('f_4','—'); set('f_5','0<small> rpm</small>'); set('f_6','—'); for(const i of [1,2,3,4,5,6]) _cl('f_'+i,''); const A0=el('aviso'); A0.className='dk-aviso on ojo'; const t0='Cada kWh eléctrico se convierte en 1 kWh de calor. Con la bomba de calor, el mismo calor cuesta menos de la mitad.'; if(A0.textContent!==t0) A0.textContent=t0; return; }
+  if(ocultaP()||ocultaDec()){ set('f_1','¿?'); _cl('f_1','oculto'); } else { set('f_1',fN(r.COP,2)); _cl('f_1',r.COP<1.5?'warn':''); }
+  if(ocultaDec()){ set('f_2','¿?'); _cl('f_2','oculto'); } else { set('f_2',fN(r.Ptot/1000,2)+'<small> kW</small>'); _cl('f_2',''); }
+  set('f_3',fN(r.Qdel/1000,2)+'<small> kW</small>'); _cl('f_3',r.sobre?'bad':'');
+  set('f_4',fN(r.c.Pc/1e5,1)+' / '+fN(r.c.Pe/1e5,2));
+  set('f_5',fN(r.Nrpm)+'<small> rpm</small>'); _cl('f_5',r.sobre?'bad':(r.Nrpm>COMP.Nmax*60*0.9?'warn':''));
+  set('f_6',fN(aC(r.T2),0)+'<small> °C</small>'); _cl('f_6',r.T2>LIM_T2?'bad':(r.T2>LIM_T2-12?'warn':''));
+  const Av=el('aviso'); let cl='', t='';
+  if(r.sobre){ cl='mal'; t='El compresor llega a su régimen máximo y no entrega todo el calor: la cabina no alcanza la consigna.'; }
+  else if(r.T2>LIM_T2){ cl='mal'; t='La temperatura de descarga pasa de 130 °C: el aceite y el compresor sufren.'; }
+  else if(C.clima==='calor'&&!ocultaDec()&&!ocultaP()&&r.COP>=1.5){ cl='bien'; t='Por cada kWh eléctrico llegan '+fN(r.COP,2)+' kWh de calor a la cabina; el calentador resistivo entrega 1.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaPh(); pintaPot(); pintaCop(); pintaAut(); }
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×1/4'],[0.5,'×1/2'],[1,'×1'],[2,'×2']];
+el('vbar').innerHTML=[['banco','Banco'],['compresor','Compresor'],['cabina','Cabina'],['exterior','Exterior']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  el('tLento').textContent=EST.vel<1?('cámara lenta '+(VEL.find(v=>v[0]===EST.vel)||[0,'×'+EST.vel])[1]):'compresor a 1/'+V_REF_ESCALA+' de su giro';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=el('tEst'); if(!C) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
+  let t, c;
+  if(!C.r){ t='resistencia al rojo: 1 kWh → 1 kWh'; c='#ff6a3a'; }
+  else if(C.r.sobre){ t='compresor al límite'; c='#f4475e'; }
+  else if(C.clima==='frio'){ t='enfriando: evaporador en la cabina'; c='#8fe0ff'; }
+  else { t='calentando: condensador en la cabina'; c='#ffb26b'; }
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS Y TOOLTIP ===================== */
+const calorH=()=>CALC&&CALC.clima==='frio'?'evaporador':'condensador', calorE=()=>CALC&&CALC.clima==='frio'?'condensador':'evaporador';
+const ANCLAS=[
+  ['Compresor eléctrico de espiral',()=>V3(1.15,1.02,0.3),()=>true],
+  ['Válvula de expansión',()=>V3(0.30,1.42,0.62),()=>true],
+  [()=>'Bobina de la cabina ('+calorH()+')',()=>V3(1.50,2.95,0.4),()=>true],
+  [()=>'Bobina exterior ('+calorE()+')',()=>V3(-1.5,0.55,0.45),()=>true],
+  ['Ventilador exterior',()=>V3(-1.06,1.72,0),()=>true],
+  ['Calentador resistivo (PTC)',()=>V3(1.02,1.78,0.4),()=>true],
+  ['Paquete de baterías',()=>V3(-1.2,0.35,-0.7),()=>true],
+  ['Cabina',()=>V3(-1.3,3.0,0.5),()=>true],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(143,227,238,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t0,f,ok],i)=>{ const t=typeof t0==='function'?t0():t0; if(!ok()) return; if(i===5&&!(CALC&&CALC.clima==='resist')) return;
+    ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  compresor:'Compresor eléctrico de espiral, en corte: el gas pasa por el entrehierro del motor y sube de presión en la espiral. Gira a 1/40 de su velocidad real',
+  valvula:'Válvula de expansión: baja la presión sin intercambiar calor (entalpía constante) y deja una mezcla fría de líquido y vapor',
+  bobinaH:'Bobina de la cabina: en calefacción el vapor caliente cede calor al aire que va al habitáculo y se condensa; en refrigeración se evapora y lo enfría',
+  bobinaE:'Bobina exterior: en calefacción el líquido frío se evapora con el calor del aire de fuera, incluso a bajo cero; en refrigeración se condensa',
+  ventilador:'Ventilador exterior: su potencia crece con el cubo del caudal, así que mover más aire no sale gratis',
+  soplador:'Soplador de la cabina: empuja el aire por la bobina; más caudal baja la presión de condensación pero gasta más',
+  ptc:'Calentador resistivo (PTC): convierte cada kWh eléctrico en 1 kWh de calor, sin multiplicarlo',
+  bateria:'Paquete de baterías con su placa fría. La energía que gasta el clima sale de aquí y se resta de la autonomía',
+  cabina:'Cabina en corte con su ocupante. El color del aire indica si calienta o enfría',
+  tubo:'Tubo de refrigerante. Su color y el de las partículas indican la fase: azul líquido, blanco mezcla, naranja vapor',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([COMPRESOR,VALVULA,VENT_E,DUCTO,CABINA,TUBO],true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o===COMPRESOR) return 'compresor'; if(o===VALVULA) return 'valvula'; if(o===VENT_E) return 'ventilador'; if(o===CABINA) return 'cabina'; if(o===TUBO) return 'tubo';
+    if(o===DUCTO) return h.point.x>1.85?'soplador':(h.point.x<1.1&&CALC&&CALC.clima==='resist'?'ptc':'bobinaH'); o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 18. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Predice (el COP máximo de Carnot entre dos temperaturas), 2 · Ajusta (los caudales de aire de la
+   cabina y del exterior y el subenfriamiento para calentar a bajo cero con la mínima energía: el consumo sólo aparece
+   al validar, y el óptimo es INTERIOR: más aire baja la presión pero gasta en ventiladores) y 3 · Diagnostica (¿qué le
+   pasa a esta bomba de calor?, sólo con lo que se ve en el dock) y cierra con un quiz de tres preguntas. Cuatro
+   validaciones fallidas cambian el escenario (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,dxRes:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Predice ---------- */
+const CASOS1=[[-20,50],[-10,45],[-15,55],[-5,40],[-25,45],[0,55],[-12,48],[-18,52]];
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.i; let i; do{ i=Math.floor(Math.random()*CASOS1.length); }while(i===p); const [te,tc]=CASOS1[i];
+  GUIA.r1={i,te,tc,ans:(tc+273.15)/(tc-te)}; }
+function checkPredice(){
+  const raw=String((el('ansV')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el COP máximo (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(0.12,0.03*ok)){
+    RETO.fallos1=0; sonido.bien();
+    const c=ciclo(273.15+r.te,273.15+r.tc,5,5,etaIs(sat(273.15+r.tc).P/sat(273.15+r.te).P));
+    feedback('good','¡Correcto! ✓',`COP<sub>Carnot</sub> = T<sub>c</sub> / (T<sub>c</sub> − T<sub>f</sub>) = ${fN(r.tc+273.15,2)} / ${fN(r.tc-r.te,0)} = <b>${fN(ok,2)}</b>. El ciclo real de R134a entre esas mismas temperaturas (compresión con η<sub>is</sub> = ${fN(etaIs(c.rp)*100,0)} % y 5 K de subenfriamiento) da <b>${fN(c.copH,2)}</b>: el ${fN(c.copH/ok*100,0)} % del máximo. Cuanto mayor es el salto de temperatura, menor es el COP.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal(); const d=v>ok?'alto':'bajo';
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: temperaturas absolutas, en kelvin, y el denominador es la diferencia entre la caliente y la fría.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,v%1?2:0)}) está ${d}. Pasa las dos temperaturas a kelvin antes de operar. (intentos fallidos: ${RETO.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETO.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta los caudales ---------- */
+const TAMBS=[-10,-14,-18];
+function prepararDecide(){
+  let T; do{ T=pickOne(TAMBS); }while(GUIA.r2&&TAMBS.length>1&&T===GUIA.r2.Tc&&RETO.resiembras>0&&Math.random()<0.9);
+  const Tk=T+273.15, Q=demanda(Tk), opt=optimoCalef(Tk,Q);
+  GUIA.r2={Tc:T,Tamb:Tk,Q,opt,th:opt.Ptot*1.03,fc:0.7,fe:1.5,sc:10,validado:false,res:null,intentos:0};
+  reiniciaCalculo(); pintaHUD();
+}
+function validarDecide(){
+  const r=GUIA.r2; if(!r) return;
+  const R=calefaccion(r.Tamb,r.Q,r.fc,r.fe,r.sc); r.res=R; r.validado=true; r.intentos++; RETO.intentos++;
+  const okCap=!R.sobre&&R.T2<=LIM_T2, ok=okCap&&R.Ptot<=r.th, resist=r.Q+HX.Pcab0*Math.pow(r.fc,3);
+  reiniciaCalculo();
+  const base=`Gastas <b>${fN(R.Ptot)} W</b> (compresor ${fN(R.Wel)} W y ventiladores ${fN(R.Pfan)} W) para dar ${fN(R.Qdel)} W a la cabina: COP ${fN(R.COP,2)}. El límite era <b>${fN(r.th)} W</b>; el calentador resistivo gastaría ${fN(resist)} W.`;
+  if(ok){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Lo conseguiste! ✓',`${base} La mejor combinación que encuentra el motor (aire de cabina ×${fN(r.opt.fc,2)}, exterior ×${fN(r.opt.fe,2)}, subenfriamiento ${fN(r.opt.sc,1)} K) gasta ${fN(r.opt.Ptot)} W. Más aire baja la presión de condensación y sube la de evaporación, pero los ventiladores gastan con el cubo del caudal: por eso el óptimo está en el interior, no en un extremo.`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    let msg=base+' '; if(R.sobre) msg+='El compresor llega a su régimen máximo y no entrega todo el calor. '; else if(R.T2>LIM_T2) msg+='La descarga pasa de 130 °C. '; else msg+='Todavía gastas demasiado. ';
+    msg+=R.Pfan>0.22*R.Ptot?'Los ventiladores se llevan una parte grande: mira cuánto aire mueves.':'Mira la presión alta y la baja en el dock: el compresor trabaja más cuanto mayor es la diferencia.';
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+' Cambia el escenario: la temperatura exterior es otra.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+` (validaciones fallidas: ${RETO.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'escarcha',t:'Escarcha en la bobina exterior',Tc:-6,fc:1,fe:1,sc:5,sh:5,falla:{uaE:0.22}},
+  {k:'fuga',t:'Falta de refrigerante',Tc:-6,fc:1,fe:1,sc:0.3,sh:22,falla:{carga:0.62}},
+  {k:'cabina',t:'Poco aire en la cabina',Tc:-6,fc:0.38,fe:1,sc:5,sh:5,falla:null},
+];
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  const T=c.Tc+273.15, r=calefaccion(T,demanda(T),c.fc,c.fe,c.sc,c.sh,c.falla||undefined);
+  GUIA.dxRes={c:r.c,sh:c.sh,scm:c.sc,Qdel:r.Qdel};
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara la presión baja, el sobrecalentamiento, el subenfriamiento y la temperatura de descarga con lo que daría una bomba sana.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='escarcha') return 'Escarcha en la bobina exterior: el hielo estorba el paso del aire y del calor, la bobina ya no puede absorber lo que pide el ciclo y el refrigerante se evapora a una temperatura mucho más baja. Resultado: <b>presión baja muy baja</b> con sobrecalentamiento y subenfriamiento normales, y más régimen del compresor para dar menos calor. Se resuelve con un ciclo de deshielo.';
+  if(k==='fuga') return 'Falta de refrigerante: la válvula deja pasar poco caudal, el evaporador se queda corto de líquido y el vapor sale muy sobrecalentado, y no queda líquido para subenfriar a la salida del condensador. Resultado: <b>sobrecalentamiento alto, subenfriamiento casi nulo</b>, presiones algo bajas y poco calor a la cabina.';
+  return 'Poco aire en la cabina: la bobina condensadora no se enfría y su temperatura de saturación sube para poder ceder el calor. Resultado: <b>presión alta muy alta</b> y descarga muy caliente, con la presión baja casi normal. Más caudal de aire lo corrige, pero cada soplador gasta con el cubo del caudal.';
+}
+function noEs(k){
+  if(k==='escarcha') return 'Con escarcha la presión baja se hunde mientras la alta no sube: mira si la presión alta es normal y si la baja está por los suelos.';
+  if(k==='fuga') return 'Con falta de refrigerante el sobrecalentamiento se dispara y el subenfriamiento desaparece: comprueba esas dos cifras.';
+  return 'Con poco aire en la cabina la que se dispara es la presión alta y la temperatura de descarga: comprueba si es el caso.';
+}
+const QUIZ=[
+  {q:'Una bomba de calor con COP 2,0 da 3 kW de calor a la cabina. ¿Cuánta energía eléctrica consume?',ok:'1,5 kW',mal:['3,0 kW','6,0 kW','0,67 kW']},
+  {q:'¿Por qué baja el COP cuando hace más frío fuera?',ok:'Aumenta el salto de presión y el compresor gasta más trabajo por cada kilogramo de refrigerante',mal:['Porque el refrigerante pierde propiedades con el frío','Porque la cabina necesita menos calor','Porque el compresor gira más despacio']},
+  {q:'¿Qué hace la válvula de expansión?',ok:'Baja la presión a entalpía constante y deja una mezcla fría de líquido y vapor',mal:['Calienta el líquido para evaporarlo','Aumenta la presión del vapor','Enfría el refrigerante intercambiando calor con el aire']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='guia'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','Es el rendimiento de una máquina ideal que bombea calor entre dos focos: sólo depende de las dos temperaturas, y deben estar en kelvin.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','COP = T caliente / (T caliente − T fría). Suma 273,15 a cada temperatura en °C.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarDecide(); break;
+    case 'dx-escarcha': diagnostica('escarcha'); break; case 'dx-fuga': diagnostica('fuga'); break; case 'dx-cabina': diagnostica('cabina'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Cuál es el máximo que permite la física?',
+      teach:`Una bomba de calor toma calor a <b>${fN(r.te)} °C</b> y lo entrega a <b>${fN(r.tc)} °C</b>.<div class="task">¿Cuánto vale el COP máximo de calefacción, el de Carnot? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? COP" aria-label="COP máximo de Carnot"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:`Calentar a ${fN(r.Tc)} °C gastando poco`,
+      teach:`La cabina pide <b>${fN(r.Q/1000,2)} kW</b> de calor. Ajusta el aire de la cabina, el del exterior y el subenfriamiento para que la bomba de calor gaste lo menos posible, sin pasar de 9 000 rpm ni de 130 °C de descarga. El consumo se conoce al validar.<div class="why"><b>El objetivo:</b> quedar a menos del 3 % del mínimo que el motor encuentra. ${tri('d_try2',RETO.fallos2,4)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Aire de la cabina</div><b id="v2C">×${fN(r.fc,2)}</b></div><input type="range" id="r2C" min="0.4" max="1.8" step="0.05" value="${r.fc}" aria-label="Aire de la cabina"></div>
+        <div class="cg"><div class="cl"><div>Ventilador exterior</div><b id="v2E">×${fN(r.fe,2)}</b></div><input type="range" id="r2E" min="0.4" max="1.8" step="0.05" value="${r.fe}" aria-label="Ventilador exterior"></div>
+        <div class="cg"><div class="cl"><div>Subenfriamiento</div><b id="v2S">${fN(r.sc,1)} K</b></div><input type="range" id="r2S" min="0" max="14" step="0.5" value="${r.sc}" aria-label="Subenfriamiento"></div>
+        <button class="b primary" data-act="validar">▶ Validar el consumo</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k), N={escarcha:'Escarcha en el exterior',fuga:'Falta de refrigerante',cabina:'Poco aire en la cabina'};
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua la avería con las lecturas',
+      teach:`Esta bomba de calor no rinde como debería: gasta de más o entrega de menos. Lee las presiones, el sobrecalentamiento, el subenfriamiento y la descarga del dock.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${N[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Predijiste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b>, baja la temperatura exterior hasta −20 °C y mira cómo el compresor llega a su límite: la bomba de calor rinde menos justo cuando más se la necesita.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Predice','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1; return {clima:'calor',Tamb:r.te+273.15-8,fc:1,fe:1,sc:5,vKmh:60,fijo:{Tev:r.te+273.15,Tcd:r.tc+273.15}}; }
+  if(GUIA.paso==='decide'&&GUIA.r2){ const r=GUIA.r2; return {clima:'calor',Tamb:r.Tamb,fc:r.fc,fe:r.fe,sc:r.sc,vKmh:60}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {clima:'calor',Tamb:c.Tc+273.15,fc:c.fc,fe:c.fe,sc:c.sc,sh:c.sh,falla:c.falla||undefined,vKmh:60}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  reiniciaCalculo(); ponVista(EST.vista,0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='decide') return;
+  const m={r2C:['fc','v2C',v=>'×'+fN(v,2)],r2E:['fe','v2E',v=>'×'+fN(v,2)],r2S:['sc','v2S',v=>fN(v,1)+' K']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=+t.value; GUIA.r2.validado=false; el(m[1]).textContent=m[2](+t.value); reiniciaCalculo(); });
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), prev={clima:EST.clima,Tamb:EST.Tamb,fc:EST.fc,fe:EST.fe,sc:EST.sc,vKmh:EST.vKmh,vista:EST.vista,vel:EST.vel};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } reiniciaCalculo(); pintaBarras(); };
+  try{
+    fija({clima:'calor',Tamb:263.15,fc:1,fe:1,sc:5,vel:1}); ponVista('banco');
+    showToast('Paso 1 · A −10 °C la bomba de calor saca calor del aire de fuera. El refrigerante es <b>azul</b> líquido, <b>blanco</b> mezcla y <b>naranja</b> vapor; en el diagrama p–h el punto blanco viaja con él.',8200);
+    await espera(8800);
+    fija({clima:'resist'}); ponVista('cabina');
+    showToast('Paso 2 · El <b>calentador resistivo</b> fabrica el mismo calor con una resistencia al rojo: gasta el doble o más de energía eléctrica y se come autonomía.',8200);
+    await espera(8800);
+    fija({clima:'calor'}); ponVista('compresor');
+    showToast('Paso 3 · El gas atraviesa el motor del <b>compresor</b> y sube de presión en la espiral. Gira aquí a 1/40 de su velocidad real.',8200);
+    await espera(8800);
+    fija({Tamb:253.15}); ponVista('banco');
+    showToast('Paso 4 · A −20 °C la presión baja se hunde, el gas es menos denso y el compresor casi llega a su régimen máximo: el COP cae justo cuando más falta hace.',8200);
+    await espera(8800);
+    fija({clima:'frio',Tamb:308.15,fc:1,fe:1,sc:5}); ponVista('banco');
+    showToast('Paso 5 · Con A/C el mismo circuito funciona al revés: la bobina de la cabina se convierte en evaporador (frío) y la exterior en condensador.',8600);
+    await espera(9000);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); reiniciaCalculo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+/* ===================== 19. SONIDO (sintetizado) =====================
+   Un zumbido grave del compresor cuya altura sigue al régimen (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=70; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=260; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(rpm)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(40+rpm/60,t,0.2); zg.gain.setTargetAtTime(on&&rpm>0?0.012:0,t,0.2); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 20. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 21. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven el refrigerante, el punto del
+   diagrama p–h, el compresor y los ventiladores, y se pintan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.vel);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(CALC&&CALC.r&&!EST.pausa?CALC.r.Nrpm:0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 22. ARRANQUE =====================
+   Abre funcionando: la bomba de calor calienta la cabina a −10 °C, con la nieve cayendo y el refrigerante circulando.
+   Se adelanta el reloj 1,5 s para que el primer cuadro ya muestre el flujo repartido por todo el circuito. */
+disposicion();
+reiniciaCalculo();
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(1.5);
+pintaBarras();
+ponVista('banco',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+if(innerWidth>=640) setTimeout(()=>showToast('A −10 °C el aire de fuera aún tiene calor. La bomba de calor lo <b>recoge</b> y lo <b>sube</b> de temperatura. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' cualquier pieza para saber qué es.',5600),700);
+
+/* ===================== 23. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[NIEVE,PART_EXT].filter(o=>o.visible); ocultos.forEach(o=>{ o.visible=false; }); PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{te:GUIA.r1.te,tc:GUIA.r1.tc}:null,r2:GUIA.r2?{Tc:GUIA.r2.Tc,fc:GUIA.r2.fc,fe:GUIA.r2.fe,sc:GUIA.r2.sc,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const r=C.r; return {clima:C.clima,Tamb:aC(C.T),Q:C.Q,Pclima:C.Pclima,Pres:C.Pres,aut:C.aut,
+    r:r?{COP:r.COP,Ptot:r.Ptot,Wel:r.Wel,Pfan:r.Pfan,Nrpm:r.Nrpm,sobre:r.sobre,T2:aC(r.T2),Pc:r.c.Pc/1e5,Pe:r.c.Pe/1e5,Tev:aC(r.Tev),Tcd:aC(r.Tcd),rp:r.rp,eta:r.eta,m:r.m,Qdel:r.Qdel}:null}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto,
+};
+function iniciaDxFijo(){ const c=GUIA.dx, T=c.Tc+273.15, r=calefaccion(T,demanda(T),c.fc,c.fe,c.sc,c.sh,c.falla||undefined); GUIA.dxOk=false; GUIA.dxRes={c:r.c,sh:c.sh,scm:c.sc,Qdel:r.Qdel}; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); }
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{Tc:GUIA.r2.Tc,th:GUIA.r2.th,opt:GUIA.r2.opt&&{fc:GUIA.r2.opt.fc,fe:GUIA.r2.opt.fe,sc:GUIA.r2.opt.sc,P:GUIA.r2.opt.Ptot},res:GUIA.r2.res&&{P:GUIA.r2.res.Ptot}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  paso:(p)=>{ if(EST.modo!=='guia') setMode('guia',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setDecide:(fc,fe,sc)=>{ const r=GUIA.r2; if(r){ r.fc=fc; r.fe=fe; r.sc=sc; reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); iniciaDxFijo(); },
+});
+instalaDiag('bomba-calor-hvac-ve',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{compresor:COMPRESOR,valvula:VALVULA,cabina:CABINA,conducto:DUCTO,ventilador:VENT_E,tubo:TUBO}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-bomba-calor-hvac-ve.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Geometría de Dirección y Alineación — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1522;--panel:rgba(10,21,34,.88);--line:#233a56;--ink:#EAF1F8;
+    --dim:#93AFC8;--accent:#3FA7FF;--accent2:#7CCBFF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cA:#4FDCFF;--cB:#FFA13A;--cC:#FF6B8A;--cT:#9FD8FF;--cD:#FFB347;--cDC:#FFD166;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#122034;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#19304c}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#04101c;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#04101c;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#5cb8ff}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#04101c}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7CCBFF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#7089a4;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c6d2de;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#8197ad;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04101c}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#04101c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(38,64,96,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(38,64,96,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#7089a4}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9fb6cf;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(38,64,96,.7);min-height:0}
+  .dk-g.lev{flex:0.9 1 0;min-height:96px}
+  .dk-g.map{flex:1.7 1 0;min-height:140px}
+  .dk-g.st{flex:1.0 1 0;min-height:84px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6d9;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#122034;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cT);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(12,22,34,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(10,20,34,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#04101c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e4}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(10,22,36,.92);border:1px solid rgba(124,203,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(10,22,36,.84);border:1px solid rgba(124,203,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-g.map{min-height:120px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(10,22,36,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.lev{min-height:84px} body.movil .dk-g.map{min-height:150px} body.movil .dk-g.st{min-height:70px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+
+
+  /* ---- dock de la dirección: cuatro gráficas con el mismo cursor ---- */
+  .dk-gr{display:flex;flex-direction:column;gap:5px;flex:1 1 0;min-height:0}
+  .dk-gr .dk-col{flex:1 1 0;min-height:56px}
+  .dk-gr .dk-g{flex:1 1 0}
+  .dk-tit .l1{color:var(--cA)} .dk-tit .l2{color:var(--cB)} .dk-tit .le{color:#dfe9e7} .dk-tit .l3{color:var(--cC)}
+  .dk-tit span{display:inline-flex;gap:8px} .dk-tit i{font-style:normal}
+  .fg .fl{font-size:9.6px}
+  .fg b.ok{color:#8ef0b8}
+  .cuatro{grid-template-columns:repeat(4,1fr)}
+  .lupaTag{font-family:var(--mono);font-size:10.5px;color:var(--hv)}
+  .pane{display:flex;flex-direction:column;gap:8px}
+  .cg .rowb{display:flex;gap:6px;align-items:center}
+  .cg .rowb input[type=range]{flex:1}
+  .cg .nudge{flex:0 0 auto;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:#122034;color:var(--ink);font-size:14px;line-height:1;cursor:pointer;padding:0}
+  .cg .nudge:hover{border-color:var(--accent)}
+  .seg.cuatroS .b{padding:5px 1px;font-size:11px}
+  .bpar{display:flex;gap:6px}.bpar>*{flex:1}
+  .sub2{font-size:11px;color:var(--dim);line-height:1.4}
+  .sub2 b{color:var(--ink);font-weight:600}
+  .rotuloVista{position:fixed;z-index:12;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(10,22,36,.82);border:1px solid rgba(124,203,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  body.estrecho .hud,body.estrecho .panel{display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto;column-gap:8px;row-gap:5px}
+  body.estrecho.t-panel .panel>.dk-t,body.estrecho.t-panel .panel>.dk-fig,body.estrecho.t-panel .panel>.dk-aviso{grid-column:1/3}
+  body.estrecho.t-panel .panel>.dk-gr{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px 8px}
+  body.estrecho.ancho .dk-fig{grid-template-columns:repeat(6,1fr)}
+  body.estrecho .dk-ley{display:none}
+  body.movil .dk-gr .dk-tit{font-size:9px;letter-spacing:.05em} body.movil .dk-gr .dk-tit span{display:none}
+  body.movil .toast{top:auto;bottom:calc(var(--hojaH) + 104px);font-size:11.5px;padding:8px 12px;max-width:calc(100vw - 24px)}
+  body.estrecho .hud .seg{flex-wrap:nowrap}
+  @media (max-height:800px){ .dk-fig{gap:4px} .fg{padding:3px 6px} .fg b{font-size:13.5px} }
+  @media (max-width:1439px){ .dk-tit{font-size:9.4px} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Geometría de dirección y alineación · dinámica del vehículo</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">En marcha</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="fl_1">Ruedas int. / ext.</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="fl_2">Radio de giro</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="fl_3">Error de Ackermann</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="fl_4">Empuje de caída</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="fl_5">Brazo de avance</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="fl_6">Arrastre lateral</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-gr">
+    <div class="dk-col"><div class="dk-tit" id="t_g1">Exterior frente a interior <span><i class="le">┄ ideal</i><i class="l2">real</i></span></div><div class="dk-g" id="gAck"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_g2">Error de Ackermann <span><i class="l2">izq.</i><i class="l3">der.</i></span></div><div class="dk-g" id="gErr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_g3">Par frente a deriva <span><i class="le">neum.</i><i class="l1">+ avance</i></span></div><div class="dk-g" id="gPar"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_g4">Arrastre frente a convergencia <span><i class="l2">m/km</i></span></div><div class="dk-g" id="gToe"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+
+/* ============================================================
+   LAB — GEOMETRÍA DE DIRECCIÓN Y ALINEACIÓN (Ackermann, caída, avance, convergencia)
+   (Dinámica del Vehículo · mecanica-139)
+
+   Un sedán visto desde arriba con su eje delantero a la vista: la cremallera mueve las bieletas, los brazos giran las dos ruedas con el
+   cuadrilátero real de la dirección y, sobre el asfalto que desfila, las perpendiculares de las dos ruedas buscan el centro del giro en la
+   línea del eje trasero. Si el trapecio es perfecto, las dos coinciden con la blanca (Ackermann ideal); si no, la separación de los centros es
+   el error de Ackermann. Las huellas de los neumáticos, ampliadas al costado, enseñan cómo reparten la presión la caída, la convergencia y la
+   fuerza lateral; el eje luminoso de cada puntal es el eje de pivote: su inclinación es el avance.
+
+   El dock enseña, con el MISMO estado que mueve la escena, la curva de las ruedas contra el Ackermann ideal, su error, el par
+   autoalineante contra la deriva y el arrastre lateral contra la convergencia.
+
+   La física (Ackermann exacto, cuadrilátero articulado en forma cerrada, neumático de cepillo, caída al girar con el pivote inclinado por
+   Rodrigues, desgaste en recta) está en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+/* FISICA:INICIO */
+/* ---------- 1.1 El coche y el neumático ----------
+   Cifras REPRESENTATIVAS de un sedán de 1 520 kg (no de un fabricante). El neumático
+   es el modelo de cepillo de huella parabólica: la fuerza lateral, la rigidez de
+   deriva y el brazo neumático salen de las mismas tres cifras (C_α, μ, N). */
+const DEG=Math.PI/180, DOSPI=2*Math.PI, G0=9.80665;
+const COCHE={ m:1520, wf:0.58, Rw:0.317, Cal:55000, Cgam:6000, mu:0.90, aH:0.065, Crr0:0.010, vCrr:55, rp:0.0101, CdA:0.64, rho:1.2 };
+COCHE.N=COCHE.wf*COCHE.m*G0/2;                 // carga vertical de cada rueda delantera (N)
+const rad=d=>d*DEG, grd=r=>r/DEG;
+const cot=x=>1/Math.tan(x);
+const wrap=x=>Math.atan2(Math.sin(x),Math.cos(x));
+
+/* ---------- 1.2 Ackermann ideal ----------
+   Las dos ruedas giran sobre circunferencias con el MISMO centro, que está sobre la prolongación del eje trasero:
+   cot δ_ext − cot δ_int = t/L.  El radio hasta el centro del eje trasero es R = (L/2)(cot δ_int + cot δ_ext).
+   Plano: x a la derecha, y hacia delante; pivotes en (∓t/2, 0) y eje trasero en y = −L. δ > 0 es antihorario (giro a la izquierda). */
+function ackIdeal(di,L,t){ if(Math.abs(di)<1e-12) return 0; const s=Math.sign(di), d=Math.abs(di); return s*Math.atan(1/(cot(d)+t/L)); }
+function radioEje(di,de,L){ return (L/2)*(cot(Math.abs(di))+cot(Math.abs(de))); }
+/** Dónde corta cada perpendicular (eje de la rueda) a la línea del eje trasero. */
+function centrosEje(dL,dR,L,t){ return { xL:-t/2-L*cot(dL), xR:t/2-L*cot(dR) }; }
+/** Intersección de las dos perpendiculares: el centro instantáneo que verían ambas ruedas (null si son paralelas). */
+function interseccion(dL,dR,L,t){
+  const c1=Math.cos(dL), s1=Math.sin(dL), c2=Math.cos(dR), s2=Math.sin(dR), den=c1*s2-s1*c2;
+  if(Math.abs(den)<1e-12) return null;
+  const lam=(t*s2)/den;                          // −t/2 + λ·c1 = t/2 + μ·c2 ;  λ·s1 = μ·s2
+  return { x:-t/2+lam*c1, y:lam*s1 };
+}
+
+/* ---------- 1.3 El trapecio de dirección (cuadrilátero articulado) ----------
+   Pivotes P_L = (−t/2, 0), P_R = (t/2, 0). Brazo de longitud a, que en recta forma el ángulo γ con el eje transversal
+   (apunta hacia dentro y hacia atrás). Cremallera DETRÁS del eje (y = −h) con rótulas interiores en (±r + s, −h) y
+   bieletas de longitud b. Cada lado es un cuadrilátero: |A(δ) − B(s)| = b, con A = P + a(cos φ, sin φ):
+       cos(φ − θ_B) = (a² + d² − b²)/(2 a d),  d = |B − P|,  θ_B = dirección de P a B.
+   s > 0 gira a la izquierda. Con una sola cremallera los dos lados son independientes: es una forma cerrada, sin iterar. */
+function anguloBrazo(Px,Py,a,Bx,By,b,ref){
+  const dx=Bx-Px, dy=By-Py, d=Math.hypot(dx,dy), c=(a*a+d*d-b*b)/(2*a*d);
+  if(!(Math.abs(c)<=1)) return NaN;
+  const th=Math.atan2(dy,dx), q=Math.acos(c), f1=th+q, f2=th-q;
+  return Math.abs(wrap(f1-ref))<Math.abs(wrap(f2-ref))?f1:f2;
+}
+/** Dirección del brazo izquierdo en recta para la barra de diseño b (el brazo apunta hacia atrás y un poco hacia dentro). NaN si no cierra. */
+function brazo0(gp){ return anguloBrazo(-gp.t/2,0,gp.a,-gp.r,-gp.h,gp.b,-Math.atan2(gp.L,gp.t/2)); }
+/** γ (rad): ángulo del brazo por DEBAJO del eje transversal en recta (90° = el brazo apunta recto hacia atrás). */
+function gamaBrazo(gp){ const f=brazo0(gp); return isNaN(f)?NaN:-f; }
+/** Longitud de barra que da el ángulo de brazo γ para a, r, h, t dados: |A − B| con A = P + a(cos γ, −sin γ). */
+function barraParaGama(gp,gama){ const Ax=-gp.t/2+gp.a*Math.cos(gama), Ay=-gp.a*Math.sin(gama); return Math.hypot(Ax+gp.r,Ay+gp.h); }
+/** Ackermann «de manual» (Jeantaud): las prolongaciones de los brazos se cortan en el centro del eje trasero → el brazo baja γ = atan(L/(t/2)) del eje transversal. */
+const gamaJeantaud=(L,t)=>Math.atan2(L,t/2);
+/** Ángulos de las dos ruedas (rad, antihorario +) para un desplazamiento s (m) de la cremallera. bL y bR permiten una bieleta distinta (avería). */
+function giroRuedas(gp,s){
+  const f0=brazo0(gp); if(isNaN(f0)) return {dL:NaN,dR:NaN,ok:false};
+  const bL=gp.bL??gp.b, bR=gp.bR??gp.b;
+  const fL=anguloBrazo(-gp.t/2,0,gp.a,-gp.r+s,-gp.h,bL,f0);
+  const fR=anguloBrazo(gp.t/2,0,gp.a,gp.r+s,-gp.h,bR,Math.PI-f0);
+  if(isNaN(fL)||isNaN(fR)) return {dL:NaN,dR:NaN,ok:false};
+  return { dL:wrap(fL-f0), dR:wrap(fR-(Math.PI-f0)), ok:true, fL, fR };
+}
+/** Puntos del cuadrilátero en el plano, para el dibujo. */
+function puntosTrapecio(gp,s){
+  const g=giroRuedas(gp,s); if(!g.ok) return null;
+  const a=gp.a;
+  return { dL:g.dL, dR:g.dR, PL:[-gp.t/2,0], PR:[gp.t/2,0], AL:[-gp.t/2+a*Math.cos(g.fL),a*Math.sin(g.fL)], AR:[gp.t/2+a*Math.cos(g.fR),a*Math.sin(g.fR)],
+    BL:[-gp.r+s,-gp.h], BR:[gp.r+s,-gp.h] };
+}
+/** Mayor |s| con el que el mecanismo aún cierra a los dos lados (pasos de 1 mm), con tope sTope. */
+function recorridoMax(gp,sTope=0.12){
+  let s=0; while(s<sTope){ const g=giroRuedas(gp,s+0.001), h=giroRuedas(gp,-(s+0.001)); if(!g.ok||!h.ok) break; s+=0.001; } return s;
+}
+/** Cremallera con la que la rueda INTERIOR (la del lado del giro) llega a δ_int: bisección. lado = +1 izquierda, −1 derecha. */
+function sParaInterior(gp,di,lado=1,hiMax){
+  let lo=0, hi=hiMax??recorridoMax(gp,0.14);
+  const f=s=>{ const g=giroRuedas(gp,lado*s); return lado>0?g.dL:-g.dR; };
+  if(!(f(hi)>=di)) return NaN;
+  for(let i=0;i<60;i++){ const m=(lo+hi)/2; if(f(m)<di) lo=m; else hi=m; }
+  return lado*(lo+hi)/2;
+}
+/** Giro a un lado hasta una rueda interior δ_int (rad > 0): cremallera, ángulos reales y error de Ackermann (ext real − ext ideal). */
+function viraje(gp,di,lado=1,hiMax){
+  const s=sParaInterior(gp,di,lado,hiMax); if(isNaN(s)) return null;
+  const g=giroRuedas(gp,s), int=lado>0?g.dL:-g.dR, ext=lado>0?g.dR:-g.dL, ideal=ackIdeal(int,gp.L,gp.t);
+  return { s, dL:g.dL, dR:g.dR, int, ext, ideal, err:ext-ideal };
+}
+/** Tabla del error de Ackermann de 0 a diMax (rad) hacia un lado. */
+function tablaAck(gp,diMax,n=60,lado=1){
+  const hi=recorridoMax(gp,0.14), T=[]; for(let i=0;i<=n;i++){ const di=diMax*i/n, v=viraje(gp,di,lado,hi); T.push(v?{di,de:v.ext,ideal:v.ideal,err:v.err,s:v.s}:{di,de:NaN,ideal:NaN,err:NaN,s:NaN}); }
+  return T;
+}
+/** Error máximo y rms hasta diMax a los dos lados. */
+function errorAck(gp,diMax,n=60){
+  let mx=0, ss=0, c=0, bad=false;
+  for(const lado of [1,-1]) for(const q of tablaAck(gp,diMax,n,lado)){ if(isNaN(q.err)){ bad=true; continue; } mx=Math.max(mx,Math.abs(q.err)); ss+=q.err*q.err; c++; }
+  return { max:mx, rms:Math.sqrt(ss/Math.max(1,c)), incompleto:bad };
+}
+/** Porcentaje de Ackermann: (cot δ_ext − cot δ_int)·L/t. 100 % = ideal; 0 % = ruedas paralelas. */
+function porcAck(int,ext,L,t){ return (cot(Math.abs(ext))-cot(Math.abs(int)))*L/t*100; }
+
+/* ---------- 1.4 Neumático de cepillo, avance y par autoalineante ----------
+   Con x = θ·|tan α| y θ = C_α/(3 μ N):  F_y = μN·[1 − (1 − x)³]  (x < 1; si no, μN)
+   brazo neumático  t_p = (a/3)(1 − x)³ / (1 − x + x²/3)  →  a/3 con α → 0 y 0 al saturar.
+   El avance ε desplaza el punto de apoyo detrás del eje de pivote: brazo mecánico t_m = R_w·tan ε. */
+const thetaB=(N=COCHE.N,mu=COCHE.mu)=>COCHE.Cal/(3*mu*N);
+function cepillo(alfa,N=COCHE.N,mu=COCHE.mu){
+  const th=thetaB(N,mu), x=th*Math.abs(Math.tan(alfa)), sg=Math.sign(alfa), mN=mu*N;
+  if(x>=1) return { F:sg*mN, tp:0, sat:true, x };
+  const u=1-x, F=mN*(1-u*u*u), tp=(COCHE.aH/3)*u*u*u/(1-x+x*x/3);
+  return { F:sg*F, tp, sat:false, x };
+}
+/** Deriva (rad ≥ 0) que produce una fuerza lateral F (N ≥ 0) en un neumático de carga N: inversa de F_y. */
+function derivaDeFuerza(F,N=COCHE.N,mu=COCHE.mu){
+  const q=Math.min(1,Math.abs(F)/(mu*N)); if(q>=1) return Math.atan(1/thetaB(N,mu));
+  const x=1-Math.cbrt(1-q); return Math.atan(x/thetaB(N,mu));
+}
+const brazoMec=eps=>COCHE.Rw*Math.tan(eps);
+/** Par (N·m) que el neumático hace girar el pivote hacia el centrado, para una deriva α y un avance ε: M = F·(t_p + t_m). */
+function parAutoalineante(alfa,eps,N=COCHE.N,mu=COCHE.mu){
+  const c=cepillo(alfa,N,mu), F=Math.abs(c.F), tm=brazoMec(eps);
+  return { M:F*(c.tp+tm), Mneu:F*c.tp, Mmec:F*tm, F, tp:c.tp, tm, sat:c.sat };
+}
+
+/* ---------- 1.5 Caída y avance: la rueda al girar ----------
+   Orientación EXACTA de una rueda cuyo eje de pivote está inclinado ε hacia atrás (avance) y λ hacia dentro (KPI), con caída estática γ0,
+   al girar ψ alrededor de ese eje (fórmula de Rodrigues). Marco: x derecha, y adelante, z arriba; lado = +1 la rueda derecha (fuera = +x).
+   Devuelve la caída (rad, + = cima hacia fuera). */
+function orientaRueda(lado,eps,lam,gam0,psi){
+  let u=[-lado*Math.sin(lam)*Math.cos(eps), -Math.sin(eps)*Math.cos(lam), Math.cos(eps)*Math.cos(lam)];
+  const n=Math.hypot(...u); u=u.map(v=>v/n);
+  let e=[lado*Math.cos(gam0),0,-Math.sin(gam0)];       // eje de la rueda hacia fuera: con caída positiva su extremo exterior baja
+  const c=Math.cos(psi), s=Math.sin(psi), dot=u[0]*e[0]+u[1]*e[1]+u[2]*e[2], cr=[u[1]*e[2]-u[2]*e[1],u[2]*e[0]-u[0]*e[2],u[0]*e[1]-u[1]*e[0]];
+  e=e.map((v,i)=>v*c+cr[i]*s+u[i]*dot*(1-c));
+  return { camber:-Math.asin(Math.max(-1,Math.min(1,e[2]))), rumbo:Math.atan2(lado*e[1],lado*e[0]) };
+}
+/** Variación de la caída (rad) al girar ψ alrededor del pivote inclinado. ψ > 0 es antihorario visto desde arriba. */
+const dCamberGiro=(lado,eps,lam,gam0,psi)=>orientaRueda(lado,eps,lam,gam0,psi).camber-orientaRueda(lado,eps,lam,gam0,0).camber;
+
+/* ---------- 1.6 Convergencia, caída y desgaste en recta ----------
+   Cada neumático rueda con una deriva efectiva α_ef = τ − τ_c + (C_γ/C_α)·(−γ), con τ la convergencia estática (+ = hacia dentro),
+   τ_c = k·F_x la apertura que impone sobre la dirección la fuerza de avance de cada rueda (tracción delantera: la mitad de
+   aire + rodadura a velocidad constante; k es la flexibilidad de la dirección, rad/N) y γ la caída (− = cima hacia dentro).
+   Fuerza lateral hacia dentro F = C_α·α_ef; el neumático se arrastra de lado v·tan α_ef y disipa C_α·α_ef² por metro de camino. */
+const Crr=v=>COCHE.Crr0*(1+Math.pow(v/COCHE.vCrr,2));
+const FxRueda=v=>(0.5*COCHE.rho*COCHE.CdA*v*v+Crr(v)*COCHE.m*G0)/2;
+const toeSalida=(v,k)=>k*FxRueda(v);
+function rectaRueda(tau,gam,v,k){
+  const ae=tau-toeSalida(v,k)+(COCHE.Cgam/COCHE.Cal)*(-gam);
+  return { ae, F:COCHE.Cal*ae, arrastre:1000*Math.abs(Math.tan(ae)), J:COCHE.Cal*ae*ae };
+}
+/** Eje delantero en recta (rad). Fneta > 0 empuja el eje hacia la derecha (la rueda izquierda empuja hacia dentro = +x). */
+function rectaEje(tL,tR,gL,gR,v,k){
+  const l=rectaRueda(tL,gL,v,k), r=rectaRueda(tR,gR,v,k), Fneta=l.F-r.F;
+  return { L:l, R:r, Fneta, volante:Fneta/(2*COCHE.Cal), arrastre:l.arrastre+r.arrastre, J:l.J+r.J };
+}
+/** Convergencia por rueda (simétrica) que anula la deriva efectiva: el mínimo exacto del arrastre. */
+const toeOptimo=(gam,v,k)=>toeSalida(v,k)-(COCHE.Cgam/COCHE.Cal)*(-gam);
+
+/* ---------- 1.7 El coche girando ---------- */
+/** Con las ruedas en (dL, dR): centro del giro (media de los dos centros que piden), radio al eje trasero y la deriva cinemática de cada rueda
+    por el error de Ackermann (rumbo de la rueda menos dirección de su velocidad). */
+function virajeCoche(gp,dL,dR){
+  if(Math.min(Math.abs(dL),Math.abs(dR))<1e-6) return { Xc:Math.sign(dL+dR||1)*1e6, R:1e6, aL:dL, aR:dR, sgn:0, recta:true };
+  const c=centrosEje(dL,dR,gp.L,gp.t), Xc=(c.xL+c.xR)/2, sgn=Xc<0?1:-1;
+  const th=px=>Math.atan2(gp.L*sgn,(px-Xc)*sgn);
+  return { Xc, R:Math.abs(Xc), aL:wrap(dL-th(-gp.t/2)), aR:wrap(dR-th(gp.t/2)), sgn, recta:false, xL:c.xL, xR:c.xR };
+}
+/** Fuerza lateral y deriva de cada rueda delantera a velocidad v (m/s) en un círculo de radio R (m): a_y = v²/R acotada por μg; la carga se reparte por igual. */
+function dinamicaCurva(R,v,eps){
+  const ay=Math.min(COCHE.mu*G0*0.999,v*v/R), F=COCHE.wf*COCHE.m*ay/2, alfa=derivaDeFuerza(F), pa=parAutoalineante(alfa,eps);
+  return { ay, F, alfa, M:pa.M, Mneu:pa.Mneu, Mmec:pa.Mmec, tp:pa.tp, tm:pa.tm, sat:ay>=COCHE.mu*G0*0.998 };
+}
+/** Esfuerzo en el volante sin asistencia (N·m) por trabajo virtual: T = r_p·(M_L·dδ_L/ds + M_R·dδ_R/ds). */
+function parVolante(gp,s,ML,MR){
+  const e=5e-4, a=giroRuedas(gp,s-e), b=giroRuedas(gp,s+e);
+  if(!a.ok||!b.ok) return NaN;
+  return COCHE.rp*(ML*Math.abs(b.dL-a.dL)/(2*e)+MR*Math.abs(b.dR-a.dR)/(2*e));
+}
+/** Diámetro de viraje por la rueda exterior (m): la circunferencia de la rueda delantera exterior. */
+const diamViraje=(R,L,t)=>2*Math.hypot(R+t/2,L);
+/** Radio de la circunferencia de cada rueda (centro en el eje trasero a distancia R): útil para las velocidades de giro. */
+function velocidadesRuedas(gp,Xc,v){
+  const R=Math.abs(Xc), w=v/Math.max(R,1e-6), d=(px,py)=>Math.hypot(px-Xc,py);
+  return { w, vFL:w*d(-gp.t/2,gp.L), vFR:w*d(gp.t/2,gp.L), vRL:w*d(-gp.t/2,0), vRR:w*d(gp.t/2,0) };
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.92;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+/* Cielo de campo de pruebas al atardecer: del azul frío del cenit a un horizonte cálido, con un halo suave detrás del coche. */
+function fondoCielo(){
+  const c=cv(512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,'#0c1830'); g.addColorStop(0.55,'#1d3050'); g.addColorStop(0.86,'#54607a'); g.addColorStop(1,'#7a6f78');
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const r=x.createRadialGradient(256,430,10,256,430,300); r.addColorStop(0,'rgba(255,196,140,0.30)'); r.addColorStop(1,'rgba(255,196,140,0)');
+  x.fillStyle=r; x.fillRect(0,0,512,512);
+  return tex(c,{srgb:true});
+}
+const scene=new THREE.Scene();
+scene.background=fondoCielo();
+scene.fog=new THREE.Fog(0x4c566e,22,70);
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.62;
+
+const camera=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,0.05,140);
+camera.position.set(1.2,5.5,5.2);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.07;
+controls.minDistance=0.9; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(0,0.3,0);
+
+/* Luz de campo de pruebas: sol bajo cálido con sombra suave, contra fría de cielo, relleno de suelo y una luz frontal sin sombra. */
+const LUZ={};
+LUZ.clave=new THREE.DirectionalLight('#ffe2c0',2.6); LUZ.clave.position.set(4.2,6.5,3.2); LUZ.clave.castShadow=true;
+LUZ.clave.shadow.mapSize.set(2048,2048); LUZ.clave.shadow.bias=-0.0004; LUZ.clave.shadow.normalBias=0.02;
+Object.assign(LUZ.clave.shadow.camera,{left:-3.4,right:3.4,top:3.6,bottom:-3.6,near:1,far:18});
+LUZ.clave.target.position.set(0,0,0); scene.add(LUZ.clave,LUZ.clave.target);
+LUZ.contra=new THREE.SpotLight('#9fc2ff',3.2,24,Math.PI/4,0.7,1.2); LUZ.contra.position.set(-5,5,-4); LUZ.contra.target.position.set(0,0.2,0); scene.add(LUZ.contra,LUZ.contra.target);
+LUZ.relleno=new THREE.DirectionalLight('#a6c4e0',0.45); LUZ.relleno.position.set(-4,2.2,5); scene.add(LUZ.relleno);
+LUZ.hemi=new THREE.HemisphereLight('#b9d0ee','#2a2420',0.35); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las líneas de las perpendiculares, los centros y las huellas. En calidad media no hay resplandor
+   y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.35,0.30,1.7); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   PBR con entorno. Nada de poro ni grano fino sobre caras grandes: variaciones lentas de rugosidad y, donde la pieza lo pide, su dibujo
+   (el dibujo del neumático, las líneas del asfalto). */
+
+const DOSPI_=Math.PI*2;
+function normalDeAltura(W,H,h,fuerza){
+  const c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H);
+  const A=(i,j)=>h((i+W)%W,(j+H)%H);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const dx=(A(i+1,j)-A(i-1,j))*fuerza, dy=(A(i,j+1)-A(i,j-1))*fuerza, L=Math.hypot(dx,dy,1), o=(j*W+i)*4;
+    im.data[o]=(-dx/L*0.5+0.5)*255; im.data[o+1]=(-dy/L*0.5+0.5)*255; im.data[o+2]=(1/L*0.5+0.5)*255; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return c;
+}
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+function pielLenta(semilla,{px=256,celdas=4,oct=3,rug0=0.45,rugA=0.08,relieve=0.5}={}){
+  const f=fbmP(semilla,celdas,oct), k=celdas/px;
+  const c=cv(px), x=c.getContext('2d'), im=x.createImageData(px,px);
+  for(let j=0;j<px;j++) for(let i=0;i<px;i++){ const v=clamp(rug0+(f(i*k,j*k)-0.5)*2*rugA,0,1)*255, o=(j*px+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  return {r:tex(c),n:tex(normalDeAltura(px,px,(i,j)=>f(i*k,j*k),relieve))};
+}
+const T_PINT=pielLenta(11,{celdas:5,rug0:0.5,rugA:0.05,relieve:0.3});
+const T_PLAS=pielLenta(37,{celdas:9,rug0:0.9,rugA:0.06,relieve:0.45});
+
+/* El dibujo del neumático: tacos inclinados entre las ranuras longitudinales (normal map; las ranuras grandes son geometría).
+   La textura da UNA vuelta cada 2 repeticiones: 512 px por 1,0 m de circunferencia. */
+function normalTaco(){
+  const W=512,H=128, taco=(i,j)=>{ const u=((i+j*0.9)%64+64)%64/64, v=j/H, ranura=Math.min(Math.abs(v-0.18),Math.abs(v-0.50),Math.abs(v-0.82))<0.045;
+    const h=ranura?0:0.55; const corte=Math.abs(u-0.5)<0.07?-0.55:0; return h+corte*(ranura?0:1)+0.12*Math.sin(u*Math.PI*2); };
+  const c=normalDeAltura(W,H,taco,2.2);
+  return tex(c);
+}
+const T_TACO=normalTaco();
+T_TACO.repeat.set(2,1);
+const T_LISA=pielLenta(53,{celdas:4,rug0:0.82,rugA:0.05,relieve:0.12});
+/* Asfalto: gris azulado con manchas lentas de reparación, juntas, una línea discontinua blanca y una continua amarilla. Una baldosa de 10 m. */
+function texAsfalto(){
+  const S=1024,c=cv(S),x=c.getContext('2d'),f=fbmP(5,6,4),g=fbmP(17,3,3);
+  const im=x.createImageData(S,S);
+  for(let j=0;j<S;j++) for(let i=0;i<S;i++){
+    const a=f(i/S*6,j/S*6), b=g(i/S*3,j/S*3), v=0.18+0.10*a+0.07*(b>0.62?(b-0.62)*2.4:0), o=(j*S+i)*4;
+    im.data[o]=(v*0.95+0.012)*255; im.data[o+1]=(v*1.0+0.016)*255; im.data[o+2]=(v*1.1+0.026)*255; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  // juntas de dilatación y grietas suaves
+  x.strokeStyle='rgba(8,10,14,0.55)'; x.lineWidth=3; x.beginPath(); x.moveTo(0,S*0.16); x.lineTo(S,S*0.16); x.moveTo(S*0.34,0); x.lineTo(S*0.34,S); x.stroke();
+  x.strokeStyle='rgba(8,10,14,0.30)'; x.lineWidth=2; x.beginPath(); x.moveTo(S*0.60,S*0.16); x.bezierCurveTo(S*0.66,S*0.30,S*0.58,S*0.42,S*0.70,S*0.58); x.stroke();
+  // línea de eje discontinua blanca (3 m de raya, 3 m de hueco → en 10 m: 1,5 rayas) y borde amarillo continuo
+  x.fillStyle='rgba(235,238,240,0.45)'; for(let k=0;k<2;k++){ x.fillRect(S*(0.02+k*0.5),S*0.495,S*0.24,S*0.016); }
+  x.fillStyle='rgba(236,186,60,0.40)'; x.fillRect(0,S*0.835,S,S*0.014);
+  x.fillStyle='rgba(236,186,60,0.40)'; x.fillRect(0,S*0.862,S,S*0.014);
+  return tex(c,{srgb:true});
+}
+const T_ASF=texAsfalto();
+const TILE=10;                                                  // metros por baldosa
+T_ASF.matrixAutoUpdate=false;
+
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const V2=k=>new THREE.Vector2(k,k);
+const M={
+  tacos: fis({color:'#17191c',metalness:0,roughness:0.82,normalMap:T_TACO,normalScale:V2(0.85),clearcoat:0.0}),
+  flanco: fis({color:'#1c1e22',metalness:0,roughness:0.74,roughnessMap:T_LISA.r,sheen:0.4,sheenColor:new THREE.Color('#2b2f36'),sheenRoughness:0.6}),
+  llanta: pbr({color:'#d5dbe2',metalness:1,roughness:0.24}),
+  llantaB: pbr({color:'#aab2bb',metalness:1,roughness:0.40}),
+  disco: pbr({color:'#a3a8ae',metalness:0.95,roughness:0.34,roughnessMap:T_PINT.r}),
+  pinza: fis({color:'#c7231f',metalness:0.1,roughness:0.34,clearcoat:0.9,clearcoatRoughness:0.2}),
+  mangueta: pbr({color:'#6c747d',metalness:0.8,roughness:0.5,roughnessMap:T_PINT.r}),
+  brazo: fis({color:'#ff7a1c',metalness:0.35,roughness:0.36,clearcoat:0.7,clearcoatRoughness:0.25}),      // el trapecio: brazos de dirección en naranja de seguridad
+  bieleta: pbr({color:'#e6ebf0',metalness:1,roughness:0.16}),                                                 // cromo
+  rotula: pbr({color:'#d6a850',metalness:0.9,roughness:0.3}),
+  cremallera: pbr({color:'#c8d0d8',metalness:0.95,roughness:0.28}),
+  fuelle: pbr({color:'#101214',metalness:0,roughness:0.9}),
+  chasis: fis({color:'#2d333b',metalness:0.7,roughness:0.5,roughnessMap:T_PINT.r,clearcoat:0.2}),
+  chasisB: fis({color:'#3b6bb0',metalness:0.5,roughness:0.42,clearcoat:0.6,clearcoatRoughness:0.3}),
+  amort: pbr({color:'#15171a',metalness:0.6,roughness:0.5}),
+  muelle: fis({color:'#e8c33a',metalness:0.5,roughness:0.36,clearcoat:0.5}),
+  escape: pbr({color:'#8b8f94',metalness:0.9,roughness:0.45}),
+  carro: fis({color:'#7f93b8',metalness:0,roughness:0.5,transparent:true,opacity:0.05,side:THREE.FrontSide,depthWrite:false}),
+  bordes: new THREE.LineBasicMaterial({color:0x7fb1ff,transparent:true,opacity:0.40}),
+  asfalto: pbr({map:T_ASF,color:'#ffffff',roughness:0.93,metalness:0}),
+  cono: fis({color:'#ff6a1a',roughness:0.5,clearcoat:0.4}),
+  conoBase: pbr({color:'#1a1c20',roughness:0.8}),
+};
+
+/* ===================== 5. GEOMETRÍA =====================
+   `torno` revoluciona un perfil cerrado (a, r) alrededor del eje X con normales ANALÍTICAS: ninguna sale nula y las aristas vivas no se
+   redondean. `prisma` extruye a lo largo de Z un contorno con sus huecos. */
+
+const DOSPI3=Math.PI*2;
+function preparaPerfil(perfil){
+  let P=[];
+  for(const p of perfil){ const q=[p[0],Math.max(0,p[1])], u=P[P.length-1]; if(!u||Math.hypot(u[0]-q[0],u[1]-q[1])>1e-9) P.push(q); }
+  while(P.length>2&&Math.hypot(P[0][0]-P[P.length-1][0],P[0][1]-P[P.length-1][1])<1e-9) P.pop();
+  let A=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; A+=p[0]*q[1]-q[0]*p[1]; }
+  if(A<0) P.reverse();
+  return P;
+}
+function orienta(pos,nor,idx,i0){
+  let S=0;
+  for(let k=i0;k<idx.length;k+=3){ const a=idx[k]*3,b=idx[k+1]*3,c=idx[k+2]*3;
+    const ux=pos[b]-pos[a],uy=pos[b+1]-pos[a+1],uz=pos[b+2]-pos[a+2], vx=pos[c]-pos[a],vy=pos[c+1]-pos[a+1],vz=pos[c+2]-pos[a+2];
+    S+=(uy*vz-uz*vy)*(nor[a]+nor[b]+nor[c])+(uz*vx-ux*vz)*(nor[a+1]+nor[b+1]+nor[c+1])+(ux*vy-uy*vx)*(nor[a+2]+nor[b+2]+nor[c+2]); }
+  if(S<0) for(let k=i0;k<idx.length;k+=3){ const t=idx[k+1]; idx[k+1]=idx[k+2]; idx[k+2]=t; }
+}
+function geoDe(pos,nor,uv,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeBoundingSphere(); return g;
+}
+function torno(perfil,o={}){
+  const {seg=64,phi0=0,phi1=DOSPI3,canto=30,uRep=1,vEsc=1,tapas=true}=o;
+  const P=preparaPerfil(perfil), n=P.length, EN=[], L=[];
+  for(let i=0;i<n;i++){ const p=P[i],q=P[(i+1)%n], da=q[0]-p[0], dr=q[1]-p[1], l=Math.hypot(da,dr)||1e-12; EN.push([dr/l,-da/l]); L.push(l); }
+  const cc=Math.cos(canto*Math.PI/180), med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+  const pos=[],nor=[],uv=[],idx=[]; let s=0;
+  for(let i=0;i<n;i++){
+    const p=P[i],q=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+    if(p[1]<1e-9&&q[1]<1e-9){ s+=L[i]; continue; }
+    const n0=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, n1=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+    const o0=pos.length/3;
+    for(let j=0;j<=seg;j++){
+      const f=phi0+(phi1-phi0)*j/seg, c=Math.cos(f), sn=Math.sin(f), u=(f-phi0)/DOSPI3*uRep;
+      pos.push(p[0],p[1]*c,-p[1]*sn, q[0],q[1]*c,-q[1]*sn);
+      nor.push(n0[0],n0[1]*c,-n0[1]*sn, n1[0],n1[1]*c,-n1[1]*sn);
+      uv.push(u,s*vEsc, u,(s+L[i])*vEsc);
+    }
+    for(let j=0;j<seg;j++){ const a=o0+2*j; idx.push(a,a+1,a+3, a,a+3,a+2); }
+    s+=L[i];
+  }
+  orienta(pos,nor,idx,0);
+  if(Math.abs(phi1-phi0)<DOSPI3-1e-6&&tapas){
+    const tri=THREE.ShapeUtils.triangulateShape(P.map(([a,r])=>new THREE.Vector2(a,r)),[]);
+    for(const [f,sg] of [[phi0,-1],[phi1,1]]){
+      const c=Math.cos(f), sn=Math.sin(f), o0=pos.length/3, i0=idx.length;
+      for(const [a,r] of P){ pos.push(a,r*c,-r*sn); nor.push(0,-sn*sg,-c*sg); uv.push(a*8,r*8); }
+      for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+      orienta(pos,nor,idx,i0);
+    }
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+const tornoY=(perfil,o)=>torno(perfil,o).rotateZ(Math.PI/2);     // eje +Y (a → y)
+const tornoZ=(perfil,o)=>torno(perfil,o).rotateY(-Math.PI/2);    // eje +Z (a → z)
+function areaDe(P){ let a=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; a+=p[0]*q[1]-q[0]*p[1]; } return a/2; }
+/** Prisma a lo largo de Z: lazos[0] es el contorno exterior y el resto son
+ *  huecos. Paredes con normales hacia fuera del sólido, suaves si el giro
+ *  entre dos lados es menor que `canto`, y las dos tapas. */
+function prisma(lazos,z0,z1,o={}){
+  const {canto=28,uEsc=1}=o, cc=Math.cos(canto*Math.PI/180);
+  const L=lazos.map((l,i)=>{ const p=l.slice(); const a=areaDe(p); if((i===0&&a<0)||(i>0&&a>0)) p.reverse(); return p; });
+  const pos=[],nor=[],uv=[],idx=[];
+  for(const P of L){
+    const n=P.length, EN=[];
+    for(let i=0;i<n;i++){ const a=P[i],b=P[(i+1)%n], tx=b[0]-a[0], ty=b[1]-a[1], l=Math.hypot(tx,ty)||1e-12; EN.push([ty/l,-tx/l,l]); }
+    const med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+    let s=0;
+    for(let i=0;i<n;i++){
+      const a=P[i],b=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+      if(e[2]<1e-10) continue;
+      const na=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, nb=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+      const o0=pos.length/3;
+      pos.push(a[0],a[1],z1, b[0],b[1],z1, b[0],b[1],z0, a[0],a[1],z0);
+      nor.push(na[0],na[1],0, nb[0],nb[1],0, nb[0],nb[1],0, na[0],na[1],0);
+      uv.push(s*uEsc,z1*uEsc, (s+e[2])*uEsc,z1*uEsc, (s+e[2])*uEsc,z0*uEsc, s*uEsc,z0*uEsc); s+=e[2];
+      idx.push(o0,o0+2,o0+1, o0,o0+3,o0+2);
+    }
+  }
+  const c=L[0].map(([x,y])=>new THREE.Vector2(x,y)), H=L.slice(1).map(h=>h.map(([x,y])=>new THREE.Vector2(x,y)));
+  const tri=THREE.ShapeUtils.triangulateShape(c,H), todos=c.concat(...H);
+  for(const [z,nz] of [[z1,1],[z0,-1]]){
+    const o0=pos.length/3, i0=idx.length;
+    for(const p of todos){ pos.push(p.x,p.y,z); nor.push(0,0,nz); uv.push(p.x*uEsc,p.y*uEsc); }
+    for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+    orienta(pos,nor,idx,i0);
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+/** Un rectángulo de esquinas redondeadas como contorno [x,y]. */
+function rectR(x0,y0,x1,y1,r,seg=5){ return P3.contornoRedondeado([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],r,seg); }
+/** Un sólido «hueco»: la misma malla con las normales y el sentido al revés.
+ *  Metido dentro de otro sólido es una CAVIDAD: por el corte se ve su pared. */
+function invierte(g){
+  const n=g.attributes.normal; for(let i=0;i<n.count;i++) n.setXYZ(i,-n.getX(i),-n.getY(i),-n.getZ(i));
+  if(g.index){ const ix=g.index; for(let i=0;i<ix.count;i+=3){ const t=ix.getX(i+1); ix.setX(i+1,ix.getX(i+2)); ix.setX(i+2,t); } }
+  else { for(const k of Object.keys(g.attributes)){ const a=g.attributes[k], s=a.itemSize;
+    for(let i=0;i<a.count;i+=3) for(let c=0;c<s;c++){ const t=a.array[(i+1)*s+c]; a.array[(i+1)*s+c]=a.array[(i+2)*s+c]; a.array[(i+2)*s+c]=t; } } }
+  return g;
+}
+function cil(r,h,eje='y',seg=32,r2){ const g=new THREE.CylinderGeometry(r2??r,r,h,seg,1,false); if(eje==='x') g.rotateZ(-Math.PI/2); else if(eje==='z') g.rotateX(Math.PI/2); return g; }
+const en=(g,x,y,z)=>{ g.translate(x,y,z); return g; };
+/** Caja por sus esquinas, con un redondeo de canto opcional. */
+function cajaE(x0,y0,z0,x1,y1,z1,r){ const w=x1-x0,h=y1-y0,d=z1-z0; const g=r?new RoundedBoxGeometry(w,h,d,2,Math.min(r,w/2.01,h/2.01,d/2.01)):new THREE.BoxGeometry(w,h,d); g.translate((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); return g; }
+const PIEZAS=[];          // lo que se puede señalar con el ratón
+function pieza(g,m,padre,k,{sombra=true,recibe=true}={}){
+  const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; if(k) o.userData.pieza=k; padre.add(o); return o;
+}
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+/** Espejo en x de una geometría (la rueda izquierda): las normales se espejan con la matriz y el sentido de los triángulos se invierte. */
+function espeja(g){
+  g.scale(-1,1,1);
+  if(g.index){ const ix=g.index; for(let i=0;i<ix.count;i+=3){ const t=ix.getX(i+1); ix.setX(i+1,ix.getX(i+2)); ix.setX(i+2,t); } ix.needsUpdate=true; }
+  else for(const k of Object.keys(g.attributes)){ const a=g.attributes[k], s=a.itemSize;
+    for(let i=0;i<a.count;i+=3) for(let c=0;c<s;c++){ const t=a.array[(i+1)*s+c]; a.array[(i+1)*s+c]=a.array[(i+2)*s+c]; a.array[(i+2)*s+c]=t; } }
+  return g;
+}
+const fus=a=>P3.fusiona(a.filter(Boolean));
+const circ=(cx,cy,r,n=32)=>P3.circulo(cx,cy,r,n);
+/** Un prisma (contorno extruido a lo largo de Z) girado para que su eje sea X (z → x). */
+const prismaX=(lazos,x0,x1,o)=>prisma(lazos,x0,x1,o).rotateY(Math.PI/2);
+const RW=COCHE.Rw, YC=COCHE.Rw;                    // radio del neumático y altura del centro de la rueda
+
+/* ===================== 6. LA RUEDA =====================
+   Eje de giro en X; «fuera» es +X (la rueda derecha). La izquierda es el espejo. Medidas en metros: 205/55 R17 → llanta 17″ (r = 0,216),
+   flanco ≈ 113 mm, ancho de sección 205 mm. */
+const WT=0.080;                                       // semiancho de la banda de rodadura
+const radioBanda=a=>{ const q=Math.abs(a)/WT; let r=0.3178-0.0030*q*q; for(const c of [-0.047,0,0.047]) r-=0.0042*Math.exp(-Math.pow((a-c)/0.0046,2)); return r; };
+/** Banda de rodadura con tres ranuras longitudinales de verdad y corona; los tacos van en el normal map. */
+function geoBanda(seg=112,nA=110){
+  const pos=[],nor=[],uv=[],idx=[];
+  for(let j=0;j<=nA;j++){ const a=-WT+2*WT*j/nA, r=radioBanda(a), dr=(radioBanda(a+1e-4)-radioBanda(a-1e-4))/2e-4, nl=Math.hypot(dr,1), na=-dr/nl, nr=1/nl;
+    for(let i=0;i<=seg;i++){ const f=i/seg*DOSPI, c=Math.cos(f), s=Math.sin(f); pos.push(a,r*c,-r*s); nor.push(na,nr*c,-nr*s); uv.push(i/seg,(a+WT)/(2*WT)); } }
+  for(let j=0;j<nA;j++) for(let i=0;i<seg;i++){ const A=j*(seg+1)+i, B=A+1, C=A+seg+1, D=C+1; idx.push(A,C,B, B,C,D); }
+  orienta(pos,nor,idx,0);
+  return geoDe(pos,nor,uv,idx);
+}
+/** Flancos: del hombro a la pestaña, con la panza del flanco y dos nervios de protección. */
+function geoFlancos(){
+  const D=[[0.080,0.3150],[0.0875,0.3105],[0.0950,0.3010],[0.1000,0.2870],[0.1030,0.2700],[0.1045,0.2620],[0.1060,0.2570],[0.1035,0.2500],[0.1010,0.2360],[0.0985,0.2230],[0.0965,0.2175],[0.0935,0.2158]];
+  const L=D.map(([a,r])=>[-a,r]).reverse();
+  return torno([...D,...L],{seg:112,canto:38});
+}
+/** Barril de la llanta (pared fina), con pestañas y garganta. */
+function geoBarril(){
+  const O=[[-0.1040,0.2262],[-0.1030,0.2190],[-0.0960,0.2162],[-0.0660,0.2162],[-0.0400,0.2010],[0.0400,0.2010],[0.0660,0.2162],[0.0960,0.2162],[0.1030,0.2190],[0.1040,0.2262]];
+  const I=O.map(([a,r])=>[a*0.985,r-0.0050]).reverse();
+  return torno([...O,...I],{seg:96,canto:35});
+}
+/** Cara de la llanta: disco con 5 ventanas entre radios afilados y buje central. */
+function geoCaraLlanta(){
+  const v=[];
+  for(let k=0;k<5;k++){
+    const c=k*DOSPI/5+Math.PI/10, pts=[], n=7;
+    for(let i=0;i<=n;i++){ const a=c-0.43+0.86*i/n; pts.push([0.1745*Math.cos(a),0.1745*Math.sin(a)]); }
+    for(let i=n;i>=0;i--){ const a=c-0.34+0.68*i/n; pts.push([0.0905*Math.cos(a),0.0905*Math.sin(a)]); }
+    v.push(P3.contornoRedondeado(pts,0.014,3));
+  }
+  const cara=prismaX([circ(0,0,0.1975,72),...v,circ(0,0,0.032,24)],0.052,0.066,{canto:40});
+  const cupula=torno([[0.060,0],[0.060,0.036],[0.062,0.044],[0.052,0.056],[0.030,0.062],[0.0,0.064]],{seg:40,canto:30});
+  const nuts=[]; for(let k=0;k<5;k++){ const a=k*DOSPI/5+Math.PI/10; nuts.push(cil(0.0075,0.020,'x',8).translate(0.074,0.056*Math.cos(a),0.056*Math.sin(a))); }
+  return fus([cara,cupula.translate(0.006,0,0),...nuts]);
+}
+/** Disco de freno (campana + pista) y su pinza. */
+function geoDisco(){ return torno([[-0.0780,0.040],[-0.0780,0.108],[-0.0700,0.115],[-0.0700,0.152],[-0.0420,0.152],[-0.0420,0.115],[-0.0340,0.108],[-0.0340,0.040]],{seg:72,canto:35}); }
+function geoPinza(){ const g=cajaE(-0.092,-0.045,-0.070,-0.036,0.040,0.090,0.014); return g.translate(0,0.030,0.092).rotateX(0); }
+
+/** Una rueda completa montada sobre su pivote. lado = +1 derecha, −1 izquierda. Devuelve los grupos que se mueven. */
+function ruedaDe(lado,{delantera}){
+  const piv=new THREE.Group();                         // gira ψ alrededor de la vertical
+  const camb=new THREE.Group(); camb.position.y=YC; piv.add(camb);   // se inclina con la caída
+  const spin=new THREE.Group(); camb.add(spin);        // gira con la rueda
+  const m=g=>lado<0?espeja(g):g;
+  const t1=pieza(m(geoBanda()),M.tacos,spin,'neumatico'); t1.castShadow=true;
+  pieza(m(geoFlancos()),M.flanco,spin,'neumatico',{sombra:false});
+  pieza(m(fus([geoBarril(),geoCaraLlanta()])),M.llanta,spin,'llanta');
+  pieza(m(geoDisco()),M.disco,spin,'disco',{sombra:false});
+  pieza(m(geoPinza()),M.pinza,camb,'pinza',{sombra:false});
+  return {piv,camb,spin};
+}
+
+/* ===================== 7. EL COCHE =====================
+   Plano de la escena: x a la derecha, z hacia ATRÁS (el frente es −z), y arriba. El plano de la dirección (X derecha, Y adelante, pivotes en Y = 0)
+   pasa a la escena como x = X, z = zF − Y, con zF = −L/2 el eje delantero. Todo lo que depende del coche (L, t, r) se coloca en `ponGeometria()`. */
+const CAR=new THREE.Group(); scene.add(CAR);
+const SUELO=new THREE.Group(); scene.add(SUELO);
+const GEO={L:2.70,t:1.50,r:0.30,h:0.13,a:0.14,b:0.40};      // se reescribe al elegir coche
+const Y_LINK=YC-0.040;                                       // altura del plano de la dirección (bajo el eje de la rueda)
+const planoEsc=(X,Y)=>V3(X,Y_LINK,-GEO.L/2-Y);
+const W={};                                                  // las cuatro ruedas
+W.FL=ruedaDe(-1,{delantera:true}); W.FR=ruedaDe(1,{delantera:true}); W.RL=ruedaDe(-1,{delantera:false}); W.RR=ruedaDe(1,{delantera:false});
+for(const k of ['FL','FR','RL','RR']) CAR.add(W[k].piv);
+{
+  const mat=(g,m,k,o)=>pieza(g,m,CAR,k,o);
+  // —— mangueta: placa con buje, cuello al amortiguador, y el brazo de dirección (naranja) que gira con la rueda
+  for(const [k,lado] of [['FL',-1],['FR',1]]){
+    const piv=W[k].piv, sg=lado, e=(g)=>sg<0?espeja(g):g;
+    const manguetaG=P3.extruido(P3.contornoRedondeado([[-0.050,-0.205],[0.050,-0.205],[0.085,-0.070],[0.082,0.070],[0.050,0.150],[0.042,0.330],[-0.042,0.330],[-0.056,0.150],[-0.092,0.060],[-0.092,-0.060],[-0.056,-0.120]],0.022,3),
+      {huecos:[circ(0,0,0.034,28)],espesor:0.040,bisel:0.006}).rotateY(Math.PI/2).translate(-0.100,YC,0);
+    const buje=cil(0.052,0.052,'x',32).translate(-0.082,YC,0);
+    pieza(e(fus([manguetaG,buje])),M.mangueta,piv,'mangueta');
+    // los dos brazos (derecha: dirección de φ0 = π − f0 con f0 < 0 → hacia dentro y hacia atrás); aquí se dibuja el del lado derecho y se espeja
+  }
+}
+const BRAZO={FL:null,FR:null};
+function construyeBrazos(){
+  // el brazo de dirección en el sistema del pivote (x derecha, z atrás): apunta hacia dentro (−x del lado derecho) y hacia atrás (+z)
+  const f0=brazo0(GEO), ga=-f0, a=GEO.a;
+  for(const k of ['FL','FR']){
+    const sg=k==='FR'?1:-1, piv=W[k].piv;
+    if(BRAZO[k]){ piv.remove(BRAZO[k]); BRAZO[k].geometry.dispose(); }
+    const tx=-sg*a*Math.cos(ga), tz=a*Math.sin(ga), dir=Math.atan2(tz,tx);        // punta del brazo en planta (x,z)
+    const len=a, ancho=0.030;
+    const pl=P3.extruido(P3.contornoRedondeado([[0,-ancho/2],[len,-ancho/2],[len+0.018,0],[len,ancho/2],[0,ancho/2]],0.008,3),{espesor:0.016,bisel:0.003});
+    pl.rotateX(Math.PI/2);                                   // el contorno (x, y) pasa al plano horizontal (x, z)
+    pl.rotateY(-dir);                                        // gira hacia la dirección del brazo (en x,z)
+    pl.translate(0,Y_LINK,0);
+    const me=new THREE.Mesh(pl,M.brazo); me.castShadow=false; me.userData.pieza='brazoDir'; piv.add(me); BRAZO[k]=me;
+  }
+}
+
+/* —— suspensión delantera: brazo inferior (A) y puntales. Se colocan en ponGeometria. */
+const SUSP={};
+{
+  const geoA=(sg)=>{ // brazo inferior del lado derecho: punta en (0,0) y casquillos hacia dentro
+    const T=[[0.0,-0.035],[ -0.38,-0.18],[-0.38,0.18],[0.0,0.035]].map(([x,z])=>[x,z]);
+    const H=[[-0.07,-0.002],[-0.30,-0.105],[-0.30,0.105],[-0.07,0.002]];
+    const g=P3.extruido(P3.contornoRedondeado(T,0.03,3),{huecos:[P3.contornoRedondeado(H,0.04,3)],espesor:0.016,bisel:0.004}).rotateX(Math.PI/2);
+    const bu=[cil(0.022,0.060,'z',16).translate(-0.38,0,-0.18),cil(0.022,0.060,'z',16).translate(-0.38,0,0.18)];
+    return fus([g,...bu]);
+  };
+  for(const [k,sg] of [['FL',-1],['FR',1]]){
+    const g=geoA(sg); if(sg<0) espeja(g);
+    SUSP['brazo'+k]=pieza(g,M.chasis,CAR,'brazoInferior');
+  }
+}
+/** Puntal MacPherson de largo `h`: cilindros de revolución en el eje +X del lathe, girados a +Y. */
+function geoPuntalAmort(h){
+  const p=[[0,0],[0.026,0],[0.026,h*0.46],[0.020,h*0.48],[0.020,h*0.52],[0.0,h*0.52]];   // tubo del amortiguador
+  const tubo=torno(p.map(([r,y])=>[y,r]),{seg:20,canto:40}).rotateZ(Math.PI/2);          // a lo largo de +Y
+  const per=[[0.0,h*0.54]]; for(let i=0;i<6;i++){ const y=h*0.54+i*h*0.052; per.push([0.032,y],[0.046,y+h*0.020],[0.032,y+h*0.036]); } per.push([0.032,h*0.90],[0.0,h*0.90]);
+  const fue=torno(per.map(([r,y])=>[y,r]),{seg:18,canto:70}).rotateZ(Math.PI/2);
+  const cop=torno([[h*0.90,0],[h*0.90,0.075],[h*0.94,0.075],[h*0.96,0.045],[h*1.0,0.04],[h*1.0,0.0]],{seg:26,canto:40}).rotateZ(Math.PI/2);
+  const asie=torno([[h*0.12,0.0],[h*0.12,0.082],[h*0.135,0.082],[h*0.135,0.0]],{seg:26,canto:40}).rotateZ(Math.PI/2);
+  return fus([tubo,fue,cop,asie]);
+}
+function geoMuelle(h){
+  const pts=[], v=7, seg=16, tot=v*seg, r=0.074;
+  for(let i=0;i<=tot;i++){ const t=i/seg*DOSPI, y=h*0.145+(i/tot)*h*0.74; pts.push(V3(r*Math.cos(t),y,r*Math.sin(t))); }
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),tot,0.0085,6,false);
+}
+const PUNTAL={};
+for(const k of ['FL','FR']){
+  const g=new THREE.Group(); CAR.add(g); PUNTAL[k]=g;
+  const h=0.62;
+  pieza(geoPuntalAmort(h),M.amort,g,'amortiguador');
+  pieza(geoMuelle(h),M.muelle,g,'muelle',{sombra:false});
+}
+/* —— dirección: cremallera, fuelles, bieletas y rótulas */
+const DIR={};
+{
+  const g=new THREE.Group(); CAR.add(g); DIR.g=g;
+  // carcasa de la cremallera (aluminio) + caja del piñón; mide 2·(r − 0,11); se escala en x al cambiar r
+  const carc=torno([[-0.5,0.0],[-0.5,0.026],[-0.49,0.030],[0.49,0.030],[0.5,0.026],[0.5,0.0]].map(([a,r])=>[a,r]),{seg:28,canto:40});
+  DIR.carcasa=pieza(carc,M.cremallera,g,'cremallera');
+  const cajaPinon=fus([cil(0.040,0.075,'y',24).translate(0.17,0.05,0),cil(0.020,0.060,'y',16).translate(0.17,0.11,0)]);
+  DIR.pinon=pieza(cajaPinon,M.cremallera,g,'pinon');
+  DIR.varilla=pieza(cil(0.0115,1.0,'x',14).translate(0,0,0),M.bieleta,g,'cremallera');          // se escala y se desplaza con s
+  // fuelles acanalados (unidad = 1 m de largo en x)
+  const fp=[]; const nn=9; fp.push([0.0,0.020]); for(let i=0;i<nn;i++){ const a=i/nn; fp.push([a+0.02,0.038],[a+0.055,0.027],[a+0.09,0.038]); } fp.push([1.0,0.020]);
+  const fuelleG=torno([...fp,[1.0,0.0],[0.0,0.0]].map(([a,r])=>[a,r]),{seg:20,canto:50});
+  DIR.fuelleL=pieza(fuelleG.clone(),M.fuelle,g,'fuelle',{sombra:false}); DIR.fuelleR=pieza(fuelleG.clone(),M.fuelle,g,'fuelle',{sombra:false});
+  // rótulas interiores y exteriores (bronce) y bieletas (cromo)
+  const esf=new THREE.SphereGeometry(0.020,16,12);
+  DIR.rotBL=pieza(esf.clone(),M.rotula,g,'rotula',{sombra:false}); DIR.rotBR=pieza(esf.clone(),M.rotula,g,'rotula',{sombra:false});
+  DIR.rotAL=pieza(esf.clone(),M.rotula,g,'rotula',{sombra:false}); DIR.rotAR=pieza(esf.clone(),M.rotula,g,'rotula',{sombra:false});
+  const bie=fus([cil(0.0095,1,'y',14),cil(0.0145,0.07,'y',14).translate(0,0.465,0),cil(0.0145,0.07,'y',14).translate(0,-0.465,0)]);   // unidad: se escala en y
+  DIR.bieL=pieza(bie.clone(),M.bieleta,g,'bieleta'); DIR.bieR=pieza(bie.clone(),M.bieleta,g,'bieleta');
+}
+/* —— bastidor, eje trasero, escape y carrocería fantasma */
+const BAST={};
+{
+  const box=(x0,y0,z0,x1,y1,z1,r=0.01)=>cajaE(x0,y0,z0,x1,y1,z1,r);
+  // largueros y travesaños de longitud 1 → se escalan en ponGeometria
+  BAST.largL=pieza(box(-0.03,-0.045,-0.5,0.03,0.045,0.5),M.chasis,CAR,'bastidor'); BAST.largR=pieza(box(-0.03,-0.045,-0.5,0.03,0.045,0.5),M.chasis,CAR,'bastidor');
+  BAST.travD=pieza(box(-0.5,-0.04,-0.03,0.5,0.04,0.03),M.chasis,CAR,'bastidor');       // travesaño delantero (paragolpes)
+  BAST.travSub=pieza(box(-0.5,-0.035,-0.05,0.5,0.035,0.05),M.chasisB,CAR,'subchasis');   // subchasis delantero (azul)
+  BAST.travT=pieza(box(-0.5,-0.04,-0.03,0.5,0.04,0.03),M.chasis,CAR,'bastidor');       // travesaño trasero
+  BAST.eje=pieza(fus([cil(0.034,1,'x',24),cil(0.044,0.10,'x',24).translate(-0.48,0,0),cil(0.044,0.10,'x',24).translate(0.48,0,0)]),M.chasisB,CAR,'ejeTrasero');   // viga del eje trasero
+  BAST.brazoTL=pieza(box(-0.035,-0.03,-0.5,0.035,0.03,0.5),M.chasis,CAR,'bastidor'); BAST.brazoTR=pieza(box(-0.035,-0.03,-0.5,0.035,0.03,0.5),M.chasis,CAR,'bastidor');
+  BAST.escape=pieza(fus([cil(0.026,1,'z',16),cil(0.075,0.38,'z',24).translate(0,0,0.34)]),M.escape,CAR,'escape');
+}
+// carrocería fantasma: una caja con el perfil de un sedán (perfil lateral extruido), translúcida, con sus aristas
+{
+  const P=[[-2.15,0.38],[-2.12,0.62],[-1.55,0.72],[-0.95,0.76],[-0.55,1.18],[0.30,1.22],[1.05,0.86],[2.10,0.80],[2.14,0.55],[2.10,0.38]].map(([z,y])=>[z,y]);
+  const sh=new THREE.Shape(); P.forEach(([z,y],i)=>i?sh.lineTo(z,y):sh.moveTo(z,y)); sh.closePath();
+  const gg=new THREE.ExtrudeGeometry(sh,{depth:1.74,bevelEnabled:true,bevelThickness:0.10,bevelSize:0.10,bevelSegments:3,curveSegments:8});
+  gg.translate(0,0,-0.87); gg.rotateY(Math.PI/2); gg.computeVertexNormals();
+  BAST.carro=new THREE.Mesh(gg,M.carro); BAST.carro.renderOrder=2; BAST.carro.userData.pieza='carroceria'; CAR.add(BAST.carro);
+  BAST.carroBordes=new THREE.LineSegments(new THREE.EdgesGeometry(gg,28),M.bordes); BAST.carroBordes.renderOrder=3; CAR.add(BAST.carroBordes);
+  BAST.carro.geometry.computeBoundingSphere();
+}
+
+
+/* ===================== 8. EL ESTADO =====================
+   Un solo estado: lo que piden los mandos (coche, brazo, barra, caída, avance, convergencia, velocidad, volante) se convierte en UNA cremallera
+   s(t); de ella salen los ángulos de las dos ruedas (cuadrilátero), el centro de giro, las deriva, los pares y todo lo que se ve y se mide. */
+const CASOS={
+  compacto:{id:'compacto',nom:'Compacto',L:2.45,t:1.42},
+  sedan:{id:'sedan',nom:'Sedán',L:2.70,t:1.50},
+  suv:{id:'suv',nom:'SUV',L:2.85,t:1.62},
+  pickup:{id:'pickup',nom:'Pick-up',L:3.20,t:1.58},
+};
+const rDe=(t)=>t/2-0.45;                                         // semiseparación de las rótulas interiores de la cremallera
+const H_REM=0.13;                                                // cremallera 130 mm detrás del eje de pivotes
+const KPI=8*DEG;                                                 // inclinación del pivote (fija)
+const GAIN={cam:4,toe:12};                                       // lupa de los ángulos de ALINEACIÓN en el dibujo (los de dirección se dibujan ×1)
+const EST={modo:'marcha',caso:'sedan',a:0.140,b:0.3990,cam:-0.8,eps:5.0,toe:0.10,v:25,k:1.8e-5,
+  volante:0,barrido:true,fase:0,esc:1/2,pausa:REDUCIDO,autoRunning:false,fallo:null,lupa:true,panel:'dir',
+  eLim:null,aLim:null,rangoDi:30};
+const SIM={s:0,sAmp:0.06,reloj:0,pose:{X:0,Y:0,psi:0},spin:{FL:0,FR:0,RL:0,RR:0},clave:'',tabla:null,tablaD:null,errMax:0,errRms:0,sMan:0.085};
+function gpEff(){
+  const C=CASOS[EST.caso], gp={L:C.L,t:C.t,r:rDe(C.t),h:H_REM,a:EST.a,b:EST.b};
+  if(EST.fallo==='barra') gp.bL=EST.b+0.0015;
+  return gp;
+}
+/** Valores por rueda (caída y avance en rad) con el defecto activo. */
+function alinea(){
+  const f=EST.fallo;
+  return { camL:(EST.cam)*DEG, camR:(f==='caida'?1.4:EST.cam)*DEG, epsL:(f==='avance'?7.5:EST.eps)*DEG, epsR:(f==='avance'?1.5:EST.eps)*DEG };
+}
+/** Recalcula lo que depende sólo de los mandos de diseño (y no del instante): tablas del dock, error máximo, amplitud del barrido. */
+function recalcula(forzar){
+  const gp=gpEff(), clave=JSON.stringify([gp,EST.fallo,EST.v,EST.rangoDi]);
+  if(!forzar&&clave===SIM.clave) return;
+  SIM.clave=clave;
+  const diMax=Math.min(40*DEG,0.99*maxInterior(gp));
+  SIM.diMax=diMax;
+  SIM.tabla=tablaAck(gp,diMax,56,1); SIM.tablaD=tablaAck(gp,diMax,56,-1);
+  SIM.sMan=Math.min(recorridoMax(gp,0.10)-0.002,0.088);
+  const e=errorAck(gp,rad(EST.rangoDi),30); SIM.errMax=e.max; SIM.errRms=e.rms; SIM.incompleto=e.incompleto;
+  SIM.pctPico=pctDiseno(gp);
+  // amplitud del barrido: hasta donde el neumático delantero lo permite (a_y ≤ 0,55 μg) o el tope de la cremallera
+  const aymax=0.55*COCHE.mu*G0, Rmin=EST.v*EST.v/3.6/3.6/aymax;
+  let lo=0, hi=SIM.sMan;
+  const Rde=s=>{ const g=giroRuedas(gp,s); return g.ok?virajeCoche(gp,g.dL,g.dR).R:1e9; };
+  if(Rde(hi)>=Rmin) lo=hi; else { for(let i=0;i<30;i++){ const m=(lo+hi)/2; if(Rde(m)>=Rmin) lo=m; else hi=m; } }
+  SIM.sAmp=Math.max(0.012,lo);
+}
+function maxInterior(gp){
+  const s=recorridoMax(gp,0.12)-0.002, g=giroRuedas(gp,s);
+  return g.ok?Math.min(g.dL,-g.dR>0?-g.dR:g.dL):0.5;
+}
+/** Porcentaje de Ackermann a 20° de la rueda interior. */
+function pctDiseno(gp){ const v=viraje(gp,rad(20),1); return v?porcAck(v.int,v.ext,gp.L,gp.t):NaN; }
+
+/** Todo lo que se mide en el instante actual a partir de la cremallera s. */
+const MOD={};
+function calculaModelo(){
+  const gp=gpEff(), al=alinea(), s=SIM.s;
+  const g=giroRuedas(gp,s), g0=giroRuedas(gp,0);
+  if(!g.ok){ MOD.ok=false; return MOD; }
+  MOD.ok=true; MOD.gp=gp; MOD.al=al; MOD.s=s;
+  const toe=EST.toe*DEG;
+  MOD.dL=g.dL; MOD.dR=g.dR;                                         // ángulos del cuadrilátero (sin la convergencia de ajuste)
+  MOD.hL=g.dL-toe; MOD.hR=g.dR+toe;                                 // rumbo de cada rueda: convergencia hacia dentro (izq. horario, der. antihorario)
+  MOD.tauL=toe-g0.dL; MOD.tauR=toe+g0.dR;                           // convergencia estática de cada rueda (suma el defecto de la bieleta)
+  const izq=s>=0, int=izq?g.dL:-g.dR, ext=izq?g.dR:-g.dL;
+  MOD.lado=Math.abs(s)<1e-9?0:(izq?1:-1);
+  MOD.int=int; MOD.ext=ext; MOD.ideal=ackIdeal(Math.max(0,int),gp.L,gp.t);
+  MOD.err=Math.abs(s)<1e-9?0:(ext-MOD.ideal);
+  MOD.pct=int>rad(1)?porcAck(int,ext,gp.L,gp.t):NaN;
+  const V=virajeCoche(gp,MOD.hL,MOD.hR); MOD.V=V; MOD.R=V.R; MOD.Xc=V.Xc;
+  MOD.diam=V.recta?NaN:diamViraje(V.R,gp.L,gp.t);
+  const v=EST.v/3.6; MOD.v=v;
+  const eL=al.epsL, eR=al.epsR;
+  const D=V.recta?{ay:0,F:0,alfa:0,sat:false}:dinamicaCurva(V.R,v,(eL+eR)/2);
+  MOD.dyn=D; MOD.ay=D.ay;
+  const pL=parAutoalineante(D.alfa,eL), pR=parAutoalineante(D.alfa,eR);
+  MOD.MkL=pL.M; MOD.MkR=pR.M; MOD.Mneu=pL.Mneu; MOD.tm=(pL.tm+pR.tm)/2;
+  MOD.Tvol=V.recta?0:parVolante(gp,s,pL.M,pR.M);
+  MOD.volanteDeg=s/COCHE.rp/DEG;
+  // alineación (recta): empuje de caída, arrastre lateral, descentrado
+  const rec=rectaEje(MOD.tauL,MOD.tauR,al.camL,al.camR,v,EST.k);
+  MOD.rec=rec; MOD.arr=rec.arrastre; MOD.Fneta=rec.Fneta;
+  MOD.empuje=COCHE.Cgam*Math.abs(al.camL);
+  MOD.tOpt=toeOptimo(al.camL,v,EST.k);
+  // caída dinámica de cada rueda (efecto del avance al girar)
+  MOD.camDinL=orientaRueda(-1,eL,KPI,al.camL,MOD.hL).camber; MOD.camDinR=orientaRueda(1,eR,KPI,al.camR,MOD.hR).camber;
+  const W2=velocidadesRuedas(gp,V.Xc,v); MOD.W=W2;
+  return MOD;
+}
+
+
+/* ===================== 9. EL SUELO, LAS CINTAS Y LAS HUELLAS ===================== */
+// —— el suelo: una baldosa de asfalto anclada al MUNDO. Su matriz de textura se recalcula cada cuadro con la pose del coche, de modo
+//    que el asfalto desfila bajo las ruedas a la velocidad y con el radio de giro del modelo.
+const sueloGeo=new THREE.PlaneGeometry(90,90,1,1).rotateX(-Math.PI/2);
+{ const p=sueloGeo.attributes.position, uv=sueloGeo.attributes.uv; for(let i=0;i<p.count;i++) uv.setXY(i,p.getX(i),-p.getZ(i)); uv.needsUpdate=true; }
+const SUELO_M=pieza(sueloGeo,M.asfalto,SUELO,'suelo',{sombra:false});
+SUELO_M.position.y=0;
+function ponMatrizSuelo(){
+  const {X,Y,psi}=SIM.pose, c=Math.cos(psi), s=Math.sin(psi), dy=GEO.L/2;           // el origen de la escena es el centro entre ejes; el de la pose, el eje trasero
+  // mundo = (X,Y) + R(ψ)·(px, py + L/2), con (px,py) = (x, −z) de la escena
+  T_ASF.matrix.set(c/TILE,-s/TILE,(X-s*dy)/TILE, s/TILE,c/TILE,(Y+c*dy)/TILE, 0,0,1);
+}
+// —— conos de eslalon, repartidos por el mundo en una retícula con jitter; sólo se pintan los cercanos
+const N_CONOS=64;
+const conoG=torno([[0,0],[0,0.115],[0.012,0.125],[0.018,0.13],[0.017,0.135],[0.0,0.285],[0.0,0.0]].map(([a,r])=>[a,r]).reverse(),{seg:16,canto:50});
+conoG.rotateZ(Math.PI/2);
+const CONOS=new THREE.InstancedMesh(P3.fusiona([conoG]),M.cono,N_CONOS); CONOS.frustumCulled=false; CONOS.raycast=()=>{}; SUELO.add(CONOS);
+const conosMundo=[]; for(let i=0;i<N_CONOS;i++){ const gx=i%8, gy=Math.floor(i/8); conosMundo.push([(gx-3.5)*6.4+Math.sin(i*12.9)*1.7,(gy-3.5)*6.4+Math.cos(i*7.3)*1.7]); }
+const _m=new THREE.Matrix4(), _q=new THREE.Quaternion(), _sc=new THREE.Vector3(), _ps=new THREE.Vector3();
+function ponConos(){
+  const {X,Y,psi}=SIM.pose, c=Math.cos(psi), s=Math.sin(psi), dy=GEO.L/2;
+  for(let i=0;i<N_CONOS;i++){
+    let wx=conosMundo[i][0]-X, wy=conosMundo[i][1]-Y;
+    // el mundo se repite cada 51,2 m para que siempre haya conos cerca
+    const P=51.2; wx=((wx+P/2)%P+P)%P-P/2; wy=((wy+P/2)%P+P)%P-P/2;
+    const px=c*wx+s*wy, py=-s*wx+c*wy-dy;                                          // coordenadas del coche
+    const lejos=Math.hypot(px,py)>16 || (Math.abs(px)<1.35&&Math.abs(py)<2.7);       // fuera del encuadre o bajo el coche: se esconde
+    _ps.set(px,0,-py); _sc.setScalar(lejos?0.0001:1); _q.identity(); _m.compose(_ps,_q,_sc); CONOS.setMatrixAt(i,_m);
+  }
+  CONOS.instanceMatrix.needsUpdate=true;
+}
+
+// —— las cintas luminosas del suelo: una sola malla con hasta 160 tramos
+const CINTAS_MAX=170;
+const cP=new Float32Array(CINTAS_MAX*4*3), cC=new Float32Array(CINTAS_MAX*4*3), cA=new Float32Array(CINTAS_MAX*4), cU=new Float32Array(CINTAS_MAX*4), cV=new Float32Array(CINTAS_MAX*4), cD=new Float32Array(CINTAS_MAX*4*2), cL=new Float32Array(CINTAS_MAX*4);
+const cI=new Uint16Array(CINTAS_MAX*6); for(let i=0;i<CINTAS_MAX;i++){ const o=i*4; cI.set([o,o+1,o+2,o+2,o+1,o+3],i*6); }
+const gCintas=new THREE.BufferGeometry();
+gCintas.setAttribute('position',new THREE.BufferAttribute(cP,3).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aColor',new THREE.BufferAttribute(cC,3).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aAlpha',new THREE.BufferAttribute(cA,1).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aU',new THREE.BufferAttribute(cU,1).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aV',new THREE.BufferAttribute(cV,1).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aDash',new THREE.BufferAttribute(cD,2).setUsage(THREE.DynamicDrawUsage));
+gCintas.setAttribute('aLen',new THREE.BufferAttribute(cL,1).setUsage(THREE.DynamicDrawUsage));
+gCintas.setIndex(new THREE.BufferAttribute(cI,1));
+const M_CINTAS=new THREE.ShaderMaterial({
+  vertexShader:`attribute vec3 aColor; attribute float aAlpha; attribute float aU; attribute float aV; attribute vec2 aDash; attribute float aLen;
+    varying vec3 vC; varying float vA; varying float vU; varying float vV; varying vec2 vD; varying float vL;
+    void main(){ vC=aColor; vA=aAlpha; vU=aU; vV=aV; vD=aDash; vL=aLen; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader:`varying vec3 vC; varying float vA; varying float vU; varying float vV; varying vec2 vD; varying float vL;
+    void main(){
+      float across=smoothstep(1.0,0.45,abs(vV));
+      float dash=1.0; if(vD.x>0.0){ float f=fract(vU/vD.x); dash=smoothstep(0.0,0.05,f)*(1.0-smoothstep(vD.y,vD.y+0.05,f)); }
+      float ends=smoothstep(0.0,0.12,vU)*smoothstep(0.0,0.12,vL-vU);
+      float a=vA*across*dash*ends; if(a<0.01) discard;
+      gl_FragColor=vec4(vC*(0.9+0.6*across),a); }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+});
+const CINTAS=new THREE.Mesh(gCintas,M_CINTAS); CINTAS.frustumCulled=false; CINTAS.renderOrder=4; CINTAS.raycast=()=>{}; SUELO.add(CINTAS);
+let nCinta=0;
+const _col=new THREE.Color();
+/** Añade un tramo de cinta entre (x0,z0) y (x1,z1) de la escena, `ancho` m, a la altura y. dash = [periodo m, fracción encendida] o null. */
+function cinta(x0,z0,x1,z1,ancho,color,alfa,dash,y=0.014){
+  if(nCinta>=CINTAS_MAX) return;
+  const dx=x1-x0, dz=z1-z0, L=Math.hypot(dx,dz); if(L<1e-5) return;
+  const nx=-dz/L*ancho/2, nz=dx/L*ancho/2, o=nCinta*4; _col.set(color);
+  const P=[[x0-nx,z0-nz,0,-1],[x0+nx,z0+nz,0,1],[x1-nx,z1-nz,L,-1],[x1+nx,z1+nz,L,1]];
+  for(let i=0;i<4;i++){ const q=P[i], k=o+i;
+    cP[k*3]=q[0]; cP[k*3+1]=y; cP[k*3+2]=q[1]; cC[k*3]=_col.r; cC[k*3+1]=_col.g; cC[k*3+2]=_col.b; cA[k]=alfa; cU[k]=q[2]; cV[k]=q[3]; cL[k]=L;
+    cD[k*2]=dash?dash[0]:0; cD[k*2+1]=dash?dash[1]:1; }
+  nCinta++;
+}
+/** Una polilínea de cintas (un arco, por ejemplo). */
+function cintaPoli(pts,ancho,color,alfa,dash,y){ for(let i=0;i<pts.length-1;i++) cinta(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1],ancho,color,alfa,dash,y); }
+function cintasFin(){
+  gCintas.setDrawRange(0,nCinta*6);
+  for(const k of ['position','aColor','aAlpha','aU','aV','aDash','aLen']) gCintas.attributes[k].needsUpdate=true;
+}
+
+// —— marcadores de los centros sobre la línea del eje trasero (discos planos luminosos)
+const discoG=new THREE.CircleGeometry(1,28).rotateX(-Math.PI/2);
+const MARCA={};
+for(const [k,c] of [['int','#59e0ff'],['ext','#ffa13a'],['ideal','#ffffff']]){
+  const m=new THREE.Mesh(discoG,new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.6,blending:THREE.NormalBlending,depthWrite:false}));
+  m.position.y=0.02; m.renderOrder=5; m.raycast=()=>{}; SUELO.add(m); MARCA[k]=m;
+}
+
+// —— las huellas: lienzo de presiones de cada rueda delantera, en su sitio (diminuto) y ampliada al costado (×2,6)
+const PATCH_W=0.205, PATCH_L=0.13, AMP=2.6;
+const HUELLA={};
+for(const k of ['FL','FR']){
+  const c=cv(160,128), t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.anisotropy=4;
+  const mat=new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false,toneMapped:false,opacity:0.96});
+  const mk=(w,l)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,l).rotateX(-Math.PI/2),mat); m.renderOrder=3; m.raycast=()=>{}; SUELO.add(m); return m; };
+  HUELLA[k]={c,ctx:c.getContext('2d'),t,real:mk(PATCH_W,PATCH_L),amp:mk(PATCH_W*AMP,PATCH_L*AMP),clave:''};
+  HUELLA[k].real.position.y=0.011; HUELLA[k].amp.position.y=0.012;
+}
+const rampaPresion=p=>{ // 0 → azul profundo, 0,5 → verde azulado, 1 → amarillo, 1,6 → rojo
+  const t=clamp(p/1.7,0,1), st=[[0,[18,40,110]],[0.28,[20,150,170]],[0.55,[120,215,110]],[0.78,[255,214,70]],[1,[255,70,60]]];
+  for(let i=0;i<st.length-1;i++) if(t<=st[i+1][0]){ const f=(t-st[i][0])/(st[i+1][0]-st[i][0]); return st[i][1].map((v,j)=>Math.round(v+(st[i+1][1][j]-v)*f)); }
+  return st[4][1];
+};
+/** Pinta la huella: presión repartida a lo ancho (la caída y la fuerza lateral la cargan hacia un borde), flecha de la fuerza lateral y
+    marcas de arrastre. u > 0 es hacia FUERA del coche. camOut: caída (rad, + cima hacia fuera); Fin: fuerza lateral hacia dentro (N). */
+function pintaHuella(k,camOut,Fin,alfa){
+  const H=HUELLA[k], clave=[camOut.toFixed(3),(Fin/20|0),(alfa*500|0)].join(); if(H.clave===clave) return; H.clave=clave;
+  const x=H.ctx, W=160, Hh=128; x.clearRect(0,0,W,Hh);
+  const sesgo=clamp(0.20*grd(camOut)+0.55*Fin/COCHE.N,-0.85,0.85);                // presión relativa ∝ 1 + sesgo·u
+  const m=10, w=W-2*m, h=Hh-2*m, cx=W/2;
+  // contorno de la huella: rectángulo de esquinas redondas más largo en el centro (forma de «frijol»)
+  x.save(); x.beginPath(); const r=18;
+  x.moveTo(m+r,m+4); x.lineTo(W-m-r,m+4); x.quadraticCurveTo(W-m,m+4,W-m,m+r+4); x.lineTo(W-m,Hh-m-r-4); x.quadraticCurveTo(W-m,Hh-m-4,W-m-r,Hh-m-4); x.lineTo(m+r,Hh-m-4); x.quadraticCurveTo(m,Hh-m-4,m,Hh-m-r-4); x.lineTo(m,m+r+4); x.quadraticCurveTo(m,m+4,m+r,m+4); x.closePath(); x.clip();
+  for(let i=0;i<w;i++){ const u=(i/(w-1))*2-1, borde=Math.pow(Math.abs(u),6)*0.55, p=Math.max(0.05,(1+sesgo*u)*(1-borde)), c=rampaPresion(p);
+    x.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')'; x.fillRect(m+i,0,1.2,Hh); }
+  // ranuras longitudinales del neumático (3): franjas más oscuras
+  x.fillStyle='rgba(8,12,20,0.55)'; for(const q of [-0.5875,0,0.5875]) x.fillRect(cx+q*w/2-2,m,4,h);
+  x.restore(); x.strokeStyle='rgba(255,255,255,0.7)'; x.lineWidth=2; x.stroke();
+  // flecha de la fuerza lateral: desde el centro hacia donde empuja la goma (hacia dentro del coche = −u)
+  const F=clamp(Fin/(0.9*COCHE.N*0.9),-1,1), L=Math.abs(F)*w*0.42;
+  if(Math.abs(Fin)>6){ const dir=-Math.sign(F); x.strokeStyle='#ffffff'; x.fillStyle='#ffffff'; x.lineWidth=5; x.lineCap='round';
+    x.beginPath(); x.moveTo(cx,Hh/2); x.lineTo(cx+dir*L,Hh/2); x.stroke();
+    x.beginPath(); x.moveTo(cx+dir*(L+11),Hh/2); x.lineTo(cx+dir*(L-5),Hh/2-9); x.lineTo(cx+dir*(L-5),Hh/2+9); x.closePath(); x.fill(); }
+  // marcas de arrastre (rayas oblicuas) cuando la deriva existe
+  const a=clamp(Math.abs(alfa)/rad(1.5),0,1);
+  if(a>0.08){ x.strokeStyle='rgba(255,255,255,'+(0.18+0.45*a).toFixed(2)+')'; x.lineWidth=2; for(let i=-2;i<=2;i++){ x.beginPath(); x.moveTo(cx-18+i*26,m+16); x.lineTo(cx-18+i*26+Math.sign(alfa||1)*a*22,Hh-m-16); x.stroke(); } }
+  H.t.needsUpdate=true;
+}
+
+/* ===================== 10. COLOCACIÓN DEL COCHE Y LA ESCENA SIGUE AL MODELO ===================== */
+const _a=new THREE.Vector3(), _b=new THREE.Vector3(), _up=new THREE.Vector3(0,1,0), _qq=new THREE.Quaternion();
+/** Pone un cilindro unidad (eje Y, longitud 1) entre dos puntos. */
+function entre(mesh,A,B){ _a.copy(B).sub(A); const l=_a.length(); mesh.position.copy(A).addScaledVector(_a,0.5); _qq.setFromUnitVectors(_up,_a.normalize()); mesh.quaternion.copy(_qq); mesh.scale.set(1,l,1); }
+const KING={};                                                    // las líneas indicadoras: eje del pivote y plomada
+for(const k of ['FL','FR']){
+  KING[k]={ eje:new THREE.Mesh(cil(0.0042,1,'y',8),new THREE.MeshBasicMaterial({color:0x5be3ff,transparent:true,opacity:0.6,blending:THREE.NormalBlending,depthWrite:false})),
+    plomo:new THREE.Mesh(cil(0.0028,1,'y',6),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.40,blending:THREE.AdditiveBlending,depthWrite:false})),
+    punto:new THREE.Mesh(discoG,new THREE.MeshBasicMaterial({color:0x5be3ff,transparent:true,opacity:0.6,blending:THREE.NormalBlending,depthWrite:false})) };
+  for(const o of Object.values(KING[k])){ o.raycast=()=>{}; o.renderOrder=6; CAR.add(o); }
+  KING[k].eje.renderOrder=6;
+}
+/** Coloca todo lo que depende del coche elegido y de los mandos de diseño. */
+let CLAVE_GEO='';
+function ponGeometria(){
+  const gp=gpEff(), clave=JSON.stringify([gp.L,gp.t,gp.r,gp.a,gp.b,gp.bL]);
+  if(clave===CLAVE_GEO) return; CLAVE_GEO=clave;
+  Object.assign(GEO,gp); const L=gp.L, t=gp.t, zF=-L/2, zR=L/2;
+  W.FL.piv.position.set(-t/2,0,zF); W.FR.piv.position.set(t/2,0,zF); W.RL.piv.position.set(-t/2,0,zR); W.RR.piv.position.set(t/2,0,zR);
+  construyeBrazos();
+  // bastidor
+  const yR=0.34, zc=(zF-0.58+zR+0.42)/2, lon=(zR+0.42)-(zF-0.58);
+  BAST.largL.position.set(-0.40,yR,zc); BAST.largR.position.set(0.40,yR,zc); BAST.largL.scale.z=BAST.largR.scale.z=lon;
+  BAST.travD.position.set(0,0.36,zF-0.58); BAST.travD.scale.x=0.95; BAST.travT.position.set(0,0.36,zR+0.42); BAST.travT.scale.x=0.95;
+  BAST.travSub.position.set(0,0.235,zF+0.36); BAST.travSub.scale.x=0.88;
+  BAST.eje.position.set(0,YC,zR); BAST.eje.scale.x=t-0.12;
+  for(const [m,sg] of [[BAST.brazoTL,-1],[BAST.brazoTR,1]]){ m.position.set(sg*(t/2-0.17),YC-0.04,zR-0.40); m.scale.z=0.80; }
+  BAST.escape.position.set(0.22,0.17,0.2); BAST.escape.scale.z=1;
+  BAST.carro.scale.set((t+0.26)/1.74,1,(L+1.6)/4.3); BAST.carroBordes.scale.copy(BAST.carro.scale);
+  // suspensión inferior
+  SUSP.brazoFR.position.set(t/2-0.075,0.135,zF+0.02); SUSP.brazoFL.position.set(-(t/2-0.075),0.135,zF+0.02);
+  // dirección
+  DIR.g.position.set(0,Y_LINK,zF+gp.h);
+  DIR.carcasa.scale.x=2*(gp.r-0.11); DIR.pinon.position.x=0.17;
+  DIR.varilla.scale.x=2*gp.r+0.26;
+  CLAVE_GEO=clave; SIM.clave='';
+}
+const _A=new THREE.Vector3(), _B=new THREE.Vector3();
+function aplicaColocacion(dt){
+  const M0=MOD; if(!M0.ok) return;
+  const gp=M0.gp, al=M0.al, L=gp.L, t=gp.t, zF=-L/2, s=M0.s, P=puntosTrapecio(gp,s);
+  const gC=EST.lupa?GAIN.cam:1, gT=(EST.lupa&&(VISTA.actual==='rueda'))?GAIN.toe:1, toe=EST.toe*DEG;
+  // ruedas delanteras: rumbo (con la convergencia ampliada sólo de cerca), caída con su variación al girar
+  const visL=M0.dL-toe*gT, visR=M0.dR+toe*gT;
+  W.FL.piv.rotation.y=visL; W.FR.piv.rotation.y=visR;
+  W.FL.camb.rotation.z=+M0.camDinL*gC; W.FR.camb.rotation.z=-M0.camDinR*gC;
+  W.RL.camb.rotation.z=+0.002*gC; W.RR.camb.rotation.z=-0.002*gC;
+  // giro de las cuatro ruedas con las velocidades del modelo (cámara lenta ×esc)
+  const w=M0.W, k=EST.pausa?0:dt*EST.esc/COCHE.Rw;
+  SIM.spin.FL+=w.vFL*k; SIM.spin.FR+=w.vFR*k; SIM.spin.RL+=w.vRL*k; SIM.spin.RR+=w.vRR*k;
+  for(const q of ['FL','FR','RL','RR']) W[q].spin.rotation.x=-SIM.spin[q];
+  // dirección: cremallera, fuelles, bieletas
+  const r=gp.r, bL=gp.bL??gp.b, bR=gp.b;
+  DIR.varilla.position.x=s; DIR.fuelleL.position.x=-r+s; DIR.fuelleL.scale.x=0.11-s; DIR.fuelleR.position.x=r-0.11; DIR.fuelleR.scale.x=0.11+s;
+  const zRem=zF+gp.h; DIR.rotBL.position.set(-r+s,0,0); DIR.rotBR.position.set(r+s,0,0);
+  const AL=P?planoEsc(P.AL[0],P.AL[1]):null, AR=P?planoEsc(P.AR[0],P.AR[1]):null;
+  if(AL){
+    DIR.rotAL.position.copy(AL).sub(DIR.g.position); DIR.rotAR.position.copy(AR).sub(DIR.g.position);
+    _A.set(AL.x,AL.y,AL.z); _B.set(-r+s,Y_LINK,zRem); entre(DIR.bieL,_A.sub(DIR.g.position),_B.sub(DIR.g.position));
+    _A.set(AR.x,AR.y,AR.z); _B.set(r+s,Y_LINK,zRem); entre(DIR.bieR,_A.sub(DIR.g.position),_B.sub(DIR.g.position));
+    void bL; void bR;
+  }
+  // puntales: eje del pivote inclinado (avance ε hacia atrás, KPI λ hacia dentro) y su indicador luminoso
+  for(const [q,sg,eps] of [['FL',-1,al.epsL],['FR',1,al.epsR]]){
+    const bx=sg*(t/2-0.125), by=YC+0.02, bz=zF+0.012;
+    const ux=-sg*Math.sin(KPI)*Math.cos(eps), uy=Math.cos(eps)*Math.cos(KPI), uz=Math.sin(eps)*Math.cos(KPI), ul=Math.hypot(ux,uy,uz);
+    _A.set(bx,by,bz); _B.set(ux/ul,uy/ul,uz/ul);
+    PUNTAL[q].position.copy(_A); PUNTAL[q].quaternion.setFromUnitVectors(_up,_B);
+    // eje luminoso: del punto de apoyo en el suelo hasta lo alto del puntal
+    const baja=by/(uy/ul), sx=bx-ux/ul*baja, sz=bz-uz/ul*baja;
+    entre(KING[q].eje,V3(sx,0.0,sz),V3(bx+ux/ul*0.58,by+uy/ul*0.58,bz+uz/ul*0.58));
+    KING[q].punto.position.set(sx,0.022,sz); KING[q].punto.scale.setScalar(0.022);
+    entre(KING[q].plomo,V3(sg*(t/2),0.0,zF),V3(sg*(t/2),0.95,zF));
+  }
+}
+
+
+/** Las cintas del suelo en este cuadro: eje trasero, las perpendiculares de las ruedas, el trapecio proyectado y los centros de giro. */
+const C_INT='#4fdcff', C_EXT='#ffa13a', C_IDEAL='#ffffff', C_ARM='#ff8a2b', C_ROD='#eaf4f1', C_RACK='#9fc5ff';
+function pintaCintas(){
+  nCinta=0;
+  const M0=MOD;
+  if(!M0.ok){ cintasFin(); return; }
+  const gp=M0.gp, L=gp.L, t=gp.t, zF=-L/2, zR=L/2, hL=M0.hL, hR=M0.hR, lado=M0.lado;
+  const sc=(X,Y)=>[X,-L/2-Y];                                                      // plano de la dirección → (x, z) de la escena
+  // línea del eje trasero (discontinua)
+  cinta(-12,zR,12,zR,0.034,'#ffffff',0.34,[0.34,0.58]);
+  // perpendiculares a los rumbos: el eje de cada rueda hasta la línea del eje trasero
+  const perp=(px,h,col,alfa,anch,dash)=>{
+    const sh=Math.sin(h);
+    if(Math.abs(sh)<2e-3){ cinta(px-3.5,zF,px+3.5,zF,anch,col,alfa*0.55,dash); return; }
+    let lam=-L/sh; const maxL=16; if(Math.abs(lam)>maxL) lam=Math.sign(lam)*maxL;
+    const x1=px+lam*Math.cos(h), z1=zF-lam*sh;                                     // plano (X,Y)=(px+λcos h, λ sin h) → z = zF − Y
+    cinta(px,zF,x1,z1,anch,col,alfa,dash);
+  };
+  const intIsL=lado>=0, pxI=intIsL?-t/2:t/2, pxE=intIsL?t/2:-t/2, hI=intIsL?hL:hR, hE=intIsL?hR:hL;
+  if(lado!==0){
+    perp(pxI,hI,C_INT,0.80,0.040,null);
+    perp(pxE,hE,C_EXT,0.80,0.040,null);
+    const hid=lado*ackIdeal(Math.abs(hI),L,t);                                      // rumbo que debería tener la exterior
+    perp(pxE,hid*1,C_IDEAL,0.55,0.020,[0.22,0.55]);
+  } else { perp(-t/2,hL,C_INT,0.5,0.03,null); perp(t/2,hR,C_EXT,0.5,0.03,null); }
+  // centros sobre la línea del eje trasero
+  const cs=centrosEje(hL,hR,L,t), xI=intIsL?cs.xL:cs.xR, xE=intIsL?cs.xR:cs.xL, Xc=M0.V.Xc;
+  const sob=(m,x,r)=>{ const vis=lado!==0&&Math.abs(x)<14; m.visible=vis; if(vis){ m.position.x=x; m.position.z=zR; m.scale.setScalar(r); } };
+  sob(MARCA.int,xI,0.075); sob(MARCA.ext,xE,0.055); sob(MARCA.ideal,Xc,0.11);
+  MARCA.ideal.material.opacity=0.4;
+  // el trapecio proyectado sobre el suelo: brazos (naranja), bieletas (blanco) y cremallera (azul)
+  const P=puntosTrapecio(gp,M0.s);
+  if(P){
+    const [pl,al,bl,br,ar,pr]=[sc(...P.PL),sc(...P.AL),sc(...P.BL),sc(...P.BR),sc(...P.AR),sc(...P.PR)];
+    cinta(pl[0],pl[1],al[0],al[1],0.030,C_ARM,0.75,null); cinta(pr[0],pr[1],ar[0],ar[1],0.030,C_ARM,0.75,null);
+    cinta(al[0],al[1],bl[0],bl[1],0.022,C_ROD,0.70,null); cinta(ar[0],ar[1],br[0],br[1],0.022,C_ROD,0.70,null);
+    cinta(bl[0],bl[1],br[0],br[1],0.034,C_RACK,0.55,null);
+  }
+  // arcos que describen la rueda delantera exterior y la trasera interior (el «barrido» del giro)
+  if(lado!==0&&Math.abs(Xc)<22){
+    const ex=pxE, ix=pxI, cx=Xc, rE=Math.hypot(ex-cx,L), rI=Math.abs(ix-cx);
+    const arco=(r,yz,col,alfa)=>{ const pts=[]; for(let i=0;i<=26;i++){ const a=(-0.55+1.15*i/26)*(-lado); pts.push([cx+Math.cos(a)*r*(-lado*0+1)*0+0,0]); } void pts; };
+    void arco; void rE; void rI; void ex; void ix;
+  }
+  // unión entre cada rueda y su huella ampliada
+  for(const k of ['FL','FR']){ const sg=k==='FR'?1:-1; cinta(sg*(t/2+0.18),zF,sg*(t/2+0.62-PATCH_W*AMP*0.5*0),zF,0.012,'#ffffff',0.22,[0.05,0.5]); }
+  cintasFin();
+}
+
+/** Un cuadro de la escena. dt: tiempo de pantalla; la marcha, el barrido y el giro de las ruedas corren a cámara lenta ×esc. */
+function aplicaEscena(dt){
+  ponGeometria(); recalcula();
+  const lento=EST.pausa?0:dt*EST.esc;
+  // la cremallera: barrido automático hasta donde el neumático lo permite, o el volante a mano
+  let objetivo;
+  if(EST.barrido){ if(!EST.pausa) SIM.fase=(SIM.fase+lento/9)%1; objetivo=SIM.sAmp*Math.sin(DOSPI*SIM.fase); }
+  else objetivo=EST.volante*SIM.sMan;
+  SIM.s+=(objetivo-SIM.s)*(1-Math.exp(-dt/(EST.barrido?0.02:0.06)));
+  SIM.reloj+=lento;
+  const m=calculaModelo();
+  if(!m.ok) return;
+  // la marcha del coche: la pose del eje trasero avanza a la velocidad v por el círculo de radio R
+  const v=m.v, P=SIM.pose;
+  const yaw=m.V.recta?0:m.V.sgn*v/m.R;
+  P.psi+=yaw*lento; P.X+=-Math.sin(P.psi)*v*lento; P.Y+=Math.cos(P.psi)*v*lento;
+  if(Math.abs(P.X)>1e4||Math.abs(P.Y)>1e4){ P.X=0; P.Y=0; }
+  ponMatrizSuelo(); ponConos();
+  aplicaColocacion(dt);
+  pintaCintas();
+  // huellas
+  const t=m.gp.t, zF=-m.gp.L/2, Fi=m.dyn.F;
+  const sentido=m.V.recta?0:m.V.sgn;                                                  // +1 = centro a la izquierda
+  for(const [k,sg] of [['FL',-1],['FR',1]]){
+    const h=k==='FL'?m.hL:m.hR, cam=k==='FL'?m.camDinL:m.camDinR, camOut=cam;
+    // fuerza lateral hacia dentro del coche: la de curva (hacia el centro del giro) + la de la convergencia/caída en recta
+    const recta=(k==='FL'?m.rec.L.F:m.rec.R.F)*1;                                  // hacia dentro (+)
+    const enCurva=-sentido*(sg<0?1:-1)*Fi*(sentido?1:0);                              // hacia el centro del giro, descompuesto sobre «dentro»
+    const Fin=recta+enCurva;
+    pintaHuella(k,camOut,Fin,k==='FL'?m.rec.L.ae:m.rec.R.ae);
+    const H=HUELLA[k];
+    H.real.position.x=sg*(t/2); H.real.position.z=zF; H.real.rotation.y=h; H.real.scale.x=1;
+    H.amp.position.x=sg*(t/2+0.66); H.amp.position.z=zF; H.amp.scale.x=sg<0?-1:1; H.amp.rotation.y=0;
+    if(sg<0){ H.real.scale.x=-1; }
+  }
+}
+
+/* ===================== 11. CÁMARAS ENCAJADAS EN EL HUECO LIBRE ===================== */
+
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+const esVertical=()=>innerWidth/innerHeight<0.82;
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function encaja(t,dir,pts,caja,margen=0){
+  if(margen){ const mx=(caja.x1-caja.x0)*margen, my=(caja.y1-caja.y0)*margen; caja={x0:caja.x0+mx,x1:caja.x1-mx,y0:caja.y0+my,y1:caja.y1-my}; }
+  const cam=camera.clone(), W=innerWidth, H=innerHeight, tan=Math.tan(cam.fov*Math.PI/360);
+  cam.aspect=W/H; cam.updateProjectionMatrix();
+  const cw=caja.x1-caja.x0, ch=caja.y1-caja.y0, cx=(caja.x0+caja.x1)/2, cy=(caja.y0+caja.y1)/2;
+  let dist=1; const q=new THREE.Vector3(), der=new THREE.Vector3(), arr=new THREE.Vector3(); t=t.clone(); dir=dir.clone().normalize();
+  for(let it=0;it<10;it++){
+    cam.position.copy(t).addScaledVector(dir,dist); cam.lookAt(t); cam.updateMatrixWorld();
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const p of pts){ q.copy(p).project(cam); const sx=(q.x+1)/2*W, sy=(1-q.y)/2*H;
+      a0=Math.min(a0,sx); a1=Math.max(a1,sx); b0=Math.min(b0,sy); b1=Math.max(b1,sy); }
+    const k=Math.max((a1-a0)/cw,(b1-b0)/ch), wpp=2*tan*dist/H;
+    der.setFromMatrixColumn(cam.matrixWorld,0); arr.setFromMatrixColumn(cam.matrixWorld,1);
+    t.addScaledVector(der,((a0+a1)/2-cx)*wpp).addScaledVector(arr,-((b0+b1)/2-cy)*wpp);
+    dist*=k;
+  }
+  return [t.clone().addScaledVector(dir,dist),t];
+}
+const caja3=(x0,y0,z0,x1,y1,z1)=>{ const r=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) r.push(V3(x,y,z)); return r; };
+
+/* Tres vistas: el coche entero, el eje delantero (el trapecio) y una rueda (caída, avance y convergencia). */
+const VISTAS={
+  coche:{dir:()=>esVertical()?[0.10,1.0,0.42]:[0.22,1.02,0.66], pts:()=>caja3(-1.0,0,-GEO.L/2-0.62,1.0,0.8,GEO.L/2+0.55), m:0.015, nom:'Coche entero'},
+  eje:{dir:()=>esVertical()?[0.55,0.9,0.85]:[0.10,0.86,0.80], pts:()=>caja3(-GEO.t/2-0.42,0,-GEO.L/2-0.50,GEO.t/2+0.42,0.75,-GEO.L/2+0.62), m:0.02, nom:'Eje delantero'},
+  rueda:{dir:()=>[-0.62,0.46,-0.80], pts:()=>caja3(-GEO.t/2-0.42,0,-GEO.L/2-0.42,-GEO.t/2+0.55,0.95,-GEO.L/2+0.45), m:0.03, nom:'Una rueda'},
+};
+const VISTA={actual:'coche'};
+function vistaCam(v){
+  const V=VISTAS[v]||VISTAS.coche, H=huecoLibre(), pts=V.pts();
+  const c=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  return encaja(c,V3(...V.dir()),pts,H,V.m);
+}
+const CAMT={on:false};
+function ponVista(v,dur){
+  VISTA.actual=v;
+  const [p,t]=vistaCam(v);
+  Object.assign(CAMT,{on:true,u:0,dur:dur===undefined?(REDUCIDO?0.001:1.2):dur,p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t});
+  pintaBarras();
+}
+function pasaCam(dt){
+  if(!CAMT.on) return;
+  CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+  camera.position.lerpVectors(CAMT.p0,CAMT.p1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+  if(CAMT.u>=1) CAMT.on=false;
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+
+/* ===================== 12. EL HUD (izquierda) ===================== */
+const nom=c=>CASOS[c].nom;
+const sgn1=(x,d=1)=>(x>0?'+':'')+fN(x,d);
+/** Un deslizador con su rótulo y su valor vivo. */
+function desliza(id,etq,val,min,max,step,fmt,aria,marcas){
+  return `<div class="cg"><div class="cl"><div>${etq}</div><b id="v_${id}">${fmt(val)}</b></div><div class="rowb"><input type="range" id="r_${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${aria}"></div>${marcas?`<div class="marcas">${marcas.map(m=>`<span>${m}</span>`).join('')}</div>`:''}</div>`;
+}
+const FMT={a:v=>fN(v*1000,0)+' mm',b:v=>fN(v*1000,2)+' mm',cam:v=>sgn1(v,2)+'°',eps:v=>fN(v,1)+'°',toe:v=>sgn1(v,2)+'°',v:v=>fN(v,0)+' km/h',vol:v=>EST.barrido?'barrido automático':fN(Math.abs(SIM.s)/COCHE.rp/DEG,0)+'° '+(SIM.s>0.002?'a la izq.':SIM.s<-0.002?'a la der.':'centrado')};
+function limitesB(){ const g=CASOS[EST.caso]; return [0.372,0.432]; }
+function htmlMandos(){
+  const dir=EST.panel==='dir';
+  let h=`<div class="seg" id="segPan"><button class="b ${dir?'on':''}" data-pan="dir">Dirección</button><button class="b ${!dir?'on':''}" data-pan="ali">Alineación</button></div><div class="pane">`;
+  if(dir){
+    h+=`<div class="cg"><div class="cl">Coche</div><div class="seg cuatroS" id="segCaso">${Object.keys(CASOS).map(c=>`<button class="b ${EST.caso===c?'on':''}" data-caso="${c}">${nom(c)}</button>`).join('')}</div></div>`;
+    h+=`<div class="cg"><div class="cl"><div>Volante</div><b id="v_vol">${FMT.vol()}</b></div><div class="rowb"><input type="range" id="r_vol" min="-100" max="100" step="1" value="${Math.round(EST.volante*100)}" aria-label="Giro del volante"></div></div>`;
+    h+=desliza('a','Brazo de dirección',EST.a,0.100,0.180,0.001,FMT.a,'Longitud del brazo de dirección en milímetros');
+    h+=`<div class="cg"><div class="cl"><div>Barra de acoplamiento</div><b id="v_b">${FMT.b(EST.b)}</b></div><div class="rowb"><button class="nudge" data-nb="-1" aria-label="Acortar un cuarto de milímetro">−</button><input type="range" id="r_b" min="${limitesB()[0]}" max="${limitesB()[1]}" step="0.00025" value="${EST.b}" aria-label="Longitud de la barra de acoplamiento en milímetros"><button class="nudge" data-nb="1" aria-label="Alargar un cuarto de milímetro">+</button></div></div>`;
+  } else {
+    h+=desliza('cam','Caída',EST.cam,-3,1.5,0.05,FMT.cam,'Caída de la rueda en grados');
+    h+=desliza('eps','Avance',EST.eps,0,8,0.1,FMT.eps,'Ángulo de avance del pivote en grados');
+    h+=desliza('toe','Convergencia por rueda',EST.toe,-0.5,0.9,0.01,FMT.toe,'Convergencia de cada rueda en grados, positiva hacia dentro');
+  }
+  h+=desliza('v','Velocidad',EST.v,10,130,1,FMT.v,'Velocidad del coche en kilómetros por hora');
+  h+=`</div><div class="bpar"><button class="b primary" id="btnBar">↻ Barrido</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div>`;
+  return h;
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Dinámica del vehículo · Dirección</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>Las dos ruedas no giran lo mismo</h2>
+    <p class="intro">En una curva la rueda <b style="color:var(--cA)">interior</b> gira más que la <b style="color:var(--cB)">exterior</b>. Mira dónde se cortan sus perpendiculares: si no caen en el <b>eje trasero</b>, las ruedas se arrastran. Cambia el trapecio, la caída, el avance y la convergencia.</p></div>`;
+  } else h+=`<h2>Calcula, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha') h+=`<div class="hmandos">${htmlMandos()}</div>`; else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl"><b>Ackermann.</b> Si las dos ruedas giran sobre circunferencias con el mismo centro, sobre la línea del eje trasero:</div>
+    <div class="formula">cot δ<sub>ext</sub> − cot δ<sub>int</sub> = t / L<br>R = (L/2)·(cot δ<sub>int</sub> + cot δ<sub>ext</sub>)</div>
+    <div class="fl"><b>El trapecio real</b> es un cuadrilátero: brazo <i>a</i> y barra <i>b</i> cierran con la cremallera en |A − B| = b, y cada rueda gira δ con cos(φ − θ<sub>B</sub>) = (a² + d² − b²) / (2·a·d). Por eso nunca es exacto: el error se ve en el dock.</div>
+    <div class="fl"><b>Neumático (cepillo).</b> Con x = θ·tan α y θ = C<sub>α</sub>/(3μN), F<sub>y</sub> = μN·[1 − (1 − x)³], brazo neumático t<sub>p</sub> = (a/3)(1 − x)³/(1 − x + x²/3).</div>
+    <div class="formula">M = F<sub>y</sub>·(t<sub>p</sub> + R<sub>w</sub>·tan ε)  (avance ε)<br>α<sub>ef</sub> = τ − τ<sub>c</sub> + (C<sub>γ</sub>/C<sub>α</sub>)·(−γ)<br>arrastre = 1000·|tan α<sub>ef</sub>| m/km</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Cuerpo rígido: sin elasticidad de la goma ni de la dirección. La flexibilidad k que abre las ruedas con la fuerza de avance es didáctica.</li>
+    <li>Radio de pivote nulo en el modelo; el dibujo del puntal muestra ≈ 66 mm. Neumático de cepillo con carga fija (sin transferencia lateral de carga).</li>
+    <li>Al girar, el coche rueda a baja velocidad con la deriva calculada por la fuerza lateral; no es un modelo de dinámica lateral completo (eso lo hace el lab del ESC).</li>
+    <li>Caída y convergencia se dibujan ×4 y ×12 (lupa) para verse; los ángulos de dirección, a escala. No es CFD ni FEM.</li>
+  </ul><div class="src">Gillespie, <i>Fundamentals of Vehicle Dynamics</i> · Pacejka, <i>Tire and Vehicle Dynamics</i> · Reimpell, Stoll y Betzler, <i>The Automotive Chassis</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function aplicaCambioDiseno(){ reinicia(); refrescaVals(); pintaDockFijo(); }
+function reinicia(){ SIM.clave=''; }
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-pan]').forEach(b=>b.onclick=()=>{ EST.panel=b.dataset.pan; pintaHUD(); });
+  H.querySelectorAll('[data-caso]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.caso=b.dataset.caso; EST.b=bParaCaso(EST.caso,EST.a); pintaHUD(); ponVista(VISTA.actual,0.6); });
+  const sl=(id,fn)=>{ const r=el('r_'+id); if(r) r.oninput=()=>{ if(EST.autoRunning) return; fn(+r.value); refrescaVals(); }; };
+  sl('a',v=>{ EST.a=v; }); sl('b',v=>{ EST.b=v; }); sl('cam',v=>{ EST.cam=v; }); sl('eps',v=>{ EST.eps=v; }); sl('toe',v=>{ EST.toe=v; }); sl('v',v=>{ EST.v=v; });
+  const vol=el('r_vol'); if(vol) vol.oninput=()=>{ if(EST.autoRunning) return; EST.barrido=false; EST.volante=+vol.value/100; refrescaVals(); };
+  H.querySelectorAll('[data-nb]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.b=clamp(EST.b+(+b.dataset.nb)*0.00025,limitesB()[0],limitesB()[1]); const r=el('r_b'); if(r) r.value=EST.b; refrescaVals(); });
+  if(el('btnBar')) el('btnBar').onclick=()=>{ EST.barrido=true; SIM.fase=0; refrescaVals(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction(GUIA.paso==='calc'?'hint-s':'hint-r',null);
+  const inp=el('ansS'); if(inp) inp.onkeydown=e=>{ if(e.key==='Enter') handleAction('check-s',null); };
+  for(const [id,fn] of [['ga',v=>{EST.a=v;}],['gb',v=>{EST.b=v;}],['gt',v=>{EST.toe=v;registraEnsayo();}]]){ const r=el('r_'+id); if(r) r.oninput=()=>{ fn(+r.value); refrescaVals(); }; }
+  H.querySelectorAll('[data-nbg]').forEach(b=>b.onclick=()=>{ EST.b=clamp(EST.b+(+b.dataset.nbg)*0.00025,limitesB()[0],limitesB()[1]); const r=el('r_gb'); if(r) r.value=EST.b; refrescaVals(); });
+  const gt=el('r_gt'); if(gt) gt.onchange=registraEnsayo;
+}
+function refrescaVals(){
+  const s=(id,t)=>{ const e=el(id); if(e&&e.textContent!==t) e.textContent=t; };
+  s('v_a',FMT.a(EST.a)); s('v_b',FMT.b(EST.b)); s('v_cam',FMT.cam(EST.cam)); s('v_eps',FMT.eps(EST.eps)); s('v_toe',FMT.toe(EST.toe)); s('v_v',FMT.v(EST.v)); s('v_vol',FMT.vol());
+  s('v_ga',FMT.a(EST.a)); s('v_gb',FMT.b(EST.b)); s('v_gt',FMT.toe(EST.toe));
+  const r=el('r_vol'); if(r&&EST.barrido) r.value=Math.round(clamp(SIM.s/SIM.sMan,-1,1)*100);
+}
+/** La barra para un coche y un brazo: la de Ackermann más fino (mínimo del error máximo hasta 30°). Es el diseño de partida del taller.
+    Búsqueda gruesa (2 mm) y fina (0,2 mm), con memoria. */
+const _bMem={};
+function bParaCaso(caso,a){
+  const k=caso+'|'+a.toFixed(4); if(_bMem[k]!==undefined) return _bMem[k];
+  const C=CASOS[caso], base={L:C.L,t:C.t,r:rDe(C.t),h:H_REM,a};
+  const peor=b=>{ const e=errorAck({...base,b},rad(30),14); return e.incompleto?9:e.max; };
+  let mn=9, bm=0.40;
+  for(let b=limitesB()[0];b<=limitesB()[1];b+=0.002){ const v=peor(b); if(v<mn){ mn=v; bm=b; } }
+  const c0=bm; for(let b=c0-0.0022;b<=c0+0.0022;b+=0.0002){ const v=peor(b); if(v<mn){ mn=v; bm=b; } }
+  return _bMem[k]=Math.round(bm/0.00025)*0.00025;
+}
+
+/* ===================== 13. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function ticksDe(a,b,n){ const p=(b-a)/n, mag=Math.pow(10,Math.floor(Math.log10(p))), f=p/mag, s=(f<1.5?1:f<3.5?2:f<7.5?5:10)*mag, r=[]; for(let v=Math.ceil(a/s)*s;v<=b+1e-9;v+=s) r.push(+v.toFixed(8)); return r; }
+
+const L_ACK=lienzo('gAck'), L_ERR=lienzo('gErr'), L_PAR=lienzo('gPar'), L_TOE=lienzo('gToe');
+const COL_I='#4FDCFF', COL_E='#FFA13A', COL_R='#FF6B8A', COL_W='#EAF1F8', COL_Y='#FFD166';
+const enReto=()=>EST.modo==='guia'&&GUIA.paso==='reto';
+const enCalc=()=>EST.modo==='guia'&&GUIA.paso==='calc';
+const enDx=()=>EST.modo==='guia'&&(GUIA.paso==='dx'||GUIA.paso==='reparar');
+/** Ejes de una gráfica x–y: marco, rejilla y etiquetas. Devuelve las transformadas. */
+function ejes(L,x0,x1,y0,y1,tx,ty,fx,fy,m0={}){
+  const x=abre(L), W=L.w, Hh=L.h, m=Object.assign({l:34,r:8,t:7,b:15},m0);
+  const X=v=>m.l+(v-x0)/(x1-x0)*(W-m.l-m.r), Y=v=>m.t+(1-(v-y0)/(y1-y0))*(Hh-m.t-m.b);
+  x.strokeStyle='rgba(147,175,200,0.30)'; x.lineWidth=1; x.strokeRect(m.l+0.5,m.t+0.5,W-m.l-m.r,Hh-m.t-m.b);
+  for(const v of ty){ raya(x,m.l,Y(v),W-m.r,Y(v),'rgba(147,175,200,0.11)',1,[2,3]); txt(x,fy(v),m.l-4,Y(v)+3,'#93AFC8',9,'right','500'); }
+  for(const v of tx){ txt(x,fx(v),X(v),Hh-3,'#93AFC8',9,'center','500'); raya(x,X(v),Hh-m.b,X(v),Hh-m.b+3,'#3d5878'); }
+  return {x,X,Y,m,W,H:Hh};
+}
+function polilinea(G,pts,col,w,dash){
+  const {x,m}=G; let ini=true; x.strokeStyle=col; x.lineWidth=w||1.6; x.setLineDash(dash||[]); x.beginPath();
+  for(const [px,py] of pts){ if(isNaN(py)||isNaN(px)){ ini=true; continue; } const qy=clamp(py,m.t-2,G.H-m.b+2); ini?x.moveTo(px,qy):x.lineTo(px,qy); ini=false; }
+  x.stroke(); x.setLineDash([]);
+}
+function punto(G,px,py,col,r=3.6){ const {x}=G; x.fillStyle=col; x.beginPath(); x.arc(px,py,r,0,DOSPI); x.fill(); x.strokeStyle='rgba(255,255,255,0.85)'; x.lineWidth=1.2; x.stroke(); }
+function aviso2(L,t){ const x=abre(L); txt(x,t,L.w/2,L.h/2,'#7089a4',11,'center','500'); }
+
+function pintaAck(){
+  const T=SIM.tabla, M0=MOD; if(!T||!M0.ok) return;
+  if(enCalc()&&!GUIA.sOk){ aviso2(L_ACK,'La curva real aparece al comprobar tu cálculo'); return; }
+  const dM=Math.ceil(grd(SIM.diMax)/5)*5, G=ejes(L_ACK,0,dM,0,dM,ticksDe(0,dM,4),ticksDe(0,dM,3),v=>fN(v,0)+'°',v=>fN(v,0)+'°');
+  const lin=(f,col,w,d)=>polilinea(G,T.map(q=>[G.X(grd(q.di)),G.Y(f(q))]),col,w,d);
+  polilinea(G,[[G.X(0),G.Y(0)],[G.X(dM),G.Y(dM)]],'rgba(147,175,200,0.45)',1.2,[2,3]);          // ruedas paralelas
+  lin(q=>grd(q.ideal),COL_W,1.6,[5,3]); lin(q=>grd(q.de),COL_E,2.1);
+  if(M0.int>0.001) punto(G,G.X(grd(M0.int)),G.Y(grd(M0.ext)),COL_E);
+  txt(G.x,'ext.',G.m.l+4,G.m.t+10,'#93AFC8',8.5,'left','500'); txt(G.x,'int. →',G.W-G.m.r-2,G.H-G.m.b-4,'#93AFC8',8.5,'right','500');
+  txt(G.x,'paralelas',G.X(dM*0.62),G.Y(dM*0.62)-4,'rgba(147,175,200,0.7)',8.5,'center','500');
+}
+function pintaErr(){
+  const T=SIM.tabla, TD=SIM.tablaD, M0=MOD; if(!T||!M0.ok) return;
+  if(enCalc()&&!GUIA.sOk){ aviso2(L_ERR,'El error se muestra al comprobar tu cálculo'); return; }
+  const lim=EST.eLim?grd(EST.eLim):null, vals=[...T,...TD].map(q=>grd(q.err)).filter(isFinite);
+  let ymx=Math.max(0.6,...vals.map(Math.abs))*1.2; if(lim) ymx=Math.max(ymx,lim*1.6);
+  ymx=Math.ceil(ymx*5)/5; const dM=Math.ceil(grd(SIM.diMax)/5)*5;
+  const G=ejes(L_ERR,0,dM,-ymx,ymx,ticksDe(0,dM,4),ticksDe(-ymx,ymx,2),v=>fN(v,0)+'°',v=>fN(v,1)+'°');
+  const {x}=G;
+  if(lim){ x.fillStyle='rgba(52,211,153,0.10)'; x.fillRect(G.m.l,G.Y(lim),G.W-G.m.l-G.m.r,G.Y(-lim)-G.Y(lim)); for(const s of [1,-1]) raya(x,G.m.l,G.Y(s*lim),G.W-G.m.r,G.Y(s*lim),'rgba(52,211,153,0.9)',1.2,[4,3]); txt(x,'límite ±'+fN(lim,1)+'°',G.W-G.m.r-2,G.Y(lim)-3,'#8ef0b8',8.5,'right','600'); }
+  raya(x,G.m.l,G.Y(0),G.W-G.m.r,G.Y(0),'rgba(147,175,200,0.45)',1);
+  raya(x,G.X(EST.rangoDi),G.m.t,G.X(EST.rangoDi),G.H-G.m.b,'rgba(255,255,255,0.28)',1,[3,3]);
+  txt(x,'rango útil',G.X(EST.rangoDi)-3,G.m.t+9,'#93AFC8',8.5,'right','500');
+  polilinea(G,TD.map(q=>[G.X(grd(q.di)),G.Y(grd(q.err))]),COL_R,1.6,[5,3]);
+  polilinea(G,T.map(q=>[G.X(grd(q.di)),G.Y(grd(q.err))]),COL_E,2.1);
+  if(M0.int>0.001) punto(G,G.X(grd(M0.int)),G.Y(grd(M0.err)),COL_Y);
+  txt(x,'real − ideal',G.m.l+4,G.m.t+10,'#93AFC8',8.5,'left','500');
+}
+function pintaPar(){
+  const M0=MOD; if(!M0.ok) return;
+  const eps=(M0.al.epsL+M0.al.epsR)/2, N=80, aMx=rad(14), pts=[];
+  let top=0; for(let i=0;i<=N;i++){ const a=aMx*i/N, p=parAutoalineante(a,eps); pts.push([a,p.M,p.Mneu]); top=Math.max(top,p.M); }
+  const ymx=Math.ceil(top*1.15/20)*20, G=ejes(L_PAR,0,14,0,ymx,ticksDe(0,14,4),ticksDe(0,ymx,3),v=>fN(v,0)+'°',v=>fN(v,0));
+  const {x}=G, th=thetaB(), aSat=grd(Math.atan(1/th));
+  raya(x,G.X(aSat),G.m.t,G.X(aSat),G.H-G.m.b,'rgba(255,107,138,0.6)',1.1,[3,3]); txt(x,'satura',G.X(aSat)-3,G.m.t+9,'#ff9aa8',8.5,'right','500');
+  polilinea(G,pts.map(q=>[G.X(grd(q[0])),G.Y(q[2])]),COL_W,1.5,[5,3]);
+  polilinea(G,pts.map(q=>[G.X(grd(q[0])),G.Y(q[1])]),COL_I,2.1);
+  if(!M0.V.recta){ const a=grd(Math.min(M0.dyn.alfa,rad(13.9))), p=(M0.MkL+M0.MkR)/2; punto(G,G.X(a),G.Y(p),COL_Y); }
+  txt(x,'N·m por rueda',G.m.l+4,G.m.t+10,'#93AFC8',8.5,'left','500');
+}
+function pintaToe(){
+  const M0=MOD; if(!M0.ok) return;
+  const al=M0.al, v=M0.v, k=EST.k, xs=[-0.5,0.9];
+  const f=t=>rectaEje(rad(t),rad(t),al.camL,al.camL,v,k).arrastre;
+  const reto=enReto(), dx=enDx();
+  const curva=!(reto||dx)||!!EST.mostrarOptimo;
+  let ymx=Math.max(f(xs[0]),f(xs[1])); if(reto||dx) ymx=24; ymx=Math.ceil(Math.min(ymx,60)/4)*4;
+  const G=ejes(L_TOE,xs[0],xs[1],0,ymx,[-0.4,-0.2,0,0.2,0.4,0.6,0.8],ticksDe(0,ymx,3),v2=>sgn1(v2,1),v2=>fN(v2,0));
+  const {x}=G;
+  if(EST.aLim){ x.fillStyle='rgba(52,211,153,0.10)'; x.fillRect(G.m.l,G.Y(EST.aLim),G.W-G.m.l-G.m.r,G.Y(0)-G.Y(EST.aLim)); raya(x,G.m.l,G.Y(EST.aLim),G.W-G.m.r,G.Y(EST.aLim),'rgba(52,211,153,0.9)',1.2,[4,3]); txt(x,'límite '+fN(EST.aLim,1),G.W-G.m.r-2,G.Y(EST.aLim)-3,'#8ef0b8',8.5,'right','600'); }
+  if(curva){
+    const pts=[]; for(let i=0;i<=80;i++){ const t=xs[0]+(xs[1]-xs[0])*i/80; pts.push([G.X(t),G.Y(f(t))]); }
+    polilinea(G,pts,COL_E,2.1);
+    const to=grd(M0.tOpt); if(to>xs[0]&&to<xs[1]){ raya(x,G.X(to),G.m.t,G.X(to),G.H-G.m.b,'rgba(255,255,255,0.35)',1,[3,3]); txt(x,'mínimo '+sgn1(to,2)+'°',G.X(to)+3,G.m.t+9,'#dfe9e7',8.5,'left','500'); }
+  } else if(reto&&EST.visitas) {
+    for(const q of EST.visitas) if(q.t>xs[0]&&q.t<xs[1]) punto(G,G.X(q.t),G.Y(q.a),'rgba(255,209,102,0.85)',2.6);
+    txt(x,'ensayos',G.m.l+4,G.m.t+10,'#93AFC8',8.5,'left','500');
+  }
+  const tNow=EST.toe, aNow=f(tNow); if(aNow<=ymx*1.2) punto(G,G.X(tNow),G.Y(aNow),COL_Y);
+  txt(x,'por rueda · '+fN(EST.v,0)+' km/h',G.W-G.m.r-2,G.H-G.m.b-4,'#7089a4',8.5,'right','500');
+}
+
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDockFijo(){
+  el('p_mode').textContent=EST.modo==='guia'?'Laboratorio guiado':'En marcha';
+  const C=CASOS[EST.caso];
+  el('p_sub').textContent=C.nom+' · L '+fN(C.L,2)+' m · vía '+fN(C.t,2)+' m';
+  const dx=enDx(), reto=enReto();
+  const set=(id,t)=>{ const e=el(id); if(e.textContent!==t) e.textContent=t; };
+  set('fl_3',EST.eLim?'Ackermann ≤ '+fN(grd(EST.eLim),1)+'°':'Error de Ackermann');
+  set('fl_6',EST.aLim?'Arrastre ≤ '+fN(EST.aLim,1):'Arrastre lateral');
+  if(dx){ set('fl_1','Tirón lateral'); set('fl_2','Radio izq. / der.'); set('fl_3','Volante torcido'); set('fl_4','Par izq. / der.'); set('fl_5','Huellas'); set('fl_6','Arrastre lateral'); }
+  else { set('fl_1','Ruedas int. / ext.'); set('fl_2','Radio de giro'); set('fl_4','Empuje por caída'); set('fl_5','Brazo mecánico'); }
+  void reto;
+}
+function pintaDock(){
+  const M0=MOD; if(!M0.ok){ const A=el('aviso'); A.className='dk-aviso on mal'; A.textContent='Este brazo y esta barra no cierran el mecanismo con todo el recorrido: acerca sus longitudes.'; return; }
+  const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  const dx=enDx(), calc=enCalc()&&!GUIA.sOk;
+  const errG=grd(SIM.errMax), eOk=!EST.eLim||SIM.errMax<=EST.eLim, aOk=!EST.aLim||M0.arr<=EST.aLim;
+  if(dx){
+    const rl=radioDe(1), rr=radioDe(-1), F=Math.abs(M0.Fneta);
+    set('f_1',fN(F,0)+'<small> N '+(M0.Fneta>20?'→ der.':M0.Fneta<-20?'← izq.':'')+'</small>');
+    set('f_2',(isFinite(rl)?fN(rl,2):'—')+' / '+(isFinite(rr)?fN(rr,2):'—')+'<small> m</small>');
+    set('f_3',fN(Math.abs(grd(M0.rec.volante))*COCHE.rp*0+Math.abs(M0.rec.volante)*(GUIA.relV||14.4)/DEG,0)+'<small>°</small>');
+    const pl=parAutoalineante(rad(3),M0.al.epsL).M, pr=parAutoalineante(rad(3),M0.al.epsR).M;
+    set('f_4',fN(pl,0)+' / '+fN(pr,0)+'<small> N·m</small>');
+    set('f_5',huellaTexto());
+    set('f_6',fN(M0.arr,1)+'<small> m/km</small>');
+  } else {
+    set('f_1',calc?'— / ?':(M0.int>0.002?fN(grd(M0.int),1)+'° / '+fN(grd(M0.ext),1)+'°':'recto'));
+    set('f_2',M0.V.recta?'∞':fN(M0.R,2)+'<small> m</small>');
+    set('f_3',calc?'—':fN(errG,2)+'<small>° máx.</small>'); _cl('f_3',calc?'oculto':(eOk?(EST.eLim?'ok':''):'bad'));
+    set('f_4',fN(M0.empuje,0)+'<small> N</small>');
+    set('f_5',fN(M0.tm*1000,0)+'<small> mm</small>');
+    set('f_6',fN(M0.arr,1)+'<small> m/km</small>'); _cl('f_6',aOk?(EST.aLim?'ok':''):'bad');
+  }
+  const sub=el('p_sub'), D=M0.dyn;
+  if(!dx&&!M0.V.recta&&EST.modo==='marcha') sub.textContent=CASOS[EST.caso].nom+' · a_y '+fN(D.ay/G0,2)+' g · deriva '+fN(grd(D.alfa),1)+'° · volante '+fN(Math.abs(M0.volanteDeg),0)+'°';
+  const A=el('aviso'); let cl='', t='';
+  if(SIM.incompleto&&EST.modo==='marcha'){ cl='ojo'; t='Con estas longitudes la dirección se queda corta: no llega al tope de giro.'; }
+  else if(D.sat&&!M0.V.recta){ cl='ojo'; t='Neumático delantero saturado: sin par autoalineante, el volante se vuelve ligero. Baja la velocidad.'; }
+  else if(EST.modo==='marcha'&&errG>1.0){ cl='ojo'; t='Error de Ackermann alto: la rueda exterior se arrastra en curvas cerradas.'; }
+  A.className='dk-aviso'+(t?' on '+cl:''); if(A.textContent!==t) A.textContent=t;
+}
+/** Radio de giro (m) hacia un lado con el volante a un valor de referencia (inter. 20°) usando el mismo trapecio (con defecto). */
+function radioDe(lado){ const gp=gpEff(), v=viraje(gp,rad(20),lado); if(!v) return NaN; const g=giroRuedas(gp,v.s); return virajeCoche(gp,g.dL,g.dR).R; }
+function huellaTexto(){ const al=MOD.al; const d=Math.abs(grd(al.camL)-grd(al.camR)); return d>0.8?'desigual':'pareja'; }
+
+/* ===================== 14. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[1/4,'×1/4'],[1/2,'×1/2'],[1,'×1']];
+el('vbar').innerHTML=[['coche','Coche<span class="lg"> entero</span>'],['eje','Eje<span class="lg"> delantero</span>'],['rueda','Una rueda']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><button class="b sm" data-t="lupa" title="Amplía la caída y la convergencia en el dibujo">Lupa</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad del movimiento">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='lupa'){ EST.lupa=!EST.lupa; }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.esc=+e.target.value; pintaBarras(); };
+const nomEsc=e=>{ const v=VEL.find(q=>Math.abs(q[0]-e)<1e-9); return v?v[1]:'×1/'+fN(1/e,0); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',VISTA.actual===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else if(b.dataset.t==='lupa') b.classList.toggle('on',EST.lupa); else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); const mt=VEL.find(q=>Math.abs(q[0]-EST.esc)<1e-9); sel.value=String((mt||VEL[1])[0]);
+  const lup=EST.lupa?('caída ×'+GAIN.cam+(VISTA.actual==='rueda'?' · convergencia ×'+GAIN.toe:'')):'a escala real';
+  el('tLento').textContent='marcha '+nomEsc(EST.esc)+' · '+lup;
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function textoEstado(){
+  const M0=MOD; if(!M0.ok) return ['sin cierre','#ff9aa8'];
+  if(M0.V.recta||M0.int<0.004) return ['en recta · ruedas centradas','#9FD8FF'];
+  const lado=M0.lado>0?'izquierda':'derecha';
+  if(M0.dyn.sat) return ['giro a la '+lado+' · neumático saturado','#FF6B8A'];
+  return ['giro a la '+lado+' · R '+fN(M0.R,1)+' m','#4DDCFF'];
+}
+function pintaEstadoBarra(){
+  const e=el('tEst'), [t,c]=textoEstado(); e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 15. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Cremallera de dirección',()=>V3(0.30,Y_LINK+0.04,-GEO.L/2+GEO.h)],
+  ['Bieleta (barra de acoplamiento)',()=>V3(-GEO.t/2+0.30,Y_LINK,-GEO.L/2+GEO.h*0.9)],
+  ['Brazo de dirección',()=>V3(GEO.t/2-0.02,Y_LINK,-GEO.L/2+0.07)],
+  ['Puntal · eje de pivote (avance)',()=>V3(-GEO.t/2+0.12,0.62,-GEO.L/2+0.04)],
+  ['Brazo inferior',()=>V3(GEO.t/2-0.28,0.14,-GEO.L/2+0.02)],
+  ['Huella ampliada ×2,6',()=>V3(-GEO.t/2-0.66,0.02,-GEO.L/2)],
+  ['Línea del eje trasero',()=>V3(-1.0,0.02,GEO.L/2)],
+  ['Eje trasero',()=>V3(0.0,YC,GEO.L/2)],
+];
+let ROT_INI=false;
+function pintaRotulos(){
+  if(!ROT_INI){ ROT_INI=true; const svg=el('rotSvg');
+    for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(124,203,255,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+      ROT.els.push({d,ln}); } }
+  ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; });
+}
+(function(){ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg); })();
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ANCLAS.forEach(([t,f],i)=>{ q.copy(f()).project(camera); const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; if(!e) return; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  neumatico:'Neumático 205/55 R17: cada ranura y cada taco se ve; la huella es lo único que une el coche con el suelo',
+  llanta:'Llanta de aleación de 17″ con cinco radios',
+  disco:'Disco de freno: no interviene en la dirección, pero ocupa el interior de la rueda',
+  pinza:'Pinza del freno',
+  mangueta:'Mangueta: porta el buje de la rueda y gira con ella alrededor del eje de pivote',
+  brazoDir:'Brazo de dirección (naranja): va de la mangueta a la bieleta. Su longitud y su ángulo deciden el Ackermann',
+  brazoInferior:'Brazo inferior en «A»: la rótula de abajo es el extremo inferior del eje de pivote',
+  amortiguador:'Amortiguador del puntal MacPherson; su eje es el eje de pivote',
+  muelle:'Muelle helicoidal del puntal',
+  cremallera:'Cremallera de dirección: al desplazarse s mueve las dos bieletas',
+  pinon:'Caja del piñón: el volante, por aquí, mueve la cremallera',
+  fuelle:'Fuelle de goma que protege la rótula interior; se pliega por un lado y se estira por el otro',
+  rotula:'Rótula (bronce): une la bieleta con la cremallera o con el brazo',
+  bieleta:'Bieleta o barra de acoplamiento: su longitud b ajusta el trapecio y la convergencia',
+  bastidor:'Larguero del bastidor',
+  subchasis:'Subchasis delantero, donde se montan la cremallera y los brazos',
+  ejeTrasero:'Viga del eje trasero: las ruedas traseras no se dirigen; su línea es donde deben cortarse las perpendiculares',
+  escape:'Línea de escape',
+  carroceria:'Carrocería (fantasma) para situar las piezas',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([CAR],true);
+  for(const h of hits){
+    let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue;
+    if(h.object.material&&(h.object.material.isMeshBasicMaterial||h.object.material.isShaderMaterial||h.object.material.transparent)) continue;
+    return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; return o?o:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 16. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL ===================== */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.5,240,520));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.46:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras();
+    if(ant){ clearTimeout(window.__hjTH); window.__hjTH=setTimeout(()=>ponVista(VISTA.actual,REDUCIDO?0.001:0.4),40); } }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); });
+
+
+/* ===================== 17. EL LABORATORIO GUIADO =====================
+   Tres fases y un cierre:
+   1 · Cálculo (la rueda exterior que da el mismo centro de giro: cot δ_ext = cot δ_int + t/L),
+   2 · El ajuste (brazo, barra y convergencia que cumplen un error de Ackermann Y un arrastre lateral a la vez),
+   3 · Diagnóstico (una de tres averías al azar, por sus síntomas medidos) y el quiz.
+   Nada de lo que se pide se enseña antes de validar: el cálculo oculta la curva y el error, el ajuste enseña sólo los ensayos del alumno. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const CALC_POOL=[{caso:'sedan',di:20},{caso:'sedan',di:28},{caso:'compacto',di:25},{caso:'suv',di:18},{caso:'pickup',di:30},{caso:'compacto',di:15},{caso:'suv',di:26},{caso:'pickup',di:22}];
+/* Los casos del ajuste: coche, velocidad de crucero, caída fija y flexibilidad de la dirección (oculta). El error de Ackermann pedido es ≤ 0,6° y
+   el arrastre ≤ 2 m/km; la convergencia óptima de cada caso sale del modelo y el alumno la encuentra ensayando. */
+const RETO_POOL=[{caso:'sedan',v:110,cam:-0.8,k:1.8e-5},{caso:'compacto',v:90,cam:-1.2,k:2.2e-5},{caso:'suv',v:120,cam:-0.5,k:1.5e-5},{caso:'pickup',v:100,cam:-1.0,k:2.0e-5}];
+const FALLAS=['barra','caida','avance'];
+const NOMFALLA={barra:'bieleta doblada (una barra de otra longitud)',caida:'caída desigual entre las dos ruedas',avance:'avance desigual entre las dos ruedas'};
+const E_LIM=rad(0.6), A_LIM=2.0;
+let CALC=pickOne(CALC_POOL), RE=null;
+const RETO={intentos:0,resiembras:0,fallosS:0,fallosR:0,fallosDx:0,pistasS:0,pistasR:0,hecho:false};
+const GUIA={phase:0,paso:'calc',iniciado:false,sOk:false,rOk:false,falla:null,reparado:false,sintoma:''};
+EST.visitas=[];
+const dolor=x=>x;
+function gpCaso(caso,a,b){ const C=CASOS[caso]; return {L:C.L,t:C.t,r:rDe(C.t),h:H_REM,a,b}; }
+function exteriorCorrecto(c){ const C=CASOS[c.caso]; return grd(ackIdeal(rad(c.di),C.L,C.t)); }
+/** Pone la escena en el caso del cálculo: el coche elegido, bien ajustado, parado en el giro pedido (rueda interior = δ_int). */
+function aplicaCalculo(){
+  const c=CALC; EST.caso=c.caso; EST.a=0.140; EST.b=bParaCaso(c.caso,EST.a); EST.cam=-0.8; EST.eps=5; EST.toe=0.10; EST.k=1.8e-5; EST.v=25;
+  EST.eLim=null; EST.aLim=null; EST.fallo=null; EST.barrido=false; ponGeometria(); recalcula(true);
+  const s=sParaInterior(gpEff(),rad(c.di),1); EST.volante=clamp(s/SIM.sMan,-1,1); GUIA.sOk=false; EST.visitas=[]; refrescaVals();
+}
+function nuevoReto(){
+  const prev=RE; let c; do{ c=pickOne(RETO_POOL); }while(prev&&c===prev.c);
+  RE={c,toeOpt:grd(toeOptimo(rad(c.cam),c.v/3.6,c.k))};
+}
+nuevoReto();
+function aplicaReto(){
+  const c=RE.c; EST.caso=c.caso; EST.a=pickOne([0.120,0.130,0.150,0.160]); EST.b=clamp(bParaCaso(c.caso,EST.a)+pickOne([-0.010,0.010,0.013,-0.013]),limitesB()[0],limitesB()[1]);
+  EST.cam=c.cam; EST.eps=5; EST.toe=pickOne([0.55,-0.25,0.7]); EST.k=c.k; EST.v=c.v; EST.eLim=E_LIM; EST.aLim=A_LIM; EST.fallo=null; EST.barrido=true; SIM.fase=0.1; EST.visitas=[];
+  ponGeometria(); recalcula(true); refrescaVals();
+}
+
+/* ---------- Fase 1: el cálculo ---------- */
+function checkCalc(){
+  const raw=String((el('ansS')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.');
+  const v=parseFloat(raw), ok=exteriorCorrecto(CALC), C=CASOS[CALC.caso];
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el ángulo de la rueda exterior en grados (coma o punto decimal).'); return; }
+  RETO.intentos++;
+  const tol=Math.max(0.2,0.012*ok);
+  if(Math.abs(v-ok)<tol){
+    RETO.fallosS=0; GUIA.sOk=true;
+    feedback('good','¡Correcto! ✓',`cot δ<sub>ext</sub> = cot ${fN(CALC.di,0)}° + ${fN(C.t,2)}/${fN(C.L,2)} = ${fN(cot(rad(CALC.di))+C.t/C.L,3)} → δ<sub>ext</sub> = ${fN(ok,2)}°. Con ese ángulo las dos perpendiculares se cortan en el eje trasero: radio ${fN(radioEje(rad(CALC.di),rad(ok),C.L),2)} m. Mira la curva y el error del dock: tu trapecio real se queda muy cerca.`,true);
+    sonido.bien(); setTimeout(()=>{ GUIA.phase=1; aplicaReto(); pasoA('reto'); ponVista('eje'); },3200);
+  } else {
+    RETO.fallosS++; sonido.mal();
+    const igual=Math.abs(v-CALC.di)<tol*1.5, media=Math.abs(v-(CALC.di+ok)/2)<tol, inv=Math.abs(v-grd(Math.atan(1/(cot(rad(CALC.di))-C.t/C.L))))<tol*2;
+    if(RETO.fallosS>=3){ RETO.fallosS=0; RETO.resiembras++; const p=CALC; do{ CALC=pickOne(CALC_POOL); }while(CALC===p); aplicaCalculo(); feedback('bad','Tres intentos fallidos','Cambia el caso: plantea el cálculo con los nuevos datos.'); setTimeout(()=>pasoA('calc'),1400); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,1)}°) no coincide.`+(igual?' Si las dos ruedas giraran lo mismo, irían paralelas y no tendrían el mismo centro de giro.':(inv?' Revisa el signo: la rueda exterior gira MENOS que la interior.':(media?' Un promedio no basta: lo que debe coincidir son los centros de giro, es decir, las cotangentes.':' Parte de cot δ<sub>ext</sub> − cot δ<sub>int</sub> = t/L.')))+` (intentos fallidos: ${RETO.fallosS}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallosS; }
+  }
+}
+
+/* ---------- Fase 2: el ajuste ---------- */
+function registraEnsayo(){
+  if(!enReto()||!MOD.ok) return;
+  const al=MOD.al, a=rectaEje(rad(EST.toe),rad(EST.toe),al.camL,al.camL,MOD.v,EST.k).arrastre;
+  EST.visitas.push({t:EST.toe,a}); if(EST.visitas.length>40) EST.visitas.shift();
+}
+function checkReto(){
+  recalcula(true); calculaModelo();
+  const M0=MOD; RETO.intentos++;
+  const eOk=!SIM.incompleto&&SIM.errMax<=E_LIM, aOk=M0.arr<=A_LIM;
+  if(eOk&&aOk){
+    RETO.fallosR=0; GUIA.rOk=true; sonido.bien();
+    feedback('good','¡Dirección ajustada! ✓',`Con brazo ${fN(EST.a*1000,0)} mm, barra ${fN(EST.b*1000,2)} mm y ${sgn1(EST.toe,2)}° de convergencia por rueda: error de Ackermann ${fN(grd(SIM.errMax),2)}° (límite ${fN(grd(E_LIM),1)}°) y ${fN(M0.arr,1)} m/km de arrastre (límite ${fN(A_LIM,1)}). La convergencia óptima de este coche a ${fN(RE.c.v,0)} km/h era ${sgn1(RE.toeOpt,2)}°: cero deriva efectiva. Un poco de más o de menos y el neumático se arrastra de lado.`,true);
+    EST.mostrarOptimo=true; pasoA('reto'); setTimeout(()=>{ GUIA.phase=2; startDx(); },5200);
+  } else {
+    RETO.fallosR++; sonido.mal();
+    let tit, msg;
+    if(SIM.incompleto){ tit='La dirección no llega al tope'; msg='Con esas longitudes el mecanismo no cierra en todo el recorrido: acerca el brazo y la barra a valores razonables.'; }
+    else if(!eOk&&!aOk){ tit='Falla el Ackermann y el desgaste'; msg=`Error de Ackermann ${fN(grd(SIM.errMax),2)}° (límite ${fN(grd(E_LIM),1)}°) y ${fN(M0.arr,1)} m/km de arrastre (límite ${fN(A_LIM,1)}). Son dos ajustes distintos: la barra y el brazo mueven el primero; la convergencia, el segundo.`; }
+    else if(!eOk){ tit='Error de Ackermann por encima del límite'; msg=`${fN(grd(SIM.errMax),2)}° (límite ${fN(grd(E_LIM),1)}°). Una barra de otra longitud cambia el ángulo en que cierra el trapecio: busca el mínimo, que es estrecho (≈ 0,4°/mm).`; }
+    else { tit='Arrastre lateral por encima del límite'; msg=`${fN(M0.arr,1)} m/km (límite ${fN(A_LIM,1)}). Cada neumático rueda con una deriva efectiva: ensaya la convergencia y observa en qué punto el arrastre se mínima. Depende de la caída y de la velocidad.`; }
+    if(RETO.fallosR>=3){ RETO.fallosR=0; RETO.resiembras++; nuevoReto(); aplicaReto(); feedback('bad','Tres intentos fallidos','Cambia el caso: otro coche, otra velocidad y otra caída.'); setTimeout(()=>pasoA('reto'),1400); }
+    else { feedback('bad',tit,msg+` (intentos fallidos: ${RETO.fallosR}/3)`); const t=el('d_tryr'); if(t) t.textContent=RETO.fallosR; }
+  }
+}
+
+/* ---------- Fase 3: el diagnóstico ---------- */
+function startDx(){
+  GUIA.phase=2; GUIA.paso='dx'; GUIA.reparado=false; GUIA.falla=pickOne(FALLAS); EST.mostrarOptimo=false;
+  EST.caso='sedan'; EST.a=0.140; EST.b=bParaCaso('sedan',0.140); EST.cam=-0.8; EST.eps=5; EST.toe=0.20; EST.k=1.8e-5; EST.v=100; EST.eLim=null; EST.aLim=null; EST.fallo=GUIA.falla; EST.barrido=true;
+  GUIA.sintoma=''; ponGeometria(); recalcula(true); pintaHUD(); pintaDockFijo(); ponVista('coche');
+  setTimeout(()=>{ GUIA.sintoma=sintomaDe(GUIA.falla); const s=el('symptomTask'); if(s){ s.innerHTML=GUIA.sintoma; ajustaHoja(); } },900);
+}
+function lecturas(){ recalcula(true); calculaModelo(); const M0=MOD, al=M0.al;
+  return { F:M0.Fneta, vol:M0.rec.volante, rl:radioDe(1), rr:radioDe(-1), pl:parAutoalineante(rad(3),al.epsL).M, pr:parAutoalineante(rad(3),al.epsR).M, arr:M0.arr }; }
+function sintomaDe(f){
+  const q=lecturas(), lado=q.F>0?'derecha':'izquierda';
+  const tir=`en recta el coche tira hacia la <b>${lado}</b> con ${fN(Math.abs(q.F),0)} N`;
+  const rad2=`radio de giro ${fN(q.rl,2)} m a la izquierda y ${fN(q.rr,2)} m a la derecha`;
+  const par=`pares autoalineantes (a 3° de deriva) ${fN(q.pl,0)} N·m en la rueda izquierda y ${fN(q.pr,0)} N·m en la derecha`;
+  if(f==='barra') return `SÍNTOMA: ${tir}; ${rad2}; ${par}. ¿Qué lo causa?`;
+  if(f==='caida') return `SÍNTOMA: ${tir}; ${rad2}; ${par}. Además la huella ampliada de una rueda está cargada hacia un borde y la otra hacia el contrario. ¿Qué lo causa?`;
+  return `SÍNTOMA: en recta el coche va derecho (tirón ${fN(Math.abs(q.F),0)} N); ${rad2}; pero ${par}. ¿Qué lo causa?`;
+}
+function diagnostica(choice){
+  if(!GUIA.falla||GUIA.paso!=='dx') return;
+  RETO.intentos++;
+  if(choice===GUIA.falla){ RETO.fallosDx=0; sonido.bien(); feedback('good','Diagnóstico correcto ✓',explica(GUIA.falla)+' <b>Ahora corrígelo.</b>',true); pasoA('reparar'); }
+  else {
+    RETO.fallosDx++; sonido.mal();
+    if(RETO.fallosDx>=3){
+      RETO.fallosDx=0; RETO.resiembras++; const p=GUIA.falla; GUIA.falla=pickOne(FALLAS.filter(f=>f!==p)); EST.fallo=GUIA.falla; recalcula(true);
+      feedback('bad','Tres intentos fallidos','El coche presenta ahora OTRA avería: mira de nuevo las lecturas y las huellas.',true);
+      GUIA.sintoma=sintomaDe(GUIA.falla); pintaHUD();
+    } else { feedback('bad','No es esa la avería','Eso ('+NOMFALLA[choice]+') daría otro cuadro: '+contraria(choice)+' Mira otra vez. (intentos fallidos: '+RETO.fallosDx+'/3)',true); pintaHUD(); }
+  }
+}
+function explica(f){
+  if(f==='barra') return 'Una bieleta de otra longitud mueve el brazo de ese lado: esa rueda queda con más convergencia que la otra (la fuerza lateral ya no se compensa) y el trapecio deja de ser simétrico, de modo que el radio de giro es distinto a izquierda y a derecha.';
+  if(f==='caida') return 'La rueda con la caída más positiva empuja menos hacia dentro que la otra: las fuerzas de empuje ya no se anulan y el eje se va hacia el lado de la caída más positiva. Los radios de giro y los pares de las dos ruedas siguen iguales.';
+  return 'Con avances distintos el brazo mecánico R·tan ε de cada rueda es distinto: el par autoalineante cambia de una rueda a otra y la dirección centra mejor hacia un lado. En recta no hay fuerza lateral que lo delate: no hay tirón.';
+}
+function contraria(f){
+  if(f==='barra') return 'una bieleta distinta cambia el radio de giro a un lado y al otro y descentra el volante.';
+  if(f==='caida') return 'una caída desigual da tirón en recta, pero no cambia el radio de giro ni el par de cada rueda.';
+  return 'un avance desigual no produce tirón en recta ni cambia los radios; sólo se nota en el par autoalineante de cada rueda.';
+}
+function repara(){
+  GUIA.reparado=true; GUIA.falla=null; EST.fallo=null; recalcula(true); RETO.hecho=true; sonido.bien();
+  feedback('good','¡Reparado! 🎉','La alineación vuelve a su sitio. Has calculado el Ackermann, ajustado un trapecio con dos límites a la vez y diagnosticado una avería por sus lecturas. Falta el cierre.',true);
+  setTimeout(()=>{ startQuiz(); },2400);
+}
+
+/* ---------- el cierre: un quiz con las opciones barajadas ----------
+   Cada caso pone en la escena y en el dock EXACTAMENTE lo que se pregunta. */
+const QZ_BASE=()=>{ const g=gpCaso('sedan',0.140,bParaCaso('sedan',0.140)); return g; };
+const QZ_CASOS=[
+  {id:'paralelo',set:()=>{ const g=gpCaso('sedan',0.140,0); g.b=barraParaGama(g,rad(90)); return {caso:'sedan',a:0.140,b:g.b,v:20,vista:'eje'}; },
+   pregunta:()=>{ const gp=gpCaso('sedan',EST.a,EST.b), v=viraje(gp,rad(25),1); return `Con los brazos apuntando rectos hacia atrás las ruedas giran casi paralelas: a 25° de la interior, la exterior gira ${fN(grd(v.ext),1)}° y el Ackermann es del ${fN(porcAck(v.int,v.ext,gp.L,gp.t),0)} %. ¿Por qué se desgastan los neumáticos delanteros en curvas cerradas?`; },
+   ok:'Sus perpendiculares no se cortan en el eje trasero, así que cada rueda delantera rueda con deriva y se arrastra de lado.',
+   mal:['Porque la rueda exterior gira demasiado y su neumático se comprime hacia dentro del coche.','Porque con los brazos hacia atrás la cremallera necesita más carrera y roza con el fuelle.','Porque la convergencia estática aumenta sola al girar y el neumático se desgasta.']},
+  {id:'avance',set:()=>({caso:'sedan',a:0.140,b:bParaCaso('sedan',0.140),eps:8,v:20,vista:'rueda'}),
+   pregunta:()=>{ const p3=parAutoalineante(rad(3),rad(3)).M, p8=parAutoalineante(rad(3),rad(8)).M; return `Al pasar el avance de 3° a 8°, el brazo mecánico crece de ${fN(brazoMec(rad(3))*1000,0)} a ${fN(brazoMec(rad(8))*1000,0)} mm y el par autoalineante de cada rueda a 3° de deriva sube de ${fN(p3,0)} a ${fN(p8,0)} N·m. ¿Por qué?`; },
+   ok:'El apoyo queda más atrás del pivote (R·tan ε): la misma fuerza lateral tiene más brazo y más par de retorno.',
+   mal:['Porque el avance aumenta la fuerza lateral que genera el neumático a la misma deriva.','Porque el brazo neumático t_p crece con el avance hasta duplicarse en la huella.','Porque al inclinar el pivote el neumático soporta más carga vertical sobre el eje.']},
+  {id:'convergencia',set:()=>({caso:'sedan',a:0.140,b:bParaCaso('sedan',0.140),toe:0.80,cam:-0.8,v:110,k:1.8e-5,vista:'rueda'}),
+   pregunta:()=>{ const al=rad(-0.8), v=110/3.6, k=1.8e-5, a1=rectaEje(rad(0.8),rad(0.8),al,al,v,k).arrastre, a0=rectaEje(toeOptimo(al,v,k),toeOptimo(al,v,k),al,al,v,k).arrastre; return `A 110 km/h, con 0,80° de convergencia por rueda las dos delanteras se arrastran ${fN(a1,1)} m/km, frente a ${fN(a0,1)} m/km con la convergencia óptima (${sgn1(grd(toeOptimo(al,v,k)),2)}°). ¿Por qué esa diferencia?`; },
+   ok:'Con deriva efectiva α_ef = τ − τ_c + (C_γ/C_α)(−γ), el exceso de convergencia hace deslizar el neumático de lado.',
+   mal:['Porque la convergencia estática hace que los dos neumáticos rueden en círculos concéntricos.','Porque la convergencia aumenta la caída dinámica y el neumático se desgasta por el borde.','Porque con convergencia la rodadura se anula y el neumático patina siempre.']},
+  {id:'caida',set:()=>({caso:'sedan',a:0.140,b:bParaCaso('sedan',0.140),cam:-2.5,toe:0.10,v:60,vista:'rueda'}),
+   pregunta:()=>`Con caída de −2,5° cada rueda empuja ${fN(COCHE.Cgam*rad(2.5),0)} N hacia dentro del coche aun rodando en línea recta, y la huella carga su borde interior. ¿Por qué?`,
+   ok:'Una rueda inclinada rueda como un cono: desarrolla un empuje C_γ·γ sin deriva y carga el borde inclinado.',
+   mal:['Porque la caída negativa aumenta el radio efectivo del neumático y alarga su huella.','Porque el pivote inclinado desplaza el centro de la rueda hacia dentro del coche.','Porque la caída negativa reduce la rigidez de deriva del neumático hasta cero.']},
+];
+const QZ={caso:null,opciones:[],correcta:-1,resp:-1};
+function startQuiz(){
+  const c=pickOne(QZ_CASOS), s=c.set();
+  EST.caso=s.caso; EST.a=s.a; EST.b=s.b; EST.cam=s.cam??-0.8; EST.eps=s.eps??5; EST.toe=s.toe??0.10; EST.k=s.k??1.8e-5; EST.v=s.v; EST.eLim=null; EST.aLim=null; EST.fallo=null; EST.barrido=true; SIM.fase=0.15;
+  ponGeometria(); recalcula(true); ponVista(s.vista||'coche');
+  const ord=shuffled([['ok',c.ok],...c.mal.map((t,i)=>['m'+i,t])]);
+  QZ.caso=c; QZ.opciones=ord; QZ.correcta=ord.findIndex(o=>o[0]==='ok'); QZ.resp=-1;
+  GUIA.paso='quiz'; GUIA.phase=3; pintaHUD(); pintaDockFijo();
+}
+function responde(i){
+  if(QZ.resp>=0) return; QZ.resp=i;
+  const ok=i===QZ.correcta;
+  feedback(ok?'good':'bad',ok?'¡Correcto! ✓':'No era esa',(ok?'':'La respuesta correcta: ')+QZ.opciones[QZ.correcta][1],true);
+  pasoA('completo');
+}
+
+/* ---------- el enrutador de acciones (la API de siempre) ---------- */
+function pasoA(p){ GUIA.paso=p; if(EST.modo==='guia'){ pintaHUD(); pintaDockFijo(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-s': checkCalc(); break;
+    case 'hint-s':
+      if(RETO.pistasS===0){ RETO.pistasS=1; feedback('good','Pista 1 de 2','Las dos ruedas giran sobre circunferencias con el mismo centro, que está sobre la línea del eje trasero. Mira dónde se cortan sus perpendiculares.'); }
+      else if(RETO.pistasS===1){ RETO.pistasS=2; feedback('good','Pista 2 de 2','Para la rueda interior, R − t/2 = L·cot δ<sub>int</sub>; para la exterior, R + t/2 = L·cot δ<sub>ext</sub>. Resta las dos ecuaciones.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'check-r': checkReto(); break;
+    case 'hint-r':
+      if(RETO.pistasR===0){ RETO.pistasR=1; feedback('good','Pista 1 de 2','La <b>barra</b> fija el ángulo del brazo en recta; su efecto sobre el error es muy fino (≈ 0,4° por milímetro) y tiene un mínimo estrecho. El brazo mueve ese mínimo.'); }
+      else if(RETO.pistasR===1){ RETO.pistasR=2; feedback('good','Pista 2 de 2','En la gráfica de abajo a la derecha se van marcando tus ensayos de convergencia: el arrastre es mínimo cuando la deriva efectiva de cada neumático es cero. La caída del caso es fija.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
+    case 'dx-barra': diagnostica('barra'); break;
+    case 'dx-caida': diagnostica('caida'); break;
+    case 'dx-avance': diagnostica('avance'); break;
+    case 'repair': if(GUIA.paso==='reparar') repara(); break;
+    case 'restart': location.reload(); break;
+    default: if(/^quiz-\d$/.test(act)) responde(+act.slice(5));
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,val)=>`<span class="tries">intentos fallidos: <b id="${n}">${val}</b>/3</span>`;
+  const sl=(id,etq,val,min,max,step,fmt,aria)=>desliza(id,etq,val,min,max,step,fmt,aria);
+  switch(GUIA.paso){
+    case 'calc': { const C=CASOS[CALC.caso]; return {no:'Fase 1 · Cálculo',head:'Tu cálculo',title:'¿Cuánto gira la rueda exterior?',
+      teach:`Un <b>${C.nom}</b> con batalla L = <b>${fN(C.L,2)} m</b> y vía t = <b>${fN(C.t,2)} m</b> gira a la izquierda con la rueda interior a <b>${fN(CALC.di,0)}°</b>.<div class="task">¿Cuántos grados debe girar la exterior para que las dos tengan el mismo centro de giro? ${tri('d_try',RETO.fallosS)}</div>`,
+      acts:`<div class="calcrow"><input id="ansS" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? °" aria-label="Ángulo de la rueda exterior en grados"><button class="b primary" data-act="check-s">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'reto': { const C=CASOS[RE.c.caso]; return {no:'Fase 2 · El ajuste',head:'Tu decisión',title:GUIA.rOk?'Dirección ajustada':'Cumple los dos límites',
+      teach:`<b>${C.nom}</b> a ${fN(RE.c.v,0)} km/h, caída fija ${sgn1(RE.c.cam,1)}°. Debe cumplirse a la vez <b>error de Ackermann ≤ ${fN(grd(E_LIM),1)}°</b> (hasta 30°) y <b>arrastre ≤ ${fN(A_LIM,1)} m/km</b> en recta.<div class="task">${GUIA.rOk?'Resuelto.':'Ajusta brazo, barra y convergencia. '+tri('d_tryr',RETO.fallosR)}</div>`,
+      acts:GUIA.rOk?'':`${sl('ga','Brazo de dirección',EST.a,0.100,0.180,0.001,FMT.a,'Longitud del brazo de dirección')}
+        <div class="cg"><div class="cl"><div>Barra de acoplamiento</div><b id="v_gb">${FMT.b(EST.b)}</b></div><div class="rowb"><button class="nudge" data-nbg="-1" aria-label="Acortar un cuarto de milímetro">−</button><input type="range" id="r_gb" min="${limitesB()[0]}" max="${limitesB()[1]}" step="0.00025" value="${EST.b}" aria-label="Longitud de la barra de acoplamiento"><button class="nudge" data-nbg="1" aria-label="Alargar un cuarto de milímetro">+</button></div></div>
+        ${sl('gt','Convergencia por rueda',EST.toe,-0.5,0.9,0.01,FMT.toe,'Convergencia de cada rueda')}
+        <button class="b primary" data-act="check-r">✓ Comprobar mi ajuste</button><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'dx': return {no:'Fase 3 · Diagnóstico',head:'¿Cuál es la avería?',title:'El coche se comporta raro',
+      teach:`Lee las <b>lecturas del dock</b> y mira las huellas: <b>identifica la avería</b>.<div class="task" id="symptomTask">${GUIA.sintoma||'Observa los síntomas y elige el diagnóstico.'}</div><span class="tries">intentos fallidos: ${RETO.fallosDx}/3</span>`,
+      acts:shuffled(FALLAS).map(k=>`<button class="b" data-act="dx-${k}"><span class="ic">${k==='barra'?'📏':k==='caida'?'📐':'↗'}</span> ${k==='barra'?'Una bieleta de otra longitud':k==='caida'?'Caída desigual':'Avance desigual'}</button>`).join('')};
+    case 'reparar': return {no:'Fase 3 · Diagnóstico',head:'Reparación',title:'Corrige la avería',
+      teach:`Diagnóstico correcto: <b>${NOMFALLA[GUIA.falla||'barra']}</b>. Corrígela y mira volver las lecturas a la normalidad.`,
+      acts:`<button class="b primary good" data-act="repair">🔧 Corregir la avería</button>`};
+    case 'quiz': return {no:'Cierre',head:'Una pregunta',title:'Lo que ves en el dock',
+      teach:QZ.caso.pregunta(),
+      acts:QZ.opciones.map((o,i)=>`<button class="b" data-act="quiz-${i}" ${QZ.resp>=0?'disabled':''}><span>${o[1]}</span></button>`).join('')};
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculado, ajustado y reparado',
+      teach:`Puedes volver a <b>En marcha</b> y cambiar el coche, el trapecio y la alineación: mira cómo se mueven el error de Ackermann y el arrastre.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Cálculo','Ajuste','Diagnóstico'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia';
+    if(!GUIA.iniciado){ GUIA.iniciado=true; GUIA.phase=0; GUIA.paso='calc'; }
+    if(GUIA.paso==='calc') aplicaCalculo();
+    ponVista('eje');
+  } else { EST.modo='marcha'; EST.eLim=null; EST.aLim=null; EST.fallo=null; EST.barrido=true; ponVista('coche'); }
+  recalcula(true);
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud');
+  const prev={caso:EST.caso,a:EST.a,b:EST.b,cam:EST.cam,eps:EST.eps,toe:EST.toe,v:EST.v,esc:EST.esc,pausa:EST.pausa,barrido:EST.barrido,vista:VISTA.actual,panel:EST.panel};
+  const fija=o=>{ Object.assign(EST,o); ponGeometria(); recalcula(true); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } pintaDockFijo(); pintaBarras(); };
+  const gj=()=>gpCaso('sedan',0.140,0), bJ=()=>{ const g=gj(); return barraParaGama(g,gamaJeantaud(g.L,g.t)); };
+  try{
+    const bOpt=bParaCaso('sedan',0.140);
+    fija({caso:'sedan',a:0.140,b:bOpt,cam:-0.8,eps:5,toe:0.20,v:20,pausa:false,barrido:true}); ponVista('coche');
+    showToast('Paso 1 · El coche gira a baja velocidad. La rueda <b>interior</b> (cian) gira más que la <b>exterior</b> (naranja); sus perpendiculares deben cortarse en la línea blanca del <b>eje trasero</b>.',9500);
+    await espera(9900);
+    ponVista('eje');
+    const eJ=errorAck({...gj(),b:bJ()},rad(30),30), eO=errorAck({...gj(),b:bOpt},rad(30),30);
+    fija({b:bJ()});
+    showToast(`Paso 2 · Con el trapecio «de manual» (brazos hacia el centro del eje trasero) la línea naranja no coincide con la discontinua blanca: error de <b>${fN(grd(eJ.max),1)}°</b> a 30°. Mira el dock.`,10000);
+    await espera(10400);
+    fija({b:bOpt});
+    showToast(`Paso 3 · Afinando la barra el error baja a <b>${fN(grd(eO.max),2)}°</b>: las dos líneas se superponen. Pero el cuadrilátero nunca es exacto en todo el giro.`,9000);
+    await espera(9400);
+    ponVista('rueda'); fija({cam:-2.5});
+    showToast(`Paso 4 · <b>Caída −2,5°</b> (dibujada ×4): la rueda se inclina y la huella ampliada carga el borde interior; empuja <b>${fN(COCHE.Cgam*rad(2.5),0)} N</b> hacia dentro sin deriva.`,9500);
+    await espera(9900);
+    fija({cam:-0.8,eps:8});
+    showToast(`Paso 5 · <b>Avance 8°</b>: el eje luminoso del puntal se inclina hacia atrás y el brazo mecánico llega a <b>${fN(brazoMec(rad(8))*1000,0)} mm</b>: más par autoalineante.`,9000);
+    await espera(9400);
+    fija({eps:5,toe:0.80,v:110});
+    ponVista('coche');
+    const rA=rectaEje(rad(0.8),rad(0.8),rad(-0.8),rad(-0.8),110/3.6,1.8e-5);
+    showToast(`Paso 6 · <b>Convergencia 0,80°</b> a 110 km/h: los dos neumáticos se arrastran <b>${fN(rA.arrastre,1)} m/km</b>. En la gráfica de abajo hay un mínimo: ahí la deriva efectiva es cero.`,9500);
+    await espera(9900);
+  } finally {
+    Object.assign(EST,prev); ponGeometria(); recalcula(true); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 18. SONIDO (sintetizado) =====================
+   El zumbido de rodadura sigue a la velocidad del coche; un silbido agudo aparece cuando el neumático delantero satura. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,oscM=null,gM=null,oscS=null,gS=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      oscM=ctx.createOscillator(); oscM.type='sawtooth'; const fM=ctx.createBiquadFilter(); fM.type='lowpass'; fM.frequency.value=300; gM=ctx.createGain(); gM.gain.value=0; oscM.connect(fM); fM.connect(gM); gM.connect(master); oscM.start();
+      oscS=ctx.createOscillator(); oscS.type='triangle'; oscS.frequency.value=1180; gS=ctx.createGain(); gS.gain.value=0; oscS.connect(gS); gS.connect(master); oscS.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(v,sat,activo){ if(!ctx) return; const t=ctx.currentTime;
+    oscM.frequency.setTargetAtTime(38+v*2.2,t,0.08); gM.gain.setTargetAtTime(on&&activo?0.012+0.010*Math.min(1,v/36):0,t,0.1);
+    gS.gain.setTargetAtTime(on&&activo&&sat?0.012:0,t,0.06); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gM?gM.gain.value:0; }, get freq(){ return oscM?oscM.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 19. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.clave.shadow.mapSize.x!==ms){ LUZ.clave.shadow.mapSize.set(ms,ms); if(LUZ.clave.shadow.map){ LUZ.clave.shadow.map.dispose(); LUZ.clave.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras();
+  clearTimeout(window.__rzTH); window.__rzTH=setTimeout(()=>ponVista(VISTA.actual,0.01),140);
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 20. EL LAZO: UN SOLO RELOJ =====================
+   La cremallera s(t) se mueve una vez por cuadro y de ella salen la escena (ruedas, bieletas, cintas del suelo, huellas, asfalto que desfila),
+   las cifras y las cuatro gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(dt);
+  pasaCam(dt);
+  sonido.actualiza(MOD.v||0,MOD.ok&&MOD.dyn&&MOD.dyn.sat,!EST.pausa);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaEstadoBarra(); refrescaVals(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaAck(); pintaErr(); pintaPar(); pintaToe(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 21. ARRANQUE =====================
+   Abre funcionando: un sedán girando a izquierda y derecha en barrido a 25 km/h, a cámara lenta ×1/2, visto desde arriba. */
+Object.assign(LUZ.clave.shadow.camera,{left:-3.4,right:3.4,top:3.6,bottom:-3.6,near:1,far:18}); LUZ.clave.shadow.camera.updateProjectionMatrix();
+controls.minDistance=0.7; controls.maxDistance=26;
+EST.b=bParaCaso('sedan',EST.a);
+ponGeometria(); recalcula(true);
+disposicion();
+aplicaCalidad();
+SIM.fase=0.12; calculaModelo();
+pintaHUD();
+pintaDockFijo();
+pintaBarras();
+pintaRotulos();
+ponVista('coche',0.001);
+cuadro();
+if(!document.body.classList.contains('movil')) setTimeout(()=>showToast('Un <b>eje delantero</b> visto desde arriba, girando a baja velocidad. Las líneas luminosas son las perpendiculares de las ruedas: '+(matchMedia('(hover: hover)').matches?'pasa el ratón por':'toca')+' una pieza para saber qué es.',6200),700);
+
+/* ===================== 22. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':(['calculo','ajuste','diagnostico','cierre'][GUIA.phase]||'calculo'); },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  get quizAnswer(){ return QZ.resp; },
+  get quizCorrectIndex(){ return QZ.correcta; },
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,calc:CALC,reto:RE&&{caso:RE.c.caso,v:RE.c.v,cam:RE.c.cam},falla:GUIA.falla,intentos:RETO.intentos,resiembras:RETO.resiembras,
+    fallos:{s:RETO.fallosS,r:RETO.fallosR,dx:RETO.fallosDx},pistas:{s:RETO.pistasS,r:RETO.pistasR},resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const m=MOD; if(!m.ok) return {ok:false}; return {s:m.s,dL:grd(m.dL),dR:grd(m.dR),int:grd(m.int),ext:grd(m.ext),ideal:grd(m.ideal),err:grd(m.err),pct:m.pct,R:m.R,Xc:m.Xc,ay:m.ay/G0,alfa:grd(m.dyn.alfa),
+    MkL:m.MkL,MkR:m.MkR,Tvol:m.Tvol,arr:m.arr,Fneta:m.Fneta,tOpt:grd(m.tOpt),errMax:grd(SIM.errMax),sAmp:SIM.sAmp,a:EST.a,b:EST.b,toe:EST.toe,cam:EST.cam,eps:EST.eps,v:EST.v,caso:EST.caso,fallo:EST.fallo}; },
+  escena(){ return {vista:VISTA.actual,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,esc:EST.esc,modo:EST.modo,lupa:EST.lupa,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  /** Rectángulo en pantalla (px) de lo que se ve del coche (vértices reales de la geometría del bastidor y las ruedas, sin la carrocería fantasma): mide el encuadre. */
+  pantalla(){ CAR.updateMatrixWorld(true); const q=new THREE.Vector3(); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    CAR.traverse(o=>{ if(!o.isMesh||o===BAST.carro||o.material.transparent||o.material.isShaderMaterial) return; const p=o.geometry.attributes.position, st=Math.max(1,Math.floor(p.count/400));
+      for(let i=0;i<p.count;i+=st){ q.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld).project(camera); const sx=(q.x+1)/2*innerWidth, sy=(1-q.y)/2*innerHeight; x0=Math.min(x0,sx); x1=Math.max(x1,sx); y0=Math.min(y0,sy); y1=Math.max(y1,sy); } });
+    return {x0:Math.round(x0),x1:Math.round(x1),y0:Math.round(y0),y1:Math.round(y1),alto:Math.round(y1-y0),ancho:Math.round(x1-x0),pct:+((y1-y0)/innerHeight*100).toFixed(1),hueco:huecoLibre()}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({phase:GUIA.phase,paso:GUIA.paso,falla:GUIA.falla,calc:CALC,reto:RE,qz:{correcta:QZ.correcta,resp:QZ.resp}}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); ponGeometria(); recalcula(true); pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  guia:(o)=>{ Object.assign(GUIA,o); pintaHUD(); },
+  quiz:()=>{ startQuiz(); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  volante:(u)=>{ EST.barrido=false; EST.volante=u; SIM.s=u*SIM.sMan; },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  calcCorrecto:()=>exteriorCorrecto(CALC),
+  /** Deja el reto en su solución (barra óptima del brazo actual y la convergencia óptima) para que las pruebas lo recorran. */
+  resuelveReto:()=>{ EST.b=bParaCaso(RE.c.caso,EST.a); EST.toe=Math.round(RE.toeOpt*100)/100; ponGeometria(); recalcula(true); refrescaVals(); },
+  retoDatos:()=>RE,
+});
+const SOMBRA_MIN=0.20;
+/* Presupuesto de llamadas de dibujo: sólo las piezas grandes proyectan sombra (cada sombra es otra llamada). */
+scene.updateMatrixWorld(true);
+{ const bx=new THREE.Box3(), sz=new THREE.Vector3();
+  scene.traverse(o=>{ if(o.isMesh&&o.castShadow){ bx.setFromObject(o); bx.getSize(sz); if(sz.length()<SOMBRA_MIN) o.castShadow=false; } }); }
+instalaDiag('alineacion-geometria-direccion',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{coche:CAR,suelo:SUELO,direccion:DIR.g,rueda_izq:W.FL.piv,rueda_der:W.FR.piv}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-alineacion-geometria-direccion.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
