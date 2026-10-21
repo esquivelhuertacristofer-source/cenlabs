@@ -1748,6 +1748,17 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un motor de gasolina al ralentí quema combustible sin mover el coche. En el ciclo urbano de este laboratorio (1,33 km, 75 s con el motor apagado) un coche convencional gasta 9,08 L/100 km; con start-stop gasta 7,88 (13 %), y con un alternador-arrancador de 48 V que recupera al frenar hasta 12 kW y asiste 1,2 kW baja a 7,07 L/100 km (22 %). El BSG arranca el motor caliente en 0,48 s con 1,3 kJ eléctricos; el motor se modela con la línea de Willans (combustible = (P + P_fricción)/η_i), el paquete de 10 A·h como V_oc(SOC) con R = 40 mΩ y todo el ciclo cierra su balance de energía. El óptimo está en el interior: un umbral de parada de unos 6 km/h (donde el embrague se abre) y una asistencia que deja el SOC final en 60 %. Es un modelo didáctico casi estático, no un ensayo de homologación.",
     "titulo": "Mild Hybrid de 48 V y Start-Stop: el Alternador-Arrancador",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-143",
+    "modulo": "Autotrónica",
+    "orden": 143,
+    "simuladorHtml": "/labs/radar-fmcw-automocion.html",
+    "teoria": "Un radar FMCW de 77 GHz emite un chirp de pendiente S = B/T_c y mide cada eco como una frecuencia de batido f_b = 2SR/c; una FFT de rango y otra de Doppler (sobre N chirps) dan distancia y velocidad. Con B = 1 GHz la celda de distancia mide 15 cm, y con T_c = 40 µs y N = 128 el radar llega a 120 m, mide hasta ±24,3 m/s sin ambigüedad y distingue 0,38 m/s. Ningún mando mejora todo a la vez: B grande afina la distancia pero acorta el alcance, T_c corto sube la velocidad máxima pero resta muestras, y N alto afina la velocidad hasta chocar con los 131 072 muestras de memoria y los 8 ms de ciclo. Un peatón de 1 m² a 100 m devuelve −22 dB de relación señal-ruido por muestra; sólo la integración de las FFT y un CA-CFAR con umbral de 11,6 dB sobre el ruido (P_fa = 10⁻⁶) lo sacan del ruido, y la ventana de Hann baja los lóbulos laterales a cambio de 1,8 dB de señal.",
+    "titulo": "Radar FMCW de 77 GHz: Distancia y Velocidad con FFT",
+  },
 ]
 `;
 
@@ -1932,6 +1943,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-140",
   "mecanica-141",
   "mecanica-142",
+  "mecanica-143",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",

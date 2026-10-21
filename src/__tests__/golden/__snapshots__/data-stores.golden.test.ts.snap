@@ -5254,6 +5254,49 @@ Tu misión es hallar el ajuste que gasta lo mínimo y deja la batería como empe
     "titulo": "Mild Hybrid de 48 V y Start-Stop: el Alternador-Arrancador",
     "videoUrl": "",
   },
+  "mecanica-143": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Seguridad activa",
+        "ejemplo": "El frenado de emergencia y el control de crucero adaptativo dependen de que un radar de 77 GHz mida bien la distancia y la velocidad de los vehículos de delante.",
+      },
+      {
+        "area": "Diseño de sensores",
+        "ejemplo": "Los ingenieros reparten alcance, resolución y velocidad máxima entre B, T_c y N, porque el ancho de banda, la memoria y el tiempo de ciclo son limitados.",
+      },
+    ],
+    "bienvenida": "Detrás del paragolpes de un coche hay un radar de 77 GHz. Lo verás abierto en corte, con sus antenas de emisión y recepción, y a su alrededor las ondas de color de cada chirp.
+El radar no mide el tiempo del eco: mezcla lo que emite con lo que vuelve, y la distancia se convierte en una frecuencia. Una FFT da la distancia y otra, entre chirps, la velocidad.
+Primero calculas esa frecuencia de batido; luego eliges ancho de banda, duración del chirp y número de chirps para medir bien a dos vehículos, y al final diagnosticas por qué falló un radar sin ver sus mandos.",
+    "codigo": "MEC-143",
+    "conceptos": [
+      {
+        "descripcion": "El radar barre B hertz en T_c segundos; el eco de un objeto a distancia R vuelve con retraso 2R/c y, al mezclarlo con lo emitido, da f_b = 2·B·R/(c·T_c).",
+        "icono": "📡",
+        "nombre": "Chirp y frecuencia de batido",
+      },
+      {
+        "descripcion": "ΔR = c/(2B) separa distancias, Δv = λ/(2·N·T_c) separa velocidades, y R_máx y v_máx = λ/(4T_c) marcan hasta dónde la medida no se pliega.",
+        "icono": "📏",
+        "nombre": "Resolución y límites",
+      },
+      {
+        "descripcion": "La ventana de Hann reduce los lóbulos laterales y el CA-CFAR fija un umbral adaptativo: un eco fuerte puede tapar a uno débil pegado.",
+        "icono": "🎯",
+        "nombre": "Ventana y CFAR",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula la frecuencia de batido de un obstáculo a partir del ancho de banda, la duración del chirp y la distancia.",
+      "Elige B, T_c y N para medir sin ambigüedad y por separado a dos objetivos, dentro de la memoria y del tiempo de ciclo.",
+      "Diagnostica si un radar falló por poco ancho de banda, pocos chirps o un chirp demasiado largo.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Radar FMCW de 77 GHz: Distancia y Velocidad con FFT",
+    "videoUrl": "",
+  },
   "mecanica-15": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -20802,6 +20845,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-140": [],
   "mecanica-141": [],
   "mecanica-142": [],
+  "mecanica-143": [],
   "mecanica-15": [],
   "mecanica-16": [],
   "mecanica-17": [],
@@ -21179,6 +21223,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-140",
   "mecanica-141",
   "mecanica-142",
+  "mecanica-143",
   "mecanica-15",
   "mecanica-16",
   "mecanica-17",
