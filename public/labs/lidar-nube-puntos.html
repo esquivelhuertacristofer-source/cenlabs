@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · LiDAR automotriz: tiempo de vuelo, nube de puntos y obstáculos — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1C30;--panel:rgba(9,19,32,.86);--line:#1E3550;--ink:#EAF4F1;
+    --dim:#93AFC9;--accent:#34D399;--accent2:#9BF0C8;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#7EE8DD;--cR:#FFB347;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14202e;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#182c40}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#032216;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#032216;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#5fe3b2}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#032216}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7CC4FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#032216}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-g.mp{flex:1.9 1 0;min-height:120px;cursor:crosshair}
+  .dk-g.sp{flex:1.05 1 0;min-height:70px}
+  .dk-g.bt{flex:0.95 1 0;min-height:64px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14202e;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:auto auto auto 1fr auto 1fr;column-gap:10px;row-gap:4px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3;grid-row:1}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1/3;grid-row:2;grid-template-columns:repeat(6,1fr)}
+  body.estrecho.ancho.t-panel .panel>.t-mp{grid-column:1;grid-row:3}
+  body.estrecho.ancho.t-panel .panel>.dk-g.mp{grid-column:1;grid-row:4/7;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:3}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:4;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-bt{grid-column:2;grid-row:5}
+  body.estrecho.ancho.t-panel .panel>.dk-g.bt{grid-column:2;grid-row:6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.mp{min-height:132px} body.movil .dk-g.sp{min-height:62px} body.movil .dk-g.bt{min-height:56px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+
+  /* ---- recorrido guiado: abierto desde el primer momento ---- */
+  .tour{border:1px solid rgba(52,211,153,.42);background:rgba(52,211,153,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tr{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  .tour .tr .pista{letter-spacing:0;text-transform:none;font-size:10.5px}
+  .tour h3{font-size:15px;line-height:1.25}
+  .tour .tp{font-size:12.6px;line-height:1.5;color:#d2dde8}.tour .tp b{color:#fff;font-weight:600}
+  .tour .tacts{display:flex;flex-direction:column;gap:7px}.tour .tacts:empty{display:none}
+  .tour .tnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:7px;height:7px;border-radius:50%;background:var(--line)}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:#1c7a58}
+  .resalta{outline:2px solid var(--hv);outline-offset:2px;animation:pulsa 1.4s ease-in-out infinite;border-radius:9px}
+  @keyframes pulsa{50%{outline-color:rgba(255,183,3,.22)}}
+  .hmandos .dos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hmandos .dos .seg .b{padding:6px 1px;font-size:11.2px}
+  @media (prefers-reduced-motion:reduce){ .resalta{animation:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · Un láser que mide distancias</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Explorar</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Puntos por segundo</div><b id="f_pps">—</b></div>
+    <div class="fg"><div class="fl">Hueco entre puntos</div><b id="f_sep">—</b></div>
+    <div class="fg"><div class="fl">Puntos en el peatón</div><b id="f_npt">—</b></div>
+    <div class="fg"><div class="fl">Ida y vuelta de la luz</div><b id="f_vue">—</b></div>
+    <div class="fg"><div class="fl">Fuerza del eco</div><b id="f_eco">—</b></div>
+    <div class="fg"><div class="fl">Se le ve hasta</div><b id="f_alc">—</b></div>
+  </div>
+  <div class="dk-tit t-mp">Nube vista desde arriba <span id="t_mp"></span></div>
+  <div class="dk-g mp" id="gMp"><canvas></canvas></div>
+  <div class="dk-ley" id="leyMp"></div>
+  <div class="dk-tit t-sp">Cuánta luz vuelve, según la distancia <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-tit t-bt">Lo que ve el sensor: un destello y su eco <span id="t_bt"></span></div>
+  <div class="dk-g bt" id="gBt"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — LiDAR AUTOMOTRIZ: TIEMPO DE VUELO, NUBE DE PUNTOS Y OBSTÁCULOS
+   (Autotrónica · mecanica-145)
+
+   Un coche con un LiDAR en el techo —abierto en corte: espejo poligonal giratorio,
+   diodo láser, lente receptora y detector— barre 120° al frente con N láseres apilados.
+   Cada pulso que rebota y vuelve es un PUNTO: la distancia sale del tiempo de vuelo
+   (d = c·t/2); la nube se segmenta (suelo / obstáculos) y se agrupa en objetos. Un peatón
+   cruza la calle: ajustar canales, separación entre rayos, barridos por segundo y potencia
+   decide cuántos puntos le caen.
+
+   Todo sale de un solo modelo: el bloque de física (ecuación del lidar, estadística del
+   receptor, trazado de rayos, segmentación, agrupamiento por imagen de distancias) que un
+   script de Node extrae TAL CUAL y verifica contra formas cerradas y Monte Carlo.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre.
+
+   Un LiDAR (Light Detection And Ranging) de tiempo de vuelo lanza un pulso láser de
+   4 ns a 905 nm, espera el eco y mide el retardo t: la distancia es d = c·t/2 (la luz
+   va y vuelve). Un espejo poligonal giratorio barre 120° al frente y N láseres apilados
+   cubren de −25° a +7° de elevación: cada pulso que vuelve es un PUNTO. La potencia del
+   eco la da la ecuación del lidar para un blanco lambertiano que llena el haz:
+       P_r = P_t·ρ·cosθ/π · A_r·η / R² · e^(−2αR)
+   Un receptor con umbral k·σ_n (P_fa = 10⁻⁶) detecta con probabilidad Q(k − P_r/σ_n).
+   Lluvia y niebla restan (e^(−2αR)) y devuelven ecos falsos cerca del sensor (retrodispersión
+   β = α/S). La nube se segmenta (suelo por pendiente entre anillos contiguos) y se agrupa por
+   imagen de distancias (ángulo β entre vecinos contiguos, Bogoslavskyi y Stachniss 2016).
+   Convención de ejes: X al frente, Y arriba, Z a la derecha; azimut hacia +Z; elevación sobre el horizonte. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI;
+const C0=299792458;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const dB=x=>10*Math.log10(x), deDB=x=>Math.pow(10,x/10);
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function gauss(rng){ let u=0; while(u<1e-12) u=rng(); const v=rng(); return Math.sqrt(-2*Math.log(u))*Math.cos(DOSPI*v); }
+
+/* ---------- 1.1 Estadística del receptor: erfc, Q y su inversa ---------- */
+/** erfc(x): serie de Maclaurin de erf para x < 2,2 y fracción continua por encima (error relativo < 1e-13). */
+function erfc(x){
+  if(x<0) return 2-erfc(-x);
+  if(x<2.2){
+    let s=x, t=x; const x2=x*x;
+    for(let n=1;n<120;n++){ t*=-x2/n; const d=t/(2*n+1); s+=d; if(Math.abs(d)<1e-18*Math.abs(s)) break; }
+    return 1-2/Math.sqrt(Math.PI)*s;
+  }
+  let f=x; for(let n=120;n>=1;n--) f=x+(n/2)/f;           // erfc(x) = e^(−x²)/√π / (x + ½/(x + 1/(x + 3/2/(x + …))))
+  return Math.exp(-x*x)/Math.sqrt(Math.PI)/f;
+}
+/** Cola superior de la normal estándar: Q(x) = P(Z > x). */
+const Qn=x=>0.5*erfc(x/Math.SQRT2);
+/** Inversa de Q por bisección (Q es estrictamente decreciente). */
+function Qinv(p){ let lo=-12, hi=12; for(let i=0;i<200;i++){ const m=(lo+hi)/2; if(Qn(m)>p) lo=m; else hi=m; } return (lo+hi)/2; }
+
+/* ---------- 1.2 El sensor y sus límites (valores didácticos de un LiDAR de 905 nm) ---------- */
+const LIDAR={
+  lam:905e-9,          // longitud de onda (m)
+  tau:4e-9,            // anchura del pulso (s)
+  trise:2e-9,          // tiempo de subida del pulso (s): fija la precisión de la distancia
+  Ar:4.0e-4,           // área de la lente receptora (m²), Ø ≈ 22 mm
+  eta:0.30,            // eficiencia óptica del receptor
+  Pmin:2.0e-8,         // potencia de eco a la que el umbral dispara (W), con P_fa de diseño
+  Pfa:1e-6,            // probabilidad de falsa alarma por muestra de distancia
+  tGate:1e-9,          // paso del reloj de tiempo (s): 1 ns = 15 cm
+  Rwin:250,            // ventana de distancia que mira el receptor (m)
+  hs:1.80,             // altura del sensor sobre el suelo (m)
+  fovH:120, el0:-25, el1:7,   // campo de visión horizontal y rango de elevación (°)
+  thdiv:1.5e-3,        // divergencia del haz (rad): 15 cm de mancha a 100 m
+  Pojo:100,            // tope didáctico de potencia de pico por seguridad ocular (W)
+  tReac:0.30, vueltasConf:3,   // confirmar al peatón: 3 barridos seguidos en ≤ 0,30 s
+  Nmin:10,             // puntos que debe reunir el peatón para darlo por visto
+  PdMin:0.90,          // probabilidad de detección exigida al eco del peatón
+  ghostMax:0.10,       // fracción de pulsos con eco falso que tolera el reto
+  LR:20,               // razón de lidar S = α/β (sr) del agua en el aire
+  betaMin:12, minPts:3, // agrupamiento por imagen de distancias: ángulo β mínimo (°) entre vecinos y puntos mínimos
+  pedW:0.5, pedH:1.7,  // peatón: ancho y alto (m)
+  slopeMax:10, zSuelo:0.30, bordillo:0.15   // segmentación del suelo: pendiente máxima (°), altura máxima de un punto de suelo y escalón de bordillo tolerado (m)
+};
+const K_UMBRAL=Qinv(LIDAR.Pfa);                  // umbral en desviaciones típicas del ruido
+const SIGMA_N=LIDAR.Pmin/K_UMBRAL;               // ruido equivalente a la entrada del comparador (W)
+const A90=K_UMBRAL-Qinv(LIDAR.PdMin);            // P_r/σ_n necesario para P_d = 90 %
+const NGATES=Math.floor(2*LIDAR.Rwin/(C0*LIDAR.tGate));
+const P_FA_RAYO=1-Math.pow(1-LIDAR.Pfa,NGATES); // falsa alarma por pulso: una por cada muestra de distancia
+/** Atenuación α (1/m) a 905 nm. Despejado ≈ 0,2 km⁻¹ (visibilidad ~20 km); niebla de 300 m por Koschmieder α = 3,912/V;
+ *  lluvia de 10 mm/h del orden de 1–2 km⁻¹ (valor didáctico, no una medida). */
+const CLIMAS={
+  despejado:{nombre:'Despejado',alfa:2.0e-4},
+  lluvia:{nombre:'Lluvia',alfa:1.7e-3},
+  niebla:{nombre:'Niebla',alfa:3.912/300}
+};
+const REFL={ suelo:0.12, pared:0.40, coche:0.50, camion:0.55, poste:0.35, tronco:0.15, copa:0.20, acera:0.25, osc:0.10, claro:0.60 };
+
+/* ---------- 1.3 Tiempo de vuelo y ecuación del lidar ---------- */
+const tVuelo=d=>2*d/C0;                 // retardo del eco (s)
+const distDeTiempo=t=>C0*t/2;           // d = c·t/2
+const transmision=(alfa,R)=>Math.exp(-2*alfa*R);   // ida y vuelta por la atmósfera
+/** Potencia del eco (W) de un blanco lambertiano de reflectividad ρ que llena el haz; cosInc = cos del ángulo de incidencia. */
+function potEco(P,rho,cosInc,R,alfa,fill=1){ return P*rho*Math.max(0,cosInc)/Math.PI*LIDAR.Ar*LIDAR.eta/(R*R)*Math.exp(-2*alfa*R)*fill; }
+/** Fracción del haz que cae sobre un blanco de ancho w a distancia R. */
+const llenado=(R,w=LIDAR.pedW)=>Math.min(1,w/(R*LIDAR.thdiv));
+/** Probabilidad de que el umbral dispare con un eco de potencia Pr: Q(k − Pr/σ_n). */
+const pDet=Pr=>Qn(K_UMBRAL-Pr/SIGMA_N);
+/** Distancia a la que un blanco frontal devuelve P_r/σ_n = aObj (bisección; P_r decrece con R). */
+function alcanceDe(P,rho,alfa,aObj=A90,cosInc=1,fillW=0){
+  const f=R=>potEco(P,rho,cosInc,R,alfa,fillW?llenado(R,fillW):1)/SIGMA_N;
+  if(f(0.5)<aObj) return 0;
+  let lo=0.5, hi=5000; if(f(hi)>=aObj) return hi;
+  for(let i=0;i<200;i++){ const m=(lo+hi)/2; if(f(m)>=aObj) lo=m; else hi=m; } return (lo+hi)/2;
+}
+/** Precisión de la distancia (m): tiempo de subida del pulso / relación señal–ruido en amplitud, con un suelo de 1 cm. */
+const sigmaRango=Pr=>Math.max(0.01,(C0*LIDAR.trise/2)/(Pr/SIGMA_N));
+/** Lluvia y niebla: retrodispersión β = α/S. Radio hasta el que el eco de las gotas pasa el umbral y probabilidad de un eco falso. */
+const rBs=(P,alfa)=>Math.sqrt(P*(alfa/LIDAR.LR)*(C0*LIDAR.tau/2)*LIDAR.Ar*LIDAR.eta/LIDAR.Pmin);
+const pGhost=(P,alfa)=>1-Math.exp(-alfa*rBs(P,alfa));
+/** Potencia retrodispersada por las gotas a distancia r (W). */
+const potBs=(P,alfa,r)=>P*(alfa/LIDAR.LR)*(C0*LIDAR.tau/2)*LIDAR.Ar*LIDAR.eta*Math.exp(-2*alfa*r)/(r*r);
+
+/* ---------- 1.4 Geometría del barrido ---------- */
+/** Canales Nv, separación horizontal dth (°), barridos por segundo f. Los puntos por segundo son los pulsos por segundo. */
+function geomBarrido(cfg){
+  const Nv=cfg.Nv, Naz=Math.round(LIDAR.fovH/cfg.dth), dEl=(LIDAR.el1-LIDAR.el0)/(Nv-1);
+  return { Nv, Naz, dEl, rayos:Nv*Naz, ptsSeg:Nv*Naz*cfg.f, prfCanal:Naz*cfg.f, Runamb:C0/(2*Naz*cfg.f) };
+}
+const elDeCanal=(i,Nv)=>LIDAR.el0+i*(LIDAR.el1-LIDAR.el0)/(Nv-1);   // grados
+/** Radio en el que un canal con depresión φ (°) toca un suelo plano: r = h/tan φ. */
+const radioAnillo=(phiDeg,hs=LIDAR.hs)=>hs/Math.tan(-phiDeg*Math.PI/180);
+
+/* ---------- 1.5 El mundo: primitivas que el pulso puede tocar ---------- */
+function _caja(o){ return Object.assign({tipo:'caja',rho:REFL.pared,id:1},o); }
+/** La calle de la escena. El peatón (cilindro de ancho 0,5 m, alto 1,7 m) está a x = xp, lateral zp. */
+function construyeMundo(xp,zp,rhoPeaton,mostrarPeaton=true){
+  const O=[];
+  const caja=(x0,x1,y0,y1,z0,z1,rho,id=1)=>O.push(_caja({x0,x1,y0,y1,z0,z1,rho,id}));
+  const cil=(cx,cz,r,y0,y1,rho,id=1)=>O.push({tipo:'cil',cx,cz,r,y0,y1,rho,id});
+  const esf=(cx,cy,cz,r,rho,id=1)=>O.push({tipo:'esf',cx,cy,cz,r,rho,id});
+  caja(-10,260,0,0.15,7,10,REFL.acera); caja(-10,260,0,0.15,-10,-7,REFL.acera);                       // aceras
+  for(const [a,b,h] of [[10,26,9],[30,62,12],[66,110,8],[114,200,14],[204,260,10]]) caja(a,b,0,h,-13,-10,REFL.pared);   // fachadas izquierda
+  for(const [a,b,h] of [[16,44,10],[48,92,8],[96,140,13],[144,200,9],[204,260,12]]) caja(a,b,0,h,10,13,REFL.pared);      // fachadas derecha
+  for(const [xc,zc,fw] of [[16,-5.4,1],[33,-5.5,1],[52,5.6,1],[74,-5.4,1]]){                          // coches aparcados: carrocería + cabina
+    caja(xc-2.15,xc+2.15,0.28,0.90,zc-0.9,zc+0.9,REFL.coche,1); caja(xc-1.1,xc+0.85,0.90,1.42,zc-0.78,zc+0.78,REFL.coche,1); }
+  caja(95.0,103.0,0.9,3.85,3.8,6.3,REFL.camion,1); caja(103.0,105.4,0.9,3.25,3.9,6.2,REFL.camion,1);  // camión aparcado
+  for(const x of [6,31,56,81,106,131,156,181,206,231]) for(const z of [-7.8,7.8]) cil(x,z,0.09,0,7,REFL.poste,1);   // farolas
+  for(const x of [22,47,72,97,122,147,172,197]){ cil(x,8.2,0.2,0,3,REFL.tronco,1); esf(x,4.6,8.2,1.9,REFL.copa,1); }   // árboles
+  if(mostrarPeaton) cil(xp,zp,LIDAR.pedW/2,0,LIDAR.pedH,rhoPeaton,2);
+  // intervalo de azimut (rad) de cada primitiva, para no probar todas contra todos los rayos
+  for(const o of O){
+    let pts;
+    if(o.tipo==='caja') pts=[[o.x0,o.z0],[o.x0,o.z1],[o.x1,o.z0],[o.x1,o.z1]];
+    else if(o.tipo==='cil'){ const R=Math.hypot(o.cx,o.cz), a=Math.atan2(o.cz,Math.max(o.cx,0.01)), d=Math.asin(Math.min(1,o.r/Math.max(R,o.r*1.0001)))+0.002; o.a0=a-d; o.a1=a+d; continue; }
+    else { const R=Math.hypot(o.cx,o.cz), a=Math.atan2(o.cz,Math.max(o.cx,0.01)), d=Math.asin(Math.min(1,o.r/Math.max(R,o.r*1.0001)))+0.002; o.a0=a-d; o.a1=a+d; continue; }
+    let a0=1e9,a1=-1e9; for(const [x,z] of pts){ const a=Math.atan2(z,Math.max(x,0.01)); a0=Math.min(a0,a); a1=Math.max(a1,a); }
+    o.a0=a0-0.002; o.a1=a1+0.002;
+  }
+  return {objs:O,xp,zp};
+}
+/** Primer cruce del rayo (origen en (0,hs,0), dirección unitaria d) con una primitiva: devuelve [t, cosInc] o null. */
+function cruce(o,ox,oy,oz,dx,dy,dz,tmax){
+  if(o.tipo==='caja'){
+    let t0=0,t1=tmax;
+    // método de las losas en X, Y, Z, recordando qué cara entra
+    const lo=[o.x0,o.y0,o.z0], hi=[o.x1,o.y1,o.z1], O=[ox,oy,oz], D=[dx,dy,dz]; let cara=-1;
+    for(let a=0;a<3;a++){
+      if(Math.abs(D[a])<1e-12){ if(O[a]<lo[a]||O[a]>hi[a]) return null; continue; }
+      let ta=(lo[a]-O[a])/D[a], tb=(hi[a]-O[a])/D[a]; if(ta>tb){ const q=ta; ta=tb; tb=q; }
+      if(ta>t0){ t0=ta; cara=a; } if(tb<t1) t1=tb; if(t0>t1) return null;
+    }
+    if(cara<0||t0<=1e-6||t0>=tmax) return null;
+    return [t0,Math.abs(D[cara])];
+  }
+  if(o.tipo==='cil'){
+    const px=ox-o.cx, pz=oz-o.cz, a=dx*dx+dz*dz; if(a<1e-14) return null;
+    const b=px*dx+pz*dz, c=px*px+pz*pz-o.r*o.r, disc=b*b-a*c; if(disc<0) return null;
+    const t=(-b-Math.sqrt(disc))/a; if(t<=1e-6||t>=tmax) return null;
+    const y=oy+dy*t; if(y<o.y0||y>o.y1) return null;
+    const hx=px+dx*t, hz=pz+dz*t, inv=1/o.r;
+    return [t,Math.max(0,-(hx*dx+hz*dz)*inv)];
+  }
+  // esfera
+  const px=ox-o.cx, py=oy-o.cy, pz=oz-o.cz, b=px*dx+py*dy+pz*dz, c=px*px+py*py+pz*pz-o.r*o.r, disc=b*b-c; if(disc<0) return null;
+  const t=-b-Math.sqrt(disc); if(t<=1e-6||t>=tmax) return null;
+  const hx=px+dx*t, hy=py+dy*t, hz=pz+dz*t;
+  return [t,Math.max(0,-(hx*dx+hy*dy+hz*dz)/o.r)];
+}
+/** Traza un rayo: el suelo (y = 0) y las primitivas. Devuelve {t,cos,rho,id} del primer contacto (id 0 = suelo) o null. */
+function trazaRayo(lista,ox,oy,oz,dx,dy,dz,tmax=LIDAR.Rwin){
+  let mejor=null, tm=tmax;
+  if(dy<-1e-9){ const t=-oy/dy; if(t<tm){ tm=t; mejor={t,cos:-dy,rho:REFL.suelo,id:0}; } }
+  for(const o of lista){ const r=cruce(o,ox,oy,oz,dx,dy,dz,tm); if(r){ tm=r[0]; mejor={t:r[0],cos:r[1],rho:o.rho,id:o.id}; } }
+  return mejor;
+}
+
+/* ---------- 1.6 Un barrido: la nube de puntos ----------
+   Para cada canal i y columna j se lanza un pulso con azimut −60° + (j + u)·dth, u ∈ [0,1) al azar (la fase del
+   espejo cambia de un barrido al siguiente). Si hay contacto, el eco tiene P_r (ecuación del lidar); el umbral
+   dispara con P_d(P_r); el punto se coloca en la distancia medida t_med·c/2 con el error σ_R. En lluvia o niebla,
+   con probabilidad p_ghost el primer eco es una gota (punto falso entre 1 m y r_bs), que tapa al eco real.
+   Además, una falsa alarma por ruido con probabilidad P_FA_RAYO por pulso. */
+const CLASE={SUELO:0,ESTR:1,PEATON:2,FANTASMA:3,RUIDO:4};
+function generaNube(cfg,esc,mundo,semilla=1,opts={}){
+  const g=geomBarrido(cfg), rng=mulberry32(semilla>>>0), alfa=CLIMAS[esc.clima].alfa, P=cfg.P, hs=LIDAR.hs;
+  const cap=g.rayos+Math.ceil(g.rayos*P_FA_RAYO*3)+64;
+  const X=new Float32Array(cap), Y=new Float32Array(cap), Z=new Float32Array(cap), C=new Uint8Array(cap), AZ=new Float32Array(cap), RH=new Float32Array(cap), IN=new Float32Array(cap);
+  const idx=new Int32Array(g.Nv*g.Naz).fill(-1);
+  const pg=opts.sinFantasmas?0:pGhost(P,alfa), rb=rBs(P,alfa), u0=opts.fase!==undefined?opts.fase:rng();
+  const sinRuido=!!opts.sinRuido;
+  const sinEl=new Float64Array(g.Nv), cosEl=new Float64Array(g.Nv);
+  for(let i=0;i<g.Nv;i++){ const e=elDeCanal(i,g.Nv)*Math.PI/180; sinEl[i]=Math.sin(e); cosEl[i]=Math.cos(e); }
+  let n=0, nSuelo=0, nPeat=0, nFant=0, nRuido=0, nImp=0;
+  const lista=[];
+  for(let j=0;j<g.Naz;j++){
+    const azDeg=-LIDAR.fovH/2+(j+u0)*cfg.dth, az=azDeg*Math.PI/180, ca=Math.cos(az), sa=Math.sin(az);
+    lista.length=0; for(const o of mundo.objs) if(az>=o.a0&&az<=o.a1) lista.push(o);
+    for(let i=0;i<g.Nv;i++){
+      const dx=cosEl[i]*ca, dy=sinEl[i], dz=cosEl[i]*sa;
+      const h=trazaRayo(lista,0,hs,0,dx,dy,dz,LIDAR.Rwin);
+      let t=Infinity, clase=-1, rho=0, cs=0;
+      if(h){
+        // el capó del propio coche tapa los primeros metros del suelo
+        if(!(h.id===0&&h.t*dx<2.6)){
+          const fill=h.id===2?llenado(h.t):1, Pr=potEco(P,h.rho,h.cos,h.t,alfa,fill);
+          if(rng()<pDet(Pr)){ const sg=sigmaRango(Pr); t=Math.max(0.3,h.t+sg*gauss(rng)); clase=h.id===0?CLASE.SUELO:(h.id===2?CLASE.PEATON:CLASE.ESTR); rho=h.rho; cs=Pr; }
+        }
+      }
+      if(pg>0&&rng()<pg){ const r=1+(Math.max(rb,1.01)-1)*rng(); if(r<t){ t=r; clase=CLASE.FANTASMA; cs=potBs(P,alfa,r); } }
+      if(clase<0) continue;
+      const k=n++; X[k]=dx*t; Y[k]=hs+dy*t; Z[k]=dz*t; C[k]=clase; AZ[k]=j/g.Naz; RH[k]=t*cosEl[i]; IN[k]=cs; idx[i*g.Naz+j]=k;
+      if(clase===CLASE.SUELO) nSuelo++; else if(clase===CLASE.PEATON) nPeat++; else if(clase===CLASE.FANTASMA) nFant++; else nImp++;
+    }
+    if(!sinRuido){
+      for(let i=0;i<g.Nv;i++) if(rng()<P_FA_RAYO){ const r=2+(LIDAR.Rwin-2)*rng(), k=n++; X[k]=cosEl[i]*ca*r; Y[k]=hs+sinEl[i]*r; Z[k]=cosEl[i]*sa*r; C[k]=CLASE.RUIDO; AZ[k]=j/g.Naz; RH[k]=r*cosEl[i]; IN[k]=SIGMA_N*K_UMBRAL; nRuido++; }
+    }
+  }
+  return {n,X,Y,Z,C,AZ,RH,IN,idx,Nv:g.Nv,Naz:g.Naz,rayos:g.rayos,nSuelo,nPeat,nFant,nRuido,nEstr:nImp,geom:g};
+}
+
+/* ---------- 1.7 Segmentación del suelo ----------
+   En cada columna los anillos se recorren del más cercano al más lejano. Un punto es suelo si está a menos de zSuelo (0,30 m)
+   de altura y no sube respecto al último punto de suelo más que tan(slopeMax)·Δr + 0,15 m (un bordillo). Un obstáculo vertical rompe la
+   pendiente (≈ 90°); detrás de él el suelo se recupera. */
+function segmentaSuelo(nube){
+  const {Nv,Naz,idx,X,Y,Z,RH}=nube, suelo=new Uint8Array(nube.n), tg=Math.tan(LIDAR.slopeMax*Math.PI/180);
+  for(let j=0;j<Naz;j++){
+    let rg=-1, yg=0, tiene=false;
+    for(let i=0;i<Nv;i++){
+      const k=idx[i*Naz+j]; if(k<0) continue;
+      const r=RH[k], y=Y[k];
+      if(y>=LIDAR.zSuelo) continue;
+      if(!tiene){ suelo[k]=1; tiene=true; rg=r; yg=y; continue; }
+      const dr=r-rg, dz=y-yg;
+      if(dz<=tg*Math.max(dr,0)+LIDAR.bordillo){ suelo[k]=1; rg=r; yg=y; }
+    }
+  }
+  return suelo;
+}
+
+/* ---------- 1.8 Agrupamiento por imagen de distancias ----------
+   Los puntos viven en una rejilla (canal, columna). Dos puntos vecinos (hasta 2 casillas) son del mismo objeto si
+   el ángulo β = atan2(d₂·sen α, d₁ − d₂·cos α) —con d₁ ≥ d₂ las distancias y α el ángulo entre sus rayos— supera
+   betaMin: una pared o una persona de frente da β grande; un salto de distancia (poste delante de una fachada) da β ≈ 0.
+   Así la separación entre puntos no rompe a un peatón lejano en pedazos, como pasaría con una distancia fija en metros.
+   Unión-búsqueda. Devuelve la etiqueta de cada punto (−1: no está en ningún grupo con minPts puntos o más). */
+function agrupa(nube,incluir,betaMin=LIDAR.betaMin,minPts=LIDAR.minPts){
+  const {n,X,Y,Z,idx,Nv,Naz}=nube, hs=LIDAR.hs, padre=new Int32Array(n); for(let i=0;i<n;i++) padre[i]=i;
+  const raiz=i=>{ while(padre[i]!==i){ padre[i]=padre[padre[i]]; i=padre[i]; } return i; };
+  const tb=Math.tan(betaMin*Math.PI/180);
+  const vec=[[0,1],[1,0],[1,1],[1,-1],[0,2],[2,0]];
+  const dist=k=>Math.sqrt(X[k]*X[k]+(Y[k]-hs)*(Y[k]-hs)+Z[k]*Z[k]);
+  for(let i=0;i<Nv;i++) for(let j=0;j<Naz;j++){
+    const a=idx[i*Naz+j]; if(a<0||!incluir[a]) continue;
+    const da=dist(a);
+    for(const [di,dj] of vec){
+      const i2=i+di, j2=j+dj; if(i2<0||i2>=Nv||j2<0||j2>=Naz) continue;
+      const b=idx[i2*Naz+j2]; if(b<0||!incluir[b]) continue;
+      const db=dist(b), d1=Math.max(da,db), d2=Math.min(da,db);
+      const cosA=(X[a]*X[b]+(Y[a]-hs)*(Y[b]-hs)+Z[a]*Z[b])/(da*db), sinA=Math.sqrt(Math.max(0,1-cosA*cosA));
+      // tan β = d₂·sen α / (d₁ − d₂·cos α)  →  mismo objeto si β > betaMin
+      const den=d1-d2*cosA; if(den<=0||d2*sinA>tb*den){ const ra=raiz(a), rb2=raiz(b); if(ra!==rb2) padre[ra]=rb2; }
+    }
+  }
+  const cuenta=new Map(); for(let i=0;i<n;i++) if(incluir[i]){ const r=raiz(i); cuenta.set(r,(cuenta.get(r)||0)+1); }
+  const etiqueta=new Int32Array(n).fill(-1), grupos=[], mapa=new Map();
+  for(let i=0;i<n;i++){ if(!incluir[i]) continue; const r=raiz(i); if(cuenta.get(r)<minPts) continue;
+    let gi=mapa.get(r); if(gi===undefined){ gi=grupos.length; mapa.set(r,gi); grupos.push({n:0,sx:0,sy:0,sz:0,x0:1e9,x1:-1e9,y0:1e9,y1:-1e9,z0:1e9,z1:-1e9,nPeat:0}); }
+    const G=grupos[gi]; etiqueta[i]=gi; G.n++; G.sx+=X[i]; G.sy+=Y[i]; G.sz+=Z[i];
+    G.x0=Math.min(G.x0,X[i]); G.x1=Math.max(G.x1,X[i]); G.y0=Math.min(G.y0,Y[i]); G.y1=Math.max(G.y1,Y[i]); G.z0=Math.min(G.z0,Z[i]); G.z1=Math.max(G.z1,Z[i]);
+    if(nube.C[i]===CLASE.PEATON) G.nPeat++; }
+  for(const G of grupos){ G.cx=G.sx/G.n; G.cy=G.sy/G.n; G.cz=G.sz/G.n; G.dist=Math.hypot(G.cx,G.cz); }
+  return {etiqueta,grupos};
+}
+/** Procesa un barrido completo: nube → suelo → grupos → resumen del peatón. */
+function procesaBarrido(cfg,esc,mundo,semilla=1,opts={}){
+  const nube=generaNube(cfg,esc,mundo,semilla,opts), suelo=segmentaSuelo(nube), inc=new Uint8Array(nube.n);
+  for(let i=0;i<nube.n;i++) inc[i]=suelo[i]?0:1;
+  const ag=agrupa(nube,inc);
+  // el grupo del peatón: el que reúne más de sus puntos
+  let gp=-1,mejor=0; ag.grupos.forEach((G,i)=>{ if(G.nPeat>mejor){ mejor=G.nPeat; gp=i; } });
+  let pedEnSuelo=0; for(let i=0;i<nube.n;i++) if(nube.C[i]===CLASE.PEATON&&suelo[i]) pedEnSuelo++;
+  const tamPed=gp>=0?ag.grupos[gp].n:0;
+  return {nube,suelo,ag,gp,nPed:nube.nPeat,tamPed,confirmado:tamPed>=LIDAR.Nmin,pedEnSuelo};
+}
+
+/* ---------- 1.9 Lo que se espera del peatón (forma cerrada) ----------
+   Puntos esperados = columnas que le caen (ancho angular / separación horizontal, promedio sobre la fase del espejo) ·
+   anillos que le tocan por encima de la altura máxima del suelo (la elevación de cada canal es fija: se cuentan
+   exactamente) · P_d medio sobre el ancho (la luz llega rasante en los bordes del cilindro: cosθ = cos(el)·√(1−u²)) ·
+   (1 − p_ghost) (un eco falso tapa al real). Los pies (y < 0,30 m) se clasifican como suelo y no cuentan. */
+const _tanEl=new Map();
+function tablaTan(Nv){ let t=_tanEl.get(Nv); if(!t){ t=new Float64Array(Nv); for(let i=0;i<Nv;i++) t[i]=Math.tan(elDeCanal(i,Nv)*Math.PI/180); _tanEl.set(Nv,t); } return t; }
+/** Anillos que tocan al peatón en el eje (distancia R): n sobre la altura del suelo, nTotal contando los pies. */
+function anillosPeaton(cfg,R){
+  const tn=tablaTan(cfg.Nv); let n=0, nTotal=0; const y=[];
+  for(let i=0;i<cfg.Nv;i++){ const yy=LIDAR.hs+R*tn[i];
+    if(yy>=0&&yy<=LIDAR.pedH){ nTotal++; if(yy>=LIDAR.zSuelo){ n++; y.push(yy); } } }
+  return {n,nTotal,y};
+}
+function pedEsperado(cfg,esc){
+  const g=geomBarrido(cfg), alfa=CLIMAS[esc.clima].alfa, R=esc.R, hs=LIDAR.hs, r=LIDAR.pedW/2, h=LIDAR.pedH;
+  const yc=h/2, Rs=Math.hypot(R,hs-yc), cosEl=R/Rs, tn=tablaTan(cfg.Nv), fill=llenado(Rs);
+  const nh=2*Math.asin(Math.min(1,r/R))/(cfg.dth*Math.PI/180);
+  // promedio sobre el ancho del cilindro (posición lateral normalizada u): el punto de contacto está a R − r·√(1−u²) y la luz llega rasante en los bordes
+  let s=0, sPd=0; const M=24;
+  for(let m=0;m<M;m++){ const u=(m+0.5)/M, c=Math.sqrt(1-u*u), Rm=R-r*c;
+    let rings=0; for(let i=0;i<cfg.Nv;i++){ const yy=hs+Rm*tn[i]; if(yy>=LIDAR.zSuelo&&yy<=h) rings++; }
+    const pd=pDet(potEco(cfg.P,esc.rho,cosEl*c,Rs,alfa,fill)); s+=rings*pd; sPd+=pd; }
+  const pdMed=sPd/M, pg=pGhost(cfg.P,alfa), PrC=potEco(cfg.P,esc.rho,cosEl,Rs,alfa,fill), aC=PrC/SIGMA_N, an=anillosPeaton(cfg,R);
+  return { E:nh*(s/M)*(1-pg), nh, nv:an.n, nvTotal:an.nTotal, pdMed, pg, PrC, aC, margenDB:dB(aC/A90), sepH:R*cfg.dth*Math.PI/180, sepV:R*g.dEl*Math.PI/180, Rs, pdC:pDet(PrC) };
+}
+
+/* ---------- 1.10 El reto: criterios y escenarios ---------- */
+function evaluaConfig(cfg,esc){
+  const g=geomBarrido(cfg), pe=pedEsperado(cfg,esc);
+  const c=[
+    {k:'eco',        ok:pe.aC>=A90,                                   val:pe.margenDB, lim:0},
+    {k:'puntos',     ok:pe.E>=LIDAR.Nmin,                             val:pe.E,        lim:LIDAR.Nmin},
+    {k:'presupuesto',ok:g.ptsSeg<=esc.presupuesto,                    val:g.ptsSeg,    lim:esc.presupuesto},
+    {k:'ojo',        ok:cfg.P<=LIDAR.Pojo+1e-9,                       val:cfg.P,       lim:LIDAR.Pojo},
+    {k:'reaccion',   ok:LIDAR.vueltasConf/cfg.f<=LIDAR.tReac+1e-12,   val:LIDAR.vueltasConf/cfg.f, lim:LIDAR.tReac},
+    {k:'fantasmas',  ok:pe.pg<=LIDAR.ghostMax,                        val:pe.pg,       lim:LIDAR.ghostMax},
+  ];
+  return {criterios:c, ok:c.every(x=>x.ok), g, pe};
+}
+const NVS=[16,32,64,128];
+const RANGO={ dth:[0.10,0.80,0.05], f:[5,20,1], P:[5,150,5] };
+/** Recorre la rejilla de ajustes y devuelve los intervalos que sirven (sólo se calcula después de resolver el reto). */
+function ventanaReto(esc){
+  let n=0, dthMax=0, dthMin=9, Pmin=1e9, Pmax=0, fMin=99, fMax=0; const canales=new Set();
+  for(const Nv of NVS) for(let dth=RANGO.dth[0];dth<=RANGO.dth[1]+1e-9;dth+=RANGO.dth[2]) for(let f=RANGO.f[0];f<=RANGO.f[1];f+=RANGO.f[2]) for(let P=RANGO.P[0];P<=RANGO.P[1];P+=RANGO.P[2]){
+    if(evaluaConfig({Nv,dth:Math.round(dth*100)/100,f,P},esc).ok){ n++; canales.add(Nv); dthMax=Math.max(dthMax,dth); dthMin=Math.min(dthMin,dth); Pmin=Math.min(Pmin,P); Pmax=Math.max(Pmax,P); fMin=Math.min(fMin,f); fMax=Math.max(fMax,f); } }
+  return {n,canales:[...canales],dthMax,dthMin,Pmin,Pmax,fMin,fMax};
+}
+const ESCENARIOS={
+  osc_despejado:{ nombre:'Peatón de ropa oscura, día despejado',      R:62, rho:REFL.osc,   clima:'despejado', presupuesto:1200000 },
+  osc_lluvia:   { nombre:'Peatón de ropa oscura bajo la lluvia',       R:50, rho:REFL.osc,   clima:'lluvia',    presupuesto:600000 },
+  claro_niebla: { nombre:'Peatón de ropa clara en la niebla',          R:42, rho:REFL.claro, clima:'niebla',    presupuesto:500000 },
+  osc_niebla:   { nombre:'Peatón de ropa oscura con niebla ligera',    R:30, rho:REFL.osc,   clima:'niebla',    presupuesto:500000 },
+  claro_lluvia: { nombre:'Peatón de ropa clara lejos, con lluvia',     R:75, rho:REFL.claro, clima:'lluvia',    presupuesto:1100000 },
+  claro_lejos:  { nombre:'Peatón de ropa clara muy lejos, despejado',  R:75, rho:REFL.claro, clima:'despejado', presupuesto:1500000 },
+};
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.55,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.55;
+scene.fog=new THREE.FogExp2('#0a1a2c',0.0035);     // la niebla visible sigue al clima (ver aplicaClima)
+
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.04,520);
+camera.position.set(-9,4.4,4.2);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=0.22; controls.maxDistance=150; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(16,0.8,0);
+
+/* Iluminación de noche azul: una luz principal fría con sombra suave que sigue al coche, un relleno cálido bajo y un
+   contraluz verdoso que dibuja los cantos. La nube de puntos emite su propia luz (bloom moderado sólo en ella). */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#b5c9ff',1.9); LUZ.sol.castShadow=true; LUZ.sol.position.set(-6,16,12); LUZ.sol.target.position.set(6,0,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03; LUZ.sol.shadow.radius=3;
+Object.assign(LUZ.sol.shadow.camera,{left:-16,right:26,top:14,bottom:-14,near:1,far:60});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#ffb98a',0.55); LUZ.relleno.position.set(12,3,-10); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#46e0a8',0.9); LUZ.rim.position.set(14,5,12); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#6f93c8','#0c1118',0.5); scene.add(LUZ.hemi);
+scene.background=fondoDegradado('#07121f','#10304a','#050b12');
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: los puntos de la nube, el haz láser y las luces. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.62,0.42,1.0); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+const DOSPI_=Math.PI*2;
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono, el rayado técnico a 45° de las
+   caras de corte y las marcas de la carretera dibujadas como objetos, no como ruido. */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto oscuro: tono lento, sin grano. */
+function texAsfalto(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(5,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), v=Math.max(0,Math.min(255,(0.80+(n-0.5)*0.22)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+/** Rayado técnico de las caras de corte: líneas finas a 45°, de bajo contraste y del tono de la pieza. */
+function texRayado(){
+  const W=128,c=cv(W),x=c.getContext('2d'); x.fillStyle='#b9c1ca'; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(60,72,86,0.55)'; x.lineWidth=2.2; x.lineCap='butt';
+  for(let k=-W;k<=W*2;k+=16){ x.beginPath(); x.moveTo(k,W); x.lineTo(k+W,0); x.stroke(); }
+  const t=tex(c,{srgb:true}); t.repeat.set(1,1); return t;
+}
+const T_ASF=texAsfalto(), T_RAYADO=texRayado();
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+
+const M={
+  asfalto: fis({color:'#454c55',map:T_ASF,roughness:0.82,metalness:0,envMapIntensity:0.35}),
+  carcasa: pbr({color:'#39414b',metalness:0.72,roughness:0.46}),
+  marco: pbr({color:'#1f252c',metalness:0.8,roughness:0.34}),
+  aluminio: pbr({color:'#b4bcc5',metalness:0.88,roughness:0.34}),
+  rayado: pbr({color:'#ffffff',map:T_RAYADO,metalness:0.55,roughness:0.5,side:THREE.DoubleSide}),
+  pcb: fis({color:'#0d5a49',roughness:0.42,metalness:0.12,clearcoat:0.4,clearcoatRoughness:0.45}),
+  oro: pbr({color:'#e9b94f',metalness:1,roughness:0.24}),
+  cobre: pbr({color:'#cf7a45',metalness:1,roughness:0.3}),
+  chip: pbr({color:'#101318',metalness:0.25,roughness:0.5}),
+  chipTapa: pbr({color:'#a5aeb8',metalness:0.92,roughness:0.28}),
+  radomo: fis({color:'#14283b',metalness:0,roughness:0.06,clearcoat:1,clearcoatRoughness:0.04,transparent:true,opacity:0.30,envMapIntensity:1.0,depthWrite:false}),
+  condensador: pbr({color:'#1b3a6b',metalness:0.35,roughness:0.4}),
+  tornillo: pbr({color:'#aeb4bb',metalness:0.92,roughness:0.3}),
+  pintura: fis({color:'#1b4f9c',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  paragolpes: fis({color:'#0d2f66',metalness:0.5,roughness:0.42,clearcoat:0.6,clearcoatRoughness:0.25,envMapIntensity:0.45,side:THREE.DoubleSide}),
+  rejilla: pbr({color:'#0b0e12',metalness:0.4,roughness:0.55}),
+  faro: pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:1.1}),
+  cristal: fis({color:'#0b1a24',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.88,envMapIntensity:1.4}),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  blanco: fis({color:'#e9edf0',metalness:0.3,roughness:0.35,clearcoat:0.8,clearcoatRoughness:0.15}),
+  camionCab: fis({color:'#2f7f8f',metalness:0.5,roughness:0.32,clearcoat:1,clearcoatRoughness:0.1}),
+  camionCaja: pbr({color:'#dfe4e8',metalness:0.25,roughness:0.5}),
+  cocheRojo: fis({color:'#b3262e',metalness:0.55,roughness:0.28,clearcoat:1,clearcoatRoughness:0.08}),
+  motoNegra: fis({color:'#15181c',metalness:0.7,roughness:0.3,clearcoat:0.8,clearcoatRoughness:0.15}),
+  piel: pbr({color:'#9c7660',roughness:0.7,metalness:0}),
+  chaqueta: pbr({color:'#2e4a74',roughness:0.85,metalness:0}),
+  chaleco: pbr({color:'#ff7a14',roughness:0.7,metalness:0,emissive:'#ff5a00',emissiveIntensity:0.22}),
+  pantalon: pbr({color:'#2a2f3a',roughness:0.9,metalness:0}),
+  zapato: pbr({color:'#15171a',roughness:0.6,metalness:0.1}),
+  bici: pbr({color:'#e4572e',metalness:0.6,roughness:0.35}),
+};
+M.alu=M.llanta; M.aluminio2=M.aluminio; M.hierro=M.aluminio; M.negro=M.goma; M.acero=M.tornillo;
+/** Las antenas son de oro con un brillo propio que se enciende con la señal: TX con el color del chirp, RX con el del eco. */
+const M_TX=M.oro.clone(), M_RX=M.oro.clone();
+for(const m of [M_TX,M_RX]){ m.emissive=new THREE.Color('#000000'); m.emissiveIntensity=0; }
+const M_MMIC=M.chip.clone(); M_MMIC.emissive=new THREE.Color('#2ec4b6'); M_MMIC.emissiveIntensity=0.15;
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 tacos cuesta 3 llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=true; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI_, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+const mezcla=(a,b,t)=>a+(b-a)*t, suave=t=>t*t*(3-2*t);
+/** Interpola linealmente-suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+/* ===================== 6. EL SENSOR (en corte) =====================
+   A ESCALA REAL (un LiDAR de techo mide ≈ 17 cm de ancho) y abierto en corte: se quita la mitad −Z de la carcasa y de
+   las dos tapas, y las caras de corte llevan rayado a 45°. De abajo arriba: placa de control con chips, motor del espejo,
+   espejo poligonal de seis caras (cada cara barre 120° al girar 60°), diodo láser (TX) y lente receptora (RX) con su detector,
+   y el cristal protector. El espejo gira con la fase del barrido. */
+const SUELO_Y=0;
+const H_S=LIDAR.hs;                       // altura del sensor sobre el suelo (m)
+function caja(w,h,d,mat,x,y,z,sombra=true){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=sombra; m.receiveShadow=true; return m; }
+function cil(r,l,mat,x,y,z,eje='x',seg=16){ const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,seg),mat); if(eje==='x') m.rotation.z=Math.PI/2; else if(eje==='z') m.rotation.x=Math.PI/2; m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m; }
+Object.assign(M,{
+  espejo: pbr({color:'#b9c6d2',metalness:1,roughness:0.14,envMapIntensity:0.95}),
+  vidrioSensor: fis({color:'#0e3a33',metalness:0,roughness:0.05,clearcoat:1,clearcoatRoughness:0.03,transparent:true,opacity:0.30,side:THREE.DoubleSide,depthWrite:false,envMapIntensity:1.3}),
+  lente: fis({color:'#bfe3ff',metalness:0,roughness:0.02,clearcoat:1,transparent:true,opacity:0.55,envMapIntensity:1.6}),
+  fachada: pbr({color:'#ffffff',roughness:0.85,metalness:0.05,envMapIntensity:0.3}),
+  acera: pbr({color:'#363e4a',roughness:0.92,metalness:0}),
+  poste: pbr({color:'#7a8591',metalness:0.7,roughness:0.45}),
+  tronco: pbr({color:'#4a382b',roughness:0.95,metalness:0}),
+  copa: pbr({color:'#1f5a45',roughness:0.9,metalness:0,envMapIntensity:0.3}),
+});
+/** Marca de azimut del barrido de los pulsos: la fase de cada columna se pinta con él. */
+const SENS=new THREE.Group(); SENS.position.set(0,H_S,0); scene.add(SENS);
+const MIR=new THREE.Group(); MIR.position.set(0,0.012,0); SENS.add(MIR);
+const SENS_PARTES={};
+(function construyeSensor(){
+  const pz=(o,n)=>{ o.userData.pieza=n; o.traverse(m=>{ m.userData.pieza=n; }); return o; };
+  const seg=44, mitad={seg,fase:Math.PI/2,arco:Math.PI};
+  const hueco=(pts)=>pts;                               // perfil cerrado (r, y) del cuerpo de revolución
+  const baseP=[[0,-0.105],[0.080,-0.105],[0.086,-0.098],[0.086,-0.045],[0.0775,-0.045],[0.0775,-0.092],[0,-0.092]];
+  const capP=[[0,0.105],[0.080,0.105],[0.086,0.098],[0.086,0.057],[0.0775,0.057],[0.0775,0.092],[0,0.092]];
+  const car=new THREE.Group();
+  for(const P of [baseP,capP]){ const m=new THREE.Mesh(P3.revolucion(P,mitad),M.carcasa); m.castShadow=false; m.receiveShadow=true; car.add(m); }
+  SENS.add(pz(car,'carcasa'));
+  // caras de corte con rayado (el perfil espejado, en el plano z = 0)
+  const cortes=new THREE.Group();
+  for(const P of [baseP,capP]){
+    const pts=[...P.map(([r,y])=>[r,y]),...P.slice().reverse().map(([r,y])=>[-r,y])], sh=new THREE.Shape(pts.map(([x,y])=>new THREE.Vector2(x,y)));
+    const g=new THREE.ShapeGeometry(sh), uv=g.attributes.uv, p=g.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,p.getX(i)/0.026,p.getY(i)/0.026);
+    const m=new THREE.Mesh(g,M.rayado); m.position.z=0.0004; cortes.add(m); }
+  SENS.add(pz(cortes,'corte'));
+  // cristal protector (media caña) y tres montantes
+  { const g=new THREE.CylinderGeometry(0.0775,0.0775,0.102,56,1,true,Math.PI/2,Math.PI), m=new THREE.Mesh(g,M.vidrioSensor); m.position.y=0.006; m.renderOrder=6; SENS.add(pz(m,'vidrio')); }
+  { const g=new THREE.Group(); for(const a of [100,180,260]){ const t=a*Math.PI/180; g.add(cil(0.0042,0.114,M.carcasa,0.0775*Math.sin(t),0.006,0.0775*Math.cos(t),'y',8)); } SENS.add(pz(g,'carcasa')); }
+  // placa de control (dos medias placas) con chips y un transformador
+  { const pl=new THREE.Group();
+    for(const [y,r] of [[-0.087,0.0735],[-0.070,0.066]]){ const m=new THREE.Mesh(P3.revolucion([[0,y-0.0016],[r,y-0.0016],[r,y+0.0016],[0,y+0.0016]],mitad),M.pcb); m.castShadow=false; pl.add(m); }
+    for(const [x,z,l] of [[0.03,-0.03,0.022],[-0.03,-0.035,0.018],[0.05,-0.012,0.016],[-0.05,-0.012,0.014]]){ const c=P3.chip(M,{lado:l,alto:0.004,pines:6,patilla:M.chipTapa}); c.position.set(x,-0.0855,z); pl.add(c); }
+    pl.add(cil(0.009,0.016,M.condensador,0.052,-0.079,-0.040,'y',14),cil(0.006,0.014,M.condensador,-0.058,-0.080,-0.030,'y',14));
+    const f=fusiona(pl); SENS.add(pz(f,'placa')); }
+  // motor del espejo (carcasa y bobinado) y eje
+  { const g=new THREE.Group(); g.add(cil(0.024,0.030,M.chipTapa,0,-0.062,0,'y',28),cil(0.0235,0.006,M.cobre,0,-0.062,0,'y',28),cil(0.0075,0.092,M.tornillo,0,-0.010,0,'y',14)); SENS.add(pz(fusiona(g),'motor')); }
+  // espejo poligonal: hexágono; el giro lo da MIR
+  { const m=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,0.058,6),M.espejo); m.castShadow=false; MIR.add(pz(m,'espejo'));
+    const tapa=new THREE.Mesh(new THREE.CylinderGeometry(0.0095,0.0095,0.062,16),M.tornillo); MIR.add(pz(tapa,'espejo')); }
+  // diodo láser (TX) a la izquierda, arriba, y lente receptora (RX) con su detector, abajo
+  { const tx=new THREE.Group(); tx.add(caja(0.030,0.018,0.020,M.chip,-0.0645,0.030,0,false),cil(0.0085,0.014,M.lente,-0.0455,0.030,0,'x',20));
+    const led=new THREE.Mesh(new THREE.BoxGeometry(0.003,0.006,0.006),new THREE.MeshBasicMaterial({color:'#9bffc4',toneMapped:false})); led.position.set(-0.0795,0.030,0); tx.add(led);
+    SENS.add(pz(tx,'laser'));
+    const rx=new THREE.Group(); rx.add(cil(0.019,0.010,M.lente,-0.052,-0.010,0,'x',32),cil(0.0235,0.014,M.carcasa,-0.0585,-0.010,0,'x',32),caja(0.004,0.030,0.030,M.pcb,-0.073,-0.010,0,false),caja(0.003,0.010,0.010,M.chipTapa,-0.0705,-0.010,0,false));
+    SENS.add(pz(rx,'lente_rx')); }
+  // conector del mazo bajo la base
+  { const con=P3.conector(M,{ancho:0.040,alto:0.022,fondo:0.020,pines:6}); const cf=fusiona(con); cf.position.set(0,-0.116,0.0); cf.rotation.x=Math.PI/2; SENS.add(pz(cf,'conector')); }
+  // haz interno: del diodo al espejo y del espejo al cristal (gira con la fase)
+  const bm=new THREE.MeshBasicMaterial({color:'#7dffb0',toneMapped:false,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false});
+  const b1=new THREE.Mesh(new THREE.CylinderGeometry(0.0009,0.0009,0.020,6),bm); b1.rotation.z=Math.PI/2; b1.position.set(-0.0365,0.030,0); b1.userData.pieza='laser'; SENS.add(b1);
+  const b2=new THREE.Mesh(new THREE.CylinderGeometry(0.0009,0.0009,1,6),bm); b2.userData.pieza='haz'; SENS.add(b2); SENS_PARTES.haz=b2;
+  b2.geometry.translate(0,0.5,0); b2.position.set(0,0.030,0);
+  SENS_PARTES.bm=bm; SENS_PARTES.b1=b1;
+  SENS.traverse(o=>{ o.castShadow=false; });
+})();
+
+/* ===================== 7. EL COCHE (con el sensor en el techo) =====================
+   Carrocería «lofteada» como las del resto de la plataforma: anillos de superelipse. Mide 4,5 m: la escena es a escala real. */
+function lofteoCoche(mat){
+  const secs=[], N=34, hl=2.25;
+  const yt=perfil1D([[-2.25,0.62],[-2.0,0.80],[-1.3,0.90],[-0.4,0.88],[0.6,0.84],[1.3,0.76],[1.9,0.66],[2.25,0.50]]);
+  for(let i=0;i<=N;i++){
+    const x=-hl*Math.cos(Math.PI*i/N), u=x/hl, ab=Math.pow(Math.abs(u),4.2);
+    const w=0.90*Math.pow(Math.max(0.0004,1-ab),1/4.2), yb=0.30+0.22*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  return new THREE.Mesh(lofteo(secs,28),mat);
+}
+function cabinaCoche(){
+  const cab=[], cabM=22, x0=-1.2, x1=0.75, yt=perfil1D([[-2.25,0.62],[-1.3,0.90],[-0.4,0.88],[0.6,0.84],[1.3,0.76]]);
+  for(let i=0;i<=cabM;i++){ const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),1.43,env));
+    cab.push({x,w:Math.max(0.03,0.80*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30}); }
+  return new THREE.Mesh(lofteo(cab,24),M.cristal);
+}
+function ruedas(g,pos,r,ancho,matGoma,matLlanta){
+  for(const [x,z] of pos){ const w=cil(r,ancho,matGoma,x,r,z,'z',20); g.add(w); const ll=cil(r*0.62,ancho*1.02,matLlanta,x,r,z,'z',16); g.add(ll); }
+}
+function modeloCoche(mat,opts={}){
+  const g=new THREE.Group(); g.add(lofteoCoche(mat),cabinaCoche());
+  ruedas(g,[[1.35,-0.78],[1.35,0.78],[-1.35,-0.78],[-1.35,0.78]],0.31,0.22,M.goma,M.llanta);
+  g.add(caja(4.0,0.07,1.30,M.bajos,0,0.28,0,false));
+  for(const lado of [-1,1]){ g.add(caja(0.06,0.075,0.36,M.faro,2.16,0.62,lado*0.62,false)); }
+  if(opts.baca){      // barras de techo y pilar del sensor
+    g.add(caja(0.05,0.035,1.34,M.carcasa,-0.34,1.455,0,false),caja(0.05,0.035,1.34,M.carcasa,0.34,1.455,0,false));
+    g.add(cil(0.030,0.262,M.carcasa,0,1.565,0,'y',16),cil(0.05,0.02,M.carcasa,0,1.44,0,'y',20));
+  }
+  return fusiona(g);
+}
+function modeloCamion(){
+  const g=new THREE.Group();
+  g.add(caja(11.4,0.38,1.0,M.bajos,0,0.78,0,false));
+  const cab=[{x:3.7,w:1.15,y0:0.9,y1:2.1,n:5,tum:0.08},{x:3.95,w:1.2,y0:0.9,y1:3.0,n:5,tum:0.05},{x:5.3,w:1.2,y0:0.9,y1:3.25,n:5,tum:0.04},{x:5.75,w:1.14,y0:0.9,y1:2.5,n:5,tum:0.08}];
+  g.add(new THREE.Mesh(lofteo(cab,20),M.camionCab));
+  g.add(caja(0.05,0.95,2.0,M.cristal,5.78,2.65,0,false));
+  g.add(caja(8.2,2.95,2.5,M.camionCaja,-1.1,2.38,0));
+  for(let i=0;i<14;i++) for(const lado of [-1,1]) g.add(caja(0.07,2.9,0.05,M.aluminio,-5.0+i*0.62,2.38,lado*1.27,false));
+  ruedas(g,[[-4.3,-1.0],[-4.3,1.0],[-3.1,-1.0],[-3.1,1.0],[4.6,-1.0],[4.6,1.0]],0.5,0.34,M.goma,M.llanta);
+  for(const lado of [-1,1]) g.add(caja(0.06,0.12,0.4,M.faro,5.78,1.2,lado*0.8,false));
+  return fusiona(g);
+}
+const EGO=modeloCoche(M.pintura,{baca:true}); EGO.position.set(0,0,0); EGO.traverse(o=>{ o.userData.pieza='coche'; }); scene.add(EGO);
+
+/* ===================== 8. LA CALLE =====================
+   A escala real. Todo lo que el pulso puede tocar sale de la MISMA lista que usa el motor (construyeMundo): fachadas, aceras,
+   coches aparcados, camión, farolas y árboles. El peatón se añade aparte. */
+const CALLE=new THREE.Group(); scene.add(CALLE);
+const M_FACHADA=M.fachada;
+(function texturaVentanas(){
+  const W=256, c=cv(W), x=c.getContext('2d'), e=cv(W), xe=e.getContext('2d'), N=8, cel=W/N, rng=mulberry32(11);
+  x.fillStyle='#1b2536'; x.fillRect(0,0,W,W); xe.fillStyle='#000'; xe.fillRect(0,0,W,W);
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+    const px=i*cel+cel*0.18, py=j*cel+cel*0.2, w=cel*0.64, h=cel*0.6, on=rng()<0.34;
+    x.fillStyle=on?'#3a3320':'#0f1824'; x.fillRect(px,py,w,h);
+    if(on){ const g=xe.createLinearGradient(0,py,0,py+h); g.addColorStop(0,'#ffcf86'); g.addColorStop(1,'#d8924a'); xe.fillStyle=g; xe.fillRect(px,py,w,h); }
+    x.fillStyle='#2b384d'; x.fillRect(px-1,py+h,w+2,2);
+  }
+  M_FACHADA.map=tex(c,{srgb:true}); M_FACHADA.emissiveMap=tex(e,{srgb:true}); M_FACHADA.emissive=new THREE.Color('#ffffff'); M_FACHADA.emissiveIntensity=0.55; M_FACHADA.color=new THREE.Color('#6f819a');
+})();
+let MUNDO=construyeMundo(60,0,REFL.osc);
+(function construyeCalle(){
+  // asfalto (z de −14 a 14) con marcas pintadas como objetos
+  const g=new THREE.PlaneGeometry(330,28); g.rotateX(-Math.PI/2); g.translate(150,0,0); const uv=g.attributes.uv, p=g.attributes.position;
+  for(let i=0;i<uv.count;i++) uv.setXY(i,p.getX(i)/10,p.getZ(i)/10);
+  const suelo=new THREE.Mesh(g,M.asfalto); suelo.receiveShadow=true; suelo.userData.pieza='asfalto'; CALLE.add(suelo);
+  const blanca=new THREE.MeshBasicMaterial({color:'#dfe6ea',polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}), mt=new THREE.Matrix4();
+  const nD=88, dash=new THREE.InstancedMesh(new THREE.BoxGeometry(2.2,0.006,0.12),blanca,nD*2);
+  for(let i=0;i<nD;i++) for(const [k,z] of [[0,-1.8],[1,1.8]]){ mt.makeTranslation(2+i*3.6,0.004,z); dash.setMatrixAt(i*2+k,mt); }
+  dash.userData.pieza='marca'; CALLE.add(dash);
+  for(const z of [-4.1,4.1]){ const l=new THREE.Mesh(new THREE.BoxGeometry(330,0.006,0.14),blanca); l.position.set(150,0.004,z); l.userData.pieza='marca'; CALLE.add(l); }
+  // aceras y fachadas (cajas de la lista del motor)
+  const aceras=new THREE.Group(), fachadas=new THREE.Group();
+  for(const o of MUNDO.objs){ if(o.tipo!=='caja') continue;
+    const w=o.x1-o.x0, h=o.y1-o.y0, d=o.z1-o.z0;
+    if(o.rho===REFL.acera){ aceras.add(caja(w,h,d,M.acera,(o.x0+o.x1)/2,h/2,(o.z0+o.z1)/2)); }
+    else if(o.rho===REFL.pared){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M_FACHADA); m.position.set((o.x0+o.x1)/2,(o.y0+o.y1)/2,(o.z0+o.z1)/2);
+      const u=m.geometry.attributes.uv, q=m.geometry.attributes.position; for(let i=0;i<u.count;i++) u.setXY(i,(q.getX(i)+m.position.x+q.getZ(i)+m.position.z)/12,(q.getY(i)+m.position.y)/12); m.updateMatrixWorld(); fachadas.add(m); } }
+  const aF=fusiona(aceras); aF.traverse(o=>{ o.userData.pieza='acera'; }); CALLE.add(aF);
+  const fF=fusiona(fachadas); fF.traverse(o=>{ o.userData.pieza='fachada'; o.castShadow=false; }); CALLE.add(fF);
+  // coches aparcados y camión
+  const colores=[M.cocheRojo,M.pintura,M.camionCab,M.motoNegra];
+  [[16,-5.5,0],[33,-5.5,1],[52,5.6,2],[74,-5.5,3]].forEach(([x,z,ci])=>{ const m=modeloCoche(colores[ci]); m.position.set(x,0,z); m.rotation.y=ci===2?0:0; m.traverse(o=>{ o.userData.pieza='aparcado'; }); CALLE.add(m); });
+  { const t=modeloCamion(); t.position.set(100,0,5.05); t.traverse(o=>{ o.userData.pieza='aparcado'; }); CALLE.add(t); }
+  // farolas y árboles (instanciados)
+  const xs=[6,31,56,81,106,131,156,181,206,231], nF=xs.length*2;
+  const postes=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09,0.09,7,8),M.poste,nF), brazos=new THREE.InstancedMesh(new THREE.BoxGeometry(1.2,0.08,0.1),M.poste,nF);
+  const cab=new THREE.InstancedMesh(new THREE.SphereGeometry(0.2,12,8),new THREE.MeshBasicMaterial({color:'#ffe2b0',toneMapped:false}),nF);
+  let k=0; for(const x of xs) for(const z of [-7.8,7.8]){ const s=z<0?1:-1;
+    mt.makeTranslation(x,3.5,z); postes.setMatrixAt(k,mt); mt.makeTranslation(x,7.0,z+s*0.55); brazos.setMatrixAt(k,mt); mt.makeTranslation(x,6.93,z+s*1.1); mt.scale(new THREE.Vector3(1.5,0.5,1.5)); cab.setMatrixAt(k,mt); k++; }
+  postes.userData.pieza='poste'; brazos.userData.pieza='poste'; cab.userData.pieza='farola'; for(const m of [postes,brazos]){ m.castShadow=false; m.receiveShadow=true; } CALLE.add(postes,brazos,cab);
+  // brazos giran sobre z (se dejan rectos: sólo apuntan hacia la calzada); el modelo del arco es esquemático
+  const ax=[22,47,72,97,122,147,172,197];
+  const troncos=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2,0.24,3,10),M.tronco,ax.length), copas=new THREE.InstancedMesh(new THREE.SphereGeometry(1.9,18,12),M.copa,ax.length);
+  ax.forEach((x,i)=>{ mt.makeTranslation(x,1.5,8.2); troncos.setMatrixAt(i,mt); mt.makeTranslation(x,4.6,8.2); copas.setMatrixAt(i,mt); });
+  troncos.userData.pieza='arbol'; copas.userData.pieza='arbol'; CALLE.add(troncos,copas);
+  // referencias de distancia: una raya tenue cada 20 m (la escala de la vista cenital)
+  const regla=new THREE.MeshBasicMaterial({color:'#46e6a8',transparent:true,opacity:0.22,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+  const ticks=new THREE.InstancedMesh(new THREE.BoxGeometry(0.07,0.004,8.2),regla,6);
+  for(let i=0;i<6;i++){ mt.makeTranslation(20*(i+1),0.006,0); ticks.setMatrixAt(i,mt); } ticks.userData.pieza='regla'; ticks.raycast=()=>{}; CALLE.add(ticks);
+})();
+/** Suelo muy grande y oscuro para que la calle no parezca una losa flotante. */
+{ const g=new THREE.PlaneGeometry(2400,2400); g.rotateX(-Math.PI/2); const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:'#070d15',roughness:1,metalness:0})); m.position.set(300,-0.03,0); m.userData.pieza='asfalto'; m.raycast=()=>{}; scene.add(m); }
+/** Anillo de referencia bajo el peatón (no dice si se le ve: sólo dónde está). */
+const ARO_PEAT=new THREE.Group(); { const a=new THREE.Mesh(new THREE.RingGeometry(0.95,1.06,48),new THREE.MeshBasicMaterial({color:'#9BF0C8',transparent:true,opacity:0.8,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));
+  const b=new THREE.Mesh(new THREE.RingGeometry(0.50,0.56,48),a.material); for(const m of [a,b]){ m.rotation.x=-Math.PI/2; m.position.y=0.02; m.raycast=()=>{}; m.userData.pieza='marca'; ARO_PEAT.add(m); } ARO_PEAT.userData.a=a; ARO_PEAT.userData.b=b;
+  // columna de luz tenue sobre el peatón: dice DÓNDE está desde lejos, no si se le ve
+  const cg=new THREE.CylinderGeometry(0.30,0.30,7,20,1,true), cc=new Float32Array(cg.attributes.position.count*3);
+  for(let i=0;i<cg.attributes.position.count;i++){ const top=cg.attributes.position.getY(i)>0, k=top?0.0:0.075; cc[i*3]=0.30*k*2; cc[i*3+1]=0.95*k*2; cc[i*3+2]=0.70*k*2; }
+  cg.setAttribute('color',new THREE.BufferAttribute(cc,3));
+  const col=new THREE.Mesh(cg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide})); col.position.y=3.5; col.raycast=()=>{}; col.userData.pieza='marca'; ARO_PEAT.add(col);
+  scene.add(ARO_PEAT); }
+/** Paso de cebra bajo el peatón: sigue su distancia. Sólo pintura (no cambia la reflectividad del suelo del motor). */
+const CEBRA=new THREE.InstancedMesh(new THREE.BoxGeometry(3.0,0.006,0.5),new THREE.MeshBasicMaterial({color:'#9aa4ad',polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),9);
+(function(){ const mt=new THREE.Matrix4(); for(let i=0;i<9;i++){ mt.makeTranslation(0,0.005,-3.6+i*0.9); CEBRA.setMatrixAt(i,mt); } CEBRA.userData.pieza='marca'; CEBRA.raycast=()=>{}; scene.add(CEBRA); })();
+
+/* ===================== 9. EL PEATÓN (animado: camina y cruza) =====================
+   Dos prendas: oscura (ρ = 0,10) y clara con chaleco (ρ = 0,60). Pierna y brazo pivotan en cadera y hombro. */
+function creaPeaton(oscuro){
+  const mj=oscuro?pbr({color:'#171b22',roughness:0.9}):pbr({color:'#e9edf1',roughness:0.8}), mp=oscuro?pbr({color:'#101216',roughness:0.92}):pbr({color:'#cfd6de',roughness:0.85});
+  const mv=oscuro?mj:M.chaleco;
+  const raiz=new THREE.Group(), cuerpo=new THREE.Group();
+  const cap=(r,l,mat,x,y,z,rz=0)=>{ const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,l,4,10),mat); m.position.set(x,y,z); m.rotation.z=rz; m.castShadow=true; return m; };
+  const t=cap(0.17,0.30,mj,0,1.22,0); t.scale.set(0.78,1,1.15); cuerpo.add(t);
+  const c=cap(0.178,0.22,mv,0,1.24,0); c.scale.set(0.80,1,1.17); cuerpo.add(c);
+  const h=new THREE.Mesh(new THREE.SphereGeometry(0.11,18,14),M.piel); h.position.y=1.63; h.castShadow=true; cuerpo.add(h);
+  raiz.add(cuerpo);
+  const piernas=[], brazos=[];
+  for(const lado of [-1,1]){
+    const p=new THREE.Group(); p.position.set(0,0.88,lado*0.095); p.add(cap(0.075,0.60,mp,0,-0.45,0));
+    const z=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.07,0.10),M.zapato); z.position.set(0.06,-0.82,0); p.add(z); raiz.add(p); piernas.push(p);
+    const b=new THREE.Group(); b.position.set(0,1.42,lado*0.225); b.add(cap(0.05,0.42,mj,0,-0.24,0)); raiz.add(b); brazos.push(b);
+  }
+  raiz.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.userData.pieza='peaton'; } });
+  return {raiz,piernas,brazos,cuerpo};
+}
+const PEAT={osc:creaPeaton(true),claro:creaPeaton(false),z:0,dir:1,giro:-Math.PI/2,x:45};
+const PEAT_GRUPO=new THREE.Group(); PEAT_GRUPO.add(PEAT.osc.raiz,PEAT.claro.raiz); scene.add(PEAT_GRUPO);
+const Z_CRUCE=2.4, V_CRUCE=1.1;       // amplitud (m) y velocidad (m/s) del cruce
+
+/* ===================== 10. LA NUBE DE PUNTOS (Points con sombreador) =====================
+   Cada punto lleva su posición, su color y la columna del barrido en la que nació: el sombreador le da más brillo al que el
+   haz acaba de pintar y lo deja decaer hasta que vuelve a pasar (persistencia). La nube se recalcula con el motor. */
+const NUBE_MAX=170000;
+const nubeGeo=new THREE.BufferGeometry();
+const nPos=new Float32Array(NUBE_MAX*3), nCol=new Float32Array(NUBE_MAX*3), nAz=new Float32Array(NUBE_MAX);
+nubeGeo.setAttribute('position',new THREE.BufferAttribute(nPos,3).setUsage(THREE.DynamicDrawUsage));
+nubeGeo.setAttribute('color',new THREE.BufferAttribute(nCol,3).setUsage(THREE.DynamicDrawUsage));
+nubeGeo.setAttribute('aAz',new THREE.BufferAttribute(nAz,1).setUsage(THREE.DynamicDrawUsage));
+nubeGeo.setDrawRange(0,0);
+const nubeMat=new THREE.ShaderMaterial({
+  uniforms:{uFase:{value:0},uPx:{value:600},uMax:{value:24},uMin:{value:2.2},uLuz:{value:1}},
+  vertexShader:`attribute vec3 color; attribute float aAz; uniform float uFase, uPx, uMax, uMin, uLuz; varying vec3 vC;
+    void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv;
+      float edad=fract(uFase-aAz); float b=0.50+0.50*exp(-edad*3.2);
+      vC=color*b*uLuz; gl_PointSize=clamp(uPx*0.13/max(0.05,-mv.z),uMin,uMax)*(0.88+0.24*b); }`,
+  fragmentShader:`varying vec3 vC; void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d); if(r>0.5) discard; float a=smoothstep(0.5,0.12,r); gl_FragColor=vec4(vC*a,1.0); }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false
+});
+const NUBE=new THREE.Points(nubeGeo,nubeMat); NUBE.frustumCulled=false; NUBE.userData.pieza='nube'; NUBE.raycast=()=>{}; NUBE.renderOrder=5; scene.add(NUBE);
+/** Cajas de los grupos (modo «Objetos»): un solo LineSegments. */
+const BB_MAX=16, bbPos=new Float32Array(BB_MAX*24*3), bbCol=new Float32Array(BB_MAX*24*3);
+const bbGeo=new THREE.BufferGeometry(); bbGeo.setAttribute('position',new THREE.BufferAttribute(bbPos,3).setUsage(THREE.DynamicDrawUsage)); bbGeo.setAttribute('color',new THREE.BufferAttribute(bbCol,3).setUsage(THREE.DynamicDrawUsage)); bbGeo.setDrawRange(0,0);
+const BBOX=new THREE.LineSegments(bbGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.95,toneMapped:false,blending:THREE.AdditiveBlending,depthWrite:false})); BBOX.frustumCulled=false; BBOX.raycast=()=>{}; BBOX.userData.pieza='caja_grupo'; BBOX.renderOrder=6; scene.add(BBOX);
+const ARISTAS=[[0,1],[1,3],[3,2],[2,0],[4,5],[5,7],[7,6],[6,4],[0,4],[1,5],[2,6],[3,7]];
+function escribeCajas(grupos,colorDe){
+  let n=0;
+  for(let g=0;g<grupos.length&&n<BB_MAX;g++){ const G=grupos[g]; if(G.n<LIDAR.minPts) continue;
+    const pad=0.12, xs=[G.x0-pad,G.x1+pad], ys=[Math.max(0,G.y0-pad),G.y1+pad], zs=[G.z0-pad,G.z1+pad], col=colorDe(g,G);
+    const V=[]; for(let i=0;i<8;i++) V.push([xs[i&1],ys[(i>>1)&1],zs[(i>>2)&1]]);
+    for(let e=0;e<12;e++) for(let s=0;s<2;s++){ const v=V[ARISTAS[e][s]], o=(n*24+e*2+s)*3; bbPos[o]=v[0]; bbPos[o+1]=v[1]; bbPos[o+2]=v[2]; bbCol[o]=col[0]; bbCol[o+1]=col[1]; bbCol[o+2]=col[2]; }
+    n++; }
+  bbGeo.setDrawRange(0,n*24); bbGeo.attributes.position.needsUpdate=true; bbGeo.attributes.color.needsUpdate=true;
+}
+
+/* ===================== 11. HAZ, PULSOS DE TIEMPO DE VUELO Y LLUVIA ===================== */
+/** El abanico láser de este instante: un rayo por canal, hasta lo primero que tocan. */
+const HAZ_N=64, hazPos=new Float32Array(HAZ_N*2*3), hazCol=new Float32Array(HAZ_N*2*3);
+const hazGeo=new THREE.BufferGeometry(); hazGeo.setAttribute('position',new THREE.BufferAttribute(hazPos,3).setUsage(THREE.DynamicDrawUsage)); hazGeo.setAttribute('color',new THREE.BufferAttribute(hazCol,3).setUsage(THREE.DynamicDrawUsage));
+const HAZ=new THREE.LineSegments(hazGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:1,toneMapped:false,blending:THREE.AdditiveBlending,depthWrite:false}));
+HAZ.frustumCulled=false; HAZ.raycast=()=>{}; HAZ.userData.pieza='haz'; HAZ.renderOrder=7; scene.add(HAZ);
+const HAZ_MAT=HAZ.material;
+/** Pulso de luz sobre un rayo: destello cian al ir, naranja al volver; su duración es proporcional a la distancia. */
+function spriteLuz(col){
+  const c=cv(64), x=c.getContext('2d'), g=x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,col); g.addColorStop(0.25,col); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(0,0,64,64);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,toneMapped:false})); s.userData.pieza='pulso'; s.raycast=()=>{}; s.renderOrder=9; return s;
+}
+const PULSOS=[0,1,2].map(i=>({ida:spriteLuz('rgba(120,255,225,1)'),vuelta:spriteLuz('rgba(255,170,70,1)'),aro:null,t:0,hit:V3(0,0,0),dir:V3(1,0,0),R:20,fase:i*0.9}));
+for(const p of PULSOS){ scene.add(p.ida,p.vuelta); p.ida.visible=p.vuelta.visible=false;
+  p.aro=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,40),new THREE.MeshBasicMaterial({color:'#ffb347',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,blending:THREE.AdditiveBlending})); p.aro.renderOrder=9; p.aro.raycast=()=>{}; p.aro.userData.pieza='eco'; scene.add(p.aro); }
+/** Lluvia: segmentos que caen (sólo visibles con lluvia). */
+const LL_N=520, llPos=new Float32Array(LL_N*2*3), llSeed=[]; { const r=mulberry32(5); for(let i=0;i<LL_N;i++) llSeed.push([r()*56-10,r()*16,r()*30-15,6+r()*3]); }
+const llGeo=new THREE.BufferGeometry(); llGeo.setAttribute('position',new THREE.BufferAttribute(llPos,3).setUsage(THREE.DynamicDrawUsage));
+const LLUVIA=new THREE.LineSegments(llGeo,new THREE.LineBasicMaterial({color:'#9ec8ff',transparent:true,opacity:0.35,toneMapped:false,depthWrite:false})); LLUVIA.frustumCulled=false; LLUVIA.visible=false; LLUVIA.raycast=()=>{}; LLUVIA.userData.pieza='lluvia'; scene.add(LLUVIA);
+
+/* ===================== 12. EL ESTADO, EL SENSOR Y EL RELOJ =====================
+   Un solo reloj (SIM.t). Un barrido completo del sensor —pulsos, nube, suelo, grupos— se recalcula cuando cambia un mando y,
+   con ruido nuevo, unas 1,5 veces por segundo: la nube del 3D, la vista cenital, la gráfica del eco y las cifras salen del
+   MISMO barrido (RAD). El barrido real dura 0,1 s; en pantalla se ve en cámara lenta (T_VIS) y la luz va a 55 m/s: ambos
+   factores se rotulan en la barra inferior. */
+const EST={modo:'marcha',tour:0,clima:'despejado',dist:45,ropa:'osc',Nv:32,dth:0.2,f:10,P:60,color:'dist',vel:1,pausa:REDUCIDO,autoRunning:false,vista:'calle',verdad:true,rot:false,semilla:1};
+const SIM={t:0,fase:0};
+const T_VIS=1.6;                               // duración, en pantalla, de un barrido (cámara lenta)
+const V_LUZ=55;                                // velocidad (didáctica) del destello dibujado, m/s
+const ROPA={osc:{rho:REFL.osc,nombre:'Oscura'},claro:{rho:REFL.claro,nombre:'Clara'}};
+const CFG_MARCHA=()=>({Nv:EST.Nv,dth:EST.dth,f:EST.f,P:EST.P});
+const ESC_MARCHA=()=>({R:EST.dist,rho:ROPA[EST.ropa].rho,clima:EST.clima,presupuesto:1e9});
+const RAD={cfg:null,esc:null,out:null,pe:null,ok:false,sucio:true,semilla:1,tUlt:-9,ms:0,intervalo:650,ver:0};
+/** Configuración y escena que corren ahora: la de los mandos, o la que fija el paso del laboratorio guiado. */
+function cfgActual(){
+  if(EST.modo==='guia'){ const c=guiaCfg(); if(c) return c; }
+  return CFG_MARCHA();
+}
+function escActual(){
+  if(EST.modo==='guia'){ const e=guiaEsc(); if(e) return e; }
+  return ESC_MARCHA();
+}
+const marcaSucio=()=>{ RAD.sucio=true; };
+const RGB=c=>{ const k=new THREE.Color(c); return [k.r,k.g,k.b]; };
+const PAL_DIST=[[0,RGB('#ff5fa8')],[14,RGB('#ffb347')],[34,RGB('#fff08a')],[62,RGB('#4be8b8')],[105,RGB('#4aa8ff')],[170,RGB('#8a7bff')]];
+function colorDist(r,o,k){ let i=1; while(i<PAL_DIST.length-1&&r>PAL_DIST[i][0]) i++; const a=PAL_DIST[i-1], b=PAL_DIST[i], t=clamp((r-a[0])/(b[0]-a[0]),0,1);
+  for(let c=0;c<3;c++) o[k+c]=(a[1][c]+(b[1][c]-a[1][c])*t)*1.15; }
+const C_SUELO=RGB('#3e78b8'), C_RUIDO=RGB('#8d99a6'), C_FANT=RGB('#b9c6d3'), C_AMBAR=RGB('#ffb02e'), C_PED=RGB('#46ff9a');
+const PAL_GRUPO=['#ff8a3d','#e84fa6','#c8f23d','#a574ff','#3ee0ff','#ffd23d','#ff5d5d'].map(RGB);
+/** Corre un barrido completo con la configuración y la escena actuales. */
+function recalculaLidar(){
+  const t0=performance.now(), cfg=cfgActual(), esc=escActual();
+  RAD.cfg=cfg; RAD.esc=esc; RAD.sucio=false; RAD.tUlt=performance.now();
+  MUNDO=construyeMundo(esc.R,PEAT.z,esc.rho,true);
+  const out=procesaBarrido(cfg,esc,MUNDO,RAD.semilla); RAD.out=out; RAD.pe=pedEsperado(cfg,esc); RAD.ok=true;
+  const nube=out.nube, n=Math.min(nube.n,NUBE_MAX);
+  const ocul=ocultaVerdad(), objetos=EST.color==='obj';
+  for(let k=0;k<n;k++){
+    nPos[k*3]=nube.X[k]; nPos[k*3+1]=nube.Y[k]; nPos[k*3+2]=nube.Z[k]; nAz[k]=nube.AZ[k];
+    if(!objetos) colorDist(nube.RH[k],nCol,k*3);
+    else {
+      const c=nube.C[k], g=out.ag.etiqueta[k];
+      let col;
+      if(out.suelo[k]) col=C_SUELO; else if(c===CLASE.FANTASMA&&g<0) col=C_FANT; else if(c===CLASE.RUIDO||g<0) col=C_RUIDO;
+      else if(!ocul&&g===out.gp) col=out.confirmado?C_PED:C_AMBAR; else col=PAL_GRUPO[g%PAL_GRUPO.length];
+      const m=out.suelo[k]?0.8:1.3; nCol[k*3]=col[0]*m; nCol[k*3+1]=col[1]*m; nCol[k*3+2]=col[2]*m; }
+  }
+  nubeGeo.setDrawRange(0,n); nubeGeo.attributes.position.needsUpdate=true; nubeGeo.attributes.color.needsUpdate=true; nubeGeo.attributes.aAz.needsUpdate=true;
+  if(objetos){
+    // sólo los grupos con tamaño de objeto y a menos de 130 m, los más cercanos primero
+    const orden=out.ag.grupos.map((G,i)=>i).filter(i=>{ const G=out.ag.grupos[i]; return G.n>=LIDAR.minPts&&G.dist<130&&G.y1>0.35&&G.n>=4; }).sort((a,b)=>out.ag.grupos[a].dist-out.ag.grupos[b].dist);
+    const sel=orden.slice(0,BB_MAX), mapa=sel.map(i=>out.ag.grupos[i]);
+    escribeCajas(mapa,(gi,G)=>{ const real=sel[gi]; if(!ocul&&real===out.gp) return out.confirmado?C_PED:C_AMBAR; return PAL_GRUPO[real%PAL_GRUPO.length]; });
+  } else { bbGeo.setDrawRange(0,0); }
+  RAD.ms=performance.now()-t0; RAD.intervalo=clamp(RAD.ms*14,650,3600); RAD.ver++;
+}
+/** Qué parte de la verdad no se enseña todavía (reto sin resolver, diagnóstico, cálculo). */
+const ocultaF=()=>EST.modo==='guia'&&GUIA.paso==='predice';
+const ocultaVerdad=()=>EST.modo==='guia'&&(GUIA.paso==='decide'&&!(GUIA.r2&&GUIA.r2.validado)||GUIA.paso==='diag'&&!GUIA.dxOk||GUIA.paso==='predice')||!EST.verdad;
+const ocultaAvisos=()=>EST.modo==='guia'&&(GUIA.paso==='decide'&&!(GUIA.r2&&GUIA.r2.validado)||GUIA.paso==='diag'&&!GUIA.dxOk);
+
+/* ---------- la escena sigue al clima, al peatón y al barrido ---------- */
+let CLIMA_APL='';
+function aplicaClima(c){
+  if(c===CLIMA_APL) return; CLIMA_APL=c;
+  scene.fog.density=({despejado:0.0042,lluvia:0.0075,niebla:0.0130})[c]||0.0042;
+  LLUVIA.visible=c==='lluvia'&&!REDUCIDO;
+}
+function muevePeatonEnMundo(){
+  for(const o of MUNDO.objs) if(o.id===2){ o.cx=PEAT.x; o.cz=PEAT.z; const R=Math.hypot(o.cx,o.cz), a=Math.atan2(o.cz,Math.max(o.cx,0.01)), d=Math.asin(Math.min(1,o.r/Math.max(R,o.r*1.0001)))+0.002; o.a0=a-d; o.a1=a+d; }
+}
+const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _Y=new THREE.Vector3(0,1,0);
+const _col=new THREE.Color();
+function aplicaEscena(dt){
+  const reloj=EST.pausa?0:dt*EST.vel;
+  SIM.t+=reloj;
+  const esc=RAD.esc||ESC_MARCHA(), ciclo=SIM.t/T_VIS, fase=ciclo-Math.floor(ciclo); SIM.fase=fase;
+  aplicaClima(esc.clima);
+  nubeMat.uniforms.uFase.value=fase;
+  // --- el peatón cruza la calle; su distancia sigue al mando
+  PEAT.x+=(esc.R-PEAT.x)*Math.min(1,dt*6); if(Math.abs(esc.R-PEAT.x)<0.002) PEAT.x=esc.R;
+  const per=4*Z_CRUCE, s=((SIM.t*V_CRUCE)%per+per)%per, z=s<2*Z_CRUCE?-Z_CRUCE+s:Z_CRUCE-(s-2*Z_CRUCE), dir=s<2*Z_CRUCE?1:-1;
+  if(!EST.pausa) PEAT.z=z; PEAT.dir=dir;
+  const objetivoGiro=dir>0?-Math.PI/2:Math.PI/2; PEAT.giro+=(objetivoGiro-PEAT.giro)*Math.min(1,dt*7);
+  const act=esc.rho>0.3?PEAT.claro:PEAT.osc, ina=act===PEAT.claro?PEAT.osc:PEAT.claro;
+  act.raiz.visible=true; ina.raiz.visible=false;
+  PEAT_GRUPO.position.set(PEAT.x,0,PEAT.z); PEAT_GRUPO.rotation.y=PEAT.giro;        // la persona mira hacia donde camina; su «adelante» local es +X
+  const marcha=EST.pausa?0:1, ph=SIM.t*V_CRUCE*3.4, sw=Math.sin(ph)*0.55*marcha;
+  act.piernas[0].rotation.z=sw; act.piernas[1].rotation.z=-sw; act.brazos[0].rotation.z=-sw*0.7; act.brazos[1].rotation.z=sw*0.7;
+  act.cuerpo.position.y=Math.abs(Math.sin(ph))*0.015*marcha;
+  CEBRA.position.set(PEAT.x,0,0); ARO_PEAT.position.set(PEAT.x,0,PEAT.z); { const k=1+0.06*Math.sin(SIM.t*3); ARO_PEAT.userData.a.scale.set(k,k,k); ARO_PEAT.userData.b.scale.set(1/k,1/k,1/k); }
+  muevePeatonEnMundo();
+  // --- el espejo gira con la fase del barrido: 60° por cada barrido de 120°
+  MIR.rotation.y=-fase*Math.PI/3;
+  const az=(-LIDAR.fovH/2+fase*LIDAR.fovH)*Math.PI/180, dx=Math.cos(az), dz=Math.sin(az);
+  SENS_PARTES.haz.quaternion.setFromUnitVectors(_Y,_v.set(dx,0,dz)); SENS_PARTES.haz.scale.set(1,0.0775,1);
+  SENS_PARTES.bm.opacity=0.55+0.45*Math.sin(SIM.t*40)**2;
+  // --- el abanico láser: un rayo por canal en el azimut de este instante
+  const cfg=RAD.cfg||CFG_MARCHA(), Nv=cfg.Nv, nVis=Math.min(Nv,HAZ_N), lista=[];
+  for(const o of MUNDO.objs) if(az>=o.a0&&az<=o.a1) lista.push(o);
+  for(let c=0;c<HAZ_N;c++){
+    const o=c*6;
+    if(c>=nVis){ for(let q=0;q<6;q++) hazPos[o+q]=0; continue; }
+    const i=nVis===Nv?c:Math.floor((c+0.5)*Nv/nVis), el=elDeCanal(i,Nv)*Math.PI/180, ce=Math.cos(el), se=Math.sin(el);
+    const ex=ce*dx, ey=se, ez=ce*dz, h=trazaRayo(lista,0,H_S,0,ex,ey,ez,LIDAR.Rwin), L=h?Math.min(h.t,200):(ey>0?26:70);
+    hazPos[o]=0; hazPos[o+1]=H_S; hazPos[o+2]=0; hazPos[o+3]=ex*L; hazPos[o+4]=H_S+ey*L; hazPos[o+5]=ez*L;
+    const dim=h?1:0.55; hazCol[o]=0.03*dim; hazCol[o+1]=0.10*dim; hazCol[o+2]=0.06*dim; hazCol[o+3]=0.22*dim; hazCol[o+4]=0.85*dim; hazCol[o+5]=0.52*dim;
+  }
+  hazGeo.setDrawRange(0,nVis*2); hazGeo.attributes.position.needsUpdate=true; hazGeo.attributes.color.needsUpdate=true;
+  // --- pulsos de tiempo de vuelo hacia el peatón, un coche aparcado y una farola: la ida y la vuelta duran lo que la distancia
+  const blancos=[V3(PEAT.x,1.05,PEAT.z),V3(14.2,0.95,-5.5),V3(56,3.2,-7.8)];
+  PULSOS.forEach((p,i)=>{
+    const tgt=blancos[i], d=tgt.clone().sub(V3(0,H_S,0)), len=d.length(); d.multiplyScalar(1/len);
+    const h=trazaRayo(MUNDO.objs,0,H_S,0,d.x,d.y,d.z,LIDAR.Rwin), R=h?h.t:len;
+    const Tp=2*R/V_LUZ+1.1, tl=(((SIM.t+i*0.85)%Tp)+Tp)%Tp, ida=R/V_LUZ;
+    const cam=camera.position;
+    const pos=(x)=>V3(d.x*x,H_S+d.y*x,d.z*x);
+    p.ida.visible=tl<ida; p.vuelta.visible=tl>=ida&&tl<2*ida;
+    if(p.ida.visible){ const q=pos(R*tl/ida); p.ida.position.copy(q); p.ida.scale.setScalar(clamp(q.distanceTo(cam)*0.026,0.08,1.6)); }
+    if(p.vuelta.visible){ const q=pos(R*(1-(tl-ida)/ida)); p.vuelta.position.copy(q); p.vuelta.scale.setScalar(clamp(q.distanceTo(cam)*0.026,0.08,1.6)); }
+    const e=tl-ida, k=clamp(e/0.6,0,1);
+    p.aro.visible=e>0&&k<1; if(p.aro.visible){ const q=pos(R-0.02); p.aro.position.copy(q); p.aro.lookAt(V3(0,H_S,0)); p.aro.scale.setScalar(0.12+0.9*k); p.aro.material.opacity=0.85*(1-k); }
+  });
+  // --- lluvia que cae
+  if(LLUVIA.visible){ const t=SIM.t; for(let i=0;i<LL_N;i++){ const sd=llSeed[i], y=((sd[1]-t*sd[3])%16+16)%16, o=i*6; llPos[o]=sd[0]; llPos[o+1]=y; llPos[o+2]=sd[2]; llPos[o+3]=sd[0]-0.04; llPos[o+4]=y+0.55; llPos[o+5]=sd[2]; } llGeo.attributes.position.needsUpdate=true; }
+  // píxeles por metro para el tamaño de los puntos
+  nubeMat.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  nubeMat.uniforms.uMax.value=(esEstrecho()?14:22)*renderer.getPixelRatio();
+  nubeMat.uniforms.uMin.value=1.7*Math.max(1,renderer.getPixelRatio()*0.9);
+}
+
+/* ===================== 13. CÁMARAS =====================
+   La cámara se aleja lo justo para que la caja del objeto (ancho × alto en unidades) quepa en el hueco que dejan la
+   guía y el dock, y la proyección se desplaza para centrarla en él. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const RPED=()=>(RAD.esc?RAD.esc.R:EST.dist);
+/** Cada vista: dirección de la cámara desde el ancla, ancla, y la caja (ancho × alto, en m) que debe caber. */
+const VISTAS={
+  calle:{dir:V3(-0.88,0.33,0.24),anc:()=>V3(0.36*RPED()+2,1.0,0),obj:()=>({w:0.5*RPED()+19,h:0.14*RPED()+6.5}),fov:36},
+  peaton:{dir:V3(-0.80,0.14,0.58),anc:()=>V3(PEAT.x,0.92,PEAT.z),obj:()=>({w:3.8,h:2.9}),fov:34},
+  sensor:{dir:V3(0.34,0.26,0.90),anc:()=>V3(0,H_S+0.004,0),obj:()=>({w:0.30,h:0.25}),fov:34},
+  cenit:{dir:V3(0.001,1,0.001),anc:()=>V3(0.4*RPED()+6,0,0),obj:()=>({w:0.9*RPED()+36,h:0.5*RPED()+20}),fov:34},
+};
+const CAM={off:V3(6,3,5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?48:VISTAS[v].fov; }
+function distanciaFit(w,h,fov){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  return 1.05*Math.max(w/(2*th*wF),h/(2*tv*hF));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V3(0,0,0),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  }
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+/** El objeto del estado: el sensor, el coche y la zona de la nube (caja envolvente proyectada) frente al hueco libre y la ventana. */
+function medidaObjeto(){
+  const b=new THREE.Box3(); b.expandByObject(EGO); b.expandByPoint(V3(RPED()+3,3.2,Z_CRUCE+1)); b.expandByPoint(V3(RPED()+3,0,-Z_CRUCE-1));
+  const c=[]; for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z]) c.push(new THREE.Vector3(x,y,z));
+  let y0=1e9,y1=-1e9,x0=1e9,x1=-1e9; const v=new THREE.Vector3();
+  for(const p of c){ v.copy(p).project(camera); const sx=(v.x+1)/2*innerWidth, sy=(1-v.y)/2*innerHeight; y0=Math.min(y0,sy); y1=Math.max(y1,sy); x0=Math.min(x0,sx); x1=Math.max(x1,sx); }
+  const H=huecoLibre(); return {h:y1-y0,w:x1-x0,frac_ventana:(y1-y0)/innerHeight,frac_hueco:(y1-y0)/(H.y1-H.y0),hueco:H,caja:[x0,y0,x1,y1]};
+}
+
+
+/* ===================== 18. EL HUD (izquierda) =====================
+   Lo primero que se lee es UNA frase que dice qué hace el estudiante, y el tema explicado sin jerga. El recorrido guiado
+   (paso a paso) está abierto desde el primer momento; los mandos sueltos aparecen al terminarlo o saltarlo. */
+const fN1=(x)=>fN(x,1);
+const fDth=x=>fN(x,2)+'°', fFreq=x=>fN(x,0)+' /s', fPot=x=>fN(x,0)+' W', fDist=x=>fN(x,0)+' m';
+const NOMBRE_CLIMA={despejado:'Despejado',lluvia:'Lluvia',niebla:'Niebla'};
+/** Los mandos del láser, con sus marcas; en el reto muestran sus valores pero NO dónde está la solución. */
+function htmlMandosLaser(c){
+  return `<div class="cg"><div class="cl"><div>Láseres apilados</div><b id="vNv">${c.Nv}</b></div><div class="seg" id="segNv">${NVS.map(n=>`<button class="b ${c.Nv===n?'on':''}" data-nv="${n}">${n}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Separación entre rayos</div><b id="vD">${fDth(c.dth)}</b></div><input type="range" id="rD" min="0.1" max="0.8" step="0.05" value="${c.dth}" aria-label="Separación horizontal entre rayos, en grados">
+      <div class="marcas"><span>0,1° (fino)</span><span>0,4°</span><span>0,8° (grueso)</span></div></div>
+    <div class="cg"><div class="cl"><div>Barridos por segundo</div><b id="vF">${fFreq(c.f)}</b></div><input type="range" id="rF" min="5" max="20" step="1" value="${c.f}" aria-label="Barridos por segundo">
+      <div class="marcas"><span>5</span><span>10</span><span>20</span></div></div>
+    <div class="cg"><div class="cl"><div>Fuerza del láser</div><b id="vP">${fPot(c.P)}</b></div><input type="range" id="rP" min="5" max="150" step="5" value="${c.P}" aria-label="Potencia de pico del láser, en vatios">
+      <div class="marcas abs"><span style="left:3%">5</span><span class="lim" style="left:66.2%">100 W: límite para los ojos</span><span style="left:97%">150</span></div></div>`;
+}
+function htmlSegClima(sel){ return `<div class="cg"><div class="cl">Tiempo</div><div class="seg" id="segClima">${Object.keys(NOMBRE_CLIMA).map(k=>`<button class="b ${sel===k?'on':''}" data-clima="${k}">${NOMBRE_CLIMA[k]}</button>`).join('')}</div></div>`; }
+function htmlSegRopa(sel){ return `<div class="cg"><div class="cl">Ropa del peatón</div><div class="seg" id="segRopa">${Object.keys(ROPA).map(k=>`<button class="b ${sel===k?'on':''}" data-ropa="${k}">${ROPA[k].nombre}</button>`).join('')}</div></div>`; }
+function htmlSliderDist(v){ return `<div class="cg"><div class="cl"><div>Distancia al peatón</div><b id="vDist">${fDist(v)}</b></div><input type="range" id="rDist" min="20" max="95" step="1" value="${v}" aria-label="Distancia al peatón, en metros"><div class="marcas"><span>20</span><span>60</span><span>95 m</span></div></div>`; }
+function htmlSegColor(sel){ return `<div class="cg"><div class="cl">Colorear los puntos por</div><div class="seg" id="segColor"><button class="b ${sel==='dist'?'on':''}" data-color="dist">Distancia</button><button class="b ${sel==='obj'?'on':''}" data-color="obj">Objetos</button></div></div>`; }
+
+/** Pasos del recorrido: cada uno fija la escena, la cámara y, si hace falta, un mando para probar. */
+const TOUR=[
+  {t:'Un coche que ve con luz',txt:'El aparato del techo lanza <b>destellos de luz láser</b> y barre la calle de izquierda a derecha. Son las rayas verdes que ves.',vista:'calle',pre:{clima:'despejado',dist:45,ropa:'osc',Nv:32,dth:0.2,f:10,P:60,color:'dist'},acts:()=>''},
+  {t:'Cada rebote es un punto',txt:'Si un destello rebota en algo y vuelve, el coche anota un <b>punto</b>. Miles de puntos forman la «nube» que dibuja la calle. Prueba a colorearlos.',vista:'calle',acts:()=>htmlSegColor(EST.color)},
+  {t:'La distancia sale del tiempo',txt:'El coche mide <b>cuánto tarda</b> el destello en ir y volver. Distancia = velocidad de la luz × tiempo ÷ 2. En la gráfica de abajo, el pico es el eco del peatón.',vista:'calle',res:'gBt',acts:()=>`<button class="b sm" data-act="ver-panel">Ver la gráfica</button>`},
+  {t:'Más lejos, menos puntos',txt:'Mira al peatón: ¿cuántos puntos le caen? Aléjalo con la barra. Los rayos se abren como un abanico y le tocan cada vez menos.',vista:'peaton',res:'f_npt',acts:()=>htmlSliderDist(EST.dist)},
+  {t:'Ropa oscura, lluvia y niebla',txt:'La ropa oscura devuelve poca luz, y la lluvia y la niebla se la comen. Pruébalo y mira hasta dónde se le ve.',vista:'peaton',res:'f_alc',acts:()=>htmlSegRopa(EST.ropa)+htmlSegClima(EST.clima)},
+  {t:'Ahora te toca a ti',txt:'En el laboratorio guiado tendrás que ajustar el láser para que el coche vea al peatón sin pasarte de puntos por segundo.',vista:'calle',acts:()=>`<button class="b primary" data-act="tour-guia">Ir al laboratorio guiado</button>`},
+];
+function tourFija(i){
+  const P=TOUR[i]; if(!P) return;
+  if(P.pre) Object.assign(EST,P.pre);
+  EST.modo='marcha'; EST.sel=0; ponVista(P.vista,0.8); marcaSucio();
+  document.querySelectorAll('.resalta').forEach(e=>e.classList.remove('resalta'));
+  if(P.res){ const e=el(P.res); const box=e&&(e.closest('.fg')||e.closest('.dk-g')||e); if(box) box.classList.add('resalta'); if(esEstrecho()&&(P.res==='gBt')) { /* la hoja ya tiene pestañas: el botón «Ver la gráfica» las cambia */ } }
+}
+function htmlTour(){
+  const i=EST.tour, P=TOUR[i], n=TOUR.length;
+  return `<div class="tour"><div class="tr"><span>Recorrido · paso ${i+1} de ${n}</span><button class="pista" data-act="tour-fin">Saltar y explorar</button></div>
+    <h3>${P.t}</h3><p class="tp">${P.txt}</p><div class="tacts">${P.acts()}</div>
+    <div class="tnav"><button class="b sm" data-act="tour-ant" ${i===0?'disabled':''}>← Atrás</button><span class="pts">${TOUR.map((_,k)=>`<i class="${k===i?'on':(k<i?'ok':'')}"></i>`).join('')}</span><button class="b primary sm" data-act="tour-sig" ${i===n-1?'disabled':''}>Siguiente →</button></div></div>`;
+}
+function pintaHUD(){
+  const H=el('hud'), marcha=EST.modo==='marcha', tour=marcha&&EST.tour>=0;
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · Sensores del coche</div>`;
+  if(marcha){
+    h+=`<h2>Un láser que ve el mundo</h2>`;
+    if(tour||true) h+=`<p class="intro"><b>Ajustas un láser giratorio para que el coche vea a un peatón.</b> El láser lanza destellos y mide cuánto tardan en volver: así sabe a qué distancia está cada cosa. Cada rebote es un punto, y miles de puntos forman una «nube» que dibuja la calle. A este sensor se le llama <b>LiDAR</b>.</p></div>`;
+  } else h+=`<h2>Predice, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${marcha?'on':''}" data-mode="marcha"><i>◎</i>Explorar</button><button class="b ${!marcha?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(tour) h+=htmlTour();
+  else if(marcha){
+    h+=`<div class="hmandos"><div class="dos">${htmlSegClima(EST.clima)}${htmlSegRopa(EST.ropa)}</div>${htmlSliderDist(EST.dist)}${htmlMandosLaser(EST)}${htmlSegColor(EST.color)}
+      <div class="fila"><button class="b primary" id="btnRep">↻ Otro barrido</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">t = 2d / c ; d = c·t / 2<br>1 ns de reloj = 15 cm de distancia</div>
+    <div class="formula">P<sub>r</sub> = P<sub>t</sub>·ρ·cosθ/π · A<sub>r</sub>·η / R² · e<sup>−2αR</sup><br>P<sub>d</sub> = Q( k − P<sub>r</sub>/σ<sub>n</sub> ) , k = 4,75 (P<sub>fa</sub> = 10⁻⁶)</div>
+    <div class="formula">hueco entre puntos = R·Δθ (horizontal) y R·Δφ (vertical)<br>puntos/s = N<sub>v</sub> · (120°/Δθ) · f</div>
+    <div class="fl"><b>Suelo:</b> un punto es suelo si está a menos de 0,30 m y no «sube» más de 10° respecto al último punto de suelo.</div>
+    <div class="fl"><b>Grupos:</b> dos puntos vecinos son el mismo objeto si el ángulo β entre sus rayos y la superficie supera 12°.</div>
+    <div class="fl"><b>Lluvia y niebla:</b> restan luz (e<sup>−2αR</sup>) y devuelven ecos falsos cerca del coche: p = 1 − e<sup>−α·r<sub>bs</sub></sup>.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Pulso de 4 ns a 905 nm y blanco lambertiano que llena el haz; el peatón es un cilindro de 0,5 × 1,7 m. Sin multitrayecto, sin deslumbramiento por sol ni cristales o espejos en la escena.</li>
+    <li>Reflectividades de libro: asfalto 12 %, hormigón 40 %, coche 50 %, ropa oscura 10 % y clara 60 %. Las marcas viales no cambian la reflectividad del suelo.</li>
+    <li>Atenuación didáctica: 0,2 km⁻¹ despejado, 1,7 km⁻¹ lluvia, 13 km⁻¹ niebla (visibilidad 300 m). Los ecos falsos de las gotas siguen un modelo sencillo de retrodispersión.</li>
+    <li>Esquema: el barrido real dura 0,1 s y la luz viaja a 300 000 km/s; en pantalla van en cámara lenta (se rotula). No es un producto ni cumple IEC 60825-1: el tope de 100 W es un valor didáctico.</li>
+  </ul><div class="src">Winner et al., <i>Handbook of Driver Assistance Systems</i> · Bogoslavskyi y Stachniss (2016), segmentación por imagen de distancias · Koschmieder (visibilidad).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',!marcha); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ marcaSucio(); pintaDockFijo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-clima]').forEach(b=>b.onclick=()=>{ EST.clima=b.dataset.clima; pintaHUD(); re(); });
+  H.querySelectorAll('[data-ropa]').forEach(b=>b.onclick=()=>{ EST.ropa=b.dataset.ropa; pintaHUD(); re(); });
+  H.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{ EST.color=b.dataset.color; pintaHUD(); re(); });
+  const rd=el('rDist'); if(rd) rd.oninput=()=>{ EST.dist=+rd.value; el('vDist').textContent=fDist(EST.dist); re(); };
+  enlazaMandos(re);
+  if(el('btnRep')) el('btnRep').onclick=()=>{ RAD.semilla++; marcaSucio(); };
+  if(el('btnAuto')) el('btnAuto').onclick=()=>{ EST.tour=0; pintaHUD(); tourFija(0); };
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+/** Los mandos del láser escriben en EST en «Explorar» y en el intento del reto en el laboratorio guiado. */
+function enlazaMandos(re){
+  const dest=()=>EST.modo==='guia'&&GUIA.paso==='decide'&&GUIA.r2?GUIA.r2.cfg:EST;
+  const rD=el('rD'), rF=el('rF'), rP=el('rP');
+  if(rD) rD.oninput=()=>{ dest().dth=Math.round(+rD.value*100)/100; el('vD').textContent=fDth(dest().dth); re(); };
+  if(rF) rF.oninput=()=>{ dest().f=+rF.value; el('vF').textContent=fFreq(dest().f); re(); };
+  if(rP) rP.oninput=()=>{ dest().P=+rP.value; el('vP').textContent=fPot(dest().P); re(); };
+  document.querySelectorAll('#segNv [data-nv]').forEach(b=>b.onclick=()=>{ dest().Nv=+b.dataset.nv; document.querySelectorAll('#segNv [data-nv]').forEach(x=>x.classList.toggle('on',x===b)); el('vNv').textContent=dest().Nv; re(); });
+}
+
+/* ===================== 19. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LMP=lienzo('gMp'), LSP=lienzo('gSp'), LBT=lienzo('gBt');
+const PASOS_NICE=[1,2,5,10,20,25,50,100,200,500];
+const nice=(max,n)=>{ for(const p of PASOS_NICE) if(max/p<=n) return p; return 1000; };
+/** Alcance al que el eco del peatón de la escena llega a P_d = 90 % (cara al sensor, haz que lo llena). */
+function alcance90(cfg,esc){ return alcanceDe(cfg.P,esc.rho,CLIMAS[esc.clima].alfa,A90,1,LIDAR.pedW); }
+/* ---- Vista cenital de la nube ---- */
+const MP={ver:-1,w:0,h:0,img:null,dpr:1,Rv:0};
+function geomMapa(){ const Wd=LMP.w, Hd=LMP.h, X0=26, X1=Wd-6, Y0=6, Y1=Hd-15, Rv=Math.max(60,Math.ceil((RPED()+26)/20)*20), k=(X1-X0)/Rv; return {X0,X1,Y0,Y1,Rv,k,cy:(Y0+Y1)/2}; }
+const COLOR_CLASE={0:[62,120,184],1:[255,179,71],2:[70,255,154],3:[185,198,211],4:[120,128,138]};
+function construyeImagenMapa(){
+  const g=geomMapa(), dpr=LMP.dpr, pw=Math.max(8,Math.round((g.X1-g.X0)*dpr)), ph=Math.max(8,Math.round((g.Y1-g.Y0)*dpr)), out=RAD.out; if(!out) return;
+  const nube=out.nube, im=new ImageData(pw,ph), d=im.data, ocul=ocultaVerdad();
+  const poner=(px,py,c,a)=>{ for(let dy=0;dy<2;dy++) for(let dx=0;dx<2;dx++){ const xx=px+dx, yy=py+dy; if(xx<0||yy<0||xx>=pw||yy>=ph) continue; const o=(yy*pw+xx)*4; d[o]=Math.max(d[o],c[0]*a); d[o+1]=Math.max(d[o+1],c[1]*a); d[o+2]=Math.max(d[o+2],c[2]*a); d[o+3]=255; } };
+  for(let k=0;k<nube.n;k++){
+    const px=Math.round(nube.X[k]*g.k*dpr), py=Math.round((g.cy-g.Y0+nube.Z[k]*g.k)*dpr); if(px<0||px>=pw) continue;
+    let c, a=1; const gr=out.ag.etiqueta[k];
+    if(out.suelo[k]){ c=COLOR_CLASE[0]; a=0.65; } else if(nube.C[k]===CLASE.FANTASMA){ c=COLOR_CLASE[3]; a=0.8; } else if(nube.C[k]===CLASE.RUIDO){ c=COLOR_CLASE[4]; a=0.7; }
+    else if(!ocul&&gr>=0&&gr===out.gp) c=out.confirmado?COLOR_CLASE[2]:[255,176,46]; else c=COLOR_CLASE[1];
+    poner(px,py,c,a);
+  }
+  MP.img=document.createElement('canvas'); MP.img.width=pw; MP.img.height=ph; MP.img.getContext('2d').putImageData(im,0,0);
+  MP.ver=RAD.ver; MP.w=LMP.w; MP.h=LMP.h; MP.dpr=dpr; MP.Rv=g.Rv; MP.R=RPED();
+}
+function pintaMp(){
+  const x=abre(LMP), Wd=LMP.w, Hd=LMP.h, g=geomMapa(); if(!RAD.ok) return;
+  if(MP.ver!==RAD.ver||MP.w!==LMP.w||MP.h!==LMP.h||MP.dpr!==LMP.dpr||MP.Rv!==g.Rv) construyeImagenMapa();
+  // rejilla: cada 20 m
+  for(let R=0;R<=g.Rv+0.01;R+=20){ const px=g.X0+R*g.k; raya(x,px,g.Y0,px,g.Y1,'rgba(143,179,200,0.12)'); txt(x,String(R),px,Hd-3,'#8fa6bf',9.5,R===0?'left':'center','500'); }
+  txt(x,'m',g.X1,g.Y0+9,'#8fa6bf',9.5,'right','600');
+  raya(x,g.X0,g.cy,g.X1,g.cy,'rgba(255,255,255,0.14)',1,[2,3]);
+  if(MP.img) x.drawImage(MP.img,g.X0,g.Y0,g.X1-g.X0,g.Y1-g.Y0);
+  // el coche
+  x.fillStyle='#e9edf0'; x.fillRect(g.X0-2,g.cy-1.8*g.k,4.5*g.k*0.35+3,3.6*g.k*0.5+1); txt(x,'coche',g.X0+2,g.Y0+9,'#cfe0f2',9.5,'left','700');
+  const out=RAD.out, ocul=ocultaVerdad();
+  if(!ocul){
+    const px=g.X0+PEAT.x*g.k, py=g.cy+PEAT.z*g.k;
+    x.strokeStyle='rgba(255,255,255,0.85)'; x.lineWidth=1.1; x.setLineDash([2.5,2.5]); x.beginPath(); x.arc(px,py,7.5,0,DOSPI); x.stroke(); x.setLineDash([]);
+    if(out.gp>=0){ const G=out.ag.grupos[out.gp], bx=g.X0+G.cx*g.k, by=g.cy+G.cz*g.k, s=6, col=out.confirmado?'#46ff9a':'#ffb02e';
+      x.strokeStyle=col; x.lineWidth=1.6; for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ x.beginPath(); x.moveTo(bx+sx*s,by+sy*(s-3)); x.lineTo(bx+sx*s,by+sy*s); x.lineTo(bx+sx*(s-3),by+sy*s); x.stroke(); } }
+  }
+  el('t_mp').textContent=ocul?fN(RAD.out.nube.n/1000,1)+' mil puntos':(out.tamPed?`peatón: grupo de ${out.tamPed} puntos`:'peatón: sin grupo');
+}
+/* ---- Cuánta luz vuelve según la distancia (ecuación del lidar) ---- */
+function pintaSp(){
+  const x=abre(LSP), Wd=LSP.w, Hd=LSP.h; if(!RAD.ok) return;
+  const cfg=RAD.cfg, esc=RAD.esc, al=CLIMAS[esc.clima].alfa, Rv=Math.max(70,Math.ceil((esc.R*1.5)/10)*10);
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, X=R=>X0+R/Rv*(X1-X0);
+  const a=(rho,R,fill)=>dB(Math.max(1e-6,potEco(cfg.P,rho,1,R,al,fill?llenado(R):1)/SIGMA_N));
+  const lo=-6, hi=Math.max(46,a(0.8,4,false)+2), Y=v=>Y1-(clamp(v,lo,hi)-lo)/(hi-lo)*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0-0.5,Y0,X0-0.5,Y1,'#3d5470');
+  const dr=nice(Rv,5); for(let R=0;R<=Rv*0.999;R+=dr){ const px=X(R); raya(x,px,Y1,px,Y1+3,'#3d5470'); txt(x,String(R),px,Hd-2,'#8fa6bf',9.5,R===0?'left':'center','500'); }
+  for(let v=-0;v<=hi;v+=10){ raya(x,X0,Y(v),X1,Y(v),'rgba(143,179,200,0.09)'); txt(x,String(v),X0-4,Y(v)+3,'#8fa6bf',9.5,'right','500'); }
+  txt(x,'dB',X0+3,Y0+9,'#cfe0f2',9.5,'left','700'); txt(x,'m',X1,Hd-2,'#8fa6bf',9.5,'right','600');
+  raya(x,X0,Y(0),X1,Y(0),'rgba(143,179,200,0.45)',1,[2,3]); txt(x,'ruido',X1-3,Y(0)-3,'#8fa6bf',9.5,'right','500');
+  const trazo=(rho,col,w,dash,fill)=>{ x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]); x.beginPath(); for(let i=0;i<=120;i++){ const R=Math.max(2,Rv*i/120), px=X(R), py=Y(a(rho,R,fill)); if(i) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); x.setLineDash([]); };
+  trazo(0.8,'rgba(155,240,200,0.45)',1.2,[4,3],false);
+  const umb=dB(A90); raya(x,X0,Y(umb),X1,Y(umb),'#FFB347',1.3,[4,3]); txt(x,'se le ve (90 %)',X0+4,Y(umb)-3,'#FFB347',9.5,'left','700');
+  trazo(esc.rho,'#46e6a8',2,null,true);
+  txt(x,'blanco 80 %',X1-3,Y(a(0.8,Rv*0.62,false))-5,'rgba(155,240,200,0.8)',9.5,'right','500');
+  // marca del peatón
+  const px=X(esc.R); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.55)',1,[2,3]); txt(x,'peatón',px+3,Y0+18,'#ffffff',9.5,'left','700');
+  if(!ocultaVerdad()){ const py=Y(a(esc.rho,esc.R,true)); x.fillStyle='#fff'; x.beginPath(); x.arc(px,py,3.2,0,DOSPI); x.fill(); }
+  el('t_sp').textContent=`${ROPA[esc.rho>0.3?'claro':'osc'].nombre.toLowerCase()} · ${NOMBRE_CLIMA[esc.clima].toLowerCase()}`;
+}
+/* ---- El tiempo de vuelo: lo que ve el sensor en el rayo que apunta al peatón ---- */
+function pintaBt(){
+  const x=abre(LBT), Wd=LBT.w, Hd=LBT.h; if(!RAD.ok) return;
+  const cfg=RAD.cfg, esc=RAD.esc, al=CLIMAS[esc.clima].alfa, oF=ocultaF();
+  const Rped=EST.modo==='guia'&&GUIA.paso==='predice'&&GUIA.r1?GUIA.r1.R:esc.R, Rv=Math.max(40,Math.ceil(Rped*1.3/10)*10), Tv=tVuelo(Rv);
+  const Rs=Math.hypot(Rped,H_S-LIDAR.pedH/2), cosEl=Rped/Rs, Pr=potEco(cfg.P,esc.rho,cosEl,Rs,al,llenado(Rs)), aEco=Pr/SIGMA_N, tEco=tVuelo(Rs);
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-(oF?14:22), T=t=>X0+t/Tv*(X1-X0);
+  const lo=-8, hi=46, Y=v=>Y1-(clamp(v,lo,hi)-lo)/(hi-lo)*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0-0.5,Y0,X0-0.5,Y1,'#3d5470');
+  // eje de tiempo (µs) y, debajo, el de distancia (m): d = c·t/2
+  const dtU=nice(Tv*1e6,4)||1; for(let tu=0;tu<=Tv*1e6*0.999;tu+=dtU){ const px=T(tu*1e-6); raya(x,px,Y1,px,Y1+3,'#3d5470'); txt(x,fN(tu,dtU<1?1:0),px,Y1+12,'#8fa6bf',9.5,tu===0?'left':'center','500'); }
+  txt(x,'µs',X1,Y1+12,'#8fa6bf',9.5,'right','600');
+  if(!oF){ const dd=nice(Rv,4); for(let R=0;R<=Rv*0.999;R+=dd){ txt(x,String(R),T(tVuelo(R)),Hd-1,'rgba(155,240,200,0.85)',9.5,R===0?'left':'center','500'); } txt(x,'m',X1,Hd-1,'rgba(155,240,200,0.85)',9.5,'right','600'); }
+  for(let v=0;v<=hi;v+=10){ raya(x,X0,Y(v),X1,Y(v),'rgba(143,179,200,0.08)'); txt(x,String(v),X0-4,Y(v)+3,'#8fa6bf',9.5,'right','500'); }
+  txt(x,'dB',X0+3,Y0+9,'#cfe0f2',9.5,'left','700');
+  const umbral=dB(K_UMBRAL); raya(x,X0,Y(umbral),X1,Y(umbral),'#FFB347',1.2,[4,3]); txt(x,'umbral',X1-3,Y(umbral)-3,'#FFB347',9.5,'right','700');
+  // señal: ruido + retrodispersión de las gotas + eco del peatón; semilla del barrido
+  const rng=mulberry32(RAD.semilla*7919+13), npx=Math.max(20,Math.floor(X1-X0)), dtp=Tv/npx;
+  x.strokeStyle='#9BF0C8'; x.lineWidth=1.25; x.beginPath();
+  for(let i=0;i<=npx;i++){
+    const t=i*dtp, R=distDeTiempo(t); let sig=Math.abs(gauss(rng))*0.55+0.05*Math.abs(gauss(rng));
+    if(R>1.5) sig+=potBs(cfg.P,al,R)/SIGMA_N;
+    if(Math.abs(t-tEco)<dtp*0.75&&R<Rv) sig+=aEco;
+    if(t<dtp*1.2) sig+=2500;                         // el destello que sale del láser (se «ve» en el receptor)
+    const py=Y(dB(Math.max(sig,0.16))), px=X0+i/npx*(X1-X0); if(i) x.lineTo(px,py); else x.moveTo(px,py);
+  }
+  x.stroke();
+  // medida: de 0 al eco, por encima del ruido
+  const xe=T(tEco), ym=Y(35);
+  raya(x,X0+1,ym,xe,ym,'#ffffff',1.1); raya(x,xe,ym-4,xe,ym+4,'#ffffff',1.1); raya(x,X0+1,ym-4,X0+1,ym+4,'#ffffff',1.1);
+  const etq=`t = ${fN(tEco*1e6,2)} µs`+(oF?'':` → d = c·t/2 = ${fN(Rs,0)} m`), cx=Math.max(X0+8+0,(X0+xe)/2);
+  txt(x,etq,Math.min(X1-4,cx+(xe-X0<150?60:0)),ym-6,'#ffffff',9.5,xe-X0<150?'left':'center','600');
+  txt(x,'sale',X0+6,Y(22),'#7EE8DD',9.5,'left','700');
+  txt(x,oF?'eco':'eco del peatón',xe>X1-90?xe-5:xe+5,Y(clamp(dB(aEco),lo,hi))+(xe>X1-90?4:-2),'#FFB347',9.5,xe>X1-90?'right':'left','700');
+  el('t_bt').textContent=oF?'¿a qué distancia?':(ocultaVerdad()?'':(aEco>=A90?'eco claro':(aEco>=K_UMBRAL?'eco justo':'el eco no pasa el umbral')));
+}
+/* ---- cifras ---- */
+function pintaDockFijo(){
+  const gu=EST.modo==='guia', esc=RAD.esc||ESC_MARCHA(), cfg=cfgActual();
+  el('p_mode').textContent=gu?'Laboratorio guiado':'Explorar';
+  el('p_sub').textContent=`${cfg.Nv} láseres · ${fDth(cfg.dth)} · ${cfg.f} /s · ${cfg.P} W`;
+  el('leyMp').innerHTML=`<span class="lg"><i class="bl" style="--c:#3e78b8"></i>suelo</span><span class="lg"><i class="bl" style="--c:#ffb347"></i>objetos</span><span class="lg"><i class="bl" style="--c:#46ff9a"></i>peatón visto</span><span class="lg"><i class="bl" style="--c:#b9c6d3"></i>falsos</span>`;
+  void esc;
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  if(!RAD.ok) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  const cfg=RAD.cfg, esc=RAD.esc, pe=RAD.pe, g=geomBarrido(cfg), ocul=ocultaVerdad(), oF=ocultaF();
+  set('f_pps',fN(g.ptsSeg/1000,0)+'<small> mil/s</small>'); _cl('f_pps',esc.presupuesto&&g.ptsSeg>esc.presupuesto&&!ocultaAvisos()?'bad':'');
+  set('f_sep',fN(pe.sepH*100,0)+'<small> × </small>'+fN(pe.sepV*100,0)+'<small> cm</small>');
+  if(ocul){ set('f_npt','¿?'); _cl('f_npt','oculto'); } else { set('f_npt','≈'+fN(pe.E,1)); _cl('f_npt',pe.E<LIDAR.Nmin?'warn':''); }
+  set('f_vue',oF?'¿?':fN(tVuelo(pe.Rs)*1e6,2)+'<small> µs</small>'); _cl('f_vue',oF?'oculto':'');
+  if(ocul){ set('f_eco','¿?'); _cl('f_eco','oculto'); set('f_alc','¿?'); _cl('f_alc','oculto'); }
+  else { set('f_eco',(pe.margenDB>=0?'+':'')+fN(pe.margenDB,1)+'<small> dB</small>'); _cl('f_eco',pe.margenDB<0?'bad':(pe.margenDB<3?'warn':''));
+    const al=alcance90(cfg,esc); set('f_alc',fN(al,0)+'<small> m</small>'); _cl('f_alc',al<esc.R?'bad':''); }
+  const Av=el('aviso'); let cl='', t='';
+  if(!ocultaAvisos()){
+    if(cfg.P>LIDAR.Pojo+1e-9){ cl='mal'; t='Por encima de los '+LIDAR.Pojo+' W: se pasa del límite de seguridad para los ojos en este modelo.'; }
+    else if(pe.pg>0.05){ cl='ojo'; t=(esc.clima==='niebla'?'La niebla':'La lluvia')+' devuelve falsos puntos cerca del coche (el '+fN(pe.pg*100,0)+' % de los destellos); bajar la fuerza del láser los reduce.'; }
+    else if(esc.presupuesto&&esc.presupuesto<1e8&&g.ptsSeg>esc.presupuesto){ cl='ojo'; t='Pasas de '+fN(esc.presupuesto/1000,0)+' mil puntos por segundo.'; }
+  }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+  pintaReloj();
+}
+
+/* ===================== 20. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×1/4'],[0.5,'×1/2'],[1,'×1'],[2,'×2']];
+el('vbar').innerHTML=[['calle','Calle'],['peaton','Peatón'],['sensor','Sensor'],['cenit','Desde arriba']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  const cfg=RAD.cfg||cfgActual(); el('tLento').textContent='barrido ×1/'+fN(T_VIS*cfg.f/EST.vel,0)+' · luz ×1/'+fN(C0/V_LUZ/EST.vel,0);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const e=el('tEst'); if(!RAD.ok) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
+  const out=RAD.out, g=geomBarrido(RAD.cfg), ocul=ocultaVerdad(); let t, c;
+  if(ocul){ t=fN(out.nube.n/1000,1)+' mil puntos en el barrido'; c='#9BF0C8'; } else { t=`peatón: ${out.tamPed} puntos · ${fN(g.ptsSeg/1000,0)} mil/s`; c=out.confirmado?'#34d399':'#ffb02e'; }
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 21. RÓTULOS Y TOOLTIP ===================== */
+const cercaSensor=()=>camera.position.distanceTo(SENS.position)<3.2;
+const ANCLAS=[
+  ['Cristal protector',()=>V3(0.03,H_S+0.06,-0.077),cercaSensor],
+  ['Espejo de seis caras',()=>V3(0.02,H_S+0.03,0.025),cercaSensor],
+  ['Diodo láser (emite)',()=>V3(-0.065,H_S+0.045,0),cercaSensor],
+  ['Lente (recibe el eco)',()=>V3(-0.052,H_S-0.015,0.02),cercaSensor],
+  ['Placa de control',()=>V3(0.03,H_S-0.087,-0.04),cercaSensor],
+  ['Láser giratorio (techo)',()=>V3(0,H_S+0.12,0),()=>!cercaSensor()],
+  ['Coche',()=>V3(-0.4,1.2,0.9),()=>!cercaSensor()],
+  ['Anillos del suelo',()=>V3(9.5,0.02,2.2),()=>!cercaSensor()&&EST.vista!=='peaton'],
+  ['Peatón',()=>V3(PEAT.x,1.95,PEAT.z),()=>!cercaSensor()],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(155,240,200,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,ok],i)=>{ if(!ok()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  carcasa:'Carcasa del LiDAR, cortada por la mitad para ver dentro. El aparato real mide unos 17 cm de ancho',
+  corte:'Cara de corte: el rayado a 45° marca el material seccionado',
+  vidrio:'Cristal protector: deja pasar la luz del láser (905 nm) y su eco',
+  espejo:'Espejo de seis caras que gira: cada cara barre 120° al girar 60° y reparte los destellos por la calle',
+  laser:'Diodo láser: emite destellos de 4 nanosegundos. Aquí se dibuja un solo diodo; el aparato real apila 16 a 128',
+  lente_rx:'Lente que recoge el eco y lo enfoca sobre el detector. Cuanto más grande, más luz atrapa',
+  placa:'Placa de control: mide el tiempo entre el destello y su eco con un reloj de 1 ns (15 cm)',
+  motor:'Motor que hace girar el espejo',
+  conector:'Conector del mazo: alimentación y datos',
+  haz:'Haz láser: un rayo por cada láser apilado, hasta lo primero que toca',
+  coche:'Coche con el sensor en el techo, a 1,80 m del suelo',
+  peaton:'Peatón de 0,5 × 1,7 m. Ropa oscura: devuelve ~10 % de la luz. Ropa clara: ~60 %',
+  asfalto:'Suelo: devuelve poca luz y en ángulo rasante, por eso sólo se ve cerca, en anillos',
+  acera:'Acera: un escalón de 15 cm',
+  fachada:'Fachadas: reflejan bien y dibujan paredes en la nube',
+  aparcado:'Vehículo aparcado',
+  poste:'Poste de farola: un obstáculo fino, que sale como una columna de puntos',
+  farola:'Lámpara',
+  arbol:'Árbol: tronco y copa',
+  eco:'Eco: el destello vuelve desde el blanco',
+  pulso:'Destello de luz en cámara lenta: ida (verde) y vuelta (naranja). Lo que tarda es proporcional a la distancia',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([SENS,EGO,CALLE,PEAT_GRUPO],true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; if(h.object.material&&h.object.material.opacity<0.35&&h.object.userData.pieza==='vidrio'&&hits.length>1) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object; while(o){ if(o.userData&&o.userData.pieza&&INFO[o.userData.pieza]) return o.userData.pieza; o=o.parent; } return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 22. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+/* ===================== 23. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Predice (la distancia que corresponde a un tiempo de vuelo), 2 · Ajusta (láseres apilados, separación entre
+   rayos, barridos por segundo y fuerza del láser para que el coche vea a un peatón concreto dentro de un presupuesto de puntos
+   por segundo; el veredicto de cada criterio sólo aparece al validar) y 3 · Diagnostica (¿por qué falló este sensor?, sólo
+   con lo que se ve en el dock y en la escena) y cierra con un quiz de tres preguntas. Cuatro validaciones fallidas cambian el
+   escenario (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0,clave:''};
+const CFG_RETO0=()=>({Nv:32,dth:0.2,f:10,P:60});
+
+/* ---------- Fase 1 · Predice ---------- */
+const CASOS1=[0.20,0.30,0.40,0.50,0.35,0.60,0.25,0.45,0.80,0.15];     // tiempos de vuelo (µs)
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.i; let i; do{ i=Math.floor(Math.random()*CASOS1.length); }while(i===p); const t=CASOS1[i];
+  GUIA.r1={i,t,R:distDeTiempo(t*1e-6),ans:distDeTiempo(t*1e-6)}; }
+function checkPredice(){
+  const raw=String((el('ansV')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la distancia en metros (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(0.5,0.03*ok)){
+    RETO.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`La luz va a c = 299 792 458 m/s y en ${fN(r.t,2)} µs recorre ${fN(C0*r.t*1e-6,1)} m, pero esa es la ida <b>y</b> la vuelta. El obstáculo está a la mitad: d = c·t/2 = <b>${fN(ok,1)} m</b>. Un paso del reloj de 1 ns equivale a 15 cm.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal();
+    const q=v/ok; let pista;
+    if(Math.abs(q-2)<0.12) pista='Has contado el viaje de ida y vuelta completo: el obstáculo está a la mitad de lo que recorre la luz.';
+    else if(Math.abs(q-0.5)<0.06) pista='Has dividido dos veces entre 2: el tiempo ya es el de ida y vuelta, y sólo hay que partirlo una vez.';
+    else if(Math.abs(q-1000)<80||Math.abs(q-0.001)<0.0001) pista='Revisa las unidades: el tiempo está en microsegundos (millonésimas de segundo) y la respuesta se pide en metros.';
+    else pista=`Tu resultado está ${v>ok?'alto':'bajo'}. Multiplica la velocidad de la luz (300 000 km/s) por el tiempo y recuerda que la luz va y vuelve.`;
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso: piensa cuánto camino hace la luz en ese tiempo y cuánto de él es sólo la ida.'); marcaSucio(); pintaHUD(); pintaDockFijo(); }
+    else { feedback('bad','Revisa el cálculo',pista+` (intentos fallidos: ${RETO.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETO.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta el láser ---------- */
+const CLAVES_ESC=['osc_despejado','osc_lluvia','claro_niebla','osc_niebla','claro_lluvia','claro_lejos'];
+function prepararDecide(){
+  let c; do{ c=pickOne(CLAVES_ESC); }while(c===GUIA.clave&&CLAVES_ESC.length>1); GUIA.clave=c;
+  GUIA.r2={clave:c,esc:Object.assign({},ESCENARIOS[c]),cfg:CFG_RETO0(),validado:false,res:null,intentos:0,ventana:null};
+  marcaSucio(); pintaHUD(); pintaDockFijo();
+}
+const MENSAJES_CRIT={
+  eco:(c,e,r)=>`<b>Eco:</b> al peatón le llega ${fN(-c.val,1)} dB menos luz de la necesaria para verlo el 90 % de las veces. La ropa ${e.rho>0.3?'clara':'oscura'}, los ${fN(e.R,0)} m y ${e.clima==='despejado'?'el aire':'la '+e.clima} se comen la luz: la fuerza del láser es lo que la repone.`,
+  puntos:(c,e,r)=>`<b>Puntos:</b> al peatón le caen unos ${fN(c.val,1)} y hacen falta ${c.lim}. Entre un punto y otro hay ${fN(r.pe.sepH*100,0)} cm a lo ancho y ${fN(r.pe.sepV*100,0)} cm a lo alto, y el peatón sólo mide 50 × 170 cm.`,
+  presupuesto:(c)=>`<b>Presupuesto:</b> tu ajuste lanza ${fN(c.val/1000,0)} mil puntos por segundo y el equipo sólo procesa ${fN(c.lim/1000,0)} mil.`,
+  ojo:(c)=>`<b>Ojos:</b> ${fN(c.val,0)} W pasa del límite de seguridad de ${c.lim} W: un láser así puede dañar la vista de quien lo mire de cerca.`,
+  reaccion:(c)=>`<b>Rapidez:</b> el coche necesita confirmar al peatón en 3 barridos seguidos en menos de ${fN(c.lim,2)} s, y con tus barridos por segundo tardaría ${fN(c.val,2)} s.`,
+  fantasmas:(c,e)=>`<b>Falsos puntos:</b> con esta fuerza el ${fN(c.val*100,0)} % de los destellos rebota en las gotas de ${e.clima==='niebla'?'niebla':'lluvia'} cerca del coche y devuelve un punto que no existe (el máximo tolerado es ${fN(c.lim*100,0)} %).`,
+};
+const NOM_CRIT={eco:'Eco',puntos:'Puntos',presupuesto:'Presupuesto',ojo:'Seguridad ocular',reaccion:'Rapidez',fantasmas:'Falsos puntos'};
+function validarDecide(){
+  const r=GUIA.r2; if(!r) return;
+  const ev=evaluaConfig(r.cfg,r.esc); r.res=ev; r.validado=true; r.intentos++; RETO.intentos++;
+  const malos=ev.criterios.filter(c=>!c.ok);
+  if(!malos.length){
+    RETO.fallos2=0; sonido.bien(); r.ventana=ventanaReto(r.esc); const v=r.ventana;
+    feedback('good','¡Lo conseguiste! ✓',`Con <b>${r.cfg.Nv} láseres</b>, <b>${fDth(r.cfg.dth)}</b>, <b>${r.cfg.f} barridos/s</b> y <b>${r.cfg.P} W</b> el coche ve al peatón con ~${fN(ev.pe.E,1)} puntos. Para este caso sirven ${v.canales.join(', ')} láseres, separaciones de hasta ${fDth(v.dthMax)}, entre ${v.fMin} y ${v.fMax} barridos por segundo y de ${v.Pmin} a ${v.Pmax} W. Cada mando compra algo y cuesta otra cosa: más láseres y rayos más juntos dan más puntos pero gastan presupuesto; más fuerza ve más lejos pero ilumina las gotas y se acerca al límite de los ojos.`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    const msg=malos.map(c=>MENSAJES_CRIT[c.k](c,r.esc,ev)).join('<br>');
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'<br>Cambia el caso: el peatón, el tiempo y el presupuesto son otros.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+`<br>(validaciones fallidas: ${RETO.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'puntos', t:'Rayos demasiado separados', cfg:{Nv:16,dth:0.5,f:10,P:80}, esc:{R:50,rho:REFL.claro,clima:'despejado',presupuesto:1e9}},
+  {k:'eco',    t:'Eco demasiado débil',       cfg:{Nv:64,dth:0.15,f:10,P:12}, esc:{R:85,rho:REFL.osc,clima:'despejado',presupuesto:1e9}},
+  {k:'fantasma',t:'Falsos puntos de la niebla',cfg:{Nv:64,dth:0.25,f:10,P:100}, esc:{R:30,rho:REFL.claro,clima:'niebla',presupuesto:1e9}},
+];
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k)); marcaSucio(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira en la gráfica de abajo si el eco del peatón pasa del umbral, y en la nube si el peatón tiene puntos y si hay puntos de más pegados al coche.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  const e=GUIA.dx; const pe=pedEsperado(e.cfg,e.esc);
+  if(k==='puntos') return `Rayos demasiado separados: el eco del peatón sí vuelve fuerte (+${fN(pe.margenDB,0)} dB sobre lo necesario), pero entre un punto y otro hay ${fN(pe.sepH*100,0)} cm a lo ancho y ${fN(pe.sepV*100,0)} cm a lo alto, y el peatón mide 50 × 170 cm: le caen ~${fN(pe.E,1)} puntos. Más láseres apilados o rayos más juntos (a costa de puntos por segundo) lo arreglan.`;
+  if(k==='eco') return `Eco demasiado débil: a ${fN(e.esc.R,0)} m con ropa oscura y sólo ${e.cfg.P} W vuelve ${fN(-pe.margenDB,0)} dB menos luz de la necesaria. La gráfica lo muestra: el pico del peatón queda bajo el umbral, y los puntos que sí caerían en geometría no se detectan. Hace falta más fuerza (sin pasar del límite de los ojos) o acercarse.`;
+  return `Falsos puntos de la niebla: con ${e.cfg.P} W cada destello tiene un ${fN(pe.pg*100,0)} % de rebotar en las gotas a menos de ${fN(rBs(e.cfg.P,CLIMAS.niebla.alfa),0)} m del coche. El peatón sí se ve, pero la nube se llena de una neblina de puntos que no existen. Bajar la fuerza del láser reduce esa neblina.`;
+}
+function noEs(k){
+  if(k==='puntos') return 'Si fuera por rayos separados, el pico del eco del peatón estaría claramente por encima del umbral y el peatón tendría sólo uno o dos puntos.';
+  if(k==='eco') return 'Si el problema fuera el eco débil, el pico del peatón en la gráfica de abajo se quedaría por debajo del umbral naranja.';
+  return 'Los falsos puntos de la niebla no hacen desaparecer al peatón: aparecen como una neblina de puntos pegada al coche, y en la gráfica de abajo como un hombro al principio de la señal.';
+}
+const QUIZ=[
+  {q:'Si el eco de un destello tarda el doble en volver, ¿qué pasó con la distancia al obstáculo?',ok:'Es el doble (d = c·t/2)',mal:['Es la mitad','Es cuatro veces mayor','No cambia: la luz siempre tarda lo mismo']},
+  {q:'Un peatón se aleja al doble de distancia. Con el mismo láser, ¿cuántos puntos le caen aproximadamente?',ok:'Unos 4 veces menos: los puntos se reparten en ancho y en alto',mal:['La mitad','Los mismos','8 veces menos']},
+  {q:'¿Por qué no basta con poner la fuerza del láser al máximo?',ok:'Por la seguridad de los ojos y porque la lluvia y la niebla devuelven más falsos puntos',mal:['Porque el láser se funde','Porque el eco llega más despacio','Porque la luz viaja más lenta con más fuerza']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+const VISTA_PASO={predice:'sensor',decide:'peaton',diag:'calle',quiz:'calle',completo:'calle'};
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='guia'){ ponVista(VISTA_PASO[p],0.8); pintaHUD(); marcaSucio(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','La luz recorre unos 300 metros cada millonésima de segundo (1 µs). Calcula cuánto camino hace en el tiempo del enunciado.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','Ese camino es de ida y vuelta, así que el obstáculo está a la mitad: d = c·t / 2.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarDecide(); break;
+    case 'dx-puntos': diagnostica('puntos'); break; case 'dx-eco': diagnostica('eco'); break; case 'dx-fantasma': diagnostica('fantasma'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+    case 'tour-sig': if(EST.tour<TOUR.length-1){ EST.tour++; tourFija(EST.tour); pintaHUD(); } break;
+    case 'tour-ant': if(EST.tour>0){ EST.tour--; tourFija(EST.tour); pintaHUD(); } break;
+    case 'tour-fin': EST.tour=-1; document.querySelectorAll('.resalta').forEach(e=>e.classList.remove('resalta')); pintaHUD(); ponVista('calle',0.8); break;
+    case 'tour-guia': EST.tour=-1; document.querySelectorAll('.resalta').forEach(e=>e.classList.remove('resalta')); setMode('guia',true); break;
+    case 'ver-panel': { const b=document.body; if(b.classList.contains('estrecho')){ b.classList.remove('t-hud'); b.classList.add('t-panel'); disposicion(); centraEnHueco(); } break; }
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿A qué distancia está el obstáculo?',
+      teach:`Un destello de láser sale del coche y su eco vuelve <b>${fN(r.t,2)} µs</b> después (µs = millonésima de segundo). La luz va a 300 000 km/s. En la gráfica de abajo, el pico es ese eco.<div class="task">¿A cuántos metros está el obstáculo? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? m" aria-label="Distancia en metros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando…',teach:'',acts:''};
+      const E=r.esc, ev=r.validado&&r.res?r.res:null;
+      const filas=ev?ev.criterios.map(c=>`<div class="esc"><span>${NOM_CRIT[c.k]}</span><span class="rs ${c.ok?'ok':'mal'}">${c.ok?'✓':'✗'}</span></div>`).join(''):'';
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Que el coche vea al peatón',
+      teach:`<b>${E.nombre}</b>: está a <b>${fN(E.R,0)} m</b>. Ajusta el láser para que el coche lo vea bien (unos ${LIDAR.Nmin} puntos o más), sin pasar de <b>${fN(E.presupuesto/1000,0)} mil puntos por segundo</b> y confirmándolo en 3 barridos seguidos en 0,3 s.${filas?`<div class="escs">${filas}</div>`:''}<div class="why"><b>Sin revelar.</b> El resultado de cada criterio sale sólo al validar. ${tri('d_try2',RETO.fallos2,4)}</div>`,
+      acts:`${htmlMandosLaser(r.cfg)}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k), N={puntos:'Rayos demasiado separados: al peatón le caen pocos puntos',eco:'Eco demasiado débil: no vuelve luz suficiente',fantasma:'Niebla: el láser dibuja puntos que no existen'};
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué falló?',title:'Averigua la causa sin ver los mandos',
+      teach:`Este sensor no consigue ver bien al peatón. Compara la nube, la gráfica del eco y el umbral naranja.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${N[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Explorar</b> y mueve el peatón, la ropa y el tiempo: ningún ajuste mejora todo a la vez, y ése es el diseño de un LiDAR.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt ${GUIA.paso==='decide'?'optM':''}" id="actOpt">${C.acts}</div></div>`;
+}
+/** Configuración y escena que corren en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaCfg(){
+  if(GUIA.paso==='predice') return CFG_RETO0();
+  if(GUIA.paso==='decide'&&GUIA.r2) return GUIA.r2.cfg;
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx) return GUIA.dx.cfg;
+  return null;
+}
+function guiaEsc(){
+  if(GUIA.paso==='predice') return {R:45,rho:REFL.osc,clima:'despejado',presupuesto:1e9};
+  if(GUIA.paso==='decide'&&GUIA.r2) return GUIA.r2.esc;
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx) return GUIA.dx.esc;
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); GUIA.paso='predice'; GUIA.phase=0; }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  document.querySelectorAll('.resalta').forEach(e=>e.classList.remove('resalta'));
+  marcaSucio(); ponVista(EST.modo==='guia'?VISTA_PASO[GUIA.paso]:(EST.tour>=0?TOUR[EST.tour].vista:'calle'),0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ===================== 24. SONIDO (sintetizado) =====================
+   Los tonos de acierto y de fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination); }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 14. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  nubeMat.uniforms.uLuz.value=alta?1:1.25;           // sin resplandor la nube se compensa para leerse igual
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); ponVista(EST.vista,0.001); centraEnHueco(); RAD.ver++; pintaDockFijo();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 15. EL LAZO: UN SOLO RELOJ ===================== */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const ahora=performance.now();
+  if(RAD.sucio||(!EST.pausa&&ahora-RAD.tUlt>RAD.intervalo)){ if(!RAD.sucio) RAD.semilla=(RAD.semilla+1)|0; recalculaLidar(); }
+  aplicaEscena(dt);
+  pasaCam(dt);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); }
+  if(t-tLienzo>0.05&&seVe(el('panel'))){ tLienzo=t; pintaMp(); pintaSp(); pintaBt(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 16. ARRANQUE ===================== */
+disposicion();
+aplicaCalidad();
+recalculaLidar();
+pintaHUD();
+aplicaEscena(0);
+pintaBarras();
+ponVista('calle',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 17. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{t:GUIA.r1.t,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{clave:GUIA.r2.clave,cfg:GUIA.r2.cfg,validado:GUIA.r2.validado,ventana:GUIA.r2.ventana}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho,tour:EST.tour}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const o=RAD.out; return {cfg:RAD.cfg,esc:RAD.esc,ms:RAD.ms,n:o?o.nube.n:0,nPed:o?o.nPed:0,tamPed:o?o.tamPed:0,confirmado:o?o.confirmado:false,E:RAD.pe?RAD.pe.E:0,grupos:o?o.ag.grupos.length:0,nSuelo:o?o.nube.nSuelo:0,nFant:o?o.nube.nFant:0,nRuido:o?o.nube.nRuido:0,ptsSeg:RAD.cfg?geomBarrido(RAD.cfg).ptsSeg:0}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,modo:EST.modo,color:EST.color,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  objeto:()=>medidaObjeto(),
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2,dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); marcaSucio(); pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(i)=>{ EST.tour=i; pintaHUD(); if(i>=0) tourFija(i); },
+  paso:(p)=>{ if(EST.modo!=='guia') setMode('guia',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setCfg:(o)=>{ if(GUIA.r2){ Object.assign(GUIA.r2.cfg,o); marcaSucio(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; marcaSucio(); pintaHUD(); pintaDockFijo(); },
+  ventana:(k)=>ventanaReto(ESCENARIOS[k]),
+  evalua:(k,cfg)=>{ const e=evaluaConfig(cfg,ESCENARIOS[k]); return {ok:e.ok,criterios:e.criterios.map(c=>[c.k,c.ok])}; },
+  soluciona:()=>{ const esc=GUIA.r2.esc; for(const Nv of NVS) for(let dth=0.1;dth<=0.8;dth+=0.05) for(const f of [10,12]) for(let P=10;P<=100;P+=5){ const c={Nv,dth:Math.round(dth*100)/100,f,P}; if(evaluaConfig(c,esc).ok){ Object.assign(GUIA.r2.cfg,c); marcaSucio(); pintaHUD(); return c; } } return null; },
+});
+instalaDiag('lidar-nube-puntos',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{sensor:SENS,coche:EGO,calle:CALLE,haz:HAZ}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-lidar-nube-puntos.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

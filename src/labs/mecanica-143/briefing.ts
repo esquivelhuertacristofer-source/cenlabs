@@ -7,9 +7,9 @@ const briefing: BriefingConfig = {
   acento: "#2A9D8F",
   duracion: 40,
   videoUrl: '',
-  bienvenida: `Detrás del paragolpes de un coche hay un radar de 77 GHz. Lo verás abierto en corte, con sus antenas de emisión y recepción, y a su alrededor las ondas de color de cada chirp.
-El radar no mide el tiempo del eco: mezcla lo que emite con lo que vuelve, y la distancia se convierte en una frecuencia. Una FFT da la distancia y otra, entre chirps, la velocidad.
-Primero calculas esa frecuencia de batido; luego eliges ancho de banda, duración del chirp y número de chirps para medir bien a dos vehículos, y al final diagnosticas por qué falló un radar sin ver sus mandos.`,
+  bienvenida: `Ajustas un radar de coche para que mida a qué distancia y a qué velocidad va el vehículo de adelante.
+El radar lanza un silbido cuyo tono sube muy rápido (un chirp) y escucha el eco. La diferencia entre el tono que sale y el que vuelve da la distancia (es la frecuencia de batido), y un analizador de tonos (la FFT) la lee. El cambio de tono entre silbidos, como el de la sirena de una ambulancia, da la velocidad.
+Primero calculas esa diferencia de tonos; luego eliges ancho de banda, duración del chirp y número de chirps para medir bien a dos vehículos, y al final diagnosticas por qué falló un radar sin ver sus mandos.`,
   conceptos: [
     { icono: '📡', nombre: 'Chirp y frecuencia de batido', descripcion: 'El radar barre B hertz en T_c segundos; el eco de un objeto a distancia R vuelve con retraso 2R/c y, al mezclarlo con lo emitido, da f_b = 2·B·R/(c·T_c).' },
     { icono: '📏', nombre: 'Resolución y límites', descripcion: 'ΔR = c/(2B) separa distancias, Δv = λ/(2·N·T_c) separa velocidades, y R_máx y v_máx = λ/(4T_c) marcan hasta dónde la medida no se pliega.' },

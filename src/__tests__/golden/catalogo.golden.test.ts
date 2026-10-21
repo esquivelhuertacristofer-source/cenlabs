@@ -56,7 +56,7 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       fisica: ['fisica-1', 'fisica-3', 'fisica-6', 'fisica-9', 'fisica-10'],
       matematicas: ['matematicas-5', 'matematicas-6', 'matematicas-7', 'matematicas-8', 'matematicas-9', 'matematicas-10'],
       biologia: ['biologia-2', 'biologia-3', 'biologia-4', 'biologia-6', 'biologia-7', 'biologia-8'],
-      mecanica: ['mecanica-1', 'mecanica-3', 'mecanica-4', 'mecanica-7', 'mecanica-127', 'mecanica-128', 'mecanica-129', 'mecanica-130', 'mecanica-131', 'mecanica-132', 'mecanica-133', 'mecanica-134', 'mecanica-135', 'mecanica-136', 'mecanica-137', 'mecanica-138', 'mecanica-139', 'mecanica-140', 'mecanica-141', 'mecanica-142', 'mecanica-143', 'mecanica-146', 'mecanica-147', 'mecanica-49', 'mecanica-111', 'mecanica-112', 'mecanica-123'],
+      mecanica: ['mecanica-1', 'mecanica-3', 'mecanica-4', 'mecanica-7', 'mecanica-127', 'mecanica-128', 'mecanica-129', 'mecanica-130', 'mecanica-131', 'mecanica-132', 'mecanica-133', 'mecanica-134', 'mecanica-135', 'mecanica-136', 'mecanica-137', 'mecanica-138', 'mecanica-139', 'mecanica-140', 'mecanica-141', 'mecanica-142', 'mecanica-143', 'mecanica-145', 'mecanica-146', 'mecanica-147', 'mecanica-49', 'mecanica-111', 'mecanica-112', 'mecanica-123'],
     };
     for (const cat of CATEGORIAS) {
       const destacadas = catalogoDeCategoria(cat).filter((i) => i.destacada).map((i) => i.id).sort();

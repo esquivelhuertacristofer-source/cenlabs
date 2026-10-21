@@ -160,6 +160,22 @@
   .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
   .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
   .tabs{display:none}
+  .tour{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:31;width:min(440px,calc(100vw - 24px));background:rgba(9,18,30,.97);backdrop-filter:blur(14px);border:1px solid var(--accent);border-radius:14px;padding:12px 15px 11px;box-shadow:0 18px 50px rgba(0,0,0,.6);display:none;flex-direction:column;gap:7px}
+  .tour.on{display:flex}
+  .tour .tn{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:flex;justify-content:space-between;gap:8px}
+  .tour h3{font-size:15.5px;line-height:1.2}
+  .tour p{font-size:13px;line-height:1.5;color:#c9d6e4}
+  .tour p b{color:var(--accent2);font-weight:600}
+  .tour .tb{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:2px}
+  .tour .tb .b{padding:7px 14px}
+  .tour .skip{background:none;border:0;color:var(--dim);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12px;padding:6px 2px}
+  .tourHi{outline:2px solid var(--hv)!important;outline-offset:-2px;border-radius:10px;animation:tpulse 1.4s ease-in-out infinite}
+  @keyframes tpulse{50%{outline-color:rgba(255,183,3,.35)}}
+  @media (prefers-reduced-motion:reduce){ .tourHi{animation:none} }
+  body.estrecho .tour{top:100px} body.movil .tour{top:92px;padding:10px 12px 9px;gap:5px} body.movil .tour p{font-size:12.3px;line-height:1.42}
+  .pro3{position:fixed;z-index:13;pointer-events:none;font-size:12px;font-weight:700;color:#06201c;background:var(--hv);padding:3px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);display:none;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+  .pro3:after{content:'';position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:var(--hv)}
+  .pro3.rad{background:var(--accent);}.pro3.rad:after{border-top-color:var(--accent)}
   @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} }
   @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
 
@@ -229,25 +245,26 @@
 <div class="panel" id="panel">
   <div class="dk-t"><span id="p_mode">Ciudad</span><span class="sub" id="p_sub"></span></div>
   <div class="dk-fig">
-    <div class="fg"><div class="fl">Resolución ΔR</div><b id="f_dr">—</b></div>
-    <div class="fg"><div class="fl">Alcance R máx</div><b id="f_rm">—</b></div>
-    <div class="fg"><div class="fl">Memoria</div><b id="f_mem">—</b></div>
-    <div class="fg"><div class="fl">Resolución Δv</div><b id="f_dv">—</b></div>
-    <div class="fg"><div class="fl">Velocidad v máx</div><b id="f_vm">—</b></div>
-    <div class="fg"><div class="fl">Ciclo N·T<sub>c</sub></div><b id="f_cy">—</b></div>
+    <div class="fg"><div class="fl" title="Resolución en distancia (ΔR): la mínima separación a la que el radar distingue dos objetos">Detalle distancia</div><b id="f_dr">—</b></div>
+    <div class="fg"><div class="fl" title="Alcance máximo (R máx): hasta dónde mide sin cortar el eco">Alcance máximo</div><b id="f_rm">—</b></div>
+    <div class="fg"><div class="fl" title="Memoria del chip que usa esta configuración">Memoria usada</div><b id="f_mem">—</b></div>
+    <div class="fg"><div class="fl" title="Resolución en velocidad (Δv): la mínima diferencia de velocidad que distingue">Detalle velocidad</div><b id="f_dv">—</b></div>
+    <div class="fg"><div class="fl" title="Velocidad máxima (v máx): por encima de ella la velocidad se mide mal (alias)">Velocidad máx.</div><b id="f_vm">—</b></div>
+    <div class="fg"><div class="fl" title="Ciclo N·Tc: lo que tarda una medida completa (N chirps)">Tiempo por medida</div><b id="f_cy">—</b></div>
   </div>
-  <div class="dk-tit t-mp">Mapa rango–Doppler <span id="t_mp"></span></div>
+  <div class="dk-tit t-mp" title="Mapa rango–Doppler: resultado de las dos FFT">Mapa distancia–velocidad <span id="t_mp"></span></div>
   <div class="dk-g mp" id="gMp"><canvas></canvas></div>
   <div class="dk-ley" id="leyMp"></div>
-  <div class="dk-tit t-sp">Espectro de rango y umbral CFAR <span id="t_sp"></span></div>
+  <div class="dk-tit t-sp" title="Espectro de rango con el umbral CFAR">Ecos por distancia y umbral <span id="t_sp"></span></div>
   <div class="dk-g sp" id="gSp"><canvas></canvas></div>
-  <div class="dk-tit t-bt">Chirp y señal de batido <span id="t_bt"></span></div>
+  <div class="dk-tit t-bt" title="Chirp y señal de batido">Barrido y diferencia de tonos <span id="t_bt"></span></div>
   <div class="dk-g bt" id="gBt"><canvas></canvas></div>
   <div class="dk-aviso" id="aviso"></div>
 </div>
 <div class="vbar" id="vbar"></div>
 <div class="tbar" id="tbar"></div>
 <div class="toast" id="toast"></div>
+<div class="tour" id="tour" role="dialog" aria-label="Recorrido guiado" aria-live="polite"></div>
 <div class="feedback" id="feedback">
   <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
   <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
@@ -782,7 +799,7 @@ function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i
 const SUELO_Y=-1.35;                      // plano de la carretera
 const X0R=2.3, KR=0.052;                  // R (m) → X de la escena: X = X0R + R·KR
 const xDeR=R=>X0R+R*KR;
-const KS=0.11;                            // escala de los vehículos (m → u): esquema
+const KS=0.15;                            // escala de los vehículos (m → u): esquema
 const ORIGEN=new THREE.Vector3(0.66,0,0); // centro del radomo: de aquí salen las ondas
 function caja(w,h,d,mat,x,y,z,sombra=true){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=sombra; m.receiveShadow=true; return m; }
 function cil(r,l,mat,x,y,z,eje='x',seg=16){ const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,seg),mat); if(eje==='x') m.rotation.z=Math.PI/2; else if(eje==='z') m.rotation.x=Math.PI/2; m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m; }
@@ -1117,7 +1134,7 @@ function aplicaEscena(dt){
   for(const t of OBJ3D){
     const e=SIM.t-t.pingT, k=clamp(e/0.8,0,1);
     t.ping.visible=k>0&&k<1; t.ping.position.set(t.grupo.position.x,SUELO_Y+0.03,t.grupo.position.z);
-    t.ping.scale.setScalar((0.25+0.9*k)*Math.max(0.6,t.tipo==='camion'?1.5:1)); t.ping.material.opacity=0.75*t.fuerza*(1-k);
+    t.ping.scale.setScalar((0.25+0.9*k)*Math.max(0.6,t.tipo==='camion'?1.5:1)*(KS/0.11)); t.ping.material.opacity=0.75*t.fuerza*(1-k);
     const er=SIM.t-(t.rxT||-9); if(er>0&&er<0.6) rx+=t.fuerza*Math.pow(1-er/0.6,1.5);
     t.grupo.position.y=SUELO_Y+(EST.pausa?0:0.004*Math.sin(SIM.t*7+t.lane*3));
   }
@@ -1127,7 +1144,7 @@ function aplicaEscena(dt){
     const m=RAD.ok?RAD.meds[i]:null; f.g.visible=!!m&&m.R>0.5&&m.R<190;
     if(!f.g.visible) return;
     let cerca=null, dm=1e9; OBJ3D.forEach(t=>{ const dd=Math.abs(t.o.R-m.R); if(dd<dm){ dm=dd; cerca=t; } });
-    const z=cerca?cerca.lane:0, esc=cerca?(cerca.tipo==='camion'?[1.4,0.62,0.42]:(cerca.tipo==='peaton'?[0.22,0.30,0.22]:[0.6,0.36,0.34])):[0.5,0.3,0.3];
+    const z=cerca?cerca.lane:0, esc=cerca?(cerca.tipo==='camion'?[1.4,0.62,0.42]:(cerca.tipo==='peaton'?[0.22,0.30,0.22]:[0.6,0.36,0.34])).map(q=>q*KS/0.11):[0.5,0.3,0.3];
     f.g.position.set(xDeR(m.R),SUELO_Y+esc[1]/2+0.02,z); f.g.scale.set(esc[0]*1.1,esc[1]*1.2,esc[2]*1.4);
     const sel=i===EST.sel; _cc.set(sel?'#ffffff':'#7cf2c0'); f.lm.color.copy(_cc); f.fm.color.copy(_cc);
     f.fm.opacity=0.10+0.05*Math.sin(SIM.t*6+i);
@@ -1154,8 +1171,8 @@ function centraEnHueco(){
 /** Cada vista: dirección de la cámara desde el ancla, ancla, y la caja (ancho × alto, en u) que debe caber. */
 const VISTAS={
   sensor:{dir:V3(0.62,0.34,0.70),anc:V3(1.55,-0.30,0.35),toff:V3(0,0,0),obj:()=>innerWidth<640?{w:3.3,h:2.8}:{w:4.4,h:3.5},fov:34},
-  carretera:{dir:V3(0.18,0.46,0.87),anc:V3(5.0,-0.85,0),toff:V3(0,0,0),obj:()=>({w:13.4,h:5.4}),fov:34},
-  cenit:{dir:V3(0.02,1,0.32),anc:V3(5.2,-1.0,0),toff:V3(0,0,0),obj:()=>({w:13.0,h:9.0}),fov:34},
+  carretera:{dir:V3(0.18,0.46,0.87),anc:V3(4.4,-0.85,0),toff:V3(0,0,0),obj:()=>({w:7.8,h:2.8}),fov:34},
+  cenit:{dir:V3(0.02,1,0.32),anc:V3(4.4,-1.0,0),toff:V3(0,0,0),obj:()=>({w:8.0,h:4.6}),fov:34},
 };
 const CAM={off:V3(6,3,5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
 function fovVista(v){ return innerWidth<innerHeight*0.9?48:VISTAS[v].fov; }
@@ -1200,18 +1217,18 @@ function pintaHUD(){
   const H=el('hud');
   let h=`<div class="hcab"><div class="eyebrow">Autotrónica · Radar FMCW de 77 GHz</div>`;
   if(EST.modo==='marcha'){
-    h+=`<h2>Distancia y velocidad con dos FFT</h2>
-    <p class="intro">El radar emite <b>chirps</b>. La frecuencia de batido del eco da la <b>distancia</b>; el giro de fase entre chirps, la <b>velocidad</b>. Dos FFT forman el mapa y el <b>CFAR</b> decide qué es un objetivo.</p></div>`;
+    h+=`<h2>Ajusta un radar de coche</h2>
+    <p class="intro">Ajustas un radar de coche para que mida <b>a qué distancia</b> y <b>a qué velocidad</b> va el vehículo de adelante.</p></div>`;
   } else h+=`<h2>Predice, ajusta y diagnostica</h2></div>`;
-  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>Explorar</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Reto paso a paso</button></div>`;
   if(EST.modo==='marcha'){
     h+=`<div class="hmandos">
-    <div class="cg"><div class="cl">Escena</div><div class="seg" id="segEsc">${Object.keys(NOMBRE_ESCENA).map(k=>`<button class="b ${EST.escena===k?'on':''}" data-esc="${k}">${NOMBRE_ESCENA[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl">Situación en la calle</div><div class="seg" id="segEsc">${Object.keys(NOMBRE_ESCENA).map(k=>`<button class="b ${EST.escena===k?'on':''}" data-esc="${k}">${NOMBRE_ESCENA[k]}</button>`).join('')}</div></div>
     ${htmlMandosRadar(EST)}
-    <div class="cg"><div class="cl">Ventana</div><div class="seg" id="segWin">${[['rect','Rectangular'],['hann','Hann']].map(([k,t])=>`<button class="b ${EST.win===k?'on':''}" data-win="${k}">${t}</button>`).join('')}</div></div>
-    <div class="fila"><button class="b primary" id="btnRep">↻ Nuevo ruido</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+    <div class="cg"><div class="cl" title="Ventana de la FFT: rectangular o de Hann">Suavizado de la señal <em class="gr">(ventana)</em></div><div class="seg" id="segWin">${[['rect','Sin suavizar'],['hann','Suavizada']].map(([k,t])=>`<button class="b ${EST.win===k?'on':''}" data-win="${k}">${t}</button>`).join('')}</div></div>
+    <div class="fila"><button class="b primary" id="btnRep" title="Repite la medida con otro ruido">↻ Otra medida</button><button class="b auto" id="btnAuto">Ver demostración</button></div></div>`;
   } else h+=htmlGuia();
-  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+  h+=`<div class="hdet"><details id="dEc"><summary>Fórmulas (opcional)</summary><div class="cuerpo">
     <div class="formula">S = B / T<sub>c</sub> ; f<sub>b</sub> = 2·S·R / c<br>ΔR = c / (2B) ; R<sub>máx</sub> = f<sub>s</sub>·c / (2S)</div>
     <div class="formula">Δφ = 4π·v·T<sub>c</sub> / λ ; f<sub>D</sub> = 2v / λ<br>v<sub>máx</sub> = λ / (4T<sub>c</sub>) ; Δv = λ / (2·N·T<sub>c</sub>)</div>
     <div class="formula">P<sub>r</sub> = P<sub>t</sub>·G²·λ²·σ / ((4π)³·R⁴) → SNR ∝ σ / R⁴</div>
@@ -1219,7 +1236,14 @@ function pintaHUD(){
     <div class="fl"><b>CA-CFAR:</b> umbral = α · media(referencia), α = n·(P<sub>fa</sub><sup>−1/n</sup> − 1), P<sub>fa</sub> = 10⁻⁶.</div>
     <div class="fl"><b>Ventana:</b> Hann baja los lóbulos laterales de −13 a −31 dB y ensancha el lóbulo principal (resolución efectiva ≈ 1,5·ΔR).</div>
   </div></details>
-  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+  <details id="dGlo"><summary>¿Qué significan las siglas?</summary><div class="cuerpo"><ul class="no">
+    <li><b>Chirp</b>: un silbido de radar cuyo tono sube muy rápido.</li>
+    <li><b>Frecuencia de batido</b>: la diferencia entre el tono que sale y el que vuelve; da la distancia.</li>
+    <li><b>FFT</b>: un analizador de tonos que separa una mezcla en sus notas.</li>
+    <li><b>CFAR</b>: un umbral que se adapta al ruido de alrededor para decidir qué es un objeto.</li>
+    <li><b>Doppler</b>: el cambio de tono por el movimiento, como la sirena de una ambulancia.</li>
+  </ul></div></details>
+  <details id="dSim"><summary>Qué se simplifica</summary><div class="cuerpo"><ul class="no">
     <li>Señal de batido compleja (I/Q) con un ADC de 20 MS/s; chirp ideal, sin ruido de fase ni no linealidades. El filtro anti-aliasing corta lo que pasa de R<sub>máx</sub>.</li>
     <li>Objetivos puntuales de σ fija (0 dBsm el peatón, 10 el coche, 20 el camión), sin fluctuación, multitrayecto ni clutter de suelo.</li>
     <li>Sin ángulo: el radar real mide azimut con sus antenas RX; aquí la columna medida se dibuja en el carril del objetivo más próximo.</li>
@@ -1230,11 +1254,11 @@ function pintaHUD(){
 }
 /** Los tres mandos del chirp, con sus marcas; en el reto muestran sus valores pero NO la ventana buena. */
 function htmlMandosRadar(c){
-  return `<div class="cg"><div class="cl"><div>Ancho de banda <em class="gr">B</em></div><b id="vB">${fGHz(c.B)}</b></div><input type="range" id="rB" min="0.1" max="4" step="0.05" value="${(c.B/1e9).toFixed(2)}" aria-label="Ancho de banda del chirp en gigahercios">
+  return `<div class="cg"><div class="cl"><div title="Ancho de banda B del chirp: más ancho, más fino mide la distancia">Finura en distancia <em class="gr">(B)</em></div><b id="vB">${fGHz(c.B)}</b></div><input type="range" id="rB" min="0.1" max="4" step="0.05" value="${(c.B/1e9).toFixed(2)}" aria-label="Ancho de banda del chirp en gigahercios">
       <div class="marcas"><span>0,1</span><span>1</span><span>2</span><span>4 GHz</span></div></div>
-    <div class="cg"><div class="cl"><div>Duración del chirp <em class="gr">T<sub>c</sub></em></div><b id="vT">${fUs(c.Tc)}</b></div><input type="range" id="rT" min="8" max="80" step="1" value="${Math.round(c.Tc*1e6)}" aria-label="Duración del chirp en microsegundos">
+    <div class="cg"><div class="cl"><div>Duración de cada chirp <em class="gr">(T<sub>c</sub>)</em></div><b id="vT">${fUs(c.Tc)}</b></div><input type="range" id="rT" min="8" max="80" step="1" value="${Math.round(c.Tc*1e6)}" aria-label="Duración del chirp en microsegundos">
       <div class="marcas"><span>8</span><span>40</span><span>80 µs</span></div></div>
-    <div class="cg"><div class="cl"><div>Chirps por ciclo <em class="gr">N</em></div><b id="vN">${c.N}</b></div><div class="seg" id="segN">${NS.map(n=>`<button class="b ${c.N===n?'on':''}" data-n="${n}">${n}</button>`).join('')}</div></div>`;
+    <div class="cg"><div class="cl"><div>Chirps por medida <em class="gr">(N)</em></div><b id="vN">${c.N}</b></div><div class="seg" id="segN">${NS.map(n=>`<button class="b ${c.N===n?'on':''}" data-n="${n}">${n}</button>`).join('')}</div></div>`;
 }
 function enlazaHUD(){
   const H=el('hud'), re=()=>{ marcaSucio(); pintaDockFijo(); };
@@ -1351,7 +1375,7 @@ function pintaSp(){
     for(let k=0,f=true;k<Nr;k+=p2){ const px=X(k/Nr*d.Rmax), py=Y(dB(Math.max(RAD.umbral.umbral(kd,k),1e-12))); if(f){ x.moveTo(px,py); f=false; } else x.lineTo(px,py); } x.stroke(); x.setLineDash([]); }
   // detecciones de la fila
   RAD.cf.det.forEach((dt,i)=>{ if(dt.kd!==kd) return; const px=X(RAD.meds[i].R), py=Y(dB(dt.pot)); x.fillStyle=i===EST.sel?'#ffffff':'#7cf2c0'; x.beginPath(); x.moveTo(px,py-3); x.lineTo(px-4,py-10); x.lineTo(px+4,py-10); x.closePath(); x.fill(); });
-  txt(x,'umbral CFAR',X1-3,Y0+9,'#FFB347',9.5,'right','700');
+  txt(x,'umbral de detección',X1-3,Y0+9,'#FFB347',9.5,'right','700');
   el('t_sp').textContent=sel?`v = ${fN(sel.v,1)} m/s`:'Doppler 0';
 }
 /* ---- Chirp (frecuencia en el tiempo) y señal de batido ---- */
@@ -1372,7 +1396,7 @@ function pintaBt(){
     raya(x,xa,yy,xb,yy,'#ffffff',1.2); txt(x,'τ',(xa+xb)/2,yy-3,'#ffffff',9.5,'center','700');
     txt(x,'f',X0+3,Y0+8,'#cfe0f2',9.5,'left','700'); txt(x,'t',X1-1,Y1-3,'#cfe0f2',9.5,'right','700');
     txt(x,'B',X0+5,Y(0.04+h)+2,'#7EE8DD',9.5,'left','700'); txt(x,'Tc',X(cfg.Tc/2),Hd-3,'#8fa6bf',9.5,'center','600');
-    txt(x,'TX',X(cfg.Tc*1.3),Y(0.04+h*0.3)+11,'#7EE8DD',9.5,'left','700'); txt(x,'eco',X(cfg.Tc*1.3)+16,Y(0.04+h*0.3)+11,'#FFB347',9.5,'left','700'); }
+    txt(x,'emitido',X(cfg.Tc*1.3),Y(0.04+h*0.3)+11,'#7EE8DD',9.5,'left','700'); txt(x,'eco',X(cfg.Tc*1.3)+46,Y(0.04+h*0.3)+11,'#FFB347',9.5,'left','700'); }
   raya(x,wL,6,wL,Hd-6,'rgba(61,84,112,0.6)');
   // derecha: señal de batido en el tiempo (primeros ciclos de la mayor componente)
   { const X0=wL+8, X1=Wd-5, Y0=6, Y1=Hd-15, Ym=(Y0+Y1)/2, nz=Math.max(12,Math.min(RAD.d.Ns,Math.round(5/fpico*RADAR.fs))), tz=nz/RADAR.fs;
@@ -1387,17 +1411,17 @@ function pintaBt(){
     x.strokeStyle='#ffffff'; x.lineWidth=1.5; x.beginPath(); const NP=160;
     for(let i=0;i<=NP;i++){ const t=tz*i/NP; let s=0; for(const [A,fb,ph] of tonos) s+=A*Math.cos(DOSPI*fb*t+ph); const px=X(t), py=Ym-s*esc; if(i) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke();
     x.restore();
-    txt(x,fN(tz*1e6,2)+' µs',X1-2,Hd-3,'#8fa6bf',9.5,'right','500'); txt(x,'Re[s(t)]',X0+3,Y0+9,'#cfe0f2',9.5,'left','700');
+    txt(x,fN(tz*1e6,2)+' µs',X1-2,Hd-3,'#8fa6bf',9.5,'right','500'); txt(x,'señal de batido',X0+3,Y0+9,'#cfe0f2',9.5,'left','700');
     const snr=RAD.objs.length?dB(snrMuestra(RAD.objs[Math.min(EST.sel,RAD.objs.length-1)].sigma,RAD.objs[Math.min(EST.sel,RAD.objs.length-1)].R)):0;
-    txt(x,'SNR por muestra '+fN(snr,0)+' dB',X0+3,Hd-3,'#FFB347',9.5,'left','600'); }
-  el('t_bt').textContent=ocultaF()?'fb = ¿?':'f_b = '+fN(fpico/1e6,2)+' MHz';
+    txt(x,'señal/ruido '+fN(snr,0)+' dB',X0+3,Hd-3,'#FFB347',9.5,'left','600'); }
+  el('t_bt').textContent=ocultaF()?'batido = ¿?':'batido = '+fN(fpico/1e6,2)+' MHz';
 }
 /* ---- cifras ---- */
 function pintaDockFijo(){
   const gu=EST.modo==='guia', cfg=RAD.cfg||cfgActual();
   el('p_mode').textContent=gu?'Laboratorio guiado':NOMBRE_ESCENA[EST.escena];
   el('p_sub').textContent='B '+fN(cfg.B/1e9,2)+' GHz · Tc '+fN(cfg.Tc*1e6,0)+' µs · N '+cfg.N;
-  el('leyMp').innerHTML=`<span class="lg"><i class="bl" style="--c:#7cf2c0"></i>detección CFAR</span><span class="lg"><i class="dash" style="--c:#fff"></i>objetivo real</span><span class="lg"><i class="bl" style="--c:#FFB347"></i>umbral</span>`;
+  el('leyMp').innerHTML=`<span class="lg"><i class="bl" style="--c:#7cf2c0"></i>detectado</span><span class="lg"><i class="dash" style="--c:#fff"></i>objeto real</span><span class="lg"><i class="bl" style="--c:#FFB347"></i>umbral</span>`;
 }
 const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
 function pintaDock(){
@@ -1423,8 +1447,8 @@ const ocultaAvisos=()=>EST.modo==='guia'&&(GUIA.paso==='decide'&&!(GUIA.r2&&GUIA
 /* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
 const ROT={on:false,els:[]};
 const VEL=[[0.25,'×1/4'],[0.5,'×1/2'],[1,'×1'],[2,'×2']];
-el('vbar').innerHTML=[['sensor','Sensor'],['carretera','Carretera'],['cenit','Cenital']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
-  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('vbar').innerHTML=[['sensor','El radar'],['carretera','La calle'],['cenit','Desde arriba']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Nombres</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
 el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
   <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
 el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
@@ -1439,20 +1463,20 @@ function pintaBarras(){
   el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
   el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
   const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
-  const cfg=RAD.cfg||cfgActual(); el('tLento').textContent='chirp en cámara lenta ×1/'+fN((T_VIS/EST.vel)/cfg.Tc,0);
+  const cfg=RAD.cfg||cfgActual(); el('tLento').textContent='cámara lenta ×1/'+fN((T_VIS/EST.vel)/cfg.Tc,0);
   colocaBarras();
 }
 function colocaBarras(){
   const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
-  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  if(esEstrecho()){ for(const id of ['vbar','tbar','tour']) el(id).style.left=(innerWidth/2)+'px'; return; }
   const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
-  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+  for(const id of ['vbar','tbar','tour']) el(id).style.left=((x0+x1)/2)+'px';
 }
 function pintaReloj(){
   const e=el('tEst'); if(!RAD.d) return;
   el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
   let t, c;
-  if(RAD.sinMem){ t='sin memoria'; c='#f4475e'; } else { const n=RAD.meds.length; t=n+(n===1?' detección':' detecciones')+' · ciclo de '+fN(RAD.d.Tciclo*1e3,1)+' ms'; c=n?'#34d399':'#7EE8DD'; }
+  if(RAD.sinMem){ t='sin memoria'; c='#f4475e'; } else { const n=RAD.meds.length; t=n+(n===1?' objeto detectado':' objetos detectados')+' · medida de '+fN(RAD.d.Tciclo*1e3,1)+' ms'; c=n?'#34d399':'#7EE8DD'; }
   e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
 }
 
@@ -1716,7 +1740,7 @@ function contenidoGuia(){
   const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
   switch(GUIA.paso){
     case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿A qué frecuencia late el eco?',
-      teach:`Un radar emite un chirp de <b>B = ${fN(r.B,2)} GHz</b> en <b>T<sub>c</sub> = ${fN(r.Tc,0)} µs</b> y ve un obstáculo a <b>${fN(r.R,0)} m</b>.<div class="task">¿Cuál es la frecuencia de batido, en MHz? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      teach:`Un radar emite un chirp de <b>B = ${fN(r.B,2)} GHz</b> en <b>T<sub>c</sub> = ${fN(r.Tc,0)} µs</b> y ve un obstáculo a <b>${fN(r.R,0)} m</b>.<div class="task">¿Cuál es la frecuencia de batido (la diferencia de tonos entre lo que sale y lo que vuelve), en MHz? ${tri('d_try',RETO.fallos1,3)}</div>`,
       acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? MHz" aria-label="Frecuencia de batido en megahercios"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
     case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando…',teach:'',acts:''};
       const E=r.esc, ev=r.validado&&r.res?r.res:null;
@@ -1732,7 +1756,7 @@ function contenidoGuia(){
       return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
       acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
     case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Predijiste, ajustaste y diagnosticaste',
-      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b> y cambia B, T<sub>c</sub>, N y la ventana: ningún mando mejora todo a la vez, y ése es el diseño de un radar.`,
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Explorar</b> y cambia B, T<sub>c</sub>, N y la ventana: ningún mando mejora todo a la vez, y ése es el diseño de un radar.`,
       acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
   }
   return {no:'',head:'',title:'',teach:'',acts:''};
@@ -1759,6 +1783,7 @@ function guiaObjs(){
 /* ---------- los modos ---------- */
 function setMode(m,forzar){
   if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(TOUR.on) cierraTour(true);
   if(m==='guia'){
     EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
   } else EST.modo='marcha';
@@ -1772,7 +1797,7 @@ el('fbX').onclick=()=>el('feedback').classList.remove('show');
 /* ---------- el recorrido guiado de «En marcha» ---------- */
 const espera=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
-  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  if(EST.autoRunning||EST.modo!=='marcha') return; if(TOUR.on) cierraTour(true); EST.autoRunning=true; sonido.init();
   const hud=el('hud'), prev={escena:EST.escena,B:EST.B,Tc:EST.Tc,N:EST.N,win:EST.win,vista:EST.vista,vel:EST.vel,sel:EST.sel};
   const fija=o=>{ Object.assign(EST,o); EST.sel=0; pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } marcaSucio(); pintaDockFijo(); pintaBarras(); };
   try{
@@ -1797,6 +1822,54 @@ async function runAuto(){
     Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
     pintaHUD(); marcaSucio(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
   }
+}
+
+/* ---------- el recorrido de bienvenida: se inicia solo, con «Siguiente» y «Saltar» ----------
+   Explica con analogías (el tono de la sirena, un analizador de tonos, el ruido de un restaurante) ANTES de usar
+   cada sigla. No toca la física: sólo mueve la cámara, la pestaña y marca con un recuadro lo que explica. */
+const TOUR={on:false,i:0,hi:null,vista0:'sensor'};
+const PASOS_TOUR=[
+  {t:'Qué haces aquí',x:'Un radar de coche lanza pulsos y escucha el rebote, como un murciélago. Tú lo ajustas para que mida <b>a qué distancia</b> y <b>a qué velocidad</b> va el vehículo de adelante.',vista:'sensor',tab:'hud'},
+  {t:'El chirp: un silbido que sube',x:'Cada pulso es un <b>chirp</b>: un silbido cuyo tono sube de grave a agudo muy rápido. Son las ondas de colores que salen del radar; el color indica el tono.',vista:'sensor',tab:'panel',hi:'gBt'},
+  {t:'Frecuencia de batido = distancia',x:'Cuando vuelve el eco, el radar ya silba un tono más agudo. Esa <b>diferencia de tonos</b> es la «frecuencia de batido»: cuanto más lejos el objeto, mayor la diferencia.',vista:'sensor',tab:'panel',hi:'gBt'},
+  {t:'La velocidad: la sirena',x:'Si el objeto se mueve, su eco cambia un poco de tono, como la sirena de una ambulancia que baja al alejarse. Ese cambio, medido en muchos chirps, da la <b>velocidad</b>.',vista:'carretera',tab:'panel',hi:'gMp'},
+  {t:'FFT: el analizador de tonos',x:'La <b>FFT</b> separa una mezcla de tonos en sus notas, como oír cada instrumento de un acorde. Una da la distancia y otra la velocidad: así sale este mapa, donde cada mancha brillante es un objeto.',vista:'carretera',tab:'panel',hi:'gMp'},
+  {t:'CFAR: el umbral que se adapta',x:'Siempre hay ruido de fondo. El <b>CFAR</b> pone una línea (la naranja) algo por encima del ruido de cada zona y sólo da por objeto lo que la supera, como entender una voz en un restaurante ruidoso.',vista:'carretera',tab:'panel',hi:'gSp'},
+  {t:'El vehículo de adelante',x:'Aquí ves la calle: la etiqueta marca al <b>vehículo de adelante</b>. Los marcos verdes son lo que el radar cree haber detectado.',vista:'carretera',tab:'hud'},
+  {t:'Tu turno',x:'Mueve «Finura en distancia» y mira cómo el mapa separa o junta dos objetos. Si quieres un reto, pulsa «Reto paso a paso». Las siglas están en «¿Qué significan las siglas?».',vista:'sensor',tab:'hud',hi:'hmandos'}
+];
+function tourTab(tab){ if(!esEstrecho()||!tab) return; const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+tab); disposicion(); centraEnHueco(); }
+function pintaTour(){
+  const T=el('tour'), P=PASOS_TOUR[TOUR.i], ult=TOUR.i===PASOS_TOUR.length-1;
+  T.innerHTML=`<div class="tn"><span>Recorrido · paso ${TOUR.i+1} de ${PASOS_TOUR.length}</span></div><h3>${P.t}</h3><p>${P.x}</p><div class="tb"><button class="skip" id="tourSkip">Saltar el recorrido</button><button class="b primary" id="tourNext">${ult?'Empezar a probar':'Siguiente'}</button></div>`;
+  T.classList.add('on');
+  el('tourSkip').onclick=()=>cierraTour(false); el('tourNext').onclick=()=>{ if(ult) cierraTour(false); else { TOUR.i++; pintaTour(); } };
+  if(TOUR.hi) TOUR.hi.classList.remove('tourHi'); TOUR.hi=null;
+  if(P.vista&&EST.vista!==P.vista) ponVista(P.vista,0.8);
+  tourTab(P.tab);
+  if(P.hi){ const e=el(P.hi); if(e&&seVe(e)){ e.classList.add('tourHi'); TOUR.hi=e; try{ e.scrollIntoView({block:'nearest'}); }catch(_){} } }
+  colocaBarras();
+}
+function iniciaTour(){ if(TOUR.on||EST.modo!=='marcha'||EST.autoRunning) return; TOUR.on=true; TOUR.i=0; TOUR.vista0=EST.vista; pintaTour(); }
+function cierraTour(silencio){
+  if(!TOUR.on) return; TOUR.on=false; el('tour').classList.remove('on'); if(TOUR.hi) TOUR.hi.classList.remove('tourHi'); TOUR.hi=null;
+  if(!silencio){ ponVista('sensor',0.8); tourTab('hud'); }
+}
+/* etiquetas del protagonista en Carretera y Desde arriba: «Tu radar» y «Vehículo de adelante» */
+const PRO_R=document.createElement('div'), PRO_V=document.createElement('div');
+PRO_R.className='pro3 rad'; PRO_R.textContent='Tu radar'; PRO_V.className='pro3'; PRO_V.textContent='Vehículo de adelante';
+document.body.appendChild(PRO_R); document.body.appendChild(PRO_V);
+const _pq=new THREE.Vector3();
+function colocaProta(){
+  const ver=EST.vista!=='sensor';
+  if(!ver){ PRO_R.style.display=PRO_V.style.display='none'; return; }
+  const H=huecoLibre();
+  const pon=(e,w3)=>{ _pq.copy(w3).project(camera); const x=(_pq.x+1)/2*innerWidth, y=(1-_pq.y)/2*innerHeight;
+    if(_pq.z>1||x<H.x0||x>H.x1||y<H.y0||y>H.y1){ e.style.display='none'; return; }
+    e.style.display='block'; const hw=(e.offsetWidth||90)/2+4; e.style.left=Math.max(H.x0+hw,Math.min(H.x1-hw,x))+'px'; e.style.top=y+'px'; };
+  pon(PRO_R,V3(0.66,0.95,0));
+  let b=null; for(const t of OBJ3D){ if(t.tipo==='peaton') continue; if(!b||t.o.R<b.o.R) b=t; } if(!b) for(const t of OBJ3D){ if(!b||t.o.R<b.o.R) b=t; }
+  if(b) pon(PRO_V,b.grupo.position.clone().add(V3(0,(b.tipo==='camion'?1.15:0.55),0))); else PRO_V.style.display='none';
 }
 
 /* ===================== 19. SONIDO (sintetizado) =====================
@@ -1854,7 +1927,7 @@ function cuadro(){
   if(t-tLienzo>0.05&&seVe(el('panel'))){ tLienzo=t; pintaMp(); pintaSp(); pintaBt(); }
   controls.update();
   renderer.info.reset(); composer.render();
-  colocaRotulos();
+  colocaRotulos(); colocaProta();
 }
 
 /* ===================== 22. ARRANQUE ===================== */
@@ -1868,7 +1941,7 @@ ponVista('sensor',0.001);
 centraEnHueco();
 pintaDockFijo();
 cuadro();
-if(innerWidth>=640) setTimeout(()=>showToast('Un radar de 77 GHz emite <b>chirps</b> y mide distancia y velocidad con dos FFT. Cambia B, T<sub>c</sub> y N, o pulsa <b>Recorrido guiado</b>. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' el módulo o un objetivo.',6200),700);
+if(!/[?&]sintour/.test(location.search)) setTimeout(iniciaTour,600);
 
 /* ===================== 23. GANCHOS DE PRUEBA ===================== */
 window.__labDebug={
@@ -1881,6 +1954,7 @@ window.__labDebug={
     r1:GUIA.r1?{B:GUIA.r1.B,Tc:GUIA.r1.Tc,R:GUIA.r1.R,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{clave:GUIA.r2.clave,cfg:GUIA.r2.cfg,validado:GUIA.r2.validado,ventana:GUIA.r2.ventana}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
   get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
   get autoRunning(){ return EST.autoRunning; },
+  get tour(){ return {on:TOUR.on,paso:TOUR.i}; },
   modelo(){ return {cfg:RAD.cfg,d:RAD.d,meds:(RAD.meds||[]).map(m=>({R:m.R,v:m.v,snrDB:m.snrDB})),sinMem:RAD.sinMem,ms:RAD.ms,objs:RAD.objs.map(o=>({n:o.nombre,R:o.R,v:o.v}))}; },
   escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,modo:EST.modo,
     tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
