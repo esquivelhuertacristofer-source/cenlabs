@@ -1,0 +1,27 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-131",
+  titulo: "ADAS: Radar, Cámara y Frenado Autónomo (AEB)",
+  subtitulo: "Autotrónica",
+  acento: "#3B8EEA",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: 'Un coche con radar y cámara se acerca a un paso de peatones mientras alguien camina hacia la calzada.\nVerás el haz del radar, la medida con ruido, el filtro que la limpia y las tres etapas del frenado autónomo: aviso, freno parcial y freno total.\nPrimero calculas una distancia de parada, luego ajustas el umbral de disparo para varios escenarios a la vez y al final diagnosticas por qué falló un AEB sin ver su configuración.',
+  conceptos: [
+    { icono: '📡', nombre: 'Radar y filtro alfa-beta', descripcion: 'El radar mide la distancia con ruido cada 50 ms; el filtro la suaviza y estima la velocidad de cierre, a costa de un pequeño retardo al frenar.' },
+    { icono: '⏱️', nombre: 'Tiempo hasta la colisión', descripcion: 'TTC = d/v: el AEB compara este tiempo con su umbral para avisar, frenar a medias o frenar a fondo.' },
+    { icono: '🛑', nombre: 'Distancia de parada', descripcion: 'Crece con el cuadrado de la velocidad y se divide por la adherencia: v·t + v²/(2μg).' },
+  ],
+  mision: [
+    'Calcula la distancia de parada de un coche con su tiempo de reacción y la adherencia de la calzada.',
+    'Ajusta el umbral de disparo para que el AEB evite los choques y no frene en un escenario inofensivo.',
+    'Diagnostica si un AEB falló por umbral bajo, calzada resbaladiza o umbral alto.',
+  ],
+  aplicaciones: [
+    { area: 'Seguridad activa', ejemplo: 'Los protocolos Euro NCAP y el reglamento UN R152 exigen que el frenado autónomo evite o reduzca el choque con peatones y vehículos.' },
+    { area: 'Ingeniería de sensores', ejemplo: 'Los equipos de ADAS sintonizan el filtro y el umbral para equilibrar los choques evitados con los frenazos innecesarios.' },
+  ],
+};
+
+export default briefing;

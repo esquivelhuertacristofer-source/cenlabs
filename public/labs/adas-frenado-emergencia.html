@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · ADAS: Radar, Cámara y Frenado Autónomo (AEB) — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1C30;--panel:rgba(9,19,32,.86);--line:#1E3550;--ink:#EAF4F1;
+    --dim:#93AFC9;--accent:#3B8EEA;--accent2:#7CC4FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#7CC4FF;--cR:#FFB347;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14202e;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#182c40}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#04101f;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#04101f;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#5aa6f2}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#04101f}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7CC4FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04101f}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14202e;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · ADAS · frenado autónomo de emergencia</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">AEB · seco</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Velocidad</div><b id="f_v">—</b></div>
+    <div class="fg"><div class="fl">Distancia (radar)</div><b id="f_d">—</b></div>
+    <div class="fg"><div class="fl">Cierre (filtro)</div><b id="f_vr">—</b></div>
+    <div class="fg"><div class="fl">TTC</div><b id="f_ttc">—</b></div>
+    <div class="fg"><div class="fl">Decel. requerida</div><b id="f_ar">—</b></div>
+    <div class="fg"><div class="fl">Etapa del AEB</div><b id="f_e">—</b></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Radar (m)</div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Parada (m)</div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">TTC y etapas del AEB <span id="t_fu">mismo reloj</span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-tit t-sp">Velocidad y deceleración <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — ADAS: RADAR, CÁMARA Y FRENADO AUTÓNOMO DE EMERGENCIA (AEB)
+   (Autotrónica · mecanica-131)
+
+   Una calle con un paso de peatones. Un coche con radar y cámara se acerca a
+   40–60 km/h y un peatón cruza (o se queda en la acera). El cono del radar y
+   el campo de la cámara se dibujan sobre el suelo; el coche mide la distancia
+   con ruido, un filtro alfa-beta la limpia, y el AEB avisa, frena a medias o
+   frena a fondo según el tiempo hasta la colisión.
+
+   Todo sale de un solo modelo: cinemática exacta por tramos con latencia y
+   rampa de presión, radar a 20 Hz con ruido gaussiano y un filtro de
+   Benedict–Bordner. Esa física está en un bloque puro que un script de Node
+   extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre.
+
+   Un coche se acerca a un obstáculo (un peatón que cruza, o un coche parado).
+   Un radar mide la distancia cada 50 ms con ruido; un filtro alfa-beta la
+   suaviza y de ella saca la velocidad de cierre; con ellas se calcula el
+   tiempo hasta la colisión (TTC = d/v) y, según un umbral, el AEB avisa, frena
+   a media fuerza o frena a fondo. El freno tiene latencia y una rampa de
+   presión. La cinemática es EXACTA por tramos: si no se evita el choque, la
+   velocidad de impacto es la de la solución cerrada v² = v₀² − 2·a·d. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI, G=9.81, RAD=Math.PI/180;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ---------- 1.1 Constantes del sistema ----------
+   mu: adherencia de frenado (pico) de la calzada. Los valores del conjunto son de libro
+   (seco ≈ 0,8; mojado ≈ 0,55; nieve ≈ 0,25; hielo ≈ 0,12) y se declaran como didácticos. */
+const SUPERFICIES={ seco:0.80, mojado:0.55, nieve:0.25, hielo:0.12 };
+const AEB={
+  T:0.05,              // periodo del radar (20 Hz)
+  dt:0.005,            // paso del integrador
+  sigD:0.25,           // desviación típica del ruido del radar en distancia (m)
+  rangoMax:80, rangoMin:1.5, semiRadar:25*RAD,     // cono del radar
+  rangoCam:50, semiCam:35*RAD, nConf:3,            // cámara: campo y fotogramas para confirmar un peatón
+  H:1.2,               // semianchura del corredor del coche + radio del peatón (m)
+  tau:0.12,            // latencia del freno: orden → presión (s)
+  J:60,                // rampa de la deceleración (m/s³)
+  aParcial:4.0,        // freno parcial (m/s²)
+  kTotal:0.65, kAviso:1.5,   // etapas: aviso a Tu·1,5 · parcial a Tu · total a Tu·0,65
+  tr:1.2,              // reacción del conductor tras ver al peatón entrar en su carril (s)
+  tPre:1.5,            // la pista del radar ya lleva 1,5 s encendida al empezar
+  largoCoche:4.5
+};
+
+/* ---------- 1.2 Cinemática de parada ----------
+   Con la orden a t=0: la presión tarda tau y sube con rampa J hasta a=μg.
+   Distancia de parada exacta si v ≥ a·Tr/2:  d = v·(tau + Tr/2) + v²/(2a) − a·Tr²/24,  Tr = a/J. */
+function dParada(v,mu,p=AEB){ const a=mu*G, Tr=a/p.J; return v*(p.tau+Tr/2)+v*v/(2*a)-a*Tr*Tr/24; }
+/** Parada ideal sin latencia ni rampa (la fórmula de libro): d = v·t_r + v²/(2μg). */
+function dParadaLibro(v,mu,tr=0){ return v*tr+v*v/(2*mu*G); }
+const ttcDe=(d,vrel)=>vrel>1e-9?d/vrel:Infinity;                 // TTC = d / v_rel
+const aRequerida=(d,vrel)=>d>1e-9?vrel*vrel/(2*d):Infinity;      // v² / (2d)
+/** Velocidad de impacto si desde la distancia d se frena a a (constante) tras recorrer v·t_lat sin frenar. */
+function vImpactoCerrada(v,d,a,tLat=0){ const r=d-v*tLat; return r<=0?v:Math.sqrt(Math.max(0,v*v-2*a*r)); }
+
+/* ---------- 1.3 Filtro alfa-beta (Benedict–Bordner) ----------
+   Predice x_p = x + v·T; el residuo r = z − x_p corrige la posición con α y la velocidad con β/T.
+   Con β = α²/(2−α) es el filtro de Benedict–Bordner: el mínimo error transitorio para una rampa. */
+function betaBB(alfa){ return alfa*alfa/(2-alfa); }
+function nuevoFiltro(alfa,T=AEB.T){ return { alfa, beta:betaBB(alfa), T, x:0, v:0, n:0, r:0 }; }
+function actualizaFiltro(f,z){
+  if(f.n===0){ f.x=z; f.v=0; f.n=1; return f; }
+  if(f.n===1){ f.v=(z-f.x)/f.T; f.x=z; f.n=2; return f; }       // arranque con dos puntos
+  const xp=f.x+f.v*f.T, r=z-xp;
+  f.x=xp+f.alfa*r; f.v+=f.beta/f.T*r; f.r=r; f.n++; return f;
+}
+function prediceFiltro(f){ if(f.n>=2) f.x+=f.v*f.T; return f; }
+/** Razón de reducción de varianza de la posición filtrada con ruido blanco (Brookner). */
+function vrrPosicion(alfa,beta){ return (2*alfa*alfa+2*beta-3*alfa*beta)/(alfa*(4-2*alfa-beta)); }
+
+/* ---------- 1.4 Números aleatorios reproducibles ---------- */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function gauss(rnd){ let u=0; while(u<1e-12) u=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(DOSPI*rnd()); }
+
+/* ---------- 1.5 El peatón (o el coche parado) ----------
+   Lateral y(t) = y0 − vp·min(t, tStop): positivo a la derecha del eje del coche. */
+const tStopDe=P=>(P.tStop===undefined||P.tStop===null)?1e9:P.tStop;
+const pedY=(P,t)=>P.y0-P.vp*Math.min(Math.max(t,0),tStopDe(P));
+const pedVy=(P,t)=>t<tStopDe(P)?-P.vp:0;
+/** Instante en que el obstáculo entra en el corredor del coche (Infinity si nunca). */
+function tEntra(P){
+  if(Math.abs(P.y0)<AEB.H) return 0;
+  if(P.vp<=0) return Infinity;
+  const t=(P.y0-AEB.H)/P.vp; return t<=tStopDe(P)?t:Infinity;
+}
+/** ¿Chocaría el coche si no frenara nada? (llega al plano del obstáculo a t = d0/v0.) */
+function colisionableSinFrenar(P){ return Math.abs(pedY(P,P.d0/P.v0))<AEB.H; }
+
+/* ---------- 1.6 La corrida ----------
+   P = {v0 (m/s), d0 (m), mu, y0, vp, tStop, Tu (s), alfa, aeb, conductor, semilla}.
+   Paso fijo 5 ms; radar y decisión cada 50 ms. */
+function nuevaCorrida(P){
+  const q={ P, k:0, t:0, s:0, v:P.v0, a:0, X:P.d0, filt:nuevoFiltro(P.alfa===undefined?0.5:P.alfa),
+    rnd:mulberry32(P.semilla===undefined?1:P.semilla), etapa:0, cmdA:0, cmdLog:[[-1e9,0]], conf:0, confirmado:false, det:false, z:NaN,
+    tEntra:tEntra(P), colisionable:colisionableSinFrenar(P), tAeb:null, etapaMax:0, fin:false, causa:'', res:null, hist:[], rel:false,
+    dEst:NaN, vEst:NaN, ttcEst:Infinity, aReq:0, mu:P.mu, Tu:P.Tu };
+  q.tDriver=P.conductor===false?Infinity:q.tEntra+AEB.tr;
+  // la pista del radar ya existía: el coche venía a v0 antes de t=0
+  const nPre=Math.round(AEB.tPre/AEB.T);
+  for(let i=-nPre;i<0;i++){ const tk=i*AEB.T; sensor(q,tk,P.v0*tk,false); }
+  return q;
+}
+/** Una medición del radar y de la cámara; con decide=true, también la decisión del AEB. */
+function sensor(q,t,s,decide){
+  const P=q.P, d=q.X-s, y=pedY(P,t), ang=Math.atan2(Math.abs(y),Math.max(d,1e-9));
+  const det=d<=AEB.rangoMax&&d>=AEB.rangoMin&&ang<AEB.semiRadar;
+  q.det=det;
+  if(det){ q.z=d+AEB.sigD*gauss(q.rnd); actualizaFiltro(q.filt,q.z); } else { q.z=NaN; prediceFiltro(q.filt); }
+  if(ang<AEB.semiCam&&d<=AEB.rangoCam) q.conf++; else q.conf=0;
+  q.confirmado=q.conf>=AEB.nConf;
+  q.dEst=q.filt.x; q.vEst=-q.filt.v;
+  q.ttcEst=q.filt.n>=2?ttcDe(q.dEst,q.vEst):Infinity;
+  q.aReq=q.filt.n>=2?aRequerida(q.dEst,q.vEst):0;
+  if(!decide) return;
+  // ¿va a estar el obstáculo en el corredor cuando el coche llegue? (velocidad lateral constante)
+  const vy=pedVy(P,t);
+  q.rel=q.filt.n>=2&&q.confirmado&&q.vEst>0.5&&q.dEst>0&&Math.abs(y+vy*q.ttcEst)<AEB.H;
+  let et=0;
+  if(q.rel){ const T=q.ttcEst, Tu=P.Tu; et=T<=Tu*AEB.kTotal?3:(T<=Tu?2:(T<=Tu*AEB.kAviso?1:0)); }
+  if(q.etapa>=2) et=Math.max(et,q.etapa);                 // una vez que frena, no suelta
+  q.etapa=P.aeb===false?0:et; q.etapaMax=Math.max(q.etapaMax,q.etapa);
+  q.cmdA=q.etapa===3?q.mu*G:(q.etapa===2?Math.min(AEB.aParcial,q.mu*G):0);
+  if(q.cmdA>0&&q.tAeb===null) q.tAeb=t;
+}
+const NTAU=()=>Math.round(AEB.tau/AEB.dt);
+function cmdRetardado(q,k){ const L=q.cmdLog; for(let i=L.length-1;i>=0;i--) if(L[i][0]<=k) return L[i][1]; return 0; }
+/** Estado tras avanzar tt segundos con la deceleración yendo de a0 a aE en t1 s (lineal) y constante después. Exacto. */
+function tramo(v,s,a0,aE,t1,tt){
+  const u=Math.min(tt,t1), au=t1>0?(u>=t1?aE:a0+(aE-a0)*u/t1):aE;
+  let vv=v-a0*u-(au-a0)*u/2, ss=s+v*u-a0*u*u/2-(au-a0)*u*u/6;
+  if(t1===0){ vv=v; ss=s; }
+  const w=tt-u; if(w>0){ ss=ss+vv*w-au*w*w/2; vv=vv-au*w; }
+  return [vv,ss,tt>=t1?aE:au];
+}
+function biseca(fn,lo,hi){ for(let i=0;i<60;i++){ const m=(lo+hi)/2; if(fn(m)) hi=m; else lo=m; } return (lo+hi)/2; }
+/** Avanza un paso de AEB.dt. Cada tramo se integra de forma exacta (rampa lineal y después constante). */
+function pasoCorrida(q){
+  if(q.fin) return;
+  const h=AEB.dt, P=q.P, aMax=q.mu*G;
+  if(q.k%10===0){ sensor(q,q.t,q.s,true); registra(q); }
+  const cmd=Math.min(aMax,Math.max(q.cmdA,q.t>=q.tDriver?aMax:0));
+  if(cmd!==q.cmdLog[q.cmdLog.length-1][1]) q.cmdLog.push([q.k,cmd]);
+  const obj=cmdRetardado(q,q.k-NTAU()), a0=q.a, dif=obj-a0;
+  let t1, aE;
+  if(Math.abs(dif)<=AEB.J*h){ aE=obj; t1=Math.abs(dif)/AEB.J; if(!(t1>0)) t1=0; } else { aE=a0+Math.sign(dif)*AEB.J*h; t1=h; }
+  const v0=q.v, s0=q.s;
+  let [vN,sN,aN]=tramo(v0,s0,a0,aE,t1,h);
+  let tf=h;                                   // duración efectiva del paso
+  if(vN<=1e-9){ tf=biseca(x=>tramo(v0,s0,a0,aE,t1,x)[0]<=1e-12,0,h); [vN,sN,aN]=tramo(v0,s0,a0,aE,t1,tf); vN=0; }
+  // ¿cruza el plano del obstáculo en este paso?
+  if(!q.res&&sN>=q.X&&s0<q.X){
+    const tc0=biseca(x=>tramo(v0,s0,a0,aE,t1,x)[1]>=q.X,0,tf), [vc]=tramo(v0,s0,a0,aE,t1,tc0), tc=q.t+tc0;
+    if(Math.abs(pedY(P,tc))<AEB.H){
+      q.res={ causa:'choque', vImp:Math.max(0,vc), tImp:tc, gap:0 };
+      q.s=q.X; q.v=Math.max(0,vc); q.a=aN; q.k++; q.t=q.k*h; q.causa='choque'; q.fin=true; cierra(q); return;
+    } else q.res={ causa:'paso', vImp:0, tImp:tc, gap:0 };
+  }
+  q.s=sN; q.v=vN; q.a=aN; q.k++; q.t=q.k*h;
+  if(!q.res&&vN===0){ q.res={ causa:'detenido', vImp:0, tImp:q.t, gap:q.X-q.s }; q.causa='detenido'; q.fin=true; cierra(q); return; }
+  if(q.res&&q.res.causa==='paso'&&q.s>=q.X+12){ q.causa='paso'; q.fin=true; cierra(q); return; }
+  if(q.t>30){ q.res=q.res||{ causa:'tiempo', vImp:q.v, tImp:q.t, gap:q.X-q.s }; q.causa=q.res.causa; q.fin=true; cierra(q); }
+}
+function registra(q){
+  const d=q.X-q.s, P=q.P;
+  q.hist.push({ t:q.t, s:q.s, v:q.v, a:q.a, d, z:q.z, dEst:q.dEst, vEst:q.vEst, ttc:q.ttcEst, ttcV:ttcDe(d,q.v), aReq:q.aReq,
+    dReq:dParada(q.v,q.mu), dReqEst:q.filt.n>=2?dParada(Math.max(0,q.vEst),q.mu):NaN, etapa:q.etapa, rel:q.rel, y:pedY(P,q.t), conf:q.confirmado, det:q.det });
+}
+function cierra(q){
+  const r=q.res; r.falsoPos=!q.colisionable&&q.tAeb!==null; r.tAeb=q.tAeb; r.etapaMax=q.etapaMax; r.colisionable=q.colisionable;
+  r.vImpKmh=r.vImp*3.6;
+}
+/** Corre una corrida completa y devuelve la corrida terminada. */
+function simula(P){ const q=nuevaCorrida(P); let n=0; while(!q.fin&&n<20000){ pasoCorrida(q); n++; } return q; }
+
+/* ---------- 1.7 Escenarios del reto ----------
+   Cada uno: tipo, velocidad (km/h), superficie, y los parámetros del obstáculo. d0 = 3 s de marcha
+   (el peatón cruza el carril a los 1,4–3,1 s; el 'para' se detiene en la acera a tStop). */
+function paramsDe(E,Tu,alfa,semilla){
+  return { v0:E.vKmh/3.6, d0:E.d0!==undefined?E.d0:E.vKmh/3.6*E.tLlega, mu:SUPERFICIES[E.sup], y0:E.y0, vp:E.vp, tStop:E.tStop, Tu, alfa:alfa===undefined?0.5:alfa,
+    aeb:true, conductor:false, semilla:semilla===undefined?(E.semilla||1):semilla };
+}
+/** Evalúa un escenario con un umbral; 'ok' = lo que pide el reto (sin choque / sin frenar en falso). */
+function evaluaEscenario(E,Tu,alfa){
+  const q=simula(paramsDe(E,Tu,alfa)), r=q.res;
+  const ok=q.colisionable?(r.causa!=='choque'):(!r.falsoPos);
+  return { id:E.id, ok, causa:r.causa, vImpKmh:r.vImpKmh, falsoPos:r.falsoPos, colisionable:q.colisionable, gap:r.gap, tAeb:r.tAeb };
+}
+function evaluaConjunto(lista,Tu,alfa){ return lista.map(E=>evaluaEscenario(E,Tu,alfa)); }
+/** Barre Tu y devuelve la ventana [lo,hi] en que TODOS los escenarios pasan (null si no hay). */
+function ventanaTu(lista,alfa,t0=0.5,t1=3.0,paso=0.05){
+  let lo=null, hi=null; const n=Math.round((t1-t0)/paso);
+  for(let i=0;i<=n;i++){ const Tu=+(t0+i*paso).toFixed(4), ok=evaluaConjunto(lista,Tu,alfa).every(r=>r.ok);
+    if(ok){ if(lo===null) lo=Tu; hi=Tu; } }
+  return lo===null?null:{ lo, hi };
+}
+/** Los dos conjuntos del reto. 'cruza': el peatón camina a 1 m/s y cruza el carril; 'para': camina hacia la calzada
+ *  y se detiene en la acera (inofensivo: el coche pasa sin tocarlo aunque no frene). */
+const E_=(id,tipo,vKmh,sup,tStop)=>({ id, tipo, vKmh, sup, tLlega:3.0, y0:3.2, vp:1.0, tStop:tipo==='para'?tStop:undefined });
+const CONJUNTOS_RETO=[
+  [ E_('A','cruza',40,'seco'), E_('B','cruza',55,'seco'), E_('C','cruza',45,'mojado'), E_('D','para',50,'seco',0.8) ],
+  [ E_('A','cruza',35,'mojado'), E_('B','cruza',60,'seco'), E_('C','cruza',25,'nieve'), E_('D','para',45,'seco',0.7) ]
+];
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.55,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.62;
+scene.fog=new THREE.Fog('#b9c7d4',60,260);
+
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.1,700);
+camera.position.set(-6,2.6,-4.5);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=2.5; controls.maxDistance=200; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(0,0.8,0);
+
+/* Luz de día sobre la calle: un sol cálido con sombra suave que SIGUE al coche
+   (su cámara de sombras sólo cubre 44 m), relleno frío y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff3e0',2.4); LUZ.sol.castShadow=true;
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-22,right:22,top:22,bottom:-22,near:1,far:90});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#9fb9d8',0.55); LUZ.relleno.position.set(-30,20,-24); scene.add(LUZ.relleno);
+LUZ.hemi=new THREE.HemisphereLight('#b7cde6','#2a2c2a',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: los discos que frena el AEB, las luces de freno y los haces
+   del radar. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.5,0.3,1.6); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y las marcas propias
+   de una calle (pintura, cebra, juntas de la acera) dibujadas como objetos, no como ruido. */
+const DOSPI_=Math.PI*2;
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto: tono lento, sin grano. */
+function texAsfalto(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(5,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), v=Math.max(0,Math.min(255,(0.84+(n-0.5)*0.15)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+/** Acera de baldosas: juntas finas cada 1 m y tono lento. */
+function texAcera(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(9,4,2);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*4,j/W*4); let v=(0.78+(n-0.5)*0.14);
+    const ei=Math.min(i%128,127-i%128), ej=Math.min(j%128,127-j%128); if(Math.min(ei,ej)<1.2) v*=0.80;
+    v=Math.max(0,Math.min(255,v*255)); const o=(j*W+i)*4; im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+/** Fachada: ventanas en rejilla sobre un muro liso. Cada edificio lleva su color por instancia. */
+function texFachada(){
+  const W=256,c=cv(W),x=c.getContext('2d'); x.fillStyle='#e8e4dc'; x.fillRect(0,0,W,W);
+  for(let j=0;j<4;j++) for(let i=0;i<4;i++){ const px=i*64+14, py=j*64+14;
+    const g=x.createLinearGradient(0,py,0,py+36); g.addColorStop(0,'#5b7a94'); g.addColorStop(1,'#2f4558');
+    x.fillStyle='#bdb7ab'; x.fillRect(px-3,py-3,42,42); x.fillStyle=g; x.fillRect(px,py,36,36);
+    x.fillStyle='rgba(255,255,255,0.18)'; x.beginPath(); x.moveTo(px,py+36); x.lineTo(px+22,py); x.lineTo(px+36,py); x.lineTo(px+12,py+36); x.fill(); }
+  return tex(c,{srgb:true});
+}
+/** Cebra: una barra clara; el eje v de la textura es el largo de la barra. */
+function texCebra(){
+  const W=8,H=64,c=cv(W,H),x=c.getContext('2d'); x.clearRect(0,0,W,H);
+  x.fillStyle='#f1f3f4'; x.fillRect(0,0,W,H);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+/** Señal vertical de paso de peatones: cuadrado azul con la figura (pictograma, no texto). */
+function texSenal(){
+  const c=cv(128),x=c.getContext('2d'); x.fillStyle='#1d5fae'; x.fillRect(0,0,128,128);
+  x.fillStyle='#ffffff'; x.fillRect(8,8,112,112); x.fillStyle='#1d5fae'; x.fillRect(14,14,100,100);
+  x.fillStyle='#ffffff'; x.beginPath(); x.moveTo(64,24); x.lineTo(104,100); x.lineTo(24,100); x.closePath(); x.fill();
+  x.fillStyle='#1d5fae'; x.beginPath(); x.arc(64,52,7,0,DOSPI_); x.fill(); x.fillRect(59,60,10,22);
+  x.strokeStyle='#1d5fae'; x.lineWidth=6; x.lineCap='round'; x.beginPath(); x.moveTo(62,82); x.lineTo(52,98); x.moveTo(66,82); x.lineTo(78,98); x.moveTo(60,66); x.lineTo(48,76); x.moveTo(68,66); x.lineTo(82,74); x.stroke();
+  return tex(c,{srgb:true});
+}
+const T_ASF=texAsfalto(), T_ACERA=texAcera(), T_FACH=texFachada(), T_CEBRA=texCebra(), T_SENAL=texSenal();
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+
+/* La superficie manda en el aspecto: asfalto seco, mojado (espejo oscuro), nieve prensada y hielo. */
+const SUP_ASPECTO={
+  seco:  {asf:'#8a8e95',rug:0.88,cc:0.0,ccr:0.5,acera:'#c9c5bb',cielo:['#6f9ccb','#cfe0ee','#aab6c2'],niebla:'#c4d1dd',sol:2.5},
+  mojado:{asf:'#565c64',rug:0.30,cc:0.6,ccr:0.14,acera:'#a9a69f',cielo:['#5d7f9f','#a9bccb','#8f9ba5'],niebla:'#a9b8c5',sol:1.7},
+  nieve: {asf:'#d9e0e6',rug:0.93,cc:0.0,ccr:0.5,acera:'#eef3f7',cielo:['#7b93aa','#c9d5df','#b8c2cb'],niebla:'#cdd7e0',sol:2.0},
+  hielo: {asf:'#b4d2e4',rug:0.12,cc:0.9,ccr:0.08,acera:'#dfeaf1',cielo:['#6c93b3','#b9d0e0','#a2b6c5'],niebla:'#bcd0de',sol:1.7},
+};
+const M={
+  asfalto: fis({color:'#8a8e95',map:T_ASF,roughness:0.88,metalness:0,clearcoat:0,clearcoatRoughness:0.2}),
+  acera: pbr({color:'#c9c5bb',map:T_ACERA,roughness:0.9,metalness:0,envMapIntensity:0.45}),
+  bordillo: pbr({color:'#b9b6ae',roughness:0.8,metalness:0}),
+  pintura: fis({color:'#1b4f9c',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  cristal: fis({color:'#0b1a24',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.90,envMapIntensity:1.6}),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  faro: pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:0.9}),
+  piloto: pbr({color:'#6b0a12',metalness:0.1,roughness:0.2,emissive:'#ff1f2d',emissiveIntensity:0.55}),
+  morda: pbr({color:'#a8161d',metalness:0.5,roughness:0.4,emissive:'#ff2a1a',emissiveIntensity:0}),
+  sensor: pbr({color:'#101418',metalness:0.5,roughness:0.25,emissive:'#4fa3ff',emissiveIntensity:0.5}),
+  edificio: pbr({color:'#ffffff',map:T_FACH,roughness:0.85,metalness:0,envMapIntensity:0.4}),
+  poste: pbr({color:'#6c757d',metalness:0.7,roughness:0.5}),
+  senal: pbr({color:'#ffffff',map:T_SENAL,roughness:0.5,metalness:0.1}),
+  piel: pbr({color:'#d9b8a0',roughness:0.6,metalness:0}),
+  chaqueta: pbr({color:'#2e4a74',roughness:0.85,metalness:0}),
+  chaleco: pbr({color:'#ff7a14',roughness:0.7,metalness:0,emissive:'#ff5a00',emissiveIntensity:0.25}),
+  pantalon: pbr({color:'#2a2f3a',roughness:0.9,metalness:0}),
+  zapato: pbr({color:'#15171a',roughness:0.6,metalness:0.1}),
+  arbol: pbr({color:'#ffffff',roughness:0.9,metalness:0,envMapIntensity:0.35}),
+};
+M.alu=M.llanta; M.aluminio=M.llanta; M.hierro=M.acero; M.negro=M.goma;
+function aplicaSuperficie(nom){
+  const a=SUP_ASPECTO[nom];
+  M.asfalto.color.set(a.asf); M.asfalto.roughness=a.rug; M.asfalto.clearcoat=a.cc; M.asfalto.clearcoatRoughness=a.ccr;
+  M.acera.color.set(a.acera);
+  scene.fog.color.set(a.niebla);
+  scene.background=fondoDegradado(...a.cielo);
+  LUZ.sol.intensity=a.sol;
+}
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 tacos cuesta 3 llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=true; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI_, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+const mezcla=(a,b,t)=>a+(b-a)*t, suave=t=>t*t*(3-2*t);
+/** Interpola linealmente-suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+
+/* ===================== 6. LA CALLE =====================
+   Mapa de ejes: el plano de la simulación (x adelante, y a la derecha del eje del coche) se pinta en three tal
+   cual: x → X, y → Z (la derecha del coche que mira a +X es +Z). El plano del peatón (el paso de cebra) es X = 0;
+   el paragolpes del coche está en X = s − d0. Es una calle de dos sentidos: el carril del coche
+   (Z de −1,75 a 1,75), el contrario (hasta −5,25) y una acera a cada lado. */
+const CALLE=new THREE.Group(); scene.add(CALLE);
+const ZD=2.2, ZI=-5.25;                                 // bordillo derecho e izquierdo
+const X0C=-150, X1C=90;
+function caja(w,h,d,mat,x,y,z,sombra=true){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=sombra; m.receiveShadow=true; return m; }
+function semillaR(n){ let s=n>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+function uvMundo(geo,sx,sz){ const uv=geo.attributes.uv, p=geo.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,p.getX(i)/sx,p.getZ(i)/sz); }
+(function construyeCalle(){
+  const L=X1C-X0C, cx=(X0C+X1C)/2;
+  // calzada (dos carriles), con la textura repetida cada 8 m
+  { const g=new THREE.PlaneGeometry(L,ZD-ZI,1,1); g.rotateX(-Math.PI/2); g.translate(cx,0,(ZD+ZI)/2); uvMundo(g,8,8);
+    const m=new THREE.Mesh(g,M.asfalto); m.receiveShadow=true; m.userData.pieza='asfalto'; CALLE.add(m); }
+  // aceras y bordillos
+  for(const [z0,z1,lado] of [[ZD,ZD+6,1],[ZI-6,ZI,-1]]){
+    const g=new THREE.BoxGeometry(L,0.16,z1-z0); g.translate(cx,0.08,(z0+z1)/2); uvMundo(g,4,4);
+    const m=new THREE.Mesh(g,M.acera); m.receiveShadow=true; m.castShadow=true; m.userData.pieza='acera'; CALLE.add(m);
+    const b=caja(L,0.16,0.18,M.bordillo,cx,0.08,lado>0?z0+0.09:z1-0.09,false); b.userData.pieza='bordillo'; CALLE.add(b);
+  }
+  // marcas: eje discontinuo entre sentidos y líneas de borde continuas
+  { const mat=new THREE.MeshBasicMaterial({color:'#eef1f3',polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+    const n=Math.floor(L/9), im=new THREE.InstancedMesh(new THREE.BoxGeometry(3,0.012,0.14),mat,n), mt=new THREE.Matrix4();
+    for(let i=0;i<n;i++){ mt.makeTranslation(X0C+i*9+1.5,0.006,-1.75); im.setMatrixAt(i,mt); } im.userData.pieza='marca'; CALLE.add(im);
+    for(const z of [ZD-0.22,ZI+0.22]){ const l=new THREE.Mesh(new THREE.BoxGeometry(L,0.012,0.12),mat); l.position.set(cx,0.006,z); l.userData.pieza='marca'; CALLE.add(l); } }
+  // paso de cebra en X = 0 (barras paralelas a la marcha) y línea de detención del carril del coche
+  { const mat=new THREE.MeshStandardMaterial({color:'#d4d8da',roughness:0.8,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+    const n=8, im=new THREE.InstancedMesh(new THREE.BoxGeometry(4.2,0.014,0.5),mat,n+1), mt=new THREE.Matrix4();
+    for(let i=0;i<n;i++){ mt.makeTranslation(0,0.007,ZI+0.55+i*0.95); im.setMatrixAt(i,mt); }
+    mt.makeTranslation(-3.2,0.007,0.0); mt.scale(new THREE.Vector3(0.12,1,7.0)); im.setMatrixAt(n,mt);
+    im.receiveShadow=true; im.userData.pieza='cebra'; CALLE.add(im); }
+  // marcadores de distancia al paso de peatones: una raya cada 5 m (más larga y viva cada 10 m)
+  { const mat=new THREE.MeshBasicMaterial({color:'#ffd66b',transparent:true,opacity:0.85,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4});
+    const n=16, im=new THREE.InstancedMesh(new THREE.BoxGeometry(0.24,0.012,1),mat,n), mt=new THREE.Matrix4(), q=new THREE.Quaternion();
+    for(let i=1;i<=n;i++){ const diez=i%2===0, w=diez?3.3:1.5; mt.compose(V3(-5*i-0.2,0.009,diez?0:-1.35),q,V3(diez?1.5:1,1,w)); im.setMatrixAt(i-1,mt); }
+    im.userData.pieza='marcador'; CALLE.add(im); }
+  // edificios a los dos lados
+  { const rnd=semillaR(31), n=40, geo=new THREE.BoxGeometry(1,1,1), im=new THREE.InstancedMesh(geo,M.edificio,n), mt=new THREE.Matrix4(), col=new THREE.Color();
+    const tonos=['#e6dfd2','#d8d2c6','#cdd5dc','#e2d3c0','#d4dccf','#dcccc6']; let k=0;
+    for(const lado of [1]){ let x=X0C+rnd()*6; for(let i=0;i<n&&x<X1C;i++){ const w=[12,16,20][Math.floor(rnd()*3)], h=[9,12,15,18][Math.floor(rnd()*4)], d=10;
+        const z=lado>0?ZD+6+1.0+d/2:ZI-6-1.0-d/2; mt.compose(V3(x+w/2,h/2,z),new THREE.Quaternion(),V3(w,h,d)); im.setMatrixAt(k,mt); col.set(tonos[Math.floor(rnd()*tonos.length)]); im.setColorAt(k,col); k++; x+=w+1.5+rnd()*5; } }
+    im.count=k; im.castShadow=true; im.receiveShadow=true; im.userData.pieza='edificios'; CALLE.add(im); }
+  // árboles en la acera derecha y farolas a los dos lados
+  { const nA=Math.floor(L/15)*2, tr=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11,0.15,2.6,8),M.poste,nA), co=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.5,1),M.arbol,nA), mt=new THREE.Matrix4(), col=new THREE.Color(), rnd=semillaR(5);
+    for(let i=0;i<nA;i++){ const lado=i%2===0?1:-1, k=Math.floor(i/2), x=X0C+7+k*15+rnd()*2+(lado>0?0:7), z=lado>0?ZD+1.0:ZI-9.0; mt.makeTranslation(x,1.4,z); tr.setMatrixAt(i,mt); const s=0.9+rnd()*0.35; mt.compose(V3(x,3.7,z),new THREE.Quaternion(),V3(s,s*1.1,s)); co.setMatrixAt(i,mt); col.setHSL(0.27+rnd()*0.06,0.38,0.30+rnd()*0.08); co.setColorAt(i,col); }
+    tr.castShadow=co.castShadow=true; tr.userData.pieza='arboles'; co.userData.pieza='arboles'; CALLE.add(tr,co);
+    const nF=Math.floor(L/24), po=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06,0.09,6.4,8),M.poste,nF*2), br=new THREE.InstancedMesh(new THREE.BoxGeometry(0.16,0.12,1.6),M.poste,nF*2);
+    for(let i=0;i<nF;i++) for(const lado of [1,-1]){ const x=X0C+12+i*24+(lado>0?0:12), z=lado>0?ZD+2.6:ZI-2.6; mt.makeTranslation(x,3.2,z); po.setMatrixAt(i*2+(lado>0?0:1),mt); mt.makeTranslation(x,6.35,z-lado*0.7); br.setMatrixAt(i*2+(lado>0?0:1),mt); }
+    po.castShadow=true; po.userData.pieza='farolas'; br.userData.pieza='farolas'; CALLE.add(po,br); }
+  // señal vertical de paso de peatones, en la acera derecha, antes del cruce
+  { const p=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,2.4,8),M.poste); p.position.set(-2.8,1.2,ZD+0.7); p.castShadow=true; p.userData.pieza='senal'; CALLE.add(p);
+    const s=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.62,0.62),M.senal); s.position.set(-2.8,2.35,ZD+0.7); s.rotation.y=0; s.userData.pieza='senal'; CALLE.add(s); }
+})();
+
+/* ===================== 7. LOS COCHES ===================== */
+const VEHV={a:1.10,b:1.50,t:1.55};                                // cotas del dibujo: ejes y vía (m)
+const LRUEDA=0.31;                                                 // radio del neumático (m)
+const POS_RUEDA=[[VEHV.a,-VEHV.t/2],[VEHV.a,VEHV.t/2],[-VEHV.b,-VEHV.t/2],[-VEHV.b,VEHV.t/2]];     // (x, z) de FI, FD, TI, TD en el coche
+function construyeCoche(){
+  const raiz=new THREE.Group(), caja=new THREE.Group(); caja.position.y=0.12; raiz.add(caja);
+  const fija=new THREE.Group();                                    // lo que no se mueve respecto a la carrocería
+  const xc=-0.25, hl=2.2;
+  const yt=perfil1D([[-2.45,0.62],[-2.2,0.80],[-1.5,0.88],[-0.6,0.86],[0.4,0.82],[1.1,0.76],[1.7,0.66],[1.95,0.50]]);
+  const secs=[], N=44;
+  for(let i=0;i<=N;i++){
+    const x=xc-hl*Math.cos(Math.PI*i/N), u=(x-xc)/hl, ab=Math.pow(Math.abs(u),4.2);
+    let w=0.90*Math.pow(Math.max(0.0004,1-ab),1/4.2);
+    w-=0.12*(Math.exp(-Math.pow((x-VEHV.a)/0.40,2))+Math.exp(-Math.pow((x+VEHV.b)/0.40,2)));       // la carrocería se retranquea en cada rueda
+    const yb=0.27+0.22*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  const cuerpo=new THREE.Mesh(lofteo(secs,30),M.pintura); fija.add(cuerpo);
+  // la cabina: cristal con tumblehome y un techo pintado encima
+  const cab=[], cabM=26, x0=-1.28, x1=0.62;
+  for(let i=0;i<=cabM;i++){
+    const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),1.43,env));
+    cab.push({x,w:Math.max(0.03,0.80*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30});
+  }
+  fija.add(new THREE.Mesh(lofteo(cab,26),M.cristal));
+  const tec=[], tM=18, tx0=-0.92, tx1=0.30;
+  for(let i=0;i<=tM;i++){
+    const t=i/tM, x=mezcla(tx0,tx1,t), tx=(x-x0)/(x1-x0), env=Math.pow(Math.sin(Math.PI*Math.pow(tx,0.85)),0.55), techo=Math.max(yt(x)+0.05,mezcla(yt(x),1.43,env));
+    const wtop=0.80*Math.pow(env,0.35)*(1-0.30);
+    tec.push({x,w:Math.max(0.03,wtop+0.012),y0:techo-0.045,y1:techo+0.005,n:4.5,tum:0.0});
+  }
+  fija.add(new THREE.Mesh(lofteo(tec,20),M.pintura));
+  // los bajos y los pasos de rueda (un disco oscuro tras cada rueda y un labio del color de la carrocería)
+  const bajos=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.07,1.30),M.bajos); bajos.position.set(-0.25,0.27,0); fija.add(bajos);
+  for(const [px,pz] of POS_RUEDA){
+    const lado=Math.sign(pz), liner=new THREE.Mesh(new THREE.CylinderGeometry(0.385,0.385,0.02,28),M.bajos); liner.rotation.x=Math.PI/2; liner.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(liner);
+    const labio=new THREE.Mesh(new THREE.TorusGeometry(0.405,0.034,8,28,Math.PI),M.pintura); labio.position.set(px,LRUEDA-0.12,lado*0.775); labio.rotation.z=0; fija.add(labio);
+  }
+  // sensores del ADAS: radar tras el paragolpes y cámara bajo el retrovisor
+  const radarM=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.15,0.50),M.sensor); radarM.position.set(1.93,0.50,0); fija.add(radarM);
+  const camM=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.055,0.09,14),M.sensor); camM.rotation.z=Math.PI/2; camM.position.set(0.52,1.12,0); fija.add(camM);
+  // luces
+  for(const lado of [-1,1]){
+    const faro=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.075,0.32),M.faro); faro.position.set(1.80,0.60,lado*0.58); faro.rotation.y=lado*0.18; fija.add(faro);
+    const pil=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.09,0.34),M.piloto); pil.position.set(-2.26,0.70,lado*0.60); pil.rotation.y=lado*0.14; pil.userData.piloto=1; fija.add(pil);
+  }
+  const fus=fusiona(fija); fus.traverse(o=>{ if(o.isMesh&&o.material===M.piloto) o.userData.piloto=1; });
+  fus.position.y=-0.12; caja.add(fus);
+  // las cuatro ruedas, con su disco y su mordaza
+  const pivs=[], spins=[], discos=[], mordazas=[];
+  POS_RUEDA.forEach(([px,pz],i)=>{
+    const lado=Math.sign(pz), piv=new THREE.Group(); piv.position.set(px,LRUEDA,pz); piv.userData.rueda=i; raiz.add(piv);
+    const spin=new THREE.Group(); piv.add(spin);
+    const t=P3.neumatico(M,{dExt:LRUEDA*2,dLlanta:0.43,ancho:0.215,tacos:0,radios:5}), tf=fusiona(t); tf.rotation.y=lado*Math.PI/2; spin.add(tf);
+    const dm=M.acero.clone(); dm.emissive=new THREE.Color('#ff3a1e'); dm.emissiveIntensity=0;
+    const disco=new THREE.Mesh(P3.revolucion([[0.085,-0.013],[0.196,-0.013],[0.196,0.013],[0.085,0.013]],{seg:40}),dm);
+    disco.rotation.x=Math.PI/2; disco.position.z=-lado*0.03; disco.userData.disco=i; spin.add(disco);       // eje del disco = eje de la rueda (Z), un poco hacia dentro del plato
+    const mm=M.morda.clone();
+    const mor=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.07,0.10),mm); mor.position.set(-0.115,0.125,-lado*0.03); mor.rotation.z=0.85; mor.userData.morda=i; piv.add(mor);
+    pivs.push(piv); spins.push(spin); discos.push(dm); mordazas.push(mm);
+  });
+  raiz.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  raiz.userData.asas={caja,pivs,spins,discos,mordazas};
+  return raiz;
+}
+/** Una copia translúcida del coche (para el que va SIN ESC), con sus propias luces y discos. */
+function fantasma(orig){
+  const mapa=new Map(), g=orig.clone(true);
+  const conv=m=>{ if(mapa.has(m)) return mapa.get(m); const c=m.clone(); c.transparent=true; c.depthWrite=false;
+    const base=m.opacity!==undefined?m.opacity:1;
+    c.opacity=(m===M.cristal?0.20:(m===M.goma?0.40:0.28))*Math.min(1,base+0.1);
+    if(c.color) c.color.lerp(new THREE.Color('#ff9a86'),m===M.goma||m===M.bajos?0.15:0.55);
+    if(c.emissive&&m!==M.piloto&&m!==M.faro&&!(m.userData&&(m.userData.disco!==undefined))) c.emissive.set(0x000000);
+    c.envMapIntensity=0.7; mapa.set(m,c); return c; };
+  g.traverse(o=>{ if(o.isMesh){ o.material=conv(o.material); o.castShadow=false; } });
+  g.userData.asas=asasDe(g); return g;
+}
+/** Recoge las asas (ruedas, discos, mordazas, luz de freno) de un coche por sus etiquetas. */
+function asasDe(raiz){
+  const A={pivs:[],spins:[],discos:[],mordazas:[],pilotos:[]};
+  raiz.traverse(o=>{
+    if(o.userData&&o.userData.rueda!==undefined){ A.pivs[o.userData.rueda]=o; A.spins[o.userData.rueda]=o.children[0]; }
+    if(o.isMesh&&o.userData&&o.userData.disco!==undefined) A.discos[o.userData.disco]=o.material;
+    if(o.isMesh&&o.userData&&o.userData.morda!==undefined) A.mordazas[o.userData.morda]=o.material;
+    if(o.isMesh&&o.userData&&o.userData.piloto) A.pilotos.push(o.material);
+  });
+  A.caja=raiz.children[0]; return A;
+}
+
+
+const COCHE_A=construyeCoche(); COCHE_A.userData.asas=asasDe(COCHE_A); scene.add(COCHE_A);
+const COCHE_B=fantasma(COCHE_A); scene.add(COCHE_B);
+COCHE_A.userData.nombre='A'; COCHE_B.userData.nombre='B';
+const X_FRENTE=1.95;                                     // del centro del modelo a su paragolpes delantero (m)
+
+/* ===================== 8. EL PEATÓN (maniquí) =====================
+   Mide 1,75 m. Camina hacia −Z (de derecha a izquierda del coche): su +X local mira hacia donde anda. Las piernas
+   y los brazos se mueven con la distancia recorrida (zancada de 1,3 m), y quieto sólo respira. */
+function construyePeaton(){
+  const raiz=new THREE.Group(), cuerpo=new THREE.Group(); raiz.add(cuerpo);
+  const cap=(r,l,mat)=>{ const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,l,4,10),mat); m.castShadow=true; m.receiveShadow=true; return m; };
+  const torso=cap(0.17,0.30,M.chaqueta); torso.scale.set(0.78,1,1.15); torso.position.y=1.22; cuerpo.add(torso);
+  const chaleco=cap(0.178,0.22,M.chaleco); chaleco.scale.set(0.80,1,1.17); chaleco.position.y=1.24; cuerpo.add(chaleco);
+  const cabeza=new THREE.Mesh(new THREE.SphereGeometry(0.11,18,14),M.piel); cabeza.position.y=1.63; cabeza.castShadow=true; cuerpo.add(cabeza);
+  const cuello=cap(0.045,0.05,M.piel); cuello.position.y=1.53; cuerpo.add(cuello);
+  const pierna=(lado)=>{ const cad=new THREE.Group(); cad.position.set(0,0.93,lado*0.095);
+    const mus=cap(0.075,0.30,M.pantalon); mus.position.y=-0.23; cad.add(mus);
+    const rod=new THREE.Group(); rod.position.y=-0.46; cad.add(rod);
+    const can=cap(0.06,0.30,M.pantalon); can.position.y=-0.23; rod.add(can);
+    const pie=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.07,0.10),M.zapato); pie.position.set(0.07,-0.47,0); pie.castShadow=true; rod.add(pie);
+    cuerpo.add(cad); return {cad,rod}; };
+  const brazo=(lado)=>{ const hom=new THREE.Group(); hom.position.set(0,1.43,lado*0.215);
+    const br=cap(0.05,0.22,M.chaqueta); br.position.y=-0.16; hom.add(br);
+    const cod=new THREE.Group(); cod.position.y=-0.32; hom.add(cod);
+    const ant=cap(0.042,0.20,M.chaqueta); ant.position.y=-0.15; cod.add(ant);
+    const man=new THREE.Mesh(new THREE.SphereGeometry(0.045,10,8),M.piel); man.position.y=-0.30; cod.add(man);
+    cuerpo.add(hom); return {hom,cod}; };
+  const pI=pierna(-1), pD=pierna(1), bI=brazo(-1), bD=brazo(1);
+  raiz.rotation.y=Math.PI/2;                          // mira a −Z
+  raiz.userData.asas={cuerpo,pI,pD,bI,bD,cabeza,torso};
+  raiz.traverse(o=>{ if(o.isMesh){ o.userData.pieza='peaton'; } });
+  return raiz;
+}
+const PEATON=construyePeaton(); scene.add(PEATON);
+/** Pone al peatón en (X=0, Z=z) con la fase de marcha y la caída del atropello (caida 0..1). */
+function aplicaPeaton(z,fase,anda,caida,empuje){
+  const A=PEATON.userData.asas, amp=anda?1:0, s=Math.sin(fase)*amp;
+  PEATON.position.set(empuje,0.0,z);
+  A.pI.cad.rotation.z=0.55*s; A.pD.cad.rotation.z=-0.55*s;
+  A.pI.rod.rotation.z=-Math.max(0,-Math.sin(fase))*0.9*amp-0.04; A.pD.rod.rotation.z=-Math.max(0,Math.sin(fase))*0.9*amp-0.04;
+  A.bI.hom.rotation.z=-0.45*s; A.bD.hom.rotation.z=0.45*s; A.bI.cod.rotation.z=-0.25-0.15*s; A.bD.cod.rotation.z=-0.25+0.15*s;
+  A.cuerpo.position.y=anda?0.012*Math.abs(Math.sin(fase)):0.004*Math.sin(fase*0.3);
+  A.cuerpo.rotation.z=-caida*1.35; A.cuerpo.position.y+=caida*0.18;
+}
+
+/* ===================== 9. EL RADAR, LA CÁMARA Y LAS MARCAS DE LA ESCENA ===================== */
+/** Un abanico (sector) sobre el suelo con transparencia que se desvanece con la distancia, aristas y arcos de alcance. */
+function creaAbanico(semi,R,col,aOpac,arcos,alturaApice){
+  const N=36, pos=[],colr=[],idx=[]; const c=new THREE.Color(col);
+  pos.push(0,0.035,0); colr.push(1,1,1,aOpac);
+  for(let i=0;i<=N;i++){ const a=-semi+2*semi*i/N; pos.push(Math.cos(a)*R,0.035,Math.sin(a)*R); colr.push(1,1,1,0); }
+  for(let i=0;i<N;i++) idx.push(0,i+2,i+1);
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(colr,4)); g.setIndex(idx);
+  const m=new THREE.MeshBasicMaterial({color:col,vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5,toneMapped:false});
+  const sector=new THREE.Mesh(g,m); sector.renderOrder=7; sector.raycast=()=>{}; sector.userData.pieza='abanico';
+  // aristas: del sensor (a su altura) a los extremos del arco en el suelo; y arcos de alcance
+  const lp=[], h=alturaApice;
+  for(const s of [-1,1]){ lp.push(0,h,0, Math.cos(semi)*R,0.035,s*Math.sin(semi)*R); }
+  for(const r of arcos){ for(let i=0;i<N;i++){ const a0=-semi+2*semi*i/N, a1=-semi+2*semi*(i+1)/N; lp.push(Math.cos(a0)*r,0.04,Math.sin(a0)*r, Math.cos(a1)*r,0.04,Math.sin(a1)*r); } }
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+  const lm=new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.7,toneMapped:false,depthWrite:false});
+  const lineas=new THREE.LineSegments(lg,lm); lineas.renderOrder=8; lineas.raycast=()=>{}; lineas.userData.pieza='abanico';
+  // el pulso: un arco fino que se expande
+  const pg=new THREE.RingGeometry(0.97,1.0,40,1,-semi,2*semi); pg.rotateX(-Math.PI/2);
+  const pm=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,blending:THREE.AdditiveBlending});
+  const pulso=new THREE.Mesh(pg,pm); pulso.position.y=0.045; pulso.renderOrder=9; pulso.raycast=()=>{}; pulso.userData.pieza='abanico';
+  const grupo=new THREE.Group(); grupo.add(sector,lineas,pulso);
+  return {grupo,sector,lineas,pulso,mat:m,lmat:lm,pm,R,aOpac,colBase:c.clone(),cA:g.attributes.color};
+}
+const ABANICO_R=creaAbanico(25*Math.PI/180,80,'#4aa8ff',0.40,[20,40,60,80],0.50);
+const ABANICO_C=creaAbanico(35*Math.PI/180,50,'#b58cff',0.26,[25,50],1.12);
+ABANICO_C.grupo.position.y=0.0; scene.add(ABANICO_R.grupo,ABANICO_C.grupo);
+/** Pone el color de un abanico sin tocar su geometría: color por vértice (multiplicado por el del material). */
+function coloreaAbanico(ab,col,op){ ab.mat.color.copy(col); ab.lmat.color.copy(col); ab.lmat.opacity=op; }
+/** El recuadro que «fija» el objetivo, como lo dibuja un sistema de visión. */
+const OBJETIVO=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.9,1.95,0.9)),new THREE.LineBasicMaterial({color:'#7cf2c0',toneMapped:false,transparent:true,opacity:0.95,depthTest:false}));
+OBJETIVO.renderOrder=12; OBJETIVO.raycast=()=>{}; OBJETIVO.userData.pieza='objetivo'; scene.add(OBJETIVO);
+/** La banda de la distancia de parada: de aquí a donde el coche se detendría si frenara ahora a fondo. */
+const BANDA_M=new THREE.MeshBasicMaterial({color:'#34d399',transparent:true,opacity:0.22,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6});
+const BANDA=new THREE.Mesh(new THREE.PlaneGeometry(1,3.2).rotateX(-Math.PI/2),BANDA_M); BANDA.renderOrder=6; BANDA.raycast=()=>{}; BANDA.userData.pieza='banda'; scene.add(BANDA);
+const BANDA_FIN_M=new THREE.MeshBasicMaterial({color:'#34d399',transparent:true,opacity:0.95,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-7,polygonOffsetUnits:-7});
+const BANDA_FIN=new THREE.Mesh(new THREE.PlaneGeometry(0.3,3.2).rotateX(-Math.PI/2),BANDA_FIN_M); BANDA_FIN.renderOrder=7; BANDA_FIN.raycast=()=>{}; BANDA_FIN.userData.pieza='banda'; scene.add(BANDA_FIN);
+/** El destello del choque: un anillo y una esfera aditivos que se expanden y se apagan. */
+const FLASH_M=new THREE.MeshBasicMaterial({color:'#ffb347',transparent:true,opacity:0,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending});
+const FLASH=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),FLASH_M); FLASH.renderOrder=11; FLASH.raycast=()=>{}; FLASH.visible=false; FLASH.userData.pieza='impacto'; scene.add(FLASH);
+
+
+/* ===================== 10. EL ESTADO Y EL RELOJ =====================
+   Dos corridas de la MISMA maniobra con el mismo reloj: la A (la que se mide, con o sin AEB según el mando) y,
+   si se pide comparar, la B, siempre sin AEB (el coche fantasma). Todo lo que se ve —coches, peatón, abanicos,
+   banda de parada— y todo lo del dock sale de ellas en cada cuadro. */
+const EST={modo:'marcha',obst:'cruza',sup:'seco',vKmh:50,Tu:1.7,alfa:0.5,aeb:'comparar',vel:1,pausa:REDUCIDO,autoRunning:false,vista:'sigue',lazo:true,rot:false,semilla:1};
+const SIM={A:null,B:null,t:0,acc:0,espera:0,supAct:'',spinA:0,spinB:0,reinicios:0,fasePeaton:0,avisoT:0};
+const NOMBRE_SUP={seco:'Seco',mojado:'Mojado',nieve:'Nieve',hielo:'Hielo'};
+const NOMBRE_OBST={cruza:'Peatón cruza',para:'Peatón se detiene'};
+const kmh=v=>v*3.6;
+/** Lo que corre ahora: en «En marcha», lo que digan los mandos; en el laboratorio guiado, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='guia'){ const p=guiaParams(); if(p) return p; }
+  const E={vKmh:EST.vKmh,sup:EST.sup,tLlega:3.0,y0:3.2,vp:1.0,tStop:EST.obst==='para'?0.8:undefined};
+  const P=paramsDe(E,EST.Tu,EST.alfa,EST.semilla);
+  return { A:Object.assign({},P,{aeb:EST.aeb!=='sin'}), B:EST.aeb==='comparar'?Object.assign({},P,{aeb:false}):null, sup:EST.sup, lazo:true };
+}
+function reiniciaCorridas(){
+  const p=paramsActuales();
+  const sup=Object.keys(SUPERFICIES).find(k=>SUPERFICIES[k]===p.A.mu)||'seco';
+  if(sup!==SIM.supAct){ aplicaSuperficie(sup); SIM.supAct=sup; }
+  SIM.A=nuevaCorrida(p.A); SIM.B=p.B?nuevaCorrida(p.B):null; SIM.lazo=p.lazo!==false;
+  SIM.t=0; SIM.acc=0; SIM.espera=0; SIM.spinA=0; SIM.spinB=0; SIM.reinicios++; SIM.aviso=0;
+  COCHE_B.visible=false;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+/** Avanza el modelo dt segundos de reloj de simulación (pasos de 5 ms). */
+function avanzaSim(dt){
+  if(!SIM.A) return;
+  SIM.acc+=dt; let n=0;
+  while(SIM.acc>=AEB.dt-1e-12&&n<600){
+    SIM.acc-=AEB.dt; n++;
+    if(!SIM.A.fin){ const v=SIM.A.v; pasoCorrida(SIM.A); SIM.spinA+=0.5*(v+SIM.A.v)*AEB.dt/LRUEDA; }
+    if(SIM.B&&!SIM.B.fin){ const v=SIM.B.v; pasoCorrida(SIM.B); SIM.spinB+=0.5*(v+SIM.B.v)*AEB.dt/LRUEDA; }
+    SIM.t+=AEB.dt;
+  }
+  const acabo=SIM.A.fin&&(!SIM.B||SIM.B.fin);
+  if(acabo){ SIM.espera+=dt; if(SIM.lazo&&EST.lazo&&SIM.espera>3.0) reiniciaCorridas(); }
+  else SIM.espera=0;
+}
+
+/* ===================== 11. LO QUE SE VE ===================== */
+const _c=new THREE.Color(), C_NORM=new THREE.Color('#4aa8ff'), C_DET=new THREE.Color('#7cf2ff'), C_AV=new THREE.Color('#ffc233'), C_FR=new THREE.Color('#ff4655');
+const C_CAM=new THREE.Color('#b58cff'), C_CAMC=new THREE.Color('#dcc4ff'), C_OKB=new THREE.Color('#34d399');
+const clamp01=x=>Math.max(0,Math.min(1,x));
+/** Pone un coche en su sitio: posición, giro de ruedas, cabeceo al frenar, discos y luz de freno. */
+function aplicaCoche(raiz,q,spin){
+  const A=raiz.userData.asas, aMax=q.mu*G;
+  raiz.position.set(q.s-q.X-X_FRENTE,0,0);
+  A.caja.rotation.z=-Math.min(0.045,0.0042*q.a);                 // cabeceo ilustrativo: el morro baja al frenar
+  for(let i=0;i<4;i++){
+    A.spins[i].rotation.z=-spin;
+    const g=clamp01(q.a/aMax)*(q.a>0.3?1:0)*0.9;
+    A.discos[i].emissiveIntensity=g*2.6; A.mordazas[i].emissiveIntensity=g*2.2;
+  }
+  const fr=q.a>0.3?1:0; for(const m of A.pilotos) m.emissiveIntensity=0.55+2.4*fr;
+}
+const _tintes={};
+function aplicaSensores(q){
+  const xf=q.s-q.X, t=SIM.t;
+  const st=q.etapa, tracked=q.filt.n>=2&&q.det&&!(q.fin&&q.res&&q.res.causa==='choque');
+  // el radar: azul en reposo, cian al fijar un objetivo, ámbar con el aviso, rojo al frenar
+  const col=st>=2?C_FR:(st===1?C_AV:(tracked?C_DET:C_NORM));
+  ABANICO_R.grupo.position.set(xf,0,0); ABANICO_R.grupo.visible=!(q.fin&&q.v<0.05&&false);
+  coloreaAbanico(ABANICO_R,col,st>=1?0.95:0.7);
+  ABANICO_R.mat.opacity=st>=2?1.0:(tracked?0.95:0.85);
+  const u=(t*0.9)%1; ABANICO_R.pulso.scale.setScalar(Math.max(0.5,u*ABANICO_R.R)); ABANICO_R.pm.color.copy(col); ABANICO_R.pm.opacity=0.55*(1-u);
+  // la cámara: violeta; más clara cuando confirma al peatón
+  ABANICO_C.grupo.position.set(xf-1.43,0,0);
+  coloreaAbanico(ABANICO_C,q.confirmado?C_CAMC:C_CAM,q.confirmado?0.95:0.6);
+  const u2=(t*0.9+0.5)%1; ABANICO_C.pulso.scale.setScalar(Math.max(0.5,u2*ABANICO_C.R)); ABANICO_C.pm.color.copy(q.confirmado?C_CAMC:C_CAM); ABANICO_C.pm.opacity=0.45*(1-u2);
+  // el objetivo fijado
+  OBJETIVO.visible=tracked;
+  if(tracked){ OBJETIVO.position.set(PEATON.position.x,0.98,PEATON.position.z); OBJETIVO.material.color.copy(st>=2?C_FR:(st===1?C_AV:C_OKB)); const p=1+0.04*Math.sin(t*10); OBJETIVO.scale.set(p,1,p); }
+  // la banda de parada: hasta dónde llegaría el coche si frenara a fondo ahora mismo
+  const dp=dParada(q.v,q.mu), ver=q.v>0.5&&!q.fin;
+  const ver2=ver&&!ocultaParada(); BANDA.visible=BANDA_FIN.visible=ver2;
+  if(ver2){ const queda=q.X-q.s, mal=dp>queda; BANDA.scale.x=Math.max(0.01,dp); BANDA.position.set(xf+dp/2,0.028,0); BANDA_FIN.position.set(xf+dp,0.03,0);
+    _c.copy(mal?C_FR:C_OKB); BANDA_M.color.copy(_c); BANDA_FIN_M.color.copy(_c); BANDA_M.opacity=mal?0.30:0.20; }
+}
+/** El peatón y el destello del choque. */
+function aplicaPeatonYFlash(){
+  const A=SIM.A; if(!A) return; const P=A.P, t=SIM.t;
+  let tp=t, caida=0, empuje=0;
+  const ch=A.res&&A.res.causa==='choque'?A.res:null;
+  if(ch){ const age=Math.max(0,t-ch.tImp); tp=Math.min(t,ch.tImp); caida=ease(clamp01(age/0.55)); empuje=Math.min(3.2,0.28*ch.vImp*(1-Math.exp(-3*age))); }
+  const z=pedY(P,tp), anda=(tp<(P.tStop===undefined?1e9:P.tStop))&&tp>=0&&!ch&&P.vp>0;
+  SIM.fasePeaton=Math.abs(P.y0-z)/1.3*DOSPI;
+  aplicaPeaton(z,anda||tp>0?SIM.fasePeaton:0,anda,caida,empuje);
+  // destello
+  let age=-1, zf=z, big=1;
+  if(ch) age=t-ch.tImp; else if(SIM.B&&SIM.B.res&&SIM.B.res.causa==='choque'){ age=t-SIM.B.res.tImp; zf=pedY(SIM.B.P,SIM.B.res.tImp); big=0.8; }
+  if(age>=0&&age<0.75){ FLASH.visible=true; FLASH.position.set(0.3,0.9,zf); FLASH.scale.setScalar((0.25+age*3.2)*big); FLASH_M.opacity=0.85*(1-age/0.75); } else FLASH.visible=false;
+}
+function aplicaEscena(dtS){
+  avanzaSim(dtS);
+  const A=SIM.A; if(!A) return;
+  aplicaCoche(COCHE_A,A,SIM.spinA);
+  if(SIM.B){ aplicaCoche(COCHE_B,SIM.B,SIM.spinB); COCHE_B.visible=Math.abs(SIM.B.s-A.s)>1.4; }
+  aplicaPeatonYFlash(); aplicaSensores(A);
+  // el sol sigue al coche A para que la sombra suave sea siempre de la zona que se ve
+  const p=COCHE_A.position; LUZ.sol.target.position.set(p.x+8,0,0); LUZ.sol.position.set(p.x-6,22,-12);
+}
+
+/* ===================== 12. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+/** Desplaza el centro de la proyección al centro del hueco libre. */
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const xCoche=()=>SIM.A?SIM.A.s-SIM.A.X-1.4:-30;
+const brecha=()=>SIM.A?Math.max(0,SIM.A.X-SIM.A.s):30;
+/** Cada vista: de dónde mira (dir, hacia la cámara desde el ancla), el ancla y la caja del objeto que debe caber. */
+const VISTAS={
+  sigue:{dir:V3(-0.86,0.33,-0.42),anc:()=>V3(xCoche()+0.6,0.6,0),toff:V3(0.3,0.45,0),obj:()=>({w:9.0,h:2.7}),fov:36},
+  cenit:{dir:V3(-0.22,1,0),anc:()=>V3(xCoche()/2,0,-1.5),toff:V3(0,0,0),obj:()=>({w:13,h:Math.max(14,brecha()+9)}),fov:36},
+  encuentro:{dir:V3(-0.16,0.20,-1),anc:()=>V3(xCoche()/2,0.9,0),toff:V3(0,0,0),obj:()=>({w:Math.max(11,brecha()+8),h:4.2}),fov:36},
+};
+const CAM={off:V3(-6,2.4,-4),toff:V3(2,0.4,0),auto:true,ancla:V3(),previo:null,k:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?50:VISTAS[v].fov; }
+/** Distancia a la que la caja w×h cabe en el hueco libre. */
+function distanciaFit(w,h,fov){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  return 1.10*Math.max(w/(2*th*wF),h/(2*tv*hF));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov);
+  let dir=V.dir.clone().normalize();
+  return {off:dir.multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.k=dur===0.001||dur===0?1:(dur===undefined?0.9:Math.max(0.2,dur))*1;
+  CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  if(!SIM.A) return;
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){
+    const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP);
+  }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · ADAS</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>¿Frena a tiempo el coche que ve?</h2>
+    <p class="intro">Un radar mide la distancia con ruido, un filtro la limpia y el <b>AEB</b> decide: aviso, freno parcial o freno total. El coche <b>sólido</b> lleva AEB; el <b>fantasma</b>, no.</p></div>`;
+  } else h+=`<h2>Predice, ajusta y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Obstáculo</div><div class="seg" id="segObs">${Object.keys(NOMBRE_OBST).map(k=>`<button class="b ${EST.obst===k?'on':''}" data-obs="${k}">${NOMBRE_OBST[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl">Calzada</div><div class="seg" id="segSup">${Object.keys(NOMBRE_SUP).map(k=>`<button class="b ${EST.sup===k?'on':''}" data-sup="${k}">${NOMBRE_SUP[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Velocidad del coche</div><b id="vV">${fN(EST.vKmh)} km/h</b></div><input type="range" id="rV" min="20" max="70" step="1" value="${EST.vKmh}" aria-label="Velocidad del coche en kilómetros por hora">
+      <div class="marcas"><span>20</span><span>45</span><span>70</span></div></div>
+    <div class="cg"><div class="cl"><div>Umbral de frenado <em class="gr">TTC</em></div><b id="vT">${fN(EST.Tu,2)} s</b></div><input type="range" id="rT" min="0.5" max="3" step="0.05" value="${EST.Tu}" aria-label="Umbral de tiempo hasta la colisión en segundos">
+      <div class="marcas"><span class="lim">tarde</span><span>1,75</span><span class="lim">pronto</span></div></div>
+    <div class="cg"><div class="cl"><div>Filtro del radar <em class="gr">α</em></div><b id="vA">${fN(EST.alfa,2)}</b></div><input type="range" id="rA" min="0.1" max="0.9" step="0.05" value="${EST.alfa}" aria-label="Ganancia alfa del filtro">
+      <div class="marcas"><span>suave y lento</span><span>rápido y ruidoso</span></div></div>
+    <div class="cg"><div class="cl">Sistema</div><div class="seg" id="segAeb">${[['con','Con AEB'],['sin','Sin AEB'],['comparar','Comparar']].map(([k,t])=>`<button class="b ${EST.aeb===k?'on':''}" data-aeb="${k}">${t}</button>`).join('')}</div></div>
+    <div class="fila"><button class="b primary" id="btnRep">↻ Repetir</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">TTC = d / v<sub>rel</sub><br>a<sub>req</sub> = v² / (2d)${ocultaParada()?'':'<br>d<sub>parada</sub> = v·(τ + T<sub>r</sub>/2) + v²/(2μg) − μg·T<sub>r</sub>²/24'}</div>
+    ${ocultaParada()?'':'<div class="fl">Con latencia <b>τ</b> = 0,12 s y rampa de presión <b>J</b> = 60 m/s³ (T<sub>r</sub> = μg/J). Sin latencia ni rampa queda la fórmula de libro v·t<sub>r</sub> + v²/(2μg). Si no se evita el choque: v<sub>imp</sub> = √(v² − 2a·(d − v·τ)).</div>'}
+    <div class="fl"><b>Filtro alfa-beta</b> (Benedict–Bordner, β = α²/(2−α)), cada T = 50 ms:</div>
+    <div class="formula">x<sub>p</sub> = x + v·T ; r = z − x<sub>p</sub><br>x ← x<sub>p</sub> + α·r ; v ← v + (β/T)·r</div>
+    <div class="fl">Sigue una rampa sin error; con aceleración constante a queda un retardo (1−α)·a·T²/β.</div>
+    <div class="fl"><b>Etapas</b> con el umbral T<sub>u</sub>: aviso si TTC ≤ 1,5·T<sub>u</sub>; freno parcial (4 m/s²) si TTC ≤ T<sub>u</sub>; freno total (μg) si TTC ≤ 0,65·T<sub>u</sub>. Sólo cuenta un obstáculo que, con su velocidad lateral actual, estará en el carril cuando el coche llegue.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Movimiento longitudinal en línea recta, un solo obstáculo y un solo objetivo; el peatón se mueve con velocidad lateral constante.</li>
+    <li>Radar: ruido gaussiano de 0,25 m en distancia y detección dentro de un cono de ±25° hasta 80 m. La cámara (±35°, 50 m) confirma al peatón tras 3 fotogramas. La posición lateral del peatón se supone medida sin ruido.</li>
+    <li>El conductor no frena (como en los ensayos de AEB). Adherencia μ constante y didáctica: 0,80 · 0,55 · 0,25 · 0,12.</li>
+    <li>El impacto no se simula (sin deformación ni lesiones): sólo la velocidad de impacto exacta. La caída del peatón es ilustrativa. No es un ensayo Euro NCAP ni UN R152.</li>
+  </ul><div class="src">Bar-Shalom, <i>Estimation with Applications to Tracking and Navigation</i> · Brookner, <i>Tracking and Kalman Filtering Made Easy</i> · Euro NCAP AEB VRU · UN R152.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCorridas(); pintaDockFijo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-obs]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.obst=b.dataset.obs; pintaHUD(); re(); });
+  H.querySelectorAll('[data-sup]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.sup=b.dataset.sup; pintaHUD(); re(); });
+  H.querySelectorAll('[data-aeb]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.aeb=b.dataset.aeb; pintaHUD(); re(); });
+  const rv=el('rV'); if(rv) rv.oninput=()=>{ if(EST.autoRunning) return; EST.vKmh=+rv.value; el('vV').textContent=fN(EST.vKmh)+' km/h'; re(); };
+  const rt=el('rT'); if(rt) rt.oninput=()=>{ if(EST.autoRunning) return; EST.Tu=+rt.value; el('vT').textContent=fN(EST.Tu,2)+' s'; re(); };
+  const ra=el('rA'); if(ra) ra.oninput=()=>{ if(EST.autoRunning) return; EST.alfa=+ra.value; el('vA').textContent=fN(EST.alfa,2); re(); };
+  if(el('btnRep')) el('btnRep').onclick=()=>{ if(EST.autoRunning) return; EST.semilla++; re(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LTR=lienzo('gTr'), LFR=lienzo('gFr'), LFU=lienzo('gFu'), LSP=lienzo('gSp');
+const COL_R='#7CC4FF', COL_F='#ffffff', COL_V='#34d399', COL_AV='#FFC233', COL_RJ='#FF4655', COL_T='#8a9fb9', COL_FANT='#FF8A6C';
+const COL_ET=['#3b5573','#FFC233','#FF8A3D','#FF4655'];
+const NOM_ET=['en espera','aviso','freno parcial','freno total'];
+/** Lo que el dock NO debe enseñar todavía: la distancia de parada mientras se pide calcularla. */
+const ocultaParada=()=>EST.modo==='guia'&&GUIA.paso==='predice';
+const sinDatos=(x,Wd,Hd)=>{ txt(x,'—',Wd/2,Hd/2+4,'#6f87a0',14,'center','500'); };
+
+/* ---- Radar: distancia cruda y filtrada ---- */
+function pintaTr(){
+  const x=abre(LTR), Wd=LTR.w, Hd=LTR.h, A=SIM.A; if(!A) return;
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, dmax=A.X*1.06, T=Math.max(3.4,A.X/Math.max(A.P.v0,3)+0.7);
+  const X=t=>X0+t/T*(X1-X0), Y=d=>Y1-d/dmax*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0,Y0,X0,Y1,'#3d5470');
+  for(const d of [0.25,0.5,0.75,1]){ const dd=Math.round(A.X*d/5)*5; raya(x,X0,Y(dd),X1,Y(dd),'rgba(143,179,200,0.10)'); txt(x,String(dd),X0-3,Y(dd)+3,'#6f87a0',8.5,'right','500'); }
+  for(let t=0;t<=T;t+=1){ raya(x,X(t),Y1,X(t),Y1+3,'#3d5470'); txt(x,t+' s',X(t),Hd-2,'#6f87a0',8.5,'center','500'); }
+  const h=A.hist||[]; if(h.length<2){ sinDatos(x,Wd,Hd); return; }
+  x.strokeStyle='rgba(200,214,230,0.35)'; x.lineWidth=1; x.setLineDash([3,3]); x.beginPath(); h.forEach((m,i)=>{ i?x.lineTo(X(m.t),Y(m.d)):x.moveTo(X(m.t),Y(m.d)); }); x.stroke(); x.setLineDash([]);
+  x.fillStyle=COL_R; x.globalAlpha=0.75; for(const m of h){ if(isFinite(m.z)){ x.beginPath(); x.arc(X(m.t),Y(m.z),1.5,0,DOSPI); x.fill(); } } x.globalAlpha=1;
+  x.strokeStyle=COL_F; x.lineWidth=1.9; x.beginPath(); let ini=true; for(const m of h){ if(!isFinite(m.dEst)) continue; if(ini){ x.moveTo(X(m.t),Y(m.dEst)); ini=false; } else x.lineTo(X(m.t),Y(m.dEst)); } x.stroke();
+  const m=h[h.length-1], xc=X(Math.min(m.t,T)); raya(x,xc,Y0,xc,Y1,'rgba(255,255,255,0.45)',1);
+    txt(x,'σ '+fN(AEB.sigD,2)+' m · α '+fN(A.P.alfa===undefined?0.5:A.P.alfa,2),X1-2,Y0+9,'#8a9fb9',8.5,'right','600');
+}
+/* ---- Plano «distancia disponible – distancia necesaria» ---- */
+function pintaFr(){
+  const x=abre(LFR), Wd=LFR.w, Hd=LFR.h, A=SIM.A; if(!A) return;
+  if(ocultaParada()){ sinDatos(x,Wd,Hd); return; }
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, M=Math.max(dParada(A.P.v0,A.mu)*1.15,A.X*0.55), Xm=A.X*1.05;
+  const X=d=>X0+d/Xm*(X1-X0), Y=r=>Y1-r/M*(Y1-Y0);
+  // zona imposible: por encima de la diagonal d_req = d
+  x.fillStyle='rgba(255,70,85,0.13)'; x.beginPath(); x.moveTo(X(0),Y(0)); x.lineTo(X(Math.min(Xm,M)),Y(Math.min(Xm,M))); x.lineTo(X(Math.min(Xm,M)),Y(M)); x.lineTo(X(0),Y(M)); x.closePath(); x.fill();
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0,Y0,X0,Y1,'#3d5470');
+  raya(x,X(0),Y(0),X(Math.min(Xm,M)),Y(Math.min(Xm,M)),'rgba(255,120,130,0.8)',1.3,[4,3]);
+  for(const d of [10,20,30,40,50,60]){ if(d<Xm){ raya(x,X(d),Y1,X(d),Y1+3,'#3d5470'); txt(x,String(d),X(d),Hd-2,'#6f87a0',8.5,'center','500'); } }
+  for(const r of [10,20,30]){ if(r<M){ raya(x,X0,Y(r),X0+3,Y(r),'#3d5470'); txt(x,String(r),X0-3,Y(r)+3,'#6f87a0',8.5,'right','500'); } }
+  const h=A.hist||[]; if(h.length<2){ sinDatos(x,Wd,Hd); return; }
+  x.lineWidth=2; for(let i=1;i<h.length;i++){ x.strokeStyle=COL_ET[h[i].etapa]; x.beginPath(); x.moveTo(X(h[i-1].d),Y(h[i-1].dReq)); x.lineTo(X(h[i].d),Y(h[i].dReq)); x.stroke(); }
+  const m=h[h.length-1]; x.fillStyle='#fff'; x.beginPath(); x.arc(X(m.d),Y(m.dReq),3.6,0,DOSPI); x.fill(); x.strokeStyle=COL_ET[m.etapa]; x.lineWidth=1.5; x.stroke();
+  txt(x,'d necesaria ↑',X0+4,Y0+9,COL_V,8.5,'left','700'); txt(x,'d disponible →',X1-2,Y1-4,'#8a9fb9',8.5,'right','600');
+}
+/* ---- TTC y etapas, con el mismo reloj ---- */
+function pintaFu(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, A=SIM.A; if(!A) return;
+  const X0=28, X1=Wd-6, Y0=6, Y1=Hd-24, T=Math.max(3.4,A.X/Math.max(A.P.v0,3)+0.7), tmax=4.5;
+  const X=t=>X0+t/T*(X1-X0), Y=v=>Y1-Math.min(v,tmax)/tmax*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0,Y0,X0,Y1,'#3d5470');
+  for(const v of [1,2,3,4]){ raya(x,X0,Y(v),X1,Y(v),'rgba(143,179,200,0.08)'); txt(x,v+' s',X0-3,Y(v)+3,'#6f87a0',8.5,'right','500'); }
+  for(let t=0;t<=T;t+=1){ raya(x,X(t),Y1,X(t),Y1+3,'#3d5470'); txt(x,t+' s',X(t),Hd-3,'#6f87a0',8.5,'center','500'); }
+  const Tu=A.P.Tu, ums=[[Tu*AEB.kAviso,COL_AV,'aviso'],[Tu,'#FF8A3D','parcial'],[Tu*AEB.kTotal,COL_RJ,'total']];
+  for(const [v,c,n] of ums){ if(v<=tmax){ raya(x,X0,Y(v),X1,Y(v),c,1,[3,3]); txt(x,n,X1-2,Y(v)-2,c,8.5,'right','700'); } }
+  const h=A.hist||[]; if(h.length<2){ sinDatos(x,Wd,Hd); return; }
+  // franja de etapas
+  for(let i=1;i<h.length;i++){ x.fillStyle=COL_ET[h[i].etapa]; x.fillRect(X(h[i-1].t),Y1+7,Math.max(1,X(h[i].t)-X(h[i-1].t)+0.6),5); }
+  // TTC verdadero (tenue) y estimado
+  x.strokeStyle='rgba(200,214,230,0.35)'; x.lineWidth=1; x.setLineDash([3,3]); x.beginPath(); let a=true; for(const m of h){ if(!isFinite(m.ttcV)||m.ttcV>tmax*1.5) continue; a?x.moveTo(X(m.t),Y(m.ttcV)):x.lineTo(X(m.t),Y(m.ttcV)); a=false; } x.stroke(); x.setLineDash([]);
+  x.strokeStyle=COL_F; x.lineWidth=1.9; x.beginPath(); a=true; for(const m of h){ if(!isFinite(m.ttc)||m.ttc>tmax*1.5) continue; a?x.moveTo(X(m.t),Y(m.ttc)):x.lineTo(X(m.t),Y(m.ttc)); a=false; } x.stroke();
+  const m=h[h.length-1]; if(isFinite(m.ttc)&&m.ttc<=tmax){ x.fillStyle='#fff'; x.beginPath(); x.arc(X(m.t),Y(m.ttc),3.2,0,DOSPI); x.fill(); }
+  raya(x,X(m.t),Y0,X(m.t),Y1,'rgba(255,255,255,0.35)',1);
+  el('t_fu').textContent=fN(SIM.t,1)+' s';
+}
+function pintaLeyFu(){
+  el('leyFu').innerHTML=`<span class="lg"><i style="--c:#fff"></i>TTC estimado</span><span class="lg"><i class="dash" style="--c:#c8d6e6"></i>TTC real</span><span class="lg"><i class="bl" style="--c:${COL_AV}"></i>aviso</span><span class="lg"><i class="bl" style="--c:#FF8A3D"></i>parcial</span><span class="lg"><i class="bl" style="--c:${COL_RJ}"></i>total</span>`;
+}
+/* ---- Velocidad y deceleración ---- */
+function pintaSp(){
+  const x=abre(LSP), Wd=LSP.w, Hd=LSP.h, A=SIM.A; if(!A) return;
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, T=Math.max(3.4,A.X/Math.max(A.P.v0,3)+0.7), vmax=Math.ceil(A.P.v0*3.6/10)*10+5, aM=A.mu*G*1.05;
+  const X=t=>X0+t/T*(X1-X0), Yv=v=>Y1-v/vmax*(Y1-Y0), Ya=a=>Y1-a/aM*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5470'); raya(x,X0,Y0,X0,Y1,'#3d5470');
+  for(let t=0;t<=T;t+=1){ raya(x,X(t),Y1,X(t),Y1+3,'#3d5470'); txt(x,t+' s',X(t),Hd-2,'#6f87a0',8.5,'center','500'); }
+  for(const v of [vmax/2,vmax-5]){ txt(x,fN(v,0),X0-3,Yv(v)+3,'#6f87a0',8.5,'right','500'); }
+  raya(x,X0,Ya(A.mu*G),X1,Ya(A.mu*G),'rgba(255,179,71,0.35)',1,[3,3]); txt(x,'μg',X1-2,Ya(A.mu*G)-2,'#d8b36a',8.5,'right','700');
+  const h=A.hist||[]; if(h.length<2){ sinDatos(x,Wd,Hd); return; }
+  x.fillStyle='rgba(255,179,71,0.20)'; x.beginPath(); x.moveTo(X(h[0].t),Ya(0)); for(const m of h) x.lineTo(X(m.t),Ya(m.a)); x.lineTo(X(h[h.length-1].t),Ya(0)); x.closePath(); x.fill();
+  x.strokeStyle='#FFB347'; x.lineWidth=1.4; x.beginPath(); h.forEach((m,i)=>{ i?x.lineTo(X(m.t),Ya(m.a)):x.moveTo(X(m.t),Ya(m.a)); }); x.stroke();
+  if(SIM.B&&SIM.B.hist&&SIM.B.hist.length>1){ x.strokeStyle=COL_FANT; x.lineWidth=1.2; x.setLineDash([3,3]); x.beginPath(); SIM.B.hist.forEach((m,i)=>{ i?x.lineTo(X(m.t),Yv(m.v*3.6)):x.moveTo(X(m.t),Yv(m.v*3.6)); }); x.stroke(); x.setLineDash([]); }
+  x.strokeStyle=COL_F; x.lineWidth=2; x.beginPath(); h.forEach((m,i)=>{ i?x.lineTo(X(m.t),Yv(m.v*3.6)):x.moveTo(X(m.t),Yv(m.v*3.6)); }); x.stroke();
+  const m=h[h.length-1]; x.fillStyle='#fff'; x.beginPath(); x.arc(X(m.t),Yv(m.v*3.6),3,0,DOSPI); x.fill();
+  txt(x,'km/h',X0+36,Y0+9,'#e6eef7',8.5,'left','700'); txt(x,'m/s²',X0+66,Y0+9,'#FFB347',8.5,'left','700');
+  el('t_sp').textContent=fN(m.v*3.6,0)+' km/h · '+fN(m.a,1)+' m/s²';
+}
+
+function pintaDockFijo(){
+  const gu=EST.modo==='guia', A=SIM.A;
+  el('p_mode').textContent=gu?'Laboratorio guiado':('AEB · '+NOMBRE_SUP[EST.sup].toLowerCase());
+  el('p_sub').textContent=A?('μ = '+fN(A.mu,2)+' · '+fN(A.P.v0*3.6)+' km/h'):'';
+  pintaLeyFu();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const A=SIM.A; if(!A) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  const h=A.hist||[], m=h.length?h[h.length-1]:null;
+  set('f_v',fN(A.v*3.6,0)+'<small> km/h</small>');
+  set('f_d',m&&isFinite(m.dEst)?fN(m.dEst,1)+'<small> m</small>':'—');
+  set('f_vr',m&&isFinite(m.vEst)?fN(m.vEst*3.6,0)+'<small> km/h</small>':'—');
+  const tt=m&&isFinite(m.ttc)&&m.ttc<30?fN(m.ttc,2)+'<small> s</small>':'—'; set('f_ttc',tt);
+  if(ocultaParada()){ set('f_ar','¿?'); _cl('f_ar','oculto'); } else { set('f_ar',m&&m.aReq<100?fN(m.aReq,1)+'<small> m/s²</small>':'—'); _cl('f_ar',m&&m.aReq>A.mu*G?'bad':''); }
+  set('f_e',NOM_ET[A.etapa]); _cl('f_e',A.etapa>=2?'bad':(A.etapa===1?'warn':'oculto'));
+  const Av=el('aviso'); let cl='', t='';
+  if(A.fin&&A.res&&!enDiagnostico()){
+    const r=A.res;
+    if(r.causa==='choque'){ cl='mal'; t='Choque a '+fN(r.vImp*3.6,0)+' km/h contra el peatón.'; }
+    else if(r.causa==='detenido'){ cl='bien'; t='Detenido a '+fN(r.gap,1)+' m del peatón. Sin choque.'; }
+    else { cl=r.falsoPos?'mal':'bien'; t=r.falsoPos?'Frenó sin necesidad: el coche habría pasado sin tocarlo.':'El coche pasó sin tocar al peatón.'; }
+  } else if(A.etapa>=1&&!enDiagnostico()){ cl='ojo'; t=A.etapa===1?'Aviso al conductor: obstáculo en la trayectoria.':(A.etapa===2?'AEB frena a media fuerza ('+fN(Math.min(AEB.aParcial,A.mu*G),1)+' m/s²).':'AEB frena a fondo ('+fN(A.mu*G,1)+' m/s²).'); }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×1/4'],[0.5,'×1/2'],[1,'×1'],[2,'×2']];
+el('vbar').innerHTML=[['sigue','Seguimiento'],['cenit','Cenital'],['encuentro','Lateral']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  el('tLento').textContent=EST.vel<1?('cámara lenta '+(VEL.find(v=>v[0]===EST.vel)||[0,'×'+EST.vel])[1]):'';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const A=SIM.A, e=el('tEst'); if(!A) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
+  let t, c;
+  if(A.fin&&A.res){ const r=A.res; if(r.causa==='choque'){ t='choque a '+fN(r.vImp*3.6,0)+' km/h'; c='#f4475e'; } else if(r.causa==='detenido'){ t='detenido, sin choque'; c='#34d399'; } else { t=r.falsoPos?'frenó sin necesidad':'pasó sin tocarlo'; c=r.falsoPos?'#FFB347':'#34d399'; } if(enDiagnostico()){ t='maniobra terminada'; c='#93AFC9'; } }
+  else if(A.etapa>=1){ t='AEB: '+NOM_ET[A.etapa]; c=COL_ET[A.etapa]; }
+  else { t=A.filt.n>=2&&A.det?'siguiendo al objetivo':'radar explorando'; c='#7CC4FF'; }
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Coche con AEB',()=>COCHE_A.position.clone().add(V3(0.4,1.6,0)),()=>true],
+  ['Coche sin AEB (fantasma)',()=>COCHE_B.position.clone().add(V3(0.4,1.6,0)),()=>!!SIM.B],
+  ['Haz del radar (±25°, 80 m)',()=>{ const x=SIM.A?SIM.A.s-SIM.A.X:0; return V3(x+22,0.05,-9.5); },()=>true],
+  ['Campo de la cámara (±35°, 50 m)',()=>{ const x=SIM.A?SIM.A.s-SIM.A.X:0; return V3(x+17,0.05,11.5); },()=>true],
+  ['Peatón (maniquí)',()=>PEATON.position.clone().add(V3(0,2.0,0)),()=>true],
+  ['Parada si frenara ahora',()=>BANDA_FIN.position.clone().add(V3(0,0.1,1.6)),()=>BANDA.visible],
+  ['Paso de peatones',()=>V3(0,0.05,-5.3),()=>true],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(124,196,255,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,ok],i)=>{ if(!ok()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  coche:'Coche con AEB: el que se mide en el dock. Radar en el paragolpes y cámara bajo el retrovisor',
+  cocheFantasma:'Coche sin AEB: la misma maniobra, el mismo reloj, sin frenado autónomo',
+  abanico:'Cono del radar (azul) y campo de la cámara (violeta). Se vuelven ámbar con el aviso y rojos cuando el AEB frena',
+  peaton:'Maniquí de peatón de 1,75 m con chaleco: camina a 1 m/s (3,6 km/h)',
+  banda:'Hasta dónde llegaría el coche si frenara a fondo ahora (latencia y rampa incluidas). Se pone roja si no alcanza a parar antes del peatón',
+  marcador:'Marcas de distancia al paso de peatones: una cada 5 m, más larga cada 10 m',
+  cebra:'Paso de peatones: el plano donde está el peatón',
+  objetivo:'Objetivo fijado por el radar y confirmado por la cámara',
+  asfalto:'Calzada de dos sentidos; el aspecto cambia con la adherencia (seco, mojado, nieve, hielo)',
+  senal:'Señal de paso de peatones',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const lista=[COCHE_A,SIM.B?COCHE_B:null,PEATON,CALLE,BANDA,OBJETIVO].filter(Boolean);
+  const hits=RAY.intersectObjects(lista,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o===COCHE_A) return 'coche'; if(o===COCHE_B) return 'cocheFantasma'; if(o===PEATON) return 'peaton'; if(o.userData&&o.userData.pieza&&INFO[o.userData.pieza]) return o.userData.pieza; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 18. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Predice (la distancia de parada, con la fórmula), 2 · Ajusta (el umbral de disparo del AEB para
+   un conjunto de cuatro escenarios: que no haya choque en los tres peligrosos y que NO frene en el inofensivo; el
+   resultado de cada uno sólo aparece al validar) y 3 · Diagnostica (¿por qué falló este AEB?, sólo con lo que se
+   ve en el dock) y cierra con un quiz de tres preguntas. Cuatro validaciones fallidas cambian el conjunto de
+   escenarios (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,replay:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0,conj:-1};
+
+/* ---------- Fase 1 · Predice ---------- */
+const CASOS1=[{v:50,sup:'seco',tr:1.0},{v:60,sup:'mojado',tr:0.8},{v:40,sup:'nieve',tr:1.2},{v:70,sup:'seco',tr:0.5},{v:30,sup:'hielo',tr:1.0},{v:50,sup:'mojado',tr:1.0},{v:45,sup:'nieve',tr:0.7},{v:60,sup:'seco',tr:1.5}];
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.i; let i; do{ i=Math.floor(Math.random()*CASOS1.length); }while(i===p); const c=CASOS1[i];
+  GUIA.r1={i,v:c.v,sup:c.sup,tr:c.tr,ans:dParadaLibro(c.v/3.6,SUPERFICIES[c.sup],c.tr)}; }
+function checkPredice(){
+  const raw=String((el('ansV')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la distancia de parada en metros (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(1.5,0.04*ok)){
+    RETO.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`La distancia de parada es lo que recorres mientras reaccionas más lo que tardas en frenar: d = v·t<sub>r</sub> + v²/(2μg) = ${fN(r.v/3.6,1)} × ${fN(r.tr,1)} + ${fN(r.v/3.6,1)}² / (2 × ${fN(SUPERFICIES[r.sup],2)} × 9,81) = <b>${fN(ok,1)} m</b>. El AEB tiene una latencia de sólo 0,12 s, pero el término v² manda.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal();
+    const d=v>ok?'alto':'bajo';
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1();
+      feedback('bad','Tres intentos fallidos','Cambia el caso: vuelve a separar lo que recorres reaccionando de lo que recorres frenando.'); reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,v%1?1:0)}) está ${d}. Pasa la velocidad a m/s antes de operar y suma los dos tramos: el de reacción (a velocidad constante) y el de frenado (deceleración μg). (intentos fallidos: ${RETO.fallos1}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallos1;
+    }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta el umbral ---------- */
+const nombreEsc=E=>`${E.id} · ${E.tipo==='cruza'?'Peatón cruza':'Peatón se detiene en la acera'} · ${E.vKmh} km/h · ${NOMBRE_SUP[E.sup].toLowerCase()}`;
+function prepararDecide(){
+  let i; do{ i=Math.floor(Math.random()*CONJUNTOS_RETO.length); }while(CONJUNTOS_RETO.length>1&&i===GUIA.conj&&RETO.resiembras===0&&false);
+  if(CONJUNTOS_RETO.length>1&&i===GUIA.conj) i=(i+1)%CONJUNTOS_RETO.length;
+  GUIA.conj=i; GUIA.r2={lista:CONJUNTOS_RETO[i],Tu:1.0,validado:false,res:null,intentos:0,ventana:null}; GUIA.replay=null;
+  reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+}
+function validarDecide(){
+  const r=GUIA.r2; if(!r) return;
+  const res=evaluaConjunto(r.lista,r.Tu,0.5); r.res=res; r.validado=true; r.intentos++; RETO.intentos++; GUIA.replay=null;
+  const malos=res.filter(x=>!x.ok), choques=malos.filter(x=>x.colisionable), falsos=malos.filter(x=>!x.colisionable);
+  if(!malos.length){
+    RETO.fallos2=0; sonido.bien(); r.ventana=ventanaSegura(r.lista);
+    feedback('good','¡Lo conseguiste! ✓',`Con un umbral de <b>${fN(r.Tu,2)} s</b> el AEB evita los tres choques y no frena en el escenario inofensivo. La ventana segura de este conjunto va de ≈ <b>${fN(r.ventana.lo,2)} s</b> a ≈ <b>${fN(r.ventana.hi,2)} s</b>: por debajo, el freno llega tarde; por encima, el AEB frena por peatones que no van a cruzar. Un umbral fijo es siempre un compromiso entre las dos.`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    let msg=''; if(choques.length) msg+=`Choca en ${choques.map(x=>x.id).join(', ')}: el AEB llega tarde. `; if(falsos.length) msg+=`Frena sin necesidad en ${falsos.map(x=>x.id).join(', ')}: el peatón no iba a cruzar. `;
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia el conjunto de escenarios: las velocidades y la calzada son otras.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETO.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+/** Ventana de umbrales en que pasan los cuatro con SEIS semillas de ruido distintas (para decir algo que no dependa de una racha). */
+function ventanaSegura(lista){
+  let lo=null, hi=null;
+  for(let i=0;i<=50;i++){ const Tu=+(0.5+i*0.05).toFixed(2);
+    const ok=[1,2,3,4,5,6].every(sem=>lista.every(E=>{ const q=simula(paramsDe(E,Tu,0.5,sem)), re=q.res; return E.tipo==='cruza'?re.causa!=='choque':!re.falsoPos; }));
+    if(ok){ if(lo===null) lo=Tu; hi=Tu; } }
+  return lo===null?ventanaTu(lista,0.5):{lo,hi};
+}
+function verEscenario(id){
+  const r=GUIA.r2; if(!r||!r.validado) return; const E=r.lista.find(e=>e.id===id); if(!E) return;
+  GUIA.replay={E,Tu:r.Tu}; reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'bajo',  t:'Umbral demasiado bajo', E:{vKmh:50,sup:'seco',   tLlega:3,y0:3.2,vp:1}, Tu:0.9},
+  {k:'suelo', t:'Calzada demasiado resbaladiza', E:{vKmh:45,sup:'nieve',tLlega:3,y0:3.2,vp:1}, Tu:2.3},
+  {k:'alto',  t:'Umbral demasiado alto', E:{vKmh:50,sup:'seco',   tLlega:3,y0:3.2,vp:1,tStop:0.8}, Tu:2.6}
+];
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k)); GUIA.replay=null; reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara dónde están las líneas de umbral del dock con el TTC al que había que frenar, y fíjate en la calzada.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='bajo') return 'Umbral demasiado bajo: el AEB sólo frena cuando el TTC ya es menor que el tiempo que necesita el coche para parar (v/(μg) más la latencia). En el plano del dock, la trayectoria cruza la zona roja <b>antes</b> de que aparezca el primer color de freno.';
+  if(k==='suelo') return 'Calzada resbaladiza: el AEB actuó pronto, pero con μ = 0,25 la distancia de parada se multiplica por más de tres frente al seco. El umbral que sirve en asfalto seco no sirve en nieve: un AEB real adapta su umbral a la adherencia estimada.';
+  return 'Umbral demasiado alto: el AEB decidió frenar cuando el peatón aún andaba hacia la calzada y su trayectoria prevista invadía el carril. El peatón se detuvo en la acera y el freno resultó innecesario: un falso positivo.';
+}
+function noEs(k){
+  if(k==='bajo') return 'Si el umbral fuera demasiado bajo, las líneas de aviso, parcial y total del dock estarían muy cerca del choque, y el freno llegaría cuando ya no hay distancia.';
+  if(k==='suelo') return 'Si fuera la calzada, el AEB habría actuado con holgura (umbral alto), pero la parada necesaria sería mayor que la distancia, con μ bajo a la vista.';
+  return 'Un falso positivo aparece cuando no había peligro real: mira si el peatón llega a invadir el carril.';
+}
+const QUIZ=[
+  {q:'Un obstáculo está a 20 m y el coche se acerca a 15 m/s. ¿Cuánto vale el TTC?',ok:'1,33 s',mal:['0,75 s','3,00 s','300 s']},
+  {q:'¿Qué hace el filtro alfa-beta con las medidas de distancia del radar?',ok:'Reduce el ruido y estima también la velocidad de cierre, a costa de un pequeño retardo cuando el coche frena',mal:['Elimina el ruido por completo y sin ningún retardo','Mide la distancia con más precisión que el propio radar','Sólo sirve para decidir si el objeto es un peatón']},
+  {q:'Si el coche va al doble de velocidad, ¿cuánto crece su distancia de frenado a fondo (sin contar la reacción)?',ok:'Se multiplica por 4',mal:['Se duplica','Se multiplica por 8','No cambia']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='guia') pintaHUD(); }
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','Son dos tramos: mientras reaccionas el coche sigue a su velocidad (distancia = v × t_r) y después frena con deceleración constante.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','En el frenado la energía cinética se disipa con la fuerza de rozamiento: ½·m·v² = μ·m·g·d, de donde d = v²/(2μg). La masa se simplifica.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarDecide(); break;
+    case 'ver-A': verEscenario('A'); break; case 'ver-B': verEscenario('B'); break; case 'ver-C': verEscenario('C'); break; case 'ver-D': verEscenario('D'); break;
+    case 'dx-bajo': diagnostica('bajo'); break; case 'dx-suelo': diagnostica('suelo'); break; case 'dx-alto': diagnostica('alto'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Cuántos metros necesita para parar?',
+      teach:`Un conductor va a <b>${fN(r.v)} km/h</b> sobre <b>${NOMBRE_SUP[r.sup].toLowerCase()}</b> (μ = ${fN(SUPERFICIES[r.sup],2)}) y tarda <b>${fN(r.tr,1)} s</b> en reaccionar.<div class="task">¿Qué distancia recorre hasta detenerse, en metros? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? m" aria-label="Distancia de parada en metros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando los escenarios…',teach:'',acts:''};
+      const lista=r.lista.map(E=>{ const x=r.validado&&r.res?r.res.find(y=>y.id===E.id):null;
+        let est=''; if(x){ est=x.ok?'<span class="rs ok">✓ '+(x.colisionable?(x.causa==='detenido'?'sin choque':'sin choque'):'no frenó')+'</span>':'<span class="rs mal">✗ '+(x.colisionable?('choque a '+fN(x.vImpKmh,0)+' km/h'):'frenó sin motivo')+'</span>'; }
+        return `<div class="esc"><span>${nombreEsc(E)}</span>${est}${x?`<button class="pista" data-act="ver-${E.id}">▶ ver</button>`:''}</div>`; }).join('');
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Un umbral para cuatro escenarios',
+      teach:`Elige el TTC al que el AEB empieza a frenar. Tres escenarios tienen choque seguro si no frena; el cuarto es <b>inofensivo</b>: el AEB no debe actuar.<div class="escs">${lista}</div><div class="why"><b>El objetivo:</b> ningún choque y ningún freno en falso, a la vez. ${tri('d_try2',RETO.fallos2,4)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Umbral de frenado</div><b id="v2T">${fN(r.Tu,2)} s</b></div><input type="range" id="r2T" min="0.5" max="3" step="0.05" value="${r.Tu}" aria-label="Umbral de tiempo hasta la colisión"></div>
+        <button class="b primary" data-act="validar">▶ Validar los 4 escenarios</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k), N={bajo:'Umbral demasiado bajo',suelo:'Calzada demasiado resbaladiza',alto:'Umbral demasiado alto'};
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué falló?',title:'Averigua la causa sin ver el umbral',
+      teach:`Este AEB no ha ido bien. Fíjate en el <b>suelo</b>, en cuánto antes del impacto aparecen las líneas de umbral del dock y en si el peatón llegaba a cruzar.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${N[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Predijiste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b> y mueve el umbral, el filtro y la calzada: el AEB siempre es un compromiso entre llegar a tiempo y no asustarse de más.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Predice','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en la calle en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1, E={vKmh:r.v,sup:r.sup,tLlega:4.5,y0:3.2,vp:0,tStop:0};
+    return {A:Object.assign(paramsDe(E,2,0.5),{aeb:false}),B:null,sup:r.sup,lazo:true}; }
+  if(GUIA.paso==='decide'&&GUIA.r2){ const r=GUIA.r2;
+    if(GUIA.replay){ const P=paramsDe(GUIA.replay.E,GUIA.replay.Tu,0.5); return {A:P,B:Object.assign({},P,{aeb:false}),sup:GUIA.replay.E.sup,lazo:true}; }
+    const E=r.lista[0], P=paramsDe(E,r.Tu,0.5); return {A:Object.assign({},P,{aeb:false}),B:null,sup:E.sup,lazo:true}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx, P=paramsDe(c.E,c.Tu,0.5);
+    return {A:P,B:null,sup:c.E.sup,lazo:true}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  reiniciaCorridas(); ponVista(EST.vista,0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(t&&t.id==='r2T'){ const r=GUIA.r2; if(r){ r.Tu=+t.value; el('v2T').textContent=fN(r.Tu,2)+' s'; } } });
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), prev={obst:EST.obst,sup:EST.sup,vKmh:EST.vKmh,Tu:EST.Tu,alfa:EST.alfa,aeb:EST.aeb,vista:EST.vista,vel:EST.vel};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } reiniciaCorridas(); pintaDockFijo(); pintaBarras(); };
+  try{
+    fija({obst:'cruza',sup:'seco',vKmh:50,Tu:1.75,alfa:0.5,aeb:'comparar',vel:1}); ponVista('sigue');
+    showToast('Paso 1 · El <b>radar</b> (azul) fija al peatón y la <b>cámara</b> (violeta) lo confirma. El coche sólido frena solo; el fantasma, sin AEB, lo atropella.',8200);
+    await espera(8800);
+    fija({alfa:0.9,aeb:'con'}); ponVista('cenit');
+    showToast('Paso 2 · Con α alto el filtro apenas suaviza: en el dock, los puntos crudos del radar bailan y el TTC se vuelve ruidoso.',8200);
+    await espera(8800);
+    fija({alfa:0.15});
+    showToast('Paso 3 · Con α bajo la línea es suave, pero al frenar el filtro va <b>un paso atrás</b>: sobrestima la velocidad de cierre.',8200);
+    await espera(8800);
+    fija({alfa:0.5,Tu:0.9}); ponVista('sigue');
+    showToast('Paso 4 · Un umbral <b>bajo</b>: el AEB espera demasiado y el choque ya no se evita. Mira el plano d necesaria / d disponible.',8200);
+    await espera(8800);
+    fija({obst:'para',Tu:2.6,aeb:'con'});
+    showToast('Paso 5 · Un umbral <b>alto</b> con un peatón que se detiene en la acera: el AEB frena en falso. Entre los dos extremos está el compromiso.',8600);
+    await espera(9000);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); reiniciaCorridas(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 19. SONIDO (sintetizado) =====================
+   El aviso del AEB: pitidos cortos con la etapa de aviso, tono continuo al frenar. Y un golpe sordo al chocar. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination); }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    aviso:(et)=>{ if(et===1) tono(1760,0.09,0.035,'square'); else if(et>=2) tono(2100,0.16,0.04,'square'); },
+    golpe:()=>tono(90,0.35,0.12,'sawtooth'),
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 20. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&SIM.A) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 21. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·velocidad en cada cuadro, y con ESE tiempo se pintan la escena (coches, peatón,
+   abanicos, banda) y el dock (cursores de las gráficas, plano d/d_req). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, etapaPrev=0, golpePrev=false, tBip=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.vel);
+  pasaCam(dt);
+  const A=SIM.A;
+  if(A&&!EST.pausa){
+    if(A.etapa>=1&&t-tBip>(A.etapa===1?0.38:0.18)){ tBip=t; sonido.aviso(A.etapa); }
+    const ch=!!(A.res&&A.res.causa==='choque'); if(ch&&!golpePrev) sonido.golpe(); golpePrev=ch;
+  }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaTr(); pintaFr(); pintaFu(); pintaSp(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 22. ARRANQUE =====================
+   Abre funcionando: un peatón cruza, el coche con AEB frena solo y su fantasma, sin AEB, sigue de largo. Se adelanta la
+   maniobra 1,1 s para que el primer cuadro ya muestre el radar fijando al peatón y los dos coches en marcha. */
+disposicion();
+aplicaSuperficie(EST.sup); SIM.supAct=EST.sup;
+aplicaCalidad();
+pintaHUD();
+reiniciaCorridas();
+avanzaSim(1.1);
+aplicaEscena(0);
+pintaBarras();
+ponVista('sigue',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+setTimeout(()=>showToast('Un peatón cruza. El coche <b>sólido</b> lleva AEB; el <b>fantasma</b>, no. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' el haz, el peatón o un coche para saber qué es.',5600),700);
+
+/* ===================== 23. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{v:GUIA.r1.v,sup:GUIA.r1.sup,tr:GUIA.r1.tr}:null,r2:GUIA.r2?{conj:GUIA.conj,Tu:GUIA.r2.Tu,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const A=SIM.A; if(!A) return {activo:false}; const m=A.hist&&A.hist.length?A.hist[A.hist.length-1]:null;
+    return {t:SIM.t,fin:A.fin,causa:A.causa,res:A.res,v:A.v,s:A.s,X:A.X,a:A.a,etapa:A.etapa,Tu:A.P.Tu,alfa:A.P.alfa,mu:A.mu,dEst:A.dEst,vEst:A.vEst,ttc:A.ttcEst,m,
+      B:SIM.B?{fin:SIM.B.fin,causa:SIM.B.causa,res:SIM.B.res}:null}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,
+    discos:COCHE_A.userData.asas.discos.map(d=>+d.emissiveIntensity.toFixed(2)),banda:BANDA.visible,objetivo:OBJETIVO.visible,
+    radar:{r:ABANICO_R.lmat.color.getHexString()},ped:[PEATON.position.x,PEATON.position.z].map(v=>+v.toFixed(3))}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{conj:GUIA.conj,Tu:GUIA.r2.Tu,res:GUIA.r2.res,ventana:GUIA.r2.ventana},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCorridas(); pintaDockFijo(); pintaBarras(); },
+  avanza:(s)=>{ avanzaSim(s); aplicaEscena(0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  lazo:(on)=>{ EST.lazo=!!on; },
+  paso:(p)=>{ if(EST.modo!=='guia') setMode('guia',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setTu:(v)=>{ if(GUIA.r2){ GUIA.r2.Tu=v; pintaHUD(); } },
+  ventana:(i)=>ventanaSegura(CONJUNTOS_RETO[i]),
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCorridas(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('adas-frenado-emergencia',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{cocheA:COCHE_A,cocheB:COCHE_B,calle:CALLE,peaton:PEATON,radar:ABANICO_R.grupo,camara:ABANICO_C.grupo}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-adas-frenado-emergencia.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

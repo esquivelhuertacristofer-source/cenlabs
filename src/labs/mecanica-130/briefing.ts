@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-130",
+  titulo: "Caja de Doble Embrague (DCT): cambio sin interrupción de par",
+  subtitulo: "Dinámica del Vehículo · dos embragues que se pasan el par sin soltar las ruedas",
+  acento: "#E76F51",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Abre la caja cortada por la mitad: dos embragues concéntricos, un árbol para las marchas impares y otro para las pares. Mientras vas en primera, la segunda ya está engranada en el otro árbol, esperando.
+
+El cambio es un traspaso: un embrague suelta y el otro agarra, y en medio el motor tiene que bajar de régimen hasta el de la marcha nueva. Mueve la rampa y la reducción de par del motor y observa en el dock qué le pasa al par de salida, al régimen y al calor de cada embrague.
+
+Tu misión es pensar como un ingeniero de calibración: calcular a qué régimen quedará el motor, ajustar el cambio para que el tirón y el calor queden bajo sus límites, y diagnosticar una falla por sus síntomas. La respuesta no está escrita en ningún sitio: sale de la física.`,
+  conceptos: [
+    { icono: '⚙️', nombre: 'Preselección', descripcion: 'La marcha siguiente ya está engranada en el árbol que no transmite; el cambio sólo es un traspaso entre embragues.' },
+    { icono: '🔁', nombre: 'Fase de par', descripcion: 'Un embrague sube y el otro baja de modo que el par que llega a las ruedas se mantiene mientras el motor sigue a su régimen.' },
+    { icono: '📉', nombre: 'Fase de inercia', descripcion: 'Je·dωe/dt = Te − Tc1 − Tc2: el motor baja al régimen sincrónico y el embrague entrante disipa esa energía.' },
+    { icono: '🔥', nombre: 'Tirón y calor', descripcion: 'Rampa corta, tirón alto; rampa larga, más calor en los discos. El buen ajuste está en medio.' },
+  ],
+  mision: [
+    'Abre el corte y observa los dos embragues, los dos árboles y los manguitos que preseleccionan.',
+    'Con el recorrido guiado, mira un cambio 1→2 en cámara lenta, fase por fase.',
+    'En el laboratorio guiado, calcula el régimen sincrónico del motor tras el cambio.',
+    'Ajusta la rampa y la reducción de par para cumplir el límite de tirón y el de calor.',
+    'Diagnostica una falla por sus síntomas y contesta la pregunta de cierre.',
+  ],
+  aplicaciones: [
+    { area: 'Automoción', ejemplo: 'Las cajas DSG, PDK y DCT de decenas de modelos cambian en pocas décimas de segundo sin cortar la tracción.' },
+    { area: 'Taller y diagnóstico', ejemplo: 'Adaptar los puntos de mordida y leer la temperatura de los embragues explica tirones y olor a quemado.' },
+  ],
+};
+
+export default briefing;

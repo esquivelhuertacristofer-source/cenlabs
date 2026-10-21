@@ -4453,6 +4453,48 @@ Primero predices un límite con la fórmula, luego decides velocidad y estrategi
     "titulo": "Subviraje, Sobreviraje y Control de Estabilidad (ESC)",
     "videoUrl": "",
   },
+  "mecanica-129": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño de chasis",
+        "ejemplo": "Los ingenieros afinan resorte y amortiguador sobre caminos ISO 8608 buscando el mejor compromiso entre confort y agarre.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Un banco de vibraciones revela amortiguadores gastados o neumáticos bajos de presión por el corrimiento de los picos de resonancia.",
+      },
+    ],
+    "bienvenida": "Una rueda y su cuarto de carrocería ruedan por un camino real, en corte: verás el resorte comprimirse y el aceite cruzar el pistón del amortiguador.
+Primero calculas a qué frecuencia rebota la carrocería, luego eliges el amortiguador para cumplir a la vez un umbral de confort y uno de agarre, y al final diagnosticas una avería sólo con la respuesta en frecuencia.",
+    "codigo": "MEC-129",
+    "conceptos": [
+      {
+        "descripcion": "La carrocería rebota a ≈ 1,3 Hz sobre su resorte y la rueda a ≈ 12 Hz sobre el neumático: dos masas, dos resonancias.",
+        "icono": "〰️",
+        "nombre": "Frecuencias propias",
+      },
+      {
+        "descripcion": "Un amortiguador blando aísla a la carrocería pero deja saltar a la rueda; uno duro sujeta la rueda pero transmite el camino. No hay un c mejor para todo.",
+        "icono": "🛋️",
+        "nombre": "Confort frente a agarre",
+      },
+      {
+        "descripcion": "Endurece el amortiguador sólo cuando así frena a la carrocería respecto al cielo, y lo ablanda el resto del tiempo.",
+        "icono": "🎚️",
+        "nombre": "Semiactivo skyhook",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "Predice la frecuencia natural de la carrocería con la masa y el resorte.",
+      "Elige el amortiguador, o la estrategia, que cumple a la vez un umbral de confort y uno de agarre.",
+      "Diagnostica si falla el amortiguador, el resorte o el neumático con la transmisibilidad.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Suspensión: Cuarto de Coche, Confort y Agarre",
+    "videoUrl": "",
+  },
   "mecanica-13": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -4511,6 +4553,144 @@ Y cuando creas dominarlo, el reto: una red nueva con valores comerciales (serie 
     ],
     "subtitulo": "Circuitos Eléctricos · Análisis de redes",
     "titulo": "Leyes de Kirchhoff: redes multimalla en vivo",
+  },
+  "mecanica-130": {
+    "acento": "#E76F51",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Las cajas DSG, PDK y DCT de decenas de modelos cambian en pocas décimas de segundo sin cortar la tracción.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Adaptar los puntos de mordida y leer la temperatura de los embragues explica tirones y olor a quemado.",
+      },
+    ],
+    "bienvenida": "Abre la caja cortada por la mitad: dos embragues concéntricos, un árbol para las marchas impares y otro para las pares. Mientras vas en primera, la segunda ya está engranada en el otro árbol, esperando.
+
+El cambio es un traspaso: un embrague suelta y el otro agarra, y en medio el motor tiene que bajar de régimen hasta el de la marcha nueva. Mueve la rampa y la reducción de par del motor y observa en el dock qué le pasa al par de salida, al régimen y al calor de cada embrague.
+
+Tu misión es pensar como un ingeniero de calibración: calcular a qué régimen quedará el motor, ajustar el cambio para que el tirón y el calor queden bajo sus límites, y diagnosticar una falla por sus síntomas. La respuesta no está escrita en ningún sitio: sale de la física.",
+    "codigo": "MEC-130",
+    "conceptos": [
+      {
+        "descripcion": "La marcha siguiente ya está engranada en el árbol que no transmite; el cambio sólo es un traspaso entre embragues.",
+        "icono": "⚙️",
+        "nombre": "Preselección",
+      },
+      {
+        "descripcion": "Un embrague sube y el otro baja de modo que el par que llega a las ruedas se mantiene mientras el motor sigue a su régimen.",
+        "icono": "🔁",
+        "nombre": "Fase de par",
+      },
+      {
+        "descripcion": "Je·dωe/dt = Te − Tc1 − Tc2: el motor baja al régimen sincrónico y el embrague entrante disipa esa energía.",
+        "icono": "📉",
+        "nombre": "Fase de inercia",
+      },
+      {
+        "descripcion": "Rampa corta, tirón alto; rampa larga, más calor en los discos. El buen ajuste está en medio.",
+        "icono": "🔥",
+        "nombre": "Tirón y calor",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Abre el corte y observa los dos embragues, los dos árboles y los manguitos que preseleccionan.",
+      "Con el recorrido guiado, mira un cambio 1→2 en cámara lenta, fase por fase.",
+      "En el laboratorio guiado, calcula el régimen sincrónico del motor tras el cambio.",
+      "Ajusta la rampa y la reducción de par para cumplir el límite de tirón y el de calor.",
+      "Diagnostica una falla por sus síntomas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Dinámica del Vehículo · dos embragues que se pasan el par sin soltar las ruedas",
+    "titulo": "Caja de Doble Embrague (DCT): cambio sin interrupción de par",
+    "videoUrl": "",
+  },
+  "mecanica-131": {
+    "acento": "#3B8EEA",
+    "aplicaciones": [
+      {
+        "area": "Seguridad activa",
+        "ejemplo": "Los protocolos Euro NCAP y el reglamento UN R152 exigen que el frenado autónomo evite o reduzca el choque con peatones y vehículos.",
+      },
+      {
+        "area": "Ingeniería de sensores",
+        "ejemplo": "Los equipos de ADAS sintonizan el filtro y el umbral para equilibrar los choques evitados con los frenazos innecesarios.",
+      },
+    ],
+    "bienvenida": "Un coche con radar y cámara se acerca a un paso de peatones mientras alguien camina hacia la calzada.
+Verás el haz del radar, la medida con ruido, el filtro que la limpia y las tres etapas del frenado autónomo: aviso, freno parcial y freno total.
+Primero calculas una distancia de parada, luego ajustas el umbral de disparo para varios escenarios a la vez y al final diagnosticas por qué falló un AEB sin ver su configuración.",
+    "codigo": "MEC-131",
+    "conceptos": [
+      {
+        "descripcion": "El radar mide la distancia con ruido cada 50 ms; el filtro la suaviza y estima la velocidad de cierre, a costa de un pequeño retardo al frenar.",
+        "icono": "📡",
+        "nombre": "Radar y filtro alfa-beta",
+      },
+      {
+        "descripcion": "TTC = d/v: el AEB compara este tiempo con su umbral para avisar, frenar a medias o frenar a fondo.",
+        "icono": "⏱️",
+        "nombre": "Tiempo hasta la colisión",
+      },
+      {
+        "descripcion": "Crece con el cuadrado de la velocidad y se divide por la adherencia: v·t + v²/(2μg).",
+        "icono": "🛑",
+        "nombre": "Distancia de parada",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "Calcula la distancia de parada de un coche con su tiempo de reacción y la adherencia de la calzada.",
+      "Ajusta el umbral de disparo para que el AEB evite los choques y no frene en un escenario inofensivo.",
+      "Diagnostica si un AEB falló por umbral bajo, calzada resbaladiza o umbral alto.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "ADAS: Radar, Cámara y Frenado Autónomo (AEB)",
+    "videoUrl": "",
+  },
+  "mecanica-133": {
+    "acento": "#38BDF8",
+    "aplicaciones": [
+      {
+        "area": "Competición",
+        "ejemplo": "Los monoplazas usan alerones y fondos con efecto suelo para pasar las curvas rápidas a velocidades que sus neumáticos solos no aguantarían.",
+      },
+      {
+        "area": "Eficiencia",
+        "ejemplo": "En un coche de calle, reducir el C_d es de las formas más baratas de bajar el consumo o aumentar la autonomía a velocidad de autopista.",
+      },
+    ],
+    "bienvenida": "Un coche deportivo en un túnel de viento con cinta rodante: el humo muestra por dónde pasa el aire y la balanza mide lo que le hace.
+Verás que el arrastre crece con el cuadrado de la velocidad y que la potencia que gasta el aire crece con el cubo.
+Primero predices la velocidad máxima de un coche con una raíz cúbica; luego eliges ángulo de alerón y altura al suelo para cumplir carga, consumo y velocidad a la vez; y al final diagnosticas, sin ver sus ajustes, qué mando está pasado de su máximo.",
+    "codigo": "MEC-133",
+    "conceptos": [
+      {
+        "descripcion": "El aire empuja hacia atrás y hacia abajo con fuerzas ½·ρ·C·A·v²: doblar la velocidad las multiplica por cuatro y la potencia del aire por ocho.",
+        "icono": "💨",
+        "nombre": "Arrastre y carga",
+      },
+      {
+        "descripcion": "Un ala invertida da carga a cambio de arrastre inducido; pasado el ángulo crítico el flujo se despega y da menos carga con más arrastre.",
+        "icono": "✈️",
+        "nombre": "Alerón y pérdida",
+      },
+      {
+        "descripcion": "Bajar el coche acelera el aire bajo el fondo y succiona la carrocería, hasta que el flujo se estrangula.",
+        "icono": "⬇️",
+        "nombre": "Efecto suelo",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "Predice la velocidad máxima de un coche a partir de su potencia, su C_d y su área frontal.",
+      "Elige ángulo de alerón y altura al suelo para cumplir un objetivo de carga sin pasarte de consumo ni perder velocidad máxima.",
+      "Diagnostica si un coche tiene el alerón en pérdida, el suelo estrangulado o una configuración sana.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Aerodinámica: Arrastre, Sustentación y Consumo",
+    "videoUrl": "",
   },
   "mecanica-135": {
     "acento": "#2A9D8F",
@@ -20216,7 +20396,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-126": [],
   "mecanica-127": [],
   "mecanica-128": [],
+  "mecanica-129": [],
   "mecanica-13": [],
+  "mecanica-130": [],
+  "mecanica-131": [],
+  "mecanica-133": [],
   "mecanica-135": [],
   "mecanica-137": [],
   "mecanica-14": [],
@@ -20581,7 +20765,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-126",
   "mecanica-127",
   "mecanica-128",
+  "mecanica-129",
   "mecanica-13",
+  "mecanica-130",
+  "mecanica-131",
+  "mecanica-133",
   "mecanica-135",
   "mecanica-137",
   "mecanica-14",
