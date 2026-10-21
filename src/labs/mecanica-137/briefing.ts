@@ -1,0 +1,30 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-137",
+  titulo: "Seguridad Pasiva: Zona de Deformación, Cinturón y Airbag",
+  subtitulo: "Dinámica del Vehículo",
+  acento: "#E8833A",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: 'Un choque frontal dura menos de una décima de segundo. En ese tiempo, 169 kJ de energía tienen que ir a parar a algún lado.\nAquí lo ves en corte y a cámara lenta: la carrocería se pliega, el cinturón se tensa y la bolsa se infla.\nPrimero entenderás cada pieza; después diseñarás tú la zona de deformación, el limitador y el umbral del sensor.\nTu meta: que el tórax del ocupante aguante menos de 60 g, sin que la bolsa dispare en un golpe leve.',
+  conceptos: [
+    { icono: '🚗', nombre: 'Zona de deformación', descripcion: 'La estructura frontal se aplasta a fuerza casi constante y convierte la energía cinética en trabajo de plegado; cuanto más larga, menor la fuerza y la deceleración.' },
+    { icono: '🪢', nombre: 'Cinturón, pretensor y limitador', descripcion: 'El pretensor quita la holgura y el limitador cede cinta a una fuerza tope para no lastimar el tórax.' },
+    { icono: '🎈', nombre: 'Airbag y sensor', descripcion: 'El sensor dispara al pasar un ΔV umbral; la bolsa amortigua con gas que escapa por las ventilas.' },
+    { icono: '📏', nombre: 'Criterio A3ms', descripcion: 'Aceleración del tórax sostenida durante 3 ms; FMVSS 208 pide menos de 60 g.' },
+  ],
+  mision: [
+    'Recorre el fundamento y responde la pregunta de energía antes de pasar a diseñar.',
+    'Ajusta longitud de zona, limitador de fuerza y umbral del sensor para el escenario asignado.',
+    'Valida tu diseño: debe proteger al ocupante y no disparar la bolsa en un golpe a 16 km/h.',
+    'Diagnostica una falla de seguridad pasiva a partir de las curvas.',
+  ],
+  aplicaciones: [
+    { area: 'Ingeniería automotriz', ejemplo: 'Diseño de largueros y calibración de sensores de disparo para Euro NCAP.' },
+    { area: 'Homologación', ejemplo: 'Ensayos UN R94 y FMVSS 208 con maniquí Hybrid III.' },
+    { area: 'Peritaje vial', ejemplo: 'Estimar la velocidad de impacto a partir de la longitud aplastada.' },
+  ],
+};
+
+export default briefing;

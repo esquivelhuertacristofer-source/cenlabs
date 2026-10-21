@@ -4358,6 +4358,101 @@ Sales de esta práctica con una regla que vale para toda la vida profesional: cu
     "titulo": "El Circuito de Carga: Alternador, Regulador y Balance Eléctrico",
     "videoUrl": "",
   },
+  "mecanica-127": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Los híbridos de división de potencia de Toyota y Ford usan este engranaje como transmisión continuamente variable.",
+      },
+      {
+        "area": "Taller y diagnóstico",
+        "ejemplo": "Leer régimen de MG1, MG2 y motor permite localizar fallas como un inversor abierto o un rotor bloqueado.",
+      },
+    ],
+    "bienvenida": "Abre el tren cortado por la mitad y mira el engranaje girando: un solar de 30 dientes, tres satélites que orbitan y una corona de 78. El motor térmico va en el portasatélites, el generador MG1 en el solar y el motor de tracción MG2 en la corona, que va a las ruedas.
+
+Con tres ejes y dos grados de libertad, la relación de Willis ata las velocidades: en cuanto eliges dos, la tercera queda fija. Mueve la velocidad del coche y el régimen del motor y observa en la palanca del dock qué hace el solar: a veces gira con el motor, a veces casi se para y a veces va al revés.
+
+Tu misión es pensar como un ingeniero de control: calcular el solar con Willis, fijar el punto del motor que deja la batería neutra y quema lo mínimo, y diagnosticar una falla a partir de lo que ves. La respuesta no está escrita en ningún sitio: sale de la física.",
+    "codigo": "MEC-127",
+    "conceptos": [
+      {
+        "descripcion": "Zs·ωs + Zr·ωr = (Zs+Zr)·ωc: sol, portasatélites y corona quedan alineados en una recta de velocidades.",
+        "icono": "⚙️",
+        "nombre": "Willis y la palanca",
+      },
+      {
+        "descripcion": "Con el motor en el portasatélites, el par se reparte 28 % al solar y 72 % a la corona (30 : 108 : 78).",
+        "icono": "⚖️",
+        "nombre": "Reparto de pares",
+      },
+      {
+        "descripcion": "El par cierra el balance de la batería; el régimen decide cuántos gramos por kWh cuesta esa potencia.",
+        "icono": "🔋",
+        "nombre": "SOC neutro y consumo mínimo",
+      },
+      {
+        "descripcion": "Si el solar gira al revés mientras el motor empuja, MG1 hace de motor y parte de la potencia da vueltas por el camino eléctrico.",
+        "icono": "🔄",
+        "nombre": "Potencia que circula",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "Abre el corte transversal y observa cómo giran solar, satélites y corona a cámara lenta.",
+      "Con el recorrido guiado, mira qué hace el solar parado, en arranque eléctrico, en crucero y en autopista.",
+      "En el laboratorio guiado, calcula con Willis el régimen del solar.",
+      "Fija el régimen y el par del motor para dejar la batería neutra con el menor consumo.",
+      "Diagnostica una falla por sus síntomas y contesta la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica · un engranaje que reparte la potencia entre el motor y la electricidad",
+    "titulo": "Tren Híbrido de División de Potencia: el Engranaje Planetario",
+    "videoUrl": "",
+  },
+  "mecanica-128": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Seguridad activa",
+        "ejemplo": "El ESC es obligatorio en turismos nuevos porque reduce de forma notable los accidentes por pérdida de control.",
+      },
+      {
+        "area": "Ajuste de chasis",
+        "ejemplo": "Los ingenieros afinan el subviraje con barras estabilizadoras, presiones y reparto de masas para que el coche avise antes de perder agarre.",
+      },
+    ],
+    "bienvenida": "Dos coches toman la misma curva a la vez: uno sin ESC y otro con él.
+Verás la fuerza de cada neumático dentro de su círculo de fricción y los frenos que el ESC enciende, una rueda a la vez.
+Primero predices un límite con la fórmula, luego decides velocidad y estrategia en la pista, y al final diagnosticas qué carácter tiene un coche sin ver su dato.",
+    "codigo": "MEC-128",
+    "conceptos": [
+      {
+        "descripcion": "Cada neumático da como máximo μ·Fz en cualquier dirección: lo que gasta frenando se lo quita a la fuerza lateral.",
+        "icono": "🛞",
+        "nombre": "Círculo de fricción",
+      },
+      {
+        "descripcion": "El gradiente K dice qué eje se satura primero: el delantero (el coche se abre) o el trasero (se cierra).",
+        "icono": "↔️",
+        "nombre": "Subviraje y sobreviraje",
+      },
+      {
+        "descripcion": "El ESC compara la guiñada real con la deseada y frena una sola rueda para crear el momento que el volante no logra.",
+        "icono": "🛡️",
+        "nombre": "Control de estabilidad",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "Predice la velocidad máxima de una curva a partir de la adherencia y el radio.",
+      "Pasa la curva con un sobrevirador a una velocidad que un coche sin ESC no aguantaría.",
+      "Diagnostica si un coche es subvirador, neutro o sobrevirador con las derivas de sus ejes.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Subviraje, Sobreviraje y Control de Estabilidad (ESC)",
+    "videoUrl": "",
+  },
   "mecanica-13": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -4416,6 +4511,119 @@ Y cuando creas dominarlo, el reto: una red nueva con valores comerciales (serie 
     ],
     "subtitulo": "Circuitos Eléctricos · Análisis de redes",
     "titulo": "Leyes de Kirchhoff: redes multimalla en vivo",
+  },
+  "mecanica-135": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Carga de vehículos eléctricos",
+        "ejemplo": "El estándar SAE J2954 fija la banda de 85 kHz y las clases de holgura. Un aparcamiento con tolerancia de unos centímetros exige cargadores que sigan entregando potencia con k variable.",
+      },
+      {
+        "area": "Electrónica de potencia",
+        "ejemplo": "El mismo circuito serie–serie y el mismo análisis de división de frecuencia se usan en cargadores de móvil, implantes médicos y vehículos de guiado automático.",
+      },
+      {
+        "area": "Seguridad y compatibilidad electromagnética",
+        "ejemplo": "Los cargadores incorporan detección de objetos extraños y límites de campo (ICNIRP): el metal sobre la pad se calienta y debe apagarse el equipo.",
+      },
+    ],
+    "bienvenida": "Delante tienes dos pads de espiral plana cortadas por la mitad —la del suelo y la del coche—, con su ferrita, su blindaje de aluminio y sus 18 espiras de hilo Litz, transfiriendo energía por un campo magnético de 85 kHz. El coche está aparcado torcido a propósito.
+
+Cada pad tiene unos 104 µH y un factor de calidad cercano a 123, y se compensa con unos 33,7 nF para resonar a 85 kHz. Lo que decide cuánta potencia llega no es la pad sola, sino cuánto flujo de una atraviesa a la otra: el acoplamiento k, que baja cuando el coche se desvía o la holgura crece.
+
+Verás las espiras como símbolos ⊙ y ⊗ (la corriente cambia de sentido), las líneas de campo calculadas sobre las 36 espiras, y en el panel el rendimiento frente a la desalineación, las corrientes y la respuesta en frecuencia. Cuando el acoplamiento es fuerte el pico de la respuesta se parte en dos.
+
+El pliego del cargador de 11 kW tiene límites de corriente, de tensión del inversor, de factor de potencia y de rendimiento. Mueve, sintoniza y comprueba cuál de ellos manda en cada caso.",
+    "codigo": "MEC-135",
+    "conceptos": [
+      {
+        "descripcion": "M se calcula con integrales elípticas (media aritmético-geométrica) para pads coaxiales y con la integral de Neumann cuando hay desalineación. k = M/√(L₁L₂) pasa de ≈ 0,26 con 120 mm de holgura a ≈ 0,17 con 180 mm.",
+        "icono": "🧲",
+        "nombre": "Inductancia mutua y acoplamiento k",
+      },
+      {
+        "descripcion": "Con C = 1/(ω²L) cada pad resuena a 85 kHz. El rendimiento máximo es k²Q₁Q₂/(1+√(1+k²Q₁Q₂))² con la carga óptima R₂√(1+k²Q₁Q₂), y por eso un buen Q compensa un k modesto.",
+        "icono": "🔔",
+        "nombre": "Resonancia serie–serie y Q",
+      },
+      {
+        "descripcion": "Por encima de un acoplamiento crítico, el único pico a 85 kHz se parte en dos, en f₀/√(1±k), simétricos de forma exacta. Operar en 85 kHz deja de ser el máximo.",
+        "icono": "🌊",
+        "nombre": "División de frecuencia",
+      },
+      {
+        "descripcion": "La potencia llega hasta donde permiten la corriente del inversor, su tensión de fundamental y el factor de potencia. Un objeto metálico olvidado sobre la pad se calienta con el campo y le roba potencia.",
+        "icono": "⚠️",
+        "nombre": "Límites reales del cargador",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "RECONOCE las piezas de cada pad (cubierta, blindaje, ferrita, espiras) y el piso, los largueros y la batería del coche, con la vista en corte.",
+      "MUEVE el coche en lateral y cambia la holgura: observa k, M, el rendimiento y cómo se deforman las líneas de campo.",
+      "BARRE la frecuencia y localiza el pico simple o los dos picos cuando el acoplamiento es fuerte.",
+      "COMPARA la carga del banco con la carga óptima y mira cómo se reparte la potencia entre el cobre, el hilo y la carga.",
+      "RETO · Alinea el coche y ajusta la compensación y la carga para cumplir el pliego de 11 kW con el rendimiento exigido.",
+      "DIAGNOSTICA luego una falla del cargador (objeto extraño, condensador degradado o frecuencia desplazada) a partir de lo que miden los instrumentos.",
+    ],
+    "subtitulo": "Autotrónica · pads de 85 kHz, inductancia mutua y división de frecuencia",
+    "titulo": "Alinea y Sintoniza un Cargador Inalámbrico Resonante de 11 kW (SAE J2954)",
+    "videoUrl": "",
+  },
+  "mecanica-137": {
+    "acento": "#E8833A",
+    "aplicaciones": [
+      {
+        "area": "Ingeniería automotriz",
+        "ejemplo": "Diseño de largueros y calibración de sensores de disparo para Euro NCAP.",
+      },
+      {
+        "area": "Homologación",
+        "ejemplo": "Ensayos UN R94 y FMVSS 208 con maniquí Hybrid III.",
+      },
+      {
+        "area": "Peritaje vial",
+        "ejemplo": "Estimar la velocidad de impacto a partir de la longitud aplastada.",
+      },
+    ],
+    "bienvenida": "Un choque frontal dura menos de una décima de segundo. En ese tiempo, 169 kJ de energía tienen que ir a parar a algún lado.
+Aquí lo ves en corte y a cámara lenta: la carrocería se pliega, el cinturón se tensa y la bolsa se infla.
+Primero entenderás cada pieza; después diseñarás tú la zona de deformación, el limitador y el umbral del sensor.
+Tu meta: que el tórax del ocupante aguante menos de 60 g, sin que la bolsa dispare en un golpe leve.",
+    "codigo": "MEC-137",
+    "conceptos": [
+      {
+        "descripcion": "La estructura frontal se aplasta a fuerza casi constante y convierte la energía cinética en trabajo de plegado; cuanto más larga, menor la fuerza y la deceleración.",
+        "icono": "🚗",
+        "nombre": "Zona de deformación",
+      },
+      {
+        "descripcion": "El pretensor quita la holgura y el limitador cede cinta a una fuerza tope para no lastimar el tórax.",
+        "icono": "🪢",
+        "nombre": "Cinturón, pretensor y limitador",
+      },
+      {
+        "descripcion": "El sensor dispara al pasar un ΔV umbral; la bolsa amortigua con gas que escapa por las ventilas.",
+        "icono": "🎈",
+        "nombre": "Airbag y sensor",
+      },
+      {
+        "descripcion": "Aceleración del tórax sostenida durante 3 ms; FMVSS 208 pide menos de 60 g.",
+        "icono": "📏",
+        "nombre": "Criterio A3ms",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Recorre el fundamento y responde la pregunta de energía antes de pasar a diseñar.",
+      "Ajusta longitud de zona, limitador de fuerza y umbral del sensor para el escenario asignado.",
+      "Valida tu diseño: debe proteger al ocupante y no disparar la bolsa en un golpe a 16 km/h.",
+      "Diagnostica una falla de seguridad pasiva a partir de las curvas.",
+    ],
+    "subtitulo": "Dinámica del Vehículo",
+    "titulo": "Seguridad Pasiva: Zona de Deformación, Cinturón y Airbag",
+    "videoUrl": "",
   },
   "mecanica-14": {
     "acento": "#2A9D8F",
@@ -20006,7 +20214,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-124": [],
   "mecanica-125": [],
   "mecanica-126": [],
+  "mecanica-127": [],
+  "mecanica-128": [],
   "mecanica-13": [],
+  "mecanica-135": [],
+  "mecanica-137": [],
   "mecanica-14": [],
   "mecanica-15": [],
   "mecanica-16": [],
@@ -20367,7 +20579,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-124",
   "mecanica-125",
   "mecanica-126",
+  "mecanica-127",
+  "mecanica-128",
   "mecanica-13",
+  "mecanica-135",
+  "mecanica-137",
   "mecanica-14",
   "mecanica-15",
   "mecanica-16",

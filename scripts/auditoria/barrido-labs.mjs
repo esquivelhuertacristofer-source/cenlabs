@@ -25,7 +25,10 @@ import { createServer } from 'node:http';
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+let chromium;
+try { ({ chromium } = await import('playwright')); }
+catch { ({ chromium } = createRequire('C:/Users/crist/AppData/Roaming/npm/node_modules/')('playwright')); }
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, '..', '..');

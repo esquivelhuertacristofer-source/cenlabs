@@ -1,0 +1,27 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-128",
+  titulo: "Subviraje, Sobreviraje y Control de Estabilidad (ESC)",
+  subtitulo: "Dinámica del Vehículo",
+  acento: "#2A9D8F",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: 'Dos coches toman la misma curva a la vez: uno sin ESC y otro con él.\nVerás la fuerza de cada neumático dentro de su círculo de fricción y los frenos que el ESC enciende, una rueda a la vez.\nPrimero predices un límite con la fórmula, luego decides velocidad y estrategia en la pista, y al final diagnosticas qué carácter tiene un coche sin ver su dato.',
+  conceptos: [
+    { icono: '🛞', nombre: 'Círculo de fricción', descripcion: 'Cada neumático da como máximo μ·Fz en cualquier dirección: lo que gasta frenando se lo quita a la fuerza lateral.' },
+    { icono: '↔️', nombre: 'Subviraje y sobreviraje', descripcion: 'El gradiente K dice qué eje se satura primero: el delantero (el coche se abre) o el trasero (se cierra).' },
+    { icono: '🛡️', nombre: 'Control de estabilidad', descripcion: 'El ESC compara la guiñada real con la deseada y frena una sola rueda para crear el momento que el volante no logra.' },
+  ],
+  mision: [
+    'Predice la velocidad máxima de una curva a partir de la adherencia y el radio.',
+    'Pasa la curva con un sobrevirador a una velocidad que un coche sin ESC no aguantaría.',
+    'Diagnostica si un coche es subvirador, neutro o sobrevirador con las derivas de sus ejes.',
+  ],
+  aplicaciones: [
+    { area: 'Seguridad activa', ejemplo: 'El ESC es obligatorio en turismos nuevos porque reduce de forma notable los accidentes por pérdida de control.' },
+    { area: 'Ajuste de chasis', ejemplo: 'Los ingenieros afinan el subviraje con barras estabilizadoras, presiones y reparto de masas para que el coche avise antes de perder agarre.' },
+  ],
+};
+
+export default briefing;

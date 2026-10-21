@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-127",
+  titulo: "Tren Híbrido de División de Potencia: el Engranaje Planetario",
+  subtitulo: "Autotrónica · un engranaje que reparte la potencia entre el motor y la electricidad",
+  acento: "#2A9D8F",
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Abre el tren cortado por la mitad y mira el engranaje girando: un solar de 30 dientes, tres satélites que orbitan y una corona de 78. El motor térmico va en el portasatélites, el generador MG1 en el solar y el motor de tracción MG2 en la corona, que va a las ruedas.
+
+Con tres ejes y dos grados de libertad, la relación de Willis ata las velocidades: en cuanto eliges dos, la tercera queda fija. Mueve la velocidad del coche y el régimen del motor y observa en la palanca del dock qué hace el solar: a veces gira con el motor, a veces casi se para y a veces va al revés.
+
+Tu misión es pensar como un ingeniero de control: calcular el solar con Willis, fijar el punto del motor que deja la batería neutra y quema lo mínimo, y diagnosticar una falla a partir de lo que ves. La respuesta no está escrita en ningún sitio: sale de la física.`,
+  conceptos: [
+    { icono: '⚙️', nombre: 'Willis y la palanca', descripcion: 'Zs·ωs + Zr·ωr = (Zs+Zr)·ωc: sol, portasatélites y corona quedan alineados en una recta de velocidades.' },
+    { icono: '⚖️', nombre: 'Reparto de pares', descripcion: 'Con el motor en el portasatélites, el par se reparte 28 % al solar y 72 % a la corona (30 : 108 : 78).' },
+    { icono: '🔋', nombre: 'SOC neutro y consumo mínimo', descripcion: 'El par cierra el balance de la batería; el régimen decide cuántos gramos por kWh cuesta esa potencia.' },
+    { icono: '🔄', nombre: 'Potencia que circula', descripcion: 'Si el solar gira al revés mientras el motor empuja, MG1 hace de motor y parte de la potencia da vueltas por el camino eléctrico.' },
+  ],
+  mision: [
+    'Abre el corte transversal y observa cómo giran solar, satélites y corona a cámara lenta.',
+    'Con el recorrido guiado, mira qué hace el solar parado, en arranque eléctrico, en crucero y en autopista.',
+    'En el laboratorio guiado, calcula con Willis el régimen del solar.',
+    'Fija el régimen y el par del motor para dejar la batería neutra con el menor consumo.',
+    'Diagnostica una falla por sus síntomas y contesta la pregunta de cierre.',
+  ],
+  aplicaciones: [
+    { area: 'Automoción', ejemplo: 'Los híbridos de división de potencia de Toyota y Ford usan este engranaje como transmisión continuamente variable.' },
+    { area: 'Taller y diagnóstico', ejemplo: 'Leer régimen de MG1, MG2 y motor permite localizar fallas como un inversor abierto o un rotor bloqueado.' },
+  ],
+};
+
+export default briefing;

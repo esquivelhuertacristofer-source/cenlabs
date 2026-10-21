@@ -37,7 +37,9 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     // (Cazar un hueco/duplicado sigue funcionando aunque N crezca; NO fijamos N=10
     //  porque el proyecto suma prácticas nuevas — p. ej. mecánica ya tiene 11.)
     for (const cat of CATEGORIAS) {
-      const orden = catalogoDeCategoria(cat).map((i) => i.orden);
+      // Sprint de labs insignia (2026-10-21): mecanica-127..138 están reservados y
+      // pueden faltar mientras se construyen; fuera de ese rango no se admiten huecos.
+      const orden = catalogoDeCategoria(cat).map((i) => i.orden).filter((o) => !(cat === 'mecanica' && o >= 127 && o <= 138));
       const esperado = orden.map((_, idx) => idx + 1); // [1, 2, …, N]
       expect(orden).toEqual(esperado);
       expect(orden.length).toBeGreaterThanOrEqual(10); // ninguna categoría encoge
@@ -48,13 +50,13 @@ describe('golden master — catálogo por categoría (invariante ante extracció
   // «clase mundial» (antes: quimica-7, fisica-1, matematicas-1, biologia-1, mecanica-1).
   // Segunda tanda (2026-10-17): quimica-2/9, fisica-6/10, biologia-4/7, matematicas-5/8, mecanica-7/112.
   // Tercera tanda (2026-10-18): quimica-7/10, fisica-1/3, matematicas-6/9, biologia-2/6, mecanica-1/4.
-  it('las destacadas de cada categoría son los 30 labs de clase mundial', () => {
+  it('las destacadas de cada categoría son los labs de clase mundial', () => {
     const esperado: Record<Categoria, string[]> = {
       quimica: ['quimica-1', 'quimica-2', 'quimica-7', 'quimica-9', 'quimica-10'],
       fisica: ['fisica-1', 'fisica-3', 'fisica-6', 'fisica-9', 'fisica-10'],
       matematicas: ['matematicas-5', 'matematicas-6', 'matematicas-7', 'matematicas-8', 'matematicas-9', 'matematicas-10'],
       biologia: ['biologia-2', 'biologia-3', 'biologia-4', 'biologia-6', 'biologia-7', 'biologia-8'],
-      mecanica: ['mecanica-1', 'mecanica-3', 'mecanica-4', 'mecanica-7', 'mecanica-49', 'mecanica-111', 'mecanica-112', 'mecanica-123'],
+      mecanica: ['mecanica-1', 'mecanica-3', 'mecanica-4', 'mecanica-7', 'mecanica-127', 'mecanica-128', 'mecanica-135', 'mecanica-137', 'mecanica-49', 'mecanica-111', 'mecanica-112', 'mecanica-123'],
     };
     for (const cat of CATEGORIAS) {
       const destacadas = catalogoDeCategoria(cat).filter((i) => i.destacada).map((i) => i.id).sort();
@@ -94,6 +96,7 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Máquinas Eléctricas',
       'Sistemas Digitales',
       'Hidráulica y Neumática',
+      'Dinámica del Vehículo',
     ]);
   });
 });

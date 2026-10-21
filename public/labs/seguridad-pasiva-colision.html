@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Seguridad Pasiva en el Choque — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1017;--panel:rgba(11,17,25,.88);--line:#26364a;--ink:#EEF3F8;
+    --dim:#93a8bd;--accent:#F08A3C;--accent2:#FFB27A;--hv:#FFD166;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cV:#4FD1C5;--cC:#FF8A3D;--cB:#FFD166;--cG:#9AA9FF;--cH:#FF5A5F;--cT:#9FF3FF;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#16202c;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#1c2a3a}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#1a0e04;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#1a0e04;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ff9d55}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#1a0e04}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#F08A3C;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#7890a8;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c8d4e0;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#8aa0b6;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04211c}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1119;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(38,54,74,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(38,54,74,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#7890a8}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a9bdd0;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(38,54,74,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c9c4;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#16202c;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfe0dc;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cT);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(12,18,26,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(11,17,25,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e9f0f7;background:rgba(11,18,26,.92);border:1px solid rgba(240,138,60,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e9f0f7;background:rgba(11,18,26,.84);border:1px solid rgba(240,138,60,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(11,17,25,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:6px 8px} body.movil .hmandos>*{min-width:0} body.movil .hud{overflow-x:hidden}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+
+  /* ---- reloj de milisegundos (DOM, no dentro del 3D) y chips del pliego ---- */
+  .relojms{position:fixed;z-index:14;bottom:60px;left:50%;transform:translateX(-50%);display:flex;align-items:baseline;gap:6px;pointer-events:none;font-family:var(--mono);text-shadow:0 2px 14px rgba(0,0,0,.7)}
+  .relojms b{font-size:34px;font-weight:700;letter-spacing:.01em;color:#fff;font-variant-numeric:tabular-nums;min-width:112px;text-align:right}
+  .relojms span{font-size:15px;color:var(--accent2);font-weight:600}
+  .relojms em{font-style:normal;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-left:10px;min-width:150px}
+  body.estrecho .relojms{bottom:calc(var(--hojaH) + 92px)} body.estrecho .relojms b{font-size:24px;min-width:80px} body.estrecho .relojms em{display:none}
+  .chips{display:flex;flex-direction:column;gap:4px}
+  .chip{display:flex;align-items:baseline;gap:7px;font-size:11.6px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:#c6d3e0}
+  .chip i{font-style:normal;font-weight:700;width:14px;flex:none;text-align:center}
+  .chip.ok{border-color:rgba(52,211,153,.45);color:#b8f0d6} .chip.ok i{color:var(--good)}
+  .chip.no{border-color:rgba(244,71,94,.5);color:#ffc2cb} .chip.no i{color:var(--bad)}
+  .chip b{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  body.movil .relojms b{font-size:20px;min-width:66px}
+  body.estrecho.ancho.t-hud .hud .hmandos{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Seguridad pasiva · choque frontal contra barrera</div>
+</div>
+<div class="relojms" id="relojms"><b id="rmsN">0,0</b><span>ms</span><em id="rmsE"></em></div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Choque a 56 km/h</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Pulso del vehículo</div><b id="f_av">—</b></div>
+    <div class="fg"><div class="fl"><span>Aplastamiento s</span></div><b id="f_s">—</b></div>
+    <div class="fg"><div class="fl"><span>ΔV del vehículo</span></div><b id="f_dv">—</b></div>
+    <div class="fg"><div class="fl"><span>Tórax A<sub>3ms</sub></span></div><b id="f_a3">—</b></div>
+    <div class="fg"><div class="fl"><span>Avance del tórax</span></div><b id="f_xi">—</b></div>
+    <div class="fg"><div class="fl"><span>Cinturón (pico)</span></div><b id="f_fb">—</b></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">F(x) <span id="t_fx"></span></div><div class="dk-g hx" id="gFx"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit"><i>Energía</i> <span id="t_en"></span></div><div class="dk-g ts" id="gEn"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">Deceleración en el tiempo <span id="t_pu">mismo reloj</span></div>
+  <div class="dk-g fu" id="gPu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyPu"></div>
+  <div class="dk-tit t-sp"><i>Fuerzas sobre el tórax</i> <span id="t_fr"></span></div>
+  <div class="dk-g sp" id="gFr"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — SEGURIDAD PASIVA · ZONA DE DEFORMACIÓN, CINTURÓN Y AIRBAG
+   (Dinámica del vehículo · mecanica-137)
+
+   Un choque frontal contra una barrera rígida, a cámara lenta y en
+   corte longitudinal. La zona de deformación se aplasta con una fuerza
+   F(x) (rampa, meseta y fondo de carrera); el maniquí avanza dentro del
+   habitáculo, el pretensor recoge la holgura del cinturón, el limitador
+   fija su fuerza y el airbag se infla (gas ideal, inflador y ventilas)
+   cuando el sensor ve que el coche ha perdido el ΔV umbral.
+
+   Es un modelo de parámetros concentrados de un eje: NO es elementos
+   finitos ni cumple una homologación. La física (estructura, cinturón,
+   bolsa y el criterio de 3 ms) está en un bloque puro que un script de
+   Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre. */
+
+/* FISICA:INICIO */
+/* ---------- 1.1 El banco ----------
+   Parámetros concentrados, un solo eje (el del choque). Vehículo de masa M
+   contra una barrera rígida; un ocupante de masa efectiva m_o con cinturón
+   (resorte–amortiguador con pretensor y limitador de fuerza) y airbag de
+   conductor (gas ideal con inflador, ventilas y calor cedido a la tela). */
+const G0=9.80665, P_ATM=101325;
+const AIRE={ R:287, cp:1005, cv:1005-287 };
+const VEH={ M:1400, vRef:56/3.6, eta:0.90, xr:0.06, cFondo:0.025, cDesc:0.010 };
+/* Tres ocupantes. m = masa efectiva del tórax, la cabeza y los brazos que sostienen el cinturón y la bolsa
+   (piernas, pelvis y asiento no se calculan); g0 = holgura del tórax al módulo del volante. */
+const OCUP={ p5:{m:19,g0:0.27,nom:'Mujer p5 · 49 kg'}, p50:{m:32,g0:0.32,nom:'Hombre p50 · 78 kg'}, p95:{m:44,g0:0.36,nom:'Hombre p95 · 102 kg'} };
+const D_CUBO=0.040;            // m: grosor del cubo y la bolsa plegada. Contacto duro desde g0 − 0,040
+const D_GOLPE=0.060;           // m: tórax a menos de 6 cm del módulo ≡ «golpea el volante»
+const K_CUBO=1.2e6, C_CUBO=2000;
+const CINT={ kw:90e3, cw:1200, holgura:0.040, extra:0.005, tauPre:0.006, tPre:0.008, latencia:0.002 };
+const BOLSA={ Vmax:0.055, A:0.12, V0:0.002, pU:3000, mInf:0.040, tInf:0.030, Tin:900, Tw:300, tauT:0.03, Av:0.0045, Cd:0.7,
+  pAlivio:55e3, dAlivio:35e3, AvAlivio:0.0085 };
+
+/** Estructura delantera de un coche cuya longitud útil de aplastamiento es L (m), afinada para parar el choque de
+ *  vDis (m/s) usando el 90 % de L: s = x_r/2 + E/F_c ⇒ F_c = E/(η·L − x_r/2). */
+function estructura(L,vDis){
+  const Fc=0.5*VEH.M*vDis*vDis/(VEH.eta*L-VEH.xr/2);
+  return { L, Fc, xr:VEH.xr, kb:Fc/VEH.cFondo, ku:Fc/VEH.cDesc };
+}
+/** Fuerza de carga de la barrera sobre el vehículo para un aplastamiento x (m). */
+function fuerzaCarga(S,x){
+  if(x<=0) return 0;
+  return (x<S.xr?S.Fc*x/S.xr:S.Fc)+(x>S.L?S.kb*(x-S.L):0);
+}
+const suave=x=>x<=0?0:(x>=1?1:x*x*(3-2*x));
+
+/** Presión de una bolsa que se despliega sin tocar nada: pU para vencer la tela, y nada si está desinflada. */
+function pLibre(V,B){ return P_ATM+B.pU*suave(V/(0.12*B.Vmax)); }
+
+/** Caudal de un orificio (subsónico o bloqueado), kg/s, de una cámara a p y T hacia el aire. */
+function caudalOrificio(p,T,Av,Cd){
+  if(p<=P_ATM) return 0;
+  const g=1005/(1005-287), pr=P_ATM/p, crit=Math.pow(2/(g+1),g/(g-1));
+  if(pr>crit) return Cd*Av*p*Math.sqrt(2*g/((g-1)*AIRE.R*T)*(Math.pow(pr,2/g)-Math.pow(pr,(g+1)/g)));
+  return Cd*Av*p*Math.sqrt(g/(AIRE.R*T))*Math.pow(2/(g+1),(g+1)/(2*(g-1)));
+}
+/** Caudal del inflador: media senoide de masa total mInf en tInf, desde el disparo. */
+function caudalInflador(tau,B){ return (tau>=0&&tau<=B.tInf)?(Math.PI/2)*(B.mInf/B.tInf)*Math.sin(Math.PI*tau/B.tInf):0; }
+/** El gas de la bolsa. libre = la bolsa se infla sin tocar al ocupante, a la presión pU de desplegar la tela:
+ *  m·c_p·dT/dt = ṁ_in·c_p·(T_in − T) − Q (las ventilas no cambian T). Con el volumen impuesto (tela tensa o
+ *  comprimida por el ocupante): m·c_v·dT/dt = ṁ_in(c_p·T_in − c_v·T) − ṁ_out·R·T − p·dV/dt − Q. Q = m·c_v·(T − T_w)/τ. */
+function derivGas(m,T,V,Vp,mIn,libre,B){
+  const p=libre?pLibre(V,B):m*AIRE.R*T/V;
+  const Av=B.Av+B.AvAlivio*suave((p-P_ATM-B.pAlivio)/B.dAlivio);
+  const mOut=caudalOrificio(p,T,Av,B.Cd), Q=m*AIRE.cv*(T-B.Tw)/B.tauT;
+  const dm=mIn-mOut;
+  let dT;
+  if(libre) dT=(mIn*AIRE.cp*(B.Tin-T)-Q)/(m*AIRE.cp);
+  else dT=(mIn*(AIRE.cp*B.Tin-AIRE.cv*T)-mOut*AIRE.R*T-p*Vp-Q)/(m*AIRE.cv);
+  return { dm, dT, mOut, p };
+}
+/** Presión, volumen y contacto de la bolsa para un tórax en ξ. */
+function estadoBolsa(m,T,xi,g0,B){
+  const Vlibre=m*AIRE.R*T/(P_ATM+B.pU), dist=Math.max(D_CUBO,g0-xi), Vgeo=B.A*dist, tope=Math.min(B.Vmax,Vgeo);
+  if(Vlibre<=tope) return { libre:true, V:Vlibre, p:pLibre(Vlibre,B), contacto:false, tensa:false };
+  const V=tope, contacto=Vgeo<B.Vmax;
+  return { libre:false, V, p:m*AIRE.R*T/V, contacto, tensa:!contacto, Vp:null };
+}
+
+/** Criterio de 3 ms acumulados: el nivel de la serie (muestreada cada dt) que se supera durante 3 ms en total. */
+function a3ms(serie,dt){
+  const orden=serie.slice().sort((a,b)=>b-a), k=Math.max(0,Math.round(0.003/dt)-1);
+  return orden[Math.min(k,orden.length-1)];
+}
+/** El choque completo. p = { vKmh, vDisKmh, L, ocup, Flim (N), dVth (km/h: el sensor dispara cuando el vehículo ha perdido esa velocidad), tFire (s, disparo fijo, o null: sin bolsa), pretensor, sinOcup, tFin, dt }.
+ *  Devuelve las series cada 0,1 ms y las cifras de mérito. */
+function simula(p){
+  p=Object.assign({ vKmh:56, vDisKmh:56, L:0.60, ocup:'p50', Flim:5000, tFire:0.020, dVth:null, pretensor:true, sinOcup:false, tFin:0.20, dt:2.5e-5, sinCint:false, bolsa:null },p);
+  const O=OCUP[p.ocup], mo=O.m, g0=O.g0, M=VEH.M, v0=p.vKmh/3.6, S=estructura(p.L,p.vDisKmh/3.6), B=Object.assign({},BOLSA,p.bolsa||{});
+  const dt=p.dt, N=Math.round(p.tFin/dt), cada=Math.max(1,Math.round(1e-4/dt));
+  // estado: x, v, ξ, w, m_gas, T_gas, W_c, W_rest, m_out
+  let y=[0,v0,0,0, P_ATM*B.V0/(AIRE.R*300),300, 0,0,0];
+  let tF=p.dVth!=null?Infinity:(p.tFire===null?Infinity:p.tFire);
+  const modo={ desc:false, xmax:0, Fmax:0, xp:0, pay:0, lim:false, fired:false };
+  const delta=t=>p.pretensor?CINT.holgura-(CINT.holgura+CINT.extra)*suave((t-CINT.tPre)/CINT.tauPre):CINT.holgura;
+  const dDelta=t=>{ if(!p.pretensor) return 0; const u=(t-CINT.tPre)/CINT.tauPre; return (u<=0||u>=1)?0:-(CINT.holgura+CINT.extra)*6*u*(1-u)/CINT.tauPre; };
+  const fuerzas=(t,s)=>{
+    const [x,v,xi,w,m,T]=s;
+    // vehículo
+    let Fc=0;
+    if(!modo.desc) Fc=fuerzaCarga(S,x); else Fc=x>modo.xp?modo.Fmax*(x-modo.xp)/(modo.xmax-modo.xp):0;
+    // cinturón
+    let Fb=0, e=xi-delta(t)-modo.pay;
+    if(!p.sinCint&&e>0){ Fb=Math.min(Math.max(0,CINT.kw*e+CINT.cw*(w-dDelta(t))),p.Flim); }
+    // cubo del volante
+    const pen=xi-(g0-D_CUBO); let Fh=0; if(pen>0) Fh=Math.max(0,K_CUBO*pen+C_CUBO*w);
+    // bolsa
+    let Fg=0, bs=null, mIn=0;
+    const activa=t>=tF;
+    if(activa){ bs=estadoBolsa(m,T,xi,g0,B); mIn=caudalInflador(t-tF,B); if(bs.contacto&&bs.p>P_ATM) Fg=(bs.p-P_ATM)*B.A; }
+    return { Fc, Fb, Fh, Fg, bs, mIn, activa };
+  };
+  const d=(t,s)=>{
+    const [x,v,xi,w,m,T]=s, f=fuerzas(t,s);
+    const Fo=p.sinOcup?0:f.Fb+f.Fh+f.Fg;
+    const vp=(-f.Fc+Fo)/M, wp=p.sinOcup?-vp:-Fo/mo-vp;
+    let dm=0,dT=0,mOut=0;
+    if(f.activa){
+      const Vp=(f.bs.contacto)?-B.A*w:0;
+      const g=derivGas(m,T,f.bs.V,Vp,f.mIn,f.bs.libre,B); dm=g.dm; dT=g.dT; mOut=g.mOut;
+    }
+    return [v,vp,w,wp,dm,dT,f.Fc*v,Fo*w,mOut];
+  };
+  const out={ t:[], x:[], v:[], aV:[], xi:[], aCh:[], Fb:[], Fg:[], Fh:[], Fc:[], pg:[], Vb:[], Wc:[], Wr:[], KEv:[], KEo:[], contacto:[], mG:[] };
+  let t=0;
+  for(let n=0;n<=N;n++){
+    if(n%cada===0){
+      const s=y, f=fuerzas(t,s), Fo=p.sinOcup?0:f.Fb+f.Fh+f.Fg, dd=d(t,s);
+      out.t.push(t); out.x.push(s[0]); out.v.push(s[1]); out.aV.push(-dd[1]/G0); out.xi.push(s[2]);
+      out.aCh.push(Fo/(mo*G0)); out.Fb.push(f.Fb); out.Fg.push(f.Fg); out.Fh.push(f.Fh); out.Fc.push(f.Fc);
+      out.pg.push(f.activa&&f.bs?(f.bs.p-P_ATM):0); out.Vb.push(f.activa&&f.bs?f.bs.V:0);
+      out.Wc.push(s[6]); out.Wr.push(s[7]); out.mG.push(s[4]);
+      out.KEv.push(0.5*M*s[1]*s[1]); out.KEo.push(0.5*mo*(s[1]+s[3])*(s[1]+s[3])); out.contacto.push(f.activa&&f.bs&&f.bs.contacto?1:0);
+    }
+    if(n===N) break;
+    // RK4
+    const k1=d(t,y), y2=y.map((q,i)=>q+0.5*dt*k1[i]), k2=d(t+dt/2,y2), y3=y.map((q,i)=>q+0.5*dt*k2[i]), k3=d(t+dt/2,y3),
+          y4=y.map((q,i)=>q+dt*k3[i]), k4=d(t+dt,y4);
+    const yn=y.map((q,i)=>q+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+    // gas: no cae por debajo de cero
+    if(yn[4]<1e-9) yn[4]=1e-9;
+    if(yn[0]<0&&modo.desc) yn[0]=yn[0];
+    // descarga: cuando la velocidad se anula, el vehículo se para y empieza a recuperar
+    if(!modo.desc&&yn[1]<=0&&y[1]>0){ modo.desc=true; modo.xmax=yn[0]; modo.Fmax=fuerzaCarga(S,yn[0]); modo.xp=modo.xmax-modo.Fmax/S.ku; }
+    // cinturón: el exceso sobre el limitador se paga como tira de cinta
+    { const tn=t+dt, e=yn[2]-delta(tn)-modo.pay; if(!p.sinCint&&CINT.kw*e>p.Flim){ modo.pay+=e-p.Flim/CINT.kw; } }
+    // el sensor: dispara cuando la velocidad perdida por el vehículo alcanza el umbral (más el retardo del algoritmo)
+    if(p.dVth!=null&&tF===Infinity&&(v0-yn[1])>=p.dVth/3.6) tF=t+dt+CINT.latencia;
+    y=yn; t+=dt;
+  }
+  // —— cifras de mérito ——
+  const nt=out.t.length, dtO=1e-4, g=G0;
+  let aVmax=0, xmax=0, xiMax=0, FbMax=0, pgMax=0, ach=out.aCh.slice();
+  for(let i=0;i<nt;i++){ if(out.aV[i]>aVmax) aVmax=out.aV[i]; if(out.x[i]>xmax) xmax=out.x[i]; if(out.xi[i]>xiMax) xiMax=out.xi[i]; if(out.Fb[i]>FbMax) FbMax=out.Fb[i]; if(out.pg[i]>pgMax) pgMax=out.pg[i]; }
+  const a3=a3ms(ach,dtO);
+  let iStop=out.v.findIndex(q=>q<=0); if(iStop<0) iStop=nt-1;
+  const tStop=out.t[iStop], vRebote=Math.max(0,-out.v[nt-1]), dV=v0+Math.max(0,-Math.min(...out.v));
+  const aMedia=v0/Math.max(tStop,1e-9)/g;
+  const res={ tFire:tF===Infinity?null:tF, out, p, S, O, v0, aVmax, xmax, xiMax, FbMax, pgMax, a3, tStop, dV, aMedia, vRebote,
+    golpe:xiMax>g0-D_GOLPE, fondo:xmax>S.L, hub:out.Fh.some(q=>q>0),
+    xiHolgura:g0-D_GOLPE, mOcup:mo, g0, mFinal:y[4], mOutFinal:y[8], estado:y, modo };
+  return res;
+}
+/** Parte de la física que mira el dock: el estado interpolado de la corrida a un tiempo t (s). */
+function muestraEn(R,t){
+  const o=R.out, n=o.t.length, dtO=o.t[1]-o.t[0];
+  let f=t/dtO; if(f<=0) f=0; if(f>=n-1) f=n-1-1e-9; const i=Math.floor(f), u=f-i, L=(a)=>a[i]+(a[i+1]-a[i])*u;
+  return { x:L(o.x), v:L(o.v), aV:L(o.aV), xi:L(o.xi), aCh:L(o.aCh), Fb:L(o.Fb), Fg:L(o.Fg), Fh:L(o.Fh), Fc:L(o.Fc), pg:L(o.pg), Vb:L(o.Vb), contacto:o.contacto[i], i };
+}
+/** Un ensayo del gas con el volumen fijo y un caudal de entrada constante hasta el régimen: la presión de equilibrio
+ *  y la temperatura a las que se llega. Sólo lo usa la verificación (la corrida del choque usa derivGas igual). */
+function gasFijo(V,mIn,Tin,B,T){
+  B=Object.assign({},BOLSA,B||{},{Tin});
+  let m=1.2*V,Tg=300; const dt=2e-5;
+  for(let k=0;k<(T||4)/dt;k++){
+    const a=derivGas(m,Tg,V,0,mIn,false,B); m+=a.dm*dt; Tg+=a.dT*dt;
+  }
+  return { m, T:Tg, p:m*AIRE.R*Tg/V };
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true,rep=null}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  if(rep) t.repeat.set(rep[0],rep[1]);
+  return t;
+}
+function fondoDegradado(arriba,abajo){
+  const c=cv(512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const r=x.createRadialGradient(256,300,20,256,300,360); r.addColorStop(0,'rgba(240,138,60,0.10)'); r.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=r; x.fillRect(0,0,512,512);
+  return tex(c,{srgb:true});
+}
+const scene=new THREE.Scene();
+scene.background=fondoDegradado('#121b27','#04070b');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.55;
+scene.fog=new THREE.Fog('#05080c',9,26);
+
+const camera=new THREE.PerspectiveCamera(26,innerWidth/innerHeight,0.05,80);
+camera.position.set(-1.0,1.35,5.6);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.07;
+controls.minDistance=0.5; controls.maxDistance=16; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(-1.1,0.62,0);
+
+/* Luz de estudio: clave cálida alta con sombra suave, contra fría a contraluz que recorta los cantos,
+   relleno bajo y frío y una luz frontal sin sombra que entra por el corte. */
+const LUZ={};
+LUZ.clave=new THREE.DirectionalLight('#fff0e0',2.1); LUZ.clave.position.set(1.8,4.2,4.0); LUZ.clave.castShadow=true;
+LUZ.clave.shadow.mapSize.set(2048,2048); LUZ.clave.shadow.bias=-0.0004; LUZ.clave.shadow.normalBias=0.012;
+Object.assign(LUZ.clave.shadow.camera,{left:-4,right:3,top:2.6,bottom:-1.2,near:1,far:16});
+LUZ.clave.target.position.set(-1.2,0.3,0); scene.add(LUZ.clave,LUZ.clave.target);
+LUZ.contra=new THREE.SpotLight('#9cc4ff',3.4,16,Math.PI/4.5,0.6,1.3); LUZ.contra.position.set(-3.5,2.6,-3.6); LUZ.contra.target.position.set(-1.0,0.6,0); scene.add(LUZ.contra,LUZ.contra.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fb2d8',0.40); LUZ.relleno.position.set(-4,1.2,3.2); scene.add(LUZ.relleno);
+LUZ.frente=new THREE.DirectionalLight('#eaf2ff',0.55); LUZ.frente.position.set(-0.6,0.9,6); LUZ.frente.target.position.set(-1.1,0.7,0); scene.add(LUZ.frente,LUZ.frente.target);
+LUZ.hemi=new THREE.HemisphereLight('#aac4de','#10151a',0.22); scene.add(LUZ.hemi);
+LUZ.golpe=new THREE.PointLight('#ff9a4a',0,3.2,1.8); LUZ.golpe.position.set(-0.05,0.55,0.4); scene.add(LUZ.golpe);   // el destello del impacto
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: la estructura al rojo del aplastamiento, el destello del inflador
+   y la tensión del cinturón. Umbral por encima del brillo de cualquier metal iluminado. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.5,0.3,1.6); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   PBR con entorno. Nada de grano fino —se lee como lija—: variaciones lentas de rugosidad y, donde la pieza lo
+   pide, su dibujo (juntas del hormigón, retícula del suelo, la diana del maniquí). */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+/** Textura de baja frecuencia: media 0..1 con variación suave (rugosidad o tono). */
+function manchas(semilla,{px=256,celdas=4,base=0.5,amp=0.1,tono=null}={}){
+  const f=ruidoPeriodico(semilla,celdas), k=celdas/px, c=cv(px), x=c.getContext('2d'), im=x.createImageData(px,px);
+  for(let j=0;j<px;j++) for(let i=0;i<px;i++){ const n=(f(i*k,j*k)-0.5)*2*amp, o=(j*px+i)*4;
+    if(tono){ for(let q=0;q<3;q++) im.data[o+q]=clamp(tono[q]*(1+n),0,255); } else { const v=clamp(base+n,0,1)*255; im.data[o]=im.data[o+1]=im.data[o+2]=v; }
+    im.data[o+3]=255; }
+  x.putImageData(im,0,0); return c;
+}
+const T_ASFALTO=tex(manchas(3,{px:256,celdas:6,tono:[26,31,38],amp:0.10}),{srgb:true,rep:[10,4]});
+const T_RUG_SUELO=tex(manchas(5,{px:256,celdas:5,base:0.36,amp:0.12}),{rep:[10,4]});
+const T_HORM=tex(manchas(9,{px:256,celdas:4,tono:[138,143,148],amp:0.07}),{srgb:true});
+const T_PLAS=tex(manchas(17,{px:256,celdas:7,base:0.62,amp:0.06}));
+/** Retícula de «banco de ensayos» sobre el suelo: líneas finas cada 0,5 m, de bajo contraste. */
+function retiSuelo(){
+  const c=cv(1024,512),x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,1024,512);
+  x.strokeStyle='rgba(255,255,255,0.55)'; x.lineWidth=2;
+  for(let i=0;i<=20;i++){ x.beginPath(); x.moveTo(i*51.2,0); x.lineTo(i*51.2,512); x.stroke(); }
+  for(let j=0;j<=10;j++){ x.beginPath(); x.moveTo(0,j*51.2); x.lineTo(1024,j*51.2); x.stroke(); }
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+/** La diana del maniquí: cuadrantes amarillo y negro, la marca que todo el mundo reconoce. */
+function texDiana(){
+  const c=cv(256),x=c.getContext('2d'), r=124; x.clearRect(0,0,256,256);
+  for(let q=0;q<4;q++){ x.fillStyle=(q%2)?'#f3c32b':'#16181b'; x.beginPath(); x.moveTo(128,128); x.arc(128,128,r,q*Math.PI/2,(q+1)*Math.PI/2); x.closePath(); x.fill(); }
+  x.strokeStyle='#16181b'; x.lineWidth=8; x.beginPath(); x.arc(128,128,r,0,Math.PI*2); x.stroke();
+  return tex(c,{srgb:true,flip:true});
+}
+/** Costuras radiales de la bolsa: líneas finas sobre tela blanca (esquema; la bolsa real lleva paneles cosidos). */
+function texBolsa(){
+  const c=cv(512),x=c.getContext('2d'); x.fillStyle='#f2f4f7'; x.fillRect(0,0,512,512);
+  x.strokeStyle='rgba(120,130,145,0.55)'; x.lineWidth=3;
+  for(let i=0;i<16;i++){ x.beginPath(); x.moveTo(i*32,0); x.lineTo(i*32,512); x.stroke(); }
+  for(let j=1;j<6;j++){ x.beginPath(); x.moveTo(0,j*85); x.lineTo(512,j*85); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  suelo: pbr({color:'#ffffff',map:T_ASFALTO,roughness:0.62,roughnessMap:T_RUG_SUELO,metalness:0.05,envMapIntensity:0.5}),
+  reti: new THREE.MeshBasicMaterial({map:retiSuelo(),transparent:true,opacity:0.07,depthWrite:false,blending:THREE.AdditiveBlending}),
+  hormigon: pbr({color:'#ffffff',map:T_HORM,roughness:0.88,metalness:0,envMapIntensity:0.35}),
+  hormigonL: pbr({color:'#6c7176',roughness:0.8,metalness:0.05}),
+  pintura: fis({color:'#9db9d6',metalness:0.35,roughness:0.16,clearcoat:1,clearcoatRoughness:0.08,transparent:true,opacity:0.2,side:THREE.DoubleSide,depthWrite:false,envMapIntensity:1.0}),
+  vidrio: fis({color:'#cfe6ff',metalness:0,roughness:0.04,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false,envMapIntensity:1.2}),
+  jaula: fis({color:'#e1553a',metalness:0.55,roughness:0.34,clearcoat:0.5,clearcoatRoughness:0.3,emissive:'#000000'}),
+  chasis: pbr({color:'#78828e',metalness:0.8,roughness:0.42}),
+  acero: pbr({color:'#b5bcc6',metalness:0.9,roughness:0.3}),
+  alu: pbr({color:'#c9d0d8',metalness:0.85,roughness:0.34}),
+  motor: pbr({color:'#6b7480',metalness:0.7,roughness:0.5,roughnessMap:tex(manchas(23,{px:128,celdas:3,base:0.5,amp:0.1}))}),
+  motorB: pbr({color:'#3b424b',metalness:0.5,roughness:0.55}),
+  rail: fis({color:'#f2b233',metalness:0.45,roughness:0.38,clearcoat:0.3,emissive:'#000000',side:THREE.DoubleSide}),
+  espuma: pbr({color:'#2b3038',roughness:0.85,metalness:0}),
+  plastico: pbr({color:'#1c2026',roughness:0.6,metalness:0.05,roughnessMap:T_PLAS}),
+  cuero: pbr({color:'#252b34',roughness:0.62,metalness:0.02,roughnessMap:T_PLAS}),
+  goma: pbr({color:'#101214',roughness:0.78,metalness:0}),
+  llanta: pbr({color:'#cdd3da',metalness:0.95,roughness:0.24}),
+  maniqui: fis({color:'#f1bd22',roughness:0.5,metalness:0,clearcoat:0.35,clearcoatRoughness:0.4}),
+  maniquiN: pbr({color:'#15171a',roughness:0.7,metalness:0.1}),
+  cinturon: pbr({color:'#d6402a',roughness:0.55,metalness:0,emissive:'#000000',side:THREE.DoubleSide}),
+  hebilla: pbr({color:'#cfd5dc',metalness:0.9,roughness:0.28}),
+  bolsa: fis({color:'#ffffff',map:texBolsa(),roughness:0.82,metalness:0,transparent:true,opacity:0.9,side:THREE.DoubleSide,sheen:0.6,sheenRoughness:0.5,sheenColor:new THREE.Color('#bcd2ff'),emissive:'#000000'}),
+  modulo: pbr({color:'#22262c',roughness:0.5,metalness:0.4}),
+  destello: new THREE.MeshBasicMaterial({color:'#ffd9a0',transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}),
+  destelloB: new THREE.MeshBasicMaterial({color:'#cfe0ff',transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}),
+  diana: new THREE.MeshBasicMaterial({map:texDiana(),transparent:true,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
+  marca: new THREE.MeshBasicMaterial({color:'#f0f6ff',transparent:true,opacity:0.5,depthWrite:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const PIEZAS=[];          // lo que se puede señalar con el ratón
+function pieza(g,m,padre,k,{sombra=true,recibe=true,dinamico=false}={}){
+  const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; if(k) o.userData.pieza=k; if(dinamico) o.userData.dinamico=true; padre.add(o); return o;
+}
+function cajaR(w,h,d,r,seg=3){ return new RoundedBoxGeometry(w,h,d,seg,Math.min(r,w/2.01,h/2.01,d/2.01)); }
+function cil(r,h,eje='y',seg=32,r2){ const g=new THREE.CylinderGeometry(r2??r,r,h,seg,1,false); if(eje==='x') g.rotateZ(-Math.PI/2); else if(eje==='z') g.rotateX(Math.PI/2); return g; }
+/** Tubo entre dos puntos. */
+function barra(a,b,r,mat,padre,k,seg=14){
+  const d=V3(b.x-a.x,b.y-a.y,b.z-a.z), L=d.length(), m=pieza(new THREE.CylinderGeometry(r,r,L,seg,1,false),mat,padre,k);
+  m.position.set((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2); m.quaternion.setFromUnitVectors(V3(0,1,0),d.normalize()); return m;
+}
+/** Un contorno [x,y] extruido a lo largo de Z (de z0 a z1), con bisel pequeño; las normales se sanean. */
+function extruye(pts,z0,z1,{bisel=0.006,seg=3}={}){
+  const sh=new THREE.Shape(pts.map(([x,y])=>new THREE.Vector2(x,y)));
+  const g=new THREE.ExtrudeGeometry(sh,{depth:z1-z0,bevelEnabled:bisel>0,bevelThickness:bisel,bevelSize:bisel,bevelSegments:seg,curveSegments:10});
+  g.translate(0,0,z0); return P3.sanaNormales(g)||g;
+}
+/** Un listón de ancho w (en z) y grosor t siguiendo una polilínea [x,y] del plano XY: la sección plana de una chapa. */
+function cinta(pts,t,z0,z1){
+  const pos=[],nor=[],idx=[],n=pts.length;
+  for(let i=0;i<n;i++){
+    const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)]; let tx=b[0]-a[0],ty=b[1]-a[1]; const l=Math.hypot(tx,ty)||1; tx/=l; ty/=l;
+    const nx=-ty,ny=tx; for(const s of [-1,1]) for(const z of [z0,z1]){ pos.push(pts[i][0]+nx*t/2*s,pts[i][1]+ny*t/2*s,z); nor.push(nx*s,ny*s,0); } }
+  // por punto: 4 vértices (cara - z0, cara - z1, cara + z0, cara + z1); sólo las dos caras grandes y los cantos
+  for(let i=0;i<n-1;i++){ const a=i*4,b=(i+1)*4;
+    idx.push(a,b,a+1, a+1,b,b+1);        // cara −
+    idx.push(a+2,a+3,b+2, a+3,b+3,b+2);  // cara +
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3)); g.setIndex(idx); return g;
+}
+
+
+/* ===================== 6. EL BANCO DE ENSAYOS Y EL COCHE =====================
+   Coordenadas del mundo: +X es el sentido de la marcha, la barrera está en X = 0 y el coche viene de la izquierda.
+   El coche se dibuja en SU marco, con u = 0 en el mamparo (el frente del habitáculo) y u > 0 hacia el morro:
+   el motor ocupa u = 0,04…0,69 y delante de él va la zona de deformación, de longitud L (la que elige el alumno)
+   más 0,10 m de paragolpes, travesaño y radiador. Es un corte longitudinal: se conserva la mitad lejana (z ≤ 0). */
+const U_MOT1=0.69, U_PARA=0.18;
+const BANCO=new THREE.Group(); scene.add(BANCO);
+const CAB=new THREE.Group(); scene.add(CAB);              // lo rígido: se mueve con el vehículo (X = x − uParagolpes)
+const FRENTE=new THREE.Group(); scene.add(FRENTE);         // lo que se aplasta, en coordenadas del mundo
+
+/* ---- suelo y barrera ---- */
+{
+  const suelo=pieza(new THREE.PlaneGeometry(40,18),M.suelo,BANCO,'suelo',{sombra:false}); suelo.rotation.x=-Math.PI/2; suelo.position.set(-8,0,0);
+  const geo=suelo.geometry, uv=geo.attributes.uv; for(let i=0;i<uv.count;i++) uv.setXY(i,uv.getX(i)*10,uv.getY(i)*4); // el asfalto se repite
+  const reti=pieza(new THREE.PlaneGeometry(10,5),M.reti,BANCO,null,{sombra:false,recibe:false}); reti.rotation.x=-Math.PI/2; reti.position.set(-3.5,0.002,0); reti.renderOrder=1;
+  // barrera rígida: bloque de hormigón con una placa de acero y sus tirantes de anclaje
+  const bloque=pieza(cajaR(1.2,1.8,2.4,0.03),M.hormigon,BANCO,'barrera'); bloque.position.set(0.62,0.9,0);
+  const placa=pieza(cajaR(0.03,1.4,2.1,0.008),M.chasis,BANCO,'barrera'); placa.position.set(0.0155,0.78,0);
+  for(const y of [0.26,0.78,1.30]) for(const z of [-0.8,0,0.8]){ const p=pieza(cil(0.035,0.02,'x',16),M.acero,BANCO,'barrera',{sombra:false}); p.position.set(-0.002,y,z); }
+  // franja de seguridad amarilla a media altura del bloque (esquema)
+  const franja=pieza(new THREE.BoxGeometry(0.004,0.05,2.4),pbr({color:'#f2b233',roughness:0.6}),BANCO,null,{sombra:false}); franja.position.set(0.0015,1.55,0);
+}
+
+/* ---- el habitáculo ---- */
+const DIM={uSalpicadero:-0.46, yVolante:0.90, uVolante:-0.33};
+{
+  // el costado lejano (z = −0,86): chapa translúcida con la ventanilla calada
+  const perfil=[[-2.80,0.28],[-2.80,0.64],[-2.32,0.90],[-1.88,0.93],[-1.52,1.42],[-0.58,1.46],[-0.04,0.98],[0.06,0.98],[0.06,0.28]];
+  const sh=new THREE.Shape(perfil.map(([x,y])=>new THREE.Vector2(x,y)));
+  const vent=new THREE.Path([[-1.76,1.00],[-1.46,1.36],[-0.64,1.40],[-0.12,1.04]].map(([x,y])=>new THREE.Vector2(x,y)));
+  sh.holes.push(vent);
+  const g=new THREE.ExtrudeGeometry(sh,{depth:0.02,bevelEnabled:false,curveSegments:8}); P3.sanaNormales(g);
+  const lado=pieza(g,M.pintura,CAB,'carroceria',{sombra:false}); lado.position.z=-0.88;
+  const cristal=pieza(new THREE.ShapeGeometry(new THREE.Shape([[-1.76,1.00],[-1.46,1.36],[-0.64,1.40],[-0.12,1.04]].map(([x,y])=>new THREE.Vector2(x,y)))),M.vidrio,CAB,'cristal',{sombra:false}); cristal.position.z=-0.875;
+  // techo, bandeja trasera y parabrisas
+  const techo=pieza(new THREE.BoxGeometry(1.02,0.022,0.88),M.pintura,CAB,'carroceria',{sombra:false}); techo.position.set(-1.05,1.46,-0.44);
+  const portaequipaje=pieza(new THREE.BoxGeometry(0.56,0.022,0.88),M.pintura,CAB,'carroceria',{sombra:false}); portaequipaje.position.set(-2.55,0.90,-0.44);
+  { const g=new THREE.BufferGeometry(), p=[-0.58,1.46,0,-0.58,1.46,-0.86,0.06,0.98,-0.86,0.06,0.98,0];
+    g.setAttribute('position',new THREE.Float32BufferAttribute(p,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute([0.6,0.8,0,0.6,0.8,0,0.6,0.8,0,0.6,0.8,0],3)); g.setIndex([0,1,2,0,2,3]);
+    pieza(g,M.vidrio,CAB,'cristal',{sombra:false}); }
+  // suelo del habitáculo y larguero (la sección a z = 0 es la «jaula» roja)
+  const piso=pieza(new THREE.BoxGeometry(2.86,0.03,0.88),M.chasis,CAB,'jaula'); piso.position.set(-1.37,0.28,-0.44);
+  const jaula=(a,b,t=0.055)=>{ const d=V3(b[0]-a[0],b[1]-a[1],0), L=d.length(), m=pieza(cajaR(L+0.04,t,0.03,0.012),M.jaula,CAB,'jaula'); m.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,0); m.rotation.z=Math.atan2(d.y,d.x); return m; };
+  jaula([-2.46,0.30],[0.02,0.30],0.06);                 // larguero inferior
+  jaula([0.02,0.30],[0.02,0.96],0.045);                 // mamparo
+  jaula([0.02,0.96],[-0.56,1.44]);                      // montante A
+  jaula([-0.56,1.44],[-1.52,1.44],0.05);                // larguero de techo
+  jaula([-1.06,0.32],[-1.06,1.43],0.06);                // montante B
+  jaula([-1.52,1.43],[-1.90,0.94],0.05);                // montante C
+  jaula([-1.90,0.94],[-2.40,0.88],0.045);
+  // salpicadero: el tablero y la consola, en plástico oscuro
+  const tab=[[0.02,0.56],[0.02,0.97],[-0.16,1.00],[-0.38,0.97],[-0.47,0.90],[-0.43,0.80],[-0.30,0.74],[-0.24,0.56]];
+  const sal=pieza(extruye(tab,-0.86,-0.02,{bisel:0.012}),M.plastico,CAB,'tablero'); sal.position.z=0;
+  // bajos: la rodillera y el pedalier (esquema)
+  const rod=pieza(cajaR(0.1,0.20,0.56,0.03),M.espuma,CAB,'tablero'); rod.position.set(-0.18,0.52,-0.30); rod.rotation.z=0.25;
+  // asiento trasero (esquema)
+  const ban=pieza(cajaR(0.5,0.12,0.84,0.04),M.cuero,CAB,'asiento'); ban.position.set(-1.62,0.40,-0.42);
+  const resp=pieza(cajaR(0.12,0.56,0.84,0.04),M.cuero,CAB,'asiento'); resp.position.set(-1.84,0.70,-0.42); resp.rotation.z=0.20;
+  // el motor, un bloque rígido (el tope del fondo de carrera) con culata, admisión y caja de cambios
+  const MOT=new THREE.Group(); CAB.add(MOT);
+  const fund=P3.pielFundicion({px:256,semilla:31,manchas:0.06,relieve:2.2,celda:16}); for(const t of [fund.map,fund.roughnessMap,fund.normalMap]) t.repeat.set(3,3);
+  const matBloque=fis({color:'#8a939d',metalness:0.7,roughness:0.5,map:fund.map,roughnessMap:fund.roughnessMap,normalMap:fund.normalMap,normalScale:new THREE.Vector2(0.2,0.2),clearcoat:0.1});
+  const b1=pieza(cajaR(0.62,0.34,0.58,0.03),matBloque,MOT,'motor'); b1.position.set(0.37,0.52,-0.30);
+  const b2=pieza(cajaR(0.60,0.12,0.54,0.025),M.motorB,MOT,'motor'); b2.position.set(0.37,0.75,-0.30);     // tapa de balancines
+  const b3=pieza(cajaR(0.55,0.10,0.44,0.03),M.motor,MOT,'motor'); b3.position.set(0.37,0.36,-0.30);       // cárter
+  for(let i=0;i<4;i++){ const t=pieza(cil(0.032,0.26,'y',14),M.alu,MOT,'motor'); t.position.set(0.17+i*0.135,0.89,-0.30); const q=pieza(cil(0.026,0.12,'z',12),M.alu,MOT,'motor'); q.position.set(0.17+i*0.135,0.98,-0.30); }
+  const cam=pieza(cil(0.13,0.38,'x',24),M.motor,MOT,'motor'); cam.position.set(0.06,0.49,-0.30);           // campana del cambio
+  const alt=pieza(cil(0.06,0.10,'z',20),M.alu,MOT,'motor'); alt.position.set(0.68,0.40,-0.02);
+  const bat=pieza(cajaR(0.22,0.17,0.34,0.02),pbr({color:'#1c3a52',roughness:0.5,metalness:0.1}),MOT,'motor'); bat.position.set(0.22,0.90,-0.74);
+  // radiador y ventilador: justo delante del motor, son el primer «tope» de la zona
+  const rad=pieza(cajaR(0.045,0.46,0.84,0.012),M.motorB,CAB,'radiador'); rad.position.set(U_MOT1+0.075,0.56,-0.44);
+  const venti=pieza(cil(0.17,0.03,'x',24),M.plastico,CAB,'radiador'); venti.position.set(U_MOT1+0.015,0.56,-0.44);
+  // ruedas lejanas
+  const rueda=(u)=>{ const g=new THREE.Group(); const R=0.34;
+    const goma=pieza(P3.revolucion([[R*0.62,-0.10],[R*0.70,-0.115],[R*0.93,-0.11],[R,-0.07],[R,0.07],[R*0.93,0.11],[R*0.70,0.115],[R*0.62,0.10]],{seg:48}),M.goma,g,'rueda'); goma.rotation.x=Math.PI/2;
+    const ll=pieza(P3.revolucion([[R*0.40,-0.075],[R*0.64,-0.085],[R*0.64,0.085],[R*0.40,0.075]],{seg:40}),M.llanta,g,'rueda'); ll.rotation.x=Math.PI/2;
+    for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; const r=pieza(cajaR(0.034,R*0.52,0.03,0.008),M.llanta,g,'rueda',{sombra:false}); r.position.set(Math.cos(a+Math.PI/2)*R*0.26,Math.sin(a+Math.PI/2)*R*0.26,0.082); r.rotation.z=a; }
+    const hub=pieza(cil(0.045,0.04,'z',16),M.acero,g,'rueda',{sombra:false}); hub.position.z=0.092;
+    g.position.set(u,0.34,-0.80); CAB.add(g); return g; };
+  rueda(0.36); rueda(-2.02);
+}
+
+/* ---- la columna, el volante y el módulo del airbag ---- */
+const VOL=new THREE.Group(); CAB.add(VOL);
+VOL.position.set(DIM.uVolante,DIM.yVolante,0);
+let MODULO;
+{
+  const col=pieza(cil(0.032,0.40,'x',16),M.plastico,CAB,'volante'); col.position.set(-0.17,0.80,0); col.rotation.z=-0.42; col.scale.set(1,1,1);
+  // el volante: aro (toro), tres radios y el cubo; plano inclinado 20° hacia el conductor
+  const V=new THREE.Group(); V.rotation.z=-0.35; VOL.add(V);                  // el eje del volante apunta al conductor (−X) y algo hacia arriba
+  const aro=pieza(new THREE.TorusGeometry(0.19,0.0165,18,56),M.maniquiN,V,'volante'); aro.rotation.y=Math.PI/2;
+  for(const a of [Math.PI*0.5,Math.PI*0.5+Math.PI*0.72,Math.PI*0.5-Math.PI*0.72]){ const r=pieza(cajaR(0.016,0.19,0.026,0.006),M.motorB,V,'volante',{sombra:false}); r.position.set(0,Math.cos(a)*0.095,Math.sin(a)*0.095); r.rotation.x=a; }
+  MODULO=pieza(cajaR(0.075,0.17,0.17,0.03),M.modulo,V,'modulo'); MODULO.position.x=-0.03;
+  V.userData.eje=V3(-1,0,0);
+}
+
+
+/* ===================== 6b. LO QUE SE APLASTA, EL MANIQUÍ, EL CINTURÓN Y LA BOLSA ===================== */
+/** Una malla cuadriculada (nu+1)×(nv+1) cuyos vértices se recolocan cada cuadro: la chapa y los largueros que se pliegan. */
+class Malla{
+  constructor(nu,nv,mat,k,{cerrada=false,sombra=true}={}){
+    this.nu=nu; this.nv=nv; this.cerrada=cerrada;
+    const nvv=nv+1, n=(nu+1)*nvv; this.pos=new Float32Array(n*3);
+    const idx=[]; for(let i=0;i<nu;i++) for(let j=0;j<nv;j++){ const a=i*nvv+j, b=(i+1)*nvv+j, c=a+1, d=b+1; idx.push(a,b,c, c,b,d); }
+    this.geo=new THREE.BufferGeometry(); this.geo.setAttribute('position',new THREE.BufferAttribute(this.pos,3).setUsage(THREE.DynamicDrawUsage));
+    this.geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n*3),3).setUsage(THREE.DynamicDrawUsage)); this.geo.setIndex(idx);
+    this.mesh=new THREE.Mesh(this.geo,mat); this.mesh.castShadow=sombra; this.mesh.receiveShadow=true; this.mesh.frustumCulled=false; if(k) this.mesh.userData.pieza=k;
+  }
+  /** fn(i,j,out): llena out[0..2] con la posición del vértice (i a lo largo, j a lo ancho/alrededor). */
+  rellena(fn){
+    const o=[0,0,0], nvv=this.nv+1;
+    for(let i=0;i<=this.nu;i++) for(let j=0;j<=this.nv;j++){ fn(i,j,o); const k=(i*nvv+j)*3; this.pos[k]=o[0]; this.pos[k+1]=o[1]; this.pos[k+2]=o[2]; }
+    this.geo.attributes.position.needsUpdate=true; this.geo.computeVertexNormals();
+    // normal nula = pantalla negra: donde un vértice sólo toca triángulos degenerados, se le da la dirección +Z
+    const n=this.geo.attributes.normal; for(let q=0;q<n.count;q++){ const x=n.getX(q),y=n.getY(q),z=n.getZ(q); if(x*x+y*y+z*z<1e-10) n.setXYZ(q,0,0,1); }
+    n.needsUpdate=true;
+  }
+}
+const NF=8;                                     // pliegues del larguero
+const RIEL=[0.56,0.37].map((y,i)=>{
+  const m=new Malla(64,10,M.rail,'riel'); FRENTE.add(m.mesh); m.y0=y; m.z0=-0.30; m.id=i; return m;
+});
+const CAPO=new Malla(40,2,M.pintura,'capo',{sombra:false}); CAPO.mesh.renderOrder=2; FRENTE.add(CAPO.mesh);
+const ALETA=new Malla(40,6,M.pintura,'aleta',{sombra:false}); ALETA.mesh.renderOrder=2; FRENTE.add(ALETA.mesh);
+{ // paragolpes: piel de plástico, espuma y travesaño de acero; el destello del impacto
+  const piel=pieza(cajaR(0.032,0.34,1.64,0.012),pbr({color:'#202831',roughness:0.45,metalness:0.1}),FRENTE,'paragolpes'); piel.position.set(-0.016,0.50,-0.30);
+  const esp=pieza(cajaR(0.055,0.20,1.50,0.014),M.espuma,FRENTE,'paragolpes'); esp.position.set(-0.058,0.50,-0.30);
+  const trav=pieza(cajaR(0.07,0.16,1.46,0.016),M.acero,FRENTE,'paragolpes'); trav.position.set(-0.1075,0.50,-0.30);
+}
+const DESTELLO=pieza(new THREE.SphereGeometry(1,24,16),M.destello,FRENTE,null,{sombra:false,recibe:false}); DESTELLO.position.set(-0.03,0.52,0); DESTELLO.renderOrder=6;
+
+const bezier=(s)=>s*s*(3-2*s);
+/** Recoloca todo lo que se aplasta. L = recorrido útil; x = aplastamiento actual; cmax = lo máximo aplastado hasta ahora. */
+function poseaFrente(L,x,cmax,calor){
+  const Xe=-(L+U_PARA)+x;                                  // cara delantera del motor, mundo
+  const Xv=-0.14;                                          // cara trasera del travesaño
+  const Lc=Math.max(0.03,Xv-Xe);                           // lo que queda de la zona de deformación
+  const c=clamp(cmax/L,0,1.25);
+  const nF=clamp(Math.round(L/0.075),4,12);
+  for(const R of RIEL){
+    R.rellena((i,j,o)=>{
+      const s=i/R.nu, th=j/R.nv*Math.PI*2, pli=Math.pow(Math.abs(Math.sin(Math.PI*nF*s)),1.1);
+      const k=1+0.62*c*pli;
+      const hy=0.055*k, hz=0.045*k;
+      const cx=Math.cos(th), sx=Math.sin(th), e=0.32;           // sección «superelipse»: rectángulo de esquinas redondas
+      const py=Math.sign(sx)*Math.pow(Math.abs(sx),e)*hy, pz=Math.sign(cx)*Math.pow(Math.abs(cx),e)*hz;
+      o[0]=Xe+s*Lc; o[1]=R.y0+py+0.018*c*Math.sin(Math.PI*nF*s+R.id)+0.03*c*Math.sin(Math.PI*s)*(R.id?-1:1); o[2]=R.z0+pz+0.012*c*Math.sin(Math.PI*nF*s*0.5);
+    });
+  }
+  M.rail.emissive.setRGB(1.0,0.30,0.06).multiplyScalar(0.9*clamp(calor,0,1));
+  // capó: del borde del parabrisas (va con el habitáculo) al borde del paragolpes (fijo en la barrera); se arruga hacia arriba
+  const Xw=-(L+U_PARA)+x+U_MOT1+0.06, Xf=-0.045, chord=Math.max(0.12,Xf-Xw), Lh0=(U_MOT1+0.06)+L+U_PARA-0.045;
+  const exceso=Math.max(0,Lh0-chord), A=Math.min(0.40,(2/Math.PI)*Math.sqrt(exceso*chord));
+  CAPO.rellena((i,j,o)=>{ const s=i/CAPO.nu, z=-0.86*(j/CAPO.nv);
+    const yb=0.98-0.18*bezier(s), arr=A*Math.pow(Math.sin(Math.PI*s),1.0)+0.012*c*Math.sin(Math.PI*2.5*s)*Math.sin(Math.PI*s);
+    o[0]=Xw+s*(Xf-Xw); o[1]=yb+arr; o[2]=z; });
+  // aleta lejana: chapa vertical a z = −0,86 que se ondula
+  ALETA.rellena((i,j,o)=>{ const s=i/ALETA.nu, v=j/ALETA.nv, yTop=0.98-0.18*bezier(s)+A*Math.sin(Math.PI*s), yBot=0.30;
+    o[0]=Xw+s*(Xf-Xw); o[1]=yBot+(yTop-yBot)*v; o[2]=-0.86-0.035*c*Math.sin(Math.PI*nF*0.5*s)*Math.sin(Math.PI*v); });
+  return {Xe,Lc};
+}
+
+/* ---- el asiento y el maniquí ---- */
+const ASIENTO=new THREE.Group(); CAB.add(ASIENTO);
+{
+  const cojin=pieza(cajaR(0.56,0.13,0.54,0.05),M.cuero,ASIENTO,'asiento'); cojin.position.set(-0.04,-0.11,-0.02);
+  const resp=pieza(cajaR(0.12,0.70,0.54,0.05),M.cuero,ASIENTO,'asiento'); resp.position.set(-0.24,0.20,-0.02); resp.rotation.z=0.20;
+  const repo=pieza(cajaR(0.10,0.22,0.30,0.04),M.cuero,ASIENTO,'asiento'); repo.position.set(-0.33,0.68,-0.02); repo.rotation.z=0.20;
+  const raiz=pieza(cajaR(0.62,0.05,0.40,0.015),M.chasis,ASIENTO,'asiento'); raiz.position.set(-0.04,-0.22,-0.02);
+}
+const MANI=new THREE.Group(); CAB.add(MANI);
+const MP={};                                   // las piezas del maniquí por nombre
+{
+  const add=(k,g,m,pk='maniqui')=>{ const o=pieza(g,m,MANI,pk,{dinamico:true}); MP[k]=o; return o; };
+  add('pelvis',cajaR(0.25,0.17,0.34,0.05),M.maniqui); add('lumbar',cil(0.075,0.12,'y',20),M.maniquiN);
+  add('torso',cajaR(0.25,0.46,0.34,0.07),M.maniqui,'torax'); add('cuello',cil(0.045,0.11,'y',16),M.maniquiN);
+  add('cabeza',new THREE.SphereGeometry(0.098,32,22),M.maniqui,'cabeza'); MP.cabeza.scale.set(1.08,1.0,0.92);
+  for(const sg of [1,-1]){
+    const k=sg>0?'a':'b';
+    add('hom'+k,new THREE.SphereGeometry(0.052,18,14),M.maniquiN); add('brazo'+k,cil(0.040,1,'y',14),M.maniqui); add('codo'+k,new THREE.SphereGeometry(0.040,16,12),M.maniquiN);
+    add('anteb'+k,cil(0.034,1,'y',14),M.maniqui); add('mano'+k,new THREE.SphereGeometry(0.044,16,12),M.maniquiN);
+    add('muslo'+k,cil(0.066,1,'y',16),M.maniqui); add('rod'+k,new THREE.SphereGeometry(0.058,16,12),M.maniquiN); add('pierna'+k,cil(0.052,1,'y',16),M.maniqui);
+    add('pie'+k,cajaR(0.26,0.07,0.10,0.025),M.maniquiN); add('cadera'+k,new THREE.SphereGeometry(0.06,16,12),M.maniquiN);
+  }
+  // la diana de la cabeza (un disco apenas despegado del cuero, sólo por el lado de la cámara)
+  const dn=new THREE.Mesh(new THREE.CircleGeometry(0.052,32),M.diana); dn.position.set(0,0,0.0905); MP.cabeza.add(dn);
+  const dn2=new THREE.Mesh(new THREE.CircleGeometry(0.058,32),M.diana); dn2.position.set(0,0.0,0.1735); MP.torso.add(dn2); dn2.scale.set(1,1,1); dn2.position.set(0,0.08,0.1725);
+}
+const tmpA=V3(0,0,0), tmpB=V3(0,1,0), tmpC=V3(0,0,0);
+/** Coloca un cilindro unitario (largo en Y) entre a y b con su radio. */
+function entre(m,a,b){ tmpC.set(b.x-a.x,b.y-a.y,b.z-a.z); const L=Math.max(1e-4,tmpC.length()); m.position.set((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2); m.quaternion.setFromUnitVectors(tmpB,tmpC.normalize()); m.scale.y=L; }
+const PA={}, PB={}, PC={};
+for(const k of ['H','S','N','K','A','E','T']) PA[k]=V3(0,0,0);
+/** Brazo de dos eslabones (planar en XY, con codo hacia abajo): hombro S, mano objetivo T, devuelve el codo. */
+function codoIK(S,T,l1,l2,out){
+  let dx=T.x-S.x, dy=T.y-S.y, d=Math.hypot(dx,dy); const dd=clamp(d,Math.abs(l1-l2)+1e-3,l1+l2-1e-3);
+  const a=(l1*l1-l2*l2+dd*dd)/(2*dd), h=Math.sqrt(Math.max(0,l1*l1-a*a)), ux=dx/(d||1), uy=dy/(d||1);
+  const ex=S.x+ux*a, ey=S.y+uy*a;
+  // el codo cae hacia abajo y afuera: perpendicular con la componente −y
+  let px=-uy, py=ux; if(py>0){ px=-px; py=-py; }
+  out.set(ex+px*h,ey+py*h,S.z); return d>l1+l2? 'estirado':'doblado';
+}
+const REPOSO={phi:-0.15,hc:0.34,off:0.115};
+let GEOM_OC={g0:0.32,esc:1,uH:0,yH:0.47,uC0:0,phi0:-0.15};
+/** Coloca el asiento y el maniquí para un ocupante (su holgura al módulo y su tamaño). */
+function ponOcupante(oc){
+  const O=OCUP[oc], esc={p5:0.93,p50:1,p95:1.07}[oc]||1, uMod=DIM.uVolante-0.075;
+  GEOM_OC={g0:O.g0,esc,uC0:uMod-O.g0,phi0:REPOSO.phi,yH:0.47};
+  const phi0=REPOSO.phi; GEOM_OC.uH=GEOM_OC.uC0-(REPOSO.hc*Math.sin(phi0)+REPOSO.off*Math.cos(phi0))*esc;
+  ASIENTO.position.set(GEOM_OC.uH,GEOM_OC.yH,0);
+  MANI.scale.setScalar(1);
+}
+/** El tórax ha avanzado xi (m) respecto al habitáculo: la postura sale de resolver el giro del tronco sobre la cadera. */
+function poseaManiqui(xi){
+  const G=GEOM_OC, e=G.esc, kH=Math.min(0.25*xi,0.09), objetivo=Math.max(0,xi-kH);
+  // h_c(sen φ − sen φ0) + off(cos φ − cos φ0) = objetivo  (monótono en φ)
+  const f=(phi)=>(REPOSO.hc*(Math.sin(phi)-Math.sin(G.phi0))+REPOSO.off*(Math.cos(phi)-Math.cos(G.phi0)))*e;
+  let lo=G.phi0, hi=1.25; for(let it=0;it<28;it++){ const mid=(lo+hi)/2; if(f(mid)<objetivo) lo=mid; else hi=mid; }
+  const phi=(lo+hi)/2, sp=Math.sin(phi), cp=Math.cos(phi);
+  const Hx=G.uH+kH, Hy=G.yH, ax=sp, ay=cp, nx=cp, ny=-sp;
+  const P=(l,off=0)=>[Hx+(l*ax+off*nx)*e,Hy+(l*ay+off*ny)*e];
+  const set=(k,l,off,rot,z=0,sc=null)=>{ const [px,py]=P(l,off); MP[k].position.set(px,py,z); MP[k].rotation.z=-rot; if(sc) MP[k].scale.set(sc[0],sc[1],sc[2]); };
+  set('pelvis',0.0,0.0,phi*0.6); set('lumbar',0.12,0.0,phi); set('torso',0.33,0.0,phi); MP.torso.scale.set(e,e,e);
+  MP.pelvis.scale.set(e,e,e); MP.lumbar.scale.set(e,e,e);
+  const [Nx,Ny]=P(0.585), psi=0.45*(phi-G.phi0), [hx,hy]=[Nx+Math.sin(phi+psi)*0.19*e,Ny+Math.cos(phi+psi)*0.19*e];
+  MP.cuello.position.set((Nx+Math.sin(phi+psi*0.5)*0.0),Ny+0.0,0); MP.cuello.position.set(Nx+Math.sin(phi+psi*0.4)*0.04*e,Ny+Math.cos(phi+psi*0.4)*0.04*e,0); MP.cuello.rotation.z=-(phi+psi*0.5); MP.cuello.scale.set(e,e,e);
+  MP.cabeza.position.set(hx,hy,0); MP.cabeza.rotation.z=-(phi+psi); MP.cabeza.scale.set(1.08*e,1.0*e,0.92*e);
+  // brazos: hombro → codo → mano en el aro del volante (si no alcanza, la mano se queda estirada)
+  const hub=V3(DIM.uVolante-0.03,DIM.yVolante+0.15,0);
+  for(const [sg,k] of [[1,'a'],[-1,'b']]){
+    const z=sg*0.19*e, [sx,sy]=P(0.50,0.0); PA.S.set(sx,sy,z); PA.T.set(hub.x,hub.y,sg*0.17);
+    const estado=codoIK(PA.S,PA.T,0.28*e,0.26*e,PA.E);
+    const mano=PA.T.clone(); if(estado==='estirado'){ const dx=PA.T.x-PA.S.x, dy=PA.T.y-PA.S.y, d=Math.hypot(dx,dy), l=(0.28+0.26)*e*0.999; mano.set(PA.S.x+dx/d*l,PA.S.y+dy/d*l,PA.T.z); }
+    MP['hom'+k].position.copy(PA.S); MP['codo'+k].position.copy(PA.E); MP['mano'+k].position.copy(mano);
+    entre(MP['brazo'+k],PA.S,PA.E); entre(MP['anteb'+k],PA.E,mano);
+    MP['brazo'+k].scale.x=MP['brazo'+k].scale.z=e; MP['anteb'+k].scale.x=MP['anteb'+k].scale.z=e;
+    // piernas: cadera → rodilla (fija en el habitáculo) → tobillo
+    const zc=sg*0.095*e; PA.H.set(Hx+0.0,Hy,zc); PA.K.set(G.uH+0.40*e,0.52,zc); PA.A.set(G.uH+0.44*e,0.13,zc);
+    MP['cadera'+k].position.copy(PA.H); MP['rod'+k].position.copy(PA.K);
+    entre(MP['muslo'+k],PA.H,PA.K); entre(MP['pierna'+k],PA.K,PA.A);
+    MP['muslo'+k].scale.x=MP['muslo'+k].scale.z=e; MP['pierna'+k].scale.x=MP['pierna'+k].scale.z=e;
+    MP['pie'+k].position.set(PA.A.x+0.07*e,0.07,zc); MP['pie'+k].scale.setScalar(e);
+  }
+  return {phi,Hx,Hy,chest:V3(P(0.30,REPOSO.off+0.012)[0],P(0.30,REPOSO.off+0.012)[1],0)};
+}
+
+/* ---- el cinturón de tres puntos ---- */
+const CINTA={n:40,pos:null,mesh:null};
+{
+  const n=CINTA.n, pos=new Float32Array((n+1)*2*3), nor=new Float32Array((n+1)*2*3), idx=[];
+  for(let i=0;i<=n;i++){ nor[i*6+2]=1; nor[i*6+5]=1; }
+  for(let i=0;i<n;i++){ const a=i*2; idx.push(a,a+1,a+2, a+2,a+1,a+3); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3)); g.setIndex(idx);
+  CINTA.pos=pos; CINTA.geo=g; CINTA.mesh=new THREE.Mesh(g,M.cinturon); CINTA.mesh.frustumCulled=false; CINTA.mesh.castShadow=true; CINTA.mesh.userData.pieza='cinturon'; CAB.add(CINTA.mesh);
+}
+const D_RING=pieza(cil(0.022,0.05,'z',16),M.hebilla,CAB,'dring',{dinamico:true}); const D_BASE=pieza(cajaR(0.05,0.1,0.04,0.012),M.plastico,CAB,'dring',{dinamico:true});
+const PRETENSOR=pieza(cil(0.032,0.12,'y',18),pbr({color:'#d0a02a',metalness:0.6,roughness:0.35,emissive:'#000000'}),CAB,'pretensor',{dinamico:true});
+const HEBILLA=pieza(cajaR(0.045,0.07,0.03,0.01),M.hebilla,CAB,'hebilla',{dinamico:true});
+const _ptsC=[V3(0,0,0),V3(0,0,0),V3(0,0,0),V3(0,0,0),V3(0,0,0)];
+function poseaCinturon(pose,xi,tension,rec){
+  const G=GEOM_OC, e=G.esc, ZB=0.19*e+0.012, Dx=-1.03, Dy=1.19;
+  D_RING.position.set(Dx,Dy,ZB); D_BASE.position.set(Dx-0.01,Dy+0.02,ZB-0.02);
+  const sp=Math.sin(pose.phi), cp=Math.cos(pose.phi);
+  const Pp=(l,off)=>[pose.Hx+(l*sp+off*cp)*e,pose.Hy+(l*cp-off*sp)*e];
+  const sh=Pp(0.52,0.075), ch=Pp(0.30,0.135), lap=Pp(0.07,0.11), anc=[G.uH-0.10,0.34];
+  _ptsC[0].set(Dx,Dy,ZB); _ptsC[1].set(sh[0],sh[1],ZB); _ptsC[2].set(ch[0],ch[1],ZB); _ptsC[3].set(lap[0],lap[1],ZB); _ptsC[4].set(anc[0],anc[1],ZB);
+  // la cinta pasa por el aro del anclaje y recoge la holgura: se tensa a una línea
+  const curva=new THREE.CatmullRomCurve3(_ptsC,false,'centripetal',0.5), n=CINTA.n, w=0.026;
+  for(let i=0;i<=n;i++){ const t=i/n, p=curva.getPoint(t), q=curva.getTangent(t); const nx=-q.y, ny=q.x, l=Math.hypot(nx,ny)||1;
+    CINTA.pos[i*6]=p.x+nx/l*w; CINTA.pos[i*6+1]=p.y+ny/l*w; CINTA.pos[i*6+2]=p.z; CINTA.pos[i*6+3]=p.x-nx/l*w; CINTA.pos[i*6+4]=p.y-ny/l*w; CINTA.pos[i*6+5]=p.z; }
+  CINTA.geo.attributes.position.needsUpdate=true; CINTA.geo.computeBoundingSphere();
+  M.cinturon.emissive.setRGB(1,0.35,0.12).multiplyScalar(clamp(tension,0,1)*0.8);
+  HEBILLA.position.set(anc[0],anc[1],ZB); PRETENSOR.position.set(anc[0]-0.04,anc[1]-0.08,ZB); PRETENSOR.material.emissive.setRGB(1,0.55,0.1).multiplyScalar(rec*1.2);
+}
+
+/* ---- el airbag: un casquete que sale del módulo hacia el conductor ---- */
+const BOLSA3=new THREE.Group(); CAB.add(BOLSA3);
+const BOLSA_MESH=(()=>{ const g=new THREE.SphereGeometry(1,56,32,0,Math.PI*2,0,Math.PI/2); g.rotateZ(Math.PI/2);          // el polo apunta a −X
+  const m=pieza(g,M.bolsa,BOLSA3,'bolsa',{sombra:true,recibe:true,dinamico:true}); m.visible=false; m.renderOrder=3; return m; })();
+const CHORRO=pieza(new THREE.SphereGeometry(1,20,14),M.destelloB,BOLSA3,null,{sombra:false,recibe:false,dinamico:true}); CHORRO.visible=false; CHORRO.renderOrder=7;
+function poseaBolsa(visible,prof,presion,tDesdeDisparo){
+  BOLSA3.position.set(DIM.uVolante-0.075,DIM.yVolante-0.01,0);
+  BOLSA_MESH.visible=visible;
+  if(visible){ const d=Math.max(0.012,prof), R=0.27*Math.min(1,0.45+d/0.20); BOLSA_MESH.scale.set(d,R,R*1.05);
+    M.bolsa.emissive.setRGB(1,0.55,0.25).multiplyScalar(clamp(presion/90e3,0,1)*0.10); }
+  const f=tDesdeDisparo, on=visible&&f>=0&&f<0.014;
+  CHORRO.visible=on; if(on){ CHORRO.scale.setScalar(0.06+f/0.014*0.30); M.destelloB.opacity=0.8*(1-f/0.014); }
+}
+
+
+/* ===================== 6c. FUSIÓN DE LO ESTÁTICO =====================
+   Cada pieza fija del habitáculo y de la pista se funde con las demás de su mismo material y su mismo nombre:
+   ~110 mallas pasan a ~15 llamadas de dibujo. Las piezas que se mueven (maniquí, cinta, bolsa, chapa que se
+   pliega, el asiento) NO se funden. El nombre de cada pieza se conserva para el tooltip. */
+function fusionaEstatico(raiz,excluir){
+  raiz.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(raiz.matrixWorld).invert(), cubos=new Map(), quitar=[];
+  raiz.traverse(o=>{
+    if(!o.isMesh||o.userData.dinamico) return;
+    for(let p=o.parent;p&&p!==raiz;p=p.parent) if(excluir.includes(p)) return;
+    const k=o.material.uuid+'|'+(o.userData.pieza||'')+'|'+(o.castShadow?1:0)+(o.receiveShadow?1:0)+'|'+(o.renderOrder||0);
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    const n=g.attributes.position.count; if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(n*2),2));
+    for(const a of Object.keys(g.attributes)) if(!['position','normal','uv'].includes(a)) g.deleteAttribute(a);
+    if(!cubos.has(k)) cubos.set(k,{mat:o.material,pieza:o.userData.pieza,cs:o.castShadow,rs:o.receiveShadow,ro:o.renderOrder,gs:[]});
+    cubos.get(k).gs.push(g); quitar.push(o);
+  });
+  for(const o of quitar){ o.parent.remove(o); o.geometry.dispose(); }
+  for(const c of cubos.values()){
+    let n=0; for(const g of c.gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o3=0,o2=0;
+    for(const g of c.gs){ pos.set(g.attributes.position.array,o3); nor.set(g.attributes.normal.array,o3); uv.set(g.attributes.uv.array,o2); o3+=g.attributes.position.count*3; o2+=g.attributes.position.count*2; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2)); G.computeBoundingSphere();
+    const m=new THREE.Mesh(G,c.mat); m.castShadow=c.cs; m.receiveShadow=c.rs; m.renderOrder=c.ro; if(c.pieza) m.userData.pieza=c.pieza; raiz.add(m);
+  }
+}
+fusionaEstatico(CAB,[MANI,ASIENTO,BOLSA3]);
+fusionaEstatico(BANCO,[]);
+fusionaEstatico(ASIENTO,[]);
+
+
+/* ===================== 7. EL ESTADO Y LA CORRIDA =====================
+   Una corrida = el choque completo calculado por `simula()` (el bloque verificado). Se recalcula sólo cuando cambia un
+   mando; la escena y el dock leen de ella, con el MISMO reloj SIMU.t, el estado de cada instante. */
+const T_PRE=-0.020, T_FIN=0.16, ESPERA=1.5;           // s: rodaje previo al contacto, fin de la corrida, pausa antes de repetir
+const V_DISENO=56;                                    // km/h: la velocidad para la que está afinada la estructura en «En marcha»
+const EST={modo:'marcha',vKmh:56,L:0.50,Flim:6000,th:26,ocup:'p50',pretensor:true,bolsa:true,esc:1/20,escMano:false,pausa:REDUCIDO,autoRunning:false,detalle:false};
+const SIMU={R:null,clave:'',t:T_PRE,espera:0,tCalc:0,cmax:0,vuelta:0,tBolsa:null};
+const CACHE=new Map();
+/** Lo que el banco está ensayando según el modo. */
+function paramsActuales(){
+  if(EST.modo==='marcha') return {vKmh:EST.vKmh,vDisKmh:V_DISENO,L:EST.L,ocup:EST.ocup,Flim:EST.Flim*1,dVth:EST.bolsa?EST.th:null,tFire:null,pretensor:EST.pretensor};
+  const E=ESC_RETO[GUIA.caso];
+  if(GUIA.phase===2){            // diagnóstico: el diseño bueno de referencia con la falla puesta
+    const b=DIS_BUENO(E), f=fault;
+    return {vKmh:E.vKmh,vDisKmh:E.vKmh,L:b.L,ocup:E.ocup,Flim:f==='limitador'?11000:b.Flim,dVth:f==='airbag'?null:b.th,tFire:null,pretensor:f!=='pretensor'};
+  }
+  if(GUIA.phase===1) return {vKmh:E.vKmh,vDisKmh:E.vKmh,L:DIS.L,ocup:E.ocup,Flim:DIS.Flim,dVth:DIS.bolsa?DIS.th:null,tFire:null,pretensor:true};
+  return {vKmh:V_DISENO,vDisKmh:V_DISENO,L:EST.L,ocup:'p50',Flim:EST.Flim,dVth:EST.th,tFire:null,pretensor:true};       // fundamento: un choque de muestra
+}
+function claveDe(p){ return [p.vKmh,p.vDisKmh,p.L.toFixed(3),p.ocup,p.Flim,p.dVth,p.pretensor].join('|'); }
+function recalcula(reinicia=true){
+  const p=paramsActuales(), k=claveDe(p);
+  if(k===SIMU.clave) return;
+  let R=CACHE.get(k);
+  if(!R){ const t0=performance.now(); R=simula(Object.assign({tFin:T_FIN},p)); SIMU.tCalc=performance.now()-t0; CACHE.set(k,R); if(CACHE.size>24) CACHE.delete(CACHE.keys().next().value); }
+  SIMU.R=R; SIMU.clave=k; SIMU.cmax=0; SIMU.vuelta++;
+  ponOcupante(p.ocup);
+  if(reinicia){ SIMU.t=T_PRE; SIMU.espera=0; }
+  FX.clave=''; ENG.clave=''; PU.clave=''; FR.clave='';
+  pintaDockFijo();
+}
+const reinicia=()=>{ SIMU.t=T_PRE; SIMU.espera=0; SIMU.cmax=0; };
+
+/* ---- el estado que se ve en este cuadro ---- */
+const ST={s:null,x:0,xv:0,xi:0,calor:0,tens:0,tEvento:'',pretCarga:0};
+function eventoDe(t,R){
+  const o=R.out; let ev=[[T_PRE,'Antes del contacto'],[0,'Contacto con la barrera']];
+  if(R.p.pretensor) ev.push([CINT.tPre,'Pretensor recoge la holgura']);
+  if(R.tFire!==null) ev.push([R.tFire,'El sensor dispara el airbag']);
+  const iC=o.Fb.findIndex(q=>q>50); if(iC>=0) ev.push([o.t[iC],'El tórax carga el cinturón']);
+  const iB=o.Fg.findIndex(q=>q>50); if(iB>=0) ev.push([o.t[iB],'El tórax carga la bolsa']);
+  ev.push([R.tStop,'El vehículo se detiene']);
+  const iX=o.xi.indexOf(Math.max(...o.xi)); ev.push([o.t[iX],'Tórax en su máximo']);
+  ev.sort((a,b)=>a[0]-b[0]); let r=ev[0][1]; for(const [te,tx] of ev) if(t>=te) r=tx; return r;
+}
+/* Un cuadro de la escena. dtS: tiempo SIMULADO (s); dtR: tiempo de pantalla. */
+function aplicaEscena(dtS,dtR,t){
+  const R=SIMU.R; if(!R) return;
+  if(!EST.pausa){
+    if(SIMU.t<T_FIN) SIMU.t=Math.min(T_FIN,SIMU.t+dtS);
+    else { SIMU.espera+=dtR; if(SIMU.espera>ESPERA){ reinicia(); } }
+  }
+  const tt=SIMU.t, s=muestraEn(R,Math.max(0,tt));
+  const pre=tt<0, v0=R.v0, dx=pre?v0*tt:0, x=pre?0:s.x;
+  ST.s=s; ST.x=x; ST.xi=pre?0:s.xi; ST.pre=pre;
+  SIMU.cmax=Math.max(SIMU.cmax,x); if(tt<=T_PRE+1e-9) SIMU.cmax=0;
+  const L=R.p.L, uB0=U_MOT1+L+U_PARA;
+  CAB.position.x=-uB0+x+dx; FRENTE.position.x=dx;
+  // la fracción de la energía que ya ha absorbido la estructura tiñe de rojo las chapas
+  const E0=0.5*(VEH.M+R.mOcup)*v0*v0, wc=pre?0:interp(R.out.Wc,tt,R.out.t)/E0; ST.calor=clamp(wc*1.6,0,1);
+  const fr=poseaFrente(L,x,SIMU.cmax,ST.calor); ST.railMid=fr.Xe+fr.Lc/2;
+  const pose=poseaManiqui(ST.xi);
+  const tens=pre?0:s.Fb/Math.max(1,R.p.Flim); ST.tens=tens;
+  const tPret=tt-CINT.tPre, rec=R.p.pretensor&&tPret>=0&&tPret<0.02?Math.sin(clamp(tPret/0.02,0,1)*Math.PI):0;
+  poseaCinturon(pose,ST.xi,tens,rec);
+  const tF=R.tFire, visible=tF!==null&&tt>=tF;
+  poseaBolsa(visible,visible?s.Vb/BOLSA.A:0,visible?s.pg:0,visible?tt-tF:-1);
+  // destello del impacto y su luz
+  const g=pre?0:clamp(1-tt/0.010,0,1);
+  DESTELLO.visible=g>0; M.destello.opacity=0.85*g; if(g>0) DESTELLO.scale.setScalar(0.05+0.32*(1-g));
+  LUZ.golpe.intensity=g*5;
+  ST.tEvento=eventoDe(tt,R);
+  el('rmsN').textContent=fN(tt*1000,1);
+}
+function interp(arr,t,ts){ const dt=ts[1]-ts[0]; let f=t/dt; if(f<=0) return arr[0]; if(f>=arr.length-1) return arr[arr.length-1]; const i=Math.floor(f); return arr[i]+(arr[i+1]-arr[i])*(f-i); }
+
+
+/* ===================== 9. CÁMARAS ENCAJADAS EN EL HUECO LIBRE ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function encaja(t,dir,pts,caja,margen=0){
+  if(margen){ const mx=(caja.x1-caja.x0)*margen, my=(caja.y1-caja.y0)*margen; caja={x0:caja.x0+mx,x1:caja.x1-mx,y0:caja.y0+my,y1:caja.y1-my}; }
+  const cam=camera.clone(), W=innerWidth, H=innerHeight, tan=Math.tan(cam.fov*Math.PI/360);
+  cam.aspect=W/H; cam.updateProjectionMatrix();
+  const cw=caja.x1-caja.x0, ch=caja.y1-caja.y0, cx=(caja.x0+caja.x1)/2, cy=(caja.y0+caja.y1)/2;
+  let dist=6; const q=new THREE.Vector3(), der=new THREE.Vector3(), arr=new THREE.Vector3(); t=t.clone(); dir=dir.clone().normalize();
+  for(let it=0;it<10;it++){
+    cam.position.copy(t).addScaledVector(dir,dist); cam.lookAt(t); cam.updateMatrixWorld();
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const p of pts){ q.copy(p).project(cam); const sx=(q.x+1)/2*W, sy=(1-q.y)/2*H;
+      a0=Math.min(a0,sx); a1=Math.max(a1,sx); b0=Math.min(b0,sy); b1=Math.max(b1,sy); }
+    const k=Math.max((a1-a0)/cw,(b1-b0)/ch), wpp=2*tan*dist/H;
+    der.setFromMatrixColumn(cam.matrixWorld,0); arr.setFromMatrixColumn(cam.matrixWorld,1);
+    t.addScaledVector(der,((a0+a1)/2-cx)*wpp).addScaledVector(arr,-((b0+b1)/2-cy)*wpp);
+    dist*=k;
+  }
+  return [t.clone().addScaledVector(dir,dist),t];
+}
+const caja3=(x0,y0,z0,x1,y1,z1)=>{ const r=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) r.push(V3(x,y,z)); return r; };
+const VISTA={actual:'conjunto',sigue:false};
+const uB0Actual=()=>U_MOT1+(SIMU.R?SIMU.R.p.L:EST.L)+U_PARA;
+function vistaCam(v){
+  const H=huecoLibre(), cen=pts=>new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3()), B=uB0Actual(), X=u=>u-B;
+  VISTA.sigue=(v==='ocupante'||v==='bolsa');
+  if(v==='zona'){ const p=caja3(X(-0.15),0.05,-0.9,0.20,1.10,0.15); return encaja(cen(p),V3(0.06,0.22,1),p,H,0.03); }
+  if(v==='ocupante'){ const p=caja3(X(-1.30),0.12,-0.45,X(0.10),1.50,0.35); return encaja(cen(p),V3(0.14,0.10,1),p,H,0.03); }
+  if(v==='bolsa'){ const p=caja3(X(-0.92),0.30,-0.32,X(-0.10),1.22,0.32); return encaja(cen(p),V3(0.10,0.06,1),p,H,0.03); }
+  const p=caja3(X(-1.62),0.0,-0.9,0.12,1.52,0.18);
+  return encaja(cen(p),V3(0.05,0.20,1),p,H,0.015);
+}
+const CAMT={on:false};
+function ponVista(v,dur){
+  VISTA.actual=v; const [p,t]=vistaCam(v);
+  Object.assign(CAMT,{on:true,u:0,dur:dur===undefined?(REDUCIDO?0.001:1.1):dur,p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t});
+  ST.camDX0=ST.camDX||0; pintaBarras();
+}
+function pasaCam(dt){
+  if(CAMT.on){
+    CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+    camera.position.lerpVectors(CAMT.p0,CAMT.p1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+    if(CAMT.u>=1) CAMT.on=false;
+  }
+  // en las vistas de cerca, la cámara viaja con el habitáculo
+  const dx=(ST.s?ST.x:0)+(ST.pre?(SIMU.R.v0*SIMU.t):0);
+  if(VISTA.sigue){ const d=dx-(ST.camPrev||0); camera.position.x+=d; controls.target.x+=d; if(CAMT.on){ CAMT.p1.x+=d; CAMT.t1.x+=d; CAMT.p0.x+=d; CAMT.t0.x+=d; } }
+  ST.camPrev=VISTA.sigue?dx:0; if(!VISTA.sigue) ST.camPrev=0;
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+/* ===================== 10. EL HUD (izquierda) ===================== */
+const kN=f=>fN(f/1000,1)+' kN';
+const E_DIS_KJ=()=>0.5*VEH.M*(V_DISENO/3.6)**2/1000;
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Seguridad pasiva · choque frontal</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>El coche se aplasta para que tú no lo hagas</h2>
+    <p class="intro">Contra la barrera, la <b>zona de deformación</b> absorbe los <b>${fN(E_DIS_KJ(),0)} kJ</b> del choque. Después, el <b>cinturón</b> y el <b>airbag</b> frenan al maniquí. Todo a cámara lenta.</p></div>`;
+  } else h+=`<h2>Calcula, diseña y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    const pos=(v,a,b)=>((v-a)/(b-a)*100).toFixed(1)+'%';
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl"><div>Velocidad del choque</div><b id="vV">${fN(EST.vKmh,0)} km/h</b></div><input type="range" id="rV" min="30" max="70" step="1" value="${EST.vKmh}" aria-label="Velocidad del choque">
+      <div class="marcas abs"><span style="left:0;transform:none">30</span><span class="lim" style="left:${pos(V_DISENO,30,70)}">56 diseño</span><span class="lim" style="left:${pos(64,30,70)}">64</span></div></div>
+    <div class="cg"><div class="cl"><div>Zona de deformación <em class="gr">L</em></div><b id="vL">${fN(EST.L*100,0)} cm</b></div><input type="range" id="rL" min="25" max="90" step="1" value="${Math.round(EST.L*100)}" aria-label="Longitud de la zona de deformación"></div>
+    <div class="cg"><div class="cl"><div>Limitador de fuerza</div><b id="vF">${kN(EST.Flim)}</b></div><input type="range" id="rF" min="2000" max="10000" step="500" value="${EST.Flim}" aria-label="Fuerza del limitador del cinturón"></div>
+    <div class="cg"><div class="cl"><div>Disparo del airbag <em class="gr">ΔV</em></div><b id="vT">${EST.bolsa?fN(EST.th,0)+' km/h':'sin airbag'}</b></div><input type="range" id="rT" min="6" max="40" step="1" value="${EST.th}" ${EST.bolsa?'':'disabled'} aria-label="Umbral de velocidad perdida para disparar el airbag"></div>
+    <div class="cg"><div class="cl">Ocupante</div><div class="seg" id="segOc">${['p5','p50','p95'].map(k=>`<button class="b ${EST.ocup===k?'on':''}" data-oc="${k}">${{p5:'Mujer p5',p50:'Hombre p50',p95:'Hombre p95'}[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl">Airbag · Pretensor</div><div class="seg"><button class="b ${EST.bolsa?'on':''}" data-bag="1">Airbag sí</button><button class="b ${EST.bolsa?'':'on'}" data-bag="0">no</button><button class="b ${EST.pretensor?'on':''}" data-pre="1">Pretensor sí</button><button class="b ${EST.pretensor?'':'on'}" data-pre="0">no</button></div></div>
+    <div class="fila"><button class="b primary" id="btnRep">↻ Repetir el choque</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl">La zona de deformación cede con una fuerza que sube en una rampa corta, se queda en la meseta y, al tocar fondo el motor, se dispara:</div>
+    <div class="formula">F = F<sub>c</sub>·mín(1, x/x<sub>r</sub>) + k<sub>b</sub>·(x − L)⁺<br>F<sub>c</sub> = ½Mv₀² / (η·L − x<sub>r</sub>/2), η = 0,90<br>s = x<sub>r</sub>/2 + E/F<sub>c</sub> = η·L · ā = v₀²/(2s)</div>
+    <div class="fl">Vehículo: M·ẍ = −F(x) + F<sub>ocupante</sub>. Ocupante (1 GDL): m·ξ̈ = −F<sub>ocupante</sub> − m·ẍ.</div>
+    <div class="fl">Cinturón con pretensor y limitador: <b>F<sub>b</sub> = mín(k·e + c·ė, F<sub>lim</sub>)</b>, e = ξ − δ(t) − p; la cinta que excede el limitador se paga (p).</div>
+    <div class="fl">Airbag: gas ideal, p·V = m·R·T. El inflador aporta ṁ<sub>in</sub> a T<sub>in</sub>; las ventilas dejan salir ṁ<sub>out</sub> (orificio compresible); la tela cede calor. Fuerza sobre el tórax: (p − p<sub>atm</sub>)·A.</div>
+    <div class="fl">El sensor dispara al perder el vehículo el ΔV umbral (+2 ms de algoritmo). Criterio del tórax: A<sub>3ms</sub>, el nivel de aceleración que se supera 3 ms acumulados.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Modelo de parámetros concentrados de un solo eje: <b>no es elementos finitos</b> y no sustituye un ensayo ni una homologación.</li>
+    <li>El ocupante es un solo cuerpo (cabeza, cuello, tórax, brazos y abdomen: ${fN(OCUP.p50.m,0)} kg para el hombre p50). Piernas, pelvis y asiento no se calculan; la postura del maniquí es esquemática.</li>
+    <li>La estructura se afina para el choque de ${V_DISENO} km/h con el 90 % de L; en el reto se afina para la velocidad del ensayo. El volante es rígido y el cubo duro.</li>
+    <li>La barrera es rígida e inmóvil. Sin deslizamiento lateral, sin rotación del coche ni intrusión del habitáculo.</li>
+    <li>Las ventilas, el inflador y el sensor son representativos, no de un modelo comercial.</li>
+  </ul><div class="src">Huang, <i>Vehicle Crash Mechanics</i> · Kramer, <i>Passive Safety of Vehicles</i> · FMVSS 208 · Euro NCAP, protocolo de impacto frontal.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function cambia(fn){ if(EST.autoRunning) return; fn(); recalcula(true); pintaDock(); }
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  let deb=null; const dif=(f)=>{ clearTimeout(deb); deb=setTimeout(f,70); };
+  const sl=(id,lab,fmt,fn)=>{ const r=el(id); if(!r) return; r.oninput=()=>{ if(EST.autoRunning) return; fn(+r.value); el(lab).textContent=fmt(+r.value); dif(()=>{ recalcula(true); pintaDock(); }); }; };
+  sl('rV','vV',v=>fN(v,0)+' km/h',v=>{ EST.vKmh=v; });
+  sl('rL','vL',v=>fN(v,0)+' cm',v=>{ EST.L=v/100; ponVista(VISTA.actual,0.35); });
+  sl('rF','vF',v=>kN(v),v=>{ EST.Flim=v; });
+  sl('rT','vT',v=>fN(v,0)+' km/h',v=>{ EST.th=v; });
+  H.querySelectorAll('[data-oc]').forEach(b=>b.onclick=()=>cambia(()=>{ EST.ocup=b.dataset.oc; pintaHUD(); }));
+  H.querySelectorAll('[data-bag]').forEach(b=>b.onclick=()=>cambia(()=>{ EST.bolsa=b.dataset.bag==='1'; pintaHUD(); }));
+  H.querySelectorAll('[data-pre]').forEach(b=>b.onclick=()=>cambia(()=>{ EST.pretensor=b.dataset.pre==='1'; pintaHUD(); }));
+  if(el('btnRep')) el('btnRep').onclick=()=>{ reinicia(); EST.pausa=false; pintaBarras(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction(GUIA.paso==='diseno'?'hint-d':'hint-s',null);
+  if(EST.modo==='guia') enlazaDiseno();
+}
+
+/* ===================== 11. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif", DOSPI=Math.PI*2;
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFX=lienzo('gFx'), LEN=lienzo('gEn'), LPU=lienzo('gPu'), LFR=lienzo('gFr');
+const FX={clave:''}, ENG={clave:''}, PU={clave:'',c:document.createElement('canvas')}, FR={clave:'',c:document.createElement('canvas')};
+const COL={veh:'#4FD1C5',cho:'#FF8A3D',cin:'#FFD166',bol:'#9AA9FF',hub:'#FF5A5F',est:'#F2B233',res:'#B58CFF'};
+/** Lo que el dock NO debe enseñar todavía: en el reto de diseño, antes de validar, ni las cifras ni los umbrales del tórax. */
+const ocultaR=()=>EST.modo==='guia'&&GUIA.phase===1&&!GUIA.validado;
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.phase===2&&!!fault;
+const techo=(v,pasos)=>{ for(const p of pasos) if(v<=p) return p; return pasos[pasos.length-1]; };
+/** Fuerza de aplastamiento F(x): el área bajo la curva es la energía; el punto es el instante del reloj. */
+function pintaFx(){
+  const R=SIMU.R, L=LFX, x=abre(L); if(!R) return;
+  const S=R.S, Wd=L.w, Hd=L.h, X0=34, X1=Wd-8, Y0=8, Y1=Hd-16;
+  const xmax=Math.max(S.L*1.18,R.xmax*1.08), Fmax=Math.max(S.Fc*1.15,Math.max(...R.out.Fc)*1.06), Xp=v=>X0+v/xmax*(X1-X0), Yp=f=>Y1-f/Fmax*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d4f66'); raya(x,X0,Y0,X0,Y1,'#3d4f66');
+  const n=140; const xc=ST.x;
+  x.beginPath(); x.moveTo(Xp(0),Yp(0)); for(let i=0;i<=n;i++){ const v=Math.min(xc,xmax)*i/n; x.lineTo(Xp(v),Yp(fuerzaCarga(S,v))); } x.lineTo(Xp(Math.min(xc,xmax)),Yp(0)); x.closePath();
+  x.fillStyle='rgba(242,178,51,0.30)'; x.fill();
+  x.strokeStyle='#d8dfe8'; x.lineWidth=1.6; x.beginPath(); for(let i=0;i<=200;i++){ const v=xmax*i/200; const px=Xp(v), py=Yp(fuerzaCarga(S,v)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  raya(x,Xp(S.L),Y0,Xp(S.L),Y1,'rgba(255,90,95,0.55)',1,[3,3]); txt(x,'fondo',Xp(S.L)-3,Y0+8,'#ff8a8f',8.5,'right','600');
+  txt(x,fN(S.Fc/1000,0)+' kN',X0-3,Yp(S.Fc)+3,'#a9bdd0',8.5,'right','600'); raya(x,X0-2,Yp(S.Fc),X0+2,Yp(S.Fc),'#3d4f66');
+  for(const [v,t] of [[0,'0'],[S.L,fN(S.L*100,0)+' cm']]) txt(x,t,Xp(v),Hd-3,'#7890a8',8.5,v?'right':'center','500');
+  const f=ST.s?ST.s.Fc:0; x.fillStyle='#fff'; x.beginPath(); x.arc(Xp(Math.min(xc,xmax)),Yp(f),3.2,0,DOSPI); x.fill();
+  el('t_fx').textContent='F_c = '+fN(S.Fc/1000,0)+' kN';
+}
+/** Energía: apilada, lo que queda cinético en el vehículo y el ocupante, y lo que ya se llevó la estructura y la sujeción. */
+function pintaEn(){
+  const R=SIMU.R, L=LEN, x=abre(L); if(!R) return; const O=R.out, Wd=L.w, Hd=L.h, X0=6, X1=Wd-6, Y0=6, Y1=Hd-14, n=O.t.length;
+  const E0=0.5*(VEH.M+R.mOcup)*R.v0*R.v0, Xp=t=>X0+t/T_FIN*(X1-X0), Yp=f=>Y1-f*(Y1-Y0);
+  const capas=[['Wc',COL.est],['Wr',COL.res],['KEo',COL.cho],['KEv',COL.veh]];
+  const acum=new Float32Array(n);
+  const paso=Math.max(1,Math.floor(n/200));
+  for(const [k,col] of capas){
+    x.beginPath(); x.moveTo(Xp(0),Yp(0));
+    const base=acum.slice();
+    for(let i=0;i<n;i+=paso){ x.lineTo(Xp(O.t[i]),Yp((base[i]+O[k][i]/E0))); }
+    x.lineTo(Xp(O.t[n-1]),Yp(base[n-1]+O[k][n-1]/E0));
+    for(let i=n-1;i>=0;i-=paso){ x.lineTo(Xp(O.t[i]),Yp(base[i])); }
+    x.closePath(); x.fillStyle=col; x.globalAlpha=0.78; x.fill(); x.globalAlpha=1;
+    for(let i=0;i<n;i++) acum[i]+=O[k][i]/E0;
+  }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d4f66');
+  const tt=clamp(SIMU.t,0,T_FIN), xc=Xp(tt); raya(x,xc,Y0,xc,Y1,'rgba(255,255,255,0.85)',1.2);
+  const i=Math.min(n-1,Math.round(tt/(O.t[1]-O.t[0]))), pc=v=>fN(v/E0*100,0)+' %';
+  el('t_en').textContent='zona '+pc(O.Wc[i])+' · cinturón '+pc(O.Wr[i]);
+  txt(x,'0',X0+2,Hd-3,'#7890a8',8.5,'left','500'); txt(x,fN(T_FIN*1000,0)+' ms',X1,Hd-3,'#7890a8',8.5,'right','500');
+}
+/** Deceleración del vehículo y del tórax. La capa fija se pinta una vez por corrida. */
+function capaPu(R,Wd,Hd,dpr){
+  const c=PU.c; c.width=Math.round(Wd*dpr); c.height=Math.round(Hd*dpr); const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,Wd,Hd);
+  const O=R.out, X0=26, X1=Wd-8, Y0=8, Y1=Hd-16, ocu=ocultaR();
+  const pico=Math.max(R.aVmax,Math.max(...O.aCh)); const ym=techo(pico*1.08,[30,40,50,60,80,100,120,160,200,300]);
+  const Xp=t=>X0+t/T_FIN*(X1-X0), Yp=a=>Y1-clamp(a/ym,0,1.02)*(Y1-Y0);
+  for(let q=0;q<=4;q++){ const v=ym*q/4; raya(x,X0,Yp(v),X1,Yp(v),'rgba(144,168,190,0.10)'); txt(x,fN(v,0),X0-3,Yp(v)+3,'#7890a8',8.5,'right','500'); }
+  for(const t of [0,0.04,0.08,0.12,0.16]){ raya(x,Xp(t),Y1,Xp(t),Y1+3,'#3d4f66'); txt(x,fN(t*1000,0),Xp(t),Hd-3,'#7890a8',8.5,'center','500'); }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d4f66');
+  if(!ocu&&EST.modo==='marcha'){ raya(x,X0,Yp(60),X1,Yp(60),'rgba(255,90,95,0.45)',1,[2,3]); txt(x,'60 g · FMVSS 208',X1,Yp(60)-3,'#ff8a8f',8.5,'right','600'); }
+  // tórax: área tenue + línea; vehículo: línea
+  const line=(arr,col,w,fill)=>{ x.beginPath(); for(let i=0;i<arr.length;i++){ const px=Xp(O.t[i]), py=Yp(arr[i]); i?x.lineTo(px,py):x.moveTo(px,py); }
+    if(fill){ x.save(); x.lineTo(Xp(O.t[arr.length-1]),Y1); x.lineTo(Xp(0),Y1); x.closePath(); x.fillStyle=fill; x.fill(); x.restore(); x.beginPath(); for(let i=0;i<arr.length;i++){ const px=Xp(O.t[i]), py=Yp(arr[i]); i?x.lineTo(px,py):x.moveTo(px,py); } }
+    x.strokeStyle=col; x.lineWidth=w; x.lineJoin='round'; x.stroke(); };
+  line(O.aCh,COL.cho,1.5,'rgba(255,138,61,0.14)'); line(O.aV,COL.veh,1.8);
+  if(!ocu){ raya(x,X0,Yp(R.a3),X1,Yp(R.a3),'rgba(255,200,150,0.75)',1,[4,3]); txt(x,'A3ms '+fN(R.a3,0)+' g',X0+4,Yp(R.a3)-3,'#ffc79a',9,'left','700'); }
+  PU.geo={X0,X1,Y0,Y1,ym,Xp,Yp};
+}
+function pintaPu(){
+  const R=SIMU.R, L=LPU, x=abre(L); if(!R) return;
+  const clave=SIMU.clave+'|'+L.w+'x'+L.h+'|'+L.dpr+'|'+(ocultaR()?1:0)+'|'+EST.modo+'|'+SIMU.vuelta;
+  if(clave!==PU.clave){ capaPu(R,L.w,L.h,L.dpr); PU.clave=clave; }
+  x.drawImage(PU.c,0,0,L.w,L.h);
+  const g=PU.geo, tt=clamp(SIMU.t,0,T_FIN), xc=g.Xp(tt); raya(x,xc,g.Y0,xc,g.Y1,'rgba(255,255,255,0.85)',1.1);
+  const s=ST.s; if(s&&SIMU.t>=0){ x.fillStyle=COL.veh; x.beginPath(); x.arc(xc,g.Yp(s.aV),3,0,DOSPI); x.fill(); x.fillStyle=COL.cho; x.beginPath(); x.arc(xc,g.Yp(s.aCh),3,0,DOSPI); x.fill(); }
+  el('t_pu').textContent=s&&SIMU.t>=0?('coche '+fN(s.aV,1)+' g · tórax '+fN(s.aCh,1)+' g'):'mismo reloj';
+}
+function pintaLeyPu(){
+  el('leyPu').innerHTML=`<span class="lg"><i style="--c:${COL.veh}"></i>vehículo</span><span class="lg"><i style="--c:${COL.cho}"></i>tórax del maniquí (g)</span>`+(ocultaR()?'':`<span class="lg"><i class="dash" style="--c:#ffc79a"></i>A<sub>3ms</sub></span>`);
+}
+/** Fuerzas sobre el tórax: cinturón, bolsa y, si lo golpea, el cubo del volante. */
+function capaFr(R,Wd,Hd,dpr){
+  const c=FR.c; c.width=Math.round(Wd*dpr); c.height=Math.round(Hd*dpr); const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,Wd,Hd);
+  const O=R.out, X0=26, X1=Wd-8, Y0=6, Y1=Hd-14, n=O.t.length;
+  const tot=O.Fb.map((q,i)=>q+O.Fg[i]+O.Fh[i]); const pico=Math.max(...tot,R.p.Flim<1e8?R.p.Flim:0); const ym=techo(pico/1000*1.08,[4,6,8,10,12,15,20,30,50,80])*1000;
+  const Xp=t=>X0+t/T_FIN*(X1-X0), Yp=f=>Y1-clamp(f/ym,0,1.02)*(Y1-Y0);
+  for(let q=0;q<=2;q++){ const v=ym*q/2; raya(x,X0,Yp(v),X1,Yp(v),'rgba(144,168,190,0.10)'); txt(x,fN(v/1000,0)+' kN',X0-3,Yp(v)+3,'#7890a8',8.5,'right','500'); }
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d4f66');
+  const capa=(arr,base,col)=>{ x.beginPath(); for(let i=0;i<n;i++){ const px=Xp(O.t[i]), py=Yp(base[i]+arr[i]); i?x.lineTo(px,py):x.moveTo(px,py); } for(let i=n-1;i>=0;i--) x.lineTo(Xp(O.t[i]),Yp(base[i])); x.closePath(); x.fillStyle=col; x.fill(); };
+  const b0=new Float32Array(n), b1=O.Fb.map(q=>q), b2=O.Fb.map((q,i)=>q+O.Fg[i]);
+  capa(O.Fb,b0,'rgba(255,209,102,0.85)'); capa(O.Fg,b1,'rgba(154,169,255,0.85)'); capa(O.Fh,b2,'rgba(255,90,95,0.90)');
+  if(R.p.Flim<1e8){ raya(x,X0,Yp(R.p.Flim),X1,Yp(R.p.Flim),'rgba(255,230,160,0.7)',1,[3,3]); txt(x,'limitador '+fN(R.p.Flim/1000,1)+' kN',X1,Yp(R.p.Flim)-3,'#ffe6a0',8.5,'right','600'); }
+  FR.geo={X0,X1,Y0,Y1,Xp,Yp};
+}
+function pintaFr(){
+  const R=SIMU.R, L=LFR, x=abre(L); if(!R) return;
+  const clave=SIMU.clave+'|'+L.w+'x'+L.h+'|'+L.dpr+'|'+SIMU.vuelta;
+  if(clave!==FR.clave){ capaFr(R,L.w,L.h,L.dpr); FR.clave=clave; }
+  x.drawImage(FR.c,0,0,L.w,L.h);
+  const g=FR.geo, tt=clamp(SIMU.t,0,T_FIN), xc=g.Xp(tt); raya(x,xc,g.Y0,xc,g.Y1,'rgba(255,255,255,0.85)',1.1);
+  const s=ST.s; el('t_fr').innerHTML=s&&SIMU.t>=0?('cinturón '+fN(s.Fb/1000,1)+' · bolsa '+fN(s.Fg/1000,1)+' kN'):'<span style="color:#ffd166">cinturón</span> · <span style="color:#9AA9FF">bolsa</span> · <span style="color:#ff8a8f">volante</span>';
+}
+function pintaDockFijo(){
+  const R=SIMU.R; if(!R) return;
+  if(EST.modo==='marcha'){ el('p_mode').textContent='Choque a '+fN(R.p.vKmh,0)+' km/h'; el('p_sub').textContent='L = '+fN(R.p.L*100,0)+' cm · '+OCUP[R.p.ocup].nom.split(' · ')[0]; }
+  else { el('p_mode').textContent=GUIA.phase===1?'Diseño de la sujeción':(GUIA.phase===2?'Falla en operación':'Choque de muestra'); el('p_sub').textContent=fN(R.p.vKmh,0)+' km/h · '+OCUP[R.p.ocup].nom.split(' · ')[0]; }
+  pintaLeyPu(); FX.clave=''; PU.clave=''; FR.clave='';
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const R=SIMU.R; if(!R) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; }, oc=ocultaR();
+  set('f_av',fN(R.aVmax,1)+'<small> g</small>'); _cl('f_av',R.fondo?'bad':'');
+  set('f_s',fN(R.xmax*1000,0)+'<small> mm</small>'); _cl('f_s',R.fondo?'bad':'');
+  set('f_dv',fN(R.dV*3.6,1)+'<small> km/h</small>'); _cl('f_dv','');
+  if(oc){ set('f_a3','¿?'); _cl('f_a3','oculto'); set('f_xi','¿?'); _cl('f_xi','oculto'); set('f_fb','¿?'); _cl('f_fb','oculto'); }
+  else { set('f_a3',fN(R.a3,0)+'<small> g</small>'); _cl('f_a3',R.a3>60?'bad':(R.a3>45?'warn':''));
+    set('f_xi',fN(R.xiMax*1000,0)+'<small> mm</small>'); _cl('f_xi',R.golpe?'bad':'');
+    set('f_fb',fN(R.FbMax/1000,1)+'<small> kN</small>'); _cl('f_fb',''); }
+  const A=el('aviso'); let cl='', t='';
+  if(!enDiagnostico()){
+    if(R.fondo){ cl='mal'; t='El choque supera lo que la estructura puede absorber en L: toca fondo (el motor contra el mamparo) y el pulso se dispara.'; }
+    else if(!oc&&R.golpe){ cl='mal'; t='El tórax llega a menos de 6 cm del módulo del volante: golpea el volante.'; }
+    else if(EST.modo==='marcha'&&!EST.bolsa){ cl='ojo'; t='Sin airbag el limitador deja avanzar al tórax hasta el volante si la fuerza es baja.'; }
+    else if(EST.modo==='marcha'&&R.tFire===null&&EST.bolsa){ cl='ojo'; t='Con ese umbral el sensor nunca dispara: el vehículo no pierde tanta velocidad.'; }
+  }
+  A.className='dk-aviso'+(t?' on '+cl:''); if(A.textContent!==t) A.textContent=t;
+}
+
+/* ===================== 12. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[1/200,'×1/200'],[1/50,'×1/50'],[1/20,'×1/20'],[1/10,'×1/10'],[1/4,'×1/4']];
+el('vbar').innerHTML=[['conjunto','Conjunto'],['zona','Zona de deformación'],['ocupante','Ocupante'],['bolsa','Airbag']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); if(!EST.pausa&&false) return; EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.esc=+e.target.value; EST.escMano=true; pintaBarras(); };
+const nomEsc=e=>{ const v=VEL.find(q=>Math.abs(q[0]-e)<1e-12); return v?v[1]:'×'+fN(e,4); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',VISTA.actual===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(!VEL.some(q=>String(q[0])===sel.value&&Math.abs(q[0]-EST.esc)<1e-12)) sel.value=String((VEL.find(q=>Math.abs(q[0]-EST.esc)<1e-12)||VEL[2])[0]);
+  el('tLento').textContent='cámara lenta '+nomEsc(EST.esc);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar','relojms']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar','relojms']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const e=el('tEst'), t=ST.tEvento||'';
+  el('tReloj').textContent=SIMU.t<0?'t = '+fN(SIMU.t*1000,1)+' ms':'t = '+fN(SIMU.t*1000,1)+' ms';
+  if(e.lastChild.textContent!==t) e.lastChild.textContent=t; e.firstChild.style.background=SIMU.t<0?'#5b6b7c':(ST.calor>0.5?'#ff8a3d':'#9FF3FF');
+  const rm=el('rmsE'); if(rm.textContent!==t) rm.textContent=t;
+}
+
+/* ===================== 13. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Zona de deformación · largueros',()=>V3(FRENTE.position.x+(ST.railMid||-0.3),0.60,-0.30)],
+  ['Barrera rígida',()=>V3(0.0,1.15,1.0)],
+  ['Motor: el tope rígido',()=>V3(CAB.position.x+0.36,0.45,-0.3)],
+  ['Cinturón con limitador',()=>V3(CAB.position.x+GEOM_OC.uH+0.28,0.92,0.19)],
+  ['Airbag y módulo del volante',()=>V3(CAB.position.x+DIM.uVolante-0.10,DIM.yVolante+0.05,0.0)],
+  ['Maniquí tipo Hybrid III',()=>V3(MANI.position.x+CAB.position.x+(MP.cabeza?MP.cabeza.position.x:-0.7),(MP.cabeza?MP.cabeza.position.y:1.2)+0.08,0)],
+  ['Pretensor y anclaje',()=>V3(CAB.position.x+GEOM_OC.uH-0.14,0.26,0.19)],
+  ['Jaula del habitáculo',()=>V3(CAB.position.x-0.55,1.45,0)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(240,138,60,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ANCLAS.forEach(([t,f],i)=>{ q.copy(f()).project(camera); const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i], w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  riel:'Larguero delantero: un tubo de acero que se pliega como un acordeón. Su meseta de fuerza F_c es lo que fija la deceleración del coche',
+  capo:'Capó: se arruga hacia arriba cuando la estructura se acorta (esquema, translúcido)', aleta:'Aleta: chapa exterior que se ondula al acortarse la zona de deformación (esquema)',
+  paragolpes:'Paragolpes: piel de plástico, espuma y travesaño de acero que reparten el golpe sobre los dos largueros',
+  barrera:'Barrera rígida: un bloque de hormigón con una placa de acero. No cede: toda la energía la absorbe el coche',
+  motor:'Motor y caja de cambios: un bloque rígido. Si la zona de deformación se acaba, el motor choca contra el mamparo y el pulso se dispara',
+  radiador:'Radiador y ventilador: el primer «tope» blando delante del motor',
+  jaula:'Jaula del habitáculo (en rojo): montantes, techo, larguero y mamparo, que no deben deformarse',
+  carroceria:'Chapa exterior translúcida del costado lejano (esquema para ver el interior)', cristal:'Cristal (esquema translúcido)',
+  tablero:'Salpicadero y rodillera, en plástico y espuma', asiento:'Asiento: cojín, respaldo y reposacabezas', rueda:'Rueda del costado lejano',
+  volante:'Volante y columna. El aro es rígido: el alumno no quiere llegar a tocarlo', modulo:'Módulo del airbag: el inflador y la bolsa plegada están detrás de la tapa',
+  bolsa:'Airbag: se llena de gas del inflador y lo deja salir por las ventilas; amortigua al tórax con (p − p_atm)·A',
+  maniqui:'Maniquí tipo Hybrid III (esquema). Se calcula el tórax como un solo cuerpo; la postura es ilustrativa', torax:'Tórax del maniquí: sobre él se mide la deceleración (criterio de 3 ms)', cabeza:'Cabeza del maniquí, con su diana de marcado',
+  cinturon:'Cinturón de tres puntos: se enrojece con la tensión. Su fuerza nunca pasa del limitador', dring:'Anclaje superior del cinturón (montante B)',
+  pretensor:'Pretensor pirotécnico: recoge 40 mm de holgura a los 8 ms. Si falla, el tórax tarda más en cargar el cinturón', hebilla:'Hebilla y anclaje inferior del cinturón',
+  suelo:'Pista de ensayo',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([BANCO,CAB,FRENTE],true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; if(h.object.material&&h.object.material.transparent&&h.object.material.opacity<0.4) continue; return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; return o?o:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 14. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+/** La hoja mide lo que pide su contenido (entre 240 px y el 62 % del alto en el móvil), para que la guía nunca
+    tenga que desplazarse por dentro; la cámara se vuelve a encajar en el hueco que queda. */
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras();
+    if(ant){ clearTimeout(window.__hjSEG); window.__hjSEG=setTimeout(()=>ponVista(VISTA.actual,REDUCIDO?0.001:0.4),40); } }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); PU.clave=''; FR.clave=''; });
+
+
+/* ===================== 15. EL LABORATORIO GUIADO =====================
+   Tres fases:
+   1 · Fundamento (Reto 1: cuánta zona de deformación hace falta; Reto 2: qué pasa si se acorta),
+   2 · Diseño (el reto insignia: longitud de deformación, limitador y disparo del airbag para un ensayo
+       con tope de longitud; el pliego se revela SÓLO al validar),
+   3 · Diagnóstico (una de tres fallas al azar: pretensor, limitador o airbag).
+   Tres fallos en un reto cambian el dato (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajaS=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+/* Los tres ensayos del reto de diseño: velocidad, ocupante, tope de longitud, y el pliego del tórax y de las costillas. */
+const ESC_RETO=[
+  {id:'A',vKmh:56,ocup:'p50',Lmax:0.50,a3:55,Frib:7000,nom:'Choque a 56 km/h · hombre p50'},
+  {id:'B',vKmh:64,ocup:'p50',Lmax:0.60,a3:58,Frib:8000,nom:'Choque a 64 km/h · hombre p50'},
+  {id:'C',vKmh:48,ocup:'p95',Lmax:0.40,a3:44,Frib:9000,nom:'Choque a 48 km/h · hombre p95'},
+];
+const V_NODISPARO=16;                                    // km/h: el golpe de aparcamiento en el que la bolsa NO debe salir
+const BUENO={A:{L:0.50,Flim:6000,th:28},B:{L:0.60,Flim:7500,th:30},C:{L:0.40,Flim:8000,th:28}};
+const DIS_BUENO=E=>BUENO[E.id];
+const DIS={L:0.40,Flim:4000,th:18,bolsa:true};
+const RETO={intentos:0,resiembras:0,fallosS:0,fallosQ:0,fallosD:0,fallosDx:0,pistasS:0,pistasD:0,hecho:false};
+/* Reto 1: la longitud de deformación que da una deceleración media dada (ideal: s = v²/(2ā)). */
+const S_CASOS=[[40,15],[50,20],[56,25],[64,30],[48,20],[56,20],[50,25]];
+let sCaso=S_CASOS[Math.floor(Math.random()*S_CASOS.length)];
+let fault=null, autoMode=false;
+const GUIA={phase:0,paso:'s',caso:0,iniciado:false,validado:false,verdict:null,sintoma:'',opcQ:[0,1,2,3],opcDx:['pretensor','limitador','airbag']};
+GUIA.caso=Math.floor(Math.random()*ESC_RETO.length);
+const sRespuesta=()=>{ const v=sCaso[0]/3.6, a=sCaso[1]*G0; return v*v/(2*a)*100; };      // cm
+const Q_OPC=[
+  {t:'La deceleración media se duplica',ok:true},
+  {t:'La deceleración media se reduce a la mitad'},
+  {t:'No cambia: la energía es la misma'},
+  {t:'La deceleración media se cuadruplica'},
+];
+
+/* ---------- Fase 1 · Fundamento ---------- */
+function checkS(){
+  const raw=String((el('ansS')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), ok_=sRespuesta();
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la longitud en centímetros (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  const tol=Math.max(2,0.03*ok_);
+  if(Math.abs(v-ok_)<tol){
+    RETO.fallosS=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`s = v²/(2ā) = (${fN(sCaso[0]/3.6,2)} m/s)² / (2 × ${sCaso[1]} × ${fN(G0,2)} m/s²) = ${fN(ok_,0)} cm. Es el caso ideal, a deceleración constante: una estructura real necesita además la rampa inicial, y por eso el simulador usa sólo el 90 % de L.`);
+    setTimeout(()=>{ GUIA.opcQ=barajaS([0,1,2,3]); pasoA('q'); },1600);
+  } else {
+    RETO.fallosS++; sonido.mal();
+    const sinConv=Math.abs(v-(sCaso[0]*sCaso[0]/(2*sCaso[1]*G0))*100)<Math.max(2,0.03*(sCaso[0]*sCaso[0]/(2*sCaso[1]*G0))*100);
+    if(RETO.fallosS>=3){
+      RETO.fallosS=0; RETO.resiembras++; const p=sCaso; do{ sCaso=pickOne(S_CASOS); }while(sCaso===p);
+      feedback('bad','Tres intentos fallidos','Cambia el enunciado: vuelve a plantear el cálculo con los nuevos datos.'); setTimeout(()=>pasoA('s'),1500);
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,v%1?1:0)} cm) está ${v>ok_?'alto':'bajo'}.`+(sinConv?' ¿Pasaste los km/h a m/s?':' Piensa en qué se convierte la energía cinética y en qué distancia lo hace.')+` (intentos fallidos: ${RETO.fallosS}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallosS;
+    }
+  }
+}
+function eligeQ(i){
+  const o=Q_OPC[i]; RETO.intentos++;
+  if(o.ok){ RETO.fallosQ=0; sonido.bien(); feedback('good','Correcto ✓','Con la misma energía y la mitad de la distancia, F = E/s se duplica: ā = v²/(2s). Por eso un coche corto necesita un cinturón y un airbag mejores. Ahora lo vas a comprobar diseñando.'); setTimeout(()=>startPhase2(),1900); }
+  else { RETO.fallosQ++; sonido.mal();
+    if(RETO.fallosQ>=3){ RETO.fallosQ=0; RETO.resiembras++; GUIA.opcQ=barajaS([0,1,2,3]); feedback('bad','Tres intentos fallidos','Las opciones se barajan de nuevo: relaciona la distancia de frenado con la fuerza media, F·s = E.'); pasoA('q'); }
+    else { feedback('bad','No es esa',[ 'Al acortar la distancia, la fuerza media sube, no baja.','La energía es la misma, pero la distancia para disiparla no: F·s = E.','Es una relación inversa simple, no cuadrática: ā = v²/(2s).'][i%3]+` (intentos fallidos: ${RETO.fallosQ}/3)`); const t=el('d_tryq'); if(t) t.textContent=RETO.fallosQ; }
+  }
+}
+
+/* ---------- Fase 2 · Diseño ---------- */
+function startPhase2(){
+  GUIA.phase=1; GUIA.validado=false; GUIA.verdict=null;
+  const E=ESC_RETO[GUIA.caso]; Object.assign(DIS,{L:Math.max(0.25,E.Lmax-0.10),Flim:4000,th:16,bolsa:true});
+  pasoA('diseno'); recalcula(true); ponVista('conjunto'); pintaDock();
+}
+function evaluaDiseno(){
+  const E=ESC_RETO[GUIA.caso];
+  const base={vKmh:E.vKmh,vDisKmh:E.vKmh,L:DIS.L,ocup:E.ocup,Flim:DIS.Flim,dVth:DIS.th,tFin:T_FIN};
+  const R=simula(base), B=simula(Object.assign({},base,{vKmh:V_NODISPARO,tFin:0.12}));
+  const lim=E.ocup, xl=OCUP[lim].g0-D_GOLPE;
+  const rows=[
+    {ok:R.a3<=E.a3,t:`Tórax A<sub>3ms</sub> ≤ ${fN(E.a3,0)} g`,v:fN(R.a3,0)+' g'},
+    {ok:!R.golpe,t:`Sin golpe al volante (avance ≤ ${fN(xl*1000,0)} mm)`,v:fN(R.xiMax*1000,0)+' mm'},
+    {ok:R.FbMax<=E.Frib+1e-6,t:`Cinturón ≤ ${fN(E.Frib/1000,1)} kN (costillas)`,v:fN(R.FbMax/1000,1)+' kN'},
+    {ok:R.tFire!==null,t:'El airbag dispara en el choque',v:R.tFire!==null?fN(R.tFire*1000,0)+' ms':'no'},
+    {ok:B.tFire===null,t:`No dispara en el golpe a ${V_NODISPARO} km/h`,v:B.tFire===null?'no dispara':fN(B.tFire*1000,0)+' ms'},
+  ];
+  return {rows,ok:rows.every(r=>r.ok),R};
+}
+function validaDiseno(){
+  if(DIS.L>ESC_RETO[GUIA.caso].Lmax+1e-9){ feedback('bad','Te pasas del paquete','La zona de deformación no cabe: este coche sólo admite '+fN(ESC_RETO[GUIA.caso].Lmax*100,0)+' cm.'); return; }
+  RETO.intentos++;
+  const V=evaluaDiseno(); GUIA.validado=true; GUIA.verdict=V; recalcula(false); pintaDock();
+  if(V.ok){ RETO.fallosD=0; sonido.bien(); feedback('good','¡Diseño aprobado! ✓','El tórax queda bajo el pliego, no golpea el volante y el airbag sólo sale cuando debe. Fíjate en el compromiso: más limitador frena antes al tórax pero lo carga más; más zona de deformación suaviza todo, pero ocupa coche.',true); pasoA('diseno-ok'); }
+  else {
+    RETO.fallosD++; sonido.mal();
+    if(RETO.fallosD>=5){
+      RETO.fallosD=0; RETO.resiembras++; const p=GUIA.caso; do{ GUIA.caso=Math.floor(Math.random()*ESC_RETO.length); }while(GUIA.caso===p);
+      feedback('bad','Cinco intentos fallidos','Cambia el ensayo: otro choque, otro ocupante y otro tope de longitud. Vuelve a plantear el diseño.'); setTimeout(()=>startPhase2(),1600);
+    } else { GUIA.validado=true; feedback('bad','El diseño no cumple todo',`Mira qué criterios fallan en la guía y piensa qué mando los mueve. (intentos fallidos: ${RETO.fallosD}/5)`); pasoA('diseno'); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico ---------- */
+function startPhase3(){
+  GUIA.phase=2; const faults=['pretensor','limitador','airbag']; fault=faults[Math.floor(Math.random()*faults.length)];
+  GUIA.opcDx=barajaS(faults); GUIA.sintoma=''; pasoA('dx'); recalcula(true); ponVista('conjunto');
+  setTimeout(()=>{ GUIA.sintoma=symptomS(fault); const s=el('symptomTask'); if(s){ s.innerHTML=GUIA.sintoma; ajustaHoja(); } },900);
+}
+function symptomS(f){
+  if(f==='pretensor') return 'SÍNTOMA: la cinta va floja los primeros milisegundos; el tórax carga el cinturón más tarde que en el diseño aprobado y su pico de deceleración sube. ¿Qué lo causa?';
+  if(f==='limitador') return 'SÍNTOMA: la fuerza del cinturón no se queda en una meseta: sube y sube mientras el tórax se detiene enseguida, con una deceleración muy alta. ¿Qué lo causa?';
+  return 'SÍNTOMA: la bolsa no sale; el tórax sigue avanzando hasta casi tocar el volante, y el cinturón sostiene todo. ¿Qué lo causa?';
+}
+const nombreFalla=f=>f==='pretensor'?'pretensor que no dispara':(f==='limitador'?'limitador bloqueado':'airbag que no se despliega');
+function explicaFalla(f){
+  if(f==='pretensor') return 'El pretensor no recoge los 40 mm de holgura: la cinta empieza a trabajar tarde y con el tórax ya en movimiento, con un tirón mayor.';
+  if(f==='limitador') return 'El limitador bloqueado deja de ceder: el cinturón se vuelve un muelle rígido, la fuerza sube a más de 15 kN y la deceleración del tórax se dispara aunque el avance sea corto.';
+  return 'Sin la bolsa, sólo el cinturón con su limitador detiene el tórax: con el limitador de diseño el avance casi llega al volante.';
+}
+function diagnoseS(choice){
+  if(!fault) return; RETO.intentos++;
+  if(choice===fault){ RETO.fallosDx=0; sonido.bien(); feedback('good','Diagnóstico correcto ✓',explicaFalla(fault)+' <b>Ahora corrígelo.</b>',true); pasoA('reparar'); }
+  else {
+    RETO.fallosDx++; sonido.mal();
+    if(RETO.fallosDx>=3){ RETO.fallosDx=0; RETO.resiembras++; const p=fault; const fs=['pretensor','limitador','airbag'].filter(f=>f!==p); fault=pickOne(fs); GUIA.opcDx=barajaS(['pretensor','limitador','airbag']); GUIA.sintoma=symptomS(fault);
+      feedback('bad','Tres intentos fallidos','El banco presenta ahora OTRA falla: observa de nuevo la escena y el dock.',true); recalcula(true); pintaHUD(); }
+    else { feedback('bad','No es esa falla','Eso ('+nombreFalla(choice)+') daría otro síntoma: '+wrongEx(choice)+' Observa otra vez. (intentos fallidos: '+RETO.fallosDx+'/3)',true); pintaHUD(); }
+  }
+}
+function wrongEx(f){
+  if(f==='pretensor') return 'la cinta arrancaría floja y el tórax cargaría tarde, pero la fuerza seguiría limitada y la bolsa saldría.';
+  if(f==='limitador') return 'un cinturón sin meseta mostraría fuerzas altísimas, no una bolsa ausente ni una carga tardía.';
+  return 'sin bolsa la cinta sí llega a la meseta del limitador, pero el tórax avanzaría casi hasta el volante.';
+}
+function reparaS(){
+  fault=null; RETO.hecho=true; sonido.bien(); GUIA.sintoma='';
+  feedback('good','¡Reparado! 🎉','El banco vuelve al diseño aprobado. Completaste las tres fases: calculaste la zona de deformación, diseñaste la sujeción de un ensayo y diagnosticaste una falla de seguridad pasiva.',true);
+  pasoA('completo'); recalcula(true);
+}
+const pasoA=(p)=>{ GUIA.paso=p; if(EST.modo==='guia') pintaHUD(); };
+
+/* ---------- el enrutador de acciones (la API de siempre) ---------- */
+function handleAction(act,btn){
+  switch(act){
+    case 'check-s': checkS(); break;
+    case 'hint-s':
+      if(RETO.pistasS===0){ RETO.pistasS=1; feedback('good','Pista 1 de 2','Toda la energía cinética ½Mv² debe disiparse en la distancia de aplastamiento: ½Mv² = F_media·s, con F_media = M·ā.'); }
+      else if(RETO.pistasS===1){ RETO.pistasS=2; feedback('good','Pista 2 de 2','La masa se cancela: queda v²/(2ā). Pasa antes los km/h a m/s y la deceleración de g a m/s².'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'q0': case 'q1': case 'q2': case 'q3': eligeQ(GUIA.opcQ[+act[1]]); break;
+    case 'valida': validaDiseno(); break;
+    case 'hint-d':
+      if(RETO.pistasD===0){ RETO.pistasD=1; feedback('good','Pista 1 de 2','La deceleración del tórax es la fuerza total sobre él entre su masa: cinturón y bolsa suman. Un limitador bajo deja avanzar; uno alto carga más al pecho.'); }
+      else if(RETO.pistasD===1){ RETO.pistasD=2; feedback('good','Pista 2 de 2','Si el umbral del sensor es muy bajo, un golpe de parking también dispara la bolsa; si es muy alto, la bolsa llega tarde. Busca el borde.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
+    case 'to-phase3': if(GUIA.phase!==1||GUIA.paso!=='diseno-ok') break; startPhase3(); break;
+    case 'dx-pretensor': diagnoseS('pretensor'); break;
+    case 'dx-limitador': diagnoseS('limitador'); break;
+    case 'dx-airbag': diagnoseS('airbag'); break;
+    case 'repara': if(GUIA.paso==='reparar') reparaS(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const E=ESC_RETO[GUIA.caso], tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 's': return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'Dimensiona la zona de deformación',
+      teach:`Un coche de <b>${fN(VEH.M,0)} kg</b> choca a <b>${sCaso[0]} km/h</b> contra un muro. Quieres que la estructura lo frene con una deceleración media de <b>${sCaso[1]} g</b>.<div class="task">¿Qué longitud de deformación necesitas, en cm? ${tri('d_try',RETO.fallosS,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansS" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? cm" aria-label="Longitud de deformación en centímetros"><button class="b primary" data-act="check-s">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+    case 'q': return {no:'Fase 1 · Reto 2',head:'Tu decisión',title:'Acorta la zona a la mitad',
+      teach:`Mismo coche, misma velocidad, misma barrera: la zona de deformación mide <b>la mitad</b>.<div class="task">¿Qué le pasa a la deceleración media del coche? ${tri('d_tryq',RETO.fallosQ,3)}</div>`,
+      acts:GUIA.opcQ.map((k,i)=>`<button class="b" data-act="q${i}">${Q_OPC[k].t}</button>`).join('')};
+    case 'diseno': {
+      const pos=v=>((v-0.25)/(0.90-0.25)*100).toFixed(1)+'%';
+      return {no:'Fase 2 · Diseño',head:E.nom,title:'Diseña la sujeción de este ensayo',
+      teach:`Mantén el pecho bajo <b>${fN(E.a3,0)} g</b> (3 ms) sin que el tórax golpee el volante, con el cinturón a <b>≤ ${fN(E.Frib/1000,1)} kN</b> y la bolsa disparando sólo en el choque grave, no en un golpe de ${V_NODISPARO} km/h. Cabe una zona de <b>${fN(E.Lmax*100,0)} cm</b> como máximo. ${tri('d_tryd',RETO.fallosD,5)}`,
+      acts:`<div class="sl cg"><div class="cl"><div>Zona de deformación <em class="gr">L</em></div><b id="vL2">${fN(DIS.L*100,0)} cm</b></div><input type="range" id="rL2" min="25" max="${Math.round(E.Lmax*100)}" step="1" value="${Math.round(DIS.L*100)}" aria-label="Longitud de la zona de deformación"></div>
+        <div class="sl cg"><div class="cl"><div>Limitador de fuerza</div><b id="vF2">${kN(DIS.Flim)}</b></div><input type="range" id="rF2" min="2000" max="10000" step="500" value="${DIS.Flim}" aria-label="Fuerza del limitador"></div>
+        <div class="sl cg"><div class="cl"><div>Disparo del airbag <em class="gr">ΔV</em></div><b id="vT2">${fN(DIS.th,0)} km/h</b></div><input type="range" id="rT2" min="6" max="40" step="1" value="${DIS.th}" aria-label="Velocidad perdida para disparar el airbag"></div>
+        ${GUIA.validado&&GUIA.verdict?chipsHtml(GUIA.verdict):''}
+        <div class="fila"><button class="b primary" data-act="valida">✓ Validar el diseño</button><button class="b" id="btnHint" title="Pista">Pista</button></div>`}; }
+    case 'diseno-ok': return {no:'Fase 2 · Diseño',head:E.nom,title:'Diseño aprobado',
+      teach:`Cumple todo el pliego.<div class="chips">${GUIA.verdict?chipsHtml(GUIA.verdict,true):''}</div>`,
+      acts:`<button class="b primary" data-act="to-phase3">Continuar al diagnóstico →</button>`};
+    case 'dx': return {no:'Fase 3 · Diagnóstico',head:'¿Cuál es la falla?',title:'El banco falla en operación',
+      teach:`El mismo choque, pero algo anda mal. Observa la escena (cinta, bolsa) y el dock (fuerza del cinturón, tórax) e <b>identifica la falla</b>.<div class="task" id="symptomTask">${GUIA.sintoma||'Observa el síntoma y elige el diagnóstico.'}</div><span class="tries">intentos fallidos: ${RETO.fallosDx}/3</span>`,
+      acts:GUIA.opcDx.map(f=>`<button class="b" data-act="dx-${f}"><span class="ic">${f==='pretensor'?'⚙':(f==='limitador'?'🔒':'☁')}</span> ${f==='pretensor'?'Pretensor que no dispara':(f==='limitador'?'Limitador de fuerza bloqueado':'Airbag que no se despliega')}</button>`).join('')};
+    case 'reparar': return {no:'Fase 3 · Diagnóstico',head:'Reparación',title:'Corrige la falla',
+      teach:`Diagnóstico correcto: <b>${nombreFalla(fault)}</b>. Corrígela y compara el choque.`,acts:`<button class="b primary good" data-act="repara">🔧 Corregir la falla</button>`};
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculado, diseñado y reparado',
+      teach:`Puedes volver a <b>En marcha</b> y probar otros choques, ocupantes o un coche más corto.`,acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function chipsHtml(V,solo){ return `<div class="chips">${V.rows.map(r=>`<div class="chip ${r.ok?'ok':'no'}"><i>${r.ok?'✓':'✕'}</i><span>${r.t}</span><b>${r.v}</b></div>`).join('')}</div>`; }
+function htmlGuia(){
+  const ps=['Fundamento','Diseño','Diagnóstico'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Los mandos del diseño viven dentro del cuadro del reto: se enlazan sin repintar la guía. */
+function enlazaDiseno(){
+  const E=ESC_RETO[GUIA.caso]; let deb=null;
+  const sl=(id,lab,fmt,fn)=>{ const r=el(id); if(!r) return; r.oninput=()=>{ fn(+r.value); el(lab).textContent=fmt(+r.value); GUIA.validado=false; GUIA.verdict=null; const ch=document.querySelector('#hud .retoBox .chips'); if(ch) ch.remove();
+    clearTimeout(deb); deb=setTimeout(()=>{ recalcula(true); pintaDock(); },70); }; };
+  sl('rL2','vL2',v=>fN(v,0)+' cm',v=>{ DIS.L=v/100; ponVista(VISTA.actual,0.3); });
+  sl('rF2','vF2',v=>kN(v),v=>{ DIS.Flim=v; });
+  sl('rT2','vT2',v=>fN(v,0)+' km/h',v=>{ DIS.th=v; });
+  void E;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){ EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; GUIA.phase=0; GUIA.paso='s'; } }
+  else { EST.modo='marcha'; }
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  recalcula(true); pintaHUD(); pintaDockFijo(); pintaBarras(); pintaDock(); PU.clave=''; FR.clave='';
+  if(EST.modo==='guia') enlazaDiseno();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+const cifraDe=(o)=>simula(Object.assign({vKmh:56,vDisKmh:V_DISENO,L:0.5,ocup:'p50',Flim:6000,dVth:26,tFin:T_FIN},o));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud');
+  const prev={vKmh:EST.vKmh,L:EST.L,Flim:EST.Flim,th:EST.th,ocup:EST.ocup,pretensor:EST.pretensor,bolsa:EST.bolsa,esc:EST.esc,pausa:EST.pausa,vista:VISTA.actual};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } recalcula(true); pintaDock(); pintaBarras(); };
+  try{
+    fija({vKmh:56,L:0.5,Flim:6000,th:26,ocup:'p50',pretensor:true,bolsa:true,pausa:false}); ponVista('zona');
+    const a=cifraDe({});
+    showToast(`Paso 1 · La estructura cede con una fuerza casi constante, <b>${fN(a.S.Fc/1000,0)} kN</b>: el coche se frena en <b>${fN(a.xmax*1000,0)} mm</b> y su pulso es de <b>${fN(a.aVmax,0)} g</b>.`,7600);
+    await espera(8000);
+    fija({L:0.30}); const b=cifraDe({L:0.30});
+    showToast(`Paso 2 · Con una zona de <b>30 cm</b> la misma energía se disipa en menos camino: el pulso sube a <b>${fN(b.aVmax,0)} g</b>. Acortar el morro cuesta deceleración.`,7600);
+    await espera(8000);
+    fija({L:0.5,bolsa:false,Flim:5000}); ponVista('ocupante'); const c=cifraDe({Flim:5000,dVth:null});
+    showToast(`Paso 3 · Sin airbag y con el limitador a 5 kN, el tórax avanza <b>${fN(c.xiMax*1000,0)} mm</b> y ${c.golpe?'<b>golpea el volante</b>':'queda cerca del volante'}.`,7600);
+    await espera(8000);
+    fija({bolsa:true,Flim:6000,th:26}); ponVista('bolsa'); const d=cifraDe({});
+    showToast(`Paso 4 · El sensor dispara la bolsa a los <b>${fN(d.tFire*1000,0)} ms</b>; el tórax se detiene en <b>${fN(d.xiMax*1000,0)} mm</b> y su deceleración (3 ms) es de <b>${fN(d.a3,0)} g</b>.`,7600);
+    await espera(8000);
+    fija({th:40}); const e=cifraDe({dVth:40});
+    showToast(`Paso 5 · Si el umbral es alto, la bolsa sale a los <b>${fN(e.tFire*1000,0)} ms</b>: llega más tarde y el tórax avanza <b>${fN(e.xiMax*1000,0)} mm</b>. Un buen diseño la dispara pronto, pero no en un golpe de parking.`,7600);
+    await espera(8000);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    recalcula(true); pintaHUD(); pintaDockFijo(); pintaDock(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 16. SONIDO (sintetizado) =====================
+   El golpe del impacto (ruido filtrado), el estallido seco del inflador y el chasquido del pretensor. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ruido=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      const n=ctx.sampleRate*0.6, b=ctx.createBuffer(1,n,ctx.sampleRate), d=b.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; ruido=b;
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  function golpeR(fc,dur,vol){ if(!ctx||!on||!ruido) return; const s=ctx.createBufferSource(), f=ctx.createBiquadFilter(), g=ctx.createGain(), t=ctx.currentTime;
+    s.buffer=ruido; f.type='lowpass'; f.frequency.value=fc; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+dur+0.02); }
+  return {init,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    impacto:()=>{ golpeR(380,0.5,0.35); tono(62,0.4,0.16,'sine'); },
+    bolsa:()=>{ golpeR(2600,0.14,0.18); tono(140,0.1,0.06,'square'); },
+    pret:()=>{ tono(900,0.04,0.04,'square'); },
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 17. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.clave.shadow.mapSize.x!==ms){ LUZ.clave.shadow.mapSize.set(ms,ms); if(LUZ.clave.shadow.map){ LUZ.clave.shadow.map.dispose(); LUZ.clave.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); PU.clave=''; FR.clave='';
+  clearTimeout(window.__rzSEG); window.__rzSEG=setTimeout(()=>ponVista(VISTA.actual,0.01),140);
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 18. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·escala en cada cuadro, y con ESE tiempo se pintan la escena (chapa, maniquí,
+   cinta, bolsa) y el dock (cursor de las gráficas, cifras, el reloj de milisegundos). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tPrevS=T_PRE;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.esc,dt,t);
+  // los sonidos de los hitos, una sola vez por pasada
+  const R=SIMU.R, ts=SIMU.t;
+  if(R&&ts>tPrevS){ if(tPrevS<0&&ts>=0) sonido.impacto(); if(R.p.pretensor&&tPrevS<CINT.tPre&&ts>=CINT.tPre) sonido.pret(); if(R.tFire!==null&&tPrevS<R.tFire&&ts>=R.tFire) sonido.bolsa(); }
+  tPrevS=ts;
+  pasaCam(dt);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaFx(); pintaEn(); pintaPu(); pintaFr(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 19. ARRANQUE =====================
+   Abre funcionando: choque a 56 km/h contra la barrera, a cámara lenta ×1/20, en bucle. */
+disposicion();
+aplicaCalidad();
+recalcula(true);
+pintaHUD();
+pintaDockFijo();
+pintaBarras();
+ponVista('conjunto',0.001);
+cuadro();
+setTimeout(()=>showToast('Choque frontal a <b>56 km/h</b> contra una barrera rígida, en corte y a cámara lenta. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' una pieza para saber qué es.',5200),600);
+
+/* ===================== 20. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':(['fundamento','diseno','diagnostico'][GUIA.phase]||'fundamento'); },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,caso:GUIA.caso,sCaso:sCaso.slice(),fault,intentos:RETO.intentos,resiembras:RETO.resiembras,
+    fallos:{s:RETO.fallosS,q:RETO.fallosQ,d:RETO.fallosD,dx:RETO.fallosDx},pistas:{s:RETO.pistasS,d:RETO.pistasD},resuelto:RETO.hecho,validado:GUIA.validado}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const R=SIMU.R; if(!R) return {activo:false};
+    return {activo:true,t:SIMU.t,tCalc:SIMU.tCalc,vKmh:R.p.vKmh,L:R.p.L,Fc:R.S.Fc,Flim:R.p.Flim,ocup:R.p.ocup,tFire:R.tFire,aVmax:R.aVmax,xmax:R.xmax,dV:R.dV,a3:R.a3,xiMax:R.xiMax,FbMax:R.FbMax,pgMax:R.pgMax,golpe:R.golpe,fondo:R.fondo,
+      ahora:ST.s&&{x:ST.x,xi:ST.xi,aV:ST.s.aV,aCh:ST.s.aCh,Fb:ST.s.Fb,Fg:ST.s.Fg,pg:ST.s.pg,Vb:ST.s.Vb}}; },
+  escena(){ return {vista:VISTA.actual,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,esc:EST.esc,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,cabX:+CAB.position.x.toFixed(3),bolsaVisible:BOLSA_MESH.visible}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia',true); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  setAutoMode:(v)=>{ autoMode=!!v; },
+  state:()=>({phase:GUIA.phase,paso:GUIA.paso,fault}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); recalcula(true); pintaHUD(); pintaDock(); pintaBarras(); },
+  diseno:(o)=>{ Object.assign(DIS,o); recalcula(true); pintaHUD(); enlazaDiseno(); pintaDock(); },
+  caso:(i)=>{ GUIA.caso=i; },
+  t:(s)=>{ SIMU.t=s; SIMU.espera=0; },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  falla:(f)=>{ fault=f; recalcula(true); },
+  evalua:()=>{ const V=evaluaDiseno(); return {ok:V.ok,rows:V.rows.map(r=>[r.ok,r.v])}; },
+  physics:{simula,estructura},
+});
+instalaDiag('seguridad-pasiva-colision',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{cabina:CAB,frente:FRENTE,banco:BANCO,maniqui:MANI,asiento:ASIENTO,bolsa:BOLSA3,volante:VOL}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-seguridad-pasiva-colision.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

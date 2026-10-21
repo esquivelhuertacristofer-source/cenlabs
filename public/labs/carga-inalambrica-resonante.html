@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Carga Inalámbrica Resonante (SAE J2954) — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1628;--panel:rgba(8,16,30,.86);--line:#1F3556;--ink:#EAF1FA;
+    --dim:#8FA9C8;--accent:#3D8BF2;--accent2:#7DB8FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --c1:#FFA24A;--c2:#4DE3FF;--cV:#EAF1FA;--cB:#B38CFF;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#121D30;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#18263D}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#05101F;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#05101F;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#5FA2F5}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#05101F}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7DB8FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6C86A6;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7E93AD;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04132A}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#08111f;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(31,53,86,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(31,53,86,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6C86A6}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9DB6D4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(31,53,86,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#B2C6DE;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#121D30;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#CFE0F2;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cT);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,32,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(8,16,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(8,16,30,.92);border:1px solid rgba(125,184,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(8,16,30,.84);border:1px solid rgba(125,184,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-top{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(8,16,30,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+
+  /* ---- cifras y pliego del reto ---- */
+  .dk-top{display:flex;flex-direction:column;gap:5px}
+  .dk-pl{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+  .pc{border:1px solid rgba(31,53,86,.95);border-radius:8px;padding:3px 5px 4px;background:rgba(0,0,0,.2);min-width:0;transition:border-color .25s,background .25s}
+  .pc .pl{font-size:9.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+  .pc b{display:flex;align-items:baseline;justify-content:space-between;gap:2px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+  .pc b i{font-style:normal;font-size:11px}
+  .pc.ok{border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.07)} .pc.ok b i{color:var(--good)}
+  .pc.no{border-color:rgba(244,71,94,.5);background:rgba(244,71,94,.07)} .pc.no b i{color:#ff8a98}
+  .pc.na{opacity:.55}
+  .cg input[type=range]:disabled{opacity:.4}
+  .cg .cl.dis{opacity:.55}
+  .btnrow{display:flex;gap:6px}.btnrow .b{flex:1}
+  .hud .nota{font-size:11.2px;line-height:1.45;color:var(--dim)}
+  .hud .nota b{color:var(--ink);font-weight:600}
+  .estado3{display:flex;flex-direction:column;gap:6px}
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Carga inalámbrica · SAE J2954 · 85 kHz</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Enlace serie–serie</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-top">
+    <div class="dk-fig">
+      <div class="fg"><div class="fl">Acoplamiento k</div><b id="f_k">—</b></div>
+      <div class="fg"><div class="fl">Inductancia mutua M</div><b id="f_m">—</b></div>
+      <div class="fg"><div class="fl">Factor de calidad Q</div><b id="f_q">—</b></div>
+      <div class="fg"><div class="fl">Compensación C<sub>2</sub></div><b id="f_c2">—</b></div>
+      <div class="fg"><div class="fl">Carga R<sub>L</sub></div><b id="f_rl">—</b></div>
+      <div class="fg"><div class="fl">Frecuencia</div><b id="f_f">—</b></div>
+    </div>
+    <div class="dk-pl" id="plie"></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">η frente a d <span id="t_eta"></span></div><div class="dk-g" id="gEta"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Corrientes <span id="t_wf"></span></div><div class="dk-g" id="gWf"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">Respuesta en frecuencia <span id="t_fr"></span></div>
+  <div class="dk-g fu" id="gFr"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFr"></div>
+  <div class="dk-tit t-sp">Balance de potencia <span id="t_ba"></span></div>
+  <div class="dk-g sp" id="gBa"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — CARGA INALÁMBRICA RESONANTE · SAE J2954 · 85 kHz
+   (Autotrónica · mecanica-135)
+
+   Dos almohadillas (pads) de espiral plana, cortadas por la mitad: la del
+   suelo (GA) y la del coche (VA), con su ferrita, su blindaje y su cubierta.
+   Abre funcionando, a cámara lenta ×1/100 000: los símbolos ⊙ y ⊗ de cada
+   espira son la corriente (cambia de sentido a 85 kHz), las líneas son el
+   campo magnético —integradas con RK4 sobre el campo REAL de las 36 espiras,
+   Biot–Savart con integrales elípticas— y el coche está desviado a propósito:
+   moverlo cambia k, y con él todo lo demás.
+
+   La física (inductancia mutua por integral de Neumann y AGM, circuito
+   serie–serie con compensación, rendimiento, división de frecuencia) está en
+   un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre. */
+
+/* FISICA:INICIO */
+const MU0=4e-7*Math.PI, DOSPI=2*Math.PI, RAIZ2=Math.SQRT2;
+
+/* ---------- 1.1 El banco ----------
+   Dos almohadillas (pads) idénticas de espiral plana: 16 espiras de hilo Litz
+   entre r = 80 y 250 mm. Se modelan EN AIRE y como filamentos circulares:
+   cada espira es un lazo de corriente y todo (L, M, campo) sale de las
+   integrales de Neumann y de Biot–Savart con integrales elípticas. La ferrita
+   y el blindaje de aluminio no cambian L ni M (declarado en la ficha); sólo
+   ponen pérdidas (Q_ap). El enlace es serie–serie a 85 kHz (SAE J2954). */
+const BANDA={f0:85000,fMin:81380,fMax:90000};
+const PAD={N:18,rIn:0.08,rOut:0.25,aHilo:0.0028,Acu:5e-6,rhoCu:1.99e-8,Fac:1.40,Qap:160};
+const OPER={P:11000,I1max:50,I2max:50,Vdc:650,etaMin:0.90,pfMin:0.97,Rac:8/(Math.PI*Math.PI)};
+OPER.V1max=4*OPER.Vdc/(Math.PI*RAIZ2);           // fundamental eficaz de un puente completo: 0,9·Vdc
+const ZPAD=0.028;                                  // del plano de la bobina de una pad a la cara exterior de la otra: z = holgura + 0,028 m
+
+/* ---------- 1.2 Integrales elípticas por la media aritmético-geométrica ----------
+   K(m) = π / (2·AGM(1, √(1−m))),  E(m) = K·(1 − Σ 2^(n−1)·c_n²),  m = k².  */
+function elipticas(m){
+  let a=1,b=Math.sqrt(1-m),n=0,s=0.5*m;
+  while(Math.abs(a-b)>1e-16*a&&n<40){ const an=(a+b)/2,bn=Math.sqrt(a*b),cn=(a-b)/2; a=an; b=bn; n++; s+=Math.pow(2,n-1)*cn*cn; }
+  const K=Math.PI/(2*a); return {K,E:K*(1-s)};
+}
+/** Inductancia mutua de dos lazos circulares COAXIALES de radios a y b a distancia z (Maxwell). */
+function mutuaCoaxial(a,b,z){
+  const k2=4*a*b/((a+b)*(a+b)+z*z), k=Math.sqrt(k2), {K,E}=elipticas(k2);
+  return MU0*Math.sqrt(a*b)*((2/k-k)*K-2/k*E);
+}
+/** Autoinductancia de un lazo de radio R y hilo de radio w (corriente uniforme en el hilo). */
+function autoLazo(R,w){ return MU0*R*(Math.log(8*R/w)-1.75); }
+
+/** Los radios de las N espiras de una pad (espiral plana, paso uniforme). */
+function radiosPad(N=PAD.N,r0=PAD.rIn,r1=PAD.rOut){ const r=[]; for(let i=0;i<N;i++) r.push(r0+(r1-r0)*i/(N-1)); return r; }
+const RAD=radiosPad();
+/** L de una pad: Σ autoinductancias + Σ mutuas entre espiras (misma altura). */
+function inductanciaPad(rad=RAD,w=PAD.aHilo){
+  let L=0; for(let i=0;i<rad.length;i++){ L+=autoLazo(rad[i],w); for(let j=0;j<rad.length;j++) if(i!==j) L+=mutuaCoaxial(rad[i],rad[j],0); }
+  return L;
+}
+/** M entre dos pads coaxiales a distancia z entre planos de bobina: Σ_ij M(a_i, b_j, z). */
+function mutuaPadCoaxial(z,rad=RAD){ let M=0; for(const a of rad) for(const b of rad) M+=mutuaCoaxial(a,b,z); return M; }
+
+/* ---------- 1.3 Desalineación: integral de Neumann ----------
+   M = μ0/4π ∮∮ dl1·dl2 / |r1 − r2| con los ejes separados d. Con los lazos
+   a, b en planos paralelos a distancia z:
+     |r1 − r2|² = a² + b² + d² + z² − 2ab·cos(θ−φ) − 2d(a·cosθ − b·cosφ)
+   y dl1·dl2 = ab·cos(θ−φ) dθ dφ. El integrando es periódico y liso (la
+   distancia mínima es z > 0): la regla del trapecio converge de forma
+   exponencial con pocos nodos. */
+const N_NEU=36;
+const _cs=(()=>{ const c=new Float64Array(N_NEU), s=new Float64Array(N_NEU); for(let i=0;i<N_NEU;i++){ c[i]=Math.cos(DOSPI*i/N_NEU); s[i]=Math.sin(DOSPI*i/N_NEU); } return {c,s}; })();
+function mutuaNeumann(a,b,z,d,n=N_NEU){
+  let C,S; if(n===N_NEU){ C=_cs.c; S=_cs.s; } else { C=new Float64Array(n); S=new Float64Array(n); for(let i=0;i<n;i++){ C[i]=Math.cos(DOSPI*i/n); S[i]=Math.sin(DOSPI*i/n); } }
+  const base=a*a+b*b+d*d+z*z; let suma=0;
+  for(let i=0;i<n;i++){ const ci=C[i], si=S[i];
+    for(let j=0;j<n;j++){ const cj=C[j], sj=S[j], cd=ci*cj+si*sj;
+      suma+=a*b*cd/Math.sqrt(base-2*a*b*cd-2*d*(a*ci-b*cj)); } }
+  return MU0/(4*Math.PI)*suma*(DOSPI/n)*(DOSPI/n);
+}
+/** M entre las dos pads con desalineación lateral d y distancia z entre planos de bobina. */
+function mutuaPad(z,d,rad=RAD,n=N_NEU){
+  if(Math.abs(d)<1e-12) return mutuaPadCoaxial(z,rad);
+  let M=0; for(const a of rad) for(const b of rad) M+=mutuaNeumann(a,b,z,d,n); return M;
+}
+const L_PAD=inductanciaPad();                       // la misma para las dos pads
+const kAcople=(M,L1,L2)=>M/Math.sqrt(L1*L2);
+
+/* ---------- 1.4 Resistencia y Q de una pad ----------
+   R = R_Litz(longitud, sección, ρ(60 °C), F_ac) + R_ferrita/blindaje, esta
+   última como ωL/Q_ap (hipótesis declarada: Q_ap = 400). */
+const LONG_PAD=DOSPI*RAD.reduce((s,r)=>s+r,0);
+function resistenciaPad(f=BANDA.f0,L=L_PAD){
+  const Rcu=PAD.rhoCu*LONG_PAD/PAD.Acu*PAD.Fac, Rap=DOSPI*f*L/PAD.Qap; return {Rcu,Rap,R:Rcu+Rap};
+}
+
+/* ---------- 1.5 El circuito serie–serie ----------
+   Lazo primario  : V1 = Z1·I1 + jωM·I2        Z1 = R1 + j(ωL1 − 1/ωC1)
+   Lazo secundario: 0  = Z2·I2 + jωM·I1        Z2 = R2 + R_L + j(ωL2 − 1/ωC2)
+   ⇒ I2 = −jωM·I1/Z2 y Z_in = Z1 + ω²M²/Z2. Números complejos como [re, im]. */
+const cx={ mul:(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]], div:(a,b)=>{ const d=b[0]*b[0]+b[1]*b[1]; return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d]; },
+  abs:a=>Math.hypot(a[0],a[1]), arg:a=>Math.atan2(a[1],a[0]), cj:a=>[a[0],-a[1]] };
+
+/** El estado de la práctica y todo lo que se deriva de él (sin tocar el DOM).
+ *  s = { z (m, entre planos de bobina), d (m), trim (fracción de C2), eps (desviación oculta de L2),
+ *        RL (Ω), f (Hz), falla: null | 'fod' | 'c1' | 'freq' }                                                  */
+const FALLAS={ fod:{R:0.55}, c1:{k:0.82}, freq:{f:96000} };
+function banco(s){
+  const falla=s.falla||null;
+  const f=falla==='freq'?FALLAS.freq.f:(s.f||BANDA.f0), w=DOSPI*f, w0=DOSPI*BANDA.f0;
+  const L1=L_PAD, L2=L_PAD*(1+(s.eps||0));
+  // la compensación se calcula para las bobinas NOMINALES a 85 kHz; C2 lleva el ajuste fino del alumno
+  const C1=1/(w0*w0*L_PAD)*(falla==='c1'?FALLAS.c1.k:1), C2=1/(w0*w0*L_PAD)*(1+(s.trim||0));
+  const r=resistenciaPad(BANDA.f0,L_PAD), Rf=falla==='fod'?FALLAS.fod.R:0;
+  const R1=r.R+Rf, R2=r.R+Rf*0.6, M=s.M!==undefined?s.M:mutuaPad(s.z,s.d||0);
+  return {s,f,w,L1,L2,C1,C2,R1,R2,Rcu:r.Rcu,Rap:r.Rap,Rf,M,k:kAcople(M,L1,L2),RL:s.RL};
+}
+/** Respuesta con V1 = 1 V (eficaz, fase 0) a la frecuencia f del banco. */
+function respuesta(B,f=B.f){
+  const w=DOSPI*f, X1=w*B.L1-1/(w*B.C1), X2=w*B.L2-1/(w*B.C2), wM=w*B.M;
+  const Z1=[B.R1,X1], Z2=[B.R2+B.RL,X2];
+  const Zr=cx.div([wM*wM,0],Z2), Zin=[Z1[0]+Zr[0],Z1[1]+Zr[1]];
+  const I1=cx.div([1,0],Zin), I2=cx.div(cx.mul([0,-wM],I1),Z2);
+  const PL=cx.abs(I2)**2*B.RL, Pin=I1[0], P1=cx.abs(I1)**2*B.R1, P2=cx.abs(I2)**2*B.R2;
+  return {w,wM,Z1,Z2,Zin,I1,I2,PL,Pin,P1,P2,eta:Pin>0?PL/Pin:0,pf:Pin/Math.hypot(1,0)/cx.abs(I1)};
+}
+/** Punto de trabajo: la potencia de la práctica (11 kW) si los límites de corriente y de tensión lo permiten;
+ *  si no, la máxima que dejan pasar. Devuelve las fasores ESCALADAS a esa potencia (eficaces). */
+function operacion(B,Pobj=OPER.P){
+  const r=respuesta(B), s11=Math.sqrt(Pobj/r.PL);           // escala de V1 para llegar a Pobj
+  const sI1=OPER.I1max/cx.abs(r.I1), sI2=OPER.I2max/cx.abs(r.I2), sV=OPER.V1max;
+  const sMax=Math.min(sI1,sI2,sV), limita=sMax===sV?'V1':(sMax===sI1?'I1':'I2');
+  const Pmax=sMax*sMax*r.PL, s=Math.min(s11,sMax);
+  const I1=[r.I1[0]*s,r.I1[1]*s], I2=[r.I2[0]*s,r.I2[1]*s];
+  const P=s*s*r.PL, Pin=s*s*r.Pin;
+  return {r,s,V1:s,I1,I2,aI1:cx.abs(I1),aI2:cx.abs(I2),P,Pin,Pmax,limita,llega:Pmax>=Pobj*(1-1e-9),
+    eta:r.eta,pf:r.pf,S:s*cx.abs(I1),Qr:-s*s*r.I1[1],
+    P1:s*s*r.P1,P2:s*s*r.P2,Pf:B.Rf>0?s*s*(cx.abs(r.I1)**2*B.Rf+cx.abs(r.I2)**2*B.Rf*0.6):0,
+    fi1:cx.arg(I1),fi2:cx.arg(I2)};
+}
+/** Los criterios del pliego del reto, medidos en el punto de trabajo. */
+function pliego(B,op=operacion(B)){
+  return [
+    {id:'eta',ok:op.eta>=OPER.etaMin,v:op.eta},
+    {id:'P',ok:op.llega,v:op.Pmax},
+    {id:'I',ok:op.aI1<=OPER.I1max*(1+1e-9)&&op.aI2<=OPER.I2max*(1+1e-9),v:Math.max(op.aI1,op.aI2)},
+    {id:'V',ok:op.V1<=OPER.V1max*(1+1e-9),v:op.V1},
+    {id:'pf',ok:op.pf>=OPER.pfMin,v:op.pf},
+  ];
+}
+const cumple=(B)=>{ const op=operacion(B); return pliego(B,op).every(c=>c.ok); };
+
+/* ---------- 1.5b Los escenarios del reto ----------
+   Cada intento sortea una holgura (clase Z1–Z2 de J2954), la tensión del pack
+   (que fija la carga que ve la bobina: R_L = (8/π²)·V²/P) y una desviación
+   OCULTA de la inductancia de la bobina del vehículo (el piso metálico y la
+   ferrita la mueven): el alumno la descubre midiendo, no leyéndola. */
+const ESCENARIOS=[];
+for(const g of [0.12,0.14,0.16]) for(const Vpack of [350,400,450])
+  ESCENARIOS.push({g,Vpack,epsOpciones:[-0.12,-0.09,-0.06,0.06,0.09,0.12],d0Opciones:[0.18,0.21,0.24]});
+const cargaDePack=(Vpack,P=OPER.P)=>OPER.Rac*Vpack*Vpack/P;
+
+/** Tabla de M(d) a una holgura dada (para las curvas del dock sin integrar de nuevo en cada cuadro). */
+function tablaM(z,dMax=0.25,paso=0.005){
+  const n=Math.round(dMax/paso)+1, d=new Float64Array(n), M=new Float64Array(n);
+  for(let i=0;i<n;i++){ d[i]=i*paso; M[i]=mutuaPad(z,d[i]); } return {z,d,M,paso};
+}
+/** El enlace a lo largo de la tabla: η, potencia máxima que dejan pasar los límites y si cumple el pliego. */
+function curvaDesalineacion(s,T){
+  const out=[]; for(let i=0;i<T.d.length;i++){ const B=banco(Object.assign({},s,{d:T.d[i],M:T.M[i]})), op=operacion(B);
+    out.push({d:T.d[i],M:T.M[i],k:B.k,eta:op.eta,Pmax:op.Pmax,llega:op.llega,pf:op.pf,ok:pliego(B,op).every(c=>c.ok)}); }
+  return out;
+}
+
+/* ---------- 1.6 Formas cerradas de referencia ---------- */
+/** Rendimiento máximo (carga óptima) de un enlace serie–serie: η = k²Q1Q2 / (1 + √(1 + k²Q1Q2))². */
+const etaOptima=(k,Q1,Q2)=>{ const x=k*k*Q1*Q2; return x/((1+Math.sqrt(1+x))**2); };
+/** La carga que lo consigue: R_L,opt = R2·√(1 + k²Q1Q2). */
+const RLoptima=(k,Q1,Q2,R2)=>R2*Math.sqrt(1+k*k*Q1*Q2);
+/** Rendimiento de un enlace serie–serie sintonizado (resonancia exacta en los dos lazos) con carga RL. */
+const etaSintonizada=(wM,R1,R2,RL)=>wM*wM*RL/((R2+RL)*(R1*(R2+RL)+wM*wM));
+/** Acoplamiento crítico (el que da la máxima potencia exactamente a f0): k_c = 1/√(Q1·Q2c), con Q2c = ωL2/(R2+R_L). */
+const kCritico=(Q1,Q2c)=>1/Math.sqrt(Q1*Q2c);
+/** Acoplamiento a partir del cual la potencia a tensión constante se DIVIDE en dos picos: ωM > √((R1² + R2c²)/2),
+ *  con R2c = R2 + R_L (con R1 = R2c coincide con k_c). Aproximación de banda estrecha (Q ≫ 1). */
+const kDivision=(B)=>Math.sqrt((B.R1*B.R1+(B.R2+B.RL)*(B.R2+B.RL))/2)/(B.w*Math.sqrt(B.L1*B.L2));
+/** El mismo umbral, sin la aproximación de banda estrecha: bisección sobre el NÚMERO de picos de la potencia a V1 constante
+ *  al variar k (con las demás cosas del banco fijas). Devuelve Infinity si ni con k = 0,4 se divide. */
+function kDivisionExacta(B){
+  const dos=(k)=>picosFrecuencia(Object.assign({},B,{M:k*Math.sqrt(B.L1*B.L2)}),55000,125000,700).length>=2;
+  let lo=0.01, hi=0.4; if(!dos(hi)) return Infinity; if(dos(lo)) return lo;
+  for(let i=0;i<22;i++){ const m=(lo+hi)/2; if(dos(m)) hi=m; else lo=m; }
+  return (lo+hi)/2;
+}
+/** Barrido en frecuencia a V1 constante (1 V): potencia en la carga y rendimiento. */
+function barridoFrecuencia(B,f0,f1,n){
+  const out=[]; for(let i=0;i<n;i++){ const f=f0+(f1-f0)*i/(n-1), r=respuesta(B,f); out.push({f,PL:r.PL,eta:r.eta,pf:r.pf}); } return out;
+}
+/** Picos de la potencia en la carga (V1 constante): su posición se refina con la razón áurea. */
+function picosFrecuencia(B,f0=60000,f1=120000,n=1200){
+  const v=barridoFrecuencia(B,f0,f1,n), pk=[];
+  for(let i=1;i<n-1;i++) if(v[i].PL>v[i-1].PL&&v[i].PL>=v[i+1].PL){
+    let a=v[i-1].f,b=v[i+1].f; const g=(Math.sqrt(5)-1)/2;
+    for(let it=0;it<60;it++){ const c=b-g*(b-a), d=a+g*(b-a); if(respuesta(B,c).PL>respuesta(B,d).PL) b=d; else a=c; }
+    const fm=(a+b)/2; pk.push({f:fm,PL:respuesta(B,fm).PL}); }
+  return pk;
+}
+
+/* ---------- 1.7 El campo magnético de un lazo (Biot–Savart, integrales elípticas) ----------
+   En coordenadas cilíndricas (ρ, z) respecto del plano del lazo (radio a, corriente I):
+     Bz = μ0·I/(2π) · 1/√((a+ρ)²+z²) · [ K + (a²−ρ²−z²)/((a−ρ)²+z²) · E ]
+     Bρ = μ0·I/(2π) · z/(ρ·√((a+ρ)²+z²)) · [ −K + (a²+ρ²+z²)/((a−ρ)²+z²) · E ]
+   con m = 4aρ/((a+ρ)²+z²). Un radio de núcleo `rc` evita la singularidad sobre el hilo. */
+function campoLazo(a,rho,z,rc=0.0025){
+  const ar=Math.abs(rho), s2=(a+ar)*(a+ar)+z*z, d2=(a-ar)*(a-ar)+z*z+rc*rc, m=Math.min(4*a*ar/(s2+1e-30),1-1e-12);
+  const {K,E}=elipticas(m), c=MU0/(DOSPI), sq=Math.sqrt(s2);
+  const Bz=c/sq*(K+(a*a-ar*ar-z*z)/d2*E);
+  let Br; if(ar<1e-7*a) Br=0; else Br=c*z/(ar*sq)*(-K+(a*a+ar*ar+z*z)/d2*E);
+  return [rho<0?-Br:Br,Bz];                    // [B_ρ con el signo de ρ, B_z] por amperio·vuelta
+}
+/** El campo de TODA una pad (Σ espiras, 1 A) en el punto (x, y) del plano del corte, con la pad en (x0, y0). */
+function campoPad(x,y,x0,y0,rad=RAD){
+  let bx=0,by=0; for(const a of rad){ const b=campoLazo(a,x-x0,y-y0); bx+=b[0]; by+=b[1]; } return [bx,by];
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.86;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.localClippingEnabled=true;                 // el corte: un plano z = 0 para toda la exposición
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,abajo){
+  const c=cv(512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const r=x.createRadialGradient(256,190,20,256,250,380); r.addColorStop(0,'rgba(110,160,255,0.09)'); r.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=r; x.fillRect(0,0,512,512);
+  return tex(c,{srgb:true});
+}
+const scene=new THREE.Scene();
+scene.background=fondoDegradado('#111c30','#04070d');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.5;
+
+const camera=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,0.02,60);
+camera.position.set(0.30,0.34,1.55);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.07;
+controls.minDistance=0.25; controls.maxDistance=7; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(0,0.2,0);
+
+/* Luz de estudio: clave cálida alta con sombra suave, contra fría que recorta
+   los cantos, relleno bajo y frío, y una luz frontal sin sombra que entra por
+   el corte: sin ella el interior de las pads queda en la sombra de la de arriba. */
+const LUZ={};
+LUZ.clave=new THREE.DirectionalLight('#fff2e4',2.0); LUZ.clave.position.set(1.3,2.4,1.9); LUZ.clave.castShadow=true;
+LUZ.clave.shadow.mapSize.set(2048,2048); LUZ.clave.shadow.bias=-0.0004; LUZ.clave.shadow.normalBias=0.010;
+Object.assign(LUZ.clave.shadow.camera,{left:-1.15,right:1.15,top:0.95,bottom:-0.6,near:0.5,far:8});
+LUZ.clave.target.position.set(0,0.22,-0.05); scene.add(LUZ.clave,LUZ.clave.target);
+LUZ.contra=new THREE.SpotLight('#b9d3ff',2.8,10,Math.PI/4,0.6,1.4); LUZ.contra.position.set(-1.4,1.7,-1.8); LUZ.contra.target.position.set(0,0.25,0); scene.add(LUZ.contra,LUZ.contra.target);
+LUZ.relleno=new THREE.DirectionalLight('#a6c4e0',0.32); LUZ.relleno.position.set(-1.8,0.9,2.2); scene.add(LUZ.relleno);
+LUZ.frente=new THREE.DirectionalLight('#e8f1ff',0.42); LUZ.frente.position.set(0.25,0.55,2.5); LUZ.frente.target.position.set(0,0.3,-0.1); scene.add(LUZ.frente,LUZ.frente.target);
+LUZ.hemi=new THREE.HemisphereLight('#a9c1d6','#0d1114',0.18); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las espiras que conducen, los
+   símbolos de corriente y las líneas del campo. El umbral está por encima
+   del brillo de cualquier metal iluminado. En calidad media no hay
+   resplandor, y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.28,2.0); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   PBR con entorno. Nada de poro ni grano fino —se lee como lija sobre caras
+   grandes—: variaciones lentas de rugosidad (la piel de fundición de §21) y,
+   donde la pieza lo pide, su dibujo: la serigrafía de la placa. */
+const DOSPI_=Math.PI*2;
+function normalDeAltura(W,H,h,fuerza){
+  const c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H);
+  const A=(i,j)=>h((i+W)%W,(j+H)%H);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const dx=(A(i+1,j)-A(i-1,j))*fuerza, dy=(A(i,j+1)-A(i,j-1))*fuerza, L=Math.hypot(dx,dy,1), o=(j*W+i)*4;
+    im.data[o]=(-dx/L*0.5+0.5)*255; im.data[o+1]=(-dy/L*0.5+0.5)*255; im.data[o+2]=(1/L*0.5+0.5)*255; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return c;
+}
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+function pielLenta(semilla,{px=256,celdas=4,oct=3,rug0=0.45,rugA=0.08,relieve=0.5}={}){
+  const f=fbmP(semilla,celdas,oct), k=celdas/px;
+  const c=cv(px), x=c.getContext('2d'), im=x.createImageData(px,px);
+  for(let j=0;j<px;j++) for(let i=0;i<px;i++){ const v=clamp(rug0+(f(i*k,j*k)-0.5)*2*rugA,0,1)*255, o=(j*px+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  return {r:tex(c),n:tex(normalDeAltura(px,px,(i,j)=>f(i*k,j*k),relieve))};
+}
+const T_PINT=pielLenta(11,{celdas:5,rug0:0.5,rugA:0.05,relieve:0.3});
+const T_PLAS=pielLenta(37,{celdas:9,rug0:0.9,rugA:0.06,relieve:0.45});
+// la fundición de las carcasas: la piel lisa de §21 de la biblioteca
+const T_FUND=P3.pielFundicion({px:256,semilla:23,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(5,5);
+const T_FUND2=P3.pielFundicion({px:256,semilla:41,manchas:0.05,relieve:2.0,celda:16});
+for(const t of [T_FUND2.map,T_FUND2.roughnessMap,T_FUND2.normalMap]) t.repeat.set(7,7);
+
+/* EL CORTE. Toda la exposición se secciona por el plano z = 0 y se conserva la
+   mitad de atrás. Las caras de sección no son geometría: cada pieza es un
+   sólido cerrado y, donde el plano la abre, lo que se ve por el hueco son sus
+   caras de ATRÁS. Ésas se pintan como la cara de corte de un plano de taller:
+   el punto se lleva por el rayo de la cámara hasta el plano y allí se dibuja
+   el patrón de la pieza —rayado a ±45° en lo macizo, anillos en las bobinas de
+   película del condensador, hilos en el cobre de las ranuras— iluminado como
+   una cara plana que mira a +Z. El cobre de las ranuras conserva su brillo en
+   la sección: es la corriente que lo recorre. */
+const PLANO=new THREE.Plane(new THREE.Vector3(0,0,-1),0);
+const PASO_G={value:0.0028};
+const LUCES_CORTE=THREE.ShaderChunk.lights_fragment_begin.replaceAll('receiveShadow','(receiveShadow&&gl_FrontFacing)');
+function corte(m,o={}){
+  m.side=THREE.DoubleSide; m.clippingPlanes=[PLANO]; m.clipShadows=true;
+  const pat=o.patron==='anillos'?1:(o.patron==='hilos'?2:0);
+  const U={cFondo:{value:new THREE.Color(o.fondo||'#8a9096')},cLinea:{value:new THREE.Color(o.linea||'#5d636a')},
+    cSent:{value:o.sentido||1},cPaso:{value:o.paso||1},cPasoG:PASO_G,cRay:{value:o.rayado===false?0:1},cRug:{value:o.rug??0.64},
+    cPat:{value:pat},cCentro:{value:new THREE.Vector2(...(o.centro||[0,0]))},cBrillo:{value:o.brillo?1:0}};
+  m.userData.cap=U;
+  m.onBeforeCompile=(sh)=>{
+    Object.assign(sh.uniforms,U);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;')
+      .replace('#include <fog_vertex>','#include <fog_vertex>\n{ vec4 wc=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\n wc=instanceMatrix*wc;\n#endif\n vMundoC=(modelMatrix*wc).xyz; }');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;\nfloat cLnG=0.0;\nuniform vec3 cFondo; uniform vec3 cLinea; uniform float cSent; uniform float cPaso; uniform float cPasoG; uniform float cRay; uniform float cRug; uniform float cPat; uniform vec2 cCentro; uniform float cBrillo;')
+      .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+      if(!gl_FrontFacing){
+        vec3 dC=vMundoC-cameraPosition;
+        float tC=clamp(-cameraPosition.z/(dC.z<-1e-5?dC.z:-1e-5),0.0,1.0);
+        vec3 pC=cameraPosition+dC*tC;
+        if(cRay>0.5){
+          float ln=0.0;
+          if(cPat<0.5){
+            float uu=(pC.x*cSent+pC.y)*0.70710678/(cPaso*cPasoG);
+            float fw=clamp(fwidth(uu),0.0,0.5);
+            float dl=0.5-abs(fract(uu)-0.5);
+            ln=(1.0-smoothstep(0.12-fw,0.12+fw,dl))*(1.0-smoothstep(0.25,0.5,fw));
+          } else if(cPat<1.5){
+            float uu=length(pC.xy-cCentro)/(cPaso*0.0011);
+            float fw=clamp(fwidth(uu),0.0,0.5);
+            float dl=0.5-abs(fract(uu)-0.5);
+            ln=(1.0-smoothstep(0.16-fw,0.16+fw,dl))*(1.0-smoothstep(0.25,0.5,fw));
+          } else {
+            vec2 q=pC.xy/(cPaso*0.0016); q.y*=1.1547; q.x+=0.5*mod(floor(q.y),2.0);
+            vec2 f=fract(q)-0.5; f.y/=1.1547; float r=length(f);
+            float fw=clamp(fwidth(r)*1.5,0.0,0.5);
+            ln=smoothstep(0.38-fw,0.38+fw,r)*(1.0-smoothstep(0.18,0.35,fw));
+          }
+          diffuseColor.rgb=mix(cFondo,cLinea,ln*0.9);
+          metalnessFactor=0.12; cLnG=ln;
+        }
+        roughnessFactor=cRug;
+        normal=normalize((viewMatrix*vec4(0.0,0.0,1.0,0.0)).xyz);
+      }`)
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\nif(!gl_FrontFacing) totalEmissiveRadiance*=cBrillo*(1.0-0.8*cLnG);')
+      .replace('#include <lights_physical_fragment>','#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nif(!gl_FrontFacing) material.clearcoat=0.0;\n#endif\n#ifdef USE_SHEEN\nif(!gl_FrontFacing) material.sheenColor=vec3(0.0);\n#endif')
+      .replace('#include <lights_fragment_begin>',LUCES_CORTE);
+  };
+  m.customProgramCacheKey=()=>'corte'+pat+(o.brillo?'b':'');
+  return m;
+}
+/* Cada pieza corta con su tono y piezas vecinas con el rayado en sentidos
+   opuestos, como manda el dibujo técnico: así se distinguen sin rótulos. */
+const CAP={
+  hormigon:{fondo:'#5d636b',linea:'#4a4f57',sentido:1,paso:1.6},
+  carcasa:{fondo:'#848c93',linea:'#697077',sentido:1},
+  plasticoPad:{fondo:'#4a5059',linea:'#3a3f47',sentido:-1,paso:0.6},
+  alu:{fondo:'#a2a9b0',linea:'#868d94',sentido:-1,paso:0.6},
+  ferrita:{fondo:'#3c4048',linea:'#272a30',sentido:1,paso:0.5},
+  litz:{fondo:'#b86f3a',linea:'#4a2410',patron:'hilos',paso:0.7,brillo:true},
+  cobre:{fondo:'#c08350',linea:'#a36a3c',sentido:1,paso:0.5},
+  acero:{fondo:'#79828c',linea:'#5d656e',sentido:1},
+  chapa:{fondo:'#46505a',linea:'#2e353c',sentido:-1,paso:0.8},
+  bateria:{fondo:'#2b3139',linea:'#1d2228',sentido:1,paso:0.7},
+  modulo:{fondo:'#244a63',linea:'#183548',sentido:-1,paso:0.5,brillo:true},
+  naranja:{fondo:'#e0702a',linea:'#b85418',sentido:-1,paso:0.6},
+  moneda:{fondo:'#c9ced4',linea:'#9fa5ac',sentido:1,paso:0.3,brillo:true},
+};
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const V2=k=>new THREE.Vector2(k,k);
+
+const M={
+  hormigon: corte(pbr({color:'#6a7078',metalness:0.0,roughness:0.78,roughnessMap:T_PINT.r,normalMap:T_PINT.n,normalScale:V2(0.35)}),CAP.hormigon),
+  plasticoPad: corte(fis({color:'#454b54',metalness:0.1,roughness:0.46,roughnessMap:T_PLAS.r,normalMap:T_PLAS.n,normalScale:V2(0.2),clearcoat:0.35,clearcoatRoughness:0.35}),CAP.plasticoPad),
+  alu: corte(pbr({color:'#c5ccd3',metalness:0.85,roughness:0.36}),CAP.alu),
+  ferrita: corte(fis({color:'#2d3138',metalness:0.18,roughness:0.42,clearcoat:0.25,clearcoatRoughness:0.5}),CAP.ferrita),
+  acero: corte(pbr({color:'#aab0b7',metalness:0.92,roughness:0.3}),CAP.acero),
+  carcasa: corte(fis({color:'#8f979f',metalness:0.7,roughness:0.52,map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:V2(0.22),clearcoat:0.15,clearcoatRoughness:0.5}),CAP.carcasa),
+  chapa: corte(pbr({color:'#6b7682',metalness:0.78,roughness:0.42,roughnessMap:T_PINT.r}),CAP.chapa),
+  bateria: corte(fis({color:'#2a2f37',metalness:0.55,roughness:0.5,map:T_FUND2.map,roughnessMap:T_FUND2.roughnessMap,normalMap:T_FUND2.normalMap,normalScale:V2(0.2),clearcoat:0.2}),CAP.bateria),
+  naranja: corte(fis({color:'#ef6f1a',metalness:0,roughness:0.42,clearcoat:0.35,clearcoatRoughness:0.4,roughnessMap:T_PLAS.r}),CAP.naranja),
+  goma: corte(pbr({color:'#16181a',metalness:0,roughness:0.75}),CAP.chapa),
+};
+// las que cambian de brillo con el modelo: cada una su material
+M.litzA=corte(pbr({color:'#b8703c',metalness:1,roughness:0.34,emissive:'#000000'}),CAP.litz);       // espiras del suelo
+M.litzB=corte(pbr({color:'#b8703c',metalness:1,roughness:0.34,emissive:'#000000'}),CAP.litz);       // espiras del coche
+M.modulos=corte(pbr({color:'#27506b',metalness:0.35,roughness:0.45,emissive:'#000000'}),CAP.modulo);  // celdas de la batería
+M.moneda=corte(pbr({color:'#cfd4da',metalness:1,roughness:0.3,emissive:'#000000'}),CAP.moneda);
+const M_BANCO_ENTERO=pbr({color:'#151b20',metalness:0.05,roughness:0.95,envMapIntensity:0.35});
+
+/* ===================== 5. GEOMETRÍA =====================
+   `torno` revoluciona un perfil cerrado (a, r) alrededor del eje X con
+   normales ANALÍTICAS: ninguna sale nula y las aristas vivas no se
+   redondean. `prisma` extruye a lo largo de Z un contorno con sus huecos, con
+   normales suaves en las curvas y vivas en las esquinas: así se hacen las
+   chapas del estátor y del rotor, que el corte enseña de frente. */
+const DOSPI3=Math.PI*2;
+function preparaPerfil(perfil){
+  let P=[];
+  for(const p of perfil){ const q=[p[0],Math.max(0,p[1])], u=P[P.length-1]; if(!u||Math.hypot(u[0]-q[0],u[1]-q[1])>1e-9) P.push(q); }
+  while(P.length>2&&Math.hypot(P[0][0]-P[P.length-1][0],P[0][1]-P[P.length-1][1])<1e-9) P.pop();
+  let A=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; A+=p[0]*q[1]-q[0]*p[1]; }
+  if(A<0) P.reverse();
+  return P;
+}
+function orienta(pos,nor,idx,i0){
+  let S=0;
+  for(let k=i0;k<idx.length;k+=3){ const a=idx[k]*3,b=idx[k+1]*3,c=idx[k+2]*3;
+    const ux=pos[b]-pos[a],uy=pos[b+1]-pos[a+1],uz=pos[b+2]-pos[a+2], vx=pos[c]-pos[a],vy=pos[c+1]-pos[a+1],vz=pos[c+2]-pos[a+2];
+    S+=(uy*vz-uz*vy)*(nor[a]+nor[b]+nor[c])+(uz*vx-ux*vz)*(nor[a+1]+nor[b+1]+nor[c+1])+(ux*vy-uy*vx)*(nor[a+2]+nor[b+2]+nor[c+2]); }
+  if(S<0) for(let k=i0;k<idx.length;k+=3){ const t=idx[k+1]; idx[k+1]=idx[k+2]; idx[k+2]=t; }
+}
+function geoDe(pos,nor,uv,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeBoundingSphere(); return g;
+}
+function torno(perfil,o={}){
+  const {seg=64,phi0=0,phi1=DOSPI3,canto=30,uRep=1,vEsc=1,tapas=true}=o;
+  const P=preparaPerfil(perfil), n=P.length, EN=[], L=[];
+  for(let i=0;i<n;i++){ const p=P[i],q=P[(i+1)%n], da=q[0]-p[0], dr=q[1]-p[1], l=Math.hypot(da,dr)||1e-12; EN.push([dr/l,-da/l]); L.push(l); }
+  const cc=Math.cos(canto*Math.PI/180), med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+  const pos=[],nor=[],uv=[],idx=[]; let s=0;
+  for(let i=0;i<n;i++){
+    const p=P[i],q=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+    if(p[1]<1e-9&&q[1]<1e-9){ s+=L[i]; continue; }
+    const n0=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, n1=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+    const o0=pos.length/3;
+    for(let j=0;j<=seg;j++){
+      const f=phi0+(phi1-phi0)*j/seg, c=Math.cos(f), sn=Math.sin(f), u=(f-phi0)/DOSPI3*uRep;
+      pos.push(p[0],p[1]*c,-p[1]*sn, q[0],q[1]*c,-q[1]*sn);
+      nor.push(n0[0],n0[1]*c,-n0[1]*sn, n1[0],n1[1]*c,-n1[1]*sn);
+      uv.push(u,s*vEsc, u,(s+L[i])*vEsc);
+    }
+    for(let j=0;j<seg;j++){ const a=o0+2*j; idx.push(a,a+1,a+3, a,a+3,a+2); }
+    s+=L[i];
+  }
+  orienta(pos,nor,idx,0);
+  if(Math.abs(phi1-phi0)<DOSPI3-1e-6&&tapas){
+    const tri=THREE.ShapeUtils.triangulateShape(P.map(([a,r])=>new THREE.Vector2(a,r)),[]);
+    for(const [f,sg] of [[phi0,-1],[phi1,1]]){
+      const c=Math.cos(f), sn=Math.sin(f), o0=pos.length/3, i0=idx.length;
+      for(const [a,r] of P){ pos.push(a,r*c,-r*sn); nor.push(0,-sn*sg,-c*sg); uv.push(a*8,r*8); }
+      for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+      orienta(pos,nor,idx,i0);
+    }
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+const tornoY=(perfil,o)=>torno(perfil,o).rotateZ(Math.PI/2);     // eje +Y (a → y)
+const tornoZ=(perfil,o)=>torno(perfil,o).rotateY(-Math.PI/2);    // eje +Z (a → z)
+function areaDe(P){ let a=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; a+=p[0]*q[1]-q[0]*p[1]; } return a/2; }
+/** Prisma a lo largo de Z: lazos[0] es el contorno exterior y el resto son
+ *  huecos. Paredes con normales hacia fuera del sólido, suaves si el giro
+ *  entre dos lados es menor que `canto`, y las dos tapas. */
+function prisma(lazos,z0,z1,o={}){
+  const {canto=28,uEsc=1}=o, cc=Math.cos(canto*Math.PI/180);
+  const L=lazos.map((l,i)=>{ const p=l.slice(); const a=areaDe(p); if((i===0&&a<0)||(i>0&&a>0)) p.reverse(); return p; });
+  const pos=[],nor=[],uv=[],idx=[];
+  for(const P of L){
+    const n=P.length, EN=[];
+    for(let i=0;i<n;i++){ const a=P[i],b=P[(i+1)%n], tx=b[0]-a[0], ty=b[1]-a[1], l=Math.hypot(tx,ty)||1e-12; EN.push([ty/l,-tx/l,l]); }
+    const med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+    let s=0;
+    for(let i=0;i<n;i++){
+      const a=P[i],b=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+      if(e[2]<1e-10) continue;
+      const na=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, nb=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+      const o0=pos.length/3;
+      pos.push(a[0],a[1],z1, b[0],b[1],z1, b[0],b[1],z0, a[0],a[1],z0);
+      nor.push(na[0],na[1],0, nb[0],nb[1],0, nb[0],nb[1],0, na[0],na[1],0);
+      uv.push(s*uEsc,z1*uEsc, (s+e[2])*uEsc,z1*uEsc, (s+e[2])*uEsc,z0*uEsc, s*uEsc,z0*uEsc); s+=e[2];
+      idx.push(o0,o0+2,o0+1, o0,o0+3,o0+2);
+    }
+  }
+  const c=L[0].map(([x,y])=>new THREE.Vector2(x,y)), H=L.slice(1).map(h=>h.map(([x,y])=>new THREE.Vector2(x,y)));
+  const tri=THREE.ShapeUtils.triangulateShape(c,H), todos=c.concat(...H);
+  for(const [z,nz] of [[z1,1],[z0,-1]]){
+    const o0=pos.length/3, i0=idx.length;
+    for(const p of todos){ pos.push(p.x,p.y,z); nor.push(0,0,nz); uv.push(p.x*uEsc,p.y*uEsc); }
+    for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+    orienta(pos,nor,idx,i0);
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+/** Un rectángulo de esquinas redondeadas como contorno [x,y]. */
+function rectR(x0,y0,x1,y1,r,seg=5){ return P3.contornoRedondeado([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],r,seg); }
+/** Un sólido «hueco»: la misma malla con las normales y el sentido al revés.
+ *  Metido dentro de otro sólido es una CAVIDAD: por el corte se ve su pared. */
+function invierte(g){
+  const n=g.attributes.normal; for(let i=0;i<n.count;i++) n.setXYZ(i,-n.getX(i),-n.getY(i),-n.getZ(i));
+  if(g.index){ const ix=g.index; for(let i=0;i<ix.count;i+=3){ const t=ix.getX(i+1); ix.setX(i+1,ix.getX(i+2)); ix.setX(i+2,t); } }
+  else { for(const k of Object.keys(g.attributes)){ const a=g.attributes[k], s=a.itemSize;
+    for(let i=0;i<a.count;i+=3) for(let c=0;c<s;c++){ const t=a.array[(i+1)*s+c]; a.array[(i+1)*s+c]=a.array[(i+2)*s+c]; a.array[(i+2)*s+c]=t; } } }
+  return g;
+}
+function cil(r,h,eje='y',seg=32,r2){ const g=new THREE.CylinderGeometry(r2??r,r,h,seg,1,false); if(eje==='x') g.rotateZ(-Math.PI/2); else if(eje==='z') g.rotateX(Math.PI/2); return g; }
+const en=(g,x,y,z)=>{ g.translate(x,y,z); return g; };
+/** Caja por sus esquinas, con un redondeo de canto opcional. */
+function cajaE(x0,y0,z0,x1,y1,z1,r){ const w=x1-x0,h=y1-y0,d=z1-z0; const g=r?new RoundedBoxGeometry(w,h,d,2,Math.min(r,w/2.01,h/2.01,d/2.01)):new THREE.BoxGeometry(w,h,d); g.translate((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); return g; }
+const PIEZAS=[];          // lo que se puede señalar con el ratón
+function pieza(g,m,padre,k,{sombra=true,recibe=true}={}){
+  const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; if(k) o.userData.pieza=k; padre.add(o); return o;
+}
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+
+/* ===================== 6. EL BANCO DE CARGA =====================
+   Medidas en metros, eje Y hacia arriba. Todo se corta por el plano z = 0:
+   el corte enseña la sección de las dos pads de frente. La pad del suelo (GA)
+   está fija; el coche —con la pad del vehículo (VA) bajo su piso— se mueve
+   en X (desalineación) y en Y (holgura). Una pad mide 620 mm de lado y 40 mm
+   de alto; sus 18 espiras de Litz van de r = 80 a 250 mm, a 14 mm de la cara
+   exterior de la cubierta: por eso la distancia entre planos de bobina es
+   holgura + 28 mm (ZPAD, en el bloque de física). */
+const H_PAD=0.040, YC=0.026, SEMI=0.31;              // altura de la pad · plano de la bobina (desde la base) · medio lado
+const R_HILO=PAD.aHilo;
+const EXPO=new THREE.Group(); scene.add(EXPO);
+const VEH=new THREE.Group(); EXPO.add(VEH);           // el coche: se mueve con la desalineación y la holgura
+const BANCO=new THREE.Group(); scene.add(BANCO);
+const fus=a=>P3.fusiona(a.filter(Boolean));
+const circ=(cx,cy,r,n=32)=>P3.circulo(cx,cy,r,n);
+/** Prisma a lo largo de Y: el contorno se da en (x, z). */
+function prismaY(lazos,y0,y1,o){ return prisma(lazos.map(l=>l.map(([x,z])=>[x,-z])),y0,y1,o).rotateX(-Math.PI/2); }
+
+/* ---------- 6.1 Una pad ----------
+   Cubierta de polímero (placa inferior, paredes, placa superior), blindaje de
+   aluminio, ocho barras de ferrita con su cubo, soporte de las espiras y las
+   18 espiras de Litz. Se construye con la cubierta hacia abajo; la del
+   vehículo es la misma, espejada en Y. */
+function creaPad(matLitz,nombre){
+  const G=new THREE.Group(); G.name=nombre;
+  const ext=rectR(-SEMI,-SEMI,SEMI,SEMI,0.045,6), int=rectR(-SEMI+0.004,-SEMI+0.004,SEMI-0.004,SEMI-0.004,0.041,6);
+  pieza(fus([prismaY([ext],0,0.004,{canto:35}),prismaY([ext],0.036,0.040,{canto:35}),prismaY([ext,int],0.004,0.036,{canto:35})]),M.plasticoPad,G,'cubierta');
+  pieza(en(cil(0.292,0.003,'y',120),0,0.0060,0),M.alu,G,'blindaje');
+  // ferrita: ocho barras radiales y un cubo central (la sección corta dos de ellas a lo largo)
+  const barras=[]; for(let i=0;i<8;i++){ const g=new RoundedBoxGeometry(0.235,0.011,0.050,2,0.0024); g.translate(0.158,0.0140,0); g.rotateY(i*Math.PI/4); barras.push(g); }
+  barras.push(en(cil(0.052,0.011,'y',48),0,0.0140,0));
+  pieza(fus(barras),M.ferrita,G,'ferrita');
+  // soporte de las espiras: un anillo fino de polímero
+  pieza(prismaY([circ(0,0,0.262,120),circ(0,0,0.074,96)],0.0208,0.0232,{canto:40}),M.plasticoPad,G,'soporte');
+  // las espiras: 18 toros de Litz (radio de hilo 2,8 mm), cada uno su radio
+  const tor=RAD.map(r=>{ const g=new THREE.TorusGeometry(r,R_HILO,14,120); g.rotateX(Math.PI/2); g.translate(0,YC,0); return g; });
+  pieza(fus(tor),matLitz,G,'espiras');
+  return G;
+}
+const GA=creaPad(M.litzA,'GA'); EXPO.add(GA);
+const VA=creaPad(M.litzB,'VA'); VA.scale.y=-1; VA.position.y=H_PAD; VEH.add(VA);       // espejada: su cubierta queda abajo, hacia el suelo
+
+/* ---------- 6.2 El suelo ---------- */
+const suelo=new THREE.Group(); EXPO.add(suelo);
+pieza(cajaE(-1.9,-0.140,-1.6,1.9,0,0.05,0.006),M.hormigon,suelo,'losa');
+// cable de alta tensión del cargador (naranja por norma) que sale de la pad por el lado izquierdo
+const cableGA=new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(-0.31,0.012,-0.02),V3(-0.45,0.012,-0.02),V3(-0.62,0.004,-0.05),V3(-1.4,0.004,-0.12)]),40,0.011,12,false);
+pieza(cableGA,M.naranja,suelo,'cable',{sombra:false});
+const piso=new THREE.Mesh(new THREE.CircleGeometry(7,64),M_BANCO_ENTERO); piso.rotation.x=-Math.PI/2; piso.position.y=-0.141; piso.receiveShadow=true; BANCO.add(piso);
+
+/* ---------- 6.3 El coche: piso, anclajes, batería y largueros ---------- */
+const COCHE=new THREE.Group(); VEH.add(COCHE);
+const Y_PISO=H_PAD+0.012;                                  // cara inferior del piso, sobre la pad
+pieza(cajaE(-1.12,Y_PISO,-1.4,1.12,Y_PISO+0.003,0.05,0.001),M.chapa,COCHE,'piso');
+for(const sx of [-1,1]){
+  pieza(en(cil(0.013,0.012,'y',20),sx*0.24,H_PAD+0.006,-0.04),M.acero,COCHE,'anclaje');       // los soportes que sujetan la VA al piso
+  pieza(cajaE(sx*0.44-0.022,Y_PISO-0.040,-1.4,sx*0.44+0.022,Y_PISO,0.05,0.003),M.chapa,COCHE,'larguero');   // largueros bajo el piso
+  pieza(cajaE(sx*1.00-0.06,Y_PISO-0.012,-1.4,sx*1.00+0.06,Y_PISO+0.20,0.05,0.012),M.carcasa,COCHE,'umbral');   // umbrales laterales
+}
+// la batería de tracción, en corte: cubierta, placa fría y seis módulos
+const YB0=Y_PISO+0.004, YB1=YB0+0.150, XB=0.60;
+pieza(prisma([rectR(-XB,YB0,XB,YB1,0.018,5),rectR(-XB+0.006,YB0+0.006,XB-0.006,YB1-0.006,0.013,5)],-1.2,0.05,{canto:30}),M.bateria,COCHE,'bateria');
+const mods=[]; for(let i=0;i<6;i++){ const x0=-XB+0.020+i*0.1920; mods.push(cajaE(x0,YB0+0.022,-1.15,x0+0.170,YB1-0.030,0.05,0.006)); }
+const modulos=pieza(fus(mods),M.modulos,COCHE,'modulos');
+pieza(cajaE(-XB+0.010,YB0+0.007,-1.2,XB-0.010,YB0+0.014,0.05,0.002),M.alu,COCHE,'placaFria');
+
+/* ---------- 6.4 El objeto extraño (sólo en la falla del diagnóstico) ----------
+   Una lámina de aluminio de 11 × 11 cm olvidada sobre la pad: el campo
+   alterno le induce corrientes de Foucault y se calienta. */
+const OBJETO=pieza(cajaE(0.050,H_PAD,-0.150,0.160,H_PAD+0.0018,-0.040,0.0006),M.moneda,EXPO,'objeto',{sombra:true});
+OBJETO.visible=false;
+
+/* ---------- 6.5 Símbolos ⊙ / ⊗ de la corriente en cada espira ----------
+   Un plano diminuto sobre la cara de corte de cada espira (x = ±r). Corriente
+   positiva = sentido antihorario visto desde arriba: sale hacia el lector por
+   la izquierda (⊙) y entra por la derecha (⊗). El color dice el sentido y el
+   brillo, cuánta corriente lleva AHORA (el mismo reloj que el dock). */
+const MARCAS=[];
+function creaMarcas(padre,yLocal,flip){
+  const n=RAD.length*2, geo=new THREE.PlaneGeometry(1,1), side=new Float32Array(n), esc=new Float32Array(n);
+  const inst=new THREE.InstancedMesh(geo,null,n); inst.frustumCulled=false;
+  const m4=new THREE.Matrix4();
+  for(let i=0;i<RAD.length;i++) for(let s=0;s<2;s++){ const k=i*2+s, sg=s?1:-1; side[k]=sg; esc[k]=0.0082;
+    m4.compose(V3(sg*RAD[i],yLocal,0.0016),new THREE.Quaternion(),V3(0.0082,0.0082,1)); inst.setMatrixAt(k,m4); }
+  geo.setAttribute('aSide',new THREE.InstancedBufferAttribute(side,1));
+  const mat=new THREE.ShaderMaterial({
+    uniforms:{uI:{value:0},uMax:{value:1}},
+    vertexShader:`attribute float aSide; varying vec2 vUv; varying float vSide; void main(){ vUv=uv; vSide=aSide; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform float uI; uniform float uMax; varying vec2 vUv; varying float vSide;
+      void main(){ vec2 p=(vUv-0.5)*2.0; float r=length(p);
+        float out_=-uI*vSide;                       // >0: sale hacia el lector (⊙)
+        float a=abs(uI)/uMax;
+        float anillo=smoothstep(1.0,0.86,r)*smoothstep(0.62,0.76,r);
+        float punto=smoothstep(0.34,0.24,r);
+        float cruz=smoothstep(0.17,0.09,min(abs(p.x-p.y),abs(p.x+p.y))*0.7071)*smoothstep(0.80,0.62,r);
+        float f=anillo+(out_>0.0?punto:cruz);
+        vec3 c=out_>0.0?vec3(1.0,0.55,0.18):vec3(0.25,0.85,1.0);
+        float al=clamp(f,0.0,1.0)*clamp(0.12+1.6*a,0.0,1.0); if(al<0.01) discard;
+        gl_FragColor=vec4(c*(1.0+1.6*a),al); }`,
+    transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+  inst.material=mat; inst.renderOrder=5; inst.raycast=()=>{}; padre.add(inst); MARCAS.push(mat);
+  return mat;
+}
+const MARC_GA=creaMarcas(EXPO,YC,false);
+const MARC_VA=creaMarcas(VEH,H_PAD-YC,true);                // la bobina del vehículo, a 14 mm de su cara inferior
+
+/* Zonas macizas, en el marco del mundo: sirven para cortar las líneas de campo donde entran en una pieza. */
+const GEO={g:0.16,x:0.18};                                    // holgura y desalineación actuales (las mueve el modelo)
+const yB=()=>H_PAD+GEO.g;                                     // cara inferior de la pad del vehículo
+function enSolido(x,y){
+  if(y<0) return true;
+  if(Math.abs(x)<SEMI&&y<H_PAD) return true;
+  const xv=x-GEO.x, yb=yB();
+  if(Math.abs(xv)<SEMI&&y>yb&&y<yb+H_PAD) return true;
+  if(y>yb+H_PAD&&Math.abs(xv)<1.12) return true;
+  return false;
+}
+
+
+/* ===================== 7. EL ESTADO Y EL MODELO =====================
+   Un solo estado (EST): lo que el alumno mueve. De él sale, una vez por
+   cambio, el modelo completo (inductancia mutua, circuito, pliego, curvas).
+   Y de ese modelo salen —en cada cuadro, con el MISMO reloj— las corrientes
+   instantáneas que encienden las espiras, los símbolos ⊙/⊗, el campo y las
+   gráficas del dock. */
+const RL_400=cargaDePack(400);
+const EST={modo:'marcha',x:0.12,g:0.14,trim:0,RL:RL_400,f:BANDA.f0,eps:0,falla:null,esc:1e-5,escMano:false,pausa:REDUCIDO,autoRunning:false,corte:true};
+const SIMU={t:0.00031,B:null,op:null,pl:null,s:null,curvaD:null,fr:null,picos:null,clave:'',tablas:new Map(),tCalc:0,tPesado:0,pendiente:false,Tobj:25,fase:0,i1:0,i2:0,v1:0,Q1:0,Q2:0,kd:1};
+
+function claveEst(){ return [EST.x.toFixed(5),EST.g.toFixed(5),EST.trim.toFixed(4),EST.RL.toFixed(3),EST.f,EST.eps,EST.falla].join('|'); }
+/** Recalcula el modelo si algo cambió. Lo barato (M, circuito, pliego) siempre; lo caro (la tabla de M(d) a la holgura
+ *  nueva y los barridos del dock) como mucho cada 140 ms, para que arrastrar un mando no atasque el cuadro. */
+function recalcula(forzar){
+  const k=claveEst(); const cambio=k!==SIMU.clave;
+  if(cambio){
+    SIMU.clave=k; const t0=performance.now();
+    const z=EST.g+ZPAD, d=Math.abs(EST.x);
+    SIMU.s={z,d,trim:EST.trim,eps:EST.eps,RL:EST.RL,f:EST.f,falla:EST.falla};
+    const B=banco(SIMU.s), op=operacion(B);
+    SIMU.B=B; SIMU.op=op; SIMU.pl=pliego(B,op); SIMU.Q1=B.w*B.L1/B.R1; SIMU.Q2=B.w*B.L2/B.R2;
+    SIMU.pendiente=true; SIMU.tCalc=performance.now()-t0;
+  }
+  if(SIMU.pendiente&&(forzar||!SIMU.curvaD||performance.now()-SIMU.tPesado>140)){
+    const t0=performance.now(); SIMU.pendiente=false; SIMU.tPesado=performance.now();
+    const s=SIMU.s, B=SIMU.B, op=SIMU.op, kz=s.z.toFixed(4); let T=SIMU.tablas.get(kz);
+    if(!T){ T=tablaM(s.z); SIMU.tablas.set(kz,T); if(SIMU.tablas.size>10) SIMU.tablas.delete(SIMU.tablas.keys().next().value); }
+    SIMU.curvaD=curvaDesalineacion(s,T);
+    // respuesta en frecuencia a V1 constante (la del punto de trabajo): potencia en la carga y rendimiento
+    const barrido=barridoFrecuencia(B,66000,106000,161), V2=op.V1*op.V1;
+    SIMU.fr=barrido.map(p=>({f:p.f,P:p.PL*V2,eta:p.eta,pf:p.pf}));
+    SIMU.picos=picosFrecuencia(B).map(p=>({f:p.f,P:p.PL*V2})); SIMU.kd=kDivisionExacta(B);
+    SIMU.tCalc+=performance.now()-t0;
+  }
+  return cambio;
+}
+
+/* Las corrientes de ESTE instante: la tensión del inversor es la referencia (fase 0). */
+function instante(){
+  const op=SIMU.op; if(!op){ SIMU.i1=SIMU.i2=SIMU.v1=0; return; }
+  const th=DOSPI*SIMU.B.f*SIMU.t; SIMU.fase=th;
+  SIMU.i1=RAIZ2*op.aI1*Math.cos(th+op.fi1); SIMU.i2=RAIZ2*op.aI2*Math.cos(th+op.fi2); SIMU.v1=RAIZ2*op.V1*Math.cos(th);
+}
+
+/* ===================== 8. EL CAMPO MAGNÉTICO =====================
+   Cada pad es una suma de 18 lazos: su campo (Bx, By por amperio) se calcula
+   UNA vez con las integrales elípticas del bloque de física en una malla local
+   (la pad es simétrica de revolución: basta el semiplano x ≥ 0). El campo del
+   instante es B = i1(t)·B_pad(r − r_GA) + i2(t)·B_pad(r − r_VA): la
+   superposición de las dos pads con sus corrientes de ESTE instante. */
+const BG={dx:0.01,nx:151,y0:-0.30,dy:0.005,ny:171,BX:null,BY:null};
+(function(){
+  const {nx,ny,dx,dy,y0}=BG, BX=new Float32Array(nx*ny), BY=new Float32Array(nx*ny);
+  for(let i=0;i<nx;i++) for(let j=0;j<ny;j++){ const b=campoPad(i*dx,y0+j*dy,0,0); BX[i*ny+j]=b[0]; BY[i*ny+j]=b[1]; }
+  BG.BX=BX; BG.BY=BY;
+})();
+/** Campo de UNA pad (por amperio) en el punto local (xl, yl) respecto de su eje y del plano de su bobina. */
+function campoBase(xl,yl,out){
+  let sx=1; if(xl<0){ xl=-xl; sx=-1; }
+  const fx=xl/BG.dx, fy=(yl-BG.y0)/BG.dy;
+  if(fx>=BG.nx-1||fy<0||fy>=BG.ny-1){ out[0]=0; out[1]=0; return; }
+  const i=fx|0, j=fy|0, u=fx-i, v=fy-j, n=BG.ny, a=i*n+j, b=a+n, BX=BG.BX, BY=BG.BY;
+  const w00=(1-u)*(1-v), w10=u*(1-v), w01=(1-u)*v, w11=u*v;
+  out[0]=sx*(BX[a]*w00+BX[b]*w10+BX[a+1]*w01+BX[b+1]*w11);
+  out[1]=BY[a]*w00+BY[b]*w10+BY[a+1]*w01+BY[b+1]*w11;
+}
+const _t1=[0,0], _t2=[0,0];
+const CAMPO={a1:0,a2:0,xv:0,yc2:0,ref:1};
+function Bmundo(x,y,out){
+  campoBase(x,y-YC,_t1); campoBase(x-CAMPO.xv,y-CAMPO.yc2,_t2);
+  out[0]=CAMPO.a1*_t1[0]+CAMPO.a2*_t2[0]; out[1]=CAMPO.a1*_t1[1]+CAMPO.a2*_t2[1];
+}
+const _b=[0,0];
+/** Un paso RK4 sobre la dirección del campo (normalizada), sentido ±1. Devuelve false si el campo es nulo. */
+function pasoRK4(p,h,sg){
+  const dir=(x,y,o)=>{ Bmundo(x,y,_b); const m=Math.hypot(_b[0],_b[1]); if(m<1e-14){ o[0]=o[1]=0; return false; } o[0]=sg*_b[0]/m; o[1]=sg*_b[1]/m; return true; };
+  const k1=[0,0],k2=[0,0],k3=[0,0],k4=[0,0];
+  if(!dir(p[0],p[1],k1)) return false;
+  dir(p[0]+h/2*k1[0],p[1]+h/2*k1[1],k2); dir(p[0]+h/2*k2[0],p[1]+h/2*k2[1],k3); dir(p[0]+h*k3[0],p[1]+h*k3[1],k4);
+  p[0]+=h/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]); p[1]+=h/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+  return true;
+}
+/* Las líneas: semillas en el plano medio de la holgura, repartidas más densas junto al eje. Cada línea se traza
+   en los dos sentidos hasta que entra en una pieza maciza o sale del cuadro. */
+const SEMILLAS_X=(()=>{ const a=[0]; for(let k=0;k<9;k++){ const x=0.030+0.034*k; a.push(x,-x); } for(const x of [0.34,0.40,0.47,0.55,0.64]) a.push(x,-x); return a; })();
+const N_LIN=SEMILLAS_X.length, MAX_PT=330, PASO=0.0055;
+const LIN=SEMILLAS_X.map(()=>({n:0,x:new Float32Array(MAX_PT),y:new Float32Array(MAX_PT),s:new Float32Array(MAX_PT),len:0,bs:0,u:new Float32Array(7)}));
+LIN.forEach(l=>{ for(let i=0;i<7;i++) l.u[i]=(i+Math.random()*0.8)/7; });
+const _p=[0,0], _tmp=[];
+function trazaLinea(L,x0,y0){
+  Bmundo(x0,y0,_b); const m0=Math.hypot(_b[0],_b[1]);
+  L.n=0; L.bs=m0; if(m0<CAMPO.ref*0.015){ return; }
+  const up=_b[1]>=0?1:-1;                                  // «hacia arriba» en la semilla: así todas las líneas tienen el mismo sentido de recorrido
+  const mitad=(sg)=>{ const q=[]; _p[0]=x0; _p[1]=y0;
+    for(let i=0;i<(MAX_PT>>1)-2;i++){ if(!pasoRK4(_p,PASO,sg)) break; if(enSolido(_p[0],_p[1])||Math.abs(_p[0])>1.28||_p[1]>0.66) break; q.push(_p[0],_p[1]); }
+    return q; };
+  const f=mitad(up), a=mitad(-up);                         // adelante (hacia arriba en la semilla) y atrás
+  let n=0;
+  for(let i=a.length/2-1;i>=0;i--){ L.x[n]=a[2*i]; L.y[n]=a[2*i+1]; n++; }
+  L.x[n]=x0; L.y[n]=y0; n++;
+  for(let i=0;i<f.length/2;i++){ L.x[n]=f[2*i]; L.y[n]=f[2*i+1]; n++; }
+  L.n=n; let s=0; L.s[0]=0;
+  for(let i=1;i<n;i++){ s+=Math.hypot(L.x[i]-L.x[i-1],L.y[i]-L.y[i-1]); L.s[i]=s; }
+  L.len=s; L.sg=up;
+}
+
+/* Las líneas se dibujan como cintas planas sobre la cara de corte (z = 0,0025): ancho 2,4 mm, color por el
+   sentido vertical del campo (cálido arriba, frío abajo) y opacidad por su intensidad. Los puntos que las recorren
+   van y vienen con B(t): la integral del campo en el tiempo. */
+const MAX_V=N_LIN*MAX_PT*2;
+const gLin=new THREE.BufferGeometry();
+const lPos=new Float32Array(MAX_V*3), lCol=new Float32Array(MAX_V*4), lIdx=new Uint32Array(N_LIN*MAX_PT*6);
+gLin.setAttribute('position',new THREE.BufferAttribute(lPos,3).setUsage(THREE.DynamicDrawUsage));
+gLin.setAttribute('aCol',new THREE.BufferAttribute(lCol,4).setUsage(THREE.DynamicDrawUsage));
+gLin.setIndex(new THREE.BufferAttribute(lIdx,1).setUsage(THREE.DynamicDrawUsage));
+const M_LIN=new THREE.ShaderMaterial({
+  vertexShader:'attribute vec4 aCol; varying vec4 vC; void main(){ vC=aCol; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:'varying vec4 vC; void main(){ if(vC.a<0.01) discard; gl_FragColor=vec4(vC.rgb,vC.a); }',
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+const CINTAS=new THREE.Mesh(gLin,M_LIN); CINTAS.frustumCulled=false; CINTAS.renderOrder=3; CINTAS.raycast=()=>{}; scene.add(CINTAS);
+const C_ARR=new THREE.Color('#ff9a3c'), C_ABA=new THREE.Color('#4fd8ff');
+function dibujaLineas(){
+  let v=0, ix=0; const W=0.0012, Z=0.0026;
+  for(let l=0;l<N_LIN;l++){ const L=LIN[l]; if(L.n<3) continue;
+    for(let i=0;i<L.n;i++){
+      const i0=Math.max(0,i-1), i1=Math.min(L.n-1,i+1), tx=L.x[i1]-L.x[i0], ty=L.y[i1]-L.y[i0], tl=Math.hypot(tx,ty)||1, nx=-ty/tl*W, ny=tx/tl*W;
+      Bmundo(L.x[i],L.y[i],_b); const m=Math.hypot(_b[0],_b[1]), inten=clamp(m/CAMPO.ref,0,1.6);
+      const u=L.s[i]/Math.max(L.len,1e-6), fade=Math.min(1,u/0.07,(1-u)/0.07);
+      const a=clamp(Math.pow(inten,0.55)*0.8,0,0.9)*clamp(fade,0,1);
+      const c=_b[1]>=0?C_ARR:C_ABA, g=0.9+0.9*Math.min(inten,1);
+      for(let sd=-1;sd<=1;sd+=2){ const o=v*3, q=v*4;
+        lPos[o]=L.x[i]+sd*nx; lPos[o+1]=L.y[i]+sd*ny; lPos[o+2]=Z;
+        lCol[q]=c.r*g; lCol[q+1]=c.g*g; lCol[q+2]=c.b*g; lCol[q+3]=a; v++; }
+      if(i<L.n-1){ const b=v-2; lIdx[ix++]=b; lIdx[ix++]=b+1; lIdx[ix++]=b+2; lIdx[ix++]=b+1; lIdx[ix++]=b+3; lIdx[ix++]=b+2; }
+    }
+  }
+  gLin.attributes.position.needsUpdate=true; gLin.attributes.aCol.needsUpdate=true; gLin.index.needsUpdate=true;
+  gLin.setDrawRange(0,ix);
+}
+/* Los puntos: siete por línea, con velocidad ∝ B·t (la componente del campo a lo largo de la línea). */
+const N_DOT=N_LIN*7, gDot=new THREE.BufferGeometry();
+const dPos=new Float32Array(N_DOT*3), dAl=new Float32Array(N_DOT), dCol=new Float32Array(N_DOT*3);
+gDot.setAttribute('position',new THREE.BufferAttribute(dPos,3).setUsage(THREE.DynamicDrawUsage));
+gDot.setAttribute('aColor',new THREE.BufferAttribute(dCol,3).setUsage(THREE.DynamicDrawUsage));
+gDot.setAttribute('aAlpha',new THREE.BufferAttribute(dAl,1).setUsage(THREE.DynamicDrawUsage));
+const M_PUNTOS=new THREE.ShaderMaterial({
+  uniforms:{uPx:{value:600},uTam:{value:0.0042}},
+  vertexShader:`attribute vec3 aColor; attribute float aAlpha; varying vec3 vC; varying float vA; uniform float uPx; uniform float uTam;
+    void main(){ vC=aColor; vA=aAlpha; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv; gl_PointSize=clamp(uTam*uPx/(-mv.z),2.0,24.0); }`,
+  fragmentShader:`varying vec3 vC; varying float vA;
+    void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d); float a=smoothstep(0.5,0.14,r)*vA; if(a<0.01) discard;
+      gl_FragColor=vec4(vC*(1.0+1.8*smoothstep(0.22,0.0,r)),a); }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+const PUNTOS=new THREE.Points(gDot,M_PUNTOS); PUNTOS.frustumCulled=false; PUNTOS.renderOrder=4; PUNTOS.raycast=()=>{}; scene.add(PUNTOS);
+function puntoDeLinea(L,s,out){ let lo=0,hi=L.n-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(L.s[m]<s) lo=m; else hi=m; }
+  const a=L.s[lo], b=L.s[hi], f=b>a?(s-a)/(b-a):0; out[0]=L.x[lo]+(L.x[hi]-L.x[lo])*f; out[1]=L.y[lo]+(L.y[hi]-L.y[lo])*f; return lo; }
+const _q=[0,0];
+function mueveDots(dtR){
+  let o=0;
+  for(let l=0;l<N_LIN;l++){ const L=LIN[l];
+    for(let i=0;i<7;i++,o++){
+      if(L.n<3||L.len<0.02){ dAl[o]=0; continue; }
+      let s=L.u[i]*L.len; const lo0=puntoDeLinea(L,s,_q);
+      Bmundo(_q[0],_q[1],_b);
+      const tx=L.x[Math.min(lo0+1,L.n-1)]-L.x[lo0], ty=L.y[Math.min(lo0+1,L.n-1)]-L.y[lo0], tl=Math.hypot(tx,ty)||1;
+      const bt=(_b[0]*tx+_b[1]*ty)/tl, m=Math.hypot(_b[0],_b[1]);             // componente del campo a lo largo de la línea (signada)
+      if(!EST.pausa){ L.u[i]+=bt/CAMPO.ref*0.9*dtR/Math.max(L.len,0.1); L.u[i]-=Math.floor(L.u[i]); }
+      s=L.u[i]*L.len; puntoDeLinea(L,s,_q);
+      dPos[o*3]=_q[0]; dPos[o*3+1]=_q[1]; dPos[o*3+2]=0.0032;
+      const c=_b[1]>=0?C_ARR:C_ABA, uu=L.u[i], borde=Math.min(uu,1-uu)/0.06;
+      dCol[o*3]=c.r; dCol[o*3+1]=c.g; dCol[o*3+2]=c.b;
+      dAl[o]=clamp(Math.pow(clamp(m/CAMPO.ref,0,1.5),0.5)*0.95,0,1)*clamp(borde,0,1);
+    } }
+  gDot.attributes.position.needsUpdate=true; gDot.attributes.aColor.needsUpdate=true; gDot.attributes.aAlpha.needsUpdate=true;
+}
+
+/* ===================== 9. LO QUE SE VE: ESPIRAS, SÍMBOLOS, BATERÍA, OBJETO =====================
+   Brillo de cada pad ∝ |i(t)| y símbolos ⊙/⊗ por su signo, siempre con la corriente de este instante. */
+const C_EMI=new THREE.Color('#ff7a22'), C_BAT=new THREE.Color('#3dff9f'), C_FOD=new THREE.Color('#ff5a1f');
+const I_REF=RAIZ2*OPER.I1max;
+function pintaBrillos(dtR){
+  const e1=clamp(Math.abs(SIMU.i1)/I_REF,0,1.3), e2=clamp(Math.abs(SIMU.i2)/I_REF,0,1.3);
+  M.litzA.emissive.copy(C_EMI).multiplyScalar(0.12+0.9*e1); M.litzB.emissive.copy(C_EMI).multiplyScalar(0.12+0.9*e2);
+  MARC_GA.uniforms.uI.value=SIMU.i1; MARC_VA.uniforms.uI.value=SIMU.i2; MARC_GA.uniforms.uMax.value=MARC_VA.uniforms.uMax.value=I_REF;
+  const op=SIMU.op, f=op?clamp(op.P/OPER.P,0,1):0;
+  M.modulos.emissive.copy(C_BAT).multiplyScalar(0.03+0.16*f*(0.8+0.2*Math.sin(performance.now()/700)));
+  // el objeto extraño: se calienta con la potencia que absorbe (térmica de un nodo, constante de tiempo de 5 s)
+  OBJETO.visible=EST.falla==='fod';
+  if(OBJETO.visible&&op){ const Tss=25+op.Pf*0.55; SIMU.Tobj+=(Tss-SIMU.Tobj)*(1-Math.exp(-dtR/5)); } else SIMU.Tobj=25;
+  M.moneda.emissive.copy(C_FOD).multiplyScalar(clamp((SIMU.Tobj-120)/240,0,1)*1.4);
+}
+
+/* Un cuadro de la escena. dtS: tiempo SIMULADO (s); dtR: tiempo de pantalla. */
+let tLin=0;
+function aplicaEscena(dtS,dtR,t){
+  recalcula();
+  SIMU.t+=dtS; instante();
+  VEH.position.set(EST.x,H_PAD+EST.g,0); GEO.x=EST.x; GEO.g=EST.g;
+  const op=SIMU.op;
+  CAMPO.a1=SIMU.i1; CAMPO.a2=SIMU.i2; CAMPO.xv=EST.x; CAMPO.yc2=H_PAD+EST.g+0.014;
+  if(op){ const amp=RAIZ2; campoBase(0,(H_PAD+EST.g/2)-YC,_t1); const b1=Math.abs(_t1[1])*amp*op.aI1, b2=Math.abs(_t1[1])*amp*op.aI2; CAMPO.ref=Math.max(1e-6,b1+b2)*0.9; }
+  if(t-tLin>=0.028){ tLin=t;
+    const yS=H_PAD+EST.g/2, xc=EST.x/2;
+    for(let l=0;l<N_LIN;l++) trazaLinea(LIN[l],xc+SEMILLAS_X[l]*(EST.g>0.2?1.1:1),yS);
+    dibujaLineas(); }
+  mueveDots(dtR);
+  pintaBrillos(dtR);
+}
+
+
+/* ===================== 10. CÁMARAS ENCAJADAS EN EL HUECO LIBRE ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function encaja(t,dir,pts,caja,margen=0){
+  if(margen){ const mx=(caja.x1-caja.x0)*margen, my=(caja.y1-caja.y0)*margen; caja={x0:caja.x0+mx,x1:caja.x1-mx,y0:caja.y0+my,y1:caja.y1-my}; }
+  const cam=camera.clone(), W=innerWidth, H=innerHeight, tan=Math.tan(cam.fov*Math.PI/360);
+  cam.aspect=W/H; cam.updateProjectionMatrix();
+  const cw=caja.x1-caja.x0, ch=caja.y1-caja.y0, cx_=(caja.x0+caja.x1)/2, cy_=(caja.y0+caja.y1)/2;
+  let dist=3; const q=new THREE.Vector3(), der=new THREE.Vector3(), arr=new THREE.Vector3(); t=t.clone(); dir=dir.clone().normalize();
+  for(let it=0;it<10;it++){
+    cam.position.copy(t).addScaledVector(dir,dist); cam.lookAt(t); cam.updateMatrixWorld();
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const p of pts){ q.copy(p).project(cam); const sx=(q.x+1)/2*W, sy=(1-q.y)/2*H;
+      a0=Math.min(a0,sx); a1=Math.max(a1,sx); b0=Math.min(b0,sy); b1=Math.max(b1,sy); }
+    const k=Math.max((a1-a0)/cw,(b1-b0)/ch), wpp=2*tan*dist/H;
+    der.setFromMatrixColumn(cam.matrixWorld,0); arr.setFromMatrixColumn(cam.matrixWorld,1);
+    t.addScaledVector(der,((a0+a1)/2-cx_)*wpp).addScaledVector(arr,-((b0+b1)/2-cy_)*wpp);
+    dist*=k;
+  }
+  return [t.clone().addScaledVector(dir,dist),t];
+}
+const caja3=(x0,y0,z0,x1,y1,z1)=>{ const r=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) r.push(V3(x,y,z)); return r; };
+const VISTA={actual:'conjunto'};
+function vistaCam(v){
+  const H=huecoLibre(), cen=pts=>new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3()), yb=H_PAD+EST.g;
+  if(v==='bobinas'){ const p=caja3(0.04,0.004,-0.12,0.32+Math.max(0,EST.x),yb+0.044,0.01); return encaja(cen(p),V3(0.10,0.22,1),p,H,0.02); }
+  if(v==='pads'){ const p=caja3(-0.34,0,-0.34,0.34+Math.max(0,EST.x),yb+0.044,0.02); return encaja(cen(p),V3(0.16,0.26,1),p,H,0.03); }
+  if(v==='coche'){ const p=caja3(-1.1,-0.02,-0.4,1.1+EST.x,yb+0.30,0.02); return encaja(cen(p),V3(0.14,0.20,1),p,H,0.02); }
+  const x0=-0.38+Math.min(0,EST.x*0.5), x1=0.38+Math.max(0,EST.x)*0.9;
+  const p=caja3(x0,-0.01,-0.31,x1,yb+0.045+0.03,0.02);
+  return encaja(cen(p),V3(0.20,0.62,1),p,H,0.01);
+}
+const CAMT={on:false};
+function ponVista(v,dur){
+  VISTA.actual=v; const [p,t]=vistaCam(v);
+  Object.assign(CAMT,{on:true,u:0,dur:dur===undefined?(REDUCIDO?0.001:1.2):dur,p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t});
+  pintaBarras();
+}
+function pasaCam(dt){
+  if(!CAMT.on) return;
+  CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+  camera.position.lerpVectors(CAMT.p0,CAMT.p1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+  if(CAMT.u>=1) CAMT.on=false;
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+/* ===================== 11. EL HUD (izquierda) ===================== */
+const kHz=f=>fN(f/1000,2)+' kHz';
+const mm=x=>fN(x*1000,0)+' mm';
+const fmtD=x=>(x<0?'−':(x>0?'+':''))+fN(Math.abs(x)*1000,0)+' mm';
+const claseZ=g=>g<0.14?'Z1':(g<0.21?'Z2':'Z3');
+function slider(id,etq,val,min,max,step,mostrado,marcas,desact){
+  return `<div class="cg"><div class="cl ${desact?'dis':''}"><div>${etq}</div><b id="v_${id}">${mostrado}</b></div><input type="range" id="r_${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${etq.replace(/<[^>]+>/g,'')}" ${desact?'disabled':''}>${marcas||''}</div>`;
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · Carga inalámbrica</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>Dos bobinas, 85 kHz y 11 kW sin un cable</h2>
+    <p class="intro">La pad del suelo crea un campo alterno y la del coche lo recoge. Las líneas son el campo; <b>⊙</b> y <b>⊗</b>, la corriente. El coche está <b>desviado</b>: muévelo y mira qué pierde el enlace.</p></div>`;
+  } else h+=`<h2>Alinéalo, sintonízalo y diagnostícalo</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    const mk=(txt)=>`<div class="marcas">${txt.map(t=>`<span>${t}</span>`).join('')}</div>`;
+    h+=`<div class="hmandos">
+    ${slider('x','Desalineación lateral <em class="gr">d</em>',EST.x*1000,-250,250,1,fmtD(EST.x),mk(['−250','0','+250']))}
+    ${slider('g','Holgura vertical <em class="gr">g</em>',EST.g*1000,100,240,1,mm(EST.g)+' · '+claseZ(EST.g),mk(['100','Z1','Z2','Z3','240']))}
+    ${slider('t','Compensación <em class="gr">C₂</em> (ajuste)',EST.trim*100,-15,15,0.1,(EST.trim>=0?'+':'−')+fN(Math.abs(EST.trim)*100,1)+' %',mk(['−15','0','+15']))}
+    ${slider('l','Carga <em class="gr">R<sub>L</sub></em>',EST.RL,6,24,0.1,fN(EST.RL,1)+' Ω',mk(['6','12','24']))}
+    ${slider('f','Frecuencia <em class="gr">f</em>',EST.f/1000,75,100,0.05,kHz(EST.f),mk(['75','81,4–90 kHz (J2954)','100']))}
+    <div class="btnrow"><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl">Cada espira es un lazo de corriente. La inductancia mutua de dos lazos coaxiales sale de las <b>integrales elípticas</b> (AGM); con los ejes desplazados, de la <b>integral de Neumann</b>.</div>
+    <div class="formula">M = Σᵢⱼ μ₀/4π ∮∮ dlᵢ·dlⱼ / r<br>k = M / √(L₁L₂)</div>
+    <div class="fl">Compensación serie–serie: C = 1/(ω₀²L), a 85 kHz. Con la tensión V₁ del inversor:</div>
+    <div class="formula">V₁ = Z₁I₁ + jωM·I₂<br>0 = Z₂I₂ + jωM·I₁<br>Z₂ = R₂ + R<sub>L</sub> + j(ωL₂ − 1/ωC₂)</div>
+    <div class="fl">Con la carga óptima el rendimiento máximo es <b>η = k²Q₁Q₂ / (1 + √(1 + k²Q₁Q₂))²</b>. Si k supera el crítico 1/√(Q₁Q₂c), la potencia a tensión constante se <b>divide</b> en dos picos, hacia f₀/√(1+k) y f₀/√(1−k).</div>
+    <div class="fl">La carga que ve la bobina tras el rectificador es R<sub>L</sub> = (8/π²)·V²/P.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Las pads son 18 lazos circulares en aire: la ferrita y el blindaje ponen pérdidas (Q de ferrita y aluminio = 160), pero no cambian L, M ni el campo dibujado.</li>
+    <li>Coil circular: sólo importa la distancia entre ejes, no su dirección. Las pads reales (DD) tienen otra sensibilidad.</li>
+    <li>Resistencia de Litz a 60 °C con F<sub>ac</sub> = 1,4; el rectificador y la batería son una resistencia equivalente. Sin armónicos, sin EMI, sin detección de objetos real.</li>
+    <li>Las líneas de campo se cortan al entrar en una pieza. Los puntos y los símbolos van a cámara lenta: 85 kHz se ve a 0,85 Hz.</li>
+  </ul><div class="src">SAE J2954 (2020) · Kurs et al., <i>Science</i> 317 (2007) · Zhang y Mi, <i>Wireless Power Transfer for Electric Vehicles</i> · Grover, <i>Inductance Calculations</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  const lig=(id,fn,lbl)=>{ const r=el('r_'+id); if(!r) return; r.oninput=()=>{ if(EST.autoRunning) return; fn(+r.value); el('v_'+id).innerHTML=lbl(); }; };
+  lig('x',v=>{ EST.x=v/1000; },()=>fmtD(EST.x));
+  lig('g',v=>{ EST.g=v/1000; },()=>mm(EST.g)+' · '+claseZ(EST.g));
+  lig('t',v=>{ EST.trim=v/100; },()=>(EST.trim>=0?'+':'−')+fN(Math.abs(EST.trim)*100,1)+' %');
+  lig('l',v=>{ EST.RL=v; },()=>fN(EST.RL,1)+' Ω');
+  lig('f',v=>{ EST.f=v*1000; },()=>kHz(EST.f));
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint',null);
+  H.querySelectorAll('[data-quiz]').forEach(b=>b.onclick=()=>responde(+b.dataset.quiz));
+}
+
+/* ===================== 12. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function punto(x,px,py,r,col){ x.fillStyle=col; x.beginPath(); x.arc(px,py,r,0,DOSPI); x.fill(); }
+const LETA=lienzo('gEta'), LWF=lienzo('gWf'), LFR=lienzo('gFr'), LBA=lienzo('gBa');
+const COL1='#FFA24A', COL2='#4DE3FF', COLV='#EAF1FA', COLP='#34d399';
+/** Lo que el dock NO debe enseñar mientras el Reto no esté validado: la teoría de la sintonía óptima. */
+const ocultaTeoria=()=>EST.modo==='guia'&&GUIA.fase===0&&!GUIA.retoOk;
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.fase===1&&!GUIA.dxOk;
+const fueraDeBanda=f=>!enDiagnostico()&&(f<BANDA.fMin-1||f>BANDA.fMax+1);
+
+/* η frente a la desalineación: la curva de la tabla de M(d) con la sintonía y la carga actuales. */
+function pintaEta(){
+  const L=LETA, x=abre(L), W=L.w, Hh=L.h, C=SIMU.curvaD; if(!C) return;
+  const X0=30, X1=W-8, Y0=8, Y1=Hh-16, dMax=0.25;
+  let mn=1; for(const p of C) mn=Math.min(mn,p.eta); const ylo=Math.max(0,Math.floor((mn*100-2)/10)*10)/100, yhi=1;
+  const X=d=>X0+d/dMax*(X1-X0), Y=e=>Y1-(e-ylo)/(yhi-ylo)*(Y1-Y0);
+  // donde no llegan los 11 kW
+  x.fillStyle='rgba(244,71,94,0.13)'; for(let i=0;i<C.length-1;i++) if(!C[i].llega) x.fillRect(X(C[i].d),Y0,X(C[i+1].d)-X(C[i].d)+0.6,Y1-Y0);
+  for(let q=0;q<=3;q++){ const e=ylo+(yhi-ylo)*q/3; raya(x,X0,Y(e),X1,Y(e),'rgba(143,169,200,0.10)'); txt(x,fN(e*100,0)+' %',X0-3,Y(e)+3,'#6C86A6',8.5,'right','500'); }
+  raya(x,X0,Y(OPER.etaMin),X1,Y(OPER.etaMin),'rgba(52,211,153,0.65)',1,[3,3]); txt(x,'90 %',X1-2,Y(OPER.etaMin)-3,'#7be0b3',8.5,'right','600');
+  for(const dd of [0,0.05,0.10,0.15,0.20,0.25]){ raya(x,X(dd),Y1,X(dd),Y1+3,'#3d5576'); if(dd*1000%100===0||dd===0.25||dd===0) txt(x,fN(dd*1000,0),X(dd),Hh-3,'#6C86A6',8.5,'center','500'); }
+  x.strokeStyle='#7DB8FF'; x.lineWidth=1.9; x.beginPath(); C.forEach((p,i)=>{ const px=X(p.d), py=Y(Math.max(p.eta,ylo)); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  const d=Math.abs(EST.x), op=SIMU.op; raya(x,X(d),Y0,X(d),Y1,'rgba(255,255,255,0.35)',1,[2,2]);
+  punto(x,X(d),Y(clamp(op.eta,ylo,1)),3.6,'#ffffff');
+  txt(x,'mm',X1,Hh-3,'#6C86A6',8.5,'right','500');
+  el('t_eta').textContent='d = '+fN(d*1000,0)+' mm';
+}
+/* Una corriente i₁ e i₂ a lo largo de DOS ciclos de 85 kHz con el cursor del reloj común. */
+function pintaWf(){
+  const L=LWF, x=abre(L), W=L.w, Hh=L.h, op=SIMU.op, B=SIMU.B; if(!op) return;
+  const X0=8, X1=W-8, Yc=Hh/2-3, esc=(Hh/2-12)/I_REF, N=2;
+  raya(x,X0,Yc,X1,Yc,'rgba(143,169,200,0.22)');
+  for(let q=0;q<=N;q++){ const xx=X0+(X1-X0)*q/N; raya(x,xx,6,xx,Hh-12,'rgba(143,169,200,0.10)'); txt(x,fN(q*360,0)+'°',xx,Hh-2,'#6C86A6',8.5,q===0?'left':(q===N?'right':'center'),'500'); }
+  const traza=(col,amp,fi,sc,w,dash)=>{ x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]); x.beginPath();
+    for(let p=0;p<=160;p++){ const th=DOSPI*N*p/160, y=Yc-RAIZ2*amp*Math.cos(th+fi)*esc*sc, px=X0+(X1-X0)*p/160; p?x.lineTo(px,y):x.moveTo(px,y); } x.stroke(); x.setLineDash([]); };
+  traza('rgba(234,241,250,0.55)',op.V1,0,0.8*I_REF/(RAIZ2*op.V1),1.1,[3,2]);
+  traza(COL1,op.aI1,op.fi1,1,1.8); traza(COL2,op.aI2,op.fi2,1,1.8);
+  const ph=((SIMU.fase%(DOSPI*N))+DOSPI*N)%(DOSPI*N), xc=X0+(X1-X0)*ph/(DOSPI*N);
+  raya(x,xc,6,xc,Hh-12,'rgba(255,255,255,0.7)',1.1);
+  punto(x,xc,Yc-SIMU.i1*esc,3.2,COL1); punto(x,xc,Yc-SIMU.i2*esc,3.2,COL2);
+  el('t_wf').innerHTML='<span style="color:'+COL1+'">I₁ '+fN(op.aI1,1)+' A</span> · <span style="color:'+COL2+'">I₂ '+fN(op.aI2,1)+' A</span>';
+}
+/* La respuesta en frecuencia a V₁ constante: potencia en la carga (azul) y rendimiento (verde). */
+function pintaFr(){
+  const L=LFR, x=abre(L), W=L.w, Hh=L.h, F=SIMU.fr, B=SIMU.B, op=SIMU.op; if(!F) return;
+  const X0=34, X1=W-30, Y0=8, Y1=Hh-15, fA=66000, fB=106000, X=f=>X0+(f-fA)/(fB-fA)*(X1-X0);
+  let pm=0; for(const p of F) pm=Math.max(pm,p.P); const pTop=Math.max(op.P*1.4,Math.min(pm*1.08,op.P*10)), YP=p=>Y1-clamp(p/pTop,0,1)*(Y1-Y0), YE=e=>Y1-clamp(e,0,1)*(Y1-Y0);
+  // la banda de J2954
+  x.fillStyle='rgba(61,139,242,0.13)'; x.fillRect(X(BANDA.fMin),Y0,X(BANDA.fMax)-X(BANDA.fMin),Y1-Y0);
+  txt(x,'banda J2954',(X(BANDA.fMin)+X(BANDA.fMax))/2,Y0+9,'#7DB8FF',8.5,'center','600');
+  for(const q of [0.5,1]){ raya(x,X0,YP(pTop*q),X1,YP(pTop*q),'rgba(143,169,200,0.09)'); txt(x,fN(pTop*q/1000,pTop>20000?0:1),X0-3,YP(pTop*q)+3,'#8fb2e6',8.5,'right','500'); }
+  for(const e of [0.5,1]) txt(x,fN(e*100,0)+' %',X1+3,YE(e)+3,'#6fcf9f',8.5,'left','500');
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5576');
+  for(const f of [70000,80000,85000,90000,100000]){ raya(x,X(f),Y1,X(f),Y1+3,'#3d5576'); txt(x,fN(f/1000,0),X(f),Hh-3,'#6C86A6',8.5,'center','500'); }
+  raya(x,X(BANDA.f0),Y0,X(BANDA.f0),Y1,'rgba(255,255,255,0.18)',1,[2,3]);
+  // η(f)
+  x.strokeStyle='#34d399'; x.lineWidth=1.3; x.setLineDash([4,3]); x.beginPath(); F.forEach((p,i)=>{ const px=X(p.f), py=YE(p.eta); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke(); x.setLineDash([]);
+  // P(f)
+  x.strokeStyle='#7DB8FF'; x.lineWidth=1.9; x.beginPath(); F.forEach((p,i)=>{ const px=X(p.f), py=YP(p.P); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  // el punto de trabajo
+  const fo=B.f, fuera=fueraDeBanda(fo);
+  raya(x,X(fo),Y0,X(fo),Y1,fuera?'rgba(244,71,94,0.8)':'rgba(255,255,255,0.55)',1.1);
+  punto(x,X(fo),YP(op.P),3.8,fuera?'#ff6b7e':'#ffffff');
+  const k=B.k, kd=SIMU.kd, np=SIMU.picos.length;
+  el('t_fr').textContent=np>=2?'k > k_d · dos picos':'un solo pico';
+  if(!ocultaTeoria()){ txt(x,'k = '+fN(k,3)+' · k_d = '+(isFinite(kd)?fN(kd,3):'—'),X1-1,Y1-4,'#9DB6D4',8.5,'right','600'); }
+}
+function pintaLeyFr(){
+  el('leyFr').innerHTML=`<span class="lg"><i style="--c:#7DB8FF"></i>potencia en la carga (V₁ constante)</span><span class="lg"><i class="dash" style="--c:#34d399"></i>η</span>`;
+}
+/* El balance de potencia en un solo vistazo: la potencia de entrada repartida. */
+function pintaBa(){
+  const L=LBA, x=abre(L), W=L.w, Hh=L.h, op=SIMU.op; if(!op) return;
+  const X0=6, X1=W-6, Pin=op.Pin, ancho=X1-X0, y=10, hb=Math.max(14,Math.min(22,Hh-34));
+  const partes=[['P₂ carga',op.P,'#34d399'],['pérd. primario',op.P1,COL1],['pérd. secundario',op.P2,COL2]];
+  if(op.Pf>1) partes.push(['objeto',op.Pf,'#ff5a4a']);
+  let xx=X0; for(const [n,v,c] of partes){ const w=v/Pin*ancho; x.fillStyle=c; x.globalAlpha=0.9; x.fillRect(xx,y,Math.max(0.8,w-0.6),hb); x.globalAlpha=1; xx+=w; }
+  let lx=X0, ly=y+hb+11; x.textBaseline='alphabetic';
+  for(const [n,v,c] of partes){ x.fillStyle=c; x.fillRect(lx,ly-7,7,7); const t=n+' '+(v>=1000?fN(v/1000,2)+' kW':fN(v,0)+' W'); txt(x,t,lx+10,ly,'#c4d6ee',9.5,'left','500'); lx+=10+x.measureText(t).width+10; }
+  el('t_ba').textContent='entra '+fN(Pin/1000,2)+' kW';
+}
+function pintaCifras(){
+  const B=SIMU.B, op=SIMU.op, set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  set('f_k',fN(B.k,3)); set('f_m',fN(B.M*1e6,1)+'<small> µH</small>'); set('f_q',fN(SIMU.Q1,0));
+  set('f_c2',fN(B.C2*1e9,1)+'<small> nF</small>'); set('f_rl',fN(B.RL,1)+'<small> Ω</small>');
+  const fo=B.f, fuera=fueraDeBanda(fo); set('f_f',fN(fo/1000,2)+'<small> kHz</small>'); el('f_f').className=fuera?'bad':'';
+}
+const CRIT=[
+  {id:'eta',lab:'η ≥ 90 %',val:op=>fN(op.eta*100,1)+'<small> %</small>'},
+  {id:'P',lab:'11 kW',val:op=>fN(op.P/1000,1)+'<small> kW</small>'},
+  {id:'I',lab:'I ≤ 50 A',val:op=>fN(Math.max(op.aI1,op.aI2),0)+'<small> A</small>'},
+  {id:'V',lab:'V₁ ≤ '+fN(OPER.V1max,0),val:op=>fN(op.V1,0)+'<small> V</small>'},
+  {id:'pf',lab:'cos φ ≥ 0,97',val:op=>fN(op.pf,2)},
+];
+function pintaPliego(){
+  const op=SIMU.op, pl=SIMU.pl, e=el('plie'); if(!op) return;
+  const h=CRIT.map((c,i)=>{ const ok=pl[i].ok; return `<div class="pc ${ok?'ok':'no'}"><div class="pl">${c.lab}</div><b>${c.val(op)}<i>${ok?'✓':'✗'}</i></b></div>`; }).join('');
+  if(e.dataset.h!==h){ e.innerHTML=h; e.dataset.h=h; }
+}
+function pintaDockFijo(){
+  const B=SIMU.B; if(!B) return;
+  el('p_mode').textContent=EST.modo==='marcha'?'Enlace serie–serie':'Laboratorio guiado';
+  el('p_sub').textContent='g '+mm(EST.g)+' ('+claseZ(EST.g)+') · d '+mm(Math.abs(EST.x));
+  pintaLeyFr();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const op=SIMU.op, B=SIMU.B; if(!op) return;
+  pintaCifras(); pintaPliego(); pintaDockFijo();
+  const A=el('aviso'); let cl='', t='';
+  if(EST.falla!==null&&EST.modo==='guia'&&GUIA.fase===1&&!GUIA.dxOk){ /* en el diagnóstico el aviso no da el síntoma: lo lee el alumno */ }
+  else if(!op.llega){ cl='mal'; t='No llegan los 11 kW: el límite de '+(op.limita==='V1'?'tensión del inversor':(op.limita==='I1'?'corriente de la pad del suelo':'corriente de la pad del coche'))+' los frena en '+fN(op.Pmax/1000,1)+' kW.'; }
+  else if(EST.modo==='marcha'&&fueraDeBanda(B.f)&&B.f>BANDA.fMax+1){ cl='ojo'; t='Fuera de la banda de J2954 (81,38–90 kHz): el cargador no puede operar aquí.'; }
+  else if(EST.modo==='marcha'&&op.eta<OPER.etaMin){ cl='ojo'; t='El rendimiento cae por debajo del 90 %: menos acoplamiento, o una carga lejos de la óptima.'; }
+  A.className='dk-aviso'+(t?' on '+cl:''); if(A.textContent!==t) A.textContent=t;
+}
+
+/* ===================== 13. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[2.5e-6,'×1/400 000'],[5e-6,'×1/200 000'],[1e-5,'×1/100 000'],[2e-5,'×1/50 000'],[5e-5,'×1/20 000']];
+el('vbar').innerHTML=[['conjunto','Conjunto'],['pads','Pads'],['bobinas','Espiras'],['coche','Coche']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.esc=+e.target.value; EST.escMano=true; pintaBarras(); };
+const nomEsc=e=>{ const v=VEL.find(q=>Math.abs(q[0]-e)<1e-12); return v?v[1]:'×'+fN(e,6); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',VISTA.actual===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(!VEL.some(q=>String(q[0])===sel.value&&Math.abs(q[0]-EST.esc)<1e-12)) sel.value=String((VEL.find(q=>Math.abs(q[0]-EST.esc)<1e-12)||VEL[2])[0]);
+  el('tLento').textContent='cámara lenta '+nomEsc(EST.esc);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const B=SIMU.B, e=el('tEst'); if(!B) return;
+  const th=((SIMU.fase%DOSPI)+DOSPI)%DOSPI;
+  el('tReloj').textContent='ωt = '+fN(th*180/Math.PI,0)+'°';
+  const fuera=fueraDeBanda(B.f); const t=fuera?'fuera de banda':(SIMU.op&&SIMU.op.llega?'transfiriendo '+fN(SIMU.op.P/1000,1)+' kW':'limitado a '+fN(SIMU.op.P/1000,1)+' kW');
+  e.firstChild.style.background=fuera?'#ff6b7e':(SIMU.op&&SIMU.op.llega?'#34d399':'#ffb703'); if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 14. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Pad del suelo (GA)',()=>V3(-0.20,0.0045,0)],
+  ['Espiras de hilo Litz',()=>V3(0.165,YC,0)],
+  ['Ferrita',()=>V3(0.22,0.0145,0)],
+  ['Blindaje de aluminio',()=>V3(-0.25,0.0075,0)],
+  ['Holgura de aire',()=>V3(-0.12,H_PAD+EST.g/2,0)],
+  ['Pad del vehículo (VA)',()=>V3(EST.x-0.20,H_PAD+EST.g+0.034,0)],
+  ['Batería de tracción',()=>V3(EST.x-0.40,H_PAD+EST.g+0.12,0)],
+  ['Piso del coche',()=>V3(EST.x+0.62,H_PAD+EST.g+0.055,0)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(125,184,255,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx_=(H.x0+H.x1)/2, izq=[], der=[];
+  ANCLAS.forEach(([t,f],i)=>{ q.copy(f()).project(camera); const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; (x<cx_?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i], w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  cubierta:'Cubierta de polímero de la pad: la protege del agua y del peso del coche. No frena el campo',
+  blindaje:'Blindaje de aluminio: impide que el campo llegue al piso del coche o al suelo (aquí sólo pone pérdidas)',
+  ferrita:'Ferrita: dirige el flujo hacia la otra pad. En el modelo sólo cuenta como pérdida',
+  soporte:'Soporte de las espiras',
+  espiras:'Espiras de hilo Litz: 18 lazos de 80 a 250 mm de radio. Brillan con la corriente de este instante',
+  losa:'Losa de hormigón del garaje',
+  cable:'Cable de alta tensión (naranja por norma) del cargador a la pad del suelo',
+  piso:'Piso de acero del coche',
+  anclaje:'Soporte que sujeta la pad del vehículo al piso',
+  larguero:'Larguero bajo el piso',
+  umbral:'Umbral lateral de la carrocería (esquema)',
+  bateria:'Carcasa de la batería de tracción, cortada por la mitad',
+  modulos:'Módulos de celdas: se tiñen de verde con la potencia que reciben',
+  placaFria:'Placa fría de la batería, de aluminio',
+  objeto:'Lámina de aluminio olvidada sobre la pad: las corrientes de Foucault la calientan',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx_,cy_){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx_-r.left)/r.width*2-1,-(cy_-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([EXPO,BANCO],true);
+  for(const h of hits){
+    const m=Array.isArray(h.object.material)?h.object.material[0]:h.object.material;
+    if(h.point.z>0.0015&&m&&m.clippingPlanes&&renderer.localClippingEnabled) continue;      // del lado cortado: no se ve
+    let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue;
+    return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; return o?o:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 15. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una
+   tableta), la escena va arriba y guía e instrumentos comparten una hoja con
+   pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+/** La hoja mide lo que pide su contenido (entre 240 px y el 62 % del alto en el móvil), para que la guía nunca
+    tenga que desplazarse por dentro; la cámara se vuelve a encajar en el hueco que queda. */
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras();
+    if(ant){ clearTimeout(window.__hjWPT); window.__hjWPT=setTimeout(()=>ponVista(VISTA.actual,REDUCIDO?0.001:0.4),40); } }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); });
+
+
+/* ===================== 16. EL LABORATORIO GUIADO =====================
+   Tres fases: 0 · Reto (alinear y sintonizar para cumplir el pliego de los
+   11 kW), 1 · Diagnóstico (una de tres fallas al azar, y repararla) y 2 ·
+   Cierre (una pregunta con las opciones barajadas). Cada intento sortea un
+   coche distinto —holgura, tensión del pack, desviación inicial y una
+   desviación OCULTA de la inductancia de su bobina—; tres fallos en un reto
+   cambian el dato (no se aprueba por eliminación). Ni el HUD, ni el dock, ni
+   los mensajes muestran la sintonía que resuelve el reto antes de validar. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajaFY=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const GUIA={fase:0,iniciado:false,retoOk:false,dxOk:false,hecho:false,scen:null,intentos:0,fallos:0,fallosDx:0,resiembras:0,pistas:0,falla:null,sintoma:'',
+  quiz:null,quizResp:-1,quizOk:false,ultimaCorrecta:-1};
+const NOM_CRIT={eta:'el rendimiento (η ≥ 90 %)',P:'la potencia (11 kW)',I:'la corriente de las pads (≤ 50 A)',V:'la tensión del inversor',pf:'el factor de potencia (cos φ ≥ 0,97)'};
+
+/* Interpolación de los mandos (para que el coche ruede en vez de saltar). */
+const TW={items:[],u:1,dur:1};
+function muevea(o,dur=0.8){
+  if(REDUCIDO||dur<=0){ Object.assign(EST,o); sincronizaMandos(); return; }
+  TW.items=Object.keys(o).map(k=>({k,a:EST[k],b:o[k]})); TW.u=0; TW.dur=dur;
+}
+function pasaTween(dt){
+  if(TW.u>=1) return;
+  TW.u=Math.min(1,TW.u+dt/TW.dur); const e=ease(TW.u);
+  for(const it of TW.items) EST[it.k]=it.a+(it.b-it.a)*e;
+  sincronizaMandos();
+}
+function sincronizaMandos(){
+  const set=(id,v,t)=>{ const r=el('r_'+id), l=el('v_'+id); if(r&&document.activeElement!==r) r.value=v; if(l) l.innerHTML=t; };
+  set('x',EST.x*1000,fmtD(EST.x)); set('g',EST.g*1000,mm(EST.g)+' · '+claseZ(EST.g));
+  set('t',EST.trim*100,(EST.trim>=0?'+':'−')+fN(Math.abs(EST.trim)*100,1)+' %'); set('l',EST.RL,fN(EST.RL,1)+' Ω'); set('f',EST.f/1000,kHz(EST.f));
+}
+
+/* ---------- Fase 0: el reto ---------- */
+function sorteaEscenario(){
+  const prev=GUIA.scen; let e,s;
+  do{ e=pickOne(ESCENARIOS); s={g:e.g,Vpack:e.Vpack,eps:pickOne(e.epsOpciones),d0:pickOne(e.d0Opciones)*(Math.random()<0.5?-1:1)}; }
+  while(prev&&prev.g===s.g&&prev.Vpack===s.Vpack);
+  GUIA.scen=s; return s;
+}
+function aplicaEscenario(s){
+  EST.g=s.g; EST.RL=cargaDePack(s.Vpack); EST.eps=s.eps; EST.f=BANDA.f0; EST.falla=null; EST.trim=0; EST.autoRunning=false;
+  muevea({x:s.d0},0.9);
+}
+function startReto(){
+  GUIA.fase=0; GUIA.iniciado=true; GUIA.retoOk=false; GUIA.dxOk=false; GUIA.fallos=0; GUIA.pistas=0; GUIA.falla=null;
+  aplicaEscenario(sorteaEscenario()); ponVista('pads');
+}
+function criteriosFallan(){ return SIMU.pl.map((c,i)=>c.ok?null:CRIT[i].id).filter(Boolean); }
+function validar(){
+  recalcula();
+  const fallan=criteriosFallan(); GUIA.intentos++;
+  if(!fallan.length){
+    GUIA.retoOk=true; GUIA.fallos=0; sonido.bien();
+    const B=SIMU.B, op=SIMU.op, Q1=SIMU.Q1, Q2=SIMU.Q2, sc=GUIA.scen, e0=etaOptima(B.k,Q1,Q2), rlo=RLoptima(B.k,Q1,Q2,B.R2);
+    feedback('good','¡Cumple el pliego! ✓',
+      `η = ${fN(op.eta*100,1)} % a ${fN(op.P/1000,1)} kW, con I₁ = ${fN(op.aI1,0)} A, I₂ = ${fN(op.aI2,0)} A y cos φ = ${fN(op.pf,2)}. `+
+      `La bobina del coche traía ${(sc.eps>0?'+':'−')}${fN(Math.abs(sc.eps)*100,0)} % de inductancia; tu ajuste de C₂ (${EST.trim>=0?'+':'−'}${fN(Math.abs(EST.trim)*100,1)} %) la dejó en resonancia. `+
+      `Con k = ${fN(B.k,3)} el enlace podría dar como máximo η = ${fN(e0*100,1)} %, con una carga de ${fN(rlo,1)} Ω; la tuya es de ${fN(B.RL,1)} Ω.`,true);
+    pasoGuia();
+  } else {
+    GUIA.fallos++; sonido.mal();
+    if(GUIA.fallos>=3){
+      GUIA.fallos=0; GUIA.resiembras++; aplicaEscenario(sorteaEscenario());
+      feedback('bad','Tres intentos fallidos','Llega otro coche, con otra holgura, otra batería y otra bobina. Lee el pliego del dock y busca qué criterio falla.');
+    } else {
+      feedback('bad','Todavía no cumple',`Falla ${fallan.map(i=>NOM_CRIT[i]).join(', ')}. Mira el pliego del dock. (intentos fallidos: ${GUIA.fallos}/3)`);
+    }
+    pasoGuia();
+  }
+}
+function pista(){
+  if(GUIA.pistas===0){ GUIA.pistas=1; feedback('good','Pista 1 de 2','Acercar el coche sube k, y con él la tensión que la bobina del coche recibe por amperio. Pero no todo se arregla acercando: un criterio del pliego depende de la sintonía.'); }
+  else if(GUIA.pistas===1){ GUIA.pistas=2; feedback('good','Pista 2 de 2','La bobina del coche no tiene la inductancia nominal. Mueve C₂ y observa cos φ y la corriente del primario: la sintonía está donde el factor de potencia es máximo.'); }
+  else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que mide el dock.');
+}
+
+/* ---------- Fase 1: el diagnóstico ---------- */
+const FALLAS_DX=['fod','c1','freq'];
+const NOM_FALLA={fod:'objeto metálico entre las pads',c1:'condensador del primario degradado',freq:'frecuencia del inversor fuera de banda'};
+function symptom(f){
+  if(f==='fod') return 'SÍNTOMA: el rendimiento cae varios puntos aunque el coche sigue alineado y sintonizado; cos φ casi no cambia y en el balance hay una pérdida que antes no estaba. ¿Qué lo causa?';
+  if(f==='c1') return 'SÍNTOMA: el rendimiento casi no cambia, pero cos φ cae muy por debajo de 0,97 y el inversor pide mucha más tensión para los mismos 11 kW. ¿Qué lo causa?';
+  return 'SÍNTOMA: cos φ baja y ya no llegan los 11 kW, aunque la alineación y la sintonía son las de antes. El punto blanco de la gráfica de frecuencia está en otro sitio. ¿Qué lo causa?';
+}
+function startDx(){
+  GUIA.fase=1; GUIA.dxOk=false; GUIA.fallosDx=0; GUIA.sintoma='';
+  // se parte de un enlace que cumple: la sintonía exacta y los ejes casi alineados
+  const sc=GUIA.scen||{eps:0,g:0.16};
+  const trimOpt=-sc.eps/(1+sc.eps);
+  GUIA.falla=pickOne(FALLAS_DX);
+  muevea({x:0.03*(EST.x<0?-1:1),trim:trimOpt},0.6); EST.falla=GUIA.falla;
+  OBJETO_RESET();
+  pasoGuia(); ponVista('pads');
+  setTimeout(()=>{ GUIA.sintoma=symptom(GUIA.falla); const s=el('symptomTask'); if(s){ s.innerHTML=GUIA.sintoma; ajustaHoja(); } },1200);
+}
+function OBJETO_RESET(){ SIMU.Tobj=25; }
+function diagnostica(f){
+  if(!GUIA.falla||GUIA.dxOk) return; GUIA.intentos++;
+  if(f===GUIA.falla){
+    GUIA.dxOk=true; sonido.bien(); const op=SIMU.op;
+    const expl={fod:`Una lámina de aluminio sobre la pad: el campo le induce corrientes de Foucault y se calienta (${fN(op.Pf,0)} W en este momento). Es la pérdida que antes no estaba y por eso baja η sin tocar el factor de potencia.`,
+      c1:`El condensador del primario perdió capacidad (−18 %): la rama deja de estar en resonancia y aparece reactancia en la entrada. η casi no cambia, pero el inversor tiene que dar tensión para una corriente que no hace trabajo (cos φ = ${fN(op.pf,2)}).`,
+      freq:`El oscilador del inversor se fue a ${fN(SIMU.B.f/1000,0)} kHz, fuera de la banda de J2954: las dos pads quedan fuera de resonancia y el cos φ cae a ${fN(op.pf,2)}. Además esa frecuencia está prohibida para esta aplicación.`}[f];
+    feedback('good','Diagnóstico correcto ✓',expl+' <b>Ahora corrígelo.</b>',true); pasoGuia();
+  } else {
+    GUIA.fallosDx++; sonido.mal();
+    if(GUIA.fallosDx>=3){
+      GUIA.fallosDx=0; GUIA.resiembras++; const otras=FALLAS_DX.filter(x=>x!==GUIA.falla); GUIA.falla=pickOne(otras); EST.falla=GUIA.falla; OBJETO_RESET();
+      GUIA.sintoma=symptom(GUIA.falla);
+      feedback('bad','Tres intentos fallidos','Ahora el cargador presenta OTRA falla: observa de nuevo la escena y el dock.',true);
+    } else {
+      const no={fod:'un objeto calentándose habría bajado η sin tocar cos φ',c1:'un condensador degradado dejaría η casi igual pero tiraría de cos φ',freq:'una frecuencia fuera de banda mueve el punto blanco de la respuesta en frecuencia'}[f];
+      feedback('bad','No es esa la falla',`Eso (${NOM_FALLA[f]}) daría otro síntoma: ${no}. Observa otra vez. (intentos fallidos: ${GUIA.fallosDx}/3)`,true);
+    }
+    pasoGuia();
+  }
+}
+function reparar(){
+  if(!GUIA.dxOk||GUIA.hecho) return;
+  EST.falla=null; GUIA.hecho=true; sonido.bien();
+  feedback('good','¡Reparado! ✓','El enlace vuelve a cumplir el pliego. Completaste el reto de la alineación y la sintonía, y diagnosticaste una falla real de un cargador inalámbrico. Falta la pregunta de cierre.',true);
+  pasoGuia();
+}
+
+/* ---------- Fase 2: el cierre ---------- */
+const BANCO_Q=[
+  {q:'A 85 kHz, con las pads casi pegadas (k alto) y la tensión del inversor constante, barres la frecuencia. ¿Qué ves en la potencia de la carga?',
+   ok:'Dos picos, uno a cada lado de 85 kHz: la división de frecuencia',
+   mal:['Un solo pico, más estrecho que antes, justo en 85 kHz','Un pico que se desplaza hacia arriba al subir k','La potencia crece sin límite al acercarse a 85 kHz']},
+  {q:'Subes la holgura del coche de la clase Z1 a la Z3 y quieres seguir entregando 11 kW. ¿Qué le pasa a la corriente del primario?',
+   ok:'Sube: k baja, y hace falta más corriente para inducir la misma tensión (V = ωM·I)',
+   mal:['Baja: con más aire hay menos pérdidas','No cambia: la compensación serie–serie la mantiene fija','Se hace cero cuando k es pequeño']},
+  {q:'¿Por qué se calcula la compensación serie–serie con las bobinas sin acoplar?',
+   ok:'Porque cada lazo resuena por su cuenta a 85 kHz y eso no depende de k ni de la carga',
+   mal:['Porque el acoplamiento es siempre demasiado pequeño para contar','Porque el condensador del primario depende de la batería','Porque k vale siempre cero a 85 kHz']},
+  {q:'Las pads duplican su factor de calidad Q y el acoplamiento k no cambia. ¿Qué pasa con el máximo rendimiento η = k²Q₁Q₂ / (1 + √(1 + k²Q₁Q₂))²?',
+   ok:'Sube: las pérdidas relativas de las bobinas bajan',
+   mal:['Baja: un Q mayor guarda más energía y la devuelve peor','No cambia: sólo depende de k','Cae a cero: un Q alto estrecha la banda']},
+  {q:'Un objeto metálico olvidado sobre la pad suelta calor aunque el coche esté perfectamente alineado. ¿Qué lo calienta?',
+   ok:'Las corrientes de Foucault que el campo alterno induce en él',
+   mal:['La corriente continua de la batería','El rozamiento con el coche','La ferrita, que lo imanta y lo frota']},
+];
+function preparaQuiz(){
+  const it=pickOne(BANCO_Q); const opciones=[it.ok,...it.mal];
+  let ord, idx; let guard=0;
+  do{ ord=barajaFY(opciones.map((t,i)=>i)); idx=ord.indexOf(0); guard++; }while(idx===GUIA.ultimaCorrecta&&guard<20);
+  GUIA.ultimaCorrecta=idx; GUIA.quiz={q:it.q,opc:ord.map(i=>opciones[i]),ok:idx,expl:it.ok}; GUIA.quizResp=-1; GUIA.quizOk=false;
+}
+function startCierre(){ GUIA.fase=2; preparaQuiz(); pasoGuia(); ponVista('conjunto'); }
+function responde(i){
+  if(GUIA.fase!==2||GUIA.quizResp>=0) return; GUIA.quizResp=i; GUIA.quizOk=(i===GUIA.quiz.ok);
+  if(GUIA.quizOk){ sonido.bien(); feedback('good','Correcto ✓','Respuesta: '+GUIA.quiz.opc[GUIA.quiz.ok]+'.',true); }
+  else { sonido.mal(); feedback('bad','No es esa','La correcta era: '+GUIA.quiz.opc[GUIA.quiz.ok]+'.',true); }
+  pasoGuia();
+}
+
+/* ---------- el enrutador de acciones (la API de siempre) ---------- */
+function handleAction(act){
+  switch(act){
+    case 'validar': if(GUIA.fase===0&&!GUIA.retoOk) validar(); break;
+    case 'hint': if(GUIA.fase===0&&!GUIA.retoOk) pista(); break;
+    case 'to-dx': if(GUIA.retoOk&&GUIA.fase===0) startDx(); break;
+    case 'dx-fod': diagnostica('fod'); break;
+    case 'dx-c1': diagnostica('c1'); break;
+    case 'dx-freq': diagnostica('freq'); break;
+    case 'reparar': reparar(); break;
+    case 'to-cierre': if(GUIA.hecho&&GUIA.fase===1) startCierre(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+const tries=(n,t)=>`<span class="tries">intentos fallidos: <b>${n}</b>/${t}</span>`;
+function contenidoGuia(){
+  const sc=GUIA.scen;
+  if(GUIA.fase===0){
+    const done=GUIA.retoOk;
+    return {no:'Reto',head:'Pliego del dock',title:'Entrega 11 kW con η ≥ 90 %',
+      teach:`Hoy el coche es de clase <b>${claseZ(sc.g)}</b> (holgura ${mm(sc.g)}) y su pack es de <b>${fN(sc.Vpack,0)} V</b>: tras el rectificador, la bobina ve <b>R<sub>L</sub> = ${fN(EST.RL,1)} Ω</b>. Está desviado y su bobina trae una tolerancia que no conoces.
+      <div class="task">Alinea el coche y ajusta la compensación C₂ hasta que los cinco criterios del dock estén en ✓. ${tries(GUIA.fallos,3)}</div>`,
+      mandos:slider('x','Desalineación <em class="gr">d</em>',EST.x*1000,-250,250,1,fmtD(EST.x),'')+slider('t','Compensación <em class="gr">C₂</em>',EST.trim*100,-15,15,0.1,(EST.trim>=0?'+':'−')+fN(Math.abs(EST.trim)*100,1)+' %',''),
+      acts:done?`<button class="b primary good" data-act="to-dx">Continuar al diagnóstico →</button>`:`<button class="b primary" data-act="validar">✓ Validar</button><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+  }
+  if(GUIA.fase===1){
+    if(!GUIA.dxOk) return {no:'Diagnóstico',head:'¿Cuál es la falla?',title:'El cargador falla en operación',
+      teach:`El enlace estaba cumpliendo el pliego y algo cambió. Observa la escena y el dock e <b>identifica la causa</b>.<div class="task" id="symptomTask">${GUIA.sintoma||'Observa el síntoma y elige el diagnóstico.'}</div>${tries(GUIA.fallosDx,3)}`,
+      mandos:'',acts:`<button class="b" data-act="dx-fod"><span class="ic">▦</span> Objeto metálico entre las pads</button><button class="b" data-act="dx-c1"><span class="ic">⏚</span> Condensador del primario degradado</button><button class="b" data-act="dx-freq"><span class="ic">∿</span> Frecuencia del inversor fuera de banda</button>`};
+    if(!GUIA.hecho) return {no:'Diagnóstico',head:'Reparación',title:'Corrige la falla',
+      teach:`Diagnóstico correcto: <b>${NOM_FALLA[GUIA.falla]}</b>. Corrígela y mira volver el pliego a ✓.`,mandos:'',acts:`<button class="b primary good" data-act="reparar">🔧 Corregir la falla</button>`};
+    return {no:'Diagnóstico',head:'✓',title:'Falla corregida',teach:`El enlace vuelve a cumplir el pliego. Falta una pregunta para cerrar.`,mandos:'',acts:`<button class="b primary" data-act="to-cierre">Pregunta de cierre →</button>`};
+  }
+  const Q=GUIA.quiz, resp=GUIA.quizResp>=0;
+  return {no:'Cierre',head:resp?(GUIA.quizOk?'Correcto':'Revisa'):'Una pregunta',title:'Para cerrar',
+    teach:`${Q.q}`,mandos:'',
+    acts:Q.opc.map((t,i)=>`<button class="b ${resp?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-quiz="${i}" ${resp?'disabled':''}>${t}</button>`).join('')+(resp?`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`:'')};
+}
+function htmlGuia(){
+  if(!GUIA.iniciado){ return `<div class="retoBox"><h3>Preparando el coche…</h3></div>`; }
+  const ps=['Reto','Diagnóstico','Cierre'], C=contenidoGuia();
+  const ok=i=>(i===0&&GUIA.retoOk)||(i===1&&GUIA.hecho)||(i===2&&GUIA.quizResp>=0&&GUIA.quizOk);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.fase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div>${C.mandos}<div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Repinta la guía tras un cambio de paso, sin perder el foco de nada importante. */
+function pasoGuia(){ if(EST.modo==='guia') pintaHUD(); }
+
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!EST.escMano) EST.esc=1e-5;
+    if(!GUIA.iniciado) startReto(); else ponVista(VISTA.actual);
+  } else {
+    EST.modo='marcha'; EST.falla=null; EST.eps=0; if(!EST.escMano) EST.esc=1e-5; ponVista('conjunto');
+    EST.RL=EST.RL; sincronizaMandos();
+  }
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), b=el('btnAuto');
+  const prev={x:EST.x,g:EST.g,trim:EST.trim,RL:EST.RL,f:EST.f,pausa:EST.pausa,vista:VISTA.actual};
+  const lock=()=>{ hud.style.pointerEvents='none'; if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } };
+  try{
+    lock(); EST.pausa=false; Object.assign(EST,{g:0.16,trim:0,RL:RL_400,f:BANDA.f0}); muevea({x:0.14},0.6); ponVista('conjunto');
+    showToast('Paso 1 · El inversor excita la <b>pad del suelo</b> a 85 kHz. Su campo (las líneas) cruza el aire y llega a la <b>pad del coche</b>. Los símbolos ⊙ y ⊗ cambian de sentido 85 000 veces por segundo; aquí, a cámara lenta.',8200);
+    await espera(8600);
+    muevea({x:0},1.6); ponVista('bobinas');
+    showToast('Paso 2 · Con los ejes alineados <b>k</b> es máximo: más flujo de una pad llega a la otra y hace falta menos corriente para los mismos 11 kW.',7600);
+    await espera(8000);
+    muevea({x:0.22},2.4);
+    showToast('Paso 3 · Al desalinear el coche, <b>k</b> y <b>M</b> bajan: la corriente del primario sube y el rendimiento cae. Mira la curva de η frente a d.',7600);
+    await espera(8000);
+    muevea({x:0,trim:0.12},1.6); ponVista('pads');
+    showToast('Paso 4 · Una bobina <b>desintonizada</b> (C₂ +12 %) devuelve reactiva: cos φ cae y el inversor tiene que dar más tensión para la misma potencia.',7600);
+    await espera(8000);
+    muevea({trim:0,g:0.10},1.8); ponVista('conjunto');
+    showToast('Paso 5 · Con las pads muy cerca (k alto) la potencia a tensión constante se <b>divide</b> en dos picos, a ambos lados de 85 kHz. Mira la respuesta en frecuencia.',8200);
+    await espera(8600);
+  } finally {
+    EST.autoRunning=false; hud.style.pointerEvents=''; muevea({x:prev.x,g:prev.g,trim:prev.trim,RL:prev.RL,f:prev.f},0.8);
+    EST.pausa=prev.pausa; pintaHUD(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 17. SONIDO (sintetizado) =====================
+   Un zumbido suave que sube con la potencia transferida: un cargador real
+   casi no suena (85 kHz está muy por encima del oído); esto es sólo un
+   apoyo para seguir el reloj. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,osc=null,gain=null,filt=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      osc=ctx.createOscillator(); osc.type='sine'; filt=ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900;
+      gain=ctx.createGain(); gain.gain.value=0; osc.connect(filt); filt.connect(gain); gain.connect(master); osc.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(activo,P){ if(!ctx) return; const t=ctx.currentTime;
+    osc.frequency.setTargetAtTime(110+P/110,t,0.08);
+    gain.gain.setTargetAtTime(on&&activo?0.018+0.012*Math.min(1,P/11000):0,t,0.12); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gain?gain.gain.value:0; }, get freq(){ return osc?osc.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 18. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.clave.shadow.mapSize.x!==ms){ LUZ.clave.shadow.mapSize.set(ms,ms); if(LUZ.clave.shadow.map){ LUZ.clave.shadow.map.dispose(); LUZ.clave.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  colocaBarras();
+  clearTimeout(window.__rzWPT); window.__rzWPT=setTimeout(()=>ponVista(VISTA.actual,0.01),140);
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 19. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·escala en cada cuadro, y con ESE tiempo se
+   pintan la escena (espiras, símbolos, campo, puntos) y el dock (cursor de
+   las corrientes, cifras). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  pasaTween(dt);
+  aplicaEscena(EST.pausa?0:dt*EST.esc,dt,t);
+  pasaCam(dt);
+  sonido.actualiza(!EST.pausa&&!!SIMU.op,SIMU.op?SIMU.op.P:0);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaEta(); pintaWf(); pintaFr(); pintaBa(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 20. ARRANQUE =====================
+   Abre funcionando: el coche desviado 140 mm, la holgura en la clase Z2
+   (160 mm), la bobina sin ajustar, 85 kHz, a cámara lenta ×1/100 000. */
+disposicion();
+aplicaCalidad();
+recalcula(true);
+pintaHUD();
+SIMU.t=0.00031;
+pintaDockFijo();
+pintaBarras();
+ponVista('conjunto',0.001);
+cuadro();
+setTimeout(()=>showToast('Dos pads <b>cortadas por la mitad</b> y transfiriendo energía, a cámara lenta ×1/100 000. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' una pieza para saber qué es.',5200),600);
+
+/* ===================== 21. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':(['reto','diagnostico','cierre'][GUIA.fase]||'reto'); },
+  get solved(){ return GUIA.hecho; },
+  get intentos(){ return GUIA.intentos; },
+  quizAnswer(){ return GUIA.quizResp; },
+  quizCorrectIndex(){ return GUIA.quiz?GUIA.quiz.ok:-1; },
+  state(){ return {fase:GUIA.fase,escenario:GUIA.scen,falla:GUIA.falla,intentos:GUIA.intentos,resiembras:GUIA.resiembras,
+    fallos:{reto:GUIA.fallos,dx:GUIA.fallosDx},pistas:GUIA.pistas,retoOk:GUIA.retoOk,dxOk:GUIA.dxOk,resuelto:GUIA.hecho,quizOk:GUIA.quizOk}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const B=SIMU.B, op=SIMU.op; if(!op) return {activo:false};
+    return {activo:true,x:EST.x,g:EST.g,trim:EST.trim,eps:EST.eps,RL:EST.RL,f:B.f,falla:EST.falla,k:B.k,M:B.M,L1:B.L1,L2:B.L2,Q1:SIMU.Q1,Q2:SIMU.Q2,R1:B.R1,R2:B.R2,
+      eta:op.eta,P:op.P,Pmax:op.Pmax,llega:op.llega,limita:op.limita,V1:op.V1,I1:op.aI1,I2:op.aI2,pf:op.pf,Pin:op.Pin,P1:op.P1,P2:op.P2,Pf:op.Pf,
+      pliego:SIMU.pl.map(c=>c.ok),picos:SIMU.picos.map(p=>p.f),i1:SIMU.i1,i2:SIMU.i2,fase:SIMU.fase,Tobj:SIMU.Tobj,tCalc:SIMU.tCalc}; },
+  escena(){ return {vista:VISTA.actual,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,esc:EST.esc,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,lineas:LIN.filter(l=>l.n>2).length,puntosCampo:N_DOT,
+    litzA:+M.litzA.emissive.r.toFixed(3),litzB:+M.litzB.emissive.r.toFixed(3),vehiculo:[+VEH.position.x.toFixed(3),+VEH.position.y.toFixed(3)],objeto:OBJETO.visible}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia',true); },
+  action:(a)=>handleAction(a,null),
+  quiz:(i)=>responde(i),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); sincronizaMandos(); recalcula(true); pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  t:(s)=>{ SIMU.t=s; },
+  avanza:(s)=>{ SIMU.t+=s; },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  falla:(f)=>{ EST.falla=f; GUIA.falla=f; },
+  recalcula:()=>recalcula(true),
+  sync:()=>{ TW.u=1; sincronizaMandos(); },
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  state:()=>({fase:GUIA.fase,falla:GUIA.falla,retoOk:GUIA.retoOk,dxOk:GUIA.dxOk,hecho:GUIA.hecho,quiz:GUIA.quiz&&{ok:GUIA.quiz.ok,resp:GUIA.quizResp},escenario:GUIA.scen,trimOptimo:GUIA.scen?-GUIA.scen.eps/(1+GUIA.scen.eps):null}),
+});
+instalaDiag('carga-inalambrica-resonante',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{ga:GA,va:VA,vehiculo:VEH,coche:COCHE,suelo,expo:EXPO,banco:BANCO}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-carga-inalambrica-resonante.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

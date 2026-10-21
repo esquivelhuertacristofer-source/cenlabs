@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Subviraje, Sobreviraje y ESC — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,24,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#4FD1C5;--cR:#FFB347;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14201f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#182a28}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#33b3a3}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#06120f}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#4FD1C5;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f8a85;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f948f;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04211c}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,58,52,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,58,52,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f8a85}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9fbab4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,58,52,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c9c4;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14201f;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfe0dc;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(12,22,22,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,22,21,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,22,24,.92);border:1px solid rgba(79,209,197,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,22,24,.84);border:1px solid rgba(79,209,197,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,24,23,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Dinámica del vehículo · subviraje, sobreviraje y ESC</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">ESC · mojado</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Velocidad</div><b id="f_v">—</b></div>
+    <div class="fg"><div class="fl">Acel. lateral</div><b id="f_ay">—</b></div>
+    <div class="fg"><div class="fl">Volante (rueda)</div><b id="f_d">—</b></div>
+    <div class="fg"><div class="fl">Deriva del coche β</div><b id="f_b">—</b></div>
+    <div class="fg"><div class="fl">Gradiente K</div><b id="f_k">—</b></div>
+    <div class="fg"><div class="fl">ESC</div><b id="f_e">—</b></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Trayectoria <span id="t_tr"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Círculo de fricción <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">Guiñada real y deseada <span id="t_fu">mismo reloj</span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-tit t-sp">Fuerza lateral frente a deriva <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — SUBVIRAJE, SOBREVIRAJE Y CONTROL DE ESTABILIDAD (ESC)
+   (Dinámica del vehículo · mecanica-128)
+
+   Un coche entra en una curva a la izquierda en una pista de pruebas. Abre
+   en marcha, con DOS coches que hacen la misma maniobra a la vez: el
+   translúcido, sin ESC, y el sólido, con ESC. Sobre el suelo, la trayectoria
+   que dibujan; en cada neumático, la flecha de su fuerza dentro de su círculo
+   de fricción —que se pone roja al saturarse—, y los discos que se encienden
+   cuando el ESC frena UNA rueda.
+
+   Todo sale de un modelo de bicicleta de 3 grados de libertad con neumáticos
+   de fórmula mágica (Pacejka) y Runge–Kutta 4, un conductor que sigue la
+   pista y un ESC que compara la guiñada real con la deseada. Esa física está
+   en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre.
+
+   Modelo de bicicleta de 3 grados de libertad en el plano (vx, vy, r) con
+   neumáticos de «fórmula mágica» de Pacejka saturados por la adherencia μ,
+   integrado con Runge–Kutta de 4.º orden. Encima, un conductor que sigue la
+   pista (persecución pura) y el control de estabilidad ESC, que frena una
+   sola rueda para crear el momento de guiñada que el volante no consigue. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI, G=9.81, RAD=Math.PI/180;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const angNorm=a=>{ while(a>Math.PI) a-=DOSPI; while(a<-Math.PI) a+=DOSPI; return a; };
+
+/* ---------- 1.1 El coche ----------
+   Un sedán compacto. a y b son las distancias del centro de masa a los ejes
+   delantero y trasero; t, la vía. Cf0 es la rigidez de deriva del eje
+   delantero (los dos neumáticos juntos) sobre seco, μ0 = 0,9: Cα ∝ μ (en la
+   fórmula mágica, B·C·D con D = μ·Fz y B fijo). La rigidez trasera NO se da:
+   sale de pedir el gradiente de subviraje K0 que elige el alumno. */
+const VEH={ m:1500, Iz:2500, a:1.10, b:1.50, t:1.55, L:2.60, Cf0:90000, mu0:0.9,
+  C:1.35, E:-0.5, crr:0.015, rho:1.2, CdA:0.65, dMax:0.55, dRate:2.5, tauDir:0.08 };
+const SUPERFICIES={ seco:0.90, mojado:0.55, nieve:0.25, hielo:0.12 };
+
+/** Rigideces y cargas a la adherencia μ para un gradiente K0 (°/g) a μ0.
+ *  K = (m/L)(b/Cf − a/Cr)  [rad·s²/m];  r/δ|estacionario = V/(L + K·V²). */
+function coefs(K0deg,mu){
+  const {m,a,b,L,Cf0,mu0,C}=VEH, K0=K0deg*RAD/G;
+  const Cr0=a/(b/Cf0-K0*L/m), k=mu/mu0, Cf=Cf0*k, Cr=Cr0*k;
+  const Fzf=m*G*b/L, Fzr=m*G*a/L;
+  return { mu,K0deg,Cf,Cr,Fzf,Fzr,Bf:Cf/(C*mu*Fzf),Br:Cr/(C*mu*Fzr),
+    K:(m/L)*(b/Cf-a/Cr), Kdeg:(m/L)*(b/Cf-a/Cr)*G/RAD };
+}
+/** Fuerza lateral de un neumático (fórmula mágica): D·sen(C·atan(Bx − E(Bx − atan Bx))). */
+function pacejka(alfa,B,C,D,E){ const x=B*alfa; return D*Math.sin(C*Math.atan(x-E*(x-Math.atan(x)))); }
+/** Fuerza lateral de un eje con deriva α (positiva si la velocidad apunta a la izquierda de la rueda): se opone. */
+function fyEje(alfa,B,Fz,mu){ return -pacejka(alfa,B,VEH.C,mu*Fz,VEH.E); }
+/** Velocidad crítica de sobreviraje (sólo existe si K < 0). */
+function vCritica(K){ return K<0?Math.sqrt(-VEH.L/K):Infinity; }
+/** Velocidad angular de guiñada en régimen estacionario por unidad de volante. */
+function gananciaGuinada(V,K){ return V/(VEH.L+K*V*V); }
+/** Guiñada de referencia lineal V·δ/(L + K·V²) (se acota el denominador por encima de V_crit). */
+function guinadaLineal(vx,delta,K){ const v=Math.max(vx,1); return v*delta/Math.max(VEH.L+K*v*v,0.3*VEH.L); }
+/** Guiñada deseada del ESC: la lineal, acotada por lo que la adherencia permite (|r| ≤ μg/V). */
+function guinadaDeseada(vx,delta,K,mu){
+  const v=Math.max(vx,1), lim=mu*G/v;
+  return clamp(guinadaLineal(v,delta,K),-lim,lim);
+}
+
+/* ---------- 1.2 Fuerzas y dinámica ----------
+   Estado s = {x,y,psi,vx,vy,r} (ejes del cuerpo: x adelante, y a la izquierda).
+   u = {delta, Fx:[FI,FD,TI,TD]} con Fx > 0 tracción y < 0 freno por rueda.
+   Elipse de fricción: una rueda que reparte fuerza longitudinal Fx pierde
+   lateral en la proporción √(1 − (Fx/μFz_rueda)²). */
+function fuerzas(s,u,c,sinRes){
+  const {m,a,b,t,Iz}=VEH, vx=Math.max(s.vx,0.5), Fx=u.Fx;
+  const af=Math.atan2(s.vy+a*s.r,vx)-u.delta, ar=Math.atan2(s.vy-b*s.r,vx);
+  const Dwf=c.mu*c.Fzf/2, Dwr=c.mu*c.Fzr/2;
+  const el=(F,D)=>Math.sqrt(1-Math.pow(Math.min(0.98,Math.abs(F)/D),2));
+  const sf=0.5*(el(Fx[0],Dwf)+el(Fx[1],Dwf)), sr=0.5*(el(Fx[2],Dwr)+el(Fx[3],Dwr));
+  const Fyf=fyEje(af,c.Bf,c.Fzf,c.mu)*sf, Fyr=fyEje(ar,c.Br,c.Fzr,c.mu)*sr;
+  const cd=Math.cos(u.delta), sd=Math.sin(u.delta), yw=[t/2,-t/2,t/2,-t/2];
+  // fuerzas de cada rueda delantera en el cuerpo: longitudinal a lo largo de la rueda, lateral perpendicular
+  let FxB=0, FyB=Fyr, Mz=-b*Fyr;
+  for(let i=0;i<2;i++){
+    const fx=Fx[i]*cd-0.5*Fyf*sd, fy=Fx[i]*sd+0.5*Fyf*cd;
+    FxB+=fx; FyB+=fy; Mz+=a*fy-yw[i]*fx;
+  }
+  for(let i=2;i<4;i++){ FxB+=Fx[i]; Mz+=-yw[i]*Fx[i]; }
+  const res=sinRes?0:VEH.crr*m*G+0.5*VEH.rho*VEH.CdA*vx*vx;
+  return { af,ar,Fyf,Fyr,FxB,FyB,Mz,res,
+    ax:(FxB-res)/m, ay:FyB/m, sf,sr };
+}
+function deriv(s,u,c,sinRes){
+  const F=fuerzas(s,u,c,sinRes), cp=Math.cos(s.psi), sp=Math.sin(s.psi);
+  return { x:s.vx*cp-s.vy*sp, y:s.vx*sp+s.vy*cp, psi:s.r,
+    vx:F.ax+s.vy*s.r, vy:F.ay-s.vx*s.r, r:F.Mz/VEH.Iz };
+}
+const CLAVES=['x','y','psi','vx','vy','r'];
+function suma(s,d,h){ const o={}; for(const k of CLAVES) o[k]=s[k]+d[k]*h; return o; }
+/** Un paso de Runge–Kutta de 4.º orden con la entrada u constante. */
+function rk4(s,u,c,h,sinRes){
+  const k1=deriv(s,u,c,sinRes), k2=deriv(suma(s,k1,h/2),u,c,sinRes), k3=deriv(suma(s,k2,h/2),u,c,sinRes), k4=deriv(suma(s,k3,h),u,c,sinRes);
+  const o={}; for(const k of CLAVES) o[k]=s[k]+h/6*(k1[k]+2*k2[k]+2*k3[k]+k4[k]);
+  return o;
+}
+/** Energía cinética del coche (traslación y guiñada). */
+function energiaCinetica(s){ return 0.5*VEH.m*(s.vx*s.vx+s.vy*s.vy)+0.5*VEH.Iz*s.r*s.r; }
+
+/* ---------- 1.3 La pista ----------
+   Recta de aproximación, un cuarto de circunferencia a la izquierda de radio
+   R y recta de salida. Calzada de 7,2 m; el coche «se sale» cuando su eje se
+   aleja más de 2,8 m de la línea central (su costado toca el borde). */
+const PISTA={ S1:60, S3:30, semi:3.6, limite:2.8 };
+function pistaLargo(R){ return PISTA.S1+R*Math.PI/2+PISTA.S3; }
+/** Punto, rumbo y curvatura de la línea central a la longitud de arco s. */
+function pistaPunto(s,R){
+  const S1=PISTA.S1, S2=R*Math.PI/2;
+  if(s<=S1) return {x:s,y:0,h:0,k:0};
+  if(s<=S1+S2){ const th=(s-S1)/R; return {x:S1+R*Math.sin(th),y:R*(1-Math.cos(th)),h:th,k:1/R}; }
+  return {x:S1+R,y:R+(s-S1-S2),h:Math.PI/2,k:0};
+}
+/** Proyección de (x,y) sobre la pista a partir de una estimación s0 (Newton sobre la tangente). */
+function pistaProyecta(x,y,R,s0){
+  let s=s0;
+  for(let i=0;i<8;i++){ const p=pistaPunto(s,R), ds=(x-p.x)*Math.cos(p.h)+(y-p.y)*Math.sin(p.h); s+=ds; if(Math.abs(ds)<1e-6) break; }
+  s=Math.max(0,s); const p=pistaPunto(s,R);
+  return { s, ey:-(x-p.x)*Math.sin(p.h)+(y-p.y)*Math.cos(p.h), h:p.h };      // ey > 0: a la izquierda de la línea central
+}
+
+/* ---------- 1.4 El conductor y el ESC ----------
+   Conductor: persecución pura. Mira un punto de la pista a Ld = 0,55·V (entre 5
+   y 25 m) y gira lo que la geometría de bicicleta pide para llegar a él:
+   δ = atan(2·L·sen η / Ld). Tiene retraso (τ = 80 ms), límite de ángulo
+   (0,55 rad) y de velocidad de giro (2,5 rad/s). Mantiene la velocidad con el
+   acelerador (tracción trasera) y su fuerza se reparte con la elipse. */
+const ESC_P={ banda:0.05, bandaSub:0.07, kp:2.0*VEH.Iz, frenoComun:0.25*G };
+function nuevaCorrida(par){
+  const R=par.R, V=par.V, c=coefs(par.K0deg,par.mu), s0=Math.max(0,PISTA.S1-V*1.5), p=pistaPunto(s0,R);
+  return { par,c,R,
+    s:{x:p.x,y:p.y,psi:p.h,vx:V,vy:0,r:0},
+    drv:{sP:s0,delta:0,dCmd:0},
+    t:0, fin:false, causa:'', tLim:(pistaLargo(R)-s0)/Math.max(V,3)*1.8+6, maxEy:0, ey:0, sP:s0,
+    esc:{act:false,rueda:-1,Fb:0,dM:0,rdes:0,rlin:0,e:0,tAct:0,testigo:false,sobre:false},
+    u:{delta:0,Fx:[0,0,0,0]}, F:null, hist:par.hist?[]:null, tH:0, Fdrive:0, vMin:V };
+}
+/** Un paso de simulación de duración h. Devuelve la misma corrida. */
+function pasoCorrida(q,h){
+  if(q.fin) return q;
+  const {s,c,par,drv}=q, vx=Math.max(s.vx,0.5);
+  // --- conductor ---
+  const pr=pistaProyecta(s.x,s.y,q.R,drv.sP); drv.sP=pr.s; q.sP=pr.s; q.ey=pr.ey; q.maxEy=Math.max(q.maxEy,Math.abs(pr.ey));
+  const Ld=clamp(0.55*vx,5,25), tgt=pistaPunto(Math.min(pr.s+Ld,pistaLargo(q.R)),q.R);
+  const eta=angNorm(Math.atan2(tgt.y-s.y,tgt.x-s.x)-s.psi);
+  drv.dCmd=Math.atan(2*VEH.L*Math.sin(eta)/Math.max(Ld,1));
+  const dd=clamp((drv.dCmd-drv.delta)/VEH.tauDir,-VEH.dRate,VEH.dRate);
+  drv.delta=clamp(drv.delta+dd*h,-VEH.dMax,VEH.dMax);
+  // --- ESC ---
+  const E=q.esc; let FxR=[0,0,0,0], freno=0;
+  const rlin=guinadaLineal(vx,drv.delta,c.K), rdes=guinadaDeseada(vx,drv.delta,c.K,c.mu), sgn=rlin>=0?1:-1;
+  E.rdes=rdes; E.rlin=rlin; E.e=s.r-rdes;
+  E.act=false; E.rueda=-1; E.Fb=0; E.dM=0;
+  if(par.esc){
+    // sobreviraje: el coche gira MÁS que lo que la adherencia deja (r pasa de r_des); subviraje: gira MENOS que lo que el volante pide
+    const xo=sgn*(s.r-rdes)-ESC_P.banda, xu=sgn*(rlin-s.r)-ESC_P.bandaSub;
+    if(xo>0||xu>0){
+      const sobre=xo>0, mag=sobre?xo:xu, dM=(sobre?-1:1)*sgn*ESC_P.kp*mag;
+      const izq=dM>0, rueda=(sobre?0:2)+(izq?0:1);          // sobreviraje: rueda delantera exterior; subviraje: trasera interior
+      const Fmax=0.95*c.mu*(sobre?c.Fzf:c.Fzr)/2, Fb=Math.min(Math.abs(dM)/(VEH.t/2),Fmax);
+      FxR[rueda]-=Fb; E.act=true; E.rueda=rueda; E.Fb=Fb; E.dM=Math.sign(dM)*Fb*VEH.t/2; E.sobre=sobre; E.testigo=true; E.tAct+=h;
+      freno=ESC_P.frenoComun*Math.min(1,mag/0.3)*VEH.m/4;     // frenado común suave (y se corta el acelerador)
+      for(let i=0;i<4;i++) FxR[i]-=freno;
+    }
+  }
+  // --- acelerador: mantiene la velocidad (se corta mientras el ESC actúa) ---
+  const res=VEH.crr*VEH.m*G+0.5*VEH.rho*VEH.CdA*vx*vx;
+  let Fd=E.act?0:clamp(VEH.m*1.2*(par.V-vx)+res,0,0.9*c.mu*c.Fzr);
+  q.Fdrive=Fd; FxR[2]+=Fd/2; FxR[3]+=Fd/2;
+  q.u={delta:drv.delta,Fx:FxR};
+  q.F=fuerzas(s,q.u,c,false);
+  q.s=rk4(s,q.u,c,h,false); q.t+=h; q.vMin=Math.min(q.vMin,q.s.vx);
+  // --- veredicto (la primera causa manda; con par.sigue la corrida continúa unos segundos para verla acabar) ---
+  const L=pistaLargo(q.R), rumboPista=pr.h;
+  if(!q.causa){
+    if(!isFinite(q.s.x+q.s.vx+q.s.r)) q.causa='trompo';
+    else if(Math.abs(q.ey)>PISTA.limite) q.causa=q.ey>0?'salida-interior':'salida-exterior';
+    else if(Math.abs(angNorm(q.s.psi-rumboPista))>1.4) q.causa='trompo';
+    else if(pr.s>=L-1) q.causa='ok';
+    else if(q.t>q.tLim) q.causa='tiempo';
+    if(q.causa) q.tCausa=q.t;
+  }
+  if(q.causa&&(!par.sigue||q.causa==='ok'||q.t>q.tCausa+(par.cola||3))) q.fin=true;
+  if(q.hist&&q.t-q.tH>=0.02-1e-9){ q.tH=q.t; q.hist.push(muestra(q)); }
+  return q;
+}
+/** Lo que se registra de cada instante (el dock y la escena leen de aquí). */
+function muestra(q){
+  const s=q.s, F=q.F||{af:0,ar:0,Fyf:0,Fyr:0,ay:0}, vv=Math.hypot(s.vx,s.vy);
+  return { t:q.t,x:s.x,y:s.y,psi:s.psi,vx:s.vx,vy:s.vy,r:s.r,rdes:q.esc.rdes,delta:q.u.delta,
+    af:F.af,ar:F.ar,Fyf:F.Fyf,Fyr:F.Fyr,ay:F.ay,beta:Math.atan2(s.vy,Math.max(s.vx,0.5)),
+    dM:q.esc.dM,Fb:q.esc.Fb,rueda:q.esc.rueda,act:q.esc.act?1:0,ey:q.ey,V:vv,
+    fxf:q.u.Fx[0]+q.u.Fx[1], fxr:q.u.Fx[2]+q.u.Fx[3], sf:F.sf, sr:F.sr };
+}
+/** Corre una maniobra completa sin dibujar. */
+function simula(par,h=0.004){
+  const q=nuevaCorrida(par); let n=0;
+  while(!q.fin&&n++<20000) pasoCorrida(q,h);
+  return q;
+}
+/** Velocidad límite (km/h) con la que una maniobra aún se completa, explorando de V0 a V1 en pasos de dV;
+ *  devuelve la última velocidad que acaba bien antes del primer fallo. */
+function velocidadLimite(base,esc,{v0=10,v1=150,dv=3}={}){
+  let ult=0;
+  for(let kmh=v0;kmh<=v1;kmh+=dv){
+    const q=simula(Object.assign({},base,{V:kmh/3.6,esc,hist:false}));
+    if(q.causa==='ok') ult=kmh; else break;
+  }
+  return ult;
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.55,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.62;
+scene.fog=new THREE.Fog('#1b2a33',70,330);
+
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.1,700);
+camera.position.set(-8,6,6);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=3; controls.maxDistance=260; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(0,0.6,0);
+
+/* Luz de estudio sobre la pista: un sol bajo y cálido con sombra suave que SIGUE al coche
+   (su cámara de sombras sólo cubre 30 m), relleno frío y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff0dd',2.3); LUZ.sol.castShadow=true;
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-15,right:15,top:15,bottom:-15,near:1,far:70});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#9fb9d8',0.55); LUZ.relleno.position.set(-30,20,-24); scene.add(LUZ.relleno);
+LUZ.hemi=new THREE.HemisphereLight('#a7c0d8','#1a2218',0.42); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: los discos que frena el ESC, las luces del coche y las flechas
+   que se saturan. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.5,0.3,1.6); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y de rugosidad,
+   y las marcas propias de una pista (rodadas, rayas de pintura) dibujadas como objetos, no como ruido. */
+const DOSPI_=Math.PI*2;
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto: u cruza la calzada y v va a lo largo. Tono lento y dos rodadas más oscuras y pulidas. */
+function texAsfalto(){
+  const W=256,H=256,c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H),f=fbmP(5,3,3);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const u=i/W, n=f(i/W*3,j/H*3), rod=Math.exp(-Math.pow((u-0.30)/0.07,2))+Math.exp(-Math.pow((u-0.70)/0.07,2));
+    const v=Math.max(0,Math.min(255,(0.86+(n-0.5)*0.16-0.10*rod)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+/** Terreno: manchas muy lentas, sin grano. */
+function texTerreno(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(11,4,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*4,j/W*4), v=Math.max(0,Math.min(255,(0.80+(n-0.5)*0.34)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); const t=tex(c,{srgb:true}); t.repeat.set(60,60); return t;
+}
+/** Pintura longitudinal: raya continua (borde) o discontinua (línea ideal). Alfa en el canal. */
+function texRaya(discontinua){
+  const W=16,H=64,c=cv(W,H),x=c.getContext('2d'); x.clearRect(0,0,W,H);
+  x.fillStyle='#ffffff'; x.fillRect(0,0,W,discontinua?H*0.5:H);
+  const t=tex(c,{srgb:true}); t.wrapS=THREE.ClampToEdgeWrapping; return t;
+}
+/** Pianos (bordillos a rayas): v a lo largo, 1 m por franja. */
+function texPiano(){
+  const W=8,H=64,c=cv(W,H),x=c.getContext('2d'); x.fillStyle='#d9dde0'; x.fillRect(0,0,W,H); x.fillStyle='#d62839'; x.fillRect(0,0,W,H/2);
+  const t=tex(c,{srgb:true}); t.wrapS=THREE.ClampToEdgeWrapping; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.LinearMipmapLinearFilter; return t;
+}
+const T_ASF=texAsfalto(), T_TER=texTerreno(), T_RAYA=texRaya(false), T_IDEAL=texRaya(true), T_PIANO=texPiano();
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+
+/* La superficie manda en el aspecto: asfalto seco, mojado (espejo oscuro), nieve prensada y hielo. */
+const SUP_ASPECTO={
+  seco:  {asf:'#7c8189',rug:0.88,cc:0.0,ccr:0.5,ter:'#4d5d44',niebla:'#22303a',cielo:['#2a3f55','#6f8196','#27323a'],sol:2.4},
+  mojado:{asf:'#4a5058',rug:0.30,cc:0.6,ccr:0.14,ter:'#3a4934',niebla:'#1a252d',cielo:['#1c2b3b','#4c5f73','#1c262e'],sol:1.55},
+  nieve: {asf:'#d3dae0',rug:0.93,cc:0.0,ccr:0.5,ter:'#e3eaf0',niebla:'#3a4650',cielo:['#34485c','#8095a8','#3b4852'],sol:2.1},
+  hielo: {asf:'#a9cce0',rug:0.12,cc:0.9,ccr:0.08,ter:'#d8e6ee',niebla:'#21323f',cielo:['#203a52','#5e86a4','#26394a'],sol:1.6},
+};
+const M={
+  asfalto: fis({color:'#7c8189',map:T_ASF,roughness:0.88,metalness:0,clearcoat:0,clearcoatRoughness:0.2}),
+  terreno: pbr({color:'#4d5d44',map:T_TER,roughness:0.97,metalness:0,envMapIntensity:0.4}),
+  raya: new THREE.MeshBasicMaterial({color:'#e8eef0',map:T_RAYA,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
+  ideal: new THREE.MeshBasicMaterial({color:'#7fe3d8',map:T_IDEAL,transparent:true,opacity:0.8,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
+  piano: pbr({color:'#ffffff',map:T_PIANO,roughness:0.6,metalness:0}),
+  valla: pbr({color:'#aab3ba',metalness:0.85,roughness:0.34}),
+  poste: pbr({color:'#6c757d',metalness:0.7,roughness:0.5}),
+  arbol: pbr({color:'#ffffff',roughness:0.9,metalness:0,envMapIntensity:0.35}),
+  pintura: fis({color:'#c1121f',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  cristal: fis({color:'#0b1a24',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.90,envMapIntensity:1.6}),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  faro: pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:0.9}),
+  piloto: pbr({color:'#6b0a12',metalness:0.1,roughness:0.2,emissive:'#ff1f2d',emissiveIntensity:0.55}),
+  morda: pbr({color:'#a8161d',metalness:0.5,roughness:0.4,emissive:'#ff2a1a',emissiveIntensity:0}),
+};
+M.alu=M.llanta; M.aluminio=M.llanta; M.hierro=M.acero; M.negro=M.goma;
+function aplicaSuperficie(nom){
+  const a=SUP_ASPECTO[nom];
+  M.asfalto.color.set(a.asf); M.asfalto.roughness=a.rug; M.asfalto.clearcoat=a.cc; M.asfalto.clearcoatRoughness=a.ccr;
+  M.terreno.color.set(a.ter);
+  scene.fog.color.set(a.niebla);
+  scene.background=fondoDegradado(...a.cielo);
+  LUZ.sol.intensity=a.sol;
+}
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 tacos cuesta 3 llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=true; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI_, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+const mezcla=(a,b,t)=>a+(b-a)*t, suave=t=>t*t*(3-2*t);
+/** Interpola linealmente-suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+
+/* ===================== 6. LA PISTA =====================
+   Mapa de ejes: el plano de la simulación (x adelante, y a la izquierda) se pinta en three como
+   (x, altura, −y). Así un giro a la izquierda va hacia −Z y el rumbo ψ es la rotación en Y. */
+const PISTA3=new THREE.Group(); scene.add(PISTA3);
+let PISTA_R=0, ARBOLES=null;
+const aMundo=(x,y,h=0)=>V3(x,h,-y);
+function ptLado(p,d){ return [p.x-d*Math.sin(p.h),-(p.y+d*Math.cos(p.h))]; }
+function muestrasS(R,s0,s1){
+  const S1=PISTA.S1, S2=R*Math.PI/2, set=new Set([s0,s1,S1,S1+S2]);
+  for(let s=s0;s<s1;s+=((s>S1&&s<S1+S2)?0.9:8)) set.add(s);
+  return [...set].filter(s=>s>=s0&&s<=s1).sort((a,b)=>a-b);
+}
+/** Una cinta plana sobre el suelo: entre los desvíos laterales d0 (derecha) y d1 (izquierda) de la línea central. */
+function cintaArr(R,s0,s1,d0,d1,y,vEsc,acum){
+  const S=muestrasS(R,s0,s1), P=acum.pos, U=acum.uv, I=acum.idx, base=P.length/3;
+  for(const s of S){ const p=pistaPunto(s,R), a=ptLado(p,d0), b=ptLado(p,d1);
+    P.push(a[0],y,a[1], b[0],y,b[1]); U.push(0,s/vEsc, 1,s/vEsc); }
+  for(let i=0;i<S.length-1;i++){ const r0=base+i*2, l0=r0+1, r1=r0+2, l1=r0+3; I.push(r0,r1,l0, r1,l1,l0); }
+}
+const nuevoAcum=()=>({pos:[],uv:[],idx:[]});
+function geoDeAcum(a){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(a.pos,3));
+  const n=[]; for(let i=0;i<a.pos.length/3;i++) n.push(0,1,0);
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(n,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(a.uv,2)); g.setIndex(a.idx);
+  g.computeBoundingSphere(); return g;
+}
+function semilla(n){ let s=n>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+function texChevron(){
+  const c=cv(64,128),x=c.getContext('2d'); x.fillStyle='#f2c200'; x.fillRect(0,0,64,128);
+  x.strokeStyle='#15191c'; x.lineWidth=11; x.lineCap='butt'; x.lineJoin='miter';
+  x.beginPath(); x.moveTo(46,28); x.lineTo(18,64); x.lineTo(46,100); x.stroke();
+  x.lineWidth=4; x.strokeStyle='#15191c'; x.strokeRect(3,3,58,122);
+  return tex(c,{srgb:true});
+}
+function limpiaPista(){
+  PISTA3.traverse(o=>{ if(o.geometry&&!o.userData.compartida) o.geometry.dispose(); });
+  while(PISTA3.children.length) PISTA3.remove(PISTA3.children[0]);
+}
+function construyePista(R){
+  limpiaPista(); PISTA_R=R;
+  const L=pistaLargo(R), W=PISTA.semi, s0=-60, s1=L+25;
+  // terreno
+  const ter=new THREE.Mesh(new THREE.PlaneGeometry(1200,1200),M.terreno); ter.rotation.x=-Math.PI/2; ter.position.set(130,-0.03,-R*0.5); ter.receiveShadow=true; ter.userData.pieza='terreno'; PISTA3.add(ter);
+  // asfalto (8 m de calzada por baldosa de textura)
+  let a=nuevoAcum(); cintaArr(R,s0,s1,-W,W,0.0,9,a); const asf=new THREE.Mesh(geoDeAcum(a),M.asfalto); asf.receiveShadow=true; asf.userData.pieza='asfalto'; PISTA3.add(asf);
+  // bordes de calzada (raya continua) a ambos lados
+  a=nuevoAcum(); cintaArr(R,s0,s1,-W+0.16,-W+0.30,0.004,6,a); cintaArr(R,s0,s1,W-0.30,W-0.16,0.004,6,a);
+  const bor=new THREE.Mesh(geoDeAcum(a),M.raya); bor.renderOrder=2; bor.userData.pieza='borde'; PISTA3.add(bor);
+  // la línea ideal: discontinua, justo en el centro (de la maniobra)
+  a=nuevoAcum(); cintaArr(R,0,L,-0.07,0.07,0.006,6,a);
+  const ide=new THREE.Mesh(geoDeAcum(a),M.ideal); ide.renderOrder=3; ide.userData.pieza='ideal'; PISTA3.add(ide);
+  // pianos a rayas rojas y blancas, sólo en el arco (y un poco antes y después)
+  a=nuevoAcum(); const sa=PISTA.S1-6, sb=PISTA.S1+R*Math.PI/2+6;
+  cintaArr(R,sa,sb,W+0.0,W+0.55,0.012,2,a); cintaArr(R,sa,sb,-W-0.55,-W-0.0,0.012,2,a);
+  const pia=new THREE.Mesh(geoDeAcum(a),M.piano); pia.receiveShadow=true; pia.userData.pieza='piano'; PISTA3.add(pia);
+  // guardarraíl en el EXTERIOR de la curva (a la derecha, d < 0), con sus postes cada 4 m
+  {
+    const pos=[],nor=[],idx=[], dG=-(W+2.4), S=muestrasS(R,Math.max(s0,PISTA.S1-30),Math.min(L,PISTA.S1+R*Math.PI/2+40));
+    const h0=0.46,h1=0.84; let base=0;
+    for(let i=0;i<S.length;i++){ const p=pistaPunto(S[i],R), q=ptLado(p,dG), nx=Math.sin(p.h), nz=Math.cos(p.h);   // normal hacia la calzada (izquierda): (−sin h, 0, −cos h) en mundo → hacia la pista
+      pos.push(q[0],h0,q[1], q[0],h1,q[1]); nor.push(-nx,0,-nz, -nx,0,-nz); }
+    for(let i=0;i<S.length-1;i++){ const a0=i*2; idx.push(a0,a0+1,a0+2, a0+1,a0+3,a0+2); }
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3)); g.setIndex(idx);
+    const rail=new THREE.Mesh(g,M.valla); rail.material.side=THREE.DoubleSide; rail.castShadow=true; rail.userData.pieza='valla'; PISTA3.add(rail);
+    const postes=[]; for(let s=PISTA.S1-30;s<L;s+=4){ const p=pistaPunto(s,R), q=ptLado(p,dG-0.05); const b=new THREE.BoxGeometry(0.1,0.9,0.1); b.translate(q[0],0.45,q[1]); postes.push(b); }
+    let n=0; for(const b of postes) n+=b.attributes.position.count;
+    const ps=new Float32Array(n*3), ns=new Float32Array(n*3), ix=[]; let o=0;
+    for(const b of postes){ ps.set(b.attributes.position.array,o*3); ns.set(b.attributes.normal.array,o*3); for(const k of b.index.array) ix.push(k+o); o+=b.attributes.position.count; b.dispose(); }
+    const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(ps,3)); pg.setAttribute('normal',new THREE.BufferAttribute(ns,3)); pg.setIndex(ix);
+    const pm=new THREE.Mesh(pg,M.poste); pm.castShadow=true; pm.userData.pieza='valla'; PISTA3.add(pm);
+  }
+  // paneles de chevrón, de frente a quien llega, tras el guardarraíl
+  {
+    const g=new THREE.PlaneGeometry(1.1,2.2); g.translate(0,1.9,0);
+    const m=new THREE.MeshStandardMaterial({map:texChevron(),roughness:0.5,metalness:0.1,side:THREE.DoubleSide});
+    const n=7, im=new THREE.InstancedMesh(g,m,n), mt=new THREE.Matrix4(), qa=new THREE.Quaternion();
+    for(let i=0;i<n;i++){ const s=PISTA.S1+R*Math.PI/2*(0.06+0.88*i/(n-1)), p=pistaPunto(s,R), q=ptLado(p,-(W+4.2));
+      mt.compose(V3(q[0],0,q[1]),qa.setFromAxisAngle(V3(0,1,0),p.h+Math.PI),V3(1,1,1)); im.setMatrixAt(i,mt); }
+    im.instanceMatrix.needsUpdate=true; im.castShadow=true; im.userData.pieza='chevron'; PISTA3.add(im);
+  }
+  // árboles: conos de baja resolución, fuera de la pista (dentro de la curva y tras el guardarraíl)
+  {
+    const g=new THREE.ConeGeometry(1.5,5.4,7); g.translate(0,2.7,0);
+    const n=90, im=new THREE.InstancedMesh(g,M.arbol,n), rnd=semilla(7+R), mt=new THREE.Matrix4(), col=new THREE.Color(); let k=0;
+    while(k<n){ const s=-30+rnd()*(L+40), lado=rnd()<0.62?-1:1, d=lado*(W+9+rnd()*55), p=pistaPunto(s,R), q=ptLado(p,d);
+      // dentro de la curva no cabe nada cerca del centro de giro
+      const ccx=PISTA.S1, ccy=R; if(Math.hypot(q[0]-ccx,-q[1]-ccy)<9) continue;
+      const sc=0.8+rnd()*0.9; mt.compose(V3(q[0],0,q[1]),new THREE.Quaternion(),V3(sc,sc*(0.9+rnd()*0.5),sc));
+      im.setMatrixAt(k,mt); col.setHSL(0.31+rnd()*0.05,0.38+rnd()*0.1,0.09+rnd()*0.06); im.setColorAt(k,col); k++; }
+    im.castShadow=true; im.receiveShadow=true; im.userData.pieza='arboles'; PISTA3.add(im);
+  }
+}
+
+/* ===================== 7. LOS COCHES ===================== */
+const LRUEDA=0.31;                                                 // radio del neumático (m)
+const POS_RUEDA=[[VEH.a,-VEH.t/2],[VEH.a,VEH.t/2],[-VEH.b,-VEH.t/2],[-VEH.b,VEH.t/2]];     // (x, z) de FI, FD, TI, TD en el coche
+function construyeCoche(){
+  const raiz=new THREE.Group(), caja=new THREE.Group(); caja.position.y=0.12; raiz.add(caja);
+  const fija=new THREE.Group();                                    // lo que no se mueve respecto a la carrocería
+  const xc=-0.25, hl=2.2;
+  const yt=perfil1D([[-2.45,0.62],[-2.2,0.80],[-1.5,0.88],[-0.6,0.86],[0.4,0.82],[1.1,0.76],[1.7,0.66],[1.95,0.50]]);
+  const secs=[], N=44;
+  for(let i=0;i<=N;i++){
+    const x=xc-hl*Math.cos(Math.PI*i/N), u=(x-xc)/hl, ab=Math.pow(Math.abs(u),4.2);
+    let w=0.90*Math.pow(Math.max(0.0004,1-ab),1/4.2);
+    w-=0.12*(Math.exp(-Math.pow((x-VEH.a)/0.40,2))+Math.exp(-Math.pow((x+VEH.b)/0.40,2)));       // la carrocería se retranquea en cada rueda
+    const yb=0.27+0.22*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  const cuerpo=new THREE.Mesh(lofteo(secs,30),M.pintura); fija.add(cuerpo);
+  // la cabina: cristal con tumblehome y un techo pintado encima
+  const cab=[], cabM=26, x0=-1.28, x1=0.62;
+  for(let i=0;i<=cabM;i++){
+    const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),1.43,env));
+    cab.push({x,w:Math.max(0.03,0.80*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30});
+  }
+  fija.add(new THREE.Mesh(lofteo(cab,26),M.cristal));
+  const tec=[], tM=18, tx0=-0.92, tx1=0.30;
+  for(let i=0;i<=tM;i++){
+    const t=i/tM, x=mezcla(tx0,tx1,t), tx=(x-x0)/(x1-x0), env=Math.pow(Math.sin(Math.PI*Math.pow(tx,0.85)),0.55), techo=Math.max(yt(x)+0.05,mezcla(yt(x),1.43,env));
+    const wtop=0.80*Math.pow(env,0.35)*(1-0.30);
+    tec.push({x,w:Math.max(0.03,wtop+0.012),y0:techo-0.045,y1:techo+0.005,n:4.5,tum:0.0});
+  }
+  fija.add(new THREE.Mesh(lofteo(tec,20),M.pintura));
+  // los bajos y los pasos de rueda (un disco oscuro tras cada rueda y un labio del color de la carrocería)
+  const bajos=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.07,1.30),M.bajos); bajos.position.set(-0.25,0.27,0); fija.add(bajos);
+  for(const [px,pz] of POS_RUEDA){
+    const lado=Math.sign(pz), liner=new THREE.Mesh(new THREE.CylinderGeometry(0.385,0.385,0.02,28),M.bajos); liner.rotation.x=Math.PI/2; liner.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(liner);
+    const labio=new THREE.Mesh(new THREE.TorusGeometry(0.405,0.034,8,28,Math.PI),M.pintura); labio.position.set(px,LRUEDA-0.12,lado*0.775); labio.rotation.z=0; fija.add(labio);
+  }
+  // luces
+  for(const lado of [-1,1]){
+    const faro=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.075,0.32),M.faro); faro.position.set(1.80,0.60,lado*0.58); faro.rotation.y=lado*0.18; fija.add(faro);
+    const pil=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.09,0.34),M.piloto); pil.position.set(-2.26,0.70,lado*0.60); pil.rotation.y=lado*0.14; pil.userData.piloto=1; fija.add(pil);
+  }
+  const fus=fusiona(fija); fus.traverse(o=>{ if(o.isMesh&&o.material===M.piloto) o.userData.piloto=1; });
+  fus.position.y=-0.12; caja.add(fus);
+  // las cuatro ruedas, con su disco y su mordaza
+  const pivs=[], spins=[], discos=[], mordazas=[];
+  POS_RUEDA.forEach(([px,pz],i)=>{
+    const lado=Math.sign(pz), piv=new THREE.Group(); piv.position.set(px,LRUEDA,pz); piv.userData.rueda=i; raiz.add(piv);
+    const spin=new THREE.Group(); piv.add(spin);
+    const t=P3.neumatico(M,{dExt:LRUEDA*2,dLlanta:0.43,ancho:0.215,tacos:0,radios:5}), tf=fusiona(t); tf.rotation.y=lado*Math.PI/2; spin.add(tf);
+    const dm=M.acero.clone(); dm.emissive=new THREE.Color('#ff3a1e'); dm.emissiveIntensity=0;
+    const disco=new THREE.Mesh(P3.revolucion([[0.085,-0.013],[0.196,-0.013],[0.196,0.013],[0.085,0.013]],{seg:40}),dm);
+    disco.rotation.x=Math.PI/2; disco.position.z=-lado*0.03; disco.userData.disco=i; spin.add(disco);       // eje del disco = eje de la rueda (Z), un poco hacia dentro del plato
+    const mm=M.morda.clone();
+    const mor=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.07,0.10),mm); mor.position.set(-0.115,0.125,-lado*0.03); mor.rotation.z=0.85; mor.userData.morda=i; piv.add(mor);
+    pivs.push(piv); spins.push(spin); discos.push(dm); mordazas.push(mm);
+  });
+  raiz.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  raiz.userData.asas={caja,pivs,spins,discos,mordazas};
+  return raiz;
+}
+/** Una copia translúcida del coche (para el que va SIN ESC), con sus propias luces y discos. */
+function fantasma(orig){
+  const mapa=new Map(), g=orig.clone(true);
+  const conv=m=>{ if(mapa.has(m)) return mapa.get(m); const c=m.clone(); c.transparent=true; c.depthWrite=false;
+    const base=m.opacity!==undefined?m.opacity:1;
+    c.opacity=(m===M.cristal?0.30:(m===M.goma?0.55:0.42))*Math.min(1,base+0.1);
+    if(c.color) c.color.lerp(new THREE.Color('#ff9a86'),m===M.goma||m===M.bajos?0.15:0.55);
+    if(c.emissive&&m!==M.piloto&&m!==M.faro&&!(m.userData&&(m.userData.disco!==undefined))) c.emissive.set(0x000000);
+    c.envMapIntensity=0.7; mapa.set(m,c); return c; };
+  g.traverse(o=>{ if(o.isMesh){ o.material=conv(o.material); o.castShadow=false; } });
+  g.userData.asas=asasDe(g); return g;
+}
+/** Recoge las asas (ruedas, discos, mordazas, luz de freno) de un coche por sus etiquetas. */
+function asasDe(raiz){
+  const A={pivs:[],spins:[],discos:[],mordazas:[],pilotos:[]};
+  raiz.traverse(o=>{
+    if(o.userData&&o.userData.rueda!==undefined){ A.pivs[o.userData.rueda]=o; A.spins[o.userData.rueda]=o.children[0]; }
+    if(o.isMesh&&o.userData&&o.userData.disco!==undefined) A.discos[o.userData.disco]=o.material;
+    if(o.isMesh&&o.userData&&o.userData.morda!==undefined) A.mordazas[o.userData.morda]=o.material;
+    if(o.isMesh&&o.userData&&o.userData.piloto) A.pilotos.push(o.material);
+  });
+  A.caja=raiz.children[0]; return A;
+}
+
+const COCHE_A=construyeCoche(); COCHE_A.userData.asas=asasDe(COCHE_A); scene.add(COCHE_A);
+const COCHE_B=fantasma(COCHE_A); scene.add(COCHE_B);
+COCHE_A.userData.nombre='A'; COCHE_B.userData.nombre='B';
+
+/* ===================== 8. FUERZAS EN EL SUELO Y TRAZAS ===================== */
+/** Círculo de fricción de cada neumático (radio ∝ lo que ese neumático puede dar) y su flecha de fuerza. */
+function texAnillo(){
+  const c=cv(128),x=c.getContext('2d'); x.clearRect(0,0,128,128);
+  const g=x.createRadialGradient(64,64,0,64,64,62); g.addColorStop(0,'rgba(255,255,255,0.04)'); g.addColorStop(0.9,'rgba(255,255,255,0.16)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.beginPath(); x.arc(64,64,62,0,DOSPI_); x.fill();
+  x.strokeStyle='rgba(255,255,255,0.95)'; x.lineWidth=3.2; x.beginPath(); x.arc(64,64,59,0,DOSPI_); x.stroke();
+  x.strokeStyle='rgba(255,255,255,0.28)'; x.lineWidth=1.2; x.beginPath(); x.moveTo(64,10); x.lineTo(64,118); x.moveTo(10,64); x.lineTo(118,64); x.stroke();
+  return tex(c,{srgb:true});
+}
+const T_ANILLO=texAnillo();
+const FUERZAS=[];
+{
+  const gAsta=new THREE.BoxGeometry(1,0.06,0.075); gAsta.translate(0.5,0,0);
+  const gPunta=new THREE.ConeGeometry(0.115,0.26,12); gPunta.rotateZ(-Math.PI/2); gPunta.translate(0.13,0,0);
+  for(let i=0;i<4;i++){
+    const am=new THREE.MeshBasicMaterial({map:T_ANILLO,transparent:true,depthWrite:false,opacity:0.9,color:'#4fd1c5',blending:THREE.AdditiveBlending});
+    const anillo=new THREE.Mesh(new THREE.PlaneGeometry(2,2),am); anillo.rotation.x=-Math.PI/2; anillo.renderOrder=5; anillo.raycast=()=>{}; anillo.userData.pieza='anillo'; scene.add(anillo);
+    const fm=new THREE.MeshBasicMaterial({color:'#4fd1c5',toneMapped:false});
+    const fl=new THREE.Group(), asta=new THREE.Mesh(gAsta,fm), punta=new THREE.Mesh(gPunta,fm); fl.add(asta,punta); fl.renderOrder=6; asta.raycast=punta.raycast=()=>{}; fl.userData.pieza='flecha'; scene.add(fl);
+    FUERZAS.push({anillo,am,fl,asta,punta,fm,col:new THREE.Color('#4fd1c5')});
+  }
+}
+function crearTraza(nombre,colorBase,N=1100,ancho=0.2){
+  const pos=new Float32Array(N*2*3), col=new Float32Array(N*2*3), idx=new Uint32Array((N-1)*6);
+  for(let i=0;i<N-1;i++){ const a=i*2; idx.set([a,a+2,a+1, a+1,a+2,a+3],i*6); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('color',new THREE.BufferAttribute(col,3).setUsage(THREE.DynamicDrawUsage)); g.setIndex(new THREE.BufferAttribute(idx,1));
+  g.setDrawRange(0,0);
+  const m=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:0.9,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(g,m); mesh.frustumCulled=false; mesh.renderOrder=4; mesh.raycast=()=>{}; mesh.userData.pieza=nombre; scene.add(mesh);
+  return {mesh,pos,col,g,n:0,N,ancho,base:new THREE.Color(colorBase),
+    reset(){ this.n=0; this.g.setDrawRange(0,0); },
+    add(x,y,psi,c){ if(this.n>=this.N) return; const i=this.n++, sn=Math.sin(psi), cs=Math.cos(psi), w=this.ancho/2;
+      const ax=x-sn*w, az=-(y+cs*w), bx=x+sn*w, bz=-(y-cs*w);
+      pos.set([ax,0.035,az, bx,0.035,bz],i*6); col.set([c.r,c.g,c.b,c.r,c.g,c.b],i*6);
+      this.g.attributes.position.needsUpdate=true; this.g.attributes.color.needsUpdate=true; this.g.setDrawRange(0,Math.max(0,(this.n-1)*6)); }};
+}
+const TRAZA_A=crearTraza('traza',  '#a8f4ff'), TRAZA_B=crearTraza('trazaFantasma','#ff7a5c',1100,0.16);
+
+
+/* ===================== 9. EL ESTADO Y EL RELOJ =====================
+   Dos corridas de la MISMA maniobra con el mismo reloj: la A (la que se mide, con o sin ESC según el mando) y,
+   si se pide comparar, la B, siempre sin ESC (el coche fantasma). Todo lo que se ve —coches, flechas, trazas— y
+   todo lo del dock sale de ellas en cada cuadro. */
+const EST={modo:'marcha',sup:'mojado',K0:-1.5,V:66,esc:'comparar',R:70,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'sigue',lazo:true,rot:false};
+const SIM={A:null,B:null,t:0,espera:0,supAct:'',spinA:0,spinB:0,nA:0,nB:0,reinicios:0,ultimoAviso:''};
+const MU=()=>SUPERFICIES[EST.sup];
+const NOMBRE_SUP={seco:'Seco',mojado:'Mojado',nieve:'Nieve',hielo:'Hielo'};
+const CARACTER=[['sub','Subvirador',2.0],['neutro','Neutro',0.0],['sobre','Sobrevirador',-1.5]];
+/** Lo que corre ahora: en «En marcha», lo que digan los mandos; en el laboratorio guiado, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='guia'){ const p=guiaParams(); if(p) return p; }
+  const base={K0deg:EST.K0,mu:MU(),R:EST.R,V:EST.V/3.6,hist:true,sigue:true,cola:2.2};
+  return { A:Object.assign({},base,{esc:EST.esc!=='sin'}), B:EST.esc==='comparar'?Object.assign({},base,{esc:false}):null, sup:EST.sup, lazo:true };
+}
+function reiniciaCorridas(){
+  const p=paramsActuales();
+  if(p.sup!==SIM.supAct){ aplicaSuperficie(p.sup); SIM.supAct=p.sup; }
+  if(p.A.R!==PISTA_R) construyePista(p.A.R);
+  SIM.A=nuevaCorrida(p.A); SIM.B=p.B?nuevaCorrida(p.B):null; SIM.lazo=p.lazo!==false;
+  SIM.t=0; SIM.espera=0; SIM.spinA=0; SIM.spinB=0; SIM.nA=0; SIM.nB=0; SIM.reinicios++;
+  TRAZA_A.reset(); TRAZA_B.reset(); COCHE_B.visible=!!SIM.B;
+  for(const f of FUERZAS){ f.anillo.visible=f.fl.visible=true; }
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+/** Avanza el modelo dt segundos de reloj de simulación. */
+function avanzaSim(dt){
+  if(!SIM.A) return;
+  const objetivo=SIM.t+dt; let n=0;
+  while(SIM.t<objetivo-1e-9&&n<80){
+    const hh=Math.min(0.004,objetivo-SIM.t);
+    if(!SIM.A.fin){ pasoCorrida(SIM.A,hh); SIM.spinA+=Math.max(0,SIM.A.s.vx)*hh/LRUEDA; }
+    if(SIM.B&&!SIM.B.fin){ pasoCorrida(SIM.B,hh); SIM.spinB+=Math.max(0,SIM.B.s.vx)*hh/LRUEDA; }
+    SIM.t+=hh; n++;
+  }
+  const acabo=SIM.A.fin&&(!SIM.B||SIM.B.fin);
+  if(acabo){ SIM.espera+=dt; if(SIM.lazo&&EST.lazo&&SIM.espera>2.6) reiniciaCorridas(); }
+  else SIM.espera=0;
+}
+
+/* ===================== 10. LO QUE SE VE ===================== */
+const _c=new THREE.Color(), C_OK=new THREE.Color('#4fd1c5'), C_AM=new THREE.Color('#ffb347'), C_RJ=new THREE.Color('#ff4d5a'), C_ESC=new THREE.Color('#ff4d5a'), C_TR=new THREE.Color('#a8f4ff'), C_TRF=new THREE.Color('#ff8a6c');
+const colorUso=(u,out)=>{ if(u<0.72) return out.copy(C_OK).lerp(C_AM,Math.max(0,(u-0.45)/0.27)); return out.copy(C_AM).lerp(C_RJ,Math.min(1,(u-0.72)/0.23)); };
+const clamp01=x=>Math.max(0,Math.min(1,x));
+/** Pone un coche en su sitio: posición, rumbo, dirección, giro de ruedas, balanceo, discos y luz de freno. */
+function aplicaCoche(raiz,q,spin,primario){
+  const s=q.s, A=raiz.userData.asas, F=q.F||{ay:0,ax:0};
+  raiz.position.set(s.x,0,-s.y); raiz.rotation.y=s.psi;
+  // balanceo y cabeceo ilustrativos (no entran en el modelo): hacia el exterior de la curva y al frenar
+  A.caja.rotation.x=clamp01(Math.abs(F.ay)/9)*Math.sign(F.ay)*0.055; A.caja.rotation.z=Math.max(-0.05,Math.min(0.05,0.004*F.ax));
+  A.pivs[0].rotation.y=A.pivs[1].rotation.y=q.u.delta;
+  for(let i=0;i<4;i++){
+    A.spins[i].rotation.z=-spin;
+    const fb=Math.max(0,-q.u.Fx[i]), esc=(q.esc.act&&q.esc.rueda===i)?clamp01(q.esc.Fb/1800):0, comun=clamp01(fb/2200)*0.55;
+    const g=Math.max(esc,comun*(q.esc.act?1:0));
+    A.discos[i].emissiveIntensity=g*3.2; A.mordazas[i].emissiveIntensity=g*2.6;
+  }
+  const fr=q.esc.act?1:0; for(const m of A.pilotos) m.emissiveIntensity=0.55+2.2*fr;
+}
+/** Las flechas de fuerza y los círculos de fricción (sólo del coche A). */
+function aplicaFuerzas(q){
+  const s=q.s, c=q.c, F=q.F;
+  if(!F){ for(const f of FUERZAS){ f.anillo.visible=f.fl.visible=false; } return; }
+  const cp=Math.cos(s.psi), sp=Math.sin(s.psi), Fzw=[c.Fzf/2,c.Fzf/2,c.Fzr/2,c.Fzr/2];
+  for(let i=0;i<4;i++){
+    const f=FUERZAS[i], xw=i<2?VEH.a:-VEH.b, yw=(i%2===0?1:-1)*VEH.t/2;
+    const wx=s.x+xw*cp-yw*sp, wy=s.y+xw*sp+yw*cp, th=s.psi+(i<2?q.u.delta:0);
+    const Fxw=q.u.Fx[i], Fyw=(i<2?F.Fyf:F.Fyr)/2, cap=c.mu*Fzw[i], u=Math.min(1.08,Math.hypot(Fxw,Fyw)/cap);
+    const fx=Fxw*Math.cos(th)-Fyw*Math.sin(th), fy=Fxw*Math.sin(th)+Fyw*Math.cos(th);
+    const rr=i<2?0.74:0.74*c.Fzr/c.Fzf*1.15;
+    f.anillo.visible=true; f.anillo.position.set(wx,0.045,-wy); f.anillo.rotation.order='YXZ'; f.anillo.rotation.set(-Math.PI/2,th,0); f.anillo.scale.setScalar(rr);
+    colorUso(u,_c); f.am.color.copy(_c); f.am.opacity=0.55+0.4*Math.min(1,u);
+    const len=u*rr, vis=len>0.07; f.fl.visible=vis;
+    if(vis){ f.fl.position.set(wx,0.12,-wy); f.fl.rotation.y=Math.atan2(fy,fx); f.asta.scale.x=Math.max(0.02,len-0.26); f.punta.position.x=Math.max(0,len-0.26); f.fm.color.copy(_c).multiplyScalar(1.15); }
+  }
+}
+/** Las trazas en el suelo: cada muestra nueva del historial se añade a su cinta (roja donde el ESC actúa). */
+function aplicaTrazas(){
+  if(SIM.A&&SIM.A.hist){ const h=SIM.A.hist; for(;SIM.nA<h.length;SIM.nA++){ const m=h[SIM.nA]; TRAZA_A.add(m.x,m.y,m.psi,m.act?C_ESC:C_TR); } }
+  if(SIM.B&&SIM.B.hist){ const h=SIM.B.hist; for(;SIM.nB<h.length;SIM.nB++){ const m=h[SIM.nB]; TRAZA_B.add(m.x,m.y,m.psi,C_TRF); } }
+}
+function aplicaEscena(dtS,dtR){
+  avanzaSim(dtS);
+  const A=SIM.A; if(!A) return;
+  aplicaCoche(COCHE_A,A,SIM.spinA,true);
+  if(SIM.B) aplicaCoche(COCHE_B,SIM.B,SIM.spinB,false);
+  aplicaFuerzas(A); aplicaTrazas();
+  // el sol sigue al coche A para que la sombra suave sea siempre de la zona que se ve
+  const p=COCHE_A.position; LUZ.sol.target.position.set(p.x,0,p.z); LUZ.sol.position.set(p.x-9,17,p.z+11);
+}
+
+/* ===================== 11. CÁMARAS ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+/** Desplaza el centro de la proyección al centro del hueco libre: el coche queda en medio de lo que se ve, sin mover la cámara. */
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const CAMF={psi:0,pos:V3(0,0,0),listo:false};
+const rotY=(v,a)=>v.clone().applyAxisAngle(V3(0,1,0),a);
+function rumboVelocidad(s){ return Math.atan2(s.vx*Math.sin(s.psi)+s.vy*Math.cos(s.psi),s.vx*Math.cos(s.psi)-s.vy*Math.sin(s.psi)); }
+const posCoche=()=>SIM.A?V3(SIM.A.s.x,0,-SIM.A.s.y):V3(0,0,0);
+/** Cámaras: «sigue» (3/4 desde atrás y arriba), «cenit» (desde arriba, con el rumbo hacia arriba de la pantalla) y «pista» (la curva entera). */
+const VISTAS={
+  sigue:{off:V3(-7.4,8.6,6.2),toff:V3(2.2,0.3,0.0),fov:36},
+  cenit:{off:V3(-1.0,16.5,0.5),toff:V3(1.4,0,0),fov:36},
+};
+const CAMT={on:false,u:0,dur:1,kind:'rel',o0:V3(),o1:V3(),t0:V3(),t1:V3(),f0:38,f1:38};
+function ponVista(v,dur){
+  EST.vista=v; const d=dur===undefined?(REDUCIDO?0.001:1.1):dur;
+  if(v==='pista'){
+    const R=EST.R, c=V3(PISTA.S1+R*0.35,0,-R*0.55), alto=R*1.15+60;
+    Object.assign(CAMT,{on:true,u:0,dur:d,kind:'abs',o0:camera.position.clone(),o1:V3(c.x-alto*0.25,alto*0.82,c.z+alto*0.58),t0:controls.target.clone(),t1:c.clone(),f0:camera.fov,f1:34});
+  } else {
+    const V=VISTAS[v]||VISTAS.sigue, P=posCoche(), a=CAMF.listo?CAMF.psi:0, hu=huecoLibre(), kd=Math.max(1,Math.min(2,700/Math.max(200,hu.x1-hu.x0)));
+    Object.assign(CAMT,{on:true,u:0,dur:d,kind:'rel',o0:rotY(camera.position.clone().sub(P),-a),o1:V.off.clone().multiplyScalar(kd),t0:rotY(controls.target.clone().sub(P),-a),t1:V.toff.clone(),f0:camera.fov,f1:V.fov});
+  }
+  if(typeof pintaBarras==='function') pintaBarras();
+}
+function pasaCam(dt){
+  const A=SIM.A; if(!A) return;
+  if(EST.vista!=='pista'){
+    const s=A.s, P=V3(s.x,0.0,-s.y), pv=rumboVelocidad(s);
+    if(!CAMF.listo){ CAMF.psi=pv; CAMF.pos.copy(P); CAMF.listo=true; }
+    const k=1-Math.exp(-dt/0.55), dpsi=angNorm(pv-CAMF.psi)*k; CAMF.psi+=dpsi;
+    if(CAMT.on){
+      CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+      const o=CAMT.o0.clone().lerp(CAMT.o1,e), t=CAMT.t0.clone().lerp(CAMT.t1,e);
+      camera.position.copy(P).add(rotY(o,CAMF.psi)); controls.target.copy(P).add(rotY(t,CAMF.psi));
+      camera.fov=CAMT.f0+(CAMT.f1-CAMT.f0)*e; camera.updateProjectionMatrix();
+      if(CAMT.u>=1) CAMT.on=false;
+    } else {
+      const dP=P.clone().sub(CAMF.pos); camera.position.add(dP); controls.target.add(dP);
+      const off=camera.position.clone().sub(controls.target); off.applyAxisAngle(V3(0,1,0),dpsi); camera.position.copy(controls.target).add(off);
+    }
+    CAMF.pos.copy(P);
+  } else if(CAMT.on){
+    CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+    camera.position.lerpVectors(CAMT.o0,CAMT.o1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+    camera.fov=CAMT.f0+(CAMT.f1-CAMT.f0)*e; camera.updateProjectionMatrix();
+    if(CAMT.u>=1) CAMT.on=false;
+  }
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+
+/* ===================== 12. EL HUD (izquierda) ===================== */
+const kmh=v=>v*3.6;
+const gradoK=()=>EST.K0;
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Dinámica del vehículo</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>¿Se agarra, resbala o gira? Lo decide la adherencia</h2>
+    <p class="intro">Dos coches toman la misma curva. El <b>fantasma</b> va sin ESC; el sólido lleva ESC, que frena <b>una sola rueda</b>. Cada flecha es la fuerza de un neumático dentro de su círculo de fricción.</p></div>`;
+  } else h+=`<h2>Predice, decide y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    const posV=v=>((v-30)/100*100).toFixed(1)+'%';
+    const car=CARACTER.find(c=>Math.abs(c[2]-EST.K0)<0.05);
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Superficie</div><div class="seg" id="segSup">${Object.keys(NOMBRE_SUP).map(k=>`<button class="b ${EST.sup===k?'on':''}" data-sup="${k}">${NOMBRE_SUP[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl">Carácter del coche</div><div class="seg" id="segCar">${CARACTER.map(c=>`<button class="b ${car&&car[0]===c[0]?'on':''}" data-car="${c[0]}">${c[1]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Gradiente de subviraje <em class="gr">K</em></div><b id="vK">${fN(EST.K0,1)} °/g</b></div><input type="range" id="rK" min="-3" max="4" step="0.1" value="${EST.K0}" aria-label="Gradiente de subviraje en grados por g">
+      <div class="marcas abs"><span style="left:0;transform:none">sobrevira</span><span class="lim" style="left:${((0+3)/7*100).toFixed(1)}%">0</span><span style="left:100%;transform:translateX(-100%)">subvira</span></div></div>
+    <div class="cg"><div class="cl"><div>Velocidad de entrada</div><b id="vV">${fN(EST.V)} km/h</b></div><input type="range" id="rV" min="30" max="130" step="1" value="${EST.V}" aria-label="Velocidad de entrada en kilómetros por hora">
+      <div class="marcas abs"><span style="left:0;transform:none">30</span><span style="left:${posV(80)}">80</span><span style="left:100%;transform:translateX(-100%)">130</span></div></div>
+    <div class="cg"><div class="cl">Control de estabilidad</div><div class="seg" id="segEsc">${[['con','Con ESC'],['sin','Sin ESC'],['comparar','Comparar']].map(([k,t])=>`<button class="b ${EST.esc===k?'on':''}" data-esc="${k}">${t}</button>`).join('')}</div></div>
+    <div class="fila"><button class="b primary" id="btnRep">↻ Repetir</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl">Bicicleta de 3 grados de libertad. Con las derivas α<sub>f</sub> = atan((v<sub>y</sub> + a·r)/v<sub>x</sub>) − δ y α<sub>r</sub> = atan((v<sub>y</sub> − b·r)/v<sub>x</sub>):</div>
+    <div class="formula">m(v̇<sub>y</sub> + v<sub>x</sub>·r) = F<sub>yf</sub>·cosδ + F<sub>yr</sub><br>I<sub>z</sub>·ṙ = a·F<sub>yf</sub>·cosδ − b·F<sub>yr</sub> + ΔM<sub>ESC</sub></div>
+    <div class="fl">Neumático (fórmula mágica): F<sub>y</sub> = D·sen(C·atan(Bα − E(Bα − atan Bα))), con D = μ·F<sub>z</sub> y B·C·D = C<sub>α</sub> (rigidez de deriva, ∝ μ). Si la rueda frena o traccionan, la elipse de fricción la deja con √(1 − (F<sub>x</sub>/μF<sub>z</sub>)²) de su fuerza lateral.</div>
+    <div class="formula">K = (m/L)(b/C<sub>f</sub> − a/C<sub>r</sub>)<br>r/δ|<sub>estacionario</sub> = V/(L + K·V²)<br>V<sub>crit</sub> = √(−L/K)  (si K &lt; 0)</div>
+    <div class="fl"><b>ESC.</b> Guiñada deseada r<sub>des</sub> = V·δ/(L + K·V²), acotada por |r| ≤ μ·g/V. Si el coche gira más que r<sub>des</sub> (sobreviraje) frena la rueda delantera exterior; si gira menos de lo que pide el volante (subviraje), la trasera interior. Una sola rueda con fuerza F crea el momento ΔM = F·t/2.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Modelo de bicicleta: sin transferencia de carga entre ruedas, sin balanceo ni cabeceo en la física (el balanceo del dibujo es ilustrativo) y sin suspensión.</li>
+    <li>C<sub>α</sub> proporcional a μ y B fijo por eje; el gradiente K se fija a μ = 0,9 y crece como 1/μ. Valores didácticos, no de un neumático real.</li>
+    <li>Conductor de persecución pura con retraso de 80 ms; tracción trasera que mantiene la velocidad. El ESC es una ley proporcional con banda muerta, no un producto comercial ni una homologación.</li>
+    <li>La pista es un cuarto de circunferencia sin peralte ni pendiente. No es un ensayo ISO 3888 ni 7401.</li>
+  </ul><div class="src">Pacejka, <i>Tire and Vehicle Dynamics</i> · Milliken y Milliken, <i>Race Car Vehicle Dynamics</i> · Gillespie, <i>Fundamentals of Vehicle Dynamics</i> · van Zanten (Bosch), <i>Evolution of Automotive Chassis Control</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-sup]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.sup=b.dataset.sup; pintaHUD(); reiniciaCorridas(); pintaDockFijo(); });
+  H.querySelectorAll('[data-car]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.K0=CARACTER.find(c=>c[0]===b.dataset.car)[2]; pintaHUD(); reiniciaCorridas(); pintaDockFijo(); });
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.esc=b.dataset.esc; pintaHUD(); reiniciaCorridas(); pintaDockFijo(); });
+  const rk=el('rK'); if(rk) rk.oninput=()=>{ if(EST.autoRunning) return; EST.K0=+rk.value; el('vK').textContent=fN(EST.K0,1)+' °/g'; const car=CARACTER.find(c=>Math.abs(c[2]-EST.K0)<0.05);
+    el('segCar').querySelectorAll('.b').forEach(b=>b.classList.toggle('on',!!car&&b.dataset.car===car[0])); reiniciaCorridas(); pintaDockFijo(); };
+  const rv=el('rV'); if(rv) rv.oninput=()=>{ if(EST.autoRunning) return; EST.V=+rv.value; el('vV').textContent=fN(EST.V)+' km/h'; reiniciaCorridas(); pintaDockFijo(); };
+  if(el('btnRep')) el('btnRep').onclick=()=>{ if(EST.autoRunning) return; reiniciaCorridas(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 13. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function aro(x,cx,cy,r,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.arc(cx,cy,r,0,DOSPI); x.stroke(); x.setLineDash([]); }
+const LTR=lienzo('gTr'), LFR=lienzo('gFr'), LFU=lienzo('gFu'), LSP=lienzo('gSp');
+const COL_F='#4FD1C5', COL_R='#FFB347', COL_E='#FF4D5A', COL_G='#C8D6D2', COL_FANT='#FF8A6C';
+const hex2rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+function colUso(u){ const a=u<0.72?hex2rgb(COL_F):hex2rgb(COL_R), b=u<0.72?hex2rgb(COL_R):hex2rgb(COL_E), t=u<0.72?clamp(( u-0.45)/0.27,0,1):clamp((u-0.72)/0.23,0,1);
+  const k=a.map((v,i)=>Math.round(v+(b[i]-v)*t)); return 'rgb('+k.join(',')+')'; }
+/** Lo que el dock NO debe enseñar todavía: el gradiente K mientras se diagnostica. */
+const ocultaV=()=>EST.modo==='guia'&&GUIA.paso==='predice';
+const ocultaK=()=>EST.modo==='guia'&&GUIA.phase===2&&!GUIA.dxOk;
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.phase===2&&!GUIA.dxOk;
+const NOM_RUEDA=['delantera izquierda','delantera derecha','trasera izquierda','trasera derecha'];
+
+/* ---- Trayectoria: la pista vista desde arriba con las dos trazas ---- */
+function pintaTr(){
+  const x=abre(LTR), Wd=LTR.w, Hd=LTR.h, R=PISTA_R||EST.R, A=SIM.A; if(!A) return;
+  const bx0=-6, bx1=PISTA.S1+R+12, by0=-R*0.18, by1=R+PISTA.S3+6;
+  const k=Math.min((Wd-8)/(bx1-bx0),(Hd-8)/(by1-by0)), ox=(Wd-(bx1-bx0)*k)/2-bx0*k, oy=(Hd+(by1-by0)*k)/2+by0*k;
+  const P=(px,py)=>[ox+px*k,oy-py*k];
+  const L=pistaLargo(R), W=PISTA.semi;
+  // calzada
+  x.beginPath(); for(let s=-5;s<=L;s+=(s>PISTA.S1&&s<PISTA.S1+R*Math.PI/2)?2:12){ const p=pistaPunto(s,R), [qx,qy]=P(p.x+W*-Math.sin(p.h),p.y+W*Math.cos(p.h)); s===-5?x.moveTo(qx,qy):x.lineTo(qx,qy); }
+  for(let s=L;s>=-5;s-=(s>PISTA.S1&&s<PISTA.S1+R*Math.PI/2)?2:12){ const p=pistaPunto(s,R), [qx,qy]=P(p.x-W*-Math.sin(p.h),p.y-W*Math.cos(p.h)); x.lineTo(qx,qy); }
+  x.closePath(); x.fillStyle='rgba(110,128,134,0.28)'; x.fill(); x.strokeStyle='rgba(160,184,190,0.55)'; x.lineWidth=1; x.stroke();
+  x.setLineDash([3,3]); x.strokeStyle='rgba(127,227,216,0.55)'; x.beginPath(); for(let s=0;s<=L;s+=(s>PISTA.S1&&s<PISTA.S1+R*Math.PI/2)?2:12){ const p=pistaPunto(s,R), [qx,qy]=P(p.x,p.y); s===0?x.moveTo(qx,qy):x.lineTo(qx,qy); } x.stroke(); x.setLineDash([]);
+  const traza=(q,col,w)=>{ if(!q||!q.hist||q.hist.length<2) return; x.strokeStyle=col; x.lineWidth=w; x.beginPath(); q.hist.forEach((m,i)=>{ const [qx,qy]=P(m.x,m.y); i?x.lineTo(qx,qy):x.moveTo(qx,qy); }); x.stroke(); };
+  traza(SIM.B,COL_FANT,1.8);
+  if(A.hist&&A.hist.length>1){   // la traza de A, y en rojo donde el ESC actúa
+    x.lineWidth=2.2; let prev=null; for(const m of A.hist){ const [qx,qy]=P(m.x,m.y); if(prev){ x.strokeStyle=m.act?COL_E:'#a8f4ff'; x.beginPath(); x.moveTo(prev[0],prev[1]); x.lineTo(qx,qy); x.stroke(); } prev=[qx,qy]; } }
+  const coche=(q,col,fill)=>{ if(!q) return; const s=q.s, [qx,qy]=P(s.x,s.y), L2=Math.max(7,4.5*k), W2=Math.max(4,1.8*k);
+    x.save(); x.translate(qx,qy); x.rotate(-s.psi); x.fillStyle=fill; x.strokeStyle=col; x.lineWidth=1.4; x.beginPath(); x.rect(-L2*0.55,-W2/2,L2,W2); x.fill(); x.stroke(); x.fillStyle=col; x.fillRect(L2*0.28,-W2/2,L2*0.17,W2); x.restore(); };
+  coche(SIM.B,COL_FANT,'rgba(255,138,108,0.20)'); coche(A,'#ffffff','rgba(255,255,255,0.28)');
+  if(A.esc.act){ const [qx,qy]=P(A.s.x,A.s.y); aro(x,qx,qy,9,COL_E,1.4); }
+  el('t_tr').textContent='R = '+fN(R)+' m';
+}
+
+/* ---- Círculo de fricción por eje ---- */
+function pintaFr(){
+  const x=abre(LFR), Wd=LFR.w, Hd=LFR.h, A=SIM.A; if(!A) return;
+  const c=A.c, ejes=[['Delantero',c.Fzf,'fxf','Fyf',COL_F],['Trasero',c.Fzr,'fxr','Fyr',COL_R]];
+  const r=Math.max(18,Math.min(Wd/4-5,Hd/2-17));
+  ejes.forEach(([nom,Fz,kx,ky,col],e)=>{
+    const cx=Wd*(e?0.75:0.25), cy=Hd/2+3, cap=c.mu*Fz;
+    aro(x,cx,cy,r,'rgba(143,179,172,0.45)',1.2); aro(x,cx,cy,r*0.5,'rgba(143,179,172,0.14)',1,[2,3]);
+    raya(x,cx-r-3,cy,cx+r+3,cy,'rgba(143,179,172,0.22)'); raya(x,cx,cy-r-3,cx,cy+r+3,'rgba(143,179,172,0.22)');
+    const h=A.hist||[], n=h.length, t0=A.t-1.4; let ult=null;
+    for(let i=Math.max(0,n-80);i<n;i++){ const m=h[i]; if(m.t<t0) continue; const px=cx-(m[ky]/cap)*r, py=cy-(m[kx]/cap)*r; // fuerza lateral hacia la izquierda del coche = a la izquierda del círculo
+      const al=0.15+0.7*(1-(A.t-m.t)/1.4); x.fillStyle=col; x.globalAlpha=Math.max(0.05,al); x.beginPath(); x.arc(px,py,1.6,0,DOSPI); x.fill(); x.globalAlpha=1; ult=[px,py,Math.hypot(m[ky],m[kx])/cap]; }
+    if(ult){ const u=Math.min(1.1,ult[2]); x.fillStyle=colUso(u); x.beginPath(); x.arc(ult[0],ult[1],4,0,DOSPI); x.fill(); x.strokeStyle='#fff'; x.lineWidth=1; x.stroke();
+      txt(x,fN(Math.min(u,1.2)*100,0)+' %',cx,cy+r+13,u>0.95?'#ff9aa5':'#cfe0dc',10.5,'center','700'); }
+    txt(x,nom,cx,cy-r-5,col,9.5,'center','700');
+    const B=SIM.B; if(B&&B.hist&&B.hist.length){ const m=B.hist[B.hist.length-1], cB=B.c, capB=cB.mu*(e?cB.Fzr:cB.Fzf); const px=cx-(m[ky]/capB)*r, py=cy-(m[kx]/capB)*r; x.strokeStyle=COL_FANT; x.lineWidth=1.3; x.beginPath(); x.arc(px,py,3.2,0,DOSPI); x.stroke(); }
+  });
+  txt(x,'← giro   frenado ↓ · tracción ↑',Wd/2,Hd-3,'#6f8a85',8.5,'center','500');
+  el('t_fr').textContent='μ·Fz';
+}
+
+/* ---- Guiñada real y deseada, con el mismo reloj ---- */
+function pintaFu(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, A=SIM.A; if(!A) return;
+  const X0=30, X1=Wd-8, Y0=8, Y1=Hd-14, c=A.c, L=pistaLargo(A.R), s0=Math.max(0,PISTA.S1-A.par.V*1.5), T=Math.max(6,(L-s0)/Math.max(A.par.V,3)+1.2);
+  const ymax=Math.max(0.3,1.25*c.mu*G/Math.max(A.par.V,8))*57.2958, X=t=>X0+t/T*(X1-X0), Y=v=>(Y0+Y1)/2-v/ymax*(Y1-Y0)/2;
+  raya(x,X0,Y(0),X1,Y(0),'rgba(143,179,172,0.2)');
+  for(const q of [-1,-0.5,0.5,1]) raya(x,X0,Y(q*ymax),X1,Y(q*ymax),'rgba(143,179,172,0.07)');
+  txt(x,fN(ymax,0)+'°/s',X0-3,Y(ymax)+8,'#6f8a85',8.5,'right','500'); txt(x,'0',X0-3,Y(0)+3,'#6f8a85',8.5,'right','500');
+  for(let t=0;t<=T;t+=2){ raya(x,X(t),Y1,X(t),Y1+3,'#3d5550'); txt(x,t+' s',X(t),Hd-2,'#6f8a85',8.5,'center','500'); }
+  const h=A.hist||[];
+  // las franjas donde el ESC actúa
+  x.fillStyle='rgba(255,77,90,0.16)'; let ini=-1;
+  for(let i=0;i<h.length;i++){ if(h[i].act&&ini<0) ini=i; if((!h[i].act||i===h.length-1)&&ini>=0){ x.fillRect(X(h[ini].t),Y0,Math.max(1.5,X(h[i].t)-X(h[ini].t)),Y1-Y0); ini=-1; } }
+  const serie=(q,k,col,w,dash)=>{ const hh=q&&q.hist; if(!hh||hh.length<2) return; x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]); x.beginPath(); hh.forEach((m,i)=>{ const px=X(m.t),py=Y(m[k]*57.2958); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke(); x.setLineDash([]); };
+  if(SIM.B) serie(SIM.B,'r',COL_FANT,1.3);
+  serie(A,'rdes','#FFD166',1.4,[4,3]); serie(A,'r','#ffffff',2);
+  const tc=Math.min(A.t,T), xc=X(tc); raya(x,xc,Y0,xc,Y1,'rgba(255,255,255,0.7)',1);
+  if(h.length){ const m=h[h.length-1]; x.fillStyle='#fff'; x.beginPath(); x.arc(X(m.t),Y(m.r*57.2958),3,0,DOSPI); x.fill(); }
+  el('t_fu').textContent=fN(SIM.t,1)+' s';
+}
+function pintaLeyFu(){
+  el('leyFu').innerHTML=`<span class="lg"><i style="--c:#fff"></i>r real</span><span class="lg"><i class="dash" style="--c:#FFD166"></i>r deseada</span>`
+    +(SIM.B?`<span class="lg"><i style="--c:${COL_FANT}"></i>r sin ESC</span>`:'')+`<span class="lg"><i class="bl" style="--c:rgba(255,77,90,.4)"></i>ESC actúa</span>`;
+}
+
+/* ---- Fuerza lateral de cada eje frente a la deriva ---- */
+function pintaSp(){
+  const x=abre(LSP), Wd=LSP.w, Hd=LSP.h, A=SIM.A; if(!A) return;
+  const c=A.c, X0=34, X1=Wd-8, Y0=8, Y1=Hd-15, amax=14*RAD, capF=c.mu*c.Fzf, capR=c.mu*c.Fzr, fmax=Math.max(capF,capR)*1.12;
+  const X=a=>X0+a/amax*(X1-X0), Y=f=>Y1-f/fmax*(Y1-Y0);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5550'); raya(x,X0,Y0,X0,Y1,'#3d5550');
+  for(const d of [4,8,12]){ raya(x,X(d*RAD),Y1,X(d*RAD),Y1+3,'#3d5550'); txt(x,d+'°',X(d*RAD),Hd-2,'#6f8a85',8.5,'center','500'); }
+  for(const q of [0.5,1]) { const f=fmax/1.12*q; raya(x,X0,Y(f),X1,Y(f),'rgba(143,179,172,0.10)'); }
+  txt(x,fN(Math.max(capF,capR)/1000,1)+' kN',X0-3,Y(Math.max(capF,capR))+3,'#6f8a85',8.5,'right','500');
+  const curva=(Cal,B,Fz,col)=>{ x.strokeStyle=col; x.lineWidth=1.8; x.beginPath(); for(let i=0;i<=80;i++){ const a=amax*i/80, f=Math.abs(fyEje(a,B,Fz,c.mu)); const px=X(a),py=Y(Math.min(f,fmax)); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+    x.setLineDash([2,3]); x.strokeStyle=col; x.globalAlpha=0.45; x.lineWidth=1; x.beginPath(); x.moveTo(X(0),Y(0)); x.lineTo(X(amax),Y(Math.min(Cal*amax,fmax*3))); x.stroke(); x.setLineDash([]); x.globalAlpha=1; };
+  curva(c.Cf,c.Bf,c.Fzf,COL_F); curva(c.Cr,c.Br,c.Fzr,COL_R);
+  const h=A.hist||[]; if(h.length){ const m=h[h.length-1];
+    const pt=(al,fy,col,cuti)=>{ const px=X(Math.min(Math.abs(al),amax)), py=Y(Math.min(Math.abs(fy),fmax)); x.fillStyle=col; x.beginPath(); x.arc(px,py,4.2,0,DOSPI); x.fill(); x.strokeStyle='#fff'; x.lineWidth=1.2; x.stroke(); };
+    pt(m.af,m.Fyf,COL_F); pt(m.ar,m.Fyr,COL_R);
+    el('t_sp').textContent='α '+fN(Math.abs(m.af)*57.2958,1)+'° · '+fN(Math.abs(m.ar)*57.2958,1)+'°'; }
+  txt(x,'delantero',X1-2,Y0+9,COL_F,9,'right','700'); txt(x,'trasero',X1-2,Y0+19,COL_R,9,'right','700');
+  txt(x,'recta = rigidez Cα',X1-2,Y1-5,'#8aa39e',8.5,'right','500');
+}
+
+function pintaDockFijo(){
+  const mu=MU(); const gu=EST.modo==='guia';
+  el('p_mode').textContent=gu?'Laboratorio guiado':('ESC · '+NOMBRE_SUP[EST.sup].toLowerCase());
+  const A=SIM.A; el('p_sub').textContent=A?('μ = '+fN(A.c.mu,2)+' · R = '+fN(A.R)+' m'+(ocultaV()?'':' · '+fN(A.par.V*3.6)+' km/h')):'';
+  pintaLeyFu();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const A=SIM.A; if(!A) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  const h=A.hist||[], m=h.length?h[h.length-1]:null;
+  if(ocultaV()){ set('f_v','¿?'); _cl('f_v','oculto'); } else { set('f_v',fN((m?m.V:A.par.V)*3.6,0)+'<small> km/h</small>'); _cl('f_v',''); }
+  set('f_ay',fN(m?Math.abs(m.ay)/G:0,2)+'<small> g</small>');
+  set('f_d',fN((m?m.delta:0)*57.2958,1)+'<small> °</small>');
+  set('f_b',fN((m?m.beta:0)*57.2958,1)+'<small> °</small>');
+  if(ocultaK()){ set('f_k','¿?'); _cl('f_k','oculto'); } else { set('f_k',fN(A.c.Kdeg,1)+'<small> °/g</small>'); _cl('f_k',''); }
+  let e='en espera'; if(A.par.esc===false) e='apagado'; if(A.esc.act) e=fN(Math.abs(A.esc.dM),0)+'<small> N·m</small>';
+  set('f_e',e); _cl('f_e',A.esc.act?'bad':(A.par.esc===false?'oculto':''));
+  // el aviso de una línea
+  const Av=el('aviso'); let cl='', t='';
+  if(A.fin&&A.causa&&!enDiagnostico()){
+    const dev=fN(A.maxEy,1)+' m';
+    if(A.causa==='ok'){ cl='bien'; t='Curva completada. Desvío máximo de la línea central: '+dev+'.'; }
+    else if(A.causa==='trompo'){ cl='mal'; t='Trompo: el coche perdió la dirección que llevaba y giró sobre sí mismo.'; }
+    else { cl='mal'; t='Se salió de la calzada por el '+(A.causa==='salida-exterior'?'exterior':'interior')+' de la curva.'; }
+  } else if(A.esc.act&&!enDiagnostico()){ cl='ojo'; t='ESC: frena la rueda '+NOM_RUEDA[A.esc.rueda]+' ('+(A.esc.sobre?'corrige sobreviraje':'corrige subviraje')+').'; }
+  else if(m&&!enDiagnostico()&&!(EST.modo==='guia')){
+    const uf=Math.hypot(m.fxf,m.Fyf)/(A.c.mu*A.c.Fzf), ur=Math.hypot(m.fxr,m.Fyr)/(A.c.mu*A.c.Fzr);
+    if(uf>0.96&&uf>ur+0.04){ cl='ojo'; t='Eje delantero en el límite de adherencia: el coche tiende a abrirse (subviraje).'; }
+    else if(ur>0.96&&ur>uf+0.04){ cl='ojo'; t='Eje trasero en el límite de adherencia: el coche tiende a cerrarse (sobreviraje).'; }
+  }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+
+/* ===================== 14. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.25,'×1/4'],[0.5,'×1/2'],[1,'×1'],[2,'×2']];
+el('vbar').innerHTML=[['sigue','Seguimiento'],['cenit','Cenital'],['pista','Pista']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  el('tLento').textContent=EST.vel<1?('cámara lenta '+(VEL.find(v=>v[0]===EST.vel)||[0,'×'+EST.vel])[1]):'';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const A=SIM.A, e=el('tEst'); if(!A) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
+  let t, c;
+  if(A.fin){ t=A.causa==='ok'?'curva completada':(A.causa==='trompo'?'trompo':'fuera de la calzada'); c=A.causa==='ok'?'#34d399':'#f4475e'; if(enDiagnostico()){ t='maniobra terminada'; c='#8FB3AC'; } }
+  else if(A.esc.act){ t='ESC actuando'; c='#FF4D5A'; }
+  else { const m=A.hist&&A.hist.length?A.hist[A.hist.length-1]:null; t='en adherencia'; c='#4FD1C5'; if(m){ const u=Math.max(Math.hypot(m.fxf,m.Fyf)/(A.c.mu*A.c.Fzf),Math.hypot(m.fxr,m.Fyr)/(A.c.mu*A.c.Fzr)); if(u>0.96){ t='al límite'; c='#FFB347'; } } }
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 15. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Coche con ESC',()=>COCHE_A.position.clone().add(V3(0,1.55,0)),()=>true],
+  ['Coche sin ESC (fantasma)',()=>COCHE_B.position.clone().add(V3(0,1.55,0)),()=>!!SIM.B],
+  ['Círculo de fricción: el límite del neumático',()=>FUERZAS[1].anillo.position.clone().add(V3(0.4,0,0.3)),()=>true],
+  ['Fuerza del neumático',()=>FUERZAS[3].fl.position.clone(),()=>true],
+  ['Disco que frena el ESC',()=>{ const i=SIM.A&&SIM.A.esc.rueda>=0?SIM.A.esc.rueda:0; return new THREE.Vector3().setFromMatrixPosition(COCHE_A.userData.asas.pivs[i].matrixWorld); },()=>true],
+  ['Trayectoria real',()=>{ const n=TRAZA_A.n; return n>6?V3(TRAZA_A.pos[(n-6)*6],0.04,TRAZA_A.pos[(n-6)*6+2]):posCoche(); },()=>true],
+  ['Línea ideal',()=>{ const s=(SIM.A?SIM.A.sP:0)+9, p=pistaPunto(s,PISTA_R||EST.R); return aMundo(p.x,p.y,0.05); },()=>true],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(79,209,197,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,ok],i)=>{ if(!ok()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth-(innerWidth/2)*0, y=(1-q.y)/2*innerHeight; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  coche:'Coche con ESC: el que se mide en el dock. Sus cuatro ruedas dibujan su círculo de fricción en el suelo',
+  cocheFantasma:'Coche sin ESC: la misma maniobra, el mismo reloj, sin el control de estabilidad',
+  disco:'Disco de freno: se enciende cuando el ESC frena esa rueda. Una sola rueda crea un momento de guiñada ΔM = F·t/2',
+  mordaza:'Pinza de freno: la ordena el ESC, no el conductor',
+  anillo:'Círculo de fricción: la fuerza máxima (μ·Fz) que ese neumático puede dar en cualquier dirección. Su tamaño es relativo a cada eje',
+  flecha:'Fuerza que el suelo hace sobre el neumático (lateral más la de freno o tracción). Si la punta toca el círculo, el neumático está saturado',
+  traza:'Trayectoria del centro de masa del coche con ESC; se pone roja donde el ESC actúa',
+  trazaFantasma:'Trayectoria del coche sin ESC',
+  asfalto:'Calzada de 7,2 m. El coche «se sale» cuando su eje se aleja más de 2,8 m de la línea central',
+  ideal:'Línea ideal: la que intenta seguir el conductor',
+  valla:'Guardarraíl en el exterior de la curva',
+  chevron:'Paneles de curva cerrada',
+  piano:'Pianos a rayas en el borde de la calzada',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const lista=[COCHE_A,SIM.B?COCHE_B:null,PISTA3,TRAZA_A.mesh,...FUERZAS.map(f=>f.fl),...FUERZAS.map(f=>f.anillo)].filter(Boolean);
+  const hits=RAY.intersectObjects(lista,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; if(o&&o.userData.pieza) return o.userData.pieza; if(h.object.userData.disco!==undefined) return 'disco'; if(h.object.userData.morda!==undefined) return 'mordaza'; return null; }
+function claveDe(h){ if(!h) return null; if(h.object.userData&&h.object.userData.disco!==undefined) return 'disco'; if(h.object.userData&&h.object.userData.morda!==undefined) return 'mordaza'; let o=h.object; while(o){ if(o===COCHE_A) return 'coche'; if(o===COCHE_B) return 'cocheFantasma'; o=o.parent; } return piezaDe(h); }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 16. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 17. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Predice (la velocidad límite de una curva, con la fórmula), 2 · Decide (con una maniobra
+   real: velocidad y ESC para pasar por encima de lo que un coche sin ESC aguanta) y 3 · Diagnostica (¿subvirador,
+   neutro o sobrevirador?, sólo con lo que ves en el dock) y cierra con un quiz de tres preguntas.
+   Tres intentos fallidos en un reto cambian el escenario (no se aprueba por eliminación). */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,r2run:null,r2lim:{},preparando:false,dx:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0,eval:false};
+
+/* ---------- Fase 1 · Predice ---------- */
+const CASOS1=[{sup:'mojado',R:60},{sup:'seco',R:80},{sup:'nieve',R:50},{sup:'mojado',R:100},{sup:'hielo',R:40},{sup:'seco',R:45},{sup:'nieve',R:90},{sup:'mojado',R:75}];
+const vIdeal=(mu,R)=>3.6*Math.sqrt(mu*G*R);                        // km/h: μ·m·g = m·V²/R
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.i; let i; do{ i=Math.floor(Math.random()*CASOS1.length); }while(i===p); const c=CASOS1[i], v=vIdeal(SUPERFICIES[c.sup],c.R);
+  GUIA.r1={i,sup:c.sup,R:c.R,ans:v,run:v*(0.45+0.35*Math.random())/3.6}; }
+function checkPredice(){
+  const raw=String((el('ansV')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la velocidad máxima en km/h (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(2,0.04*ok)){
+    RETO.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`El rozamiento máximo da la fuerza centrípeta: μ·m·g = m·V²/R, así que V = √(μ·g·R) = √(${fN(SUPERFICIES[r.sup],2)} × 9,81 × ${fN(r.R)}) = ${fN(ok/3.6,1)} m/s = <b>${fN(ok,0)} km/h</b>. Es el techo de un coche ideal; el real, con conductor y neumáticos, queda por debajo.`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal();
+    const d=v>ok?'alto':'bajo', ms=Math.abs(v-ok/3.6)<Math.max(2,0.04*ok/3.6);
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1();
+      feedback('bad','Tres intentos fallidos','Cambia la curva y la superficie: vuelve a plantear el equilibrio entre el rozamiento y la fuerza centrípeta.'); reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,v%1?1:0)}) está ${d}.`+(ms?' ¿Lo diste en m/s? Aquí se pide en km/h.':' El techo lo marca la adherencia: piensa qué fuerza horizontal puede dar el suelo y cuál necesita la curva.')+` (intentos fallidos: ${RETO.fallos1}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallos1;
+    }
+  }
+}
+
+/* ---------- Fase 2 · Decide ---------- */
+const SUP2=['seco','mojado','nieve'];
+/** Las velocidades límite, con y sin ESC, de un escenario (sobrevirador, curva de 70 m): salen del MISMO motor. Se calculan una vez y se guardan. */
+function limitesDe(sup){
+  if(GUIA.r2lim[sup]) return GUIA.r2lim[sup];
+  const base={K0deg:-1.5,mu:SUPERFICIES[sup],R:70};
+  const off=velocidadLimite(base,false,{v0:10,v1:150,dv:2}), on=velocidadLimite(base,true,{v0:10,v1:150,dv:2});
+  return (GUIA.r2lim[sup]={off,on});
+}
+function prepararDecide(){
+  GUIA.preparando=true; GUIA.r2run=null; GUIA.eval=false;
+  const prev=GUIA.r2&&GUIA.r2.sup; const cand=barajar(SUP2.filter(s=>s!==prev));
+  setTimeout(()=>{
+    let elegido=null;
+    for(const s of cand){ const l=limitesDe(s); if(l.on>=1.2*l.off&&l.on-1.1*l.off>=5){ elegido=s; break; } }
+    if(!elegido) elegido=cand[0];
+    GUIA.r2={sup:elegido,V:Math.round(clamp(vIdeal(SUPERFICIES[elegido],70)*0.6,25,100)),esc:true,intentos:0};
+    GUIA.preparando=false; GUIA.r2run=null; reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+  },30);
+}
+function probarDecide(){
+  const r=GUIA.r2; if(!r||GUIA.preparando) return;
+  const V=r.V, esc=r.esc;
+  r.V=V; r.esc=esc; GUIA.r2run={V,esc}; GUIA.eval=true; reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+}
+/** Se llama cada cuadro: si la maniobra del reto 2 acabó, se evalúa una sola vez. */
+function guiaTick(){
+  if(EST.modo!=='guia'||GUIA.paso!=='decide'||!GUIA.eval||!SIM.A||!SIM.A.fin||!GUIA.r2run) return;
+  GUIA.eval=false;
+  const r=GUIA.r2, l=limitesDe(r.sup), q=SIM.A, V=GUIA.r2run.V;
+  RETO.intentos++; r.intentos++;
+  const pasa=q.causa==='ok'&&V>=1.1*l.off;
+  if(pasa){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Lo conseguiste! ✓',`Pasaste la curva a <b>${fN(V,0)} km/h ${GUIA.r2run.esc?'con':'sin'} ESC</b>. Un coche sin ESC sólo la aguanta hasta ≈ ${fN(l.off,0)} km/h en esta superficie: el sobrevirador pierde la cola antes de que el conductor pueda corregir. El ESC frena una rueda y devuelve la guiñada a donde el volante la pide; con él el límite sube a ≈ ${fN(l.on,0)} km/h.`,true);
+    paso('diag'); iniciaDiag();
+  } else {
+    RETO.fallos2++; sonido.mal();
+    let msg;
+    if(q.causa==='ok') msg=`Completaste la curva a ${fN(V,0)} km/h, pero un coche sin ESC también podría a esa velocidad: no demuestras lo que el ESC aporta. Sube la velocidad y deja el ESC activo.`;
+    else if(q.causa==='trompo') msg=`Trompo a ${fN(V,0)} km/h${GUIA.r2run.esc?' incluso con ESC: ya no le queda adherencia para frenar una rueda y corregir':': el eje trasero perdió el agarre y nadie lo corrigió'}.`;
+    else msg=`Te saliste de la calzada a ${fN(V,0)} km/h por el ${q.causa==='salida-exterior'?'exterior':'interior'}${GUIA.r2run.esc?': el ESC no crea adherencia, sólo reparte la que hay':''}.`;
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro intentos sin lograrlo',msg+' Cambia el escenario: la superficie es otra.',true); prepararDecide(); }
+    else { feedback('bad','Todavía no',msg+` (intentos: ${RETO.fallos2}/4)`,true); GUIA.r2run=null; pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const TIPOS_DX=[{k:'sub',K0:3.5,t:'Subvirador'},{k:'neutro',K0:0,t:'Neutro'},{k:'sobre',K0:-2.5,t:'Sobrevirador'}];
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let t; do{ t=pickOne(TIPOS_DX); }while(t.k===p);
+  GUIA.dx=t; GUIA.dxOk=false; GUIA.orden=barajar(['sub','neutro','sobre']); reiniciaCorridas(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    const c=SIM.A?SIM.A.c:null;
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k)+(c?` Su gradiente es K = ${fN(c.Kdeg,1)} °/g a esta adherencia.`:''),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro coche: observa de nuevo la deriva de cada eje y el volante frente al que pide la geometría.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='sub') return 'Subvirador: el eje delantero necesita más deriva que el trasero (α<sub>f</sub> &gt; α<sub>r</sub>) y el volante gira más que el ángulo geométrico L/R. Al límite, el frente se satura primero y el coche se abre.';
+  if(k==='sobre') return 'Sobrevirador: el eje trasero trabaja con más deriva que el delantero (α<sub>r</sub> &gt; α<sub>f</sub>) y basta menos volante que el geométrico. Al límite, la cola se satura primero y el coche se cierra.';
+  return 'Neutro: los dos ejes trabajan con la misma deriva (α<sub>f</sub> = α<sub>r</sub>) y el volante es el que pide la geometría, δ = L/R. K = 0.';
+}
+function noEs(k){
+  if(k==='sub') return 'En un subvirador el eje delantero tendría MÁS deriva que el trasero y el volante pasaría del ángulo geométrico L/R.';
+  if(k==='sobre') return 'En un sobrevirador el eje trasero tendría MÁS deriva que el delantero y el volante quedaría por debajo del ángulo geométrico L/R.';
+  return 'En un coche neutro las dos derivas serían iguales y el volante coincidiría con L/R. Compara las dos derivas del dock.';
+}
+const QUIZ=[
+  {q:'En una curva, el eje delantero llega al límite de adherencia antes que el trasero. ¿Qué hace el coche?',ok:'Se abre hacia el exterior: subviraje',mal:['Se cierra hacia el interior: sobreviraje','Sigue exactamente la trayectoria: el ESC siempre lo evita','Frena solo hasta detenerse']},
+  {q:'Un coche sobrevira en una curva a la izquierda. ¿Qué rueda frena el ESC para corregirlo?',ok:'La delantera derecha (exterior)',mal:['La delantera izquierda (interior)','La trasera izquierda (interior)','Las cuatro por igual']},
+  {q:'¿Qué NO puede hacer el control de estabilidad?',ok:'Crear más adherencia que la que ofrece el neumático sobre ese suelo',mal:['Comparar la guiñada real con la deseada','Frenar una sola rueda','Reducir la potencia del motor']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='guia') pintaHUD(); }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','En el límite, la fuerza horizontal que el suelo puede dar es el rozamiento máximo: μ por el peso del coche.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','Esa fuerza es justo la centrípeta que pide una curva de radio R: m·V²/R. La masa se simplifica.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'probar': probarDecide(); break;
+    case 'dx-sub': diagnostica('sub'); break;
+    case 'dx-neutro': diagnostica('neutro'); break;
+    case 'dx-sobre': diagnostica('sobre'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Hasta qué velocidad aguanta la curva?',
+      teach:`Una curva de <b>${fN(r.R)} m</b> de radio sobre <b>${NOMBRE_SUP[r.sup].toLowerCase()}</b> (μ = ${fN(SUPERFICIES[r.sup],2)}). Un coche ideal gira tan rápido como el rozamiento deja.<div class="task">¿Cuál es la velocidad máxima, en km/h? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? km/h" aria-label="Velocidad máxima en kilómetros por hora"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2;
+      if(GUIA.preparando||!r) return {no:'Fase 2 · Reto 2',head:'Tu decisión',title:'Preparando la pista…',teach:'Calculando el escenario.',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu decisión',title:'Pasa por donde un coche sin ESC no pasa',
+      teach:`Un <b>sobrevirador</b> (maletero cargado) toma una curva de 70 m sobre <b>${NOMBRE_SUP[r.sup].toLowerCase()}</b>. Elige la velocidad de entrada y si lleva ESC.<div class="why"><b>El objetivo:</b> completar la curva sin salirte, a una velocidad que un coche SIN ESC no aguantaría.</div><div class="task">Pruébalo en la pista. ${tri('d_try2',RETO.fallos2,4)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Velocidad de entrada</div><b id="v2V">${fN(r.V)} km/h</b></div><input type="range" id="r2V" min="20" max="130" step="1" value="${r.V}" aria-label="Velocidad de entrada"></div>
+        <div class="seg" id="segR2"><button class="b ${r.esc?'on':''}" data-r2="con">Con ESC</button><button class="b ${r.esc?'':'on'}" data-r2="sin">Sin ESC</button></div>
+        <button class="b primary" data-act="probar" ${GUIA.eval?'disabled':''}>${GUIA.eval?'Probando…':'▶ Probar la maniobra'}</button>`}; }
+    case 'diag': { const ord=GUIA.orden||['sub','neutro','sobre'], N={sub:'Subvirador',neutro:'Neutro',sobre:'Sobrevirador'};
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué coche es?',title:'Averigua su carácter sin ver su K',
+      teach:`Va a ${fN(Math.round(SIM.A?SIM.A.par.V*3.6:56))} km/h por la curva, sin ESC y lejos del límite. Compara en el dock la <b>deriva de cada eje</b> y el <b>volante</b> con el ángulo geométrico L/R = ${fN(VEH.L/70*57.2958,1)}°.<div class="task">¿Subvirador, neutro o sobrevirador? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${N[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Predijiste, decidiste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b> y compara coches y superficies: el ESC corrige lo que el volante ya no consigue, pero la adherencia es siempre el techo.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Predice','Decide','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en la pista en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaParams(){
+  const base={hist:true,sigue:true,cola:2.2};
+  if(GUIA.paso==='predice'&&GUIA.r1){ const r=GUIA.r1; return {A:Object.assign({K0deg:0,mu:SUPERFICIES[r.sup],R:r.R,V:r.run,esc:true},base),B:null,sup:r.sup,lazo:true}; }
+  if(GUIA.paso==='decide'&&GUIA.r2){ const r=GUIA.r2, run=GUIA.r2run;
+    return {A:Object.assign({K0deg:-1.5,mu:SUPERFICIES[r.sup],R:70,V:(run?run.V:30)/3.6,esc:run?run.esc:true},base),B:null,sup:r.sup,lazo:!run&&!GUIA.eval}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const mu=SUPERFICIES.mojado;
+    return {A:Object.assign({K0deg:GUIA.dx.K0,mu,R:70,V:Math.sqrt(mu*G*70)*0.8,esc:false},base),B:null,sup:'mojado',lazo:true}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  reiniciaCorridas(); ponVista(EST.vista==='pista'?'pista':'sigue',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(t&&t.id==='r2V'){ const r=GUIA.r2; if(r){ r.V=+t.value; el('v2V').textContent=fN(r.V)+' km/h'; } } });
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-r2]'); if(b){ const r=GUIA.r2; if(r){ r.esc=b.dataset.r2==='con'; el('segR2').querySelectorAll('.b').forEach(x=>x.classList.toggle('on',x===b)); } } });
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), prev={sup:EST.sup,K0:EST.K0,V:EST.V,esc:EST.esc,vista:EST.vista,vel:EST.vel};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } reiniciaCorridas(); pintaDockFijo(); pintaBarras(); };
+  try{
+    fija({sup:'mojado',K0:0,V:60,esc:'con',vel:1}); ponVista('sigue');
+    showToast('Paso 1 · Un coche <b>neutro</b> a 60 km/h sobre mojado. Cada flecha es la fuerza de un neumático; su círculo es el límite (μ·F<sub>z</sub>). Aún sobra adherencia.',8200);
+    await espera(8600);
+    fija({K0:2,V:72,esc:'sin'});
+    showToast('Paso 2 · <b>Subviraje</b>: el eje delantero se satura primero (flecha roja delante) y el coche se abre hacia el exterior, aunque el volante gire más.',8200);
+    await espera(8600);
+    fija({K0:-1.5,V:70,esc:'sin'});
+    showToast('Paso 3 · <b>Sobreviraje</b>: ahora se satura el eje trasero, la cola se va y el coche se cierra hasta el trompo.',8200);
+    await espera(8600);
+    fija({esc:'comparar'});
+    showToast('Paso 4 · Mismo coche, <b>con ESC</b> (el sólido): compara la guiñada con la deseada y <b>frena una sola rueda</b>, la delantera exterior. Mira el disco que se enciende.',9200);
+    await espera(9600);
+    fija({sup:'hielo',K0:-1.5,V:27,esc:'comparar'});
+    showToast('Paso 5 · En <b>hielo</b> los círculos se encogen. El ESC no crea adherencia: sólo reparte la que hay.',8200);
+    await espera(8600);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); reiniciaCorridas(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 18. SONIDO (sintetizado) =====================
+   El chirrido del neumático saturado: sube de tono y de volumen cuanto más cerca del límite trabaja el eje. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,osc=null,gain=null,filt=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      osc=ctx.createOscillator(); osc.type='sawtooth'; filt=ctx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=1500; filt.Q.value=3;
+      gain=ctx.createGain(); gain.gain.value=0; osc.frequency.value=700; osc.connect(filt); filt.connect(gain); gain.connect(master); osc.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(uso){ if(!ctx) return; const t=ctx.currentTime, u=Math.max(0,Math.min(1,(uso-0.92)/0.12));
+    osc.frequency.setTargetAtTime(640+360*u,t,0.08); gain.gain.setTargetAtTime(on?0.05*u:0,t,0.06); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gain?gain.gain.value:0; }, get freq(){ return osc?osc.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 19. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 20. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo simulado avanza dt·velocidad en cada cuadro, y con ESE tiempo se pintan la escena (coches, flechas,
+   trazas) y el dock (cursor de la guiñada, círculos, trayectoria). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function usoMax(){ const A=SIM.A; if(!A||!A.hist||!A.hist.length) return 0; const m=A.hist[A.hist.length-1];
+  return Math.max(Math.hypot(m.fxf,m.Fyf)/(A.c.mu*A.c.Fzf),Math.hypot(m.fxr,m.Fyr)/(A.c.mu*A.c.Fzr)); }
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.vel,dt);
+  guiaTick();
+  pasaCam(dt);
+  sonido.actualiza(EST.pausa||(SIM.A&&SIM.A.fin)?0:usoMax());
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaTr(); pintaFr(); pintaFu(); pintaSp(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 21. ARRANQUE =====================
+   Abre funcionando: un sobrevirador sobre mojado a 66 km/h, con ESC y su fantasma sin ESC. Se adelanta la
+   maniobra 2,6 s para que el primer cuadro ya muestre los dos coches dentro de la curva. */
+disposicion();
+aplicaSuperficie(EST.sup); SIM.supAct=EST.sup;
+construyePista(EST.R);
+aplicaCalidad();
+pintaHUD();
+reiniciaCorridas();
+for(let i=0;i<14;i++) avanzaSim(0.2);
+aplicaEscena(0,0);
+CAMF.psi=rumboVelocidad(SIM.A.s); CAMF.pos.copy(posCoche()); CAMF.listo=true;
+pintaBarras();
+ponVista('sigue',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+setTimeout(()=>showToast('Dos coches, la misma curva: el <b>fantasma</b> sin ESC, el sólido con él. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' un disco, una flecha o un coche para saber qué es.',5600),700);
+
+/* ===================== 22. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,
+    r1:GUIA.r1?{sup:GUIA.r1.sup,R:GUIA.r1.R}:null,r2:GUIA.r2?{sup:GUIA.r2.sup,V:GUIA.r2.V,esc:GUIA.r2.esc}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const A=SIM.A; if(!A) return {activo:false}; const m=A.hist&&A.hist.length?A.hist[A.hist.length-1]:null;
+    return {t:SIM.t,fin:A.fin,causa:A.causa,maxEy:A.maxEy,V:A.par.V,mu:A.c.mu,K:A.c.Kdeg,esc:A.par.esc,escAct:A.esc.act,rueda:A.esc.rueda,dM:A.esc.dM,m,
+      B:SIM.B?{fin:SIM.B.fin,causa:SIM.B.causa,maxEy:SIM.B.maxEy}:null}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,trazaA:TRAZA_A.n,trazaB:TRAZA_B.n,
+    discos:COCHE_A.userData.asas.discos.map(d=>+d.emissiveIntensity.toFixed(2)),flechas:FUERZAS.map(f=>f.fl.visible)}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2,dx:GUIA.dx,lim:GUIA.r2lim}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCorridas(); pintaDockFijo(); pintaBarras(); },
+  avanza:(s)=>{ for(let t=0;t<s;t+=0.2) avanzaSim(Math.min(0.2,s-t)); aplicaEscena(0,0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  lazo:(on)=>{ EST.lazo=!!on; },
+  paso:(p)=>{ paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  limites:(sup)=>limitesDe(sup),
+});
+instalaDiag('dinamica-lateral-esc',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{cocheA:COCHE_A,cocheB:COCHE_B,pista:PISTA3}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-dinamica-lateral-esc.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

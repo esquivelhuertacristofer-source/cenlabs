@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Tren Híbrido de División de Potencia — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,24,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cA:#FF8A3D;--cB:#37E0C7;--cC:#6FB6FF;--cT:#9FF3FF;--cD:#FFB347;--cDC:#FFD166;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14201f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#182a28}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#33b3a3}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#06120f}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#4FD1C5;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f8a85;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f948f;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04211c}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,58,52,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,58,52,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f8a85}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9fbab4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,58,52,.7);min-height:0}
+  .dk-g.lev{flex:0.9 1 0;min-height:96px}
+  .dk-g.map{flex:1.7 1 0;min-height:140px}
+  .dk-g.st{flex:1.0 1 0;min-height:84px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c9c4;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14201f;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfe0dc;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cT);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(12,22,22,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,22,21,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,22,24,.92);border:1px solid rgba(79,209,197,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,22,24,.84);border:1px solid rgba(79,209,197,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-g.map{min-height:120px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1.15fr;grid-template-rows:auto auto auto 1fr auto;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2/4;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.t-lev{grid-column:1;grid-row:4;align-self:end}
+  body.estrecho.ancho.t-panel .panel>.dk-g.lev{grid-column:1;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-map{grid-column:2;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-g.map{grid-column:2;grid-row:3/5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-st{display:none}
+  body.estrecho.ancho.t-panel .panel>.dk-g.st{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,24,23,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.lev{min-height:84px} body.movil .dk-g.map{min-height:150px} body.movil .dk-g.st{min-height:70px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Tren híbrido · engranaje planetario</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Óptimo</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Solar · MG1</div><b id="f_ws">—</b></div>
+    <div class="fg"><div class="fl">Portasatélites · motor</div><b id="f_wc">—</b></div>
+    <div class="fg"><div class="fl">Corona · MG2</div><b id="f_wr">—</b></div>
+    <div class="fg"><div class="fl">Potencia de MG1</div><b id="f_pg">—</b></div>
+    <div class="fg"><div class="fl">Batería</div><b id="f_pb">—</b></div>
+    <div class="fg"><div class="fl">Consumo</div><b id="f_bs">—</b></div>
+  </div>
+  <div class="dk-tit t-lev">Palanca de Willis <span id="t_lev"></span></div>
+  <div class="dk-g lev" id="gLev"><canvas></canvas></div>
+  <div class="dk-tit t-map">Mapa de consumo del motor <span id="t_map"></span></div>
+  <div class="dk-g map" id="gMap"><canvas></canvas></div>
+  <div class="dk-ley" id="leyMap"></div>
+  <div class="dk-tit t-st">Reparto de potencia y SOC <span id="t_st"></span></div>
+  <div class="dk-g st" id="gSt"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — TREN HÍBRIDO DE DIVISIÓN DE POTENCIA · ENGRANAJE PLANETARIO
+   (Autotrónica · mecanica-127)
+
+   Un transeje híbrido de división de potencia cortado por la mitad: el
+   motor térmico en el portasatélites, el generador MG1 en el solar y el
+   motor de tracción MG2 en la corona, que va a las ruedas. Abre en el corte
+   transversal del conjunto planetario —solar de 30 dientes, tres satélites
+   de 24 y corona de 78—, girando a cámara lenta con la cinemática exacta
+   de Willis, y deja ver detrás la corona con el rotor de MG2.
+
+   El dock enseña, con el MISMO estado del modelo que mueve la escena, la
+   palanca de Willis, el mapa de consumo del motor con su línea de operación
+   óptima, y el reparto de potencia entre motor, MG1, MG2 y batería con el SOC.
+
+   La física (Willis, reparto de pares, pérdidas, mapa analítico del motor
+   Atkinson, SOC neutro y óptimo del vehículo) está en un bloque puro que un
+   script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre. */
+
+/* FISICA:INICIO */
+/* ---------- 1.1 El tren: dentado, vehículo, máquinas, batería ----------
+   Conjunto planetario del THS (dentado publicado: sol 30, corona 78; los
+   satélites salen de la geometría: Z_r = Z_s + 2·Z_p ⇒ Z_p = 24). Todo lo
+   demás son valores REPRESENTATIVOS de un híbrido de 1,5 L, no datos del
+   fabricante. MG2 va directo a la corona y la corona a las ruedas por una
+   reducción final i_f. */
+const DOSPI=2*Math.PI, RPM=Math.PI/30, G0=9.80665;
+const PSD={ Zs:30, Zr:78, Zp:24, mod:1.8e-3, etaMalla:0.99 };
+PSD.rho=PSD.Zs/PSD.Zr;
+const VEH={ Rw:0.317, ifd:3.905, etaFD:0.97, Paux:400, m:1380, Crr:0.009, CdA:0.58, rhoAire:1.2 };
+const COMB={ LHV:43.0e6, dens:745 };                    // gasolina: J/kg y g/L
+/* El motor térmico (Atkinson de 1,5 L): par de plena carga parabólico —115 N·m
+   hacia 4000 rpm, 57 kW a 5000— y mapa de consumo ANALÍTICO: un cuenco
+   cuadrático en (régimen, par) por el trabajo útil más un gasto de vacío
+   proporcional al régimen (rozamientos y bombeo). Nace de calibrar el mínimo
+   (≈ 222 g/kWh = 37,7 %) con el de los Atkinson publicados; no es un mapa medido. */
+const ICE={ Tpico:115, nTpico:4000, ancho:4600, nmin:1000, nmax:5200,
+  b0:190, n0:2800, T0:95, cu:0.45, cv:0.60, cx:0.30, k0:0.9e-3 };
+/* Máquinas eléctricas: pérdidas P = a0 + a1·|ω| + a2·ω² + k·T² (hierro, mecánicas
+   y cobre) y un inversor con rendimiento fijo. */
+const MG1={ nombre:'MG1', Tmax:75, Pmax:30e3, nmax:10000, a0:100, a1:0.8, a2:6e-4, k:0.5 };
+const MG2={ nombre:'MG2', Tmax:400, Pmax:50e3, nmax:6500, a0:150, a1:1.0, a2:8e-4, k:0.02 };
+const ETA_INV=0.975;
+/* La batería: circuito equivalente (V_oc lineal en el SOC y una resistencia). */
+const PACK={ Q:6.5, R:0.30, V0:190, V1:20, Pdes:21e3, Pcar:21e3, socMin:0.40, socMax:0.80 };
+const vocDe=soc=>PACK.V0+PACK.V1*soc;
+
+/* ---------- 1.2 Willis y el reparto de pares ----------
+   Z_s·ω_s + Z_r·ω_r = (Z_s + Z_r)·ω_c. Con el motor en el portasatélites,
+   el par se reparte T_s : T_c : T_r = Z_s : (Z_s + Z_r) : Z_r. */
+const wSol=(wc,wr)=>((PSD.Zs+PSD.Zr)*wc-PSD.Zr*wr)/PSD.Zs;
+const wPorta=(ws,wr)=>(PSD.Zs*ws+PSD.Zr*wr)/(PSD.Zs+PSD.Zr);
+const wCorona=(ws,wc)=>((PSD.Zs+PSD.Zr)*wc-PSD.Zs*ws)/PSD.Zr;
+const wSatelite=(ws,wc)=>wc-(PSD.Zs/PSD.Zp)*(ws-wc);      // giro propio del satélite (absoluto)
+const reparto=Tc=>({ Ts:Tc*PSD.Zs/(PSD.Zs+PSD.Zr), Tr:Tc*PSD.Zr/(PSD.Zs+PSD.Zr) });
+const wRueda=v=>v/VEH.Rw, wCoronaDe=v=>v*VEH.ifd/VEH.Rw;
+/** Potencia de crucero (W) en llano: rodadura + aire. */
+const potCrucero=v=>(VEH.m*G0*VEH.Crr+0.5*VEH.rhoAire*VEH.CdA*v*v)*v;
+
+/* ---------- 1.3 El motor térmico ---------- */
+function parMaxICE(w){ const n=w/RPM; return Math.max(0,ICE.Tpico*(1-Math.pow((n-ICE.nTpico)/ICE.ancho,2))); }
+/** Caudal de combustible (g/s) a (ω, T). T = 0 es el motor arrastrado sin carga. */
+function caudal(w,T){
+  if(!(w>0)) return 0;
+  const u=(w/RPM-ICE.n0)/ICE.n0, v=(T-ICE.T0)/ICE.T0;
+  const b=ICE.b0*(1+ICE.cu*u*u+ICE.cv*v*v+ICE.cx*u*v);          // g/kWh del trabajo útil
+  return b*Math.max(0,T)*w/1000/3600+ICE.k0*w;
+}
+/** Consumo específico efectivo (g/kWh): caudal ÷ potencia al freno. */
+function bsfc(w,T){ const P=T*w; return P>1?caudal(w,T)*3600/(P/1000):Infinity; }
+/** Para una potencia de eje, el régimen que mínima el caudal (línea de operación óptima del motor solo). */
+function optimoMotor(Pe){
+  let mejor=null;
+  for(let n=ICE.nmin;n<=ICE.nmax;n+=10){ const w=n*RPM, T=Pe/w; if(T>parMaxICE(w)) continue;
+    const f=caudal(w,T); if(!mejor||f<mejor.f) mejor={n,w,T,f}; }
+  if(!mejor) return null;
+  let a=Math.max(ICE.nmin,mejor.n-10), b=Math.min(ICE.nmax,mejor.n+10);        // refina por sección áurea
+  const g=n=>{ const w=n*RPM, T=Pe/w; return T>parMaxICE(w)?1e9:caudal(w,T); }, fi=(Math.sqrt(5)-1)/2;
+  let c=b-fi*(b-a), d=a+fi*(b-a), fc=g(c), fd=g(d);
+  for(let i=0;i<60;i++){ if(fc<fd){ b=d; d=c; fd=fc; c=b-fi*(b-a); fc=g(c); } else { a=c; c=d; fc=fd; d=a+fi*(b-a); fd=g(d); } }
+  const n=(a+b)/2, w=n*RPM; return { n, w, T:Pe/w, f:caudal(w,Pe/w), bsfc:caudal(w,Pe/w)*3600/(Pe/1000) };
+}
+
+/* ---------- 1.4 Una máquina eléctrica y su inversor ---------- */
+const perdidaMG=(mg,w,T)=>mg.a0+mg.a1*Math.abs(w)+mg.a2*w*w+mg.k*T*T;
+/** Potencia en el bus de CC (+ = sale de la batería) para una potencia en el eje (+ = la máquina entrega). */
+function dcDe(mg,Psh,w,T){ const x=Psh+perdidaMG(mg,w,T); return x>=0?x/ETA_INV:x*ETA_INV; }
+
+/* ---------- 1.5 El punto de operación ----------
+   Entradas: v (m/s), Pw (W en la rueda; <0 = frenada regenerativa), régimen
+   del motor we (rad/s; 0 = apagado) y par Te (N·m). `falla` ∈ null, 'mg1'
+   (MG1 sin par), 'bloq' (MG1 bloqueado) o 'mg2' (MG2 sin par). */
+function punto(q){
+  const wr=wCoronaDe(q.v), falla=q.falla||null, S=PSD.Zs+PSD.Zr;
+  let we=Math.max(0,q.we||0), Te=Math.max(0,q.Te||0);
+  const Pw=(q.v>1e-9)?q.Pw:0;
+  if(we<=0) Te=0;
+  if(falla==='mg1'){ if(we>0) we=ICE.nmax*RPM; Te=0; }           // sin reacción en el solar el motor no empuja: se embala hasta el corte
+  if(falla==='bloq'&&we>0) we=PSD.Zr*wr/S;                        // solar parado: el régimen queda atado a la corona
+  const ws=falla==='bloq'?0:wSol(we,wr);
+  const { Ts, Tr }=reparto(Te);
+  const Pring=Pw>=0?Pw/VEH.etaFD:Pw*VEH.etaFD;                    // potencia que pide la corona
+  // pérdida del engranaje: cada engrane transmite, visto desde el portasatélites, |T·(ω−ω_c)|
+  const Lpsd=we>0?(1-PSD.etaMalla)*(Math.abs(Ts*(ws-we))+Math.abs(Tr*(wr-we))):0;
+  const Tr_ef=wr>1e-6?Tr-Lpsd/wr:Tr;
+  const Tring=wr>1e-6?Pring/wr:0;
+  let T2=Tring-Tr_ef; if(falla==='mg2') T2=0;
+  const P2sh=T2*wr, P1sh=-Ts*ws;
+  const L1=perdidaMG(MG1,ws,Ts), L2=perdidaMG(MG2,wr,T2);
+  const P1dc=dcDe(MG1,P1sh,ws,Ts), P2dc=dcDe(MG2,P2sh,wr,T2);
+  const Pbat=P1dc+P2dc+VEH.Paux;
+  const Pe=Te*we, mf=we>0?caudal(we,Te):0, Pfuel=mf*COMB.LHV/1000;
+  // pérdidas por bloque, para el balance
+  const Linv1=P1dc-(P1sh+L1), Linv2=P2dc-(P2sh+L2);
+  const PringAct=(Tr_ef+T2)*wr, Pw_real=PringAct>=0?PringAct*VEH.etaFD:PringAct/VEH.etaFD;   // lo que de verdad llega a la rueda
+  const Lfd=PringAct-Pw_real;
+  const Vo=vocDe(q.soc??0.6), disc=Vo*Vo-4*PACK.R*Pbat;
+  const I=disc>0?(Vo-Math.sqrt(disc))/(2*PACK.R):NaN, Pchem=Vo*I, Lbat=PACK.R*I*I;
+  const lim={
+    mg1v:Math.abs(ws)/RPM>MG1.nmax, mg1T:Ts>MG1.Tmax+1e-9, mg1P:Math.abs(P1sh)>MG1.Pmax,
+    mg2T:Math.abs(T2)>MG2.Tmax+1e-9, mg2P:Math.abs(P2sh)>MG2.Pmax, mg2v:wr/RPM>MG2.nmax,
+    iceT:we>0&&Te>parMaxICE(we)+1e-9, iceN:we>0&&(we/RPM>ICE.nmax+1e-9||we/RPM<ICE.nmin-1e-9),
+    bat:Pbat>PACK.Pdes||Pbat<-PACK.Pcar, calado:falla==='bloq'&&we>0&&we/RPM<ICE.nmin,
+  };
+  return { v:q.v, Pw, Pw_real, wr, ws, wc:we, we, Te, Pe, Ts, Tr, Tr_ef, T2, Tring, Pring, Tring_act:Tr_ef+T2,
+    P1sh, P2sh, P1dc, P2dc, Pbat, I, Pchem, Lbat, mf, Pfuel, bsfc:Pe>1?mf*3600/(Pe/1000):Infinity,
+    L:{ ice:Pfuel-Pe, psd:Lpsd, fd:Lfd, mg1:L1, inv1:Linv1, mg2:L2, inv2:Linv2, aux:VEH.Paux, bat:Lbat },
+    lim, falla, apagado:!(we>0), fisico:Number.isFinite(I) };
+}
+/** Balance de energía de un punto: fuente − usos (debe ser 0). */
+function residuoBalance(p){
+  const L=p.L, usos=p.Pw_real+L.aux+L.ice+L.psd+L.fd+L.mg1+L.inv1+L.mg2+L.inv2+L.bat;
+  return p.Pfuel+p.Pchem-usos;
+}
+/** Residuo de la potencia MECÁNICA: Pe + P1sh + P2sh − (Pring + pérdida del engranaje). */
+const residuoMecanico=p=>p.Pe+p.P1sh+p.P2sh-(p.Tring_act*p.wr+p.L.psd);
+
+/* ---------- 1.6 SOC neutro y el óptimo del vehículo ---------- */
+/** El par del motor a régimen `we` con el que la batería no se carga ni se descarga (P_bat = 0). */
+function neutro(v,Pw,we,falla){
+  const f=T=>punto({v,Pw,we,Te:T,falla}).Pbat, Tm=parMaxICE(we);
+  if(f(0)<=0) return { Te:0, ok:true, sobra:true };
+  if(f(Tm)>0) return { Te:Tm, ok:false, sobra:false };
+  let a=0, b=Tm;
+  for(let i=0;i<60;i++){ const c=(a+b)/2; if(f(c)>0) a=c; else b=c; }
+  return { Te:(a+b)/2, ok:true, sobra:false };
+}
+/** El punto del motor que, con SOC neutro, da el MENOR caudal respetando los
+    límites de MG1 (régimen, par), MG2 y del propio motor. null si el motor no hace falta o no hay solución. */
+function optimoVehiculo(v,Pw){
+  let mejor=null, evOk=false;
+  for(let n=ICE.nmin;n<=ICE.nmax;n+=10){
+    const we=n*RPM, r=neutro(v,Pw,we,null);
+    if(r.sobra){ evOk=true; continue; }
+    if(!r.ok) continue;
+    const p=punto({v,Pw,we,Te:r.Te});
+    if(p.lim.mg1v||p.lim.mg1T||p.lim.mg1P||p.lim.mg2T||p.lim.mg2P||p.lim.iceT) continue;
+    if(!mejor||p.mf<mejor.p.mf) mejor={ n, we, Te:r.Te, p };
+  }
+  if(!mejor) return { motor:false, ev:evOk, p:null };
+  // refina el régimen por sección áurea
+  const g=n=>{ const we=n*RPM, r=neutro(v,Pw,we,null); if(!r.ok||r.sobra) return 1e9; const p=punto({v,Pw,we,Te:r.Te});
+    return (p.lim.mg1v||p.lim.mg1T||p.lim.mg1P||p.lim.mg2T||p.lim.mg2P||p.lim.iceT)?1e9:p.mf; };
+  let a=Math.max(ICE.nmin,mejor.n-10), b=Math.min(ICE.nmax,mejor.n+10);
+  const fi=(Math.sqrt(5)-1)/2; let c=b-fi*(b-a), d=a+fi*(b-a), fc=g(c), fd=g(d);
+  for(let i=0;i<50;i++){ if(fc<fd){ b=d; d=c; fd=fc; c=b-fi*(b-a); fc=g(c); } else { a=c; c=d; fc=fd; d=a+fi*(b-a); fd=g(d); } }
+  const n=(a+b)/2, we=n*RPM, r=neutro(v,Pw,we,null), p=punto({v,Pw,we,Te:r.Te});
+  return (p.mf<=mejor.p.mf+1e-12)?{ motor:true, n, we, Te:r.Te, p }:{ motor:true, n:mejor.n, we:mejor.we, Te:mejor.Te, p:mejor.p };
+}
+/** Consumo en L/100 km de un punto a velocidad v (m/s). */
+const consumoL100=(mf,v)=>v>0.5?mf/COMB.dens/v*1e5:NaN;
+
+/** Paso de la batería: dSOC/dt = −I/(3600·Q). */
+function pasoSOC(soc,Pbat,dt){
+  const Vo=vocDe(soc), disc=Vo*Vo-4*PACK.R*Pbat; if(!(disc>0)) return soc;
+  const I=(Vo-Math.sqrt(disc))/(2*PACK.R); return Math.min(1,Math.max(0,soc-I*dt/(3600*PACK.Q)));
+}
+
+/* ---------- 1.7 Geometría de los dientes (evolvente de 20°) ----------
+   Un engrane de Z dientes y módulo m. El semiángulo del diente en el radio ρ es
+   θ(ρ) = π/(2Z) − (inv α_ρ − inv α), con cos α_ρ = r_b/ρ; el HUECO de una
+   corona es el diente de su engrane conjugado, y por eso usa la misma
+   expresión. `fase` es el ángulo del centro del diente 0 (del hueco 0 en la
+   corona). Devuelve el contorno [x, y] recorrido en sentido antihorario. */
+const invEv=a=>Math.tan(a)-a;
+function contornoEngrane(Z,m,o={}){
+  const { interno=false, fase=0, nFlanco=7, juego=0.03 }=o;
+  const r=m*Z/2, al=20*Math.PI/180, rb=r*Math.cos(al), jt=juego*m;
+  const ra=interno?r-m:r+m, rf=interno?r+1.25*m:r-1.25*m;
+  const med=rho=>{ const a=Math.acos(Math.min(1,rb/rho)); const h=Math.PI/(2*Z)-(invEv(a)-invEv(al));
+    return interno?h+jt/(4*r):h-jt/(4*r); };
+  const rIni=interno?ra:Math.max(rf,rb), rFin=interno?rf:ra;
+  const P=[], paso=DOSPI/Z;
+  const pol=(rho,ang)=>[rho*Math.cos(ang),rho*Math.sin(ang)];
+  for(let k=0;k<Z;k++){
+    const c=fase+k*paso;
+    if(!interno){
+      // raíz → punta por el flanco izquierdo, punta → raíz por el derecho, y el arco de raíz hasta el siguiente diente
+      const h0=med(rIni);
+      if(rf<rb-1e-12) P.push(pol(rf,c-h0));
+      for(let i=0;i<=nFlanco;i++){ const rho=rIni+(rFin-rIni)*i/nFlanco; P.push(pol(rho,c-med(rho))); }
+      for(let i=nFlanco;i>=0;i--){ const rho=rIni+(rFin-rIni)*i/nFlanco; P.push(pol(rho,c+med(rho))); }
+      if(rf<rb-1e-12) P.push(pol(rf,c+h0));
+      const a0=c+h0, a1=c+paso-h0; for(let i=1;i<=2;i++) P.push(pol(rf,a0+(a1-a0)*i/3));
+    } else {
+      // la corona: el hueco k (centro c) va de la cresta al fondo y vuelve; entre huecos queda la cresta del diente
+      const hT=med(ra), hR=med(rf);
+      for(let i=0;i<=nFlanco;i++){ const rho=ra+(rf-ra)*i/nFlanco; P.push(pol(rho,c-med(rho))); }
+      for(let i=1;i<=2;i++) P.push(pol(rf,c-hR+(2*hR)*i/3));
+      for(let i=nFlanco;i>=0;i--){ const rho=ra+(rf-ra)*i/nFlanco; P.push(pol(rho,c+med(rho))); }
+      const a0=c+hT, a1=c+paso-hT; for(let i=1;i<=2;i++) P.push(pol(ra,a0+(a1-a0)*i/3));
+    }
+  }
+  return P;
+}
+/** Geometría del conjunto: radios primitivos y distancia entre centros (R_c = r_s + r_p; r_r = R_c + r_p). */
+const GEO={ rs:PSD.mod*PSD.Zs/2, rp:PSD.mod*PSD.Zp/2, rr:PSD.mod*PSD.Zr/2, nSat:3 };
+GEO.Rc=GEO.rs+GEO.rp;
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.86;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.localClippingEnabled=true;                 // el corte: un plano z = 0 para toda la exposición
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,abajo){
+  const c=cv(512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const r=x.createRadialGradient(256,190,20,256,250,380); r.addColorStop(0,'rgba(79,209,197,0.07)'); r.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=r; x.fillRect(0,0,512,512);
+  return tex(c,{srgb:true});
+}
+const scene=new THREE.Scene();
+scene.background=fondoDegradado('#0f1a1e','#030506');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.5;
+
+const camera=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,0.02,60);
+camera.position.set(0.12,0.16,0.62);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.07;
+controls.minDistance=0.14; controls.maxDistance=6; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(0,0.03,0);
+
+/* Luz de estudio: clave cálida alta con sombra suave, contra fría que recorta
+   los cantos, relleno bajo y frío, y una luz frontal sin sombra que entra por
+   el corte: sin ella el interior del inversor queda en la sombra de su caja. */
+const LUZ={};
+LUZ.clave=new THREE.DirectionalLight('#fff2e4',2.0); LUZ.clave.position.set(0.9,1.5,1.3); LUZ.clave.castShadow=true;
+LUZ.clave.shadow.mapSize.set(2048,2048); LUZ.clave.shadow.bias=-0.0004; LUZ.clave.shadow.normalBias=0.010;
+Object.assign(LUZ.clave.shadow.camera,{left:-0.75,right:0.75,top:0.55,bottom:-0.45,near:0.3,far:5});
+LUZ.clave.target.position.set(0,0.02,-0.1); scene.add(LUZ.clave,LUZ.clave.target);
+LUZ.contra=new THREE.SpotLight('#cfe2ff',2.5,10,Math.PI/5,0.6,1.4); LUZ.contra.position.set(-0.9,1.2,-1.3); LUZ.contra.target.position.set(0,0.03,0); scene.add(LUZ.contra,LUZ.contra.target);
+LUZ.relleno=new THREE.DirectionalLight('#a6c4e0',0.32); LUZ.relleno.position.set(-1.8,0.9,2.2); scene.add(LUZ.relleno);
+LUZ.frente=new THREE.DirectionalLight('#e8f1ff',0.42); LUZ.frente.position.set(0.2,0.3,1.8); LUZ.frente.target.position.set(0,0.03,-0.1); scene.add(LUZ.frente,LUZ.frente.target);
+LUZ.hemi=new THREE.HemisphereLight('#a9c1d6','#0d1114',0.18); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: los chips que conducen, los
+   puntos de corriente y el campo del entrehierro. El umbral está por encima
+   del brillo de cualquier metal iluminado. En calidad media no hay
+   resplandor, y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.28,2.0); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   PBR con entorno. Nada de poro ni grano fino —se lee como lija sobre caras
+   grandes—: variaciones lentas de rugosidad (la piel de fundición de §21) y,
+   donde la pieza lo pide, su dibujo: la serigrafía de la placa. */
+const DOSPI_=Math.PI*2;
+function normalDeAltura(W,H,h,fuerza){
+  const c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H);
+  const A=(i,j)=>h((i+W)%W,(j+H)%H);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const dx=(A(i+1,j)-A(i-1,j))*fuerza, dy=(A(i,j+1)-A(i,j-1))*fuerza, L=Math.hypot(dx,dy,1), o=(j*W+i)*4;
+    im.data[o]=(-dx/L*0.5+0.5)*255; im.data[o+1]=(-dy/L*0.5+0.5)*255; im.data[o+2]=(1/L*0.5+0.5)*255; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return c;
+}
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+function pielLenta(semilla,{px=256,celdas=4,oct=3,rug0=0.45,rugA=0.08,relieve=0.5}={}){
+  const f=fbmP(semilla,celdas,oct), k=celdas/px;
+  const c=cv(px), x=c.getContext('2d'), im=x.createImageData(px,px);
+  for(let j=0;j<px;j++) for(let i=0;i<px;i++){ const v=clamp(rug0+(f(i*k,j*k)-0.5)*2*rugA,0,1)*255, o=(j*px+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  return {r:tex(c),n:tex(normalDeAltura(px,px,(i,j)=>f(i*k,j*k),relieve))};
+}
+const T_PINT=pielLenta(11,{celdas:5,rug0:0.5,rugA:0.05,relieve:0.3});
+const T_PLAS=pielLenta(37,{celdas:9,rug0:0.9,rugA:0.06,relieve:0.45});
+// la fundición de las carcasas: la piel lisa de §21 de la biblioteca
+const T_FUND=P3.pielFundicion({px:256,semilla:23,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(5,5);
+const T_FUND2=P3.pielFundicion({px:256,semilla:41,manchas:0.05,relieve:2.0,celda:16});
+for(const t of [T_FUND2.map,T_FUND2.roughnessMap,T_FUND2.normalMap]) t.repeat.set(7,7);
+
+/* EL CORTE. Toda la exposición se secciona por UN plano y se conserva la
+   mitad de atrás: el transversal (z = 0, el conjunto planetario visto de
+   frente) o el longitudinal (x = 0, todo el tren a lo largo de su eje). Las
+   caras de sección no son geometría: cada pieza es un sólido cerrado y, donde
+   el plano la abre, lo que se ve por el hueco son sus caras de ATRÁS. Ésas se
+   pintan como la cara de corte de un plano de taller: el punto se lleva por
+   el rayo de la cámara hasta el plano y allí se dibuja el patrón de la pieza
+   —rayado a ±45° en lo macizo, hilos en el cobre de las ranuras— iluminado
+   como una cara plana que mira hacia la cámara. El cobre de los devanados
+   conserva su brillo en la sección: es la corriente que lo recorre. */
+const PLANO=new THREE.Plane(new THREE.Vector3(0,0,-1),0);
+const U_PN={value:new THREE.Vector3(0,0,-1)}, U_PC={value:0}, U_T1={value:new THREE.Vector3(1,0,0)}, U_T2={value:new THREE.Vector3(0,1,0)};
+/** Pone el plano de corte: 'trans' (z = 0) o 'long' (x = 0). */
+function ponCorte(tipo){
+  if(tipo==='long'){ PLANO.normal.set(-1,0,0); U_PN.value.set(-1,0,0); U_T1.value.set(0,0,-1); U_T2.value.set(0,1,0); }
+  else { PLANO.normal.set(0,0,-1); U_PN.value.set(0,0,-1); U_T1.value.set(1,0,0); U_T2.value.set(0,1,0); }
+  PLANO.constant=0; U_PC.value=0;
+}
+const PASO_G={value:0.0028};
+const LUCES_CORTE=THREE.ShaderChunk.lights_fragment_begin.replaceAll('receiveShadow','(receiveShadow&&gl_FrontFacing)');
+function corte(m,o={}){
+  m.side=THREE.DoubleSide; m.clippingPlanes=[PLANO]; m.clipShadows=true;
+  const pat=o.patron==='hilos'?2:0;
+  const U={cFondo:{value:new THREE.Color(o.fondo||'#8a9096')},cLinea:{value:new THREE.Color(o.linea||'#5d636a')},
+    cSent:{value:o.sentido||1},cPaso:{value:o.paso||1},cPasoG:PASO_G,cRay:{value:o.rayado===false?0:1},cRug:{value:o.rug??0.64},
+    cPat:{value:pat},cBrillo:{value:o.brillo?1:0},uPN:U_PN,uPC:U_PC,uT1:U_T1,uT2:U_T2};
+  m.userData.cap=U;
+  m.onBeforeCompile=(sh)=>{
+    Object.assign(sh.uniforms,U);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;')
+      .replace('#include <fog_vertex>','#include <fog_vertex>\n{ vec4 wc=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\n wc=instanceMatrix*wc;\n#endif\n vMundoC=(modelMatrix*wc).xyz; }');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;\nfloat cLnG=0.0;\nuniform vec3 cFondo; uniform vec3 cLinea; uniform float cSent; uniform float cPaso; uniform float cPasoG; uniform float cRay; uniform float cRug; uniform float cPat; uniform float cBrillo; uniform vec3 uPN; uniform float uPC; uniform vec3 uT1; uniform vec3 uT2;')
+      .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+      if(!gl_FrontFacing){
+        vec3 dC=vMundoC-cameraPosition;
+        float den=dot(uPN,dC); den=abs(den)<1e-6?(den<0.0?-1e-6:1e-6):den;
+        float tC=clamp(-(dot(uPN,cameraPosition)+uPC)/den,0.0,1.0);
+        vec3 pC=cameraPosition+dC*tC;
+        vec2 q2=vec2(dot(pC,uT1),dot(pC,uT2));
+        if(cRay>0.5){
+          float ln=0.0;
+          if(cPat<1.5){
+            float uu=(q2.x*cSent+q2.y)*0.70710678/(cPaso*cPasoG);
+            float fw=clamp(fwidth(uu),0.0,0.5);
+            float dl=0.5-abs(fract(uu)-0.5);
+            ln=(1.0-smoothstep(0.12-fw,0.12+fw,dl))*(1.0-smoothstep(0.25,0.5,fw));
+          } else {
+            vec2 q=q2/(cPaso*0.0016); q.y*=1.1547; q.x+=0.5*mod(floor(q.y),2.0);
+            vec2 f=fract(q)-0.5; f.y/=1.1547; float r=length(f);
+            float fw=clamp(fwidth(r)*1.5,0.0,0.5);
+            ln=smoothstep(0.38-fw,0.38+fw,r)*(1.0-smoothstep(0.18,0.35,fw));
+          }
+          diffuseColor.rgb=mix(cFondo,cLinea,ln*0.9);
+          metalnessFactor=0.12; cLnG=ln;
+        }
+        roughnessFactor=cRug;
+        normal=normalize((viewMatrix*vec4(-uPN,0.0)).xyz);
+      }`)
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\nif(!gl_FrontFacing) totalEmissiveRadiance*=cBrillo*(1.0-0.8*cLnG);')
+      .replace('#include <lights_physical_fragment>','#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nif(!gl_FrontFacing) material.clearcoat=0.0;\n#endif\n#ifdef USE_SHEEN\nif(!gl_FrontFacing) material.sheenColor=vec3(0.0);\n#endif')
+      .replace('#include <lights_fragment_begin>',LUCES_CORTE);
+  };
+  m.customProgramCacheKey=()=>'corte'+pat+(o.brillo?'b':'');
+  return m;
+}
+/* Cada pieza corta con su tono y piezas vecinas con el rayado en sentidos
+   opuestos, como manda el dibujo técnico: así se distinguen sin rótulos. */
+const CAP={
+  carcasa:{fondo:'#848c93',linea:'#697077',sentido:1},
+  carcasaM:{fondo:'#727a81',linea:'#596067',sentido:-1},
+  chapa:{fondo:'#46505a',linea:'#2e353c',sentido:1,paso:0.8},
+  acero:{fondo:'#79828c',linea:'#5d656e',sentido:1},
+  aceroB:{fondo:'#8a929b',linea:'#6a727b',sentido:-1,paso:0.8},
+  alu:{fondo:'#a2a9b0',linea:'#868d94',sentido:-1,paso:0.6},
+  cobre:{fondo:'#c08350',linea:'#a36a3c',sentido:1,paso:0.5},
+  ranura:{fondo:'#9a6238',linea:'#3a200e',patron:'hilos',paso:1,brillo:true},
+  plastico:{fondo:'#3b3f44',linea:'#2e3136',sentido:-1},
+  pcb:{fondo:'#2b6b47',linea:'#1d4a31',sentido:1,paso:0.4},
+  celda:{fondo:'#7c8a6a',linea:'#5a6a4a',sentido:-1,paso:0.7},
+  banco:{fondo:'#566370',linea:'#46525d',sentido:1},
+  bronce:{fondo:'#b69455',linea:'#8c6f36',sentido:-1,paso:0.5},
+  fluido:{rayado:false,rug:0.2},
+};
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const V2=k=>new THREE.Vector2(k,k);
+
+const M={
+  carcasa: corte(fis({color:'#8f979f',metalness:0.7,roughness:0.52,map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:V2(0.22),clearcoat:0.15,clearcoatRoughness:0.5}),CAP.carcasa),
+  carcasaM: corte(fis({color:'#6c757d',metalness:0.62,roughness:0.55,map:T_FUND2.map,roughnessMap:T_FUND2.roughnessMap,normalMap:T_FUND2.normalMap,normalScale:V2(0.25),clearcoat:0.1,clearcoatRoughness:0.6}),CAP.carcasaM),
+  chapa: corte(pbr({color:'#6b7682',metalness:0.78,roughness:0.42}),CAP.chapa),
+  // los engranes: acero satinado, cada uno de un tono para distinguirlos sin rótulos
+  solar: corte(pbr({color:'#d6a14a',metalness:0.92,roughness:0.30,roughnessMap:T_PINT.r}),{fondo:'#c79a52',linea:'#8c6a2a',sentido:1,paso:0.8}),
+  satelite: corte(pbr({color:'#a9c6d8',metalness:0.92,roughness:0.30,roughnessMap:T_PINT.r}),{fondo:'#8fb0c4',linea:'#5d7f94',sentido:-1,paso:0.8}),
+  corona: corte(pbr({color:'#8f9aa6',metalness:0.9,roughness:0.34,roughnessMap:T_PINT.r}),{fondo:'#7f8a96',linea:'#5a646f',sentido:1,paso:0.9}),
+  porta: corte(pbr({color:'#d2602b',metalness:0.55,roughness:0.42,roughnessMap:T_PINT.r}),{fondo:'#c25a2a',linea:'#8a3c18',sentido:1,paso:0.7}),
+  acero: corte(pbr({color:'#aab0b7',metalness:0.92,roughness:0.3}),CAP.acero),
+  aceroB: corte(pbr({color:'#c0c6cc',metalness:0.92,roughness:0.26}),CAP.aceroB),
+  alu: corte(pbr({color:'#c5ccd3',metalness:0.85,roughness:0.36}),CAP.alu),
+  bronce: corte(pbr({color:'#c49a4a',metalness:0.9,roughness:0.34}),CAP.bronce),
+  cobre: corte(pbr({color:'#b8703c',metalness:1,roughness:0.34}),CAP.cobre),
+  plastico: corte(pbr({color:'#24282d',metalness:0.05,roughness:0.55,roughnessMap:T_PLAS.r,normalMap:T_PLAS.n,normalScale:V2(0.25)}),CAP.plastico),
+  pcb: corte(pbr({color:'#1d5a3a',metalness:0.1,roughness:0.45}),CAP.pcb),
+  chip: corte(pbr({color:'#15171a',metalness:0.1,roughness:0.4}),CAP.plastico),
+  celda: corte(pbr({color:'#6f8a4a',metalness:0.35,roughness:0.5,emissive:'#000000'}),CAP.celda),
+  naranja: corte(fis({color:'#ef6f1a',metalness:0,roughness:0.42,clearcoat:0.35,clearcoatRoughness:0.4,roughnessMap:T_PLAS.r}),{fondo:'#d9a441',linea:'#b8944a',sentido:1,paso:0.4}),
+  banco: corte(fis({color:'#2d3b47',metalness:0.3,roughness:0.5,clearcoat:0.3,clearcoatRoughness:0.4,roughnessMap:T_PINT.r}),CAP.banco),
+};
+const M_BANCO_ENTERO=pbr({color:'#0d1216',metalness:0.05,roughness:0.95,envMapIntensity:0.3});
+
+/* ===================== 5. GEOMETRÍA =====================
+   `torno` revoluciona un perfil cerrado (a, r) alrededor del eje X con
+   normales ANALÍTICAS: ninguna sale nula y las aristas vivas no se
+   redondean. `prisma` extruye a lo largo de Z un contorno con sus huecos, con
+   normales suaves en las curvas y vivas en las esquinas: así se hacen las
+   chapas del estátor y del rotor, que el corte enseña de frente. */
+const DOSPI3=Math.PI*2;
+function preparaPerfil(perfil){
+  let P=[];
+  for(const p of perfil){ const q=[p[0],Math.max(0,p[1])], u=P[P.length-1]; if(!u||Math.hypot(u[0]-q[0],u[1]-q[1])>1e-9) P.push(q); }
+  while(P.length>2&&Math.hypot(P[0][0]-P[P.length-1][0],P[0][1]-P[P.length-1][1])<1e-9) P.pop();
+  let A=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; A+=p[0]*q[1]-q[0]*p[1]; }
+  if(A<0) P.reverse();
+  return P;
+}
+function orienta(pos,nor,idx,i0){
+  let S=0;
+  for(let k=i0;k<idx.length;k+=3){ const a=idx[k]*3,b=idx[k+1]*3,c=idx[k+2]*3;
+    const ux=pos[b]-pos[a],uy=pos[b+1]-pos[a+1],uz=pos[b+2]-pos[a+2], vx=pos[c]-pos[a],vy=pos[c+1]-pos[a+1],vz=pos[c+2]-pos[a+2];
+    S+=(uy*vz-uz*vy)*(nor[a]+nor[b]+nor[c])+(uz*vx-ux*vz)*(nor[a+1]+nor[b+1]+nor[c+1])+(ux*vy-uy*vx)*(nor[a+2]+nor[b+2]+nor[c+2]); }
+  if(S<0) for(let k=i0;k<idx.length;k+=3){ const t=idx[k+1]; idx[k+1]=idx[k+2]; idx[k+2]=t; }
+}
+function geoDe(pos,nor,uv,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeBoundingSphere(); return g;
+}
+function torno(perfil,o={}){
+  const {seg=64,phi0=0,phi1=DOSPI3,canto=30,uRep=1,vEsc=1,tapas=true}=o;
+  const P=preparaPerfil(perfil), n=P.length, EN=[], L=[];
+  for(let i=0;i<n;i++){ const p=P[i],q=P[(i+1)%n], da=q[0]-p[0], dr=q[1]-p[1], l=Math.hypot(da,dr)||1e-12; EN.push([dr/l,-da/l]); L.push(l); }
+  const cc=Math.cos(canto*Math.PI/180), med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+  const pos=[],nor=[],uv=[],idx=[]; let s=0;
+  for(let i=0;i<n;i++){
+    const p=P[i],q=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+    if(p[1]<1e-9&&q[1]<1e-9){ s+=L[i]; continue; }
+    const n0=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, n1=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+    const o0=pos.length/3;
+    for(let j=0;j<=seg;j++){
+      const f=phi0+(phi1-phi0)*j/seg, c=Math.cos(f), sn=Math.sin(f), u=(f-phi0)/DOSPI3*uRep;
+      pos.push(p[0],p[1]*c,-p[1]*sn, q[0],q[1]*c,-q[1]*sn);
+      nor.push(n0[0],n0[1]*c,-n0[1]*sn, n1[0],n1[1]*c,-n1[1]*sn);
+      uv.push(u,s*vEsc, u,(s+L[i])*vEsc);
+    }
+    for(let j=0;j<seg;j++){ const a=o0+2*j; idx.push(a,a+1,a+3, a,a+3,a+2); }
+    s+=L[i];
+  }
+  orienta(pos,nor,idx,0);
+  if(Math.abs(phi1-phi0)<DOSPI3-1e-6&&tapas){
+    const tri=THREE.ShapeUtils.triangulateShape(P.map(([a,r])=>new THREE.Vector2(a,r)),[]);
+    for(const [f,sg] of [[phi0,-1],[phi1,1]]){
+      const c=Math.cos(f), sn=Math.sin(f), o0=pos.length/3, i0=idx.length;
+      for(const [a,r] of P){ pos.push(a,r*c,-r*sn); nor.push(0,-sn*sg,-c*sg); uv.push(a*8,r*8); }
+      for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+      orienta(pos,nor,idx,i0);
+    }
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+const tornoY=(perfil,o)=>torno(perfil,o).rotateZ(Math.PI/2);     // eje +Y (a → y)
+const tornoZ=(perfil,o)=>torno(perfil,o).rotateY(-Math.PI/2);    // eje +Z (a → z)
+function areaDe(P){ let a=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; a+=p[0]*q[1]-q[0]*p[1]; } return a/2; }
+/** Prisma a lo largo de Z: lazos[0] es el contorno exterior y el resto son
+ *  huecos. Paredes con normales hacia fuera del sólido, suaves si el giro
+ *  entre dos lados es menor que `canto`, y las dos tapas. */
+function prisma(lazos,z0,z1,o={}){
+  const {canto=28,uEsc=1}=o, cc=Math.cos(canto*Math.PI/180);
+  const L=lazos.map((l,i)=>{ const p=l.slice(); const a=areaDe(p); if((i===0&&a<0)||(i>0&&a>0)) p.reverse(); return p; });
+  const pos=[],nor=[],uv=[],idx=[];
+  for(const P of L){
+    const n=P.length, EN=[];
+    for(let i=0;i<n;i++){ const a=P[i],b=P[(i+1)%n], tx=b[0]-a[0], ty=b[1]-a[1], l=Math.hypot(tx,ty)||1e-12; EN.push([ty/l,-tx/l,l]); }
+    const med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+    let s=0;
+    for(let i=0;i<n;i++){
+      const a=P[i],b=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+      if(e[2]<1e-10) continue;
+      const na=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, nb=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+      const o0=pos.length/3;
+      pos.push(a[0],a[1],z1, b[0],b[1],z1, b[0],b[1],z0, a[0],a[1],z0);
+      nor.push(na[0],na[1],0, nb[0],nb[1],0, nb[0],nb[1],0, na[0],na[1],0);
+      uv.push(s*uEsc,z1*uEsc, (s+e[2])*uEsc,z1*uEsc, (s+e[2])*uEsc,z0*uEsc, s*uEsc,z0*uEsc); s+=e[2];
+      idx.push(o0,o0+2,o0+1, o0,o0+3,o0+2);
+    }
+  }
+  const c=L[0].map(([x,y])=>new THREE.Vector2(x,y)), H=L.slice(1).map(h=>h.map(([x,y])=>new THREE.Vector2(x,y)));
+  const tri=THREE.ShapeUtils.triangulateShape(c,H), todos=c.concat(...H);
+  for(const [z,nz] of [[z1,1],[z0,-1]]){
+    const o0=pos.length/3, i0=idx.length;
+    for(const p of todos){ pos.push(p.x,p.y,z); nor.push(0,0,nz); uv.push(p.x*uEsc,p.y*uEsc); }
+    for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+    orienta(pos,nor,idx,i0);
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+/** Un rectángulo de esquinas redondeadas como contorno [x,y]. */
+function rectR(x0,y0,x1,y1,r,seg=5){ return P3.contornoRedondeado([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],r,seg); }
+/** Un sólido «hueco»: la misma malla con las normales y el sentido al revés.
+ *  Metido dentro de otro sólido es una CAVIDAD: por el corte se ve su pared. */
+function invierte(g){
+  const n=g.attributes.normal; for(let i=0;i<n.count;i++) n.setXYZ(i,-n.getX(i),-n.getY(i),-n.getZ(i));
+  if(g.index){ const ix=g.index; for(let i=0;i<ix.count;i+=3){ const t=ix.getX(i+1); ix.setX(i+1,ix.getX(i+2)); ix.setX(i+2,t); } }
+  else { for(const k of Object.keys(g.attributes)){ const a=g.attributes[k], s=a.itemSize;
+    for(let i=0;i<a.count;i+=3) for(let c=0;c<s;c++){ const t=a.array[(i+1)*s+c]; a.array[(i+1)*s+c]=a.array[(i+2)*s+c]; a.array[(i+2)*s+c]=t; } } }
+  return g;
+}
+function cil(r,h,eje='y',seg=32,r2){ const g=new THREE.CylinderGeometry(r2??r,r,h,seg,1,false); if(eje==='x') g.rotateZ(-Math.PI/2); else if(eje==='z') g.rotateX(Math.PI/2); return g; }
+const en=(g,x,y,z)=>{ g.translate(x,y,z); return g; };
+/** Caja por sus esquinas, con un redondeo de canto opcional. */
+function cajaE(x0,y0,z0,x1,y1,z1,r){ const w=x1-x0,h=y1-y0,d=z1-z0; const g=r?new RoundedBoxGeometry(w,h,d,2,Math.min(r,w/2.01,h/2.01,d/2.01)):new THREE.BoxGeometry(w,h,d); g.translate((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); return g; }
+const PIEZAS=[];          // lo que se puede señalar con el ratón
+function pieza(g,m,padre,k,{sombra=true,recibe=true}={}){
+  const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; if(k) o.userData.pieza=k; padre.add(o); return o;
+}
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+
+/* ===================== 6. EL TREN =====================
+   Medidas en metros. El eje del tren va a lo largo de Z y el motor térmico
+   queda hacia +Z (a la izquierda en el corte longitudinal): ahí van el
+   volante, MG1 en el solar, el conjunto planetario en z = 0 y MG2 sobre la
+   corona hacia −Z. El corte z = 0 enseña el planetario de frente; el corte
+   x = 0, todo el tren a lo largo. Tres grupos giran con la cinemática de
+   Willis: el solar (con el rotor de MG1), el portasatélites (con el eje del
+   motor y su cigüeñal) y la corona (con el rotor de MG2). */
+const EXPO=new THREE.Group(); scene.add(EXPO);
+const BANCO=new THREE.Group(); scene.add(BANCO);
+const FIJO=new THREE.Group(); EXPO.add(FIJO);
+const G_SOL=new THREE.Group(), G_PORTA=new THREE.Group(), G_COR=new THREE.Group();
+EXPO.add(G_SOL,G_PORTA,G_COR);
+const fus=a=>P3.fusiona(a.filter(Boolean));
+const circ=(cx,cy,r,n=32)=>P3.circulo(cx,cy,r,n);
+const ZG0=-0.016, ZG1=0.016;                       // ancho de los engranes (32 mm)
+const NS=PSD.Zs, NR=PSD.Zr, NP=PSD.Zp, MOD=PSD.mod;
+const FASE_SOL=0, FASE_SAT=Math.PI/24, FASE_COR=Math.PI/78;     // el montaje que engrana (véase la verificación)
+/** Un tubo (anillo) revolucionado alrededor de Z entre z0 y z1. */
+const tuboZ=(z0,z1,r0,r1,seg=64)=>tornoZ([[z0,r0],[z0,r1],[z1,r1],[z1,r0]],{seg});
+
+/* ---------- 6.1 El conjunto planetario ---------- */
+{
+  // el solar: engrane de 30 dientes con casquillo de bronce, y su árbol hueco hacia MG1
+  pieza(prisma([contornoEngrane(NS,MOD,{fase:FASE_SOL,nFlanco:8}),circ(0,0,0.0105,56)],ZG0,ZG1,{canto:40}),M.solar,G_SOL,'solar');
+  pieza(tuboZ(ZG0,ZG1,0.0079,0.0105,40),M.bronce,G_SOL,'casquillo',{sombra:false});
+  pieza(tuboZ(ZG1,0.118,0.0079,0.0105,40),M.acero,G_SOL,'arbolSolar');
+  // el eje del motor (árbol de entrada): macizo, atraviesa solar y MG1 hasta el volante
+  pieza(tornoZ([[-0.046,0],[-0.046,0.0075],[0.150,0.0075],[0.150,0]],{seg:40}),M.aceroB,G_PORTA,'ejeMotor');
+  // el portasatélites: placa trasera con tres ventanas aligeradas, cubo y los tres pasadores
+  {
+    const vent=[]; for(let i=0;i<3;i++){ const a=Math.PI/3+i*DOSPI/3; vent.push(circ(0.0385*Math.cos(a),0.0385*Math.sin(a),0.0125,32)); }
+    pieza(prisma([circ(0,0,0.0600,96),...vent,circ(0,0,0.0075,32)],-0.0360,-0.0215,{canto:40}),M.porta,G_PORTA,'portasatelites');
+    pieza(tuboZ(-0.0460,-0.0215,0.0075,0.0165,48),M.porta,G_PORTA,'portasatelites');
+    for(let i=0;i<3;i++){ const a=i*DOSPI/3; pieza(en(cil(0.0046,0.0415,'z',24),GEO.Rc*Math.cos(a),GEO.Rc*Math.sin(a),-0.0007),M.acero,G_PORTA,'pasador'); }
+  }
+  // los tres satélites, cada uno con su rodamiento de agujas sobre el pasador
+  var SAT=[];
+  for(let i=0;i<3;i++){
+    const a=i*DOSPI/3, G=new THREE.Group(); G.position.set(GEO.Rc*Math.cos(a),GEO.Rc*Math.sin(a),0); G_PORTA.add(G);
+    pieza(prisma([contornoEngrane(NP,MOD,{fase:0,nFlanco:8}),circ(0,0,0.0075,40)],ZG0,ZG1,{canto:40}),M.satelite,G,'satelite');
+    pieza(tuboZ(ZG0+0.001,ZG1-0.001,0.0047,0.0075,32),M.bronce,G,'rodamiento',{sombra:false});
+    SAT.push(G);
+  }
+  // la corona: dentado interior de 78 dientes y el tambor que lleva el rotor de MG2 y la salida
+  pieza(prisma([circ(0,0,0.0895,144),contornoEngrane(NR,MOD,{interno:true,fase:FASE_COR,nFlanco:6})],ZG0,ZG1,{canto:40}),M.corona,G_COR,'corona');
+  pieza(tornoZ([[-0.016,0.0745],[-0.016,0.0895],[-0.135,0.0895],[-0.135,0.0125],[-0.123,0.0125],[-0.123,0.0745]],{seg:96,canto:35}),M.corona,G_COR,'tamborCorona');
+  pieza(fus([tornoZ([[-0.123,0],[-0.205,0],[-0.205,0.012],[-0.123,0.012]],{seg:40}),tornoZ([[-0.205,0.012],[-0.205,0.036],[-0.190,0.036],[-0.190,0.012]],{seg:56})]),M.acero,G_COR,'salida');
+  { const b=[]; for(let i=0;i<6;i++){ const a=i*DOSPI/6; b.push(en(cil(0.0032,0.006,'z',6),0.0265*Math.cos(a),0.0265*Math.sin(a),-0.208)); } pieza(fus(b),M.aceroB,G_COR,'salida',{sombra:false}); }
+}
+
+/* ---------- 6.2 Máquinas eléctricas: estátor ranurado, devanado e imanes ---------- */
+function lazoRanurado(rIn,prof,nSl,fr=0.52){
+  const P=[], paso=DOSPI/nSl, aw=paso*fr/2;
+  for(let j=0;j<nSl;j++){ const c=j*paso;
+    P.push([rIn*Math.cos(c-aw),rIn*Math.sin(c-aw)],[(rIn+prof)*Math.cos(c-aw),(rIn+prof)*Math.sin(c-aw)],[(rIn+prof)*Math.cos(c+aw),(rIn+prof)*Math.sin(c+aw)],[rIn*Math.cos(c+aw),rIn*Math.sin(c+aw)]);
+    for(let k=1;k<4;k++){ const f=c+aw+(paso-2*aw)*k/4; P.push([rIn*Math.cos(f),rIn*Math.sin(f)]); }
+  }
+  return P;
+}
+function barrasRanura(rIn,prof,nSl,z0,z1,fr=0.52){
+  const g=[], paso=DOSPI/nSl, aw=paso*fr/2*0.80;
+  for(let j=0;j<nSl;j++){ const c=j*paso, r0=rIn+0.0011, r1=rIn+prof-0.0009;
+    g.push(prisma([[[r0*Math.cos(c-aw),r0*Math.sin(c-aw)],[r1*Math.cos(c-aw),r1*Math.sin(c-aw)],[r1*Math.cos(c+aw),r1*Math.sin(c+aw)],[r0*Math.cos(c+aw),r0*Math.sin(c+aw)]]],z0,z1)); }
+  return fus(g);
+}
+function imanes(n,rMed,esp,ancho,z0,z1,padre,mN,mS){
+  const gN=new THREE.BoxGeometry(esp,ancho,z1-z0), gS=gN.clone();
+  const iN=new THREE.InstancedMesh(gN,mN,n/2), iS=new THREE.InstancedMesh(gS,mS,n/2), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Vector3(0,0,1);
+  for(let j=0;j<n;j++){ const a=(j+0.5)*DOSPI/n; q.setFromAxisAngle(e,a); m4.compose(new THREE.Vector3(rMed*Math.cos(a),rMed*Math.sin(a),(z0+z1)/2),q,new THREE.Vector3(1,1,1)); (j%2?iS:iN).setMatrixAt(j>>1,m4); }
+  for(const I of [iN,iS]){ I.castShadow=true; I.receiveShadow=true; I.userData.pieza='imanes'; padre.add(I); }
+}
+M.imanN=corte(pbr({color:'#c8473f',metalness:0.6,roughness:0.38}),{fondo:'#9a4a46',linea:'#6d2f2c',sentido:1,paso:0.5});
+M.imanS=corte(pbr({color:'#3f6fc8',metalness:0.6,roughness:0.38}),{fondo:'#46629a',linea:'#2d4268',sentido:1,paso:0.5});
+const M_BOB1=corte(pbr({color:'#c27a42',metalness:0.85,roughness:0.36,emissive:'#000000'}),CAP.ranura);   // devanado de MG1
+const M_BOB2=corte(pbr({color:'#c27a42',metalness:0.85,roughness:0.36,emissive:'#000000'}),CAP.ranura);   // devanado de MG2
+{
+  // ---- MG1 (en el solar): estátor de 24 ranuras entre z = 0,050 y 0,108; rotor de imanes sobre el árbol del solar
+  const rIn=0.0645, prof=0.0145, z0=0.050, z1=0.108;
+  pieza(prisma([circ(0,0,0.1000,144),lazoRanurado(rIn,prof,24)],z0,z1,{canto:40}),M.chapa,FIJO,'estator1');
+  pieza(barrasRanura(rIn,prof,24,z0-0.001,z1+0.001),M_BOB1,FIJO,'devanado1',{sombra:false});
+  pieza(fus([tuboZ(z0-0.013,z0,rIn+0.002,rIn+prof-0.001,64),tuboZ(z1,z1+0.013,rIn+0.002,rIn+prof-0.001,64)]),M_BOB1,FIJO,'devanado1',{sombra:false});
+  pieza(fus([tuboZ(0.040,0.118,0.1000,0.1085,96),prisma([circ(0,0,0.1085,96),circ(0,0,0.0235,48)],0.040,0.047,{canto:40}),prisma([circ(0,0,0.1085,96),circ(0,0,0.0235,48)],0.111,0.118,{canto:40})]),M.carcasa,FIJO,'carcasaMG1');
+  pieza(prisma([circ(0,0,0.0600,96),circ(0,0,0.0105,48)],0.053,0.105,{canto:40}),M.chapa,G_SOL,'rotor1');
+  imanes(8,0.0617,0.0032,0.036,0.054,0.104,G_SOL,M.imanN,M.imanS);
+  // ---- MG2 (en la corona): estátor exterior de 36 ranuras alrededor del tambor, imanes pegados al tambor
+  const rIn2=0.0950, prof2=0.0170, y0=-0.130, y1=-0.062;
+  pieza(prisma([circ(0,0,0.1280,160),lazoRanurado(rIn2,prof2,36,0.50)],y0,y1,{canto:40}),M.chapa,FIJO,'estator2');
+  pieza(barrasRanura(rIn2,prof2,36,y0-0.001,y1+0.001,0.50),M_BOB2,FIJO,'devanado2',{sombra:false});
+  pieza(fus([tuboZ(y0-0.014,y0,rIn2+0.002,rIn2+prof2-0.001,72),tuboZ(y1,y1+0.014,rIn2+0.002,rIn2+prof2-0.001,72)]),M_BOB2,FIJO,'devanado2',{sombra:false});
+  pieza(fus([tuboZ(-0.1445,-0.0555,0.1280,0.1355,120),prisma([circ(0,0,0.1355,120),circ(0,0,0.0200,48)],-0.1445,-0.1370,{canto:40})]),M.carcasa,FIJO,'carcasaMG2');
+  imanes(16,0.0917,0.0045,0.036,-0.128,-0.064,G_COR,M.imanN,M.imanS);
+  // ---- la carcasa del conjunto planetario, entre MG1 y MG2, con nervios
+  pieza(fus([tuboZ(-0.0570,0.0420,0.0925,0.1085,120),prisma([circ(0,0,0.1085,120),circ(0,0,0.0900,120)],-0.0640,-0.0570,{canto:40})]),M.carcasaM,FIJO,'carcasaPSD');
+  { const n=[]; for(let i=0;i<10;i++){ const a=i*DOSPI/10+0.15; n.push(cajaE(-0.0035,0.1085,-0.050,0.0035,0.1140,0.036,0.0015).rotateZ(a)); } pieza(fus(n),M.carcasaM,FIJO,'carcasaPSD'); }
+}
+
+/* ---------- 6.3 El motor térmico: 4 cilindros en línea, cortado por el eje ---------- */
+const MT={ r:0.030, L:0.105, bore:0.034, Z:[0.216,0.294,0.372,0.450], sg:[1,-1,-1,1], off:[0,540,180,360], yDeck:0.150, yChamber:0.170, pinToCrown:0.020 };
+var PIST=[], BIEL=[], FLAMA=[], CAMARA_ROT=[];
+{
+  // volante, amortiguador y campana
+  pieza(fus([tornoZ([[0.118,0.0075],[0.118,0.020],[0.135,0.020],[0.135,0.0075]],{seg:40}),tornoZ([[0.135,0.020],[0.135,0.074],[0.157,0.074],[0.157,0.020]],{seg:96}),tornoZ([[0.157,0.0],[0.157,0.0185],[0.178,0.0185],[0.178,0.0]],{seg:40})]),M.aceroB,G_PORTA,'volante');
+  pieza(tuboZ(0.118,0.178,0.0975,0.1085,96),M.carcasa,FIJO,'campana');
+  pieza(prisma([circ(0,0,0.1085,96),circ(0,0,0.0900,96)],0.172,0.179,{canto:40}),M.carcasa,FIJO,'campana');
+  // el bloque, la culata y la tapa de balancines; los taladros son cavidades (se ve su pared por el corte)
+  const zc0=0.177, zc1=0.493, xw=0.062;
+  const bloque=fus([cajaE(-xw,-0.040,zc0,xw,MT.yDeck,zc1,0.004)]);
+  pieza(bloque,M.carcasaM,FIJO,'bloque');
+  pieza(cajaE(-xw,MT.yDeck,zc0,xw,0.215,zc1,0.004),M.carcasa,FIJO,'culata');
+  pieza(cajaE(-0.052,0.215,zc0+0.004,0.052,0.236,zc1-0.004,0.004),M.alu,FIJO,'tapaBalancines');
+  pieza(cajaE(-0.052,-0.082,zc0+0.006,0.052,-0.040,zc1-0.006,0.004),M.carcasaM,FIJO,'carter');
+  // cavidades: taladros de los cuatro cilindros (con su cámara) y el cárter con el cigüeñal
+  for(const z of MT.Z) pieza(invierte(en(cil(MT.bore,MT.yChamber-0.045,'y',48),0,(MT.yChamber+0.045)/2,z)),M.carcasaM,FIJO,'camisa',{sombra:false});
+  pieza(invierte(cajaE(-0.052,-0.034,zc0+0.004,0.052,0.045,zc1-0.004)),M.carcasaM,FIJO,'carterInt',{sombra:false});
+  // bujías (una por cilindro): rosca, aislante cerámico y electrodo
+  { const a=[],c=[]; for(const z of MT.Z){ a.push(en(cil(0.0085,0.040,'y',20),0,0.196,z)); c.push(en(cil(0.0075,0.040,'y',20),0,0.252,z)); }
+    pieza(fus(a),M.acero,FIJO,'bujia'); pieza(fus(c),M.chip,FIJO,'bujia',{sombra:false}); }
+  // el cigüeñal: apoyos, muñequillas y brazos con contrapeso (gira con el portasatélites)
+  {
+    const apo=[], pin=[], web=[];
+    apo.push(tornoZ([[0.178,0],[0.178,0.018],[zc1,0.018],[zc1,0]],{seg:40}));
+    MT.Z.forEach((z,i)=>{ const s=MT.sg[i];
+      pin.push(en(cil(0.0135,0.034,'z',28),0,s*MT.r,z));
+      for(const dz of [-0.0205,0.0205]){ const za=z+dz-0.0045, zb=z+dz+0.0045;
+        web.push(prisma([circ(0,0,0.0255,40)],za,zb), prisma([circ(0,s*MT.r,0.0175,32)],za,zb), prisma([circ(0,-s*0.019,0.0255,32)],za,zb)); } });
+    pieza(fus(apo),M.aceroB,G_PORTA,'ciguenal'); pieza(fus(pin),M.acero,G_PORTA,'ciguenal'); pieza(fus(web),M.acero,G_PORTA,'ciguenal');
+  }
+  // pistones (cabeza, bulón y tres segmentos) y bielas
+  const gBiela=prisma([[[-0.0075,0],[0.0075,0],[0.0105,-MT.L],[-0.0105,-MT.L]]],-0.0055,0.0055,{canto:20});
+  MT.Z.forEach((z,i)=>{
+    const P=new THREE.Group(); EXPO.add(P);
+    pieza(tornoY([[-0.026,0],[-0.026,0.0332],[0.020,0.0332],[0.020,0]],{seg:40}),M.alu,P,'piston');
+    pieza(en(cil(0.0062,0.052,'z',20),0,0,0),M.acero,P,'bulon');
+    pieza(fus([0.012,0.0165,0.0210].map(y=>tornoY([[y-0.0016,0.0330],[y-0.0016,0.0345],[y+0.0016,0.0345],[y+0.0016,0.0330]],{seg:40}))),M.bronce,P,'segmentos',{sombra:false});
+    P.position.set(0,0.135,z); PIST.push(P);
+    const B=new THREE.Group(); EXPO.add(B); pieza(gBiela,M.acero,B,'biela'); pieza(en(cil(0.0165,0.011,'z',24),0,-MT.L,0),M.acero,B,'biela'); B.position.set(0,0.135,z); BIEL.push(B);
+    // la llama: un volumen translúcido entre la corona del pistón y la culata
+    const F=new THREE.Mesh(new THREE.CylinderGeometry(0.0322,0.0322,1,36,1,true),new THREE.MeshBasicMaterial({color:'#ff8a2a',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,clippingPlanes:[PLANO]}));
+    F.position.set(0,0.16,z); F.renderOrder=3; F.raycast=()=>{}; EXPO.add(F); FLAMA.push(F);
+  });
+}
+
+/* ---------- 6.4 La electrónica de potencia y la batería ---------- */
+const M_IGBT1=corte(pbr({color:'#31363d',metalness:0.55,roughness:0.28,emissive:'#000000'}),CAP.plastico);
+const M_IGBT2=corte(pbr({color:'#31363d',metalness:0.55,roughness:0.28,emissive:'#000000'}),CAP.plastico);
+const M_CAP_BUS=corte(pbr({color:'#2a3a52',metalness:0.35,roughness:0.45,emissive:'#000000'}),CAP.plastico);
+const CELDA=[];
+{
+  // la unidad de control de potencia (PCU), sobre el tren, con el corte abierto a su cavidad
+  const x0=-0.085,x1=0.085,y0=0.150,y1=0.208,z0=-0.126,z1=0.106;
+  pieza(cajaE(x0,y0,z0,x1,y1,z1,0.004),M.carcasa,FIJO,'pcu');
+  pieza(invierte(cajaE(x0+0.007,y0+0.007,z0+0.007,x1-0.007,y1-0.007,z1-0.007)),M.carcasaM,FIJO,'pcuInt',{sombra:false});
+  // placa de control con chips, dos módulos de potencia (uno por máquina), el condensador del bus y las barras
+  pieza(cajaE(-0.070,y1-0.0155,z0+0.016,0.070,y1-0.0135,z1-0.016,0.001),M.pcb,FIJO,'placaPCU');
+  { const ch=[]; for(let i=0;i<9;i++) ch.push(cajaE(-0.056+(i%3)*0.034,y1-0.0135,z0+0.026+Math.floor(i/3)*0.05,-0.036+(i%3)*0.034,y1-0.0105,z0+0.040+Math.floor(i/3)*0.05,0.0006)); pieza(fus(ch),M.chip,FIJO,'placaPCU',{sombra:false}); }
+  pieza(cajaE(-0.052,y0+0.010,0.056,0.052,y0+0.036,0.100,0.002),M_IGBT1,FIJO,'moduloMG1');
+  pieza(cajaE(-0.052,y0+0.010,-0.116,0.052,y0+0.036,-0.072,0.002),M_IGBT2,FIJO,'moduloMG2');
+  pieza(en(cil(0.0215,0.108,'x',36),0,y0+0.032,-0.013),M_CAP_BUS,FIJO,'condensadorPCU');
+  pieza(fus([cajaE(-0.040,y0+0.010,-0.070,0.040,y0+0.014,0.054,0.001),cajaE(-0.040,y0+0.017,-0.070,0.040,y0+0.021,0.054,0.001)]),M.cobre,FIJO,'barrasPCU',{sombra:false});
+  // cables de fase (naranja por norma) a MG1 y a MG2, con alma de cobre
+  const caminoA=new THREE.CatmullRomCurve3([V3(0,0.150,0.079),V3(0,0.128,0.079),V3(0,0.109,0.079)],false);
+  const caminoB=new THREE.CatmullRomCurve3([V3(0,0.150,-0.095),V3(0,0.140,-0.095),V3(0,0.132,-0.095)],false);
+  for(const c of [caminoA,caminoB]){ pieza(new THREE.TubeGeometry(c,16,0.0068,16,false),M.naranja,FIJO,'cableFase'); pieza(new THREE.TubeGeometry(c,16,0.0042,12,false),M.cobre,FIJO,'cableFase',{sombra:false}); }
+  // la batería (esquema: la real va bajo el piso): caja con cavidad y diez módulos que se encienden con el SOC
+  const bx0=-0.100,bx1=0.100,by0=-0.108,by1=0.036,bz0=-0.452,bz1=-0.222;
+  pieza(cajaE(bx0,by0,bz0,bx1,by1,bz1,0.006),M.carcasaM,FIJO,'bateria');
+  pieza(invierte(cajaE(bx0+0.008,by0+0.008,bz0+0.008,bx1-0.008,by1-0.008,bz1-0.008)),M.carcasaM,FIJO,'bateriaInt',{sombra:false});
+  for(let i=0;i<10;i++){ const m=corte(pbr({color:'#4d6b3a',metalness:0.3,roughness:0.5,emissive:'#000000'}),CAP.celda); const z=bz1-0.016-i*0.0215;
+    const o=pieza(cajaE(-0.080,by0+0.016,z-0.0085,0.080,by1-0.016,z+0.0085,0.003),m,FIJO,'celdas',{sombra:false}); CELDA.push(m); }
+  pieza(fus([cajaE(-0.020,by1,bz1-0.012,-0.004,by1+0.010,bz1-0.028,0.003),cajaE(0.004,by1,bz1-0.012,0.020,by1+0.010,bz1-0.028,0.003)]),M.naranja,FIJO,'bornesBat');
+  // cables de alta tensión de la PCU a la batería
+  const cb=[[V3(0,0.178,-0.126),V3(0,0.178,-0.160),V3(0,0.150,-0.185),V3(0,0.090,-0.200),V3(0,0.060,-0.212),V3(0,0.048,-0.230)],[V3(-0.034,0.178,-0.126),V3(-0.034,0.178,-0.165),V3(-0.034,0.140,-0.195),V3(-0.034,0.084,-0.208),V3(-0.034,0.056,-0.222),V3(-0.034,0.048,-0.238)]];
+  for(const p of cb){ const c=new THREE.CatmullRomCurve3(p,false,'centripetal'); pieza(new THREE.TubeGeometry(c,60,0.0068,16,false),M.naranja,FIJO,'cableHV'); pieza(new THREE.TubeGeometry(c,60,0.0042,12,false),M.cobre,FIJO,'cableHV',{sombra:false}); }
+}
+
+/* ---------- 6.5 El banco ---------- */
+{
+  const Y=-0.175;
+  pieza(cajaE(-1.2,Y-0.016,-1.6,1.2,Y,1.8,0.008),M_BANCO_ENTERO,BANCO,'banco',{sombra:false});
+  const cu=(x0,z0,x1,z1,yt)=>cajaE(x0,Y,z0,x1,yt,z1,0.004);
+  pieza(fus([cu(-0.075,-0.140,0.075,-0.060,-0.138),cu(-0.050,0.205,0.050,0.470,-0.082),cu(-0.088,-0.440,0.088,-0.230,-0.110)]),M.banco,BANCO,'banco');
+}
+
+
+/* ===================== 7. EL ESTADO Y EL PUNTO DE OPERACIÓN =====================
+   Un solo estado: lo que piden los mandos (velocidad, demanda, gestión del
+   motor) se convierte en UN punto de operación con `punto()` (el bloque
+   verificado), y de ese punto salen la escena, las cifras y las gráficas. El
+   óptimo del vehículo se calcula sólo cuando cambia la velocidad o la demanda. */
+const EST={modo:'marcha',gestion:'optimo',v:80,P:18,nMan:2000,TMan:80,esc:1/60,escMano:false,pausa:REDUCIDO,autoRunning:false,corte:'trans'};
+const SIM={ang:{c:0,r:0},soc:0.60,pt:null,opt:null,optClave:'',hist:[],tHist:0,estela:[],tEst:0,reloj:0};
+const OPT_CACHE=new Map();
+function optimoDe(vkmh,Pkw){
+  const k=vkmh.toFixed(2)+'|'+Pkw.toFixed(2); let o=OPT_CACHE.get(k);
+  if(!o){ o=optimoVehiculo(vkmh/3.6,Pkw*1000); OPT_CACHE.set(k,o); if(OPT_CACHE.size>40) OPT_CACHE.delete(OPT_CACHE.keys().next().value); }
+  return o;
+}
+/** Lo que el tren está haciendo según el modo.
+    · En marcha: lo que digan los mandos (óptima, manual o eléctrica).
+    · Laboratorio guiado: el escenario de la fase en curso. */
+function parametros(){
+  let v=EST.v, P=EST.P, we=0, Te=0, falla=null, tipo='optimo';
+  if(EST.modo==='guia'){
+    if(GUIA.phase===0){ v=WILLIS.v; P=potCrucero(v/3.6)/1000; we=WILLIS.n*RPM; Te=40; tipo='fijo'; }
+    else if(GUIA.phase===1){ v=OPS.v; P=OPS.P; we=GUIA.nSel*RPM; Te=GUIA.TSel; tipo='manual'; }
+    else { v=DX.v; P=DX.P; falla=GUIA.falla; const o=optimoDe(v,P); we=o.motor?o.we:0; Te=o.motor?o.Te:0; tipo='fijo'; }
+  } else if(EST.gestion==='manual'){ we=EST.nMan*RPM; Te=EST.TMan; tipo='manual'; }
+  else if(EST.gestion==='ev'){ we=0; Te=0; tipo='ev'; }
+  else { const o=optimoDe(v,P); we=o.motor?o.we:0; Te=o.motor?o.Te:0; }
+  return {v:v/3.6,Pw:P*1000,we,Te,falla,tipo,vk:v,Pk:P};
+}
+function calcula(){
+  const q=parametros();
+  const pt=punto({v:q.v,Pw:q.Pw,we:q.we,Te:q.Te,falla:q.falla,soc:SIM.soc});
+  pt.q=q; SIM.pt=pt; return pt;
+}
+
+/* ===================== 8. LA ESCENA SIGUE AL MODELO =====================
+   Ángulos: el portasatélites y la corona se integran de sus velocidades y el
+   solar sale de Willis (relación holonómica), así que los dientes engranan
+   SIEMPRE. Todo va a cámara lenta (EST.esc), rotulada; el SOC corre en tiempo
+   real, porque a cámara lenta ×1/60 no se movería. */
+const ZP_=PSD.Zs+PSD.Zr;
+function aplicaGiros(dtS){
+  const p=SIM.pt, A=SIM.ang; A.c+=p.wc*dtS; A.r+=p.wr*dtS;
+  const th_s=(ZP_*A.c-PSD.Zr*A.r)/PSD.Zs;
+  G_SOL.rotation.z=th_s; G_PORTA.rotation.z=A.c; G_COR.rotation.z=A.r;
+  const rel=-(PSD.Zs/PSD.Zp)*(th_s-A.c)+FASE_SAT;
+  for(const S of SAT) S.rotation.z=rel;
+  return th_s;
+}
+/** Émbolos, bielas y llamas: biela-manivela exacta con el ángulo del portasatélites (el cigüeñal es su eje). */
+function aplicaMotor(){
+  const p=SIM.pt, th=SIM.ang.c;
+  for(let i=0;i<4;i++){
+    const s=MT.sg[i], beta=th+(s<0?Math.PI:0), x=-MT.r*Math.sin(beta), y=MT.r*Math.cos(beta);
+    const yp=y+Math.sqrt(MT.L*MT.L-x*x);
+    PIST[i].position.y=yp; BIEL[i].position.y=yp;
+    BIEL[i].rotation.z=Math.atan2(x,yp-y);        // la biela baja del bulón (0, yp) a la muñequilla (x, y)
+    const crown=yp+MT.pinToCrown, fase=((th*180/Math.PI-MT.off[i])%720+720)%720;        // 0° = PMS de compresión del ciclo de este cilindro
+    // combustión: de 0° a ~140° después del PMS, con la fuerza del par
+    const quema=p.we>0&&p.Te>0.5&&fase<150?Math.exp(-fase/55)*Math.min(1,0.25+p.Te/90):0;
+    const h=Math.max(0.0008,MT.yChamber-crown), F=FLAMA[i];
+    F.scale.set(1,h,1); F.position.y=crown+h/2; F.material.opacity=Math.min(0.85,quema*0.9); F.visible=F.material.opacity>0.01;
+  }
+}
+const _c=new THREE.Color(), C_ELEC=new THREE.Color('#4FD1C5'), C_MEC=new THREE.Color('#FF9F43'), C_BAT=new THREE.Color('#FFD166');
+function pintaBrillos(){
+  const p=SIM.pt;
+  // devanados de MG1 y MG2: brillan con la potencia eléctrica que mueven
+  M_BOB1.emissive.copy(C_ELEC).multiplyScalar(clamp(Math.abs(p.P1dc)/18000,0,1.2)*0.32);
+  M_BOB2.emissive.copy(C_ELEC).multiplyScalar(clamp(Math.abs(p.P2dc)/30000,0,1.2)*0.32);
+  M_IGBT1.emissive.copy(C_ELEC).multiplyScalar(clamp(Math.abs(p.P1dc)/18000,0,1.2)*0.35);
+  M_IGBT2.emissive.copy(C_ELEC).multiplyScalar(clamp(Math.abs(p.P2dc)/30000,0,1.2)*0.35);
+  M_CAP_BUS.emissive.copy(C_BAT).multiplyScalar(0.10+0.25*clamp(Math.abs(p.Pbat)/15000,0,1));
+  // la batería: diez módulos que se encienden según el SOC (de 0 a 100 %); el último, parcial
+  const lleno=SIM.soc*10;
+  CELDA.forEach((m,i)=>{ const f=clamp(lleno-i,0,1), carga=p.Pbat<-300?1:0, desc=p.Pbat>300?1:0;
+    _c.set(carga?'#6dffa8':(desc?'#ffd166':'#7be08a')); m.emissive.copy(_c).multiplyScalar(f*(0.30+0.10*Math.sin(SIM.reloj*(carga?5:desc?-5:0)-i*0.7))); });
+}
+
+/* ---------- los flujos de potencia: puntos que recorren el camino ----------
+   Cada camino tiene el valor (W) que lo gobierna: la velocidad de los puntos es
+   proporcional a la potencia y el sentido, su signo. Naranja, mecánica; cian,
+   eléctrica; amarillo, batería. Unos caminos sólo se ven en el corte
+   transversal (flechas alrededor del conjunto) y otros en el longitudinal (a lo
+   largo de los ejes y los cables). */
+const PREF=30000;
+const CAMINOS=[];
+function camino(pts,color,flujo,vista,dens=0.0095,flecha=false){
+  const P=pts.map(p=>V3(...p)), L=[0];
+  for(let i=1;i<P.length;i++) L.push(L[i-1]+P[i].distanceTo(P[i-1]));
+  const n=Math.max(3,Math.round(L[L.length-1]/dens)), u=new Float32Array(n); for(let i=0;i<n;i++) u[i]=(i+Math.random()*0.5)/n;
+  const c={P,L,len:L[L.length-1],n,u,color,flujo,vista,a:0,flecha:null};
+  if(flecha){ // dos puntas de flecha (una por sentido) que se encienden según el signo
+    const mk=(p,d)=>{ const m=new THREE.Mesh(new THREE.ConeGeometry(0.0085,0.022,18),new THREE.MeshBasicMaterial({color:color.clone(),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,clippingPlanes:[PLANO]}));
+      m.position.copy(p); m.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize()); m.renderOrder=5; m.raycast=()=>{}; EXPO.add(m); return m; };
+    const a=P[0], b=P[P.length-1], d=b.clone().sub(a);
+    c.flecha={fin:mk(b.clone().addScaledVector(d.clone().normalize(),-0.003),d),ini:mk(a.clone().addScaledVector(d.clone().normalize(),0.003),d.clone().negate())};
+  }
+  CAMINOS.push(c); return c;
+}
+const zt=-0.0035;
+{
+  // —— corte transversal: flechas alrededor del conjunto
+  camino([[-0.172,0,zt],[-0.118,0,zt]],C_MEC,()=>SIM.pt.Pe,'trans',0.0075,true);                   // motor → portasatélites
+  camino([[0.118,0,zt],[0.172,0,zt]],C_MEC,()=>SIM.pt.Pw_real,'trans',0.0075,true);                // corona → ruedas
+  camino([[-0.090,0.072,zt],[-0.052,0.150,zt]],C_ELEC,()=>-SIM.pt.P1dc,'trans',0.0075,true);        // MG1 → PCU
+  camino([[0.052,0.150,zt],[0.090,0.072,zt]],C_ELEC,()=>SIM.pt.P2dc,'trans',0.0075,true);           // PCU → MG2
+  camino([[0,-0.116,zt],[0,-0.152,zt]],C_BAT,()=>-SIM.pt.Pbat,'trans',0.0075,true);                  // PCU ⇄ batería (hacia abajo = carga)
+  // —— corte longitudinal: a lo largo de ejes y cables (z a la izquierda de la imagen)
+  const xl=-0.0009;
+  camino([[xl,0,0.150],[xl,0,-0.030]],C_MEC,()=>SIM.pt.Pe,'long',0.010);                           // eje del motor → portasatélites
+  for(const sg of [1,-1]) camino([[xl,sg*0.0092,0.017],[xl,sg*0.0092,0.092]],C_MEC,()=>-SIM.pt.P1sh,'long',0.008);    // solar → rotor de MG1 (+ = MG1 absorbe)
+  for(const sg of [1,-1]){
+    camino([[xl,sg*0.0820,-0.008],[xl,sg*0.0820,-0.062]],C_MEC,()=>SIM.pt.Tr_ef*SIM.pt.wr,'long',0.009);           // camino mecánico del motor a la corona
+    camino([[xl,sg*0.0820,-0.062],[xl,sg*0.0820,-0.129],[xl,sg*0.0500,-0.129],[xl,sg*0.0120,-0.129],[xl,sg*0.0060,-0.205]],C_MEC,()=>SIM.pt.Tring_act*SIM.pt.wr,'long',0.009);   // tambor → salida
+    camino([[xl,sg*0.1000,-0.097],[xl,sg*0.0925,-0.097]],C_ELEC,()=>SIM.pt.P2dc,'long',0.004);                       // estátor de MG2 → tambor
+  }
+  camino([[xl,0.150,0.079],[xl,0.1085,0.079]],C_ELEC,()=>SIM.pt.P1dc,'long',0.0055);               // PCU → MG1
+  camino([[xl,0.150,-0.095],[xl,0.1320,-0.095]],C_ELEC,()=>SIM.pt.P2dc,'long',0.0055);             // PCU → MG2
+  camino([[xl,0.178,-0.126],[xl,0.178,-0.160],[xl,0.150,-0.185],[xl,0.090,-0.200],[xl,0.060,-0.212],[xl,0.048,-0.230]],C_BAT,()=>-SIM.pt.Pbat,'long',0.010);   // PCU → batería
+  camino([[xl,0.186,0.080],[xl,0.186,-0.100]],C_ELEC,()=>SIM.pt.P2dc+SIM.pt.Pbat*0,'long',0.008);   // bus interno (de la entrada de MG1 a la de MG2)
+}
+const N_PUNTOS=CAMINOS.reduce((s,c)=>s+c.n,0);
+const gPuntos=new THREE.BufferGeometry();
+const aPos=new Float32Array(N_PUNTOS*3), aCol=new Float32Array(N_PUNTOS*3), aAlf=new Float32Array(N_PUNTOS);
+gPuntos.setAttribute('position',new THREE.BufferAttribute(aPos,3).setUsage(THREE.DynamicDrawUsage));
+gPuntos.setAttribute('aColor',new THREE.BufferAttribute(aCol,3));
+gPuntos.setAttribute('aAlpha',new THREE.BufferAttribute(aAlf,1).setUsage(THREE.DynamicDrawUsage));
+{ let o=0; for(const c of CAMINOS) for(let i=0;i<c.n;i++,o++){ aCol[o*3]=c.color.r; aCol[o*3+1]=c.color.g; aCol[o*3+2]=c.color.b; } }
+const M_PUNTOS=new THREE.ShaderMaterial({
+  uniforms:{uPx:{value:600},uTam:{value:0.0042}},
+  vertexShader:`attribute vec3 aColor; attribute float aAlpha; varying vec3 vC; varying float vA; uniform float uPx; uniform float uTam;
+    #include <clipping_planes_pars_vertex>
+    void main(){ vC=aColor; vA=aAlpha; vec4 mvPosition=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mvPosition; gl_PointSize=clamp(uTam*uPx/(-mvPosition.z),2.0,24.0);
+      #include <clipping_planes_vertex>
+    }`,
+  fragmentShader:`varying vec3 vC; varying float vA;
+    #include <clipping_planes_pars_fragment>
+    void main(){
+      #include <clipping_planes_fragment>
+      vec2 d=gl_PointCoord-0.5; float r=length(d); float a=smoothstep(0.5,0.16,r)*vA; if(a<0.01) discard;
+      gl_FragColor=vec4(vC*(1.0+1.8*smoothstep(0.22,0.0,r)),a); }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,clipping:true,clippingPlanes:[PLANO],
+});
+const PUNTOS=new THREE.Points(gPuntos,M_PUNTOS); PUNTOS.frustumCulled=false; PUNTOS.renderOrder=4; PUNTOS.raycast=()=>{}; scene.add(PUNTOS);
+const _pv=new THREE.Vector3();
+function puntoEn(c,u,out){ const s=u*c.len; let i=1; while(i<c.L.length-1&&c.L[i]<s) i++;
+  const a=c.L[i-1], b=c.L[i], f=b>a?(s-a)/(b-a):0; return out.lerpVectors(c.P[i-1],c.P[i],f); }
+function mueveFlujos(dtR){
+  let o=0; const kA=1-Math.exp(-dtR/0.12);
+  for(const c of CAMINOS){
+    const W=c.flujo(), vis=c.vista===EST.corte, act=Math.abs(W)>200;
+    const obj=vis&&act?Math.pow(clamp(Math.abs(W)/PREF*2.0,0.0,1),0.55)*0.95+0.05:0;
+    c.a+=(obj-c.a)*kA;
+    const du=Math.sign(W)*(0.045+0.20*Math.min(1,Math.abs(W)/PREF))*dtR/Math.max(c.len,0.03)*(c.vista==='trans'?1.4:1.1);
+    for(let i=0;i<c.n;i++,o++){
+      if(!EST.pausa&&vis){ c.u[i]=(c.u[i]+du)%1; if(c.u[i]<0) c.u[i]+=1; }
+      puntoEn(c,c.u[i],_pv); aPos[o*3]=_pv.x; aPos[o*3+1]=_pv.y; aPos[o*3+2]=_pv.z;
+      const borde=Math.min(c.u[i],1-c.u[i])*c.len/0.006;
+      aAlf[o]=c.a*clamp(borde,0,1);
+    }
+    if(c.flecha){ const s=W>200?1:(W<-200?-1:0), op=vis?c.a*0.95:0; c.flecha.fin.material.opacity=s>0?op:0; c.flecha.ini.material.opacity=s<0?op:0; c.flecha.fin.visible=s>0&&op>0.01; c.flecha.ini.visible=s<0&&op>0.01; }
+  }
+  gPuntos.attributes.position.needsUpdate=true; gPuntos.attributes.aAlpha.needsUpdate=true;
+}
+
+/* Un cuadro de la escena. dtS: tiempo SIMULADO (s, a cámara lenta); dtR: tiempo de pantalla. */
+function aplicaEscena(dtS,dtR,t){
+  calcula();
+  const p=SIM.pt;
+  if(!EST.pausa){
+    SIM.soc=pasoSOC(SIM.soc,p.Pbat,dtR);                     // el SOC corre en tiempo real
+    SIM.tHist+=dtR; if(SIM.tHist>=0.25){ SIM.tHist=0; SIM.hist.push({t:SIM.reloj,soc:SIM.soc,pb:p.Pbat}); if(SIM.hist.length>240) SIM.hist.shift(); }
+    SIM.reloj+=dtR;
+  }
+  aplicaGiros(dtS); aplicaMotor(); pintaBrillos(); mueveFlujos(dtR);
+}
+
+
+/* ===================== 9. CÁMARAS ENCAJADAS EN EL HUECO LIBRE ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function encaja(t,dir,pts,caja,margen=0){
+  if(margen){ const mx=(caja.x1-caja.x0)*margen, my=(caja.y1-caja.y0)*margen; caja={x0:caja.x0+mx,x1:caja.x1-mx,y0:caja.y0+my,y1:caja.y1-my}; }
+  const cam=camera.clone(), W=innerWidth, H=innerHeight, tan=Math.tan(cam.fov*Math.PI/360);
+  cam.aspect=W/H; cam.updateProjectionMatrix();
+  const cw=caja.x1-caja.x0, ch=caja.y1-caja.y0, cx=(caja.x0+caja.x1)/2, cy=(caja.y0+caja.y1)/2;
+  let dist=1; const q=new THREE.Vector3(), der=new THREE.Vector3(), arr=new THREE.Vector3(); t=t.clone(); dir=dir.clone().normalize();
+  for(let it=0;it<10;it++){
+    cam.position.copy(t).addScaledVector(dir,dist); cam.lookAt(t); cam.updateMatrixWorld();
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const p of pts){ q.copy(p).project(cam); const sx=(q.x+1)/2*W, sy=(1-q.y)/2*H;
+      a0=Math.min(a0,sx); a1=Math.max(a1,sx); b0=Math.min(b0,sy); b1=Math.max(b1,sy); }
+    const k=Math.max((a1-a0)/cw,(b1-b0)/ch), wpp=2*tan*dist/H;
+    der.setFromMatrixColumn(cam.matrixWorld,0); arr.setFromMatrixColumn(cam.matrixWorld,1);
+    t.addScaledVector(der,((a0+a1)/2-cx)*wpp).addScaledVector(arr,-((b0+b1)/2-cy)*wpp);
+    dist*=k;
+  }
+  return [t.clone().addScaledVector(dir,dist),t];
+}
+const caja3=(x0,y0,z0,x1,y1,z1)=>{ const r=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) r.push(V3(x,y,z)); return r; };
+/* Cuatro vistas. «Engranaje»: corte transversal del planetario; las otras tres, el
+   corte longitudinal (todo el tren de lado, con el motor a la izquierda). */
+const VISTAS={
+  engranaje:{corte:'trans',dir:[0.07,0.11,1],pts:()=>caja3(-0.175,-0.150,-0.145,0.175,0.165,0)},
+  tren:{corte:'long',dir:[1,0.16,0.02],pts:()=>caja3(-0.136,-0.178,-0.458,0,0.240,0.495)},
+  motor:{corte:'long',dir:[1,0.10,0.05],pts:()=>caja3(-0.062,-0.085,0.112,0,0.240,0.495)},
+  electrica:{corte:'long',dir:[1,0.30,0.12],pts:()=>caja3(-0.100,-0.112,-0.455,0,0.208,0.115)},
+};
+const VISTA={actual:'engranaje'};
+function vistaCam(v){
+  const V=VISTAS[v]||VISTAS.engranaje, H=huecoLibre(), pts=V.pts(), c=new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  return encaja(c,V3(...V.dir),pts,H,v==='engranaje'?0.02:0.07);
+}
+const CAMT={on:false};
+function ponVista(v,dur){
+  const V=VISTAS[v]||VISTAS.engranaje; VISTA.actual=v;
+  if(EST.corte!==V.corte){ EST.corte=V.corte; ponCorte(V.corte); pintaRotulos(); }
+  const [p,t]=vistaCam(v);
+  Object.assign(CAMT,{on:true,u:0,dur:dur===undefined?(REDUCIDO?0.001:1.2):dur,p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t});
+  pintaBarras();
+}
+function pasaCam(dt){
+  if(!CAMT.on) return;
+  CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+  camera.position.lerpVectors(CAMT.p0,CAMT.p1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+  if(CAMT.u>=1) CAMT.on=false;
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+/* ===================== 10. EL HUD (izquierda) ===================== */
+const rpmTxt=w=>fN(w/RPM,0)+' rpm';
+const kW=(W,d=1)=>fN(W/1000,d)+' kW';
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · Tren híbrido</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>Un engranaje reparte la potencia entre el motor y la electricidad</h2>
+    <p class="intro">El motor gira en el <b>portasatélites</b>, MG1 en el <b>solar</b> y la corona va a las ruedas. Willis ata las tres velocidades: el <b>régimen del motor</b> decide cuánta potencia pasa por la electricidad.</p></div>`;
+  } else h+=`<h2>Calcula, optimiza y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    const posV=v=>(v/160*100).toFixed(1)+'%', posP=p=>((p+20)/70*100).toFixed(1)+'%';
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl"><div>Velocidad del coche</div><b id="vV">${fN(EST.v,0)} km/h</b></div><input type="range" id="rV" min="0" max="160" step="1" value="${EST.v}" aria-label="Velocidad del coche">
+      <div class="marcas abs"><span style="left:0;transform:none">0</span><span class="lim" style="left:${posV(117.7)}">117 · MG1 a tope</span><span style="left:100%;transform:translateX(-100%)">160</span></div></div>
+    <div class="cg"><div class="cl"><div>Demanda en la rueda</div><b id="vP">${fN(EST.P,1)} kW</b></div><input type="range" id="rP" min="-20" max="50" step="0.5" value="${EST.P}" aria-label="Potencia pedida en la rueda">
+      <div class="marcas abs"><span style="left:0;transform:none">−20 frenada</span><span class="lim" style="left:${posP(0)}">0</span><span style="left:100%;transform:translateX(-100%)">50</span></div></div>
+    <div class="cg"><div class="cl">Gestión del motor</div><div class="seg" id="segG">${[['optimo','Óptima'],['manual','Manual'],['ev','Eléctrica']].map(([k,t])=>`<button class="b ${EST.gestion===k?'on':''}" data-g="${k}">${t}</button>`).join('')}</div></div>`;
+    if(EST.gestion==='manual') h+=`
+    <div class="cg"><div class="cl"><div>Régimen del motor</div><b id="vN">${fN(EST.nMan,0)} rpm</b></div><input type="range" id="rN" min="1000" max="5200" step="10" value="${EST.nMan}" aria-label="Régimen del motor térmico"></div>
+    <div class="cg"><div class="cl"><div>Par del motor</div><b id="vT">${fN(EST.TMan,0)} N·m</b></div><input type="range" id="rT" min="0" max="120" step="1" value="${EST.TMan}" aria-label="Par del motor térmico"></div>`;
+    h+=`<div class="fila"><button class="b primary" id="btnCru">Crucero en llano</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl"><b>Willis.</b> El conjunto planetario tiene tres ejes y dos grados de libertad: dadas dos velocidades, la tercera queda fija.</div>
+    <div class="formula">Z<sub>s</sub>·ω<sub>s</sub> + Z<sub>r</sub>·ω<sub>r</sub> = (Z<sub>s</sub> + Z<sub>r</sub>)·ω<sub>c</sub><br>Z<sub>s</sub> = 30 · Z<sub>r</sub> = 78 · Z<sub>p</sub> = 24 · ρ = Z<sub>s</sub>/Z<sub>r</sub> = 0,385</div>
+    <div class="fl"><b>Pares.</b> Con el motor en el portasatélites: T<sub>s</sub> : T<sub>c</sub> : T<sub>r</sub> = Z<sub>s</sub> : (Z<sub>s</sub>+Z<sub>r</sub>) : Z<sub>r</sub> = 28 % : 100 % : 72 %. La potencia del motor se reparte por dos caminos: el <b>mecánico</b> (72 % del par, directo a la corona) y el <b>eléctrico</b> (MG1 la convierte y MG2 la devuelve).</div>
+    <div class="formula">P<sub>MG1</sub> = −T<sub>s</sub>·ω<sub>s</sub> (genera si ω<sub>s</sub> &gt; 0; con ω<sub>s</sub> &lt; 0 MG1 hace de motor y la potencia circula)<br>P<sub>bat</sub> = P<sub>MG1,CC</sub> + P<sub>MG2,CC</sub> + P<sub>aux</sub></div>
+    <div class="fl"><b>SOC neutro</b> es P<sub>bat</sub> = 0. Para cada régimen existe un par que lo logra; el <b>óptimo</b> es el régimen que, con SOC neutro, quema menos combustible (línea de operación óptima).</div>
+    <div class="fl">Pérdidas: máquinas P = a₀ + a₁|ω| + a₂ω² + k·T²; inversor 97,5 %; engranes 99 % por engrane; reducción final 97 %; batería V<sub>oc</sub>·I − R·I² = P<sub>bat</sub> y dSOC/dt = −I/(3600·Q).</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Régimen permanente: no hay inercias, arranque del motor ni dinámica de la batería. Cada punto es un equilibrio.</li>
+    <li>El mapa de consumo del motor es <b>analítico</b>, calibrado a ≈ 222 g/kWh de mínimo, no medido. Dentado 30/78 del THS; el resto de las cifras son representativas, no del fabricante.</li>
+    <li>MG2 va directo a la corona. La batería es un circuito equivalente sin límites de temperatura ni BMS. Sin convertidor elevador.</li>
+    <li>Los giros van a cámara lenta rotulada; el SOC corre en tiempo real. Las flechas del corte transversal son un esquema: el motor, MG1 y la batería están en realidad a lo largo del eje.</li>
+  </ul><div class="src">Hermance y Sasaki, <i>Hybrid Electric Vehicles</i> · Liu y Peng, <i>Modeling and Control of a Power-Split HEV</i> · Heywood, <i>Internal Combustion Engine Fundamentals</i> · Guzzella y Sciarretta, <i>Vehicle Propulsion Systems</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; cambiaGestion(b.dataset.g); });
+  const sl=(id,txt,fn)=>{ const r=el(id); if(r) r.oninput=()=>{ if(EST.autoRunning) return; fn(+r.value); refrescaVals(); }; };
+  sl('rV','vV',v=>{ EST.v=v; });
+  sl('rP','vP',v=>{ EST.P=v; });
+  sl('rN','vN',v=>{ EST.nMan=v; });
+  sl('rT','vT',v=>{ EST.TMan=v; });
+  if(el('btnCru')) el('btnCru').onclick=()=>{ if(EST.autoRunning) return; EST.P=Math.round(potCrucero(EST.v/3.6)/500)/2; refrescaSliders(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-w',null);
+  const inp=el('ansW'); if(inp) inp.onkeydown=e=>{ if(e.key==='Enter') handleAction('check-w',null); };
+  const sg=el('rNg'); if(sg) sg.oninput=()=>{ GUIA.nSel=+sg.value; refrescaVals(); };
+  const st=el('rTg'); if(st) st.oninput=()=>{ GUIA.TSel=+st.value; refrescaVals(); };
+}
+function cambiaGestion(g){
+  EST.gestion=g;
+  if(g==='manual'&&SIM.pt){ const o=optimoDe(EST.v,EST.P); EST.nMan=Math.round((o.motor?o.n:1800)/10)*10; EST.TMan=Math.round(o.motor?o.Te:30); }
+  pintaHUD(); pintaBarras(); SIM.soc=0.60;
+}
+function refrescaSliders(){ for(const [id,v] of [['rV',EST.v],['rP',EST.P],['rN',EST.nMan],['rT',EST.TMan]]){ const r=el(id); if(r) r.value=v; } refrescaVals(); }
+function refrescaVals(){
+  const s=(id,t)=>{ const e=el(id); if(e&&e.textContent!==t) e.textContent=t; };
+  s('vV',fN(EST.v,0)+' km/h'); s('vP',fN(EST.P,1)+' kW'); s('vN',fN(EST.nMan,0)+' rpm'); s('vT',fN(EST.TMan,0)+' N·m');
+  s('vNg',fN(GUIA.nSel,0)+' rpm'); s('vTg',fN(GUIA.TSel,0)+' N·m');
+}
+
+/* ===================== 11. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function aro(x,cx,cy,r,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.arc(cx,cy,r,0,DOSPI); x.stroke(); x.setLineDash([]); }
+function flechaC(x,x0,y0,x1,y1,col,w){ const a=Math.atan2(y1-y0,x1-x0), L=Math.hypot(x1-x0,y1-y0), hd=Math.min(7,L*0.45);
+  x.strokeStyle=col; x.fillStyle=col; x.lineWidth=w; x.beginPath(); x.moveTo(x0,y0); x.lineTo(x1-Math.cos(a)*hd*0.7,y1-Math.sin(a)*hd*0.7); x.stroke();
+  if(L>2){ x.beginPath(); x.moveTo(x1,y1); x.lineTo(x1-Math.cos(a-0.42)*hd,y1-Math.sin(a-0.42)*hd); x.lineTo(x1-Math.cos(a+0.42)*hd,y1-Math.sin(a+0.42)*hd); x.closePath(); x.fill(); } }
+const LLEV=lienzo('gLev'), LMAP=lienzo('gMap'), LST=lienzo('gSt');
+const COL_S='#E0A94E', COL_C='#F0743A', COL_R='#8FB8DA', COL_E='#4FD1C5', COL_M='#FF9F43', COL_B='#FFD166';
+/** Lo que el dock NO debe enseñar todavía. */
+const ocultaS=()=>EST.modo==='guia'&&GUIA.phase===0&&!GUIA.wOk;
+const ocultaOpt=()=>EST.modo==='guia'&&GUIA.phase===1&&!GUIA.opOk;
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.phase===2&&!!GUIA.falla&&!GUIA.reparado;
+
+/* —— La palanca de Willis: velocidades de sol, portasatélites y corona sobre una recta. */
+function pintaLev(){
+  const L=LLEV, x=abre(L), Wd=L.w, Hd=L.h, p=SIM.pt, S=PSD.Zs+PSD.Zr;
+  const X0=44, X1=Wd-44, XS=X0, XC=X0+(X1-X0)*PSD.Zr/S, XR=X1;
+  const ns=p.ws/RPM, nc=p.wc/RPM, nr=p.wr/RPM, ocS=ocultaS();
+  const vmax=Math.max(3000,Math.abs(ocS?0:ns),Math.abs(nc),Math.abs(nr)), esc=Math.ceil(vmax*1.12/2000)*2000;
+  const yTop=8, yBase=yTop+(Hd-52)/2, yBot=Hd-34, k=(yBase-yTop)/esc;
+  raya(x,10,yBase,Wd-10,yBase,'rgba(143,179,172,0.35)',1);
+  txt(x,'0',8,yBase-3,'#6f8a85',8.5,'left','500');
+  for(const q of [esc/2,-esc/2]){ raya(x,10,yBase-q*k,Wd-10,yBase-q*k,'rgba(143,179,172,0.10)',1,[2,3]); txt(x,fN(q/1000,0)+' k',8,yBase-q*k-2,'#6f8a85',8,'left','500'); }
+  const nodos=[['Solar',XS,ns,COL_S,'30 dientes'],['Porta',XC,nc,COL_C,'motor'],['Corona',XR,nr,COL_R,'78 dientes']];
+  // la recta de la palanca: pasa por las tres puntas (es Willis)
+  if(!ocS){ raya(x,XS,yBase-ns*k,XR,yBase-nr*k,'rgba(255,255,255,0.88)',1.7); }
+  else { raya(x,XC,yBase-nc*k,XR,yBase-nr*k,'rgba(255,255,255,0.35)',1.3,[3,3]); }
+  nodos.forEach(([nom,xx,n,col,sub],i)=>{
+    const oculto=i===0&&ocS, yy=yBase-(oculto?0:n)*k;
+    x.strokeStyle=col; x.lineWidth=5; x.lineCap='round'; x.globalAlpha=oculto?0.25:0.95; x.beginPath(); x.moveTo(xx,yBase); x.lineTo(xx,yy); x.stroke(); x.globalAlpha=1; x.lineCap='butt';
+    x.fillStyle='#fff'; x.beginPath(); x.arc(xx,yy,3.4,0,DOSPI); x.fill(); x.strokeStyle=col; x.lineWidth=2; x.stroke();
+    const arriba=n>=0||oculto, ty=arriba?yy-7:yy+13;
+    txt(x,oculto?'¿?':fN(n,0),xx,clamp(ty,12,Hd-40),col,10.5,i===0?'left':(i===2?'right':'center'),'700');
+    txt(x,nom,xx,Hd-22,col,10,i===0?'left':(i===2?'right':'center'),'700');
+    txt(x,sub,xx,Hd-12,'#6f8a85',8.5,i===0?'left':(i===2?'right':'center'),'500');
+  });
+  // los pares que reparte el engranaje (28 : 100 : 72 %), sólo si el motor empuja
+  if(p.Te>0.5&&!ocS&&!enDiagnostico()){ const T=[reparto(p.Te).Ts,p.Te,reparto(p.Te).Tr]; nodos.forEach(([nom,xx,n,col],i)=>txt(x,'par '+fN(T[i],0)+' N·m',xx,Hd-42,'#c9a77a',9,i===0?'left':(i===2?'right':'center'),'600')); }
+  // distancias de la palanca: sol–porta ∝ Zr, porta–corona ∝ Zs
+  txt(x,'78',(XS+XC)/2,Hd-3,'#5f7a75',8.5,'center','600'); txt(x,'30',(XC+XR)/2,Hd-3,'#5f7a75',8.5,'center','600');
+  raya(x,XS+8,Hd-6,XC-8,Hd-6,'rgba(95,122,117,0.5)',1); raya(x,XC+8,Hd-6,XR-8,Hd-6,'rgba(95,122,117,0.5)',1);
+  el('t_lev').textContent=ocS?'':(Math.abs(ns)<25?'solar casi parado':(ns<0?'solar al revés':''));
+}
+
+/* —— El mapa de consumo del motor: bandas de g/kWh, plena carga, hipérbola de potencia constante y línea óptima. */
+const MAPA={clave:'',c:document.createElement('canvas')};
+const N_MIN=900, N_MAX=5400, T_MAX=125, NIVELES=[222,226,234,248,272,310,380];
+const BANDAS=['#9DFFD8','#5EE3C3','#34BFB0','#2796A3','#21708F','#244C74','#232E55','#1b1a3a'];
+const bandaDe=b=>{ let i=0; while(i<NIVELES.length&&b>NIVELES[i]) i++; return i; };
+function capaMapa(Wd,Hd,dpr,m){
+  const c=MAPA.c; c.width=Math.round(Wd*dpr); c.height=Math.round(Hd*dpr); const x=c.getContext('2d');
+  const w=c.width, h=c.height, im=x.createImageData(w,h), idx=new Uint8Array(w*h);
+  const px0=m.l*dpr, px1=(Wd-m.r)*dpr, py0=m.t*dpr, py1=(Hd-m.b)*dpr;
+  for(let j=0;j<h;j++) for(let i=0;i<w;i++){
+    const o=(j*w+i)*4;
+    if(i<px0||i>px1||j<py0||j>py1){ idx[j*w+i]=255; continue; }
+    const n=N_MIN+(i-px0)/(px1-px0)*(N_MAX-N_MIN), T=T_MAX*(1-(j-py0)/(py1-py0));
+    const nn=n*RPM;
+    if(T>parMaxICE(nn)||n<ICE.nmin||n>ICE.nmax||T<1){ idx[j*w+i]=254; im.data[o]=14; im.data[o+1]=22; im.data[o+2]=26; im.data[o+3]=255; continue; }
+    const k=bandaDe(bsfc(nn,T)); idx[j*w+i]=k;
+    const col=BANDAS[k], v=parseInt(col.slice(1),16); im.data[o]=v>>16; im.data[o+1]=(v>>8)&255; im.data[o+2]=v&255; im.data[o+3]=255;
+  }
+  // los bordes entre bandas: línea fina oscura
+  for(let j=0;j<h-1;j++) for(let i=0;i<w-1;i++){ const a=idx[j*w+i]; if(a>=250) continue;
+    if(idx[j*w+i+1]!==a&&idx[j*w+i+1]<250||idx[(j+1)*w+i]!==a&&idx[(j+1)*w+i]<250){ const o=(j*w+i)*4; im.data[o]*=0.55; im.data[o+1]*=0.6; im.data[o+2]*=0.65; } }
+  x.putImageData(im,0,0);
+}
+function pintaMapa(){
+  const L=LMAP, x=abre(L), Wd=L.w, Hd=L.h, p=SIM.pt;
+  const m={l:30,r:8,t:8,b:20};
+  const clave=Wd+'x'+Hd+'|'+L.dpr;
+  if(clave!==MAPA.clave){ capaMapa(Wd,Hd,L.dpr,m); MAPA.clave=clave; }
+  x.drawImage(MAPA.c,0,0,Wd,Hd);
+  const X=n=>m.l+(n-N_MIN)/(N_MAX-N_MIN)*(Wd-m.l-m.r), Y=T=>m.t+(1-T/T_MAX)*(Hd-m.t-m.b);
+  // ejes
+  x.strokeStyle='rgba(143,179,172,0.35)'; x.lineWidth=1; x.strokeRect(m.l+0.5,m.t+0.5,Wd-m.l-m.r,Hd-m.t-m.b);
+  for(const n of [1000,2000,3000,4000,5000]){ txt(x,fN(n/1000,0)+' k',X(n),Hd-8,'#8fb3ac',9,'center','500'); raya(x,X(n),Hd-m.b,X(n),Hd-m.b+3,'#3d5550'); }
+  for(const T of [25,50,75,100]){ txt(x,fN(T,0),m.l-4,Y(T)+3,'#8fb3ac',9,'right','500'); raya(x,m.l-3,Y(T),m.l,Y(T),'#3d5550'); }
+  txt(x,'rpm',Wd-m.r,Hd-1,'#6f8a85',8.5,'right','500'); txt(x,'N·m',m.l-4,m.t-1,'#6f8a85',8.5,'right','500');
+  // los topes de MG1: a la velocidad del coche, el régimen del motor sólo puede estar entre dos rectas
+  { const nr=p.wr/RPM, lo=(PSD.Zs*(-MG1.nmax)+PSD.Zr*nr)/(PSD.Zs+PSD.Zr), hi=(PSD.Zs*MG1.nmax+PSD.Zr*nr)/(PSD.Zs+PSD.Zr);
+    x.fillStyle='rgba(244,71,94,0.22)';
+    if(lo>N_MIN){ x.fillRect(X(N_MIN),m.t,Math.min(X(lo),X(N_MAX))-X(N_MIN),Hd-m.t-m.b); raya(x,X(lo),m.t,X(lo),Hd-m.b,'rgba(244,71,94,0.8)',1.2,[3,2]); }
+    if(hi<N_MAX){ x.fillRect(X(hi),m.t,X(N_MAX)-X(hi),Hd-m.t-m.b); raya(x,X(hi),m.t,X(hi),Hd-m.b,'rgba(244,71,94,0.8)',1.2,[3,2]); } }
+  const Pe=p.Pe;
+  // hipérbola de potencia constante del punto en curso (P = T·ω)
+  if(p.we>0&&Pe>500){ x.strokeStyle='rgba(255,255,255,0.55)'; x.lineWidth=1.2; x.setLineDash([4,3]); x.beginPath(); let ini=true;
+    for(let n=ICE.nmin;n<=ICE.nmax;n+=20){ const T=Pe/(n*RPM); if(T>T_MAX) continue; ini?x.moveTo(X(n),Y(T)):x.lineTo(X(n),Y(T)); ini=false; } x.stroke(); x.setLineDash([]); }
+  // plena carga
+  x.strokeStyle='rgba(255,255,255,0.7)'; x.lineWidth=1.2; x.beginPath();
+  for(let n=ICE.nmin;n<=ICE.nmax;n+=20){ const T=parMaxICE(n*RPM); n===ICE.nmin?x.moveTo(X(n),Y(T)):x.lineTo(X(n),Y(T)); } x.stroke();
+  // la línea de operación óptima del motor solo (de 3 a 52 kW): no se enseña mientras el reto la pide
+  if(!ocultaOpt()){ x.strokeStyle='rgba(255,226,120,1)'; x.lineWidth=2.4; x.setLineDash([3,3]); x.beginPath(); let ini=true;
+    for(let P=2000;P<=54000;P+=1000){ const o=optimoMotor(P); if(!o) continue; ini?x.moveTo(X(o.n),Y(o.T)):x.lineTo(X(o.n),Y(o.T)); ini=false; } x.stroke(); x.setLineDash([]); }
+  // el óptimo del vehículo para esta demanda (fantasma): sólo en marcha, o tras resolver el reto
+  const opt=(EST.modo==='marcha'||GUIA.opOk)?optimoDe(p.q.vk,p.q.Pk):null;
+  if(opt&&opt.motor&&!(EST.modo==='guia'&&GUIA.phase!==1)){ const ox=X(opt.n), oy=Y(opt.Te); x.strokeStyle='#FFE98A'; x.lineWidth=1.6; x.beginPath(); x.moveTo(ox-5,oy); x.lineTo(ox+5,oy); x.moveTo(ox,oy-5); x.lineTo(ox,oy+5); x.stroke(); }
+  // el punto de operación y su estela
+  if(p.we>0){ const t=SIM.estela; if(t.length>1){ x.strokeStyle='rgba(255,255,255,0.35)'; x.lineWidth=1.2; x.beginPath(); t.forEach(([n,T],i)=>i?x.lineTo(X(n),Y(T)):x.moveTo(X(n),Y(T))); x.stroke(); }
+    const px=X(p.we/RPM), py=Y(p.Te); x.fillStyle='#ffffff'; x.beginPath(); x.arc(px,py,4,0,DOSPI); x.fill(); aro(x,px,py,7.5,'rgba(255,255,255,0.8)',1.4); }
+  else txt(x,'motor apagado',(m.l+Wd-m.r)/2,(m.t+Hd-m.b)/2,'#9fb2ad',11,'center','700');
+  el('t_map').textContent=p.we>0&&p.Pe>1?fN(p.bsfc,0)+' g/kWh · '+fN(p.Pe/1000,1)+' kW':'';
+}
+function pintaLeyMapa(){
+  el('leyMap').innerHTML=`<span class="lg"><i class="bl" style="--c:#9DFFD8"></i>≈222</span><span class="lg"><i class="bl" style="--c:#21708F"></i>~270</span><span class="lg"><i class="bl" style="--c:#232E55"></i>&gt;310 g/kWh</span><span class="lg"><i style="--c:#fff"></i>plena carga</span><span class="lg"><i class="dash" style="--c:#fff"></i>P constante</span>`
+   +(ocultaOpt()?'':`<span class="lg"><i class="dash" style="--c:#FFE98A"></i>línea óptima</span>`)+`<span class="lg"><i class="bl" style="--c:rgba(244,71,94,.55)"></i>MG1 al límite</span>`;
+}
+
+/* —— Reparto de potencia (barras con signo) y la historia de P_bat y SOC. */
+function pintaSt(){
+  const L=LST, x=abre(L), Wd=L.w, Hd=L.h, p=SIM.pt;
+  const filas=[['Motor',p.Pe,COL_M],['MG1',-p.P1sh,COL_E],['MG2',p.P2sh,COL_E],['Batería',-p.Pbat,COL_B],['Rueda',p.Pw_real,COL_M]];
+  const wB=Math.round(Wd*0.58), xc=Math.round(wB*0.52), rh=Math.min(15,(Hd-6)/5), esc=Math.max(30000,...filas.map(f=>Math.abs(f[1])*1.1));
+  filas.forEach(([nom,v,col],i)=>{ const y=4+i*rh;
+    txt(x,nom,4,y+rh-4,'#9fb2ad',9,'left','600');
+    const x0=44, xz=x0+(wB-x0-34)*0.5, kk=(wB-x0-34)*0.5/esc;
+    x.fillStyle='rgba(143,179,172,0.08)'; x.fillRect(x0,y+2,wB-x0-34,rh-4);
+    x.fillStyle=col; x.globalAlpha=0.92; const wv=v*kk; x.fillRect(Math.min(xz,xz+wv),y+3,Math.max(1,Math.abs(wv)),rh-6); x.globalAlpha=1;
+    raya(x,xz,y+1,xz,y+rh-1,'rgba(234,244,241,0.55)',1);
+    txt(x,fN(v/1000,1),wB-3,y+rh-4,'#e7f3f0',9.5,'right','700');
+  });
+  // la demanda en la rueda: una marca sobre la barra de la rueda (se ve si MG2 falla)
+  { const y=4+4*rh, x0=44, xz=x0+(wB-x0-34)*0.5, kk=(wB-x0-34)*0.5/esc, xd=xz+p.Pw*kk; raya(x,xd,y,xd,y+rh,'#ffffff',1.3,[2,2]); }
+  // historia (derecha): SOC y P_bat
+  const gx0=wB+8, gx1=Wd-6, gy0=6, gy1=Hd-14, H=SIM.hist;
+  if(gx1-gx0>40){
+    raya(x,gx0,gy1,gx1,gy1,'#3d5550',1);
+    const ySoc=s=>gy1-(clamp(s,0.40,0.80)-0.40)/0.40*(gy1-gy0);
+    for(const s of [0.5,0.6,0.7]) raya(x,gx0,ySoc(s),gx1,ySoc(s),s===0.6?'rgba(143,179,172,0.28)':'rgba(143,179,172,0.10)',1,s===0.6?[]:[2,3]);
+    txt(x,'60 %',gx0+2,ySoc(0.6)-2,'#6f8a85',8,'left','500');
+    if(H.length>1){ const t1=H[H.length-1].t, t0=t1-60, X=t=>gx0+(t-t0)/60*(gx1-gx0);
+      x.strokeStyle=COL_B; x.lineWidth=1.8; x.beginPath(); H.forEach((q,i)=>{ const xx=X(q.t), yy=ySoc(q.soc); i?x.lineTo(xx,yy):x.moveTo(xx,yy); }); x.stroke();
+      const yP=pb=>(gy0+gy1)/2-clamp(pb/30000,-1,1)*(gy1-gy0)/2*0.5;
+      x.strokeStyle='rgba(79,209,197,0.85)'; x.lineWidth=1.2; x.beginPath(); H.forEach((q,i)=>{ const xx=X(q.t), yy=yP(q.pb); i?x.lineTo(xx,yy):x.moveTo(xx,yy); }); x.stroke(); }
+    txt(x,'SOC '+fN(SIM.soc*100,1)+' %',gx1-2,gy0+9,COL_B,9.5,'right','700');
+    txt(x,'últimos 60 s',gx0+2,Hd-3,'#6f8a85',8,'left','500'); txt(x,'P bat',gx1-2,Hd-3,'#4FD1C5',8,'right','600');
+  }
+  el('t_st').textContent=p.mf>0&&p.v>0.5?fN(consumoL100(p.mf,p.v),1)+' L/100 km':(p.mf>0?fN(p.mf*3.6,1)+' kg/h':'sin combustible');
+}
+function pintaDockFijo(){
+  const p=SIM.pt||calcula();
+  el('p_mode').textContent=EST.modo==='guia'?'Laboratorio guiado':({optimo:'Gestión óptima',manual:'Gestión manual',ev:'Solo eléctrico'})[EST.gestion];
+  el('p_sub').textContent=fN(p.q.vk,0)+' km/h · '+fN(p.q.Pk,1)+' kW en la rueda';
+  pintaLeyMapa();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const p=SIM.pt, set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  if(ocultaS()){ set('f_ws','¿?'); _cl('f_ws','oculto'); } else { set('f_ws',fN(p.ws/RPM,0)+'<small> rpm</small>'); _cl('f_ws',p.lim.mg1v?'bad':''); }
+  set('f_wc',p.we>0?fN(p.wc/RPM,0)+'<small> rpm</small>':'0<small> rpm</small>'); _cl('f_wc',p.lim.iceN||p.lim.calado?'bad':'');
+  set('f_wr',fN(p.wr/RPM,0)+'<small> rpm</small>');
+  set('f_pg',fN(-p.P1sh/1000,1)+'<small> kW</small>'); _cl('f_pg',p.lim.mg1P||p.lim.mg1T?'bad':'');
+  set('f_pb',fN(p.Pbat/1000,1)+'<small> kW</small>'); _cl('f_pb',p.lim.bat?'bad':(Math.abs(p.Pbat)<500?'':'warn'));
+  set('f_bs',p.Pe>1000?fN(p.bsfc,0)+'<small> g/kWh</small>':'—'); _cl('f_bs','');
+  const A=el('aviso'); let cl='', t='';
+  if(!enDiagnostico()){
+    if(p.lim.mg1v){ cl='mal'; t='MG1 pasaría de 10 000 rpm: el control no lo permite. Sube el régimen del motor o baja la velocidad.'; }
+    else if(p.lim.iceT){ cl='mal'; t='El par pedido supera la plena carga del motor a ese régimen.'; }
+    else if(p.lim.mg2T||p.lim.mg2P){ cl='mal'; t='MG2 no puede dar esa demanda: ha llegado a su par o su potencia máximos.'; }
+    else if(p.lim.bat){ cl='mal'; t='La batería sale de su límite de ±21 kW.'; }
+    else if(p.we===0&&EST.modo==='marcha'&&EST.gestion==='optimo'&&optimoDe(p.q.vk,p.q.Pk).motor===false&&p.q.Pk>0){ cl='bien'; t='A esta demanda el motor no hace falta: va solo en eléctrico y la batería se descarga.'; }
+    else if(EST.modo==='marcha'&&p.we>0&&Math.abs(p.ws/RPM)<25){ cl='bien'; t='Solar casi parado: toda la potencia viaja por el camino mecánico, sin pérdidas eléctricas.'; }
+    else if(EST.modo==='marcha'&&p.we>0&&p.ws<0&&p.P1sh>1000){ cl='ojo'; t='Solar al revés: MG1 hace de motor y la potencia circula en lazo por el camino eléctrico.'; }
+    else if(EST.modo==='marcha'&&EST.gestion==='manual'&&Math.abs(p.Pbat)>1500){ cl='ojo'; t='La batería '+(p.Pbat>0?'se descarga':'se carga')+' a '+fN(Math.abs(p.Pbat)/1000,1)+' kW: el SOC no es neutro.'; }
+  }
+  A.className='dk-aviso'+(t?' on '+cl:''); if(A.textContent!==t) A.textContent=t;
+  // la estela del punto del motor
+  if(p.we>0&&performance.now()-SIM.tEst>90){ SIM.tEst=performance.now(); SIM.estela.push([p.we/RPM,p.Te]); if(SIM.estela.length>30) SIM.estela.shift(); } else if(p.we<=0) SIM.estela.length=0;
+}
+
+/* ===================== 12. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[1/300,'×1/300'],[1/100,'×1/100'],[1/60,'×1/60'],[1/30,'×1/30'],[1/10,'×1/10']];
+el('vbar').innerHTML=[['engranaje','Engranaje'],['tren','Tren<span class="lg"> completo</span>'],['motor','Motor'],['electrica','Electri<span class="lg">cidad</span>']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.esc=+e.target.value; EST.escMano=true; pintaBarras(); };
+const nomEsc=e=>{ const v=VEL.find(q=>Math.abs(q[0]-e)<1e-9); return v?v[1]:'×1/'+fN(1/e,0); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',VISTA.actual===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); const mt=VEL.find(q=>Math.abs(q[0]-EST.esc)<1e-9); sel.value=String((mt||VEL[2])[0]);
+  el('tLento').textContent='cámara lenta '+nomEsc(EST.esc);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const p=SIM.pt, e=el('tEst');
+  el('tReloj').textContent='SOC '+fN(SIM.soc*100,1)+' %';
+  let t, c;
+  if(p.we<=0){ t='motor apagado · eléctrico'; c='#5b6b68'; }
+  else if(Math.abs(p.ws/RPM)<25){ t='solar parado · todo mecánico'; c=COL_M; }
+  else if(p.ws<0){ t='MG1 motor · circula potencia'; c=COL_E; }
+  else { t='MG1 genera · reparto'; c='#9FF3FF'; }
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 13. RÓTULOS Y TOOLTIP ===================== */
+const _wp=new THREE.Vector3();
+const ANCLAS={
+  trans:[
+    ['Solar · 30 dientes · MG1',()=>V3(-0.004,0.020,0)],
+    ['Satélites · 24 dientes',()=>SAT[0].getWorldPosition(_wp.clone()).add(V3(0.003,0.012,0))],
+    ['Corona · 78 dientes interiores',()=>V3(0.066,-0.066,0)],
+    ['Portasatélites · motor',()=>V3(0.034,0.034,-0.030).applyMatrix4(G_PORTA.matrixWorld)],
+    ['Rotor y estátor de MG2',()=>V3(-0.100,-0.090,-0.095)],
+    ['Eje del motor',()=>V3(0,-0.002,-0.046)],
+    ['Carcasa del conjunto',()=>V3(-0.080,0.080,-0.030)],
+  ],
+  long:[
+    ['Motor térmico · 4 cilindros',()=>V3(0,0.19,0.333)],
+    ['Volante y amortiguador',()=>V3(0,0.060,0.146)],
+    ['MG1 · generador',()=>V3(0,0.085,0.079)],
+    ['Conjunto planetario',()=>V3(0,0.050,0)],
+    ['MG2 · tracción',()=>V3(0,0.118,-0.095)],
+    ['PCU · inversores',()=>V3(0,0.195,0.0)],
+    ['Batería · 10 módulos',()=>V3(0,-0.04,-0.337)],
+    ['Salida a las ruedas',()=>V3(0,0.03,-0.200)],
+  ],
+};
+let ROT_VISTA='';
+function pintaRotulos(){
+  const k=EST.corte, lista=ANCLAS[k];
+  if(ROT_VISTA!==k){ ROT_VISTA=k;
+    ROT.els.forEach(e=>{ e.d.remove(); e.ln.remove(); }); ROT.els=[];
+    const svg=el('rotSvg');
+    for(const [t] of lista){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(79,209,197,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+      ROT.els.push({d,ln}); } }
+  ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; });
+}
+(function(){ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg); })();
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[], lista=ANCLAS[EST.corte];
+  lista.forEach(([t,f],i)=>{ q.copy(f()).project(camera); const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; if(!e) return; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  solar:'Solar: engrane de 30 dientes. Va unido al rotor de MG1 por un árbol hueco. Gira a la velocidad que dicta Willis',
+  casquillo:'Casquillo de bronce entre el solar y el eje del motor, que pasa por dentro',
+  arbolSolar:'Árbol hueco del solar: lleva el giro hasta el rotor de MG1',
+  ejeMotor:'Eje del motor térmico: atraviesa el solar y MG1 y acaba en el portasatélites',
+  portasatelites:'Portasatélites: recibe el par del motor y lleva los tres satélites en órbita',
+  pasador:'Pasador del satélite, fijo al portasatélites',
+  satelite:'Satélite de 24 dientes: engrana con el solar por dentro y con la corona por fuera. Gira sobre sí y orbita a la vez',
+  rodamiento:'Rodamiento de agujas del satélite sobre su pasador',
+  corona:'Corona: 78 dientes interiores. Su giro es el de las ruedas (por la reducción final)',
+  tamborCorona:'Tambor de la corona: sobre él van los imanes de MG2 y de él sale el giro hacia las ruedas',
+  salida:'Salida a las ruedas, con la reducción final y el diferencial más allá',
+  estator1:'Estátor de MG1: 24 ranuras, chapa magnética apilada',
+  devanado1:'Devanado de MG1. Brilla con la potencia eléctrica que mueve',
+  rotor1:'Rotor de MG1: chapa con 8 imanes permanentes, sobre el árbol del solar',
+  carcasaMG1:'Carcasa de MG1',
+  imanes:'Imanes permanentes del rotor (rojo, norte; azul, sur)',
+  estator2:'Estátor de MG2: 36 ranuras, rodea al tambor de la corona',
+  devanado2:'Devanado de MG2. Brilla con la potencia eléctrica que mueve',
+  carcasaMG2:'Carcasa de MG2',
+  carcasaPSD:'Carcasa del conjunto planetario, con sus nervios de fundición',
+  volante:'Volante y amortiguador de torsión del motor térmico',
+  campana:'Campana de unión entre el motor y el transeje',
+  bloque:'Bloque del motor de 4 cilindros en línea, cortado por el eje',
+  culata:'Culata con las cámaras de combustión',
+  tapaBalancines:'Tapa de balancines',
+  carter:'Cárter',
+  camisa:'Camisa del cilindro: el pistón sube y baja por ella',
+  bujia:'Bujía: enciende la mezcla poco antes del punto muerto superior',
+  ciguenal:'Cigüeñal con brazos y contrapesos: gira con el portasatélites',
+  piston:'Pistón de aluminio con tres segmentos. La llama aparece en su fase de potencia',
+  bulon:'Bulón del pistón', biela:'Biela: del pistón a la muñequilla del cigüeñal',
+  segmentos:'Segmentos del pistón',
+  pcu:'Unidad de control de potencia (PCU): dos inversores, uno por máquina, y el condensador del bus',
+  moduloMG1:'Módulo inversor de MG1. Se calienta y brilla con su potencia',
+  moduloMG2:'Módulo inversor de MG2. Se calienta y brilla con su potencia',
+  condensadorPCU:'Condensador del bus de continua',
+  placaPCU:'Placa de control de la PCU', barrasPCU:'Barras de cobre del bus de continua',
+  cableFase:'Cable de fase (naranja por norma) hacia la máquina eléctrica',
+  cableHV:'Cable de alta tensión de la PCU a la batería',
+  bateria:'Batería de alta tensión (esquema: la real va bajo el piso)',
+  bateriaInt:'Interior de la batería',
+  celdas:'Módulos de la batería: se encienden en proporción al SOC',
+  bornesBat:'Bornes de la batería',
+  banco:'Banco de la exposición',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([EXPO,BANCO],true);
+  for(const h of hits){
+    if(PLANO.distanceToPoint(h.point)<-1e-4) continue;
+    let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue;
+    if(h.object.material&&h.object.material.isMeshBasicMaterial) continue;
+    return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; return o?o:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 14. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL ===================== */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras();
+    if(ant){ clearTimeout(window.__hjTH); window.__hjTH=setTimeout(()=>ponVista(VISTA.actual,REDUCIDO?0.001:0.4),40); } }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); MAPA.clave=''; });
+
+
+/* ===================== 15. EL LABORATORIO GUIADO =====================
+   Tres fases y un cierre:
+   1 · Willis (calcular la velocidad del solar), 2 · Operación (fijar el punto
+   del motor con SOC neutro y consumo mínimo), 3 · Diagnóstico (una de tres
+   fallas al azar) y el quiz. Tres fallos en un reto cambian el dato (no se
+   aprueba por eliminación). Nada de lo que se pide se enseña antes de validar. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const WILLIS_POOL=[{v:36,n:1500},{v:72,n:1800},{v:100,n:1200},{v:130,n:2400},{v:50,n:3000},{v:115,n:2100},{v:90,n:1000},{v:25,n:2600}];
+const OPS_POOL=[{v:50,P:9},{v:70,P:16},{v:95,P:12},{v:110,P:22},{v:130,P:26},{v:60,P:20},{v:85,P:8},{v:145,P:30}];
+const DX_POOL=[{v:60,P:16},{v:100,P:14},{v:125,P:22},{v:45,P:12},{v:85,P:18}];
+const FALLAS=['mg1','bloq','mg2'];
+let WILLIS=pickOne(WILLIS_POOL), OPS=pickOne(OPS_POOL), DX=pickOne(DX_POOL);
+const RETO={intentos:0,resiembras:0,fallosW:0,fallosO:0,fallosDx:0,pistasW:0,pistasO:0,hecho:false};
+const GUIA={phase:0,paso:'willis',iniciado:false,wOk:false,opOk:false,falla:null,reparado:false,nSel:2500,TSel:60,sintoma:''};
+const nCoronaDe=v=>v/3.6*VEH.ifd/VEH.Rw/RPM;
+const nSolarDe=(n,v)=>(PSD.Zs+PSD.Zr)*n/PSD.Zs-PSD.Zr*nCoronaDe(v)/PSD.Zs;
+function sorteaWillis(){ const p=WILLIS; do{ WILLIS=pickOne(WILLIS_POOL); }while(WILLIS===p); }
+function sorteaOps(){ const p=OPS; do{ OPS=pickOne(OPS_POOL); }while(OPS===p); GUIA.nSel=pickOne([1800,2200,2600,3000,3400]); GUIA.TSel=pickOne([40,55,70]); }
+GUIA.nSel=pickOne([1800,2200,2600,3000]); GUIA.TSel=pickOne([40,55,70]);
+
+/* ---------- Fase 1: Willis ---------- */
+function checkWillis(){
+  const raw=String((el('ansW')||{}).value||'').trim().replace(/\s| /g,'').replace('−','-').replace(',','.');
+  const v=parseFloat(raw), correcto=nSolarDe(WILLIS.n,WILLIS.v);
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el régimen del solar en rpm (con signo; coma o punto decimal).'); return; }
+  RETO.intentos++;
+  const tol=Math.max(40,0.015*Math.abs(correcto));
+  if(Math.abs(v-correcto)<tol){
+    RETO.fallosW=0; GUIA.wOk=true;
+    feedback('good','¡Correcto! ✓',`n<sub>s</sub> = [(Z<sub>s</sub>+Z<sub>r</sub>)·n<sub>c</sub> − Z<sub>r</sub>·n<sub>r</sub>]/Z<sub>s</sub> = (108·${fN(WILLIS.n,0)} − 78·${fN(nCoronaDe(WILLIS.v),0)})/30 = ${fN(correcto,0)} rpm. ${correcto<0?'El signo negativo: el solar gira al revés que el motor.':'El solar gira en el mismo sentido que el motor.'}`,true);
+    sonido.bien(); setTimeout(()=>{ GUIA.phase=1; sorteaOpsSiHaceFalta(); SIM.soc=0.60; pasoA('op'); },1800);
+  } else {
+    RETO.fallosW++; sonido.mal();
+    const ingenuo=Math.abs(v-WILLIS.n)<60||Math.abs(v+correcto)<tol;
+    if(RETO.fallosW>=3){ RETO.fallosW=0; RETO.resiembras++; sorteaWillis(); feedback('bad','Tres intentos fallidos','Cambia el estado del coche: vuelve a plantear el cálculo con los nuevos datos.'); setTimeout(()=>pasoA('willis'),1400); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,0)} rpm) no coincide.`+(ingenuo?' Fíjate en el signo y en qué eje va con qué dentado.':' Recuerda que cada velocidad pesa con el número de dientes de su engrane.')+` (intentos fallidos: ${RETO.fallosW}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallosW; }
+  }
+}
+function sorteaOpsSiHaceFalta(){ if(!GUIA.opIni){ GUIA.opIni=true; } }
+
+/* ---------- Fase 2: la operación ---------- */
+function checkOp(){
+  const v=OPS.v/3.6, Pw=OPS.P*1000, we=GUIA.nSel*RPM;
+  const p=punto({v,Pw,we,Te:GUIA.TSel,soc:SIM.soc}), r=neutro(v,Pw,we), opt=optimoDe(OPS.v,OPS.P);
+  RETO.intentos++;
+  const dev=p.Pbat, neutroOk=Math.abs(dev)<=800;
+  const limites=p.lim.mg1v||p.lim.mg1T||p.lim.mg1P||p.lim.mg2T||p.lim.mg2P||p.lim.iceT||p.lim.bat;
+  let ok=false, titulo='', msg='';
+  if(!neutroOk){ titulo='La batería no queda neutra'; msg=`Con ese par la batería ${dev>0?'se descarga':'se carga'} a ${fN(Math.abs(dev)/1000,1)} kW. Ajusta el <b>par</b> hasta que no entre ni salga potencia.`; }
+  else if(limites){ titulo='Fuera de los límites'; msg='Ese punto sobrepasa un límite de una máquina (se marca en rojo en el dock): el control no lo permitiría.'; }
+  else if(!r.ok||r.sobra||!opt.motor){ titulo='Punto no válido'; msg='A ese régimen el motor, aun a plena carga, no llega al par que cierra el balance de la batería: sube el <b>régimen</b> o revisa el par.'; }
+  else {
+    const mfN=punto({v,Pw,we,Te:r.Te}).mf, sobre=mfN/opt.p.mf-1;
+    if(sobre>0.015){ titulo='SOC neutro, pero no mínimo'; msg='La batería queda neutra, pero con ese <b>régimen</b> se quema más combustible del necesario (más de un 1,5 %). Mira dónde cae la línea de potencia constante sobre el mapa, y recuerda que parte de la potencia pasa por MG1 y MG2, que también pierden.'; }
+    else ok=true;
+  }
+  if(ok){
+    RETO.fallosO=0; GUIA.opOk=true; sonido.bien();
+    const pn=punto({v,Pw,we:opt.we,Te:opt.Te,soc:SIM.soc});
+    feedback('good','¡Punto óptimo! ✓',`A ${OPS.v} km/h y ${fN(OPS.P,0)} kW: SOC neutro (P<sub>bat</sub> ≈ ${fN(dev/1000,1)} kW) y consumo mínimo. El óptimo del vehículo cae en ${fN(opt.n,0)} rpm y ${fN(opt.Te,0)} N·m (${fN(pn.bsfc,0)} g/kWh, ${fN(consumoL100(pn.mf,v),1)} L/100 km); el solar gira a ${fN(pn.ws/RPM,0)} rpm. Ahora se ve la línea de operación óptima del motor en el mapa.`,true);
+    pasoA('op');
+    setTimeout(()=>{ GUIA.phase=2; startDx(); },3600);
+  } else {
+    RETO.fallosO++; sonido.mal();
+    if(RETO.fallosO>=3){ RETO.fallosO=0; RETO.resiembras++; sorteaOps(); feedback('bad','Tres intentos fallidos','Cambia la demanda del coche: vuelve a plantear el punto del motor con los nuevos datos.'); setTimeout(()=>pasoA('op'),1400); }
+    else { feedback('bad',titulo,msg+` (intentos fallidos: ${RETO.fallosO}/3)`); const t=el('d_tryo'); if(t) t.textContent=RETO.fallosO; }
+  }
+}
+
+/* ---------- Fase 3: el diagnóstico ---------- */
+function startDx(){
+  GUIA.phase=2; GUIA.paso='dx'; GUIA.reparado=false; GUIA.falla=pickOne(FALLAS); DX=pickOne(DX_POOL); SIM.soc=0.60; SIM.hist.length=0;
+  GUIA.sintoma=''; pintaHUD(); ponVista('engranaje');
+  setTimeout(()=>{ GUIA.sintoma=sintomaDe(GUIA.falla); const s=el('symptomTask'); if(s){ s.innerHTML=GUIA.sintoma; ajustaHoja(); } },1200);
+}
+function sintomaDe(f){
+  if(f==='mg1') return 'SÍNTOMA: el motor térmico sube hasta el corte y se queda ahí; el solar gira muy deprisa, la potencia de MG1 es cero y la batería se vacía casi toda la potencia que pide la rueda. ¿Qué lo causa?';
+  if(f==='bloq') return 'SÍNTOMA: el solar no gira. El régimen del motor ya no se elige: sube y baja con la velocidad del coche (compruébalo con el mando de velocidad) y no hay forma de mantener el SOC neutro. ¿Qué lo causa?';
+  return 'SÍNTOMA: el motor y MG1 trabajan con normalidad, pero la rueda recibe menos potencia que la pedida (la barra queda corta de su marca) y la batería se carga sin parar. ¿Qué lo causa?';
+}
+function diagnostica(choice){
+  if(!GUIA.falla||GUIA.paso!=='dx') return;
+  RETO.intentos++;
+  if(choice===GUIA.falla){ RETO.fallosDx=0; sonido.bien(); feedback('good','Diagnóstico correcto ✓',explica(GUIA.falla)+' <b>Ahora corrígelo.</b>',true); pasoA('reparar'); }
+  else {
+    RETO.fallosDx++; sonido.mal();
+    if(RETO.fallosDx>=3){
+      RETO.fallosDx=0; RETO.resiembras++; const p=GUIA.falla; GUIA.falla=pickOne(FALLAS.filter(f=>f!==p)); DX=pickOne(DX_POOL);
+      feedback('bad','Tres intentos fallidos','El tren presenta ahora OTRA falla: observa de nuevo la escena y el dock.',true);
+      GUIA.sintoma=sintomaDe(GUIA.falla); pintaHUD();
+    } else { feedback('bad','No es esa la falla','Eso ('+nomFalla(choice)+') daría otro síntoma: '+contraria(choice)+' Observa otra vez. (intentos fallidos: '+RETO.fallosDx+'/3)',true); pintaHUD(); }
+  }
+}
+const nomFalla=f=>f==='mg1'?'MG1 sin par':f==='bloq'?'MG1 bloqueado':'MG2 sin par';
+function explica(f){
+  if(f==='mg1') return 'Sin par en MG1 el solar no tiene quién lo frene. El conjunto planetario sólo transmite par si cada eje tiene su reacción (T<sub>s</sub> : T<sub>c</sub> : T<sub>r</sub> = 30 : 108 : 78): sin la del solar, el motor no empuja la corona y se embala.';
+  if(f==='bloq') return 'Con el solar bloqueado (ω<sub>s</sub> = 0) Willis queda en ω<sub>c</sub> = Z<sub>r</sub>/(Z<sub>s</sub>+Z<sub>r</sub>)·ω<sub>r</sub> = 0,72·ω<sub>r</sub>: el motor ya no es libre, el planetario es una reducción fija.';
+  return 'MG2 sin par: la corona sólo recibe el camino mecánico, 72 % del par del motor. Lo demás de la potencia de MG1 se va a la batería, y la rueda se queda corta.';
+}
+function contraria(f){
+  if(f==='mg1') return 'si MG1 no diese par, el motor se embalaría y el solar giraría libre, no quedaría parado ni la rueda corta con la batería cargando.';
+  if(f==='bloq') return 'un solar bloqueado deja el régimen del motor atado a la velocidad; no lo embala ni deja a la rueda corta.';
+  return 'sin par en MG2 la rueda se queda corta de potencia, pero el solar sigue girando libre y el motor no se embala.';
+}
+function repara(){
+  GUIA.reparado=true; GUIA.falla=null; RETO.hecho=true; sonido.bien();
+  feedback('good','¡Reparado! 🎉','El tren vuelve a repartir la potencia con normalidad. Lo has calculado con Willis, has fijado un punto óptimo y has diagnosticado una falla real. Falta el cierre.',true);
+  setTimeout(()=>{ startQuiz(); },2200);
+}
+
+/* ---------- el cierre: un quiz con las opciones barajadas ---------- */
+const QZ_POOL=[{v:140,n:1900},{v:30,n:2500},{v:120,n:1500},{v:20,n:1400},{v:110,n:3200},{v:60,n:1000}];
+const QZ={caso:null,opciones:[],correcta:-1,resp:-1,texto:''};
+function startQuiz(){
+  const c=pickOne(QZ_POOL), ns=nSolarDe(c.n,c.v), nr=nCoronaDe(c.v);
+  const clave=ns>40?'gen':(ns<-40?'mot':'par');
+  const base=[
+    ['gen','Como <b>generador</b>: el solar gira en el sentido del motor y frena el reparto.'],
+    ['mot','Como <b>motor</b>: el solar gira al revés y la potencia circula en lazo por el camino eléctrico.'],
+    ['par','<b>Parado</b>: el solar está casi inmóvil y todo el par viaja por la vía mecánica.'],
+    ['des','<b>Desconectado</b>: sin par en el solar no hay nada que hacer, por eso no gira.'],
+  ];
+  const ord=shuffled(base);
+  QZ.caso=c; QZ.opciones=ord; QZ.correcta=ord.findIndex(o=>o[0]===clave); QZ.resp=-1; QZ.ns=ns; QZ.nr=nr;
+  GUIA.paso='quiz'; GUIA.phase=3; pintaHUD();
+}
+function responde(i){
+  if(QZ.resp>=0) return; QZ.resp=i;
+  const ok=i===QZ.correcta, ns=QZ.ns;
+  feedback(ok?'good':'bad',ok?'¡Correcto! ✓':'No era esa',`n<sub>s</sub> = (108·${fN(QZ.caso.n,0)} − 78·${fN(QZ.nr,0)})/30 = ${fN(ns,0)} rpm. `+(ns>40?'Gira en el mismo sentido que el motor y MG1 frena: genera.':(ns<-40?'Gira al revés mientras el motor empuja hacia delante: MG1 tiene que mover el solar (hace de motor) y la potencia circula.':'Casi no gira: no hay potencia que pase por la vía eléctrica.')),true);
+  pasoA('completo');
+}
+
+/* ---------- el enrutador de acciones (la API de siempre) ---------- */
+function pasoA(p){ GUIA.paso=p; if(EST.modo==='guia') pintaHUD(); }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-w': checkWillis(); break;
+    case 'hint-w':
+      if(RETO.pistasW===0){ RETO.pistasW=1; feedback('good','Pista 1 de 2','Willis: cada velocidad se pondera con el número de dientes de su engrane. El portasatélites lleva el conjunto de los dos: (Z<sub>s</sub>+Z<sub>r</sub>).'); }
+      else if(RETO.pistasW===1){ RETO.pistasW=2; feedback('good','Pista 2 de 2','Despeja la velocidad del solar: es la que te falta. Las otras dos son los datos del enunciado.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'check-op': checkOp(); break;
+    case 'hint-o':
+      if(RETO.pistasO===0){ RETO.pistasO=1; feedback('good','Pista 1 de 2','Dos mandos, dos trabajos: el <b>par</b> cierra el balance de la batería (P<sub>bat</sub> = 0); el <b>régimen</b> decide cuánto combustible cuesta esa potencia.'); }
+      else if(RETO.pistasO===1){ RETO.pistasO=2; feedback('good','Pista 2 de 2','Para una misma potencia del motor, la línea punteada del mapa es el lugar de todos los regímenes posibles: recórrela buscando el valle de consumo, sin olvidar que a veces conviene un poco más arriba de lo que dice el mapa.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
+    case 'dx-mg1': diagnostica('mg1'); break;
+    case 'dx-bloq': diagnostica('bloq'); break;
+    case 'dx-mg2': diagnostica('mg2'); break;
+    case 'repair': if(GUIA.paso==='reparar') repara(); break;
+    case 'restart': location.reload(); break;
+    default: if(/^quiz-\d$/.test(act)) responde(+act.slice(5));
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,val)=>`<span class="tries">intentos fallidos: <b id="${n}">${val}</b>/3</span>`;
+  switch(GUIA.paso){
+    case 'willis': return {no:'Fase 1 · Willis',head:'Tu cálculo',title:'¿A qué régimen gira el solar?',
+      teach:`El coche va a <b>${fN(WILLIS.v,0)} km/h</b>: la <b>corona</b> gira a <b>${fN(nCoronaDe(WILLIS.v),0)} rpm</b>. El motor, en el portasatélites, a <b>${fN(WILLIS.n,0)} rpm</b>.<div class="task">¿A qué régimen gira el <b>solar</b> (MG1), en rpm? El signo cuenta. ${tri('d_try',RETO.fallosW)}</div>`,
+      acts:`<div class="calcrow"><input id="ansW" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? rpm" aria-label="Régimen del solar en rpm"><button class="b primary" data-act="check-w">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+    case 'op': return {no:'Fase 2 · Operación',head:'Tu decisión',title:GUIA.opOk?'Punto óptimo conseguido':'Fija el punto del motor',
+      teach:`A <b>${fN(OPS.v,0)} km/h</b> el coche pide <b>${fN(OPS.P,0)} kW</b> en la rueda. Elige régimen y par para que la <b>batería quede neutra</b> y se queme el <b>mínimo combustible</b>.<div class="task">${GUIA.opOk?'Resuelto. La línea óptima ya se ve en el mapa.':'P<sub>bat</sub> y el consumo se leen en el dock. '+tri('d_tryo',RETO.fallosO)}</div>`,
+      acts:GUIA.opOk?'':`<div class="cg"><div class="cl"><div>Régimen del motor</div><b id="vNg">${fN(GUIA.nSel,0)} rpm</b></div><input type="range" id="rNg" min="1000" max="5200" step="10" value="${GUIA.nSel}" aria-label="Régimen del motor térmico"></div>
+        <div class="cg"><div class="cl"><div>Par del motor</div><b id="vTg">${fN(GUIA.TSel,0)} N·m</b></div><input type="range" id="rTg" min="0" max="120" step="1" value="${GUIA.TSel}" aria-label="Par del motor térmico"></div>
+        <button class="b primary" data-act="check-op">✓ Comprobar mi punto</button><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+    case 'dx': return {no:'Fase 3 · Diagnóstico',head:'¿Cuál es la falla?',title:'El tren falla en operación',
+      teach:`Observa la escena, la palanca y el reparto de potencia e <b>identifica la falla</b>.<div class="task" id="symptomTask">${GUIA.sintoma||'Observa el síntoma y elige el diagnóstico.'}</div><span class="tries">intentos fallidos: ${RETO.fallosDx}/3</span>`,
+      acts:shuffled(['mg1','bloq','mg2']).map(k=>`<button class="b" data-act="dx-${k}"><span class="ic">${k==='mg1'?'⚡':k==='bloq'?'🔒':'⚙'}</span> ${k==='mg1'?'MG1 sin par (inversor abierto)':k==='bloq'?'MG1 bloqueado (solar parado)':'MG2 sin par'}</button>`).join('')};
+    case 'reparar': return {no:'Fase 3 · Diagnóstico',head:'Reparación',title:'Corrige la falla',
+      teach:`Diagnóstico correcto: <b>${nomFalla(GUIA.falla||'mg1')}</b>. Corrígela y mira volver el reparto.`,
+      acts:`<button class="b primary good" data-act="repair">🔧 Corregir la falla</button>`};
+    case 'quiz': return {no:'Cierre',head:'Una pregunta',title:'¿Cómo trabaja MG1?',
+      teach:`La corona gira a <b>${fN(QZ.nr,0)} rpm</b> y el motor empuja a <b>${fN(QZ.caso.n,0)} rpm</b>.`,
+      acts:QZ.opciones.map((o,i)=>`<button class="b" data-act="quiz-${i}" ${QZ.resp>=0?'disabled':''}><span>${o[1]}</span></button>`).join('')};
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculado, optimizado y reparado',
+      teach:`Puedes volver a <b>En marcha</b> y mover la velocidad y la demanda: mira cuándo el solar se para, dónde se pone al revés y cómo cambia el punto óptimo del motor.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Willis','Operación','Diagnóstico'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; SIM.soc=0.60; SIM.hist.length=0;
+    if(!GUIA.iniciado){ GUIA.iniciado=true; GUIA.phase=0; GUIA.paso='willis'; }
+    ponVista('engranaje');
+  } else { EST.modo='marcha'; SIM.soc=0.60; SIM.hist.length=0; ponVista('engranaje'); }
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  pintaHUD(); pintaDockFijo(); pintaBarras(); MAPA.clave='';
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud');
+  const prev={v:EST.v,P:EST.P,gestion:EST.gestion,nMan:EST.nMan,TMan:EST.TMan,esc:EST.esc,pausa:EST.pausa,vista:VISTA.actual,escMano:EST.escMano};
+  const fija=o=>{ Object.assign(EST,o); SIM.soc=0.60; pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } pintaDockFijo(); pintaBarras(); };
+  try{
+    fija({v:0,P:0,gestion:'manual',nMan:1500,TMan:60,pausa:false}); ponVista('engranaje');
+    showToast('Paso 1 · <b>Coche parado</b>, motor a 1 500 rpm. La corona no gira: todo el giro lo toma el <b>solar</b> (3,6 veces más deprisa). MG1 genera y carga la batería.',8000);
+    await espera(8400);
+    fija({v:30,P:6,gestion:'ev'});
+    showToast('Paso 2 · <b>Arranque eléctrico</b> a 30 km/h. El motor está apagado; MG2 empuja la corona y el solar gira libre <b>hacia atrás</b>, a −2,6 veces la velocidad de la corona.',8000);
+    await espera(8400);
+    fija({v:60,P:14,gestion:'optimo'});
+    showToast('Paso 3 · <b>Crucero a 60 km/h</b>. El motor entra donde consume menos con la batería neutra: el punto blanco del mapa cae sobre la línea óptima.',8000);
+    await espera(8400);
+    ponVista('tren');
+    showToast('Paso 4 · El mismo tren, <b>cortado a lo largo</b>: el volante, los cuatro cilindros, MG1, el planetario, MG2, la PCU y la batería. Los puntos naranja son potencia mecánica; los cian, eléctrica.',9500);
+    await espera(9900);
+    fija({v:130,P:30,gestion:'optimo'}); ponVista('engranaje');
+    showToast('Paso 5 · <b>Autopista a 130 km/h</b>: el solar queda casi parado. Toda la potencia viaja por el engranaje, sin pasar por la electricidad: es el punto más eficiente.',8500);
+    await espera(8900);
+    fija({v:150,P:30,gestion:'optimo'});
+    showToast('Paso 6 · A 150 km/h el solar gira <b>al revés</b> aunque el motor empuja: MG1 trabaja de motor y la potencia circula en lazo. La palanca de Willis lo muestra.',8500);
+    await espera(8900);
+    fija({v:80,P:-15,gestion:'ev'});
+    showToast('Paso 7 · <b>Frenada regenerativa</b>: MG2 se convierte en generador y devuelve energía a la batería (flecha amarilla hacia abajo).',7500);
+    await espera(7900);
+  } finally {
+    Object.assign(EST,prev); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 16. SONIDO (sintetizado) =====================
+   El zumbido del motor térmico sigue a su régimen y el de las máquinas
+   eléctricas a su velocidad: más agudo cuanto más deprisa. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,oscM=null,gM=null,oscE=null,gE=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      oscM=ctx.createOscillator(); oscM.type='sawtooth'; const fM=ctx.createBiquadFilter(); fM.type='lowpass'; fM.frequency.value=380; gM=ctx.createGain(); gM.gain.value=0; oscM.connect(fM); fM.connect(gM); gM.connect(master); oscM.start();
+      oscE=ctx.createOscillator(); oscE.type='sine'; gE=ctx.createGain(); gE.gain.value=0; oscE.connect(gE); gE.connect(master); oscE.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(p,activo){ if(!ctx) return; const t=ctx.currentTime;
+    oscM.frequency.setTargetAtTime(30+p.we/RPM/60*2,t,0.08);                     // 4 cilindros: 2 explosiones por vuelta
+    gM.gain.setTargetAtTime(on&&activo&&p.we>0?0.020*(0.4+Math.min(1,p.Te/100)):0,t,0.1);
+    oscE.frequency.setTargetAtTime(380+Math.min(2600,Math.abs(p.wr/RPM)*0.25+Math.abs(p.ws/RPM)*0.08),t,0.08);
+    gE.gain.setTargetAtTime(on&&activo?0.006*Math.min(1,(Math.abs(p.P1dc)+Math.abs(p.P2dc))/20000):0,t,0.1); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gM?gM.gain.value:0; }, get freq(){ return oscM?oscM.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 17. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.clave.shadow.mapSize.x!==ms){ LUZ.clave.shadow.mapSize.set(ms,ms); if(LUZ.clave.shadow.map){ LUZ.clave.shadow.map.dispose(); LUZ.clave.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  colocaBarras(); MAPA.clave='';
+  clearTimeout(window.__rzTH); window.__rzTH=setTimeout(()=>ponVista(VISTA.actual,0.01),140);
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 18. EL LAZO: UN SOLO RELOJ =====================
+   El estado del modelo (SIM.pt) se calcula una vez por cuadro y con ÉL se
+   pintan la escena (giros de los tres ejes, émbolos, llamas, brillos y
+   flujos) y el dock (palanca, mapa, reparto y SOC). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  aplicaEscena(EST.pausa?0:dt*EST.esc,dt,t);
+  pasaCam(dt);
+  sonido.actualiza(SIM.pt,!EST.pausa);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaLev(); pintaMapa(); pintaSt(); }
+  controls.update();
+  PASO_G.value=clamp(0.0030*camera.position.distanceTo(controls.target),0.0007,0.008);
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 19. ARRANQUE =====================
+   Abre funcionando: 80 km/h pidiendo 18 kW, gestión óptima, corte transversal
+   del planetario a cámara lenta ×1/60. */
+disposicion();
+ponCorte('trans');
+aplicaCalidad();
+pintaHUD();
+calcula();
+pintaDockFijo();
+pintaBarras();
+pintaRotulos();
+ponVista('engranaje',0.001);
+cuadro();
+setTimeout(()=>showToast('Conjunto planetario <b>cortado por la mitad</b> y girando a cámara lenta ×1/60. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' una pieza para saber qué es.',5200),600);
+
+/* ===================== 20. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':(['willis','operacion','diagnostico','cierre'][GUIA.phase]||'willis'); },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  get quizAnswer(){ return QZ.resp; },
+  get quizCorrectIndex(){ return QZ.correcta; },
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,willis:WILLIS,ops:OPS,dx:DX,falla:GUIA.falla,intentos:RETO.intentos,resiembras:RETO.resiembras,
+    fallos:{w:RETO.fallosW,o:RETO.fallosO,dx:RETO.fallosDx},pistas:{w:RETO.pistasW,o:RETO.pistasO},resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const p=SIM.pt; return {v:p.v,Pw:p.Pw,Pw_real:p.Pw_real,ws:p.ws,wc:p.wc,wr:p.wr,ns:p.ws/RPM,nc:p.wc/RPM,nr:p.wr/RPM,Te:p.Te,Pe:p.Pe,Ts:p.Ts,Tr:p.Tr,T2:p.T2,
+    P1sh:p.P1sh,P2sh:p.P2sh,P1dc:p.P1dc,P2dc:p.P2dc,Pbat:p.Pbat,mf:p.mf,bsfc:p.bsfc,soc:SIM.soc,lim:p.lim,falla:p.falla,
+    residuoMec:residuoMecanico(p),residuoBal:residuoBalance(p),thS:G_SOL.rotation.z,thC:G_PORTA.rotation.z,thR:G_COR.rotation.z}; },
+  escena(){ return {vista:VISTA.actual,corte:EST.corte,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,esc:EST.esc,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,puntos:N_PUNTOS}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({phase:GUIA.phase,paso:GUIA.paso,falla:GUIA.falla,willis:WILLIS,ops:OPS,dx:DX,qz:{correcta:QZ.correcta,resp:QZ.resp}}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  guia:(o)=>{ Object.assign(GUIA,o); pintaHUD(); },
+  quiz:()=>{ startQuiz(); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  soc:(s)=>{ SIM.soc=s; },
+  optimo:(v,P)=>{ const o=optimoDe(v,P); return {motor:o.motor,n:o.n,Te:o.Te,p:o.p&&{ws:o.p.ws/RPM,mf:o.p.mf,bsfc:o.p.bsfc,Pbat:o.p.Pbat}}; },
+});
+const SOMBRA_MIN=0.26;
+/* Presupuesto de llamadas de dibujo: sólo las piezas grandes proyectan sombra (cada sombra es otra llamada). */
+scene.updateMatrixWorld(true);
+{ const bx=new THREE.Box3(), sz=new THREE.Vector3();
+  scene.traverse(o=>{ if(o.isMesh&&o.castShadow){ bx.setFromObject(o); bx.getSize(sz); if(sz.length()<SOMBRA_MIN) o.castShadow=false; } }); }
+instalaDiag('tren-hibrido-planetario',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{solar:G_SOL,portasatelites:G_PORTA,corona:G_COR,fijo:FIJO,banco:BANCO}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-tren-hibrido-planetario.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
