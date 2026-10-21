@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Ciclo Atkinson del motor híbrido — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1419;--panel:rgba(10,16,22,.88);--line:#2C4150;--ink:#EEF3F6;
+    --dim:#A2B5C1;--accent:#FFA94D;--accent2:#FFD7A3;--hv:#5BC8FF;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cA:#FFA94D;--cO:#8FB8D6;--cM:#3DDC97;--cK:#FF5A6A;--cI:#5BC8FF;--cX:#FF7A45;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#16222c;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#203240}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#1d1000;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#1d1000;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ffc27d}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#1d1000}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#FFA94D;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#1d1000}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .clases{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+  .clases .b{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;padding:4px 8px;font-size:12px;line-height:1.2}
+  .clases .b small{font-size:9.5px;color:var(--dim);font-weight:400}
+  .clases .b.on small{color:#5a3a00}
+  .clases .b .pr{color:var(--hv);letter-spacing:.06em;font-size:10.5px}
+  .clases .b.on .pr{color:#5a3a00}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#16222c;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cA);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(255,169,77,.40);background:rgba(255,169,77,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(255,169,77,.60),0 0 24px 6px rgba(255,169,77,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(255,200,140,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(255,200,140,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · motor híbrido</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Rendimiento</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Par gasolina</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Par eléctrico</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Comprime</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Consumo</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Golpeteo</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Presión y volumen del cilindro</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Presión según el giro <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Consumo del motor <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Si sólo mueves el cierre <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — CICLO ATKINSON/MILLER DEL MOTOR HÍBRIDO: COMPRIMIR MENOS, EXPANDIR MÁS
+   (Autotrónica · mecanica-159)
+
+   Un cilindro de gasolina cortado por la mitad, con su pistón, sus dos válvulas y su cigüeñal. El alumno cambia CUÁNDO CIERRA la
+   válvula de admisión: si cierra tarde, el pistón ya sube y devuelve parte del aire al colector, así que el motor comprime menos de
+   lo que expande (ciclo Atkinson/Miller). Gasta menos gasolina por kilómetro, pero atrapa menos aire y empuja menos: el par que falta
+   lo pone el motor eléctrico del híbrido. Todo —el pistón, las válvulas, el color del gas, el diagrama P–V, las cifras— sale de un único
+   modelo en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Ciclo Atkinson/Miller de un motor híbrido: un cilindro de aire estándar con cierre tardío de la válvula de admisión. Física pura (sin three). SI salvo donde se diga. ----
+   Cadena: la geometría biela-manivela da V(θ) → la admisión entra a la presión del colector p_m y, mientras la válvula sigue abierta en la
+   carrera de compresión, el pistón EMPUJA parte de la carga de vuelta al colector: la masa atrapada es m = p_m·V_cierre/(R·T) →
+   compresión isentrópica desde V_cierre (relación de compresión EFECTIVA r_c = V_cierre/V_c) → combustión con ley de Wiebe resuelta con
+   la primera ley (dp/dθ = [−γ·p·V′ + (γ−1)·dQ/dθ]/V) → expansión isentrópica hasta el PMI (relación de expansión r_e = la geométrica) →
+   escape y bombeo. Par, consumo, detonación (Livengood–Wu con el retardo de Douaud–Eyzat) y reparto con el motor eléctrico. */
+const DOSPI=Math.PI*2, RAD=Math.PI/180;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>{ t=clamp(t,0,1); return t*t*(3-2*t); };
+
+/* ---- El motor: 4 cilindros de 449 cm³ (1,8 L), carrera larga, biela de 140 mm ---- */
+const MOT={B:0.0805,S:0.0883,L:0.140,NC:4};
+const A_P=Math.PI*MOT.B*MOT.B/4, A_M=MOT.S/2, VD=A_P*MOT.S, VD_TOT=VD*MOT.NC;
+const X_PMS=A_M+MOT.L;                                          // posición del bulón (desde el eje del cigüeñal) en el PMS
+/* ---- El gas y el combustible (valores DIDÁCTICOS; la ficha los declara) ---- */
+const R_GAS=287, GAMMA=1.32, CV=R_GAS/(GAMMA-1);
+const T_ADM=320;                                                // temperatura de la carga al cerrar la admisión (K)
+const AFR=14.7, LHV=43e6, XI=0.65;                              // mezcla estequiométrica; poder calorífico (J/kg); fracción del calor del combustible que llega al gas
+/* Pérdida de calor a las paredes: la relación superficie/volumen de la cámara en el PMS crece cuando la cámara se aplana (r grande).
+   ξ(r) = XI·(1 − HL·(SV(r)/SV(r_ref) − 1)), con SV = 2/h + 4/B y h = S/(r − 1) la altura de la cámara. Correlación DIDÁCTICA. */
+const HL=0.10, SV=r=>2*(r-1)/MOT.S+4/MOT.B;
+const xiDe=r=>XI*(1-HL*(SV(r)/SV(10.5)-1));
+const qAire=r=>xiDe(r)*LHV/AFR;                                 // calor al gas por kg de aire (J/kg)
+const P_ESC=1.05e5, P_PLENA=0.95e5;                             // presión de escape y del colector con la mariposa abierta (Pa)
+/* ---- Combustión: ley de Wiebe ---- */
+const ENC=-12, DUR=40, W_A=5, W_M=2;                            // salto de chispa (° respecto al PMS), duración (°), parámetros de Wiebe
+/* ---- Cierre de la admisión y rangos de los mandos ---- */
+const IVO=350;                                                  // apertura (° desde el PMS de encendido, en 720°): fija, 10° antes del PMS de admisión
+const EVO=180, EVC=370;                                         // el escape abre en el PMI y cierra 10° después del PMS
+const L_VALV=9;                                                 // alzada máxima de las válvulas (mm)
+const IVC_REF=45, R_REF=10.5;                                   // el motor de referencia: Otto convencional
+const IVC_MIN=30, IVC_MAX=110, R_MIN=9, R_MAX=17;
+const LIM={tmg:45,pmg:32e3};                                    // límites del motor eléctrico: par máximo (N·m) y potencia (W)
+const S_EQ=3.0;                                                 // kWh de combustible que cuesta cada kWh eléctrico de la batería (se repone luego con el motor térmico)
+const ETA_MG=0.92;                                              // rendimiento del motor eléctrico + inversor
+const fmep=n=>(0.45+0.15*n/1000)*1e5;                           // presión media de fricción (Pa)
+const C_K=1.4;                                                  // calibración del retardo de autoencendido: con ella el motor de referencia a plena carga con 91 octanos queda cerca del límite
+/* ---- El reto ---- */
+const RETO={kMax:0.80,mgMax:15};
+const ESCENARIOS=[
+  {id:'carretera',nombre:'Carretera',n:2400,par:100,ron:91,meta:0.050},
+  {id:'cuesta',nombre:'Cuesta suave',n:2000,par:100,ron:87,meta:0.040},
+  {id:'ciudad',nombre:'Ciudad',n:1600,par:85,ron:87,meta:0.055},
+];
+const escPorId=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[0];
+
+/* ---- Geometría biela-manivela. θ en grados desde el PMS de encendido ---- */
+const posBulon=th=>{ const t=th*RAD, s=A_M*Math.sin(t); return A_M*Math.cos(t)+Math.sqrt(MOT.L*MOT.L-s*s); };
+const vc=r=>VD/(r-1);
+const volumen=(r,th)=>vc(r)+A_P*(X_PMS-posBulon(th));
+const dVdth=th=>{ const t=th*RAD, s=Math.sin(t), c=Math.cos(t); return A_P*A_M*(s+A_M*s*c/Math.sqrt(MOT.L*MOT.L-A_M*A_M*s*s))*RAD; };   // m³ por grado
+/** Volumen atrapado al cerrar la admisión (φ° después del PMI de compresión, que está en 540°) */
+const vIVC=(r,phi)=>volumen(r,180-phi);
+/** Relación de compresión EFECTIVA */
+const rEfec=(r,phi)=>vIVC(r,phi)/vc(r);
+
+/* ---- Wiebe normalizada: fracción quemada x(θ) y su derivada por grado ---- */
+const wiebeN=1-Math.exp(-W_A);
+function xQuem(th,enc,dur){ const u=(th-enc)/dur; if(u<=0) return 0; if(u>=1) return 1; return (1-Math.exp(-W_A*Math.pow(u,W_M+1)))/wiebeN; }
+function dxQuem(th,enc,dur){ const u=(th-enc)/dur; if(u<=0||u>=1) return 0; return W_A*(W_M+1)*Math.pow(u,W_M)*Math.exp(-W_A*Math.pow(u,W_M+1))/wiebeN/dur; }
+
+/* ---- El núcleo: el ciclo cerrado, por unidad de presión del colector (p_m = 1 Pa); todo lo de presión escala con p_m ---- */
+const _cacheNu=new Map();
+function nucleo(r,phi,opt){
+  const o=Object.assign({enc:ENC,dur:DUR},opt||{}), usaCache=!opt, clave=r.toFixed(4)+'|'+phi.toFixed(4);
+  if(usaCache&&_cacheNu.has(clave)) return _cacheNu.get(clave);
+  const Vc=vc(r), V1=vIVC(r,phi), Vbdc=Vc+VD, m1=V1/(R_GAS*T_ADM), Qt=m1*qAire(r);
+  const thS=o.enc, thE=o.enc+o.dur, Vs=volumen(r,thS);
+  let p=Math.pow(V1/Vs,GAMMA);                                       // compresión isentrópica hasta la chispa (p_m = 1)
+  const ps=p, n=Math.max(1,Math.ceil(o.dur/(o.paso||0.25))), hh=o.dur/n;
+  const f=(th,pp)=>(-GAMMA*pp*dVdth(th)+(GAMMA-1)*Qt*dxQuem(Math.min(th,thE-1e-9),o.enc,o.dur))/volumen(r,th);   // (en el último paso, el valor del lado de dentro)
+  const tab=new Float64Array(n+1); tab[0]=p;
+  for(let i=0;i<n;i++){ const th=thS+i*hh, k1=f(th,p), k2=f(th+hh/2,p+hh/2*k1), k3=f(th+hh/2,p+hh/2*k2), k4=f(th+hh,p+hh*k3); p+=hh/6*(k1+2*k2+2*k3+k4); tab[i+1]=p; }
+  const pe=p, Ve=volumen(r,thE), p4=pe*Math.pow(Ve/Vbdc,GAMMA);
+  const Wcerr=Qt-(p4*Vbdc-V1)/(GAMMA-1);                              // trabajo del ciclo cerrado (J por Pa): primera ley de IVC a EVO
+  let pmax=0,imax=0; for(let i=0;i<=n;i++) if(tab[i]>pmax){ pmax=tab[i]; imax=i; }
+  const thPm=thS+imax*hh, Tmax=pmax*volumen(r,thPm)/(m1*R_GAS), T4=p4*Vbdc/(m1*R_GAS);
+  const nu={r,phi,Vc,V1,Vbdc,m1,Qt,thS,thE,Vs,ps,hh,n,tab,pe,Ve,p4,Wcerr,pmax,thPmax:thPm,rc:V1/Vc,eta_cerr:Wcerr/Qt,T2:T_ADM*Math.pow(V1/Vc,GAMMA-1),T4,Tmax};
+  if(usaCache){ if(_cacheNu.size>200) _cacheNu.clear(); _cacheNu.set(clave,nu); }
+  return nu;
+}
+/** Rendimiento ideal del ciclo cerrado (combustión instantánea en el PMS), en forma cerrada: 1 − (T4 − T1)/(T3 − T2). */
+function etaIdeal(r,phi){
+  const rc=rEfec(r,phi), T2=T_ADM*Math.pow(rc,GAMMA-1), T3=T2+qAire(r)/CV, T4=T3*Math.pow(r,1-GAMMA);
+  return 1-(T4-T_ADM)/(T3-T2);
+}
+/** Retardo de autoencendido (ms): Douaud–Eyzat (1978), p en Pa, T en K. Fórmula A VERIFICAR con la fuente; aquí escalada por C_K. */
+const tauMs=(p,T,ron)=>C_K*17.68*Math.pow(ron/100,3.402)*Math.pow(p/101325,-1.7)*Math.exp(3800/T);
+/** Integral de Livengood–Wu del gas sin quemar (K ≥ 1: detona), mientras dura la combustión. pm: Pa; n: rpm. */
+function detona(nu,pm,n,ron){
+  const dtGrado=1/(6*n)*1000, T_s=T_ADM*Math.pow(nu.V1/nu.Vs,GAMMA-1);
+  let K=0; const tab=nu.tab, N=nu.n;
+  const g=i=>1/tauMs(pm*tab[i],T_s*Math.pow(tab[i]/nu.ps,(GAMMA-1)/GAMMA),ron);
+  for(let i=0;i<N;i++) K+=0.5*(g(i)+g(i+1))*nu.hh*dtGrado;
+  return K;
+}
+
+/* ---- El punto de funcionamiento del motor térmico ---- */
+const ciclosPorSeg=n=>MOT.NC*n/120;                                  // ciclos por segundo de los 4 cilindros (4 tiempos: una vez cada 2 vueltas)
+function motor(r,phi,n,pm,ron,sinK){
+  const nu=nucleo(r,phi), Vc=nu.Vc, V1=nu.V1, Vb=nu.Vbdc;
+  const Wc=nu.Wcerr*pm;                                              // J por cilindro y ciclo (cerrado)
+  const Wbomba=-P_ESC*(Vb-Vc)+pm*(V1-Vc);                            // escape (−) + admisión neta (+): el bombeo
+  const Wnet=Wc+Wbomba, imep=Wnet/VD, pmep=-Wbomba/VD, fm=fmep(n);
+  const bmep=imep-fm, par=bmep*VD_TOT/(4*Math.PI), w=n*DOSPI/60, pot=par*w;
+  const m=nu.m1*pm, mf=m/AFR, Ef=mf*LHV, mdotF=mf*ciclosPorSeg(n);
+  return {nu,pm,m,mf,Ef,Wc,Wbomba,Wnet,imep,pmep,fmep:fm,bmep,par,pot,mdotF,etaInd:Wnet/Ef,etaFreno:pot>0?pot/(mdotF*LHV):0,
+    bsfc:pot>0?mdotF/pot*3.6e9:Infinity,K:sinK?0:detona(nu,pm,n,ron),pmax:nu.pmax*pm,Tmax:nu.Tmax,rc:nu.rc,etaId:etaIdeal(r,phi)};
+}
+/** Par de freno a plena carga (mariposa abierta) */
+const parPleno=(r,phi,n)=>motor(r,phi,n,P_PLENA,91,true).par;
+/** Presión de colector que da el par pedido (el motor es LINEAL en p_m); alcanza=false si ni abierta del todo llega. */
+function pmPara(r,phi,n,par){
+  const a=motor(r,phi,n,P_PLENA,91,true), b=motor(r,phi,n,0.5*P_PLENA,91,true);
+  const dpar=(a.par-b.par)/(0.5*P_PLENA), pm=P_PLENA+(par-a.par)/dpar;
+  return {pm,alcanza:pm<=P_PLENA+1e-6};
+}
+/* ---- El híbrido: el motor térmico pone lo que puede y el eléctrico completa; el consumo se mide en «combustible equivalente» ---- */
+function hibrido(esc,r,phi){
+  const w=esc.n*DOSPI/60, parMgMax=Math.min(LIM.tmg,LIM.pmg/w);
+  const pl=parPleno(r,phi,esc.n), uso=pmPara(r,phi,esc.n,esc.par);
+  const pm=uso.alcanza?Math.max(0.12*P_PLENA,uso.pm):P_PLENA;        // si alcanza, se estrangula hasta el par pedido; si no, abierta del todo
+  const M=motor(r,phi,esc.n,pm,esc.ron);
+  const parMg=Math.max(0,esc.par-M.par), potMg=parMg*w/ETA_MG, potPedida=esc.par*w;
+  const mdotEq=M.mdotF+S_EQ*potMg/LHV, bsfcEq=mdotEq/potPedida*3.6e9;
+  return {M,pm,pl,parMg,parMgMax,potMg,potPedida,bsfcEq,mdotEq,faltaPar:parMg>parMgMax+1e-9,abierta:!uso.alcanza,K:M.K,reparto:parMg/esc.par,apertura:pm/P_PLENA};
+}
+const _cacheRef=new Map();
+/** El motor de referencia (Otto convencional, sin ayuda): estrangula para dar el par pedido. */
+function referencia(esc){ const k=esc.id+'|'+esc.n+'|'+esc.par+'|'+esc.ron; if(!_cacheRef.has(k)) _cacheRef.set(k,hibrido(esc,R_REF,IVC_REF)); return _cacheRef.get(k); }
+/** Los criterios del reto, con sus cifras. */
+function criterios(esc,r,phi){
+  const h=hibrido(esc,r,phi), ref=referencia(esc), ahorro=1-h.bsfcEq/ref.bsfcEq;
+  const c={golpeteo:h.K<=RETO.kMax,par:!h.faltaPar&&h.parMg<=RETO.mgMax,consumo:ahorro>=esc.meta-1e-12};
+  return {h,ref,ahorro,c,todo:c.golpeteo&&c.par&&c.consumo};
+}
+const cumpleTodo=(esc,r,phi)=>criterios(esc,r,phi).todo;
+/** Rango de cierres φ (°) que cumple todo con el r dado: la ventana [a, b] o null. Barrido de 0,5°. */
+function rangoPhi(esc,r){ let a=null,b=null; for(let p=IVC_MIN;p<=IVC_MAX+1e-9;p+=0.5){ if(cumpleTodo(esc,r,p)){ if(a===null) a=p; b=p; } } return a===null?null:[a,b]; }
+/** Barrido del cierre con r fijo (para la gráfica «si sólo mueves el cierre») */
+function barridoPhi(esc,r,paso){ const o=[]; for(let p=IVC_MIN;p<=IVC_MAX+1e-9;p+=(paso||2)){ const h=hibrido(esc,r,p); o.push({phi:p,parIce:h.M.par,parPleno:h.pl,parMg:h.parMg,bsfcEq:h.bsfcEq,K:h.K,abierta:h.abierta}); } return o; }
+
+/* ---- El diagnóstico: cuatro averías de «puesta a punto» que se distinguen por lo que se ve en el dock ---- */
+const CASOS_DX=[
+  {k:'golpeteo',esc:'cuesta',r:15,phi:35},      // comprime de más: el gas sin quemar se enciende solo
+  {k:'sinaire',esc:'carretera',r:13,phi:106},   // cierra tan tarde que atrapa muy poco aire: el eléctrico no da abasto
+  {k:'ahogo',esc:'ciudad',r:11,phi:35},         // cierra pronto: sobra aire y la mariposa lo estrangula (bombeo)
+  {k:'cortoexp',esc:'ciudad',r:10,phi:95},      // expande poco: no hay golpeteo ni estrangulación, pero gasta casi igual que el Otto
+];
+/** Qué síntomas da una puesta a punto (los que el dock enseña): sólo el caso que corresponde los cumple todos. */
+function sintomas(esc,r,phi){
+  const c=criterios(esc,r,phi), h=c.h;
+  return {golpeteo:h.K>1.0,sinaire:h.parMg>RETO.mgMax,ahogo:h.apertura<0.8&&h.K<=RETO.kMax&&h.parMg<1,cortoexp:h.apertura>=0.99&&h.parMg<=RETO.mgMax&&h.K<=RETO.kMax&&c.ahorro<0.03};
+}
+/* ---- La traza del ciclo: p, V, T cada 0,5° en 720° para un punto de funcionamiento ---- */
+const PASO_TR=0.5, NTR=Math.round(720/PASO_TR);
+/** Presión relativa (p/p_m) y temperatura (K) del gas ENCERRADO en el ángulo θ (° desde el PMS, de φ−180 a 180). */
+function cerrado(nu,r,th){
+  const v=volumen(r,th); let pr;
+  if(th<nu.thS) pr=Math.pow(nu.V1/v,GAMMA);
+  else if(th<=nu.thE){ const u=(th-nu.thS)/nu.hh, i=Math.min(nu.n-1,Math.floor(u)), f=u-i; pr=nu.tab[i]*(1-f)+nu.tab[i+1]*f; }
+  else pr=nu.pe*Math.pow(nu.Ve/v,GAMMA);
+  return {pr,T:pr*v/(nu.m1*R_GAS)};
+}
+function traza(r,phi,pm){
+  const nu=nucleo(r,phi), p=new Float64Array(NTR+1), V=new Float64Array(NTR+1), T=new Float64Array(NTR+1), x=new Float64Array(NTR+1);
+  const ivc=540+phi, Texh=nu.T4*Math.pow(P_ESC/(nu.p4*pm),(GAMMA-1)/GAMMA);
+  for(let i=0;i<=NTR;i++){
+    const th=i*PASO_TR; V[i]=volumen(r,th);
+    if(th<=EVO){ const c=cerrado(nu,r,th); p[i]=c.pr*pm; T[i]=c.T; x[i]=xQuem(th,ENC,DUR); }
+    else if(th<360){ p[i]=P_ESC; T[i]=Texh; x[i]=1; }
+    else if(th<=ivc){ p[i]=pm; T[i]=T_ADM; x[i]=0; }
+    else { const t2=th-720, c=cerrado(nu,r,t2); p[i]=c.pr*pm; T[i]=c.T; x[i]=t2>=ENC?xQuem(t2,ENC,DUR):0; }
+  }
+  return {nu,pm,p,V,T,x,ivc};
+}
+/** Elevación de las válvulas (mm) en el ángulo th (° en 720°) con el cierre φ. */
+function elevacion(th,phi){
+  const t=((th%720)+720)%720, ivc=540+phi;
+  const adm=(t>=IVO&&t<=ivc)?L_VALV*Math.pow(Math.sin(Math.PI*(t-IVO)/(ivc-IVO)),2):0;
+  const esc=(t>=EVO&&t<=EVC)?L_VALV*Math.pow(Math.sin(Math.PI*(t-EVO)/(EVC-EVO)),2):0;
+  return {adm,esc};
+}
+/** Carrera del ciclo en th: 0 expansión · 1 escape · 2 admisión · 3 compresión */
+function carrera(th){ const t=((th%720)+720)%720; return t<180?0:(t<360?1:(t<540?2:3)); }
+/* ---- El mapa de consumo del motor térmico (n en rpm × par en N·m) ---- */
+const MAPA_N=[1000,5000], MAPA_T=[0,170];
+function mapaMotor(r,phi,ron,nx,ny){
+  const cel=new Float64Array(nx*ny), Tpl=[], Kpl=[];
+  for(let i=0;i<nx;i++){ const n=MAPA_N[0]+(MAPA_N[1]-MAPA_N[0])*(i+0.5)/nx, Tm=parPleno(r,phi,n); Tpl.push(Tm); Kpl.push(motor(r,phi,n,P_PLENA,ron).K);
+    for(let j=0;j<ny;j++){ const T=MAPA_T[0]+(MAPA_T[1]-MAPA_T[0])*(j+0.5)/ny; let b=NaN;
+      if(T>2&&T<=Tm){ const u=pmPara(r,phi,n,T); b=motor(r,phi,n,u.pm,ron,true).bsfc; }
+      cel[i*ny+j]=b; } }
+  return {nx,ny,cel,Tpl,Kpl};
+}
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.80;
+scene.fog=new THREE.Fog('#1a2630',22,70);
+
+const camera=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,0.1,200);
+camera.position.set(0,2.2,16);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.0; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.62; controls.minPolarAngle=0.25;
+controls.target.set(0,2.2,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda y de frente, relleno frío, contraluz y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff0dd',2.8); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-5,9,10); LUZ.sol.target.position.set(0,2.2,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-6,right:6,top:7,bottom:-4,near:1,far:40});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#9cc7e6',1.0); LUZ.relleno.position.set(8,3,7); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#ffb878',1.5); LUZ.rim.position.set(-6,5,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#b6d5e8','#1c2a33',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+const SEG3=()=>calAlta()?40:28;
+
+/* Resplandor moderado SÓLO en lo que emite: la llama, la chispa, el motor eléctrico y las partículas calientes. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.30,0.34,0.97); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: la piel de fundición suave del kit (baja frecuencia) y las caras de
+   sección con rayado técnico fino a 45°, de bajo contraste y del tono de cada pieza. */
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#33414b'); g.addColorStop(1,'#161f27');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(255,190,120,0.07)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(255,190,120,0.20)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_PLAT=texPlataforma();
+const PIEL=P3.pielFundicion({semilla:11,celda:52,relieve:2.4});
+for(const t of [PIEL.map,PIEL.roughnessMap,PIEL.normalMap]) t.repeat.set(0.55,0.55);
+const pbr=(c,r,m,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:r,metalness:m},o||{}));
+const fis=o=>new THREE.MeshPhysicalMaterial(o);
+const conPiel=k=>({map:PIEL.map,roughnessMap:PIEL.roughnessMap,normalMap:PIEL.normalMap,normalScale:new THREE.Vector2(k,k)});
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr('#0c1217',0.4,0.6),
+  neon: new THREE.MeshBasicMaterial({color:'#ffae5a',toneMapped:false}),
+  alu: pbr('#a39e96',0.46,0.78,conPiel(0.55)),          // culata y tapa: aluminio fundido
+  hierro: pbr('#62666c',0.78,0.55,conPiel(0.70)),       // bloque: fundición gris
+  chapa: pbr('#25292e',0.48,0.35),
+  acero: pbr('#a3aab2',0.30,1.00,{envMapIntensity:1.05}),
+  pulido: pbr('#c9cfd6',0.18,1.00,{envMapIntensity:1.0}),
+  piston: pbr('#d3d3cf',0.40,0.85,conPiel(0.30)),
+  segmento: pbr('#2c3036',0.36,0.90),
+  camisa: pbr('#5f6469',0.30,0.90),
+  bronce: pbr('#b08a55',0.34,0.95),
+  muelle: pbr('#3b4652',0.32,0.85),
+  goma: pbr('#15171b',0.88,0),
+  junta: pbr('#6e3a31',0.55,0.55),
+  colAdm: pbr('#3d4a55',0.5,0.55,conPiel(0.5)),          // colector de admisión (aluminio anodizado oscuro)
+  colEsc: pbr('#3a3835',0.74,0.58,conPiel(0.80)),        // colector de escape: hierro fundido
+  escB: pbr('#2e2c2a',0.85,0.4,{side:THREE.BackSide}),
+  hueco: pbr('#7a766f',0.66,0.62),
+  huecoB: pbr('#7a766f',0.66,0.62,{side:THREE.BackSide}),
+  cobre: pbr('#c9824f',0.30,1.0),
+  bujia: pbr('#efece4',0.22,0),
+  vidrio: fis({color:'#bfe6ff',metalness:0,roughness:0.05,transparent:true,opacity:0.16,envMapIntensity:1.6,clearcoat:1,depthWrite:false,side:THREE.DoubleSide}),
+};
+/* Las caras de sección: rayado técnico FINO, anclado al mundo de la pieza (en milímetros), poco contraste. */
+const RAYA_TEX=[];
+function rayado(fondo,linea,sentido,densidad){
+  const t=P3.texturaRayado({fondo,linea,sentido,lineas:8,grueso:0.13,px:256,porUnidad:1,grano:0});
+  t.repeat.set((densidad||1)/24,(densidad||1)/24); RAYA_TEX.push(t);
+  return new THREE.MeshStandardMaterial({map:t,roughness:0.52,metalness:0.30,envMapIntensity:0.55});
+}
+const H3={
+  hierroN: rayado('#7a7e84','#62666c',-1),
+  hierroP: rayado('#83878d','#696d73',1),
+  aluP: rayado('#b2ada3','#948e83',1),
+  aluN: rayado('#b2ada3','#948e83',-1),
+  aceroP: rayado('#a2a8b0','#858b93',1,1.5),
+  aceroN: rayado('#a2a8b0','#858b93',-1,1.5),
+  pistonN: rayado('#cbc8c0','#aca99f',-1),
+  bronceN: rayado('#b8935f','#977548',-1,1.5),
+  ceramP: rayado('#e2ded4','#c6c1b6',1,2.0),
+  chapaP: rayado('#4f545b','#3e4248',1),
+};
+const LLENO={segmento:pbr('#1b1e23',0.5,0.6),muelle:pbr('#2c3742',0.4,0.7)};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una lista de geometrías en una sola (posición, normal y uv): una pieza de veinte trozos con el mismo material cuesta UNA llamada. */
+const junta=gs=>gs.length===1?gs[0]:P3.fusiona(gs);
+
+/* ===================== 6. EL MOTOR EN CORTE =====================
+   Un cilindro de un motor de 1,8 L cortado por el plano del cigüeñal (se ve la mitad de atrás). Todo se construye en MILÍMETROS y el
+   conjunto se escala a 0,01 unidades por mm. La geometría es la del modelo: el pistón está donde dice la biela-manivela (la misma
+   función que da V(θ)), la cámara tiene la altura V_c/A que sale de la relación de expansión, y las válvulas suben lo que dice
+   elevacion(θ, φ). Las secciones son de caras con rayado técnico; lo fijo se funde por material en pocas mallas. */
+const SD=P3.SDF2, ESC=0.01;
+const RB=MOT.B*500, A_MM=MOT.S*500, L_MM=MOT.L*1000, Y_PMS=X_PMS*1000;     // radio del cilindro, radio de la manivela, biela, bulón en el PMS (mm)
+const CH=31, Z_FONDO=58, Y_BLOQ=100, X_V=26, YC_CAM=105, R_CAM_B=9, Y_RES_ABRE=56, X_MG=215, Z_CORREA=-51;
+const hcMm=r=>vc(r)/A_P*1e3;                                    // altura de la cámara en el PMS (mm) = V_c / A
+const deckDe=r=>Y_PMS+CH+hcMm(r);                               // y de la cara de la culata
+const DECK_MAX=deckDe(R_MIN);
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+const ENG=new THREE.Group(); ENG.scale.setScalar(ESC); MUNDO.add(ENG);
+const CULATA=new THREE.Group(); ENG.add(CULATA);                // todo lo que sube y baja con la altura de la cámara (y = cara de la culata)
+
+/* ---------- la plataforma ---------- */
+{
+  const W=10.4, D=4.6, g=new RoundedBoxGeometry(W,0.16,D,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0.6,-1.08,0.9); PLATAFORMA.add(p);
+  const w=W/2-0.07,h=D/2-0.07,r=0.08, sh=new THREE.Shape();
+  sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sh.getPoints(60).map(q=>V3(q.x,0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0.6,-1.0,0.9); PLATAFORMA.add(n);
+}
+scene.background=fondoDegradado('#0a1218','#182833','#3d5666'); scene.fog.color.set('#1b2b36');
+{
+  const d=malla(new THREE.CircleGeometry(40,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(255,170,90,0.20)','rgba(20,40,60,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.set(0.6,-1.2,0.9); d.scale.setScalar(0.42); d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(60,60),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.set(0,-1.0,0); s.userData.fondo=true; MUNDO.add(s);
+}
+
+/* ---------- ayudas de construcción ---------- */
+const cajaRed=(cx,cy,hx,hy,r)=>{ const f=SD.caja(cx,cy,hx-r,hy-r); return (x,y)=>f(x,y)-r; };
+const matCuerpo=new Map();                                      // material → geometrías, para fundirlas
+function agrega(mapa,mat,geo){ if(!geo||!geo.attributes||!geo.attributes.position||!geo.attributes.position.count) return; if(!mapa.has(mat)) mapa.set(mat,[]); mapa.get(mat).push(geo); }
+function vuelca(mapa,grupo,{sombra=false}={}){
+  for(const [mat,gs] of mapa){ const g=junta(gs); sana(g); const m=malla(g,mat,{sombra:sombra&&!mat.transparent}); grupo.add(m); }
+  mapa.clear();
+}
+/** Una pieza de sección definida por distancias con signo: la cara cortada (rayada), las paredes hasta el fondo, el fondo de las cavidades. */
+function piezaSDF(mapa,{ext,cavs,caja,h,fondo=Z_FONDO,cara,cuerpo,placa,sinFondo=false}){
+  const sol=SD.resta(ext,SD.union(...cavs));
+  agrega(mapa,cara,P3.seccionSDF(sol,caja,h).cara);
+  const lazos=P3.contornosSDF(sol,caja,h);
+  agrega(mapa,cuerpo,P3.prismaZ(lazos,-fondo,0,{tapaAtras:true}));
+  if(!sinFondo) agrega(mapa,placa,P3.seccionSDF(SD.interseccion(SD.union(...cavs),ext),caja,h,{z:-fondo+0.05}).cara);
+  return sol;
+}
+
+/* ---------- el bloque: cárter y faldón del cilindro (fijo) ---------- */
+const ESTAT=new Map(), MAT_PLACA=pbr('#3b4047',0.62,0.40);
+{
+  const ext=SD.union(cajaRed(0,-17,102,79,16),SD.caja(0,81,54,19));
+  const bore=SD.caja(0,56,RB,57), cigue=SD.circulo(0,0,78), ancha=SD.caja(0,22,72,24), ventana=SD.caja(104,0,44,36);
+  piezaSDF(ESTAT,{ext,cavs:[SD.union(bore,cigue,ancha,ventana)],caja:[-110,-104,160,102],h:1.4,cara:H3.hierroP,cuerpo:M.hierro,placa:MAT_PLACA});
+}
+vuelca(ESTAT,ENG,{sombra:true});
+
+/* ---------- la camisa y la pared del cilindro (arriba del faldón): sube y baja con la cámara ---------- */
+const PARED_Y0=Y_BLOQ-1, PARED_H=DECK_MAX-PARED_Y0;
+const PARED=new THREE.Group(); ENG.add(PARED); PARED.position.y=PARED_Y0;
+{
+  const m=P3.mediaRevolucion([[RB,0],[RB+13.75,0],[RB+13.75,PARED_H],[RB,PARED_H]],{seg:SEG3()+8});
+  PARED.add(malla(m.cuerpo,M.hierro)); PARED.add(malla(m.corte,H3.hierroN,{sombra:false}));
+  const cam=P3.mediaRevolucion([[RB-0.2,0],[RB,0],[RB,PARED_H],[RB-0.2,PARED_H]],{seg:SEG3()+8});     // la camisa bruñida
+  PARED.add(malla(cam.cuerpo,M.camisa,{sombra:false}));
+}
+
+/* ---------- la culata con su tapa de levas (se mueve con la altura de la cámara) ---------- */
+const PORT_A=[[-X_V,2],[-X_V,22],[-34,35],[-50,45],[-74,50]], PORT_E=[[X_V,2],[X_V,22],[34,33],[48,41],[74,47]];
+const R_PA=10.5, R_PE=9.5;
+const CAJA_CUL=[-80,-6,80,146], ALTO_TAPA=140;
+{
+  const ext=SD.union(cajaRed(0,28,62,28,3),cajaRed(0,98,60,42,3));
+  const cav=[SD.banda(PORT_A,R_PA),SD.banda(PORT_E,R_PE),SD.caja(-X_V,0.8,13.9,2.0),SD.caja(X_V,0.8,12.4,2.0),
+    SD.caja(-X_V,40,2.9,19),SD.caja(X_V,40,2.9,19),SD.caja(0,28,6,29),cajaRed(0,94,47,36,2)];
+  const sol=SD.resta(ext,SD.union(...cav));
+  agrega(ESTAT,H3.aluP,P3.seccionSDF(sol,CAJA_CUL,1.2).cara);
+  agrega(ESTAT,M.alu,P3.prismaZ(P3.contornosSDF(sol,CAJA_CUL,1.2),-Z_FONDO,0,{tapaAtras:true}));
+  // el fondo de la cámara de levas y de los conductos (para que no se vea el vacío detrás)
+  const hu=SD.interseccion(SD.union(...cav),ext);
+  agrega(ESTAT,M.hueco,P3.seccionSDF(hu,CAJA_CUL,1.2,{z:-Z_FONDO+0.05}).cara);
+  // junta de la culata
+  const jn=P3.mediaRevolucion([[RB-1,-1.6],[RB+13.75,-1.6],[RB+13.75,0],[RB-1,0]],{seg:SEG3()});
+  agrega(ESTAT,LLENO.segmento,jn.corte); agrega(ESTAT,pbr('#2a2d33',0.6,0.4),jn.cuerpo);
+}
+vuelca(ESTAT,CULATA,{sombra:true});
+
+/* ---------- los colectores: tubos cortados por su eje, con su pared ---------- */
+const RUTA_ADM_PTS=[[-62,47.5],[-92,52.5],[-135,55],[-178,53],[-224,47]], RUTA_ESC_PTS=[[62,44.2],[95,50],[128,66],[158,96],[190,124]];
+const TUBO_A=P3.tuboCortado(RUTA_ADM_PTS,R_PA,R_PA+3,{seg:44,radial:14}), TUBO_E=P3.tuboCortado(RUTA_ESC_PTS,R_PE,R_PE+3,{seg:44,radial:14});
+const M_ESC_PARED=pbr('#3a3835',0.74,0.58,Object.assign(conPiel(0.8),{emissive:new THREE.Color('#000000')}));
+{
+  const g=new THREE.Group(); CULATA.add(g);
+  g.add(malla(TUBO_A.pared,M.colAdm)); g.add(malla(TUBO_A.interior,M.hueco,{sombra:false})); g.add(malla(TUBO_A.corte,H3.aluN,{sombra:false}));
+  g.add(malla(TUBO_E.pared,M_ESC_PARED)); g.add(malla(TUBO_E.interior,M.hueco,{sombra:false})); g.add(malla(TUBO_E.corte,H3.hierroN,{sombra:false}));
+}
+/* la caja del filtro de aire, en corte */
+{
+  const ext=cajaRed(-262,47,38,34,6), cav=[cajaRed(-262,47,33,29,4),SD.caja(-224,47,7,10)];
+  piezaSDF(ESTAT,{ext,cavs:cav,caja:[-310,5,-215,92],h:1.2,fondo:50,cara:H3.aluN,cuerpo:M.colAdm,placa:M.hueco});
+  vuelca(ESTAT,CULATA,{sombra:true});
+}
+const yEnX=(pts,x)=>{ for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; if((a[0]-x)*(b[0]-x)<=0&&a[0]!==b[0]){ const t=(x-a[0])/(b[0]-a[0]); return a[1]+t*(b[1]-a[1]); } } return pts[pts.length-1][1]; };
+const X_MARIPOSA=-150, Y_MARIPOSA=yEnX(TUBO_A.linea,X_MARIPOSA);
+const MARIPOSA=new THREE.Group(); MARIPOSA.position.set(X_MARIPOSA,Y_MARIPOSA,-3); CULATA.add(MARIPOSA);
+{
+  const pl=new THREE.BoxGeometry(2.2,R_PA*2-1.2,10); pl.translate(0,0,-5);       // la placa, de canto vista: gira sobre un eje en z
+  MARIPOSA.add(malla(pl,pbr('#d9dde2',0.25,0.9)));
+  const eje=new THREE.CylinderGeometry(2,2,16,14); eje.rotateX(Math.PI/2); eje.translate(0,0,-4); MARIPOSA.add(malla(eje,M.pulido,{sombra:false}));
+}
+
+/* ---------- la bujía ---------- */
+const BUJIA=new THREE.Group(); CULATA.add(BUJIA);
+{
+  const cer=P3.mediaRevolucion([[0,7],[2.3,7],[2.5,12],[4.4,12],[4.4,48],[3.4,60],[3.4,86],[2.2,92],[2.2,98],[0,98]],{seg:SEG3()});
+  BUJIA.add(malla(cer.cuerpo,M.bujia)); BUJIA.add(malla(cer.corte,H3.ceramP,{sombra:false}));
+  const metal=P3.mediaRevolucion([[2.4,-0.8],[4.0,-0.8],[4.0,0],[5.8,0],[5.8,8],[5.0,9.5],[4.6,9.5],[4.6,7],[2.4,7]],{seg:SEG3()});
+  BUJIA.add(malla(metal.cuerpo,M.pulido)); BUJIA.add(malla(metal.corte,H3.aceroN,{sombra:false}));
+  const ele=new THREE.BoxGeometry(5.2,0.9,0.9); ele.translate(2.2,-1.1,-0.6); BUJIA.add(malla(ele,M.pulido,{sombra:false}));   // el electrodo de masa
+}
+
+/* ---------- las válvulas, sus muelles, sus vasos y sus levas ---------- */
+const VALV=[];                                                  // {adm, grp, muelle, gm, cam, camMeshes, x}
+function perfilValvula(R){ const rs=2.75, top=93; return [[0,0],[R-1.3,0],[R,1.4],[R,2.4],[R*0.62,5.2],[R*0.34,9],[rs*1.9,15],[rs,30],[rs,top-10],[rs*0.76,top-9],[rs*0.76,top-5.5],[rs,top-4.5],[rs,top],[0,top]]; }
+function perfilVaso(){ return [[0,96],[13,96],[13,89],[11.6,89],[11.6,94.6],[0,94.6]]; }
+const PLATILLO=[[2.8,Y_RES_ABRE+28],[8.5,Y_RES_ABRE+28],[11.5,Y_RES_ABRE+30],[11.5,Y_RES_ABRE+32],[2.8,Y_RES_ABRE+32]];
+function creaValvula(adm){
+  const x=adm?-X_V:X_V, R=adm?13.5:12;
+  const grp=new THREE.Group(); grp.position.set(x,0,0); CULATA.add(grp);
+  const cu=[],co=[];
+  for(const per of [perfilValvula(R),perfilVaso(),PLATILLO.map(([r,y])=>[r,y])]){ const m=P3.mediaRevolucion(per,{seg:SEG3()}); cu.push(m.cuerpo); co.push(m.corte); }
+  grp.add(malla(junta(cu),M.pulido)); grp.add(malla(junta(co),H3.aceroN,{sombra:false}));
+  // el muelle (se reescribe al comprimirse): de la tapa de la culata al platillo
+  const mu=P3.muelleCortado({r:8.2,hilo:1.25,vueltas:6.5,largo:Y_RES_ABRE+28-Y_RES_ABRE,seg:calAlta()?16:10,radial:calAlta()?7:5});
+  const gm=new THREE.Group(); gm.position.set(x,Y_RES_ABRE,0); CULATA.add(gm);
+  gm.add(malla(mu.tubo,M.muelle,{sombra:false})); gm.add(malla(mu.caras,LLENO.muelle,{sombra:false}));
+  // la leva (la de admisión se reconstruye cuando cambia el cierre)
+  const cam=new THREE.Group(); cam.position.set(x,YC_CAM,0); CULATA.add(cam);
+  const v={adm,grp,muelle:mu,gm,cam,camCuerpo:null,camCorte:null,camPhi:-1,x,yRet:0,lift:-1};
+  VALV.push(v); return v;
+}
+const V_ADM=creaValvula(true), V_ESC=creaValvula(false);
+/** El perfil de la leva (en polares, nariz hacia +x): radio base + alzada, con la duración de la válvula (° de cigüeñal). */
+function perfilLeva(dur){
+  const pts=[], rb=R_CAM_B, Db=dur/4;
+  for(let a=0;a<360;a+=3){ const b=a>180?a-360:a; let r=rb;
+    if(Math.abs(b)<Db){ const u=0.5+2*b/dur; r=rb+L_VALV*Math.pow(Math.sin(Math.PI*u),2); }
+    pts.push([Math.cos(a*RAD)*r,Math.sin(a*RAD)*r]); }
+  return pts;
+}
+function ponLeva(v,dur){
+  if(v.camCuerpo){ v.cam.remove(v.camCuerpo,v.camCorte); v.camCuerpo.geometry.dispose(); v.camCorte.geometry.dispose(); }
+  const lc=P3.levaCortada(perfilLeva(dur),16), arbol=new THREE.CylinderGeometry(6,6,52,SEG3()); arbol.rotateX(Math.PI/2); arbol.translate(0,0,-34);
+  const cu=junta([lc.cuerpo,arbol]); sana(cu);
+  v.camCuerpo=malla(cu,M.acero); v.camCorte=malla(lc.corte,H3.aceroN,{sombra:false}); v.cam.add(v.camCuerpo,v.camCorte);
+}
+ponLeva(V_ESC,EVC-EVO);
+
+/* ---------- el pistón (con segmentos, bulón y bosses) ---------- */
+const PISTON=new THREE.Group(); ENG.add(PISTON);
+{
+  const p=[[0,CH],[39.2,CH],[40,CH-0.8],[40,CH-2.6],[36.4,CH-2.6],[36.4,CH-4.2],[40,CH-4.2],[40,CH-5.8],[36.4,CH-5.8],[36.4,CH-7.4],[40,CH-7.4],[40,CH-9.2],[36,CH-9.2],[36,CH-12],[39.95,CH-12],[39.95,-24],[37.4,-24],[37.4,CH-8-7],[0,CH-8-7]];
+  const m=P3.mediaRevolucion(p,{seg:SEG3()+8});
+  const bo=new THREE.CylinderGeometry(15,15,17,24); bo.rotateX(Math.PI/2); bo.translate(0,0,-28.5);
+  PISTON.add(malla(junta([m.cuerpo,bo]),M.piston)); PISTON.add(malla(m.corte,H3.pistonN,{sombra:false}));
+  const aros=[]; const aco=[];
+  for(const y of [CH-2.6,CH-5.8,CH-9.2]){ const s=P3.mediaRevolucion([[36.8,y-1.5],[40.3,y-1.5],[40.3,y],[36.8,y]],{seg:SEG3()+8}); aros.push(s.cuerpo); aco.push(s.corte); }
+  PISTON.add(malla(junta(aros),M.segmento,{sombra:false})); PISTON.add(malla(junta(aco),LLENO.segmento,{sombra:false}));
+  const pin=new THREE.CylinderGeometry(10.5,10.5,36,SEG3()); pin.rotateX(Math.PI/2); pin.translate(0,0,-18);
+  const pinCara=new THREE.CircleGeometry(10.5,SEG3());
+  PISTON.add(malla(pin,M.pulido,{sombra:false})); PISTON.add(malla(pinCara,H3.aceroP,{sombra:false}));
+}
+
+/* ---------- la biela (con casquillo de bronce en la cabeza) y el cigüeñal ---------- */
+const BIELA=new THREE.Group(); ENG.add(BIELA);
+{
+  const ext=SD.union(SD.circulo(0,0,16),SD.circulo(0,-L_MM,30),SD.poligono([[-9,-10],[9,-10],[12.5,-L_MM+22],[-12.5,-L_MM+22]]));
+  const cav=[SD.circulo(0,0,10.5),SD.circulo(0,-L_MM,24.5)];
+  const sol=SD.resta(ext,SD.union(...cav)), caja=[-34,-L_MM-34,34,20];
+  BIELA.add(malla(P3.seccionSDF(sol,caja,0.9).cara,H3.aceroP,{sombra:false}));
+  const cu=P3.prismaZ(P3.contornosSDF(sol,caja,0.9),-9,0,{tapaAtras:true}); sana(cu); BIELA.add(malla(cu,M.acero));
+  const br=P3.mediaRevolucion([[22,0],[24.5,0],[24.5,9],[22,9]],{seg:SEG3()});
+  const brA=new THREE.RingGeometry(22,24.5,SEG3()); brA.translate(0,-L_MM,0);
+  const bTub=new THREE.CylinderGeometry(24.5,22,9,SEG3(),1,true); bTub.rotateX(Math.PI/2); bTub.translate(0,-L_MM,-4.5);
+  BIELA.add(malla(brA,H3.bronceN,{sombra:false})); BIELA.add(malla(bTub,M.bronce,{sombra:false}));
+}
+const CIGUE=new THREE.Group(); ENG.add(CIGUE);
+{
+  const pts=[]; const cw=[[0,0]]; for(let i=0;i<=20;i++){ const t=(-90+(-56+112*i/20))*RAD; cw.push([Math.cos(t)*62,Math.sin(t)*62]); }
+  const web=SD.union(SD.circulo(0,0,29),SD.circulo(0,A_MM,26),SD.poligono([[-18,0],[18,0],[15,A_MM],[-15,A_MM]]),SD.poligono(cw));
+  const caja=[-70,-70,70,A_MM+30];
+  const w=P3.prismaZ(P3.contornosSDF(web,caja,1.0),-22,-10,{tapaAtras:true,tapaDelante:true}); sana(w); CIGUE.add(malla(w,M.acero));
+  const pin=new THREE.CylinderGeometry(22,22,22,SEG3()+8); pin.rotateX(Math.PI/2); pin.translate(0,A_MM,-11);
+  const pinCara=new THREE.CircleGeometry(22,SEG3()+8); pinCara.translate(0,A_MM,0);
+  CIGUE.add(malla(pin,M.pulido,{sombra:false})); CIGUE.add(malla(pinCara,H3.aceroN,{sombra:false}));
+  const eje=new THREE.CylinderGeometry(22,22,40,SEG3()); eje.rotateX(Math.PI/2); eje.translate(0,0,-42);
+  const pol=new THREE.CylinderGeometry(31,31,10,SEG3()+8); pol.rotateX(Math.PI/2); pol.translate(0,0,-51);
+  CIGUE.add(malla(junta([eje,pol]),M.chapa,{sombra:false}));
+}
+
+/* ---------- el motor eléctrico (de frente, con su estátor y su rotor), su polea y la correa ---------- */
+const MG=new THREE.Group(); MG.position.set(X_MG,0,0); ENG.add(MG);
+const N_BOB=24, N_IMAN=8;
+const M_BOB=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:0.4,metalness:0.2,emissive:'#ffffff',emissiveIntensity:1.0});
+let IM_BOB, IM_IMAN, MG_ROTOR, MG_ARO;
+{
+  const carc=new THREE.CylinderGeometry(70,70,46,SEG3()+8,1,true); carc.rotateX(Math.PI/2); carc.translate(0,0,-23);
+  const fondo=new THREE.CircleGeometry(70,SEG3()+8); fondo.rotateY(Math.PI); fondo.translate(0,0,-46);
+  MG.add(malla(junta([carc,fondo]),pbr('#2a3138',0.5,0.6)));
+  const anillo=new THREE.RingGeometry(43,70,SEG3()+8); anillo.translate(0,0,-0.5);
+  MG.add(malla(anillo,pbr('#3a444d',0.42,0.7),{sombra:false}));
+  const ranuras=[]; for(let i=0;i<N_BOB;i++){ const a=i/N_BOB*DOSPI, b=new THREE.BoxGeometry(11,7,2.2); b.rotateZ(a); b.translate(Math.cos(a)*56.5,Math.sin(a)*56.5,-1.0); ranuras.push(b); }
+  MG.add(malla(junta(ranuras),pbr('#11161a',0.9,0.1),{sombra:false}));
+  IM_BOB=new THREE.InstancedMesh(new THREE.BoxGeometry(9,5.2,2.4),M_BOB,N_BOB); IM_BOB.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(N_BOB*3).fill(0.1),3); IM_BOB.frustumCulled=false;
+  const m4=new THREE.Matrix4(), q=new THREE.Quaternion();
+  for(let i=0;i<N_BOB;i++){ const a=i/N_BOB*DOSPI; q.setFromAxisAngle(V3(0,0,1),a); m4.compose(V3(Math.cos(a)*56.5,Math.sin(a)*56.5,0.4),q,V3(1,1,1)); IM_BOB.setMatrixAt(i,m4); }
+  MG.add(IM_BOB);
+  MG_ROTOR=new THREE.Group(); MG.add(MG_ROTOR);
+  const disco=new THREE.CylinderGeometry(41,41,40,SEG3()+8); disco.rotateX(Math.PI/2); disco.translate(0,0,-21);
+  const cara=new THREE.CircleGeometry(41,SEG3()+8); cara.translate(0,0,-1.2);
+  MG_ROTOR.add(malla(junta([disco,cara]),pbr('#aab1b8',0.34,0.9),{sombra:false}));
+  IM_IMAN=new THREE.InstancedMesh(new THREE.BoxGeometry(17,7.5,2.6),new THREE.MeshStandardMaterial({color:'#ffffff',roughness:0.35,metalness:0.55}),N_IMAN); IM_IMAN.frustumCulled=false;
+  IM_IMAN.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(N_IMAN*3),3);
+  for(let i=0;i<N_IMAN;i++){ const a=i/N_IMAN*DOSPI; q.setFromAxisAngle(V3(0,0,1),a+Math.PI/2); m4.compose(V3(Math.cos(a)*31,Math.sin(a)*31,-0.4),q,V3(1,1,1)); IM_IMAN.setMatrixAt(i,m4); IM_IMAN.setColorAt(i,new THREE.Color(i%2?'#e0525e':'#4d8fe0')); }
+  MG_ROTOR.add(IM_IMAN);
+  const hub=new THREE.CylinderGeometry(11,11,3,24); hub.rotateX(Math.PI/2); hub.translate(0,0,-0.5);
+  MG_ROTOR.add(malla(hub,M.pulido,{sombra:false}));
+  const aro=new THREE.TorusGeometry(73.5,1.5,8,SEG3()+24); aro.translate(0,0,-1.5);
+  MG_ARO=malla(aro,new THREE.MeshBasicMaterial({color:'#3DDC97',toneMapped:false,transparent:true,opacity:0.25}),{sombra:false,recibe:false}); MG.add(MG_ARO);
+  const pol=new THREE.CylinderGeometry(21,21,10,SEG3()+8); pol.rotateX(Math.PI/2); pol.translate(0,0,-51);
+  MG.add(malla(pol,M.chapa,{sombra:false}));
+}
+/* la correa: dos tramos rectos tangentes y dos arcos; unos tacos que se mueven la hacen visible */
+const R_POL1=31, R_POL2=21;
+const CORREA={pts:[],largo:0,dots:null};
+{
+  const D=X_MG, ph=Math.asin((R_POL1-R_POL2)/D), pts=[];
+  const arco=(cx,cy,r,a0,a1,n)=>{ for(let i=0;i<=n;i++){ const a=a0+(a1-a0)*i/n; pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r]); } };
+  const aUp=Math.PI/2-ph;                                       // ángulo de la normal de la tangente superior
+  arco(0,0,R_POL1,Math.PI/2+ph,Math.PI*1.5-ph,18);              // izquierda: de arriba a abajo por el lado izquierdo
+  arco(D,0,R_POL2,-Math.PI/2+ph,Math.PI/2-ph,14);               // derecha: de abajo a arriba por el lado derecho
+  const P=pts.map(p=>V3(p[0],p[1],Z_CORREA));
+  const curva=new THREE.CatmullRomCurve3(P,true,'centripetal');
+  CORREA.curva=curva; CORREA.largo=curva.getLength();
+  const tubo=new THREE.TubeGeometry(curva,160,2.6,6,true);
+  ENG.add(malla(tubo,M.goma,{sombra:false}));
+  CORREA.dots=new THREE.InstancedMesh(new THREE.BoxGeometry(5,5,6),new THREE.MeshBasicMaterial({color:'#ffc27d',toneMapped:false}),24); CORREA.dots.frustumCulled=false; ENG.add(CORREA.dots);
+}
+
+/* ---------- el gas del cilindro: una lámina translúcida en el plano de corte y su cuerpo detrás; la llama; la chispa ---------- */
+const GAS={grupo:new THREE.Group(),lamina:null,cuerpo:null,llama:null,chispa:null,matG:null,matL:null,matF:null};
+ENG.add(GAS.grupo);
+{
+  GAS.matG=new THREE.MeshBasicMaterial({color:'#4a8fd0',transparent:true,opacity:0.35,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
+  const lam=new THREE.PlaneGeometry(2*(RB-0.25),1); lam.translate(0,0.5,0);
+  GAS.lamina=new THREE.Mesh(lam,GAS.matG); GAS.lamina.position.z=-0.15; GAS.lamina.renderOrder=3; GAS.grupo.add(GAS.lamina);
+  const cil=new THREE.CylinderGeometry(RB-0.25,RB-0.25,1,SEG3()+8,1,true,Math.PI/2,Math.PI); cil.translate(0,0.5,0);
+  GAS.cuerpo=new THREE.Mesh(cil,GAS.matG); GAS.cuerpo.renderOrder=3; GAS.grupo.add(GAS.cuerpo);
+  GAS.matF=new THREE.MeshBasicMaterial({color:'#fff1c8',transparent:true,opacity:0.9,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+  const fl=new THREE.CylinderGeometry(1,1,1,SEG3()+8,1,false,Math.PI/2,Math.PI); fl.translate(0,0.5,0);
+  GAS.llama=new THREE.Mesh(fl,GAS.matF); GAS.llama.renderOrder=4; GAS.llama.visible=false; GAS.grupo.add(GAS.llama);
+  const fl2=new THREE.PlaneGeometry(2,1); fl2.translate(0,0.5,0);
+  GAS.llamaL=new THREE.Mesh(fl2,GAS.matF); GAS.llamaL.position.z=-0.1; GAS.llamaL.renderOrder=5; GAS.llamaL.visible=false; GAS.grupo.add(GAS.llamaL);
+  GAS.chispa=new THREE.Mesh(new THREE.SphereGeometry(5,16,12),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));
+  GAS.chispa.renderOrder=6; GAS.grupo.add(GAS.chispa);
+  // el golpeteo: un anillo rojo en la pared que parpadea cuando el gas sin quemar se enciende solo
+  const an=new THREE.TorusGeometry(RB-1.5,1.4,8,SEG3()+16); an.rotateX(Math.PI/2);
+  GAS.golpe=new THREE.Mesh(an,new THREE.MeshBasicMaterial({color:'#ff4558',toneMapped:false,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));
+  GAS.golpe.renderOrder=6; GAS.grupo.add(GAS.golpe);
+}
+
+/* ---------- las partículas del aire que entra / sale y del humo ---------- */
+const NPART=34;
+const rutaFlujo=pts=>{ const c=new THREE.CatmullRomCurve3(pts.map(p=>V3(p[0],p[1],0)),false,'centripetal'); const n=160, t=[]; for(let i=0;i<=n;i++){ const q=c.getPointAt(i/n); t.push(q.x,q.y); } return {n,t,largo:c.getLength()}; };
+const FLUJO_A=rutaFlujo([[-252,47],...TUBO_A.linea.slice().reverse(),[-50,45],[-34,35],[-X_V,22],[-X_V,3]]);          // del filtro de aire a la válvula de admisión
+const FLUJO_E=rutaFlujo([[X_V,3],[X_V,22],[34,33],[48,41],...TUBO_E.linea.slice(1)]);                                    // de la válvula de escape a la salida
+const PARTICULAS=[];
+for(const [fl,col,nombre] of [[FLUJO_A,'#8fd3ff','adm'],[FLUJO_E,'#ffb36b','esc']]){
+  const im=new THREE.InstancedMesh(new THREE.SphereGeometry(2.6,10,8),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false,transparent:true,opacity:0.95}),NPART);
+  im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(NPART*3).fill(1),3); im.frustumCulled=false; CULATA.add(im);
+  const u=new Float32Array(NPART), dz=new Float32Array(NPART); for(let i=0;i<NPART;i++){ u[i]=i/NPART; dz[i]=-2.5-((i*7)%5)*1.1; }
+  PARTICULAS.push({im,fl,col:new THREE.Color(col),u,dz,nombre});
+}
+function posFlujo(fl,u,out){ const f=clamp(u,0,1)*fl.n, i=Math.min(fl.n-1,Math.floor(f)), k=f-i; out.x=fl.t[i*2]*(1-k)+fl.t[(i+1)*2]*k; out.y=fl.t[i*2+1]*(1-k)+fl.t[(i+1)*2+1]*k; return out; }
+
+/* ===================== 9. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.th es el ÁNGULO DEL
+   CIGÜEÑAL (° en el ciclo de 720°) y avanza a REV_S vueltas por segundo —cámara lenta rotulada, el motor real gira de 1 600 a 2 400 rpm—;
+   con ESE ángulo se mueven el pistón, las válvulas, las levas, el color del gas, la llama, las partículas, el motor eléctrico y el cursor
+   de todas las gráficas. Los modos: «Recorrido» (paso a paso), «Probar» (mandos libres) y «Reto». */
+const REV_S=0.8;                                                 // vueltas del cigüeñal por segundo en pantalla a velocidad ×1
+const EST={modo:'tour',esc:'carretera',r:R_REF,phi:IVC_REF,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const SIM={th:300,calc:null,ver:0,e:null};
+let CALC=null;
+const _cacheCalc=new Map();
+function calcula(p){
+  const esc=escPorId(p.esc), clave=p.esc+'|'+p.r.toFixed(3)+'|'+p.phi.toFixed(3);
+  if(_cacheCalc.has(clave)) return _cacheCalc.get(clave);
+  const crit=criterios(esc,p.r,p.phi), h=crit.h, tr=traza(p.r,p.phi,h.pm);
+  const C={p,esc,crit,h,ref:crit.ref,tr,nu:tr.nu,rc:h.M.rc,golpea:h.K>1.0};
+  if(_cacheCalc.size>40) _cacheCalc.clear();
+  _cacheCalc.set(clave,C); return C;
+}
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {esc:EST.esc,r:EST.r,phi:EST.phi};
+}
+let _rPrev=-1, _phiPrev=-1;
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  const r=CALC.p.r, phi=CALC.p.phi;
+  if(Math.abs(r-_rPrev)>1e-9){ _rPrev=r; const deck=deckDe(r); CULATA.position.y=deck; PARED.scale.y=(deck-PARED_Y0)/PARED_H; }
+  if(Math.abs(phi-_phiPrev)>0.05){ _phiPrev=phi; ponLeva(V_ADM,540+phi-IVO); }
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+const lerpA=(a,k,f)=>a[k]+(a[Math.min(k+1,a.length-1)]-a[k])*f;
+/* ---- el estado del cilindro en el ángulo th: V, p, T, fracción quemada, de la traza del modelo, interpolados ---- */
+function estadoEn(th){
+  const C=CALC; if(!C) return null; const T=C.tr, t=((th%720)+720)%720, kf=t/PASO_TR, k=Math.min(NTR-1,Math.floor(kf)), f=kf-k;
+  const ev=elevacion(t,C.p.phi);
+  return {th:t,k,carrera:carrera(t),V:lerpA(T.V,k,f),p:lerpA(T.p,k,f),T:lerpA(T.T,k,f),x:lerpA(T.x,k,f),adm:ev.adm,esc:ev.esc,dV:dVdth(t),ypin:posBulon(t)*1000};
+}
+
+/* ===================== 10. LO QUE SE VE ===================== */
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _col=new THREE.Color(), _p=new THREE.Vector3(), _s=new THREE.Vector3(), _pp={x:0,y:0};
+const ocultaRespuesta=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado);   // el veredicto y el barrido, mientras se ajusta
+/* ESCALA TÉRMICA ÚNICA: la misma tabla pinta el gas, el escape y la leyenda. Un color quiere decir una temperatura. */
+const ESCALA_T=[[250,'#1c3f94'],[400,'#2f6fd0'],[650,'#5a8fd8'],[900,'#a05aa0'],[1200,'#c2412f'],[1600,'#f0642c'],[2000,'#f98a1c'],[2500,'#ffb627'],[3000,'#ffd84a'],[3500,'#fff1a6']];
+const ESCALA_C=ESCALA_T.map(([t,h])=>[t,new THREE.Color(h)]);
+function colorT(T,out){
+  const o=out||new THREE.Color(), E=ESCALA_C;
+  if(!(T>E[0][0])) return o.copy(E[0][1]);
+  for(let i=1;i<E.length;i++) if(T<=E[i][0]){ const f=(T-E[i-1][0])/(E[i][0]-E[i-1][0]); return o.copy(E[i-1][1]).lerp(E[i][1],f); }
+  return o.copy(E[E.length-1][1]);
+}
+const REL_ADM=R_POL1/R_POL2;                                     // la polea del motor eléctrico gira más rápido que la del cigüeñal
+let faseCorrea=0, golpeFase=0;
+const C_BOB_ON=new THREE.Color('#3DDC97'), C_BOB_OFF=new THREE.Color('#0d1512');
+const Q_VERDE=new THREE.Color('#3DDC97'), Q_RET=new THREE.Color('#8fd3ff').lerp(Q_VERDE,0.85);
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;                                  // dtR: tiempo real del cuadro; suaviza lo visual aunque el reloj esté en pausa
+  const C=CALC; if(!C) return;
+  const dth=dtSim*REV_S*360;
+  SIM.th=((SIM.th+dth)%720+720)%720;
+  const e=estadoEn(SIM.th); if(!e) return; SIM.e=e;
+  const deck=deckDe(C.p.r), thR=e.th*RAD, ypin=e.ypin, h=C.h, phi=C.p.phi;
+  // ---- el pistón, la biela y el cigüeñal: la geometría biela-manivela del modelo ----
+  PISTON.position.y=ypin;
+  const xc=A_MM*Math.sin(thR), yc=A_MM*Math.cos(thR);
+  BIELA.position.set(0,ypin,0); BIELA.rotation.z=Math.atan2(xc,-(yc-ypin));
+  CIGUE.rotation.z=-thR;
+  // ---- las válvulas, los muelles y las levas ----
+  V_ADM.grp.position.y=-e.adm; V_ESC.grp.position.y=-e.esc;
+  for(const [v,L] of [[V_ADM,e.adm],[V_ESC,e.esc]]){ if(Math.abs(L-v.lift)>0.01){ v.lift=L; v.muelle.ajusta(28-L); } }
+  const dd=(a,b)=>((a-b+360)%720)-360;
+  const thPicoA=(IVO+540+phi)/2, thPicoE=(EVO+EVC)/2;
+  V_ADM.cam.rotation.z=(-90-dd(e.th,thPicoA)/2)*RAD; V_ESC.cam.rotation.z=(-90-dd(e.th,thPicoE)/2)*RAD;
+  // ---- el gas: una lámina entre la corona y la culata, coloreada por la T del modelo; la llama crece con la fracción quemada ----
+  const corona=ypin+CH, alto=Math.max(0.05,deck-corona), colG=colorT(e.T,_col);
+  GAS.lamina.position.y=corona; GAS.lamina.scale.y=alto; GAS.cuerpo.position.y=corona; GAS.cuerpo.scale.y=alto;
+  GAS.matG.color.copy(colG);
+  const rho=(e.p/e.T)/(1e5/320);
+  GAS.matG.opacity=clamp(0.20+0.075*rho,0.2,0.62);
+  const tb=((e.th+360)%720)-360;                                   // −360..360 alrededor del PMS de encendido
+  const enLlama=tb>=ENC&&tb<=EVO&&e.x>0.004;
+  GAS.llama.visible=GAS.llamaL.visible=enLlama;
+  if(enLlama){
+    const rf=Math.min(RB-0.4,Math.sqrt(e.x*(e.V*1e9)/(Math.PI*alto))), fade=e.x>=0.999?clamp(1-(tb-C.nu.thE)/70,0.28,1):1;
+    GAS.llama.scale.set(rf,alto,rf); GAS.llama.position.y=corona; GAS.llamaL.scale.set(rf,alto,1); GAS.llamaL.position.y=corona;
+    GAS.matF.opacity=0.55*fade; GAS.matF.color.copy(colorT(Math.min(3300,e.T*1.05),_col));
+  }
+  const chispa=tb>=ENC-2&&tb<=ENC+3.5; GAS.chispa.position.set(0,deck-2.5,0); GAS.chispa.material.opacity=chispa?0.95:0; GAS.chispa.scale.setScalar(chispa?1.0+0.4*Math.sin(tb*2):0.1);
+  golpeFase+=dtR*38;
+  const golpe=C.golpea&&tb>=8&&tb<=44;
+  GAS.golpe.position.y=corona+alto*0.5; GAS.golpe.material.opacity=golpe?0.35+0.55*Math.abs(Math.sin(golpeFase))*clamp((C.h.K-1)*2+0.3,0,1):0;
+  // ---- el escape se calienta con el gas que pasa ----
+  const calor=clamp((C.tr.T[Math.round(200/PASO_TR)]-500)/1100,0,1)*(e.esc>0.2?1:0.75);
+  M_ESC_PARED.emissive.setRGB(0.6*calor,0.13*calor,0.02*calor); M_ESC_PARED.emissiveIntensity=1;
+  // ---- la mariposa: se cierra para que el motor de referencia dé sólo el par pedido ----
+  const ap=clamp(h.apertura,0.1,1);
+  MARIPOSA.rotation.z=(Math.PI/2)*Math.pow(ap,2.3);
+  // ---- el aire que entra, el que se devuelve y el humo ----
+  flujoParticulas(e,dtR,dth);
+  // ---- el motor eléctrico y la correa ----
+  const tf=clamp(h.parMg/Math.max(1e-9,h.parMgMax),0,1);
+  MG_ROTOR.rotation.z=-thR*REL_ADM;
+  const thE=thR*REL_ADM*4;
+  for(let i=0;i<N_BOB;i++){ const a=i/N_BOB*DOSPI, k=0.5+0.5*Math.sin(4*a+thE+Math.PI/2+(i%3)*0.0), v=clamp(0.05+tf*1.05*k,0.04,1.4);
+    _col.copy(C_BOB_OFF).lerp(C_BOB_ON,Math.min(1,v)).multiplyScalar(v>1?v:1); IM_BOB.setColorAt(i,_col); }
+  IM_BOB.instanceColor.needsUpdate=true; MG_ARO.material.opacity=0.12+0.78*tf;
+  faseCorrea=((-thR*R_POL1/CORREA.largo)%1+1)%1;
+  for(let i=0;i<24;i++){ const t=(faseCorrea+i/24)%1; CORREA.curva.getPointAt(t,_p); _m4.makeTranslation(_p.x,_p.y,_p.z); CORREA.dots.setMatrixAt(i,_m4); }
+  CORREA.dots.instanceMatrix.needsUpdate=true;
+}
+const DV_MAX=(()=>{ let m=0; for(let t=0;t<=180;t+=1) m=Math.max(m,Math.abs(dVdth(t))); return m; })();
+function flujoParticulas(e,dtR,dth){
+  const C=CALC, ivc=540+C.p.phi;
+  for(const P of PARTICULAS){
+    const adm=P.nombre==='adm', abierta=adm?e.adm>0.15:e.esc>0.15;
+    let dir=0; if(abierta){ dir=adm?Math.sign(e.dV):-Math.sign(e.dV); }
+    const vel=abierta?Math.abs(e.dV)/DV_MAX:0;
+    const du=dir*vel*0.0034*Math.abs(dth)*(dth<0?-1:1);
+    for(let i=0;i<NPART;i++){
+      P.u[i]=((P.u[i]+du)%1+1)%1;
+      posFlujo(P.fl,P.u[i],_pp);
+      const brillo=abierta?1:0.30, retorno=adm&&dir<0;
+      _s.setScalar(abierta?1:0.8); _m4.compose(_p.set(_pp.x,_pp.y,P.dz[i]),_q0,_s); P.im.setMatrixAt(i,_m4);
+      if(P.nombre==='esc') _col.copy(colorT(clamp(CALC.tr.T[Math.round(200/PASO_TR)]*1.12,900,1700),_col)); else _col.copy(retorno?Q_RET:P.col);
+      _col.multiplyScalar(brillo); P.im.setColorAt(i,_col);
+    }
+    P.im.instanceMatrix.needsUpdate=true; P.im.instanceColor.needsUpdate=true;
+  }
+}
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const NOMBRE_ESC={carretera:'Carretera',cuesta:'Cuesta',ciudad:'Ciudad'};
+const FRASE='Cambias cuándo cierra una válvula del motor para que gaste menos gasolina, y ves cuánto par pierdes.';
+const txtPhi=p=>fN(p,0)+'° tras el fondo', txtR=r=>fN(r,1)+' veces';
+const NOMBRE_CARRERA=['Expansión','Escape','Admisión','Compresión'];
+const infoEsc=e=>fN(e.n,0)+' rpm · pide '+fN(e.par,0)+' N·m · gasolina de '+fN(e.ron,0)+' octanos';
+function slidersHTML(p,ids){
+  const [ip,ir]=ids;
+  return `<div class="cg"><div class="cl"><div>Cuándo cierra la válvula de admisión</div><b id="v${ip}">${txtPhi(p.phi)}</b></div><input type="range" id="${ip}" min="${IVC_MIN}" max="${IVC_MAX}" step="1" value="${Math.round(p.phi)}" aria-label="Cuándo cierra la válvula de admisión, en grados después del punto más bajo del pistón">
+    <div class="marcas"><span>pronto (como un motor normal)</span><span>tarde</span></div></div>
+  <div class="cg"><div class="cl"><div>Cuánto se expande el gas <em class="gr">(relación de expansión)</em></div><b id="v${ir}">${txtR(p.r)}</b></div><input type="range" id="${ir}" min="${R_MIN*10}" max="${R_MAX*10}" step="1" value="${Math.round(p.r*10)}" aria-label="Relación de expansión del motor">
+    <div class="marcas"><span>poco</span><span>mucho</span></div></div>`;
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · motor híbrido</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='probar') h+=`<p class="intro">Retrasa el cierre y mira los puntos verdes: el pistón <b>devuelve aire</b>. Comprimes menos, pero el gas se sigue expandiendo igual.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    const e=escPorId(EST.esc);
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Situación <em class="gr">${infoEsc(e)}</em></div><div class="seg" id="segEsc">${ESCENARIOS.map(k=>`<button class="b ${EST.esc===k.id?'on':''}" data-esc="${k.id}">${NOMBRE_ESC[k.id]}</button>`).join('')}</div></div>
+    ${slidersHTML(EST,['rP','rR'])}
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else h+=htmlGuia();
+  const C=CALC, M=C?C.h.M:null;
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">η = 1 − (T₄ − T₁) / (T₃ − T₂)</div>
+    <div class="fl">Es el rendimiento del ciclo. T₁ es la temperatura al cerrar la válvula; T₂ = T₁·r<sub>c</sub><sup>γ−1</sup> al terminar de comprimir; T₃ tras quemar; T₄ = T₃·r<sub>e</sub><sup>1−γ</sup> al terminar de expandir. Si la válvula cierra en el fondo (r<sub>c</sub> = r<sub>e</sub> = r) sale la fórmula del Otto: η = 1 − r<sup>1−γ</sup>. ${M?`Aquí: ${fN(M.nu.rc,1)} de compresión, ${fN(C.p.r,1)} de expansión.`:''}</div>
+    <div class="formula">r<sub>c</sub> = V<sub>cierre</sub> / V<sub>c</sub> · m = p<sub>m</sub>·V<sub>cierre</sub> / (R·T)</div>
+    <div class="fl">Al cerrar tarde, V<sub>cierre</sub> es menor que el volumen del cilindro: el aire atrapado (m) y la compresión real (r<sub>c</sub>) bajan; la expansión sigue siendo la geométrica, r<sub>e</sub> = (V<sub>d</sub> + V<sub>c</sub>)/V<sub>c</sub>.</div>
+    <div class="formula">dp/dθ = [−γ·p·dV/dθ + (γ−1)·dQ/dθ] / V · W<sub>neto</sub> = ∮ p dV</div>
+    <div class="fl">La combustión (ley de Wiebe, 40°) se resuelve con la primera ley. El trabajo neto incluye el bombeo: el pistón empuja al escape y devuelve aire al colector.</div>
+    <div class="formula">K = ∫ dt / τ(p, T) ≥ 1 → detona</div>
+    <div class="fl">Livengood–Wu: el gas sin quemar se enciende solo cuando su retardo de autoencendido τ, que baja con la presión y la temperatura, se agota. ${M?`Aquí K = ${fN(M.K,2)} (el límite es 1).`:''}</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Es <b>aire estándar</b> con γ = ${fN(GAMMA,2)} y una fracción del calor del combustible (${fN(XI*100,0)} %, menos si la cámara es muy plana) que llega al gas; el resto se pierde por las paredes y la disociación. No es CFD ni un mapa medido de un fabricante.</li>
+    <li>La admisión entra sin pérdidas a la presión del colector, y el aire que el pistón devuelve no se pierde por fricción en la válvula. La apertura de la admisión (350°) se supone fija.</li>
+    <li>Sólo se mueve el <b>cierre</b> de la admisión; el resto de la distribución es fija. El golpeteo es el modelo de Livengood–Wu con el retardo de Douaud–Eyzat, escalado para que el motor normal quede cerca del límite.</li>
+    <li>La <b>cámara lenta</b> es ×1/${fN((escPorId(C?C.p.esc:EST.esc).n/60)/REV_S,0)}; la correa y el disco del motor eléctrico son un esquema.</li>
+  </ul><div class="src">Heywood, <i>Internal Combustion Engine Fundamentals</i> · Miller (1947) · Atkinson (1882) · Douaud y Eyzat (1978), a verificar con la fuente.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.esc=b.dataset.esc; pintaHUD(); reiniciaCalculo(); });
+  const lig=(id,campo,f,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=f(+e.value); el('v'+id).textContent=fmt(EST[campo]); reiniciaCalculo(); }; };
+  lig('rP','phi',v=>v,txtPhi); lig('rR','r',v=>v/10,txtR);
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LTR=lienzo('gTr'), LFR=lienzo('gFr'), LSP=lienzo('gSp');
+const COL={act:'#FFA94D',ref:'#8FB8D6',mg:'#3DDC97',knock:'#FF5A6A',adm:'#5BC8FF',esc:'#FF7A45',fill:'rgba(255,169,77,0.17)'};
+const GRID='rgba(160,200,220,0.10)', EJE='#46647a', TXT='#8eb3c5';
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#7f9aa8',t?11:14,'center','500'); };
+/** La traza del motor de referencia (Otto normal) en el escenario actual. */
+const _trRef=new Map();
+function trazaRef(esc){ const R=referencia(esc), k=esc.id; if(!_trRef.has(k)) _trRef.set(k,traza(R_REF,IVC_REF,R.pm)); return _trRef.get(k); }
+const PMAX_BAR=66;
+
+/* ---- el diagrama P–V: el ciclo de ESTE motor (relleno) contra el motor normal (línea punteada) y el punto que se mueve con el reloj ---- */
+function trazaPV(x,T,X,Y,col,w,dash,paso){ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<=NTR;i+=paso){ const px=X(T.V[i]*1e6), py=Y(T.p[i]/1e5); i?x.lineTo(px,py):x.moveTo(px,py); } x.closePath(); x.stroke(); x.setLineDash([]); }
+function pintaPV(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=34, X1=Wd-10, Y0=10, Y1=Hd-22, vmax=520;
+  const X=v=>X0+v/vmax*(X1-X0), Y=p=>Y1-p/PMAX_BAR*(Y1-Y0);
+  for(const p of [0,20,40,60]){ raya(x,X0,Y(p),X1,Y(p),GRID); txt(x,String(p),X0-4,Y(p)+3,TXT,8.5,'right','500'); }
+  for(const v of [0,100,200,300,400,500]){ raya(x,X(v),Y1,X(v),Y1+3,EJE); txt(x,String(v),X(v),Hd-9,TXT,8.5,'center','500'); }
+  txt(x,'bar',X0+2,Y0+8,TXT,8.5,'left','600'); txt(x,'cm³ del cilindro',X1,Hd-1,TXT,8.5,'right','600');
+  const T=C.tr, R=trazaRef(C.esc);
+  trazaPV(x,R,X,Y,COL.ref,1.3,[4,3],4);
+  x.fillStyle=COL.fill; x.beginPath(); for(let i=0;i<=NTR;i+=2){ const px=X(T.V[i]*1e6), py=Y(T.p[i]/1e5); i?x.lineTo(px,py):x.moveTo(px,py); } x.closePath(); x.fill();
+  trazaPV(x,T,X,Y,COL.act,2,[],2);
+  // el cierre de la admisión: donde empieza a comprimir de verdad
+  const pc=X(C.nu.V1*1e6), py=Y(C.h.pm/1e5);
+  x.fillStyle='#fff'; x.beginPath(); x.arc(pc,py,3.2,0,DOSPI); x.fill(); x.strokeStyle=COL.act; x.lineWidth=1.4; x.stroke();
+  txt(x,'cierra',pc,py-6,'#ffd7a3',9,'center','600');
+  const e=SIM.e; if(e){ const px=X(e.V*1e6), qy=Y(e.p/1e5); x.fillStyle='#fff'; x.beginPath(); x.arc(px,qy,4.2,0,DOSPI); x.fill(); x.strokeStyle='rgba(255,169,77,.9)'; x.lineWidth=2; x.stroke(); }
+  el('t_fu').textContent=e?NOMBRE_CARRERA[e.carrera]+' · '+fN(e.th,0)+'°':'';
+}
+function pintaLeyFu(){
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:${COL.act}"></i>este motor</span><span class="lg"><i class="dash" style="--c:${COL.ref}"></i>motor normal (Otto)</span><span class="lg"><i class="bl" style="--c:rgba(255,169,77,.35)"></i>trabajo que entrega</span>`;
+}
+/* ---- la presión según el giro del cigüeñal, con las ventanas en que está abierta cada válvula ---- */
+function pintaPTheta(){
+  const x=abre(LTR), Wd=LTR.w, Hd=LTR.h, C=CALC; if(!C) return;
+  const X0=24, X1=Wd-5, Y0=6, Y1=Hd-14, X=th=>X0+th/720*(X1-X0), Y=p=>Y1-p/PMAX_BAR*(Y1-Y0), ivc=540+C.p.phi;
+  x.fillStyle='rgba(91,200,255,0.20)'; x.fillRect(X(IVO),Y1-7,X(ivc)-X(IVO),7);
+  x.fillStyle='rgba(255,122,69,0.26)'; x.fillRect(X(EVO),Y1-7,X(EVC)-X(EVO),7);
+  for(const p of [0,30,60]){ raya(x,X0,Y(p),X1,Y(p),GRID); txt(x,String(p),X0-3,Y(p)+3,TXT,8.5,'right','500'); }
+  for(const th of [0,180,360,540,720]){ raya(x,X(th),Y1,X(th),Y1+3,EJE); txt(x,String(th),X(th),Hd-3,TXT,8,'center','500'); }
+  const T=C.tr, R=trazaRef(C.esc);
+  x.setLineDash([3,3]); x.strokeStyle=COL.ref; x.lineWidth=1.1; x.beginPath(); for(let i=0;i<=NTR;i+=2){ const px=X(i*PASO_TR), py=Y(R.p[i]/1e5); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]);
+  x.strokeStyle=COL.act; x.lineWidth=1.8; x.beginPath(); for(let i=0;i<=NTR;i+=2){ const px=X(i*PASO_TR), py=Y(T.p[i]/1e5); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  const e=SIM.e; if(e){ raya(x,X(e.th),Y0,X(e.th),Y1,'rgba(255,255,255,0.85)',1.2); x.fillStyle='#fff'; x.beginPath(); x.arc(X(e.th),Y(e.p/1e5),3,0,DOSPI); x.fill(); }
+  el('t_pw').textContent='colector '+fN(C.h.pm/1e5,2)+' bar';
+}
+/* ---- el mapa de consumo del motor de gasolina: qué tan eficiente es en cada régimen y par; el punto es el de ahora ---- */
+const _mapa=new Map();
+function mapaDe(C){ const k=C.p.r.toFixed(2)+'|'+C.p.phi.toFixed(1)+'|'+C.esc.ron; if(!_mapa.has(k)){ if(_mapa.size>12) _mapa.clear(); _mapa.set(k,mapaMotor(C.p.r,C.p.phi,C.esc.ron,18,17)); } return _mapa.get(k); }
+const _mapaRef=new Map();
+function mapaRefDe(C){ const k=C.esc.id; if(!_mapaRef.has(k)){ const o=[]; for(let i=0;i<18;i++){ const n=MAPA_N[0]+(MAPA_N[1]-MAPA_N[0])*(i+0.5)/18; o.push(parPleno(R_REF,IVC_REF,n)); } _mapaRef.set(k,o); } return _mapaRef.get(k); }
+function colorBsfc(b){ // verde = come poco, ámbar, rojo = come mucho
+  const t=clamp((b-245)/(360-245),0,1), a=[40,170,140], m=[236,190,70], z=[192,64,48];
+  const u=t<0.5?t*2:(t-0.5)*2, p=t<0.5?a:m, q=t<0.5?m:z; return `rgb(${Math.round(p[0]+(q[0]-p[0])*u)},${Math.round(p[1]+(q[1]-p[1])*u)},${Math.round(p[2]+(q[2]-p[2])*u)})`; }
+function pintaMapa(){
+  const x=abre(LFR), Wd=LFR.w, Hd=LFR.h, C=CALC; if(!C) return;
+  const X0=24, X1=Wd-5, Y0=6, Y1=Hd-14, mp=mapaDe(C), nx=mp.nx, ny=mp.ny;
+  const X=n=>X0+(n-MAPA_N[0])/(MAPA_N[1]-MAPA_N[0])*(X1-X0), Y=t=>Y1-(t-MAPA_T[0])/(MAPA_T[1]-MAPA_T[0])*(Y1-Y0);
+  const cw=(X1-X0)/nx+0.6, ch=(Y1-Y0)/ny+0.6;
+  for(let i=0;i<nx;i++) for(let j=0;j<ny;j++){ const b=mp.cel[i*ny+j]; if(!isFinite(b)) continue; x.fillStyle=colorBsfc(b); x.fillRect(X0+i/nx*(X1-X0),Y1-(j+1)/ny*(Y1-Y0),cw,ch); }
+  for(const t of [0,50,100,150]){ txt(x,String(t),X0-3,Y(t)+3,TXT,8.5,'right','500'); }
+  for(const n of [1000,3000,5000]){ txt(x,fN(n/1000,0)+'k',X(n),Hd-3,TXT,8,'center','500'); }
+  // la curva de par máximo del motor normal (punteada) y la de este motor, roja donde detonaría
+  const ref=mapaRefDe(C);
+  x.setLineDash([3,3]); x.strokeStyle='rgba(255,255,255,0.65)'; x.lineWidth=1.1; x.beginPath(); for(let i=0;i<18;i++){ const n=MAPA_N[0]+(MAPA_N[1]-MAPA_N[0])*(i+0.5)/18; const px=X(n), py=Y(ref[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]);
+  x.lineWidth=2.2; for(let i=1;i<nx;i++){ const n0=MAPA_N[0]+(MAPA_N[1]-MAPA_N[0])*(i-0.5)/nx, n1=MAPA_N[0]+(MAPA_N[1]-MAPA_N[0])*(i+0.5)/nx; x.strokeStyle=(mp.Kpl[i]>RETO.kMax||mp.Kpl[i-1]>RETO.kMax)?COL.knock:'#ffffff'; x.beginPath(); x.moveTo(X(n0),Y(mp.Tpl[i-1])); x.lineTo(X(n1),Y(mp.Tpl[i])); x.stroke(); }
+  const h=C.h, px=X(C.esc.n), py=Y(h.M.par);
+  x.fillStyle='#0b1218'; x.beginPath(); x.arc(px,py,5,0,DOSPI); x.fill(); x.fillStyle='#fff'; x.beginPath(); x.arc(px,py,3.2,0,DOSPI); x.fill();
+  if(h.parMg>0.5){ const py2=Y(C.esc.par); x.strokeStyle=COL.mg; x.lineWidth=2; x.setLineDash([2,2]); x.beginPath(); x.moveTo(px,py); x.lineTo(px,py2); x.stroke(); x.setLineDash([]); x.fillStyle=COL.mg; x.beginPath(); x.arc(px,py2,3,0,DOSPI); x.fill(); }
+  let mn=1e9; for(const b of mp.cel) if(isFinite(b)&&b<mn) mn=b;
+  el('t_fr').textContent='mejor '+fN(mn,0)+' g/kWh';
+}
+/* ---- si sólo mueves el cierre: el par del motor de gasolina y el consumo, con el par pedido (se oculta mientras se ajusta) ---- */
+function barridoDe(C){ if(!C.barrido) C.barrido=barridoPhi(C.esc,C.p.r,2); return C.barrido; }
+function pintaBarrido(){
+  const x=abre(LSP), Wd=LSP.w, Hd=LSP.h, C=CALC; if(!C) return;
+  if(ocultaRespuesta()){ sinDatos(x,Wd,Hd,'esta curva se muestra al validar'); el('t_sp').textContent=''; return; }
+  const B=barridoDe(C), X0=26, X1=Wd-30, Y0=6, Y1=Hd-13, X=p=>X0+(p-IVC_MIN)/(IVC_MAX-IVC_MIN)*(X1-X0);
+  const YT=t=>Y1-t/140*(Y1-Y0); let bmn=1e9,bmx=0; for(const b of B){ bmn=Math.min(bmn,b.bsfcEq); bmx=Math.max(bmx,b.bsfcEq); } bmn=Math.floor(bmn/10)*10-5; bmx=Math.ceil(bmx/10)*10+5; const YB=b=>Y1-(b-bmn)/(bmx-bmn)*(Y1-Y0);
+  for(const t of [0,50,100]){ raya(x,X0,YT(t),X1,YT(t),GRID); txt(x,String(t),X0-3,YT(t)+3,TXT,8.5,'right','500'); }
+  for(const p of [30,50,70,90,110]){ raya(x,X(p),Y1,X(p),Y1+3,EJE); txt(x,String(p),X(p),Hd-2,TXT,8,'center','500'); }
+  raya(x,X0,YT(C.esc.par),X1,YT(C.esc.par),'rgba(61,220,151,0.75)',1.2,[4,3]);
+  x.strokeStyle=COL.act; x.lineWidth=1.9; x.beginPath(); B.forEach((b,i)=>{ const px=X(b.phi), py=YT(b.parIce); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  x.strokeStyle='#e9f3ff'; x.lineWidth=1.5; x.setLineDash([3,2]); x.beginPath(); B.forEach((b,i)=>{ const px=X(b.phi), py=YB(b.bsfcEq); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke(); x.setLineDash([]);
+  for(const b of [bmn+5,Math.round((bmn+bmx)/2/5)*5,bmx-5]) txt(x,fN(b,0),X1+3,YB(b)+3,'#bcd0dc',8.5,'left','500');
+  raya(x,X(C.p.phi),Y0,X(C.p.phi),Y1,'rgba(255,255,255,0.85)',1.2);
+  el('t_sp').textContent='par (ámbar) · consumo (blanco)';
+}
+function pintaGraficas(){ pintaPV(); pintaPTheta(); pintaMapa(); pintaBarrido(); }
+function pintaDockFijo(){
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?(CALC?NOMBRE_ESC[CALC.esc.id]:''):(enCalcula()?'Un cálculo':(enDiagnostico()?'Averigua la falla':(CALC?NOMBRE_ESC[CALC.esc.id]:''))));
+  pintaLeyFu();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  lab(1,'Rendimiento'); lab(2,'Par gasolina'); lab(3,'Par eléctrico'); lab(4,'Comprime'); lab(5,'Consumo'); lab(6,'Golpeteo');
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const h=C.h, M=h.M, sm=(v,u,d)=>fN(v,d===undefined?1:d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t='';
+  el('p_sub').textContent=NOMBRE_CARRERA[e.carrera]+' · '+fN(e.th,0)+'°';
+  const oc=ocultaRespuesta();   // al ajustar, el rendimiento y el consumo se descubren al validar
+  set('f_1',oc?'<small>¿? al validar</small>':sm(M.etaFreno*100,'%')); _cl('f_1','');
+  set('f_2',sm(M.par,'N·m',0)); _cl('f_2','');
+  set('f_3',h.parMg>0.5?sm(h.parMg,'N·m',0):'<small>ninguno</small>'); _cl('f_3',h.faltaPar||h.parMg>RETO.mgMax?'warn':'');
+  set('f_4',fN(M.rc,1)+'<small> : 1</small>'); _cl('f_4','');
+  set('f_5',oc?'<small>¿? al validar</small>':sm(h.bsfcEq,'g/kWh',0)); _cl('f_5','');
+  const kp=h.K*100; set('f_6',kp>999?'<small>detona</small>':sm(kp,'%',0)); _cl('f_6',h.K>1?'bad':(h.K>RETO.kMax?'warn':''));
+  el('l_f4').textContent='Compresión real'; el('l_f5').textContent=oc?'Consumo':'Consumo (Otto '+fN(C.ref.bsfcEq,0)+')'; el('l_f6').textContent='Golpeteo';
+  if(enDiagnostico()||enCalcula()){ cl=''; t=''; }
+  else if(h.K>1){ cl='mal'; t='¡Detona! El gas sin quemar se enciende solo y golpea el pistón: se comprime demasiado.'; }
+  else if(h.faltaPar){ cl='mal'; t='Falta par: ni con el motor eléctrico al máximo se llega a lo que pide el coche.'; }
+  else if(e.carrera===3&&e.adm>0.1){ cl='ojo'; t='La válvula sigue abierta con el pistón subiendo: devuelve aire al colector, por eso comprime menos.'; }
+  else if(h.apertura<0.8&&!h.abierta){ cl='ojo'; t='La mariposa está cerrada al '+fN((1-h.apertura)*100,0)+' %: sobra aire y el motor lo estrangula; se pierde energía en el bombeo.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'×0,5'],[1,'×1'],[2,'×2'],[4,'×4']];
+const VISTAS_BARRA=[['todo','Todo'],['cilindro','Cilindro'],['valvulas','Válvulas'],['electrico','Eléctrico']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+const COLOR_CARRERA=['#FF7A45','#c9a77a','#5BC8FF','#FFA94D'];
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent='θ = '+fN(e.th,0)+'°';
+  el('tLento').textContent='cámara lenta ×1/'+fN((C.esc.n/60)/(REV_S*EST.vel),0);
+  let t=NOMBRE_CARRERA[e.carrera], c=COLOR_CARRERA[e.carrera];
+  if(e.carrera===3&&e.adm>0.1){ t='Compresión · devuelve aire'; c='#8fe8b8'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const mm=(x,y)=>V3(x*ESC,(CULATA.position.y+y)*ESC,0);
+const ANCLAS=[
+  ['Pistón',()=>V3(0,(SIM.e?SIM.e.ypin+CH:Y_PMS+CH)*ESC,0.1)],
+  ['Válvula de admisión',()=>mm(-X_V,30)],
+  ['Válvula de escape',()=>mm(X_V,30)],
+  ['Bujía (la chispa)',()=>mm(0,60)],
+  ['Leva: abre la válvula',()=>mm(-X_V,YC_CAM)],
+  ['Mariposa (estrangula el aire)',()=>mm(X_MARIPOSA,Y_MARIPOSA+14)],
+  ['Cigüeñal',()=>V3(0,0,0.1)],
+  ['Motor eléctrico',()=>V3(X_MG*ESC,0.9,0.1)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(255,215,163,.65)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  piston:'El pistón sube y baja empujado por el gas. La biela lo une al cigüeñal, que convierte ese vaivén en giro',
+  vadm:'Válvula de admisión: deja entrar el aire. Aquí se decide cuándo cierra: cerrarla tarde es el truco del ciclo Atkinson/Miller',
+  vesc:'Válvula de escape: deja salir el humo cuando el pistón sube',
+  leva:'Leva: una excéntrica que gira a la mitad de vueltas que el cigüeñal y empuja la válvula para abrirla. La de admisión cambia su forma con el cierre',
+  bujia:'Bujía: la chispa que enciende la mezcla poco antes de que el pistón llegue arriba',
+  gas:'El gas dentro del cilindro, coloreado por su temperatura: azul frío, ámbar caliente, casi blanco al quemar',
+  aire:'Aire (azul) y humo (naranja). Los puntos verdes son aire que el pistón devuelve al colector con la válvula todavía abierta',
+  mariposa:'Mariposa: una compuerta que cierra el paso del aire para dar menos par. Estrangular desperdicia energía',
+  cigue:'Cigüeñal: gira y mueve la correa del motor eléctrico',
+  mg:'Motor eléctrico: pone el par que el motor de gasolina no da. Los rojos y azules son los imanes; los puntos verdes, las bobinas',
+  culata:'Culata: la tapa del cilindro, con los conductos y las válvulas',
+  colector:'Colector: el tubo por el que entra el aire (izquierda) o sale el humo (derecha)',
+  bloque:'Bloque del motor, cortado por la mitad',
+  cilindro:'Pared del cilindro, bruñida',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(ENG,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||h.object.material&&h.object.material.transparent) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+/* a cada pieza su nombre para el tooltip */
+(function(){
+  ENG.userData.clave='bloque'; CULATA.userData.clave='culata'; PARED.userData.clave='cilindro';
+  PISTON.userData.clave='piston'; BIELA.userData.clave='piston'; CIGUE.userData.clave='cigue'; MG.userData.clave='mg';
+  V_ADM.grp.userData.clave='vadm'; V_ESC.grp.userData.clave='vesc'; V_ADM.gm.userData.clave='vadm'; V_ESC.gm.userData.clave='vesc';
+  V_ADM.cam.userData.clave='leva'; V_ESC.cam.userData.clave='leva'; BUJIA.userData.clave='bujia'; MARIPOSA.userData.clave='mariposa';
+  GAS.grupo.userData.clave='gas'; for(const P of PARTICULAS) P.im.userData.clave='aire';
+})();
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+/* ===================== 18. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: el cilindro, la válvula
+   de admisión, qué pasa si cierra tarde, comprimir menos y expandir más, lo que se pierde (el par), el golpeteo y tu turno. Cada
+   paso lleva la cámara a su pieza, pone el motor en la configuración que explica y la señala con un aro. Las cifras del texto
+   salen del mismo modelo que mueve la escena. */
+const TOUR={paso:0,auto:false,timer:null};
+const posPiston=()=>V3(0,((SIM.e?SIM.e.ypin:Y_PMS)+CH)*ESC,0.1);
+const posVAdm=()=>mm(-X_V,6), posMG=()=>V3(X_MG*ESC,0,0.1), posBujia=()=>mm(0,4);
+const posGolpe=()=>{ const C=CALC; return V3(0,(CULATA.position.y-3)*ESC,0.1); };
+const PAR_OTTO={esc:'carretera',r:R_REF,phi:IVC_REF}, PAR_ATK={esc:'carretera',r:13,phi:75};
+const cifra=(C)=>({rc:fN(C.h.M.rc,1),re:fN(C.p.r,1),eta:fN(C.h.M.etaFreno*100,0),par:fN(C.h.M.par,0),mg:fN(C.h.parMg,0),K:fN(C.h.K*100,0)});
+const TOUR_PASOS=[
+  {t:'Un cilindro cortado por la mitad',vista:'cilindro',foco:posPiston,par:PAR_OTTO,th0:80,
+   x:()=>'Es un cilindro de gasolina. El <b>pistón</b> sube y baja; arriba, una válvula deja entrar el aire y otra deja salir el humo. La gráfica dibuja la presión que hay adentro.'},
+  {t:'La válvula de admisión',vista:'valvulas',foco:posVAdm,par:PAR_OTTO,th0:440,
+   x:()=>'En un motor normal cierra casi al terminar de bajar el pistón: el cilindro se llena y el aire queda encerrado. Los puntos azules son el aire entrando.'},
+  {t:'Cerrarla tarde',vista:'cilindro',foco:posVAdm,par:PAR_ATK,th0:585,
+   x:()=>'Ahora la válvula sigue abierta cuando el pistón ya <b>sube</b>: lo que empuja, vuelve al tubo (puntos verdes). Al cerrar por fin, queda menos aire atrapado.'},
+  {t:'Comprimir menos, expandir más',vista:'todo',foco:posPiston,par:PAR_ATK,th0:30,
+   x:()=>{ const c=cifra(calcula(PAR_ATK)); return `Con menos aire, el motor aprieta solo <b>${c.rc} veces</b>, pero el gas se expande <b>${c.re} veces</b> al quemarse. Expandir más saca más trabajo del mismo combustible: el motor rinde ${c.eta} %.`; }},
+  {t:'Lo que pierdes: par',vista:'electrico',foco:posMG,par:PAR_ATK,th0:300,
+   x:()=>{ const e=escPorId('carretera'), pa=parPleno(PAR_ATK.r,PAR_ATK.phi,e.n,e.ron), po=parPleno(PAR_OTTO.r,PAR_OTTO.phi,e.n,e.ron); return `Con menos aire entra menos gasolina y se empuja menos: a plena carga este motor da <b>${fN(pa,0)} N·m</b> y uno normal da <b>${fN(po,0)}</b>. El <b>motor eléctrico</b> (el disco) pone lo que falta cuando lo pides.`; }},  {t:'Cuidado: el golpeteo',vista:'cilindro',foco:posGolpe,par:{esc:'cuesta',r:15,phi:35},th0:12,
+   x:()=>'Si comprimes demasiado, el gas se enciende solo antes de tiempo y golpea el pistón (el anillo rojo). Cerrar la válvula tarde lo evita, aunque el gas se expanda mucho.'},
+  {t:'Tu turno',vista:'todo',foco:null,par:PAR_ATK,th0:60,
+   x:()=>'Tú decides <b>cuándo cierra la válvula</b> y <b>cuánto se expande el gas</b>. Pulsa «Probar yo» y busca gastar menos gasolina sin golpeteo y sin quedarte sin par.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x()}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); SIM.th=P.th0; ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 19. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (cuántas veces aprieta el aire de verdad un motor que cierra tarde la válvula), 2 · Ajusta (cuándo cierra la
+   válvula y cuánto se expande el gas, para tres cosas a la vez: gastar menos que un motor normal, no detonar y no pedirle al motor
+   eléctrico más de lo que da; el veredicto y la curva que delata la ventana sólo aparecen al validar, y la ventana es INTERIOR en el
+   cierre) y 3 · Diagnostica (¿qué le pasa a este motor?, sólo con lo que se ve en el dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Calcula: cuántas veces aprieta el aire ---------- */
+const CASOS_1=[{r:12,f:0.20},{r:13,f:0.25},{r:14,f:0.30},{r:15,f:0.20},{r:10.5,f:0.10},{r:16,f:0.35},{r:13,f:0.15}];
+const rcSimple=(r,f)=>1+(1-f)*(r-1);
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.r+'|'+GUIA.r1.f; let c; do{ c=pickOne(CASOS_1); }while(c.r+'|'+c.f===p); GUIA.r1=Object.assign({},c,{rc:rcSimple(c.r,c.f)}); }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe cuántas veces aprieta el aire (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-r.rc)<=0.12){
+    RETOS.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`Lo que sobra arriba es 1 parte; el pistón barre ${fN(r.r-1,1)}. Como la válvula cierra cuando ya subió el ${fN(r.f*100,0)} %, quedan atrapadas 1 + ${fN(1-r.f,2)}·${fN(r.r-1,1)} = <b>${fN(r.rc,2)}</b> partes, y se aprietan hasta 1: comprime <b>${fN(r.rc,1)} veces</b> aunque el cilindro tenga relación de ${fN(r.r,1)}. (Con la biela real, en el motor de la pantalla, el número sale un poco distinto.)`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal();
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: el aire atrapado es lo que queda por encima de donde estaba el pistón al cerrar, más el espacio sobrante.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',(v>r.r?'No puede apretar más veces que la relación del cilindro. ':(v<2?'Aprieta más que eso. ':''))+`Cuenta las partes: 1 de espacio sobrante más lo que el pistón barre desde que cierra la válvula. (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta el cierre y la expansión ---------- */
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id&&RETOS.resiembras>0);
+  GUIA.r2={esc:e,r:R_REF,phi:IVC_REF,validado:false,res:null,intentos:0};
+  reiniciaCalculo(); pintaHUD();
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, cr=criterios(E,r.r,r.phi), h=cr.h; r.res=cr; r.validado=true; r.intentos++; RETOS.intentos++;
+  reiniciaCalculo();
+  const cifras=`Ahorro <b>${fN(cr.ahorro*100,1)} %</b> frente al motor normal (meta ${fN(E.meta*100,1)} %), golpeteo al <b>${fN(h.K*100,0)} %</b> del límite (máx. ${fN(RETO.kMax*100,0)} %), el motor eléctrico pone <b>${fN(h.parMg,0)} N·m</b> (máx. ${fN(RETO.mgMax,0)}).`;
+  if(cr.todo){
+    RETOS.fallos2=0; sonido.bien(); const rg=rangoPhi(E,r.r);
+    feedback('good','¡Lo conseguiste! ✓',`${cifras} ${rg?`Con esa relación de expansión, cualquier cierre entre <b>${fN(rg[0],0)}° y ${fN(rg[1],0)}°</b> tras el fondo habría servido: antes golpetea o gasta lo mismo que un motor normal, y después el motor eléctrico no alcanza. La respuesta está en el interior del mando, no en los extremos.`:''}`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(!cr.c.golpeteo) msg+=h.K>1?'<b>Detona</b>: comprime demasiado. Cierra la válvula más tarde o baja la expansión. ':'Estás muy cerca de detonar: no dejes margen tan justo. ';
+    if(!cr.c.par) msg+=h.faltaPar?'<b>Falta par</b>: cierras tan tarde que atrapa muy poco aire y ni el eléctrico alcanza. Cierra antes. ':'El motor eléctrico pone más de lo permitido: cierra un poco antes. ';
+    if(!cr.c.consumo) msg+=h.apertura<0.95&&!h.abierta?'La mariposa estrangula el aire sobrante y se pierde energía: cierra más tarde para no desperdiciarlo. ':'Todavía ahorras poco: el gas puede expandirse más. ';
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia la situación.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const NOMBRE_DX={golpeteo:'Comprime demasiado: el gas se enciende solo',sinaire:'Cierra tan tarde que le falta aire',ahogo:'Cierra pronto y la mariposa lo estrangula',cortoexp:'Expande poco: casi no mejora al motor normal'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira el golpeteo, el par del motor eléctrico, la mariposa del tubo de admisión y el consumo contra el del motor normal.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='golpeteo') return 'El golpeteo pasa del 100 % del límite: con la válvula cerrando pronto, el aire se comprime tanto (y se calienta tanto) que el gas sin quemar se enciende solo. Cerrarla más tarde baja la compresión real sin tocar la expansión.';
+  if(k==='sinaire') return 'La válvula cierra tan tarde que el pistón devuelve casi todo el aire: el motor de gasolina da muy poco par y el eléctrico pasa de su límite. Es el precio de este ciclo si te pasas.';
+  if(k==='ahogo') return 'La válvula cierra pronto, así que entra más aire del que hace falta, y la mariposa lo estrangula: el motor gasta energía empujando contra una compuerta casi cerrada (el bombeo) y consume como uno normal.';
+  return 'No golpetea, no estrangula y el eléctrico casi no trabaja, pero la relación de expansión es baja: el gas sale caliente, con trabajo sin aprovechar. Expandir más es lo que da el ahorro.';
+}
+function noEs(k){
+  if(k==='golpeteo') return 'Mira el golpeteo: aquí no llega al límite.';
+  if(k==='sinaire') return 'Mira el par del motor eléctrico: aquí no pasa de lo permitido.';
+  if(k==='ahogo') return 'Mira la mariposa del tubo de admisión: aquí está abierta del todo.';
+  return 'Compara la relación de expansión: aquí no es el cierre lo que falla.';
+}
+const QUIZ=[
+  {q:'¿Qué cambia cuando la válvula de admisión cierra tarde?',ok:'El motor comprime menos de lo que expande',mal:['El motor expande menos de lo que comprime','Entra más aire que antes','Sube la relación geométrica del cilindro']},
+  {q:'¿Por qué un motor Atkinson/Miller entrega menos par?',ok:'Atrapa menos aire y quema menos gasolina en cada ciclo',mal:['Su gasolina tiene menos energía','Tiene más fricción en el cigüeñal','Su cilindro es más pequeño']},
+  {q:'¿Por qué combina bien con un motor eléctrico?',ok:'El eléctrico pone el par que le falta al arrancar y acelerar',mal:['El eléctrico enfría la mezcla para que no detone','El eléctrico es el que cierra la válvula','El eléctrico hace que se expanda más el gas']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v':
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2','Cuenta partes: el espacio sobrante vale <b>1</b> y el pistón barre <b>(r − 1)</b> partes. El pistón ya subió una fracción f de su carrera cuando la válvula cierra.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2','Lo atrapado es <b>1 + (1 − f)·(r − 1)</b> partes, y todo eso se aprieta hasta quedar en 1: esa es la relación de compresión real.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarAjusta(); break;
+    case 'dx-golpeteo': diagnostica('golpeteo'); break; case 'dx-sinaire': diagnostica('sinaire'); break; case 'dx-ahogo': diagnostica('ahogo'); break; case 'dx-cortoexp': diagnostica('cortoexp'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Cuántas veces aprieta el aire?',
+      teach:`El cilindro tiene relación de expansión <b>${fN(r.r,1)}</b>: el espacio de arriba es 1 parte y el pistón barre ${fN(r.r-1,1)}. La válvula cierra cuando el pistón ya <b>subió el ${fN(r.f*100,0)} %</b> de su carrera. Con biela muy larga: <div class="task">¿Cuántas veces se aprieta el aire de verdad? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? veces" aria-label="Relación de compresión real"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando la situación…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Que gaste menos sin detonar',
+      teach:`Situación: <b>${NOMBRE_ESC[r.esc.id].toLowerCase()}</b> (${infoEsc(r.esc)}). Meta: gastar al menos <b>${fN(r.esc.meta*100,1)} %</b> menos que un motor normal, sin acercarte al golpeteo y con el eléctrico poniendo menos de <b>${fN(RETO.mgMax,0)} N·m</b>.<div class="why"><b>Ojo:</b> cerrar tarde ahorra, pero atrapa menos aire. ${tri('d_try2',RETOS.fallos2,4)}</div>`,
+      acts:`${slidersHTML(r,['r2P','r2R'])}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla este motor',
+      teach:`Este motor no cumple. Mira el golpeteo, el par del eléctrico, la mariposa y el consumo.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Cuesta» y sube la expansión con el cierre pronto: mira el anillo rojo del golpeteo.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula') return PAR_ATK;
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {esc:r.esc.id,r:r.r,phi:r.phi}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {esc:c.esc,r:c.r,phi:c.phi}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  reiniciaCalculo(); ponVista(EST.modo==='reto'&&GUIA.paso==='calcula'?'cilindro':'todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2P:['phi',v=>v,txtPhi,'vr2P'],r2R:['r',v=>v/10,txtR,'vr2R']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=m[1](+t.value); GUIA.r2.validado=false; el(m[3]).textContent=m[2](GUIA.r2[m[0]]); reiniciaCalculo(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 20. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del «objeto»
+   (ancho × alto en unidades) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); const hud=r('hud'); const top=hud?hud.top:(tabs?tabs.top:H); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:Math.min(tb?tb.top:H,top)-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  todo:{dir:V3(0.0,0.10,1.0),anc:()=>V3(-0.1,1.3,-0.3),toff:V3(0,0,0),obj:()=>({w:6.0,h:4.7}),fov:30,tope:0.80},
+  cilindro:{dir:V3(0.30,0.12,1.0),anc:()=>V3(0,1.55,0),toff:V3(0,0,0),obj:()=>({w:2.8,h:5.1}),fov:30,tope:0.80},
+  valvulas:{dir:V3(0.25,0.12,1.0),anc:()=>V3(0,2.9,0),toff:V3(0,0,0),obj:()=>({w:1.9,h:1.6}),fov:30,tope:0.80},
+  electrico:{dir:V3(0.0,0.10,1.0),anc:()=>V3(1.1,0,0),toff:V3(0,0,0),obj:()=>({w:3.9,h:2.1}),fov:30,tope:0.80},
+};
+const CAM={off:V3(0,1,10),toff:V3(0,0,0),auto:true,previo:null,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?40:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.8)));
+}
+function ofsDeseado(v){ const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope); return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov}; }
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un ronroneo grave cuyo tono sigue al régimen del motor (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=50; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=180; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    ronroneo:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(34+q*40,t,0.15); zg.gain.setTargetAtTime(on&&q>0?0.008:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El ángulo del cigüeñal avanza dt·velocidad·REV_S en cada cuadro, y con ESE ángulo se mueven el pistón, las válvulas, el gas, la
+   llama, las partículas, el motor eléctrico y el cursor de las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  aplicaEscena(dtS,dtSim,dt);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.ronroneo(CALC&&!EST.pausa?clamp(CALC.esc.n/2400,0,1):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.th=TOUR_PASOS[0].th0;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista(TOUR_PASOS[0].vista,0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; const oc=o=>{ if(o&&o.visible){ o.visible=false; ocultos.push(o); } };
+  oc(PLATAFORMA); scene.traverse(o=>{ if(o.userData&&o.userData.fondo) oc(o); });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{c:RETOS.fallos1,a:RETOS.fallos2,d:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{r:GUIA.r1.r,f:GUIA.r1.f,rc:GUIA.r1.rc}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,r:GUIA.r2.r,phi:GUIA.r2.phi,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const h=C.h;
+    return {esc:C.esc.id,r:C.p.r,phi:C.p.phi,rc:C.rc,K:h.K,golpea:C.golpea,parMg:h.parMg,apertura:h.apertura,ahorro:C.crit.ahorro,cumple:C.crit.c,todo:C.crit.todo}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,th:SIM.th,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,r:GUIA.r2.r,phi:GUIA.r2.phi,res:GUIA.r2.res&&{todo:GUIA.r2.res.todo,ahorro:GUIA.r2.res.ahorro}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s,Math.max(s,0.5)); },
+  th:(v)=>{ SIM.th=((v%720)+720)%720; aplicaEscena(0.001,0.001,1.0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(r,phi)=>{ const g=GUIA.r2; if(g){ g.r=r; g.phi=phi; g.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(id)=>{ const g=GUIA.r2; if(g){ g.esc=escPorId(id); reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('ciclo-atkinson-miller-hibrido',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{motor:ENG,culata:CULATA,piston:PISTON,gas:GAS.lamina,electrico:MG}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-ciclo-atkinson-miller-hibrido.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

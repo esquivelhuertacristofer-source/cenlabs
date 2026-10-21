@@ -6027,6 +6027,97 @@ Calculas la distancia de un eco y el radio de giro; eliges la velocidad al pasar
     "titulo": "Estacionamiento automático en paralelo: geometría y sensores ultrasónicos",
     "videoUrl": "",
   },
+  "mecanica-158": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Conducción asistida",
+        "ejemplo": "Saber en qué carril va el coche dentro de un túnel para mantener el carril o mostrar la ruta.",
+      },
+      {
+        "area": "Navegación y mapas",
+        "ejemplo": "Los navegadores siguen la ruta en túneles y estacionamientos con la fusión de GPS, IMU y velocidad de ruedas.",
+      },
+      {
+        "area": "Vehículos autónomos y drones",
+        "ejemplo": "Estimar su posición cuando el GPS se degrada entre edificios altos o se interfiere.",
+      },
+    ],
+    "bienvenida": "Ayudas a un coche a saber dónde está cuando entra a un túnel y pierde la señal del GPS.
+Afuera, el GPS se equivoca unos metros. Adentro no hay GPS, y el coche sólo cuenta con un sensor de giro, un acelerómetro y sus ruedas.
+El sensor de giro tiene un pequeño error de fábrica (sesgo), y ese error hace que la posición se aparte más y más conforme pasa el tiempo.
+Tu trabajo: calcular cuánto se desvía, elegir el sensor, la frecuencia del GPS y cuánto confiar en él, y comprobar que el coche cruce el túnel sin perderse.",
+    "codigo": "MEC-158",
+    "conceptos": [
+      {
+        "descripcion": "Da la posición con ruido de metros. Mientras más satélites se ven y mejor repartidos (HDOP bajo), menos error. En un túnel no se ve ninguno.",
+        "icono": "🛰️",
+        "nombre": "GNSS y su calidad",
+      },
+      {
+        "descripcion": "Un giroscopio y un acelerómetro permiten seguir la cuenta sin satélites, pero el sesgo del giroscopio hace que el error lateral crezca como ½·v·b·t².",
+        "icono": "🧭",
+        "nombre": "Sensor inercial (IMU)",
+      },
+      {
+        "descripcion": "Mezcla GPS, IMU y ruedas, aprende los sesgos mientras hay cielo y dibuja un círculo de duda que crece sin señal. Un buen filtro es honesto: su círculo cubre el error real.",
+        "icono": "🧮",
+        "nombre": "Filtro de Kalman",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula la desviación lateral que produce un sesgo de giroscopio en un túnel.",
+      "Elige la clase de sensor, la frecuencia del GPS y la confianza para cruzar el túnel con el error final bajo el límite.",
+      "Diagnostica por qué fallan otros ajustes: sesgo alto, sin ruedas, exceso de fe en el GPS o un filtro que presume.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Posicionamiento del coche: GNSS más sensor inercial (IMU) en un túnel",
+    "videoUrl": "",
+  },
+  "mecanica-159": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automoción",
+        "ejemplo": "Muchos coches híbridos usan motores de ciclo Atkinson o Miller: ahorran gasolina a cargas bajas y el motor eléctrico compensa el par que falta al arrancar y acelerar.",
+      },
+      {
+        "area": "Diagnóstico",
+        "ejemplo": "El golpeteo, el estrangulamiento de la mariposa y la falta de aire dejan huellas distintas en el consumo y en la presión del cilindro; saber leerlas ayuda a ubicar la falla.",
+      },
+    ],
+    "bienvenida": "Cambias cuándo cierra una válvula del motor para que gaste menos gasolina, y ves cuánto par pierdes.
+Miras un cilindro cortado por la mitad: el pistón sube y baja, y la gráfica dibuja la presión que hay adentro.
+Calculas cuántas veces se aprieta el aire de verdad, eliges cuándo cierra la válvula y cuánto se expande el gas, y al final diagnosticas por qué falla un motor.",
+    "codigo": "MEC-159",
+    "conceptos": [
+      {
+        "descripcion": "Si la válvula sigue abierta cuando el pistón ya sube, parte del aire vuelve al tubo y queda atrapado menos. El motor comprime menos de lo que luego expande; con relación de expansión 13 y cierre a 75° comprime 9,5 veces y se expande 13.",
+        "icono": "🚪",
+        "nombre": "Cierre tardío de la admisión",
+      },
+      {
+        "descripcion": "Expandir más saca más trabajo del mismo combustible: en la carretera rinde 30,1 % frente a 28,7 % del motor normal. Comprimir demasiado calienta el gas hasta que se enciende solo y golpea el pistón.",
+        "icono": "🔥",
+        "nombre": "Rendimiento y golpeteo",
+      },
+      {
+        "descripcion": "Con menos aire entra menos gasolina: a plena carga el motor da 103 N·m y uno normal 131. El motor eléctrico del híbrido pone la diferencia cuando se pide.",
+        "icono": "🔋",
+        "nombre": "El par que se pierde",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula cuántas veces se aprieta el aire de verdad cuando la válvula cierra con el pistón ya subiendo.",
+      "Elige el cierre de la válvula y la expansión del gas para gastar menos que un motor normal, sin golpeteo y sin pedirle demasiado al motor eléctrico.",
+      "Diagnostica por qué falla un motor: comprime demasiado, le falta aire, la mariposa lo estrangula o expande poco.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Ciclo Atkinson/Miller del motor híbrido: comprimir menos, expandir más",
+    "videoUrl": "",
+  },
   "mecanica-16": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -21532,6 +21623,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-155": [],
   "mecanica-156": [],
   "mecanica-157": [],
+  "mecanica-158": [],
+  "mecanica-159": [],
   "mecanica-16": [],
   "mecanica-17": [],
   "mecanica-18": [],
@@ -21924,6 +22017,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-155",
   "mecanica-156",
   "mecanica-157",
+  "mecanica-158",
+  "mecanica-159",
   "mecanica-16",
   "mecanica-17",
   "mecanica-18",

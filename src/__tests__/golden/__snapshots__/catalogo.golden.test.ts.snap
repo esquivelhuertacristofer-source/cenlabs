@@ -1913,6 +1913,28 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un asistente de estacionamiento mide el hueco con un sensor ultrasónico lateral mientras el coche pasa y luego retrocede dibujando una «S» de dos arcos. El sensor mide el tiempo de vuelo del eco, d = c·t/2, con c = 331,3 + 0,606·T m/s (un metro de eco tarda 5,8 ms a 20 °C), dentro de un haz cónico de ±30°; pita 10 veces por segundo, así que a 8 km/h cada lectura está a 22 cm de la anterior y el borde de un coche se localiza con un error de hasta la mitad de esa separación. El coche se modela como bicicleta cinemática, con eje trasero de referencia: θ̇ = v·tan δ/L y radio R = L/tan δ; con L = 2,60 m y 33° en las ruedas (528° de volante) R = 4,0 m. Correr el coche h = 2,70 m de lado con dos arcos iguales exige h = 2R(1 − cos α) y un avance de 2R·sen α: 6,0 m con el volante a tope y 6,5 m con 470°. El hueco mínimo para estacionar en una sola maniobra es de 6,2 m con el volante a tope (1,4 veces el largo del coche de 4,40 m), 6,4 m con 475° y 7,5 m con 280°; con 470°, un hueco de 6,2 m pide 2 maniobras y uno de 5,9 m, 4. El reto pide detectar el hueco, no tocar a ningún vecino, respetar el número de maniobras, dejar al menos 15 cm libres y no pedir más del 90 % del giro: pasar muy rápido hace que el sensor se equivoque y frene tarde, girar poco no cabe, y detenerse mal obliga a más maniobras. Se simplifican las ruedas sin deslizamiento, el suelo plano y el sensor ideal con eco geométrico.",
     "titulo": "Estacionamiento automático en paralelo: geometría y sensores ultrasónicos",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-158",
+    "modulo": "Autotrónica",
+    "orden": 158,
+    "simuladorHtml": "/labs/posicionamiento-gnss-imu.html",
+    "teoria": "Sin GPS dentro de un túnel, el coche navega a ciegas con un sensor inercial y sus ruedas, y el sesgo del giroscopio hace que el error lateral crezca como ½·v·b·t² (con 20 m/s, 0,05 °/s y 30 s son 7,85 m). Un filtro de Kalman fusiona GNSS (error de metros, σ = 2,0 m·HDOP), IMU y odometría, aprende los sesgos y reporta su duda (NEES). En el túnel de 520 m el IMU básico se aparta 25,8 m, el de consumo 5,9 m y el industrial 1,0 m; fiarse demasiado del GPS correlacionado (NEES 241 a 10 Hz en el cañón urbano) hace que el filtro presuma de una precisión que no tiene.",
+    "titulo": "Posicionamiento del coche: GNSS más sensor inercial (IMU) en un túnel",
+  },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-159",
+    "modulo": "Autotrónica",
+    "orden": 159,
+    "simuladorHtml": "/labs/ciclo-atkinson-miller-hibrido.html",
+    "teoria": "Un motor Atkinson/Miller deja abierta la válvula de admisión cuando el pistón ya sube, de modo que devuelve parte del aire al tubo y comprime menos de lo que expande. La compresión efectiva es el volumen atrapado entre el de la cámara: con relación de expansión 13 y cierre a 75° tras el punto muerto inferior comprime 9,5 veces, igual que el motor normal (relación 10,5, cierre a 45°), pero se expande 13 veces, y en la carretera (2 400 rpm, 100 N·m) rinde 30,1 % en lugar de 28,7 %. El precio es el par: a plena carga da 103 N·m y no 131, porque atrapa menos aire y quema menos gasolina; el motor eléctrico del híbrido pone lo que falta. El modelo es un ciclo de aire con combustión de Wiebe integrada con la primera ley y verifica el límite ideal 1 − 1/r^(γ−1) con 344 comprobaciones; el golpeteo se mide con la integral de Livengood-Wu. El reto pide ahorrar 5,0 % (carretera), 4,0 % (cuesta) o 5,5 % (ciudad) frente al motor normal sin pasar del 80 % del límite de golpeteo y con el motor eléctrico poniendo menos de 15 N·m: sólo lo cumple entre el 5,6 % y el 7,1 % de la rejilla, con el cierre en el interior del mando (en la carretera con relación 15, de 64,5° a 83,5°); cerrar pronto detona o gasta lo mismo, y cerrar tarde deja sin aire. Se simplifican los conductos sin ondas, el gas con γ constante de 1,32 y la distribución con sólo el cierre móvil.",
+    "titulo": "Ciclo Atkinson/Miller del motor híbrido: comprimir menos, expandir más",
+  },
 ]
 `;
 
@@ -2113,6 +2135,8 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-155",
   "mecanica-156",
   "mecanica-157",
+  "mecanica-158",
+  "mecanica-159",
   "mecanica-16",
   "mecanica-17",
   "mecanica-18",
