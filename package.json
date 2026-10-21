@@ -18,7 +18,7 @@
     "prebuild": "node scripts/gen-lab-registry.mjs && node scripts/gen-lab-briefings.mjs",
     "build": "next build",
     "start": "next start",
-    "cf:build": "node scripts/gen-lab-registry.mjs && node scripts/gen-lab-briefings.mjs && opennextjs-cloudflare build",
+    "cf:build": "node scripts/gen-lab-registry.mjs && node scripts/gen-lab-briefings.mjs && opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "preview:cf": "npm run cf:build && opennextjs-cloudflare preview",
     "deploy:cf": "npm run cf:build && opennextjs-cloudflare deploy",
     "lint": "eslint",
