@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Filtro de partículas: hollín y regeneración — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#120d0a;--panel:rgba(20,14,10,.88);--line:#5a3d27;--ink:#F6EEE8;
+    --dim:#BCA896;--accent:#FF9A3C;--accent2:#FFC58A;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#FF9A3C;--cR:#FF6A55;--cE:#FF4D5A;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,6,4,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#2a1d14;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#3a2819}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#2a1100;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#2a1100;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ffb878}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#2a1100}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#FF9A3C;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#9a8573;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#e0cfc1;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#a8927f;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#2a1100}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#d9b070;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(90,61,39,.7);color:#e0cfc1}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#150f0a;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(90,61,39,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(90,61,39,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#9a8573}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#d0b9a6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(90,61,39,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#d3beac;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#2a1d14;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#ecdccd;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(255,154,60,.38);background:rgba(255,154,60,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#f0e2d6}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(255,154,60,.55),0 0 24px 6px rgba(255,154,60,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(22,15,10,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(22,15,10,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#e0cfc1}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(22,15,10,.92);border:1px solid rgba(255,170,90,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(22,15,10,.84);border:1px solid rgba(255,170,90,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(22,15,10,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · filtro del humo diésel · hollín</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Filtro de hollín</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Hollín guardado</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Contrapresión</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Temp. del filtro</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Gas que llega</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Diésel extra</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Quemas hechas</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Hollín y contrapresión en el tiempo</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Presión y hollín <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">¿A qué °C arde? <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Temperatura del filtro <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — FILTRO DE PARTÍCULAS (DPF/GPF): HOLLÍN, CONTRAPRESIÓN Y REGENERACIÓN
+   (Autotrónica · mecanica-149)
+
+   El escape de un diésel en media sección: el motor suelta hollín, el oxidante prepara el gas y el filtro de pared porosa lo
+   atrapa. El hollín crece como una torta en las paredes y sube la contrapresión (Darcy); se quema sin ayuda con NO2 (pasiva,
+   250–450 °C) o a la fuerza con post-inyección (activa, ~600 °C), y una parada a media quema puede desbocarla. El motor, el filtro
+   por celdas, la cinética de Arrhenius, el balance de energía y el mando de la regeneración son un único modelo, en un bloque
+   puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Filtro de partículas (DPF/GPF): física pura (sin three). Unidades SI salvo donde se diga. ----
+   Cadena: motor diésel (hollín crudo, caudal y temperatura del gas) → filtro de pared porosa dividido en N celdas axiales
+   con hollín por celda y temperatura del sustrato por celda → caída de presión (canales + pared de Darcy + torta de hollín
+   + ceniza) → oxidación del hollín (O2 térmica de Arrhenius y NO2 pasiva) con su calor → regeneración activa por
+   post-inyección. Todo cierra su balance de masa de carbono y su balance de energía. */
+const DOSPI=Math.PI*2, R_GAS=8.314462618;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const MC=12.011;                                    // g/mol de carbono
+const DHC_O2=393.5e3/MC;                            // J por g de C que arde con O2: C + O2 → CO2 (ΔH = −393,5 kJ/mol)
+const DHC_NO2=279.3e3/MC;                           // J por g de C que arde con NO2: C + 2 NO2 → CO2 + 2 NO (ΔH = −279,3 kJ/mol)
+const T_AMB=298.15, M_AIRE=0.02897, M_NO2=46.0055;
+
+/* ---- Motor diésel de 120 kW (mapa didáctico en la carga L de 0 a 1) ---- */
+const MOT={Pmax:120e3,etaE:0.40,LHVd:35.9e6,cpG:1100,etaDOC:0.85,Pamb:1.05e5,Rair:287};
+const motor=L=>{
+  L=clamp(L,0,1); const P=L*MOT.Pmax, eNOx=3.0+4.5*L, eS=0.12+0.9*Math.exp(-L/0.18);      // g/kWh de NOx (como NO2) y de hollín crudos
+  return {L,P,eNOx,mNOx:eNOx*P/1000,eS,mS:eS*P/1000,mGas:0.025+0.135*L,Tg:120+360*Math.pow(L,0.8),Pcomb:P/MOT.etaE,yO2:0.185-0.115*L};   // g/h · kg/s · °C · W · fracción molar
+};
+const noxPPM=m=>m.mNOx/M_NO2/3600/(m.mGas/M_AIRE)*1e6;                                   // ppm de NOx en el gas
+const muGas=T=>1.458e-6*Math.pow(T,1.5)/(T+110.4);                                          // Pa·s (Sutherland, aire)
+const rhoGas=T=>MOT.Pamb/(MOT.Rair*T);                                                      // kg/m³
+
+/* ---- El filtro: cordierita de 200 cpsi y pared de 12 mil, 6,5 L, canales cuadrados tapados en extremos alternos ---- */
+const DPF=(function(){
+  const D=0.1905, Lf=0.2286, cpsi=200, w=3.05e-4, Af=Math.PI/4*D*D, Vf=Af*Lf, Ncel=cpsi/6.4516e-4, paso=1/Math.sqrt(Ncel), a=paso-w, Nin=0.5*Ncel*Af;
+  return {D,Lf,cpsi,w,Af,Vf,VL:Vf*1000,Ncel,paso,a,Nin,Afilt:4*a*Lf*Nin,Vcan:Nin*a*a*Lf,
+    kw:2.0e-13,ks:4.0e-14,rs:100,ra:300,zeta:1.0,md:1.0,dw:0.5,kapA:3,eta:0.99,          // permeabilidades (m²), densidades de torta (kg/m³), pérdida de entrada y salida
+    N:8,Cs:2500,UA:3,rhoSub:380,csSub:1000};                                                 // celdas axiales · capacidad térmica del sustrato (J/K) · pérdida a la carcasa (W/K)
+})();
+const F_POISEUILLE=28.454;                                  // ΔP/L = 28,454·μ·u/a² en un canal cuadrado laminar (f·Re = 14,227)
+
+/** Caída de presión del filtro. mS: hollín medio (g en todo el filtro); cen: ceniza (g/L); mdot: kg/s; T: K.
+ *  ΔP = canales (Poiseuille, estrechados por la torta) + entrada/salida + pared (Darcy, con la obstrucción en profundidad) + torta (Darcy). */
+function dpFiltro(mS,cen,mdot,T,crack){
+  const rho=rhoGas(T), mu=muGas(T), Q=mdot/rho, V=DPF.VL, carga=mS/V;
+  const fraccCen=(cen*V/1000/DPF.ra)/DPF.Vcan, Aef=DPF.Afilt*(1-DPF.kapA*fraccCen);        // la ceniza se apila al fondo y quita pared útil
+  const ws=(mS/1000)/(DPF.rs*Aef), aEf=Math.max(DPF.a*0.15,DPF.a-2*ws);                      // espesor de la torta y canal de entrada estrechado
+  const u0=Q/(DPF.Nin*aEf*aEf);
+  const dch=F_POISEUILLE*mu*DPF.Lf*Q/(DPF.Nin*Math.pow(aEf,4));
+  const dce=DPF.zeta*rho*u0*u0/2;
+  const Rw=(DPF.w/DPF.kw)*(1+DPF.dw*(1-Math.exp(-carga/DPF.md)));
+  const dw=mu*Q/Aef*Rw, ds=mu*Q/Aef*ws/DPF.ks;
+  const fc=1-0.8*(crack||0);                                                              // una grieta abre un paso en paralelo y baja la contrapresión
+  return {tot:(dch+dce+dw+ds)*fc,dch,dce,dw,ds,Q,u0,ws,Aef,aEf,carga};
+}
+const REF={mdot:0.16,T:480+273.15};                         // caudal de referencia: motor a plena carga
+const dpRef=(mS,cen)=>dpFiltro(mS,cen,REF.mdot,REF.T).tot;
+
+/* ---- Cinética de oxidación del hollín (primer orden en el hollín, Arrhenius) ---- */
+const KIN={Ref:873.15,kO2:1.5e-3,EO2:150e3,yRef:0.10,kN:3.5e-7,ENO2:55e3,TrefN:623.15};
+const kO2=(T,y)=>KIN.kO2*Math.exp(-KIN.EO2/R_GAS*(1/T-1/KIN.Ref))*(y/KIN.yRef);               // 1/s con O2 a la fracción y
+const kNO2=T=>KIN.kN*Math.exp(-KIN.ENO2/R_GAS*(1/T-1/KIN.TrefN));                               // 1/s por ppm de NO2
+const fNO2=Tc=>0.55*Math.exp(-Math.pow((Tc-330)/110,2))/(1+Math.exp(-(Tc-210)/12));              // fracción de NO2 en el NOx tras el oxidante (DOC)
+
+/** Un paso del filtro. st: {m:Float64Array(N) g de hollín por celda, T:Float64Array(N) K}. e: {Tin K, mdot kg/s, yO2, FNO2 mol/s, nGas mol/s}.
+ *  Devuelve el hollín quemado (O2 y NO2, g) y el calor; deja el estado actualizado. Balance de energía por celda, implícito aguas abajo:
+ *  C·dT/dt = G·(T_{i−1} − T_i) + Q_i − UA/N·(T_i − T_amb), con intercambio gas–sólido perfecto. */
+function pasoFiltro(st,e,dt){
+  const N=DPF.N, Cc=DPF.Cs/N, G=e.mdot*MOT.cpG, hl=DPF.UA/N;
+  let Tprev=e.Tin, FN=e.FNO2, bO=0, bN=0, Q=0, Tmax=0;
+  for(let i=0;i<N;i++){
+    const T=st.T[i], m0=st.m[i], yN=FN/e.nGas*1e6;
+    let gN=m0*(1-Math.exp(-kNO2(T)*yN*dt)); const cap=FN*dt*0.5*MC*0.9; if(gN>cap) gN=cap;       // el NO2 que llega limita la quema pasiva
+    const gO=(m0-gN)*(1-Math.exp(-kO2(T,e.yO2)*dt));
+    const q=(gO*DHC_O2+gN*DHC_NO2)/dt;
+    st.m[i]=m0-gN-gO; FN-=gN/MC*2/dt; bO+=gO; bN+=gN; Q+=q;
+    const Tn=(Cc*T/dt+G*Tprev+q+hl*T_AMB)/(Cc/dt+G+hl); st.T[i]=Tn; Tprev=Tn; if(Tn>Tmax) Tmax=Tn;
+  }
+  return {bO,bN,Q,Tmax,Tout:st.T[N-1],FNr:FN};
+}
+const sumaM=st=>{ let s=0; for(let i=0;i<st.m.length;i++) s+=st.m[i]; return s; };
+
+/* ---- Perfiles de uso (carga L del motor en el tiempo; segmentos [minutos, L] que se repiten) ---- */
+const PERFILES={
+  ciudad:{nombre:'Ciudad con paradas',T:360,seg:[[10,0.22],[8,0.32],[6,0.25],[3,0.05],[3,0.28]],ash:0,m0:0.4,Tb0:140},
+  mixto:{nombre:'Mixto, filtro con 100 000 km',T:360,seg:[[20,0.26],[3,0.05],[17,0.62]],ash:4,m0:0.4,Tb0:200},
+  carretera:{nombre:'Carretera',T:360,seg:[[60,0.62]],ash:0,m0:0.4,Tb0:300},
+};
+const cargaPerfil=(pf,tMin)=>{ const per=pf.seg.reduce((a,s)=>a+s[0],0); let u=tMin%per; for(const s of pf.seg){ if(u<s[0]) return s[1]; u-=s[0]; } return pf.seg[pf.seg.length-1][1]; };
+const TAU_DOC=30, MFIN=0.30, T_REG_MAX=2700, L_MIN_REG=0.15;                     // s de inercia del oxidante · g/L donde acaba la quema · s máximos · carga mínima para post-inyectar
+const KM_POR_GL=25000;                                                           // km de uso por cada g/L de ceniza
+
+/** Simula un uso completo. par: {perfil, thr (g/L que dispara la quema), Tobj (°C de la quema activa), ash (g/L), m0 (g/L), crack (0..1 fracción que se fuga), kPas (multiplicador de NO2), dt}.
+ *  Devuelve las trazas y los balances de carbono, energía y combustible. */
+function simula(par){
+  const pf=par.pfObj||PERFILES[par.perfil||'ciudad'], N=DPF.N, V=DPF.VL;
+  const thr=par.thr!==undefined?par.thr:4, Tobj=(par.Tobj!==undefined?par.Tobj:600)+273.15, ash=par.ash!==undefined?par.ash:pf.ash, m0=par.m0!==undefined?par.m0:pf.m0;
+  const crack=par.crack||0, regOn=par.regen!==false, Tsolo=pf.T*60;
+  const nRec=par.nRec||720, dRec=Tsolo/nRec, st={m:new Float64Array(N).fill(m0*V/N),T:new Float64Array(N)};
+  const mt0=motor(cargaPerfil(pf,0)); st.T.fill(par.Tini!==undefined?par.Tini+273.15:(pf.Tb0!==undefined?pf.Tb0:mt0.Tg)+273.15);
+  let Tin=st.T[0], reg=0, tReg=0, nReg=0, t=0;
+  const A={sIn:0,sLeak:0,bO:0,bN:0,Efuel:0,Ecomb:0,Eheat:0,tReg:0,Tpk:0,loadMax:m0,Egas:0,Eloss:0,Q:0,tregTot:0};
+  const tr={t:new Float32Array(nRec+1),L:new Float32Array(nRec+1),carga:new Float32Array(nRec+1),dp:new Float32Array(nRec+1),dpR:new Float32Array(nRec+1),Tpk:new Float32Array(nRec+1),Tin:new Float32Array(nRec+1),Tg:new Float32Array(nRec+1),
+    reg:new Uint8Array(nRec+1),fuel:new Float32Array(nRec+1),mC:new Float32Array((nRec+1)*N),TC:new Float32Array((nRec+1)*N),kP:new Float32Array(nRec+1),kA:new Float32Array(nRec+1),leak:new Float32Array(nRec+1)};
+  const rec=(k,m,tot,mdot,Tg,kp,ka)=>{ tr.t[k]=t; tr.L[k]=m.L; tr.carga[k]=tot/V; tr.dpR[k]=dpFiltro(tot,ash,REF.mdot,REF.T,crack).tot; tr.dp[k]=dpFiltro(tot,ash,m.mGas,Math.max(Tin,Tg),crack).tot; let pk=0; for(let i=0;i<N;i++){ tr.mC[k*N+i]=st.m[i]; tr.TC[k*N+i]=st.T[i]; if(st.T[i]>pk) pk=st.T[i]; }
+    tr.Tpk[k]=pk-273.15; tr.Tin[k]=Tin-273.15; tr.Tg[k]=Tg-273.15; tr.reg[k]=reg; tr.fuel[k]=A.Efuel; tr.kP[k]=kp; tr.kA[k]=ka; tr.leak[k]=A.sLeak; };
+  let kRec=0, kp=0, ka=0;
+  rec(0,mt0,m0*V,mt0.mGas,mt0.Tg+273.15,0,0);
+  while(t<Tsolo-1e-9){
+    const mt=motor(cargaPerfil(pf,t/60)), Tg=mt.Tg+273.15, tot=sumaM(st);
+    // el mando de la regeneración
+    if(regOn&&!reg&&tot/V>=thr-1e-9&&mt.L>=L_MIN_REG){ reg=1; tReg=0; nReg++; }
+    if(reg&&(tot/V<=MFIN||tReg>T_REG_MAX)){ reg=0; }
+    const inyecta=reg&&mt.L>=L_MIN_REG;
+    // paso de tiempo: fino mientras quema o está caliente
+    let Tpk0=0; for(let i=0;i<N;i++) if(st.T[i]>Tpk0) Tpk0=st.T[i];
+    let dt=(reg||Tpk0>820||Math.abs(Tin-Tg)>30)?0.5:5;
+    const aRec=(kRec+1)*dRec-t; if(dt>aRec&&aRec>1e-9) dt=aRec; if(dt>Tsolo-t&&Tsolo-t>1e-9) dt=Tsolo-t;
+    // inercia del oxidante: la temperatura que llega al filtro sigue a la que pide el mando
+    const Ttar=inyecta?Math.max(Tg,Tobj):Tg; Tin+=(Ttar-Tin)*(1-Math.exp(-dt/TAU_DOC));
+    const mdot=mt.mGas, nGas=mdot/M_AIRE, fN=fNO2(Tin-273.15)*(par.kPas!==undefined?par.kPas:1), FNO2=fN*noxPPM(mt)*1e-6*nGas;
+    // hollín que entra: lo retiene el filtro salvo la fracción fugada (grieta)
+    const eta=DPF.eta*(1-crack), gIn=mt.mS*dt/3600; const gStay=gIn*eta; for(let i=0;i<N;i++) st.m[i]+=gStay/N;
+    A.sIn+=gIn; A.sLeak+=gIn-gStay;
+    const r=pasoFiltro(st,{Tin,mdot,yO2:mt.yO2,FNO2,nGas},dt);
+    A.bO+=r.bO; A.bN+=r.bN; A.Q+=r.Q*dt; if(r.Tmax>A.Tpk) A.Tpk=r.Tmax;
+    if(inyecta) A.Efuel+=mdot*MOT.cpG*Math.max(0,Ttar-Tg)/MOT.etaDOC*dt;
+    A.Ecomb+=mt.Pcomb*dt; if(reg){ tReg+=dt; A.tregTot+=dt; }
+    const cargaNow=sumaM(st)/V; if(cargaNow>A.loadMax) A.loadMax=cargaNow;
+    t+=dt; kp=r.bN/dt; ka=r.bO/dt;
+    if(t>=(kRec+1)*dRec-1e-9){ kRec++; if(kRec<=nRec) rec(kRec,mt,sumaM(st),mdot,Tg,kp,ka); }
+  }
+  const mFin=sumaM(st), m0g=m0*V, ceni=ash;
+  const bal={C:A.sIn-A.sLeak-A.bO-A.bN-(mFin-m0g)};                        // g de carbono: entra y se queda − quemado − almacenado
+  let dpMaxRef=0,dpMax=0; for(let k=0;k<=nRec;k++){ if(tr.dpR[k]>dpMaxRef) dpMaxRef=tr.dpR[k]; if(tr.dp[k]>dpMax) dpMax=tr.dp[k]; }
+  dpMaxRef=Math.max(dpMaxRef,dpRef(A.loadMax*V,ash));
+  return {par,pf,thr,Tobj:Tobj-273.15,ash,m0,N,nRec,dRec,tr,A,bal,nReg,mFin,cargaFin:mFin/V,cargaMax:A.loadMax,dpMaxRef,dpMax,Tpk:A.Tpk-273.15,
+    extraComb:A.Efuel/A.Ecomb*100,fuelL:A.Efuel/MOT.LHVd,combL:A.Ecomb/MOT.LHVd,tReg:A.tregTot,fugaPct:A.sIn>0?A.sLeak/A.sIn*100:0,quemadoO:A.bO,quemadoN:A.bN};
+}
+
+/** Prueba de peor caso: una regeneración activa que empieza con `thr` g/L de hollín y, a los `tDrop` minutos, el conductor se detiene
+ *  (ralentí): se corta la post-inyección y el filtro caliente se queda con poco gas y mucho oxígeno. */
+function simulaParada(par,tDrop){
+  const pf={nombre:'Parada en plena regeneración',T:34,seg:[[tDrop,0.60],[10,0.05],[34-tDrop-10,0.60]],ash:par.ash||0,m0:par.thr,Tb0:motor(0.6).Tg};
+  return simula(Object.assign({},par,{pfObj:pf,m0:par.thr,ash:par.ash||0,nRec:600}));
+}
+const T_DROPS=[1.5,3,5,8,12];
+/** Peor caso sobre varios instantes de parada. Devuelve la mayor temperatura y el instante que la produce. */
+function peorParada(par){
+  let mejor=null; for(const td of T_DROPS){ const r=simulaParada(par,td); if(!mejor||r.Tpk>mejor.r.Tpk) mejor={td,r}; }
+  return {Tpk:mejor.r.Tpk,td:mejor.td,run:mejor.r};
+}
+
+/* ---- El reto: criterios y escenarios ---- */
+const RETO={dp:13.5e3,T:900,fuel:2.0};                // Pa de contrapresión de referencia · °C del sustrato (límite didáctico) · % de combustible extra en el uso
+const ESCENARIOS=[{perfil:'ciudad'},{perfil:'mixto'}];
+const cumple=(R,P)=>({dp:R.dpMaxRef<=RETO.dp,T:Math.max(R.Tpk,P.Tpk)<=RETO.T,fuel:R.extraComb<=RETO.fuel});
+const cumpleTodo=(R,P)=>{ const c=cumple(R,P); return c.dp&&c.T&&c.fuel; };
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.7;
+scene.fog=new THREE.Fog('#2c333b',16,48);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(0.2,2.4,9.6);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0.2,1.7,0);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.6); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-3.5,9,6.5); LUZ.sol.target.position.set(0.0,1.2,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-6,right:6,top:5,bottom:-3,near:1,far:30});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#9fc8e8',1.4); LUZ.rim.position.set(-3,4,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#c8d4de','#2a2420',0.55); scene.add(LUZ.hemi);
+LUZ.cabina=new THREE.PointLight('#ffb070',0,5,2); LUZ.cabina.position.set(1.4,2.0,0.6); scene.add(LUZ.cabina);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: el filtro al rojo, las chispas del hollín que arde y los bordes
+   de la plataforma. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.35,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta, vetas de las celdas) dibujadas como objetos, no como ruido. */
+
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#454c54'); g.addColorStop(1,'#1c2025');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(255,176,100,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(255,176,100,0.24)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+/* Canales del panal visto en corte: líneas finas paralelas al flujo y tabiques cortos, en tono apagado. */
+function texCanales(){
+  const W=128,H=128,c=cv(W,H),x=c.getContext('2d'); x.fillStyle='#ffffff'; x.fillRect(0,0,W,H);
+  x.strokeStyle='rgba(20,40,52,0.38)'; x.lineWidth=2;
+  for(let j=0;j<=16;j++){ const y=j*H/16+1; x.beginPath(); x.moveTo(0,y); x.lineTo(W,y); x.stroke(); }
+  x.strokeStyle='rgba(20,40,52,0.20)'; x.lineWidth=1.5;
+  for(let j=0;j<16;j++) for(let i=0;i<4;i++){ const px=((i+(j%2)*0.5)*W/4)%W; x.beginPath(); x.moveTo(px,j*H/16+1); x.lineTo(px,(j+1)*H/16+1); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_PLAT=texPlataforma(), T_CANAL=texCanales();
+T_PLAT.repeat.set(1,1);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.5,metalness:0.2,clearcoat:0.25,clearcoatRoughness:0.35}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#ff9a3c',toneMapped:false}),
+  aluminio: pbr({color:'#cfd9df',metalness:0.92,roughness:0.34}),
+  aleta: pbr({color:'#8fa9b4',metalness:0.9,roughness:0.4,transparent:true,opacity:0.30,side:THREE.DoubleSide,depthWrite:false}),
+  aletaCorte: pbr({color:'#7fc9d6',metalness:0.5,roughness:0.3,transparent:true,opacity:0.30,depthWrite:false,emissive:'#1f6f80',emissiveIntensity:0.15,side:THREE.DoubleSide}),
+  acero: pbr({color:'#aeb7bf',metalness:0.9,roughness:0.3}),
+  cobre: pbr({color:'#c9794a',metalness:0.95,roughness:0.28}),
+  laton: pbr({color:'#d2ae58',metalness:0.9,roughness:0.3}),
+  carcasa: fis({color:'#3d6f86',metalness:0.55,roughness:0.34,clearcoat:0.8,clearcoatRoughness:0.2,side:THREE.DoubleSide}),
+  carcasaInt: pbr({color:'#1c3541',metalness:0.5,roughness:0.5,side:THREE.DoubleSide}),
+  rotor: pbr({color:'#5d6f7a',metalness:0.85,roughness:0.28}),
+  iman: pbr({color:'#d6dde2',metalness:0.8,roughness:0.25}),
+  espiral: pbr({color:'#d8a65a',metalness:0.88,roughness:0.28}),
+  espiral2: pbr({color:'#8fb0bf',metalness:0.88,roughness:0.28}),
+  goma: pbr({color:'#15191c',metalness:0.1,roughness:0.75}),
+  negro: pbr({color:'#0f1417',metalness:0.5,roughness:0.4}),
+  vidrio: fis({color:'#9fd7e6',metalness:0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.03,transparent:true,opacity:0.10,envMapIntensity:1.6,side:THREE.DoubleSide,depthWrite:false}),
+  conducto: fis({color:'#6d8791',metalness:0.1,roughness:0.15,clearcoat:0.8,transparent:true,opacity:0.20,side:THREE.DoubleSide,depthWrite:false}),
+  tubo: pbr({color:'#ffffff',vertexColors:true,metalness:0.0,roughness:0.45,envMapIntensity:0.25,transparent:true,opacity:0.55,depthWrite:false}),
+  carter: pbr({color:'#223b46',metalness:0.7,roughness:0.4}),
+  asiento: pbr({color:'#2d3f4a',roughness:0.85,metalness:0}),
+  piel: pbr({color:'#e0b89c',roughness:0.6,metalness:0}),
+  ropa: pbr({color:'#e9743a',roughness:0.8,metalness:0}),
+  aire: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  ref: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  glowCab: new THREE.MeshBasicMaterial({color:'#ffb070',transparent:true,opacity:0.09,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una bobina con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+
+/** Funde las mallas ESTÁTICAS de un grupo en una malla por material (y por «clave» de pieza, para que el rótulo y el
+ *  tooltip sigan sabiendo de qué pieza son). Las que se mueven, las instanciadas, las de material múltiple y el fondo se
+ *  quedan como están. */
+function fusionaPartes(grupo,excluir){
+  excluir=excluir||[]; grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map(), viejas=[];
+  const fuera=o=>{ for(let p=o;p&&p!==grupo;p=p.parent) if(excluir.includes(p)||(p.userData&&p.userData.fondo===true)) return true; return false; };
+  grupo.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||fuera(o)||o.userData.noFusion) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    const clave=o.userData.clave||'', ro=o.renderOrder||0;
+    const mete=(mat,geo)=>{ const k=mat.uuid+'|'+clave; if(!por.has(k)) por.set(k,{mat,clave,gs:[],ro}); por.get(k).gs.push(geo); };
+    if(Array.isArray(o.material)){
+      const grupos=g.groups&&g.groups.length?g.groups:[{start:0,count:g.attributes.position.count,materialIndex:0}];
+      for(const gr of grupos){ const mat=o.material[gr.materialIndex]; if(!mat) continue; const sub=new THREE.BufferGeometry();
+        for(const nom of ['position','normal','uv']){ const at=g.attributes[nom]; sub.setAttribute(nom,new THREE.BufferAttribute(at.array.slice(gr.start*at.itemSize,(gr.start+gr.count)*at.itemSize),at.itemSize)); }
+        mete(mat,sub); }
+      g.dispose();
+    } else mete(o.material,g);
+    viejas.push(o); });
+  for(const o of viejas){ o.parent.remove(o); }
+  for(const [,{mat,clave,gs,ro}] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent&&!(mat.blending===THREE.AdditiveBlending); me.receiveShadow=true; me.renderOrder=ro; if(clave) me.userData.clave=clave; grupo.add(me);
+  }
+}
+
+
+/* ===================== 6. EL BANCO: PLATAFORMA, SUELO Y FONDO ===================== */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+{
+  const g=new RoundedBoxGeometry(6.4,0.16,3.2,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0.40,-0.08,-0.10); PLATAFORMA.add(p);
+  const sh=new THREE.Shape(); const w=3.15,h=1.52,r=0.08; sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0.40,0.002,-0.10); PLATAFORMA.add(n);
+}
+{
+  const d=malla(new THREE.CircleGeometry(30,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(190,170,150,0.42)','rgba(60,52,46,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.y=-0.17; d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.y=-0.165; s.userData.fondo=true; MUNDO.add(s);
+}
+scene.background=fondoDegradado('#161a1f','#323b45','#7d8a96'); scene.fog.color.set('#3a444e');
+
+/* Materiales propios de este banco */
+const TX_RAY=P3.texturaRayado({fondo:'#aab8bd',linea:'#74858c',lineas:3,grueso:0.10,porUnidad:5,grano:0.03});
+const T_FUND=P3.pielFundicion({px:256,semilla:31,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(2,2);
+const nF=new THREE.Vector2(0.22,0.22);
+const M2={
+  fundicion: pbr({color:'#5f6e78',map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:nF,metalness:0.55,roughness:0.6}),
+  fundicionClara: pbr({color:'#93a3ad',map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:nF,metalness:0.7,roughness:0.5}),
+  acero2: pbr({color:'#a9b4ba',metalness:0.92,roughness:0.26}),
+  inox: pbr({color:'#c3ccd1',metalness:0.95,roughness:0.30,side:THREE.DoubleSide}),
+  inoxCalor: pbr({color:'#c3ccd1',metalness:0.9,roughness:0.32,side:THREE.DoubleSide,emissive:'#ff5a14',emissiveIntensity:0}),
+  inoxInt: pbr({color:'#6b7278',metalness:0.8,roughness:0.5,side:THREE.DoubleSide,emissive:'#ff5a14',emissiveIntensity:0}),
+  vidrioTubo: fis({color:'#9fb2bf',metalness:0,roughness:0.08,clearcoat:0.6,clearcoatRoughness:0.08,transparent:true,opacity:0.14,envMapIntensity:0.5,side:THREE.DoubleSide,depthWrite:false}),
+  colector: pbr({color:'#6b747a',metalness:0.85,roughness:0.40,emissive:'#ff4a10',emissiveIntensity:0}),
+  ceramica: pbr({color:'#cfc3ae',metalness:0.0,roughness:0.88,side:THREE.DoubleSide}),
+  manta: pbr({color:'#e4dcc8',metalness:0.0,roughness:0.95,side:THREE.DoubleSide}),
+  caja: pbr({color:'#2d3a46',metalness:0.5,roughness:0.45}),
+  tomaP: pbr({color:'#6fb7e6',metalness:0.0,roughness:0.5}),
+  tomaP2: pbr({color:'#e6a76f',metalness:0.0,roughness:0.5}),
+  pico: new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.0,depthWrite:false,toneMapped:false}),
+  ledOff: new THREE.MeshBasicMaterial({color:'#3a3f44',toneMapped:false}),
+};
+
+/* ===================== 7. UTILIDADES DE FORMA ===================== */
+const rad=g=>g*Math.PI/180;
+const addTo=(grp,geo,mat,opt)=>{const m=malla(geo,mat,opt); grp.add(m); return m;};
+
+/* ===================== 8. EL RECORRIDO DEL GAS =====================
+   Una poligonal con tres tramos: el tubo de arriba (el gas sale del motor hacia la izquierda), el bajante y la fila de abajo, que
+   atraviesa el oxidante (DOC) y el filtro hasta la salida. Las partículas siguen esta misma línea. */
+const R_TUBO=0.17, Y_ARR=2.58, X_BAJ=-2.10, Y_ABA=0.98, X_FIN=2.98, ES=0.85;
+const X_DOC0=-1.62, X_DOC1=-1.06, R_DOC=0.45;
+const X_D0=-0.45, X_D1=1.95, R_D=0.86, R_CAN=R_D*1.075, LM=X_D1-X_D0;
+const NS=22;                                              // franjas del esquema (11 canales de entrada y 11 de salida)
+const X_MOT=1.62-1.12*ES;
+const RUTA=(function(){
+  const P=[V3(X_MOT,Y_ARR,0),V3(X_BAJ,Y_ARR,0),V3(X_BAJ,Y_ABA,0),V3(X_FIN,Y_ABA,0)], L=[0];
+  for(let i=1;i<P.length;i++) L.push(L[i-1]+P[i].distanceTo(P[i-1]));
+  return {P,L,total:L[L.length-1]};
+})();
+const S_DOC0=RUTA.L[2]+(X_DOC0-X_BAJ), S_DOC1=RUTA.L[2]+(X_DOC1-X_BAJ), S_D0=RUTA.L[2]+(X_D0-X_BAJ), S_D1=RUTA.L[2]+(X_D1-X_BAJ);
+function rutaEn(s,out){
+  const R=RUTA; s=clamp(s,0,R.total-1e-6); let i=1; while(i<R.P.length-1&&s>R.L[i]) i++;
+  const u=(s-R.L[i-1])/(R.L[i]-R.L[i-1]); out.copy(R.P[i-1]).lerp(R.P[i],u); return i;
+}
+
+/* ---- el motor diésel (bloque de la biblioteca de piezas), arriba a la derecha ---- */
+const MOTOR=new THREE.Group(); MOTOR.position.set(1.62,Y_ARR+0.13*ES,-0.02); MOTOR.scale.setScalar(ES); MUNDO.add(MOTOR);
+{
+  const matP={aluminio:M2.fundicionClara,acero:M2.acero2,hierro:M2.fundicion,negro:M.negro,chapa:M2.fundicion};
+  const bl=P3.bloqueMotor(matP,{largo:1.9,alto:1.25,ancho:0.95,cil:4,bobinas:false,escape:false,tapa:true});
+  MOTOR.add(bl);
+  const col=new THREE.Group(); MOTOR.add(col);
+  for(let i=0;i<4;i++){
+    const x=-0.66+i*0.44, cur=new THREE.CatmullRomCurve3([V3(x,0.05,0.50),V3(x,-0.12,0.60),V3(x*0.5-0.55,-0.14,0.50),V3(-1.0,-0.13,0.06)],false,'centripetal');
+    col.add(malla(new THREE.TubeGeometry(cur,24,0.045,10,false),M2.colector,{sombra:false}));
+  }
+  col.add(malla(new THREE.CylinderGeometry(0.10,0.10,0.18,20),M2.colector,{sombra:false})).position.set(-1.0,-0.13,0.06);
+  const sal=malla(new THREE.CylinderGeometry(R_TUBO/ES*0.78,R_TUBO/ES*0.78,0.5,24),M2.colector,{sombra:false}); sal.rotation.z=Math.PI/2; sal.position.set(-1.12,-0.13,0); MOTOR.add(sal);
+}
+const POLEAS=[];
+{
+  const mk=(d,x,y)=>{ const p=P3.polea({acero:M2.acero2},{d,ancho:0.09,gargantas:5,dEje:0.05}); p.rotation.x=Math.PI/2; p.position.set(x,y,0.60); MOTOR.add(p); POLEAS.push(p); return {x,y,r:d/2}; };
+  const A=mk(0.36,0.58,-0.42), B=mk(0.20,0.20,0.06), C=mk(0.17,0.84,0.12);
+  const alt=malla(new THREE.CylinderGeometry(0.095,0.095,0.20,28),M2.fundicionClara); alt.rotation.x=Math.PI/2; alt.position.set(B.x,B.y,0.50); MOTOR.add(alt);
+  const pts=[]; for(const q of [A,B,C]) for(let i=0;i<40;i++){ const a=i/40*DOSPI; pts.push([q.x+(q.r+0.006)*Math.cos(a),q.y+(q.r+0.006)*Math.sin(a)]); }
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const low=[]; for(const p of pts){ while(low.length>=2&&cross(low[low.length-2],low[low.length-1],p)<=0) low.pop(); low.push(p); }
+  const up=[]; for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  up.pop(); low.pop(); const hull=low.concat(up);
+  const cur=new THREE.CatmullRomCurve3(hull.map(p=>V3(p[0],p[1],0)),true,'centripetal',0.2), g=new THREE.TubeGeometry(cur,300,0.011,8,true); sana(g);
+  const bm=malla(g,pbr({color:'#15191c',roughness:0.85,metalness:0.05}),{sombra:false}); bm.scale.z=3.6; bm.position.z=0.60; MOTOR.add(bm);
+  const banda=malla(new THREE.BoxGeometry(1.34,0.018,0.012),M.neon,{sombra:false,recibe:false}); banda.position.set(0,0.50,0.30); MOTOR.add(banda);
+}
+
+/* ---- el tubo de escape (vidrio, para ver el gas por dentro) ---- */
+const TUBOS=new THREE.Group(); MUNDO.add(TUBOS);
+const tuboVidrio=(a,b,r)=>{ const d=b.clone().sub(a), l=d.length(), m=malla(new THREE.CylinderGeometry(r,r,l,32,1,true),M2.vidrioTubo,{sombra:false,recibe:false});
+  m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize()); m.renderOrder=3; TUBOS.add(m);
+  for(const p of [a,b]){ const ring=malla(new THREE.TorusGeometry(r*1.04,0.011,8,28),M2.acero2,{sombra:false}); ring.position.copy(p); ring.quaternion.copy(m.quaternion); ring.rotateX(Math.PI/2); TUBOS.add(ring); } };
+{
+  tuboVidrio(V3(X_MOT-0.04,Y_ARR,0),V3(X_BAJ,Y_ARR,0),R_TUBO);
+  tuboVidrio(V3(X_BAJ,Y_ARR,0),V3(X_BAJ,Y_ABA,0),R_TUBO);
+  tuboVidrio(V3(X_BAJ,Y_ABA,0),V3(X_DOC0-0.34,Y_ABA,0),R_TUBO);
+  tuboVidrio(V3(X_DOC1+0.20,Y_ABA,0),V3(X_D0-0.40,Y_ABA,0),R_TUBO);
+  tuboVidrio(V3(X_D1+0.40,Y_ABA,0),V3(X_FIN,Y_ABA,0),R_TUBO);
+  for(const p of [V3(X_BAJ,Y_ARR,0),V3(X_BAJ,Y_ABA,0)]){ const e=malla(new THREE.SphereGeometry(R_TUBO*1.08,28,20),M2.vidrioTubo,{sombra:false,recibe:false}); e.position.copy(p); e.renderOrder=3; TUBOS.add(e); }
+  const boca=malla(new THREE.TorusGeometry(R_TUBO*1.06,0.022,10,28),M2.acero2,{sombra:false}); boca.position.set(X_FIN,Y_ABA,0); boca.rotation.y=Math.PI/2; TUBOS.add(boca);
+}
+/** Medio aro en el plano YZ (normal a lo largo de X), del lado de atrás (z ≤ 0): brida o abrazadera de un tubo cortado por su eje. */
+function semiAro(r,tubo,mat){ const g=new THREE.Group(), t=malla(new THREE.TorusGeometry(r,tubo,8,44,Math.PI),mat,{sombra:false}); t.rotation.z=-Math.PI/2; g.add(t); g.rotation.y=Math.PI/2; return g; }
+/** Cono o cilindro cortado por el eje (mitad de atrás): radio r0 en x0 y r1 en x1. */
+function semiCono(x0,x1,r0,r1,mat,y){ const g=new THREE.CylinderGeometry(r0,r1,Math.abs(x1-x0),48,1,true,Math.PI/2,Math.PI); const m=malla(g,mat,{sombra:true}); m.rotation.z=Math.PI/2; m.position.set((x0+x1)/2,y===undefined?Y_ABA:y,0); return m; }
+
+/* ---- la placa del corte: el panal dibujado en un sombreador. Franjas alternas: canales de entrada (abiertos a la izquierda,
+   tapados a la derecha) y de salida (al revés). El hollín es la torta oscura de las paredes del canal de entrada; la ceniza
+   se apila al fondo; el calor de cada celda tiñe la cerámica (cuerpo negro: rojo → naranja → amarillo → blanco). ---- */
+const GLSL_SECCION={
+  v:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  f:`precision highp float;
+  varying vec2 vUv;
+  uniform float uSoot[8]; uniform float uTemp[8]; uniform float uAsh; uniform float uTime; uniform float uNS; uniform float uCat; uniform float uAsp; uniform float uDim;
+  float lerpArr(float arr[8], float u){ float x=clamp(u*8.0-0.5,0.0,7.0); float f=fract(x); float i0=floor(x); float a=0.0,b=0.0;
+    for(int i=0;i<8;i++){ float fi=float(i); if(fi==i0) a=arr[i]; if(fi==min(i0+1.0,7.0)) b=arr[i]; } return mix(a,b,f); }
+  vec3 cuerpoNegro(float T){ float g=smoothstep(480.0,1180.0,T);
+    vec3 c=mix(vec3(0.0),vec3(0.62,0.06,0.02),smoothstep(0.0,0.30,g));
+    c=mix(c,vec3(1.0,0.42,0.05),smoothstep(0.25,0.60,g)); c=mix(c,vec3(1.0,0.82,0.32),smoothstep(0.55,0.85,g)); c=mix(c,vec3(1.0,0.96,0.84),smoothstep(0.80,1.0,g));
+    return c*(0.35+1.5*g*g+1.0*g); }
+  float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+  float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
+  void main(){
+    float u=vUv.x, v=vUv.y, ns=uNS, sy=v*ns, s=floor(sy), ly=fract(sy);
+    bool entrada=mod(s,2.0)<0.5;
+    float aa=fwidth(sy)*0.9+1e-4, aax=fwidth(u)*0.9+1e-4;
+    float pared=0.085, dW=min(ly,1.0-ly), canal=smoothstep(pared-aa,pared+aa,dW);
+    float pl=0.045; float tapon=entrada?smoothstep(1.0-pl-aax,1.0-pl+aax,u):1.0-smoothstep(pl-aax,pl+aax,u);
+    float T=lerpArr(uTemp,u);
+    // cerámica de la pared: tono arena con variación lenta y un hilo claro al centro
+    vec3 cer=vec3(0.80,0.72,0.60)*(0.86+0.10*vn(vec2(u*5.0,s*0.7)));
+    cer=mix(cer,vec3(0.90,0.84,0.72),smoothstep(0.02,0.0,abs(dW-0.0)))*1.0;
+    vec3 inte=uCat>0.5?vec3(0.84,0.62,0.22):(entrada?vec3(0.36,0.39,0.43):vec3(0.52,0.62,0.72));
+    if(uCat>0.5) inte*=0.86+0.14*sin((u*uAsp*30.0)+s);
+    // torta de hollín: capa en ambas paredes del canal de entrada, más gruesa donde hay más
+    float sootK=lerpArr(uSoot,u); float semi=0.5-pared; float cake=pared+sootK*semi*0.92;
+    float enCake=entrada&&uCat<0.5?1.0-smoothstep(cake-aa,cake+aa,dW):0.0; enCake*=canal; enCake*=1.0-tapon;
+    vec3 hol=vec3(0.050,0.042,0.038)+vec3(0.10,0.09,0.08)*smoothstep(0.25,0.0,abs(dW-cake))*0.9;
+    // ceniza al fondo del canal de entrada
+    float ceniza=entrada&&uCat<0.5?smoothstep(1.0-pl-uAsh-aax,1.0-pl-uAsh+aax,u)*(1.0-tapon):0.0; ceniza*=canal;
+    vec3 col=cer;
+    col=mix(col,inte,canal*(1.0-tapon));
+    col=mix(col,vec3(0.60,0.57,0.52)*(0.9+0.1*vn(vec2(u*40.0,s))),ceniza);
+    col=mix(col,hol,enCake);
+    // tapones: cerámica más oscura
+    col=mix(col,cer*0.78,tapon*canal);
+    // luz: leve degradado vertical (cámara frontal) y viñeta del borde
+    float shade=0.92+0.08*cos((v-0.5)*3.14159); col*=shade;
+    col=pow(col,vec3(2.2));                                    // lo de arriba está pintado en sRGB: pasa a lineal
+    // el calor
+    float cal=smoothstep(430.0,520.0,T);
+    float chisp=0.75+0.25*vn(vec2(u*60.0+uTime*1.3,sy*3.0-uTime*0.7));
+    vec3 em=cuerpoNegro(T);
+    float peso=mix(0.60,1.0,enCake)*(uCat>0.5?0.75:1.0);
+    col=mix(col,col*0.35+em*chisp*peso,cal*0.88)+em*0.30*cal*(canal);
+    col*=uDim;
+    gl_FragColor=vec4(col,1.0);
+  }`
+};
+function matSeccion(esCat){
+  const m=new THREE.ShaderMaterial({vertexShader:GLSL_SECCION.v,fragmentShader:GLSL_SECCION.f,
+    uniforms:{uSoot:{value:new Array(8).fill(0)},uTemp:{value:new Array(8).fill(25)},uAsh:{value:0},uTime:{value:0},uNS:{value:NS},uCat:{value:esCat?1:0},uAsp:{value:1},uDim:{value:1}},side:THREE.DoubleSide});
+  m.toneMapped=false; return m;
+}
+const MAT_FILTRO=matSeccion(false), MAT_DOC=matSeccion(true);
+const FILTRO=new THREE.Group(); MUNDO.add(FILTRO);
+const DOC=new THREE.Group(); MUNDO.add(DOC);
+const placaFiltro=malla(new THREE.PlaneGeometry(LM,2*R_D*0.955),MAT_FILTRO,{sombra:false,recibe:false}); placaFiltro.position.set((X_D0+X_D1)/2,Y_ABA,0.004); placaFiltro.userData.noFusion=true; FILTRO.add(placaFiltro);
+MAT_FILTRO.uniforms.uAsp.value=LM/(2*R_D*0.955);
+const placaDoc=malla(new THREE.PlaneGeometry(X_DOC1-X_DOC0,2*R_DOC*0.95),MAT_DOC,{sombra:false,recibe:false}); placaDoc.position.set((X_DOC0+X_DOC1)/2,Y_ABA,0.004); placaDoc.userData.noFusion=true; DOC.add(placaDoc);
+MAT_DOC.uniforms.uAsp.value=(X_DOC1-X_DOC0)/(2*R_DOC*0.95);
+{
+  // ---- el filtro: monolito de cerámica, manta aislante, carcasa de inoxidable, conos y bridas ----
+  const cuerpo=malla(new THREE.CylinderGeometry(R_D*0.955,R_D*0.955,LM,56,1,false,Math.PI/2,Math.PI),M2.ceramica,{sombra:false}); cuerpo.rotation.z=Math.PI/2; cuerpo.position.set((X_D0+X_D1)/2,Y_ABA,0); FILTRO.add(cuerpo);
+  const manta=malla(new THREE.CylinderGeometry(R_D*1.03,R_D*1.03,LM,56,1,true,Math.PI/2,Math.PI),M2.manta,{sombra:false}); manta.rotation.z=Math.PI/2; manta.position.set((X_D0+X_D1)/2,Y_ABA,0); FILTRO.add(manta);
+  const car=malla(new THREE.CylinderGeometry(R_CAN,R_CAN,LM,64,1,true,Math.PI/2,Math.PI),M2.inoxCalor,{sombra:true}); car.rotation.z=Math.PI/2; car.position.set((X_D0+X_D1)/2,Y_ABA,0); FILTRO.add(car); FILTRO.userData.carcasa=car;
+  const carI=malla(new THREE.CylinderGeometry(R_CAN*0.995,R_CAN*0.995,LM,64,1,true,Math.PI/2,Math.PI),M2.inoxInt,{sombra:false}); carI.rotation.z=Math.PI/2; carI.position.copy(car.position); FILTRO.add(carI); FILTRO.userData.carcasaInt=carI;
+  const cin=semiCono(X_D0-0.40,X_D0,R_TUBO*1.02,R_CAN,M2.inoxCalor); FILTRO.add(cin); FILTRO.userData.cin=cin;
+  const cou=semiCono(X_D1,X_D1+0.40,R_CAN,R_TUBO*1.02,M2.inoxCalor); FILTRO.add(cou); FILTRO.userData.cou=cou;
+  for(const x of [X_D0,X_D1]){ const b=semiAro(R_CAN*1.02,0.026,M2.acero2); b.position.set(x,Y_ABA,0); FILTRO.add(b); }
+  for(const x of [X_D0+0.55,X_D1-0.55]){ addTo(FILTRO,new RoundedBoxGeometry(0.34,0.20,0.86,3,0.03),M.carter).position.set(x,Y_ABA-R_CAN-0.05,0.0); const ab=semiAro(R_CAN*1.045,0.016,M.acero); ab.position.set(x,Y_ABA,0); FILTRO.add(ab); }
+  // cuñas de la cuna bajo el filtro
+  for(const x of [X_D0+0.55,X_D1-0.55]) addTo(FILTRO,new RoundedBoxGeometry(0.50,0.10,1.0,3,0.03),M.carter).position.set(x,0.02,0);
+  // ---- el oxidante (DOC) ----
+  const dcu=malla(new THREE.CylinderGeometry(R_DOC*0.95,R_DOC*0.95,X_DOC1-X_DOC0,40,1,false,Math.PI/2,Math.PI),pbr({color:'#a88a3a',metalness:0.3,roughness:0.7,side:THREE.DoubleSide}),{sombra:false}); dcu.rotation.z=Math.PI/2; dcu.position.set((X_DOC0+X_DOC1)/2,Y_ABA,0); DOC.add(dcu);
+  const dca=malla(new THREE.CylinderGeometry(R_DOC*1.08,R_DOC*1.08,X_DOC1-X_DOC0,48,1,true,Math.PI/2,Math.PI),M2.inoxCalor,{sombra:true}); dca.rotation.z=Math.PI/2; dca.position.copy(dcu.position); DOC.add(dca); DOC.userData.carcasa=dca;
+  const d1=semiCono(X_DOC0-0.34,X_DOC0,R_TUBO*1.02,R_DOC*1.08,M2.inoxCalor); DOC.add(d1); DOC.userData.cin=d1;
+  const d2=semiCono(X_DOC1,X_DOC1+0.20,R_DOC*1.08,R_TUBO*1.02,M2.inoxCalor); DOC.add(d2); DOC.userData.cou=d2;
+  for(const x of [X_DOC0,X_DOC1]){ const b=semiAro(R_DOC*1.1,0.02,M2.acero2); b.position.set(x,Y_ABA,0); DOC.add(b); }
+  addTo(DOC,new RoundedBoxGeometry(0.30,0.16,0.70,3,0.03),M.carter).position.set((X_DOC0+X_DOC1)/2,Y_ABA-R_DOC-0.06,0);
+}
+/* ---- los sensores: temperatura a la entrada y a la salida del filtro, y la toma de presión con su barra de luces ---- */
+const SENSORES=new THREE.Group(); MUNDO.add(SENSORES);
+const LEDS_DP=[];
+{
+  const mat={acero:M2.acero2,negro:M.negro,goma:M.goma,cromo:M2.acero2};
+  const st=P3.sondaTemperatura(mat,{largo:0.28,d:0.06,muelle:false}); st.position.set(X_D0-0.22,Y_ABA+R_TUBO*0.55+0.14,0.0); SENSORES.add(st); SENSORES.userData.tin=st;
+  const st2=P3.sondaTemperatura(mat,{largo:0.28,d:0.06,muelle:false}); st2.position.set(X_D1+0.22,Y_ABA+R_TUBO*0.55+0.14,0.0); SENSORES.add(st2); SENSORES.userData.tout=st2;
+  // el sensor de presión diferencial: caja con cinco luces (verde → rojo) y dos tomas (antes y después del filtro)
+  const cj=new THREE.Group(); cj.position.set(-0.98,2.12,0.0); SENSORES.add(cj); SENSORES.userData.dp=cj;
+  addTo(cj,new RoundedBoxGeometry(0.46,0.24,0.26,4,0.04),M2.caja);
+  addTo(cj,new THREE.CylinderGeometry(0.03,0.03,0.07,12),M2.acero2).position.set(-0.10,-0.15,0.0);
+  addTo(cj,new THREE.CylinderGeometry(0.03,0.03,0.07,12),M2.acero2).position.set(0.10,-0.15,0.0);
+  const cols=['#34d399','#9be15d','#ffd166','#ff9a3c','#ff4d5a'];
+  for(let i=0;i<5;i++){ const l=malla(new THREE.SphereGeometry(0.027,14,12),new THREE.MeshBasicMaterial({color:cols[i],toneMapped:false}),{sombra:false}); l.position.set(-0.16+i*0.08,0.0,0.135); l.userData.col=cols[i]; cj.add(l); LEDS_DP.push(l); }
+  const tubo=(pts,mat)=>{ const cur=new THREE.CatmullRomCurve3(pts,false,'catmullrom',0.15); SENSORES.add(malla(new THREE.TubeGeometry(cur,60,0.016,8,false),mat,{sombra:false})); };
+  tubo([V3(-1.08,1.97,0.0),V3(-1.08,1.50,0.0),V3(-0.86,1.30,0.0),V3(-0.86,Y_ABA+R_TUBO*1.02,0.0)],M2.tomaP);                                   // antes del filtro
+  tubo([V3(-0.88,1.97,0.02),V3(-0.88,2.00,0.04),V3(2.62,2.00,0.04),V3(2.62,1.55,0.04),V3(2.62,Y_ABA+R_TUBO*1.02,0.0)],M2.tomaP2);                // después del filtro
+}
+const etiqueta=(g,k)=>g.traverse(o=>{ if(o.isMesh) o.userData.clave=k; });
+etiqueta(MOTOR,'motor'); etiqueta(DOC,'oxidante'); etiqueta(FILTRO,'filtro'); etiqueta(TUBOS,'escape');
+etiqueta(SENSORES.userData.tin,'sensorT'); etiqueta(SENSORES.userData.tout,'sensorT'); etiqueta(SENSORES.userData.dp,'sensorDP');
+const MOVILES=[PLATAFORMA,...POLEAS,MOTOR,placaFiltro,placaDoc,FILTRO.userData.carcasa,FILTRO.userData.carcasaInt,FILTRO.userData.cin,FILTRO.userData.cou,DOC.userData.carcasa,DOC.userData.cin,DOC.userData.cou,...LEDS_DP];
+fusionaPartes(MUNDO,MOVILES); fusionaPartes(MOTOR,POLEAS);
+MUNDO.traverse(o=>{ if(o.isMesh&&['escape','sensorT','sensorDP'].includes(o.userData.clave)) o.castShadow=false; });
+
+/* ===================== 11. LAS PARTÍCULAS: HOLLÍN, GAS, DIÓXIDO DE NITRÓGENO, DIÉSEL Y CHISPAS =====================
+   Dentro del filtro cada partícula sigue su propio canal: entra por una franja de entrada, cruza la pared poco a poco en
+   un punto al azar y sale por la franja vecina. El gas sigue; el hollín se queda pegado a la pared (el 99 %). */
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _col=new THREE.Color(), _p=V3(0,0,0), _p2=V3(0,0,0);
+function instancias(n,geo,mat){ const im=new THREE.InstancedMesh(geo,mat,n); im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3).fill(1),3); im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false; im.renderOrder=5; MUNDO.add(im); return im; }
+const ESF=new THREE.SphereGeometry(1,10,8);
+const MAT_PART=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+const NH=170, NG=130, NQ=46, NF=34, NC=70, NP=46;
+const rnd=(function(){ let s=20261;  return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; })();
+const HPITCH=2*R_D*0.955/NS, YF0=Y_ABA-R_D*0.955;                 // alto de una franja y borde de abajo de la placa
+const yFranja=k=>YF0+(k+0.5)*HPITCH;
+const nIn=NS/2;
+const PH=[], PG=[], PQ=[], PF=[], PC=[], PP=[];
+for(let i=0;i<NH;i++) PH.push({s:rnd()*RUTA.total,k:Math.floor(rnd()*nIn),uc:0.10+0.78*rnd(),ve:0.85+0.3*rnd(),oy:rnd()*2-1,oz:rnd()*2-1,act:rnd()<0.8,pega:0,quedo:rnd()<0.99});
+for(let i=0;i<NG;i++) PG.push({s:rnd()*RUTA.total,k:Math.floor(rnd()*nIn),uc:0.08+0.84*rnd(),ve:0.85+0.3*rnd(),oy:rnd()*2-1,oz:rnd()*2-1});
+for(let i=0;i<NQ;i++) PQ.push({s:S_DOC1+rnd()*(S_D0-S_DOC1-0.1),k:Math.floor(rnd()*nIn),uc:0.08+0.84*rnd(),ve:0.85+0.3*rnd(),oy:rnd()*2-1,h:rnd(),act:false});
+for(let i=0;i<NF;i++) PF.push({s:rnd()*S_DOC0*0.9,ve:0.85+0.3*rnd(),oy:rnd()*2-1,oz:rnd()*2-1,h:rnd()});
+for(let i=0;i<NC;i++) PC.push({k:Math.floor(rnd()*NS),u:rnd(),t:rnd(),h:rnd(),z:rnd()});
+for(let i=0;i<NP;i++) PP.push({u:rnd(),vy:0.18+0.14*rnd(),vx:0.30+0.28*rnd(),w:rnd()*DOSPI,h:rnd(),tipo:0});
+const IM_HOL=instancias(NH,ESF,MAT_PART), IM_GAS=instancias(NG,ESF,MAT_PART), IM_NO2=instancias(NQ,ESF,MAT_PART), IM_FUE=instancias(NF,ESF,MAT_PART), IM_CHI=instancias(NC,ESF,MAT_PART), IM_PEN=instancias(NP,ESF,MAT_PART);
+const C_HOL=new THREE.Color('#2a211b'), C_GAS=new THREE.Color('#e8f0f6'), C_NO2=new THREE.Color('#4fe3f2'), C_FUE=new THREE.Color('#ff9a3c'), C_CHI=new THREE.Color('#ffd479'), C_HUMO=new THREE.Color('#dfe6ea'), C_CAL=new THREE.Color('#ff8a3c');
+
+
+/* ===================== 12. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t es
+   el tiempo de USO del motor (s) y avanza dt·velocidad; mueve las partículas, el color y el calor de cada celda del filtro,
+   las chispas y el cursor de todas las gráficas. Los modos: «Recorrido» (paso a paso), «Probar» (mandos libres) y «Reto». */
+const EST={modo:'tour',perfil:'ciudad',thr:4,Tobj:640,km:0,vel:300,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const SIM={t:0,calc:null,ver:0,e:null,vD:1,fase:0};
+let CALC=null;
+const NCE=DPF.N;
+const kmDePerfil=k=>Math.round(PERFILES[k].ash*KM_POR_GL/1000)*1000;
+
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {perfil:EST.perfil,thr:EST.thr,Tobj:EST.Tobj,ash:EST.km/KM_POR_GL};
+}
+function calcula(p){
+  let run, peor=null;
+  if(p.pfObj){ run=simula(Object.assign({nRec:260},p)); }
+  else if(p.perfil==='parada'){ peor=peorParada({thr:p.thr,Tobj:p.Tobj,ash:p.ash||0}); run=peor.run; }
+  else { run=simula(Object.assign({nRec:720},p)); }
+  return {p,run,peor,fija:!!p.pfObj,parada:p.perfil==='parada'};
+}
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  SIM.t=Math.min(SIM.t,CALC.run.pf.T*60-1.01); if(SIM.t<0) SIM.t=0;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+
+/* ---- el estado del sistema en el instante t: sale de las trazas de la simulación ---- */
+function estadoEn(t){
+  const C=CALC; if(!C) return null; const R=C.run, T=R.tr, i=clamp(Math.floor(t/R.dRec),0,R.nRec), m=motor(T.L[i]);
+  const fN=fNO2(T.Tin[i]);
+  return {i,t,L:T.L[i],carga:T.carga[i],dp:T.dp[i],dpR:T.dpR[i],Tpk:T.Tpk[i],Tin:T.Tin[i],Tg:T.Tg[i],reg:T.reg[i],fuelJ:T.fuel[i],leak:T.leak[i],m,mS:m.mS,mGas:m.mGas,yO2:m.yO2,
+    yNO2:fN*noxPPM(m),kP:T.kP[i],kA:T.kA[i],inyecta:T.reg[i]===1&&T.L[i]>=L_MIN_REG};
+}
+
+/* ===================== 13. LO QUE SE VE ===================== */
+const C_OK=new THREE.Color('#34d399'), C_AMBAR=new THREE.Color('#ffb703'), C_PELIGRO=new THREE.Color('#ff5a4a'), C_NEUTRO=new THREE.Color('#3a3f44');
+const ocultaSalida=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado);   // el resultado, mientras se ajusta
+function nombreTiempo(s){ const m=Math.round(s/60), h=Math.floor(m/60); return h>0?h+' h '+(m-h*60<10?'0':'')+(m-h*60)+' min':m+' min'; }
+const TX_FIL=new Array(8).fill(0), TX_TEMP=new Array(8).fill(25);
+/** Velocidad de reproducción: la quema y el desbocamiento se ven en cámara lenta (se rotula con su factor). */
+function velEfectiva(e){
+  let v=CALC&&CALC.fija?60:EST.vel;
+  if(e&&e.reg) v=Math.min(v,60);
+  if(e&&e.Tpk>720) v=Math.min(v,10);
+  return v;
+}
+function aplicaEscena(dtS,dtSim){
+  const C=CALC; if(!C) return;
+  const oculta=ocultaSalida(), Tc=C.run.pf.T*60;
+  if(oculta) SIM.t=0; else { SIM.t+=dtSim; if(SIM.t>=Tc-C.run.dRec) SIM.t=SIM.t-(Tc-C.run.dRec); }
+  const e=estadoEn(SIM.t); if(!e) return; SIM.e=e;
+  const R=C.run, Tr=R.tr, Nc=R.N, base=e.i*Nc, tNow=performance.now()*0.001;
+  const Vc=DPF.VL/Nc;
+  // ---- el filtro: cada celda con su hollín (torta) y su temperatura ----
+  for(let j=0;j<Nc;j++){ TX_FIL[j]=clamp(Tr.mC[base+j]/Vc/8,0,1); TX_TEMP[j]=Tr.TC[base+j]-273.15; }
+  MAT_FILTRO.uniforms.uSoot.value=TX_FIL; MAT_FILTRO.uniforms.uTemp.value=TX_TEMP; MAT_FILTRO.uniforms.uAsh.value=clamp(R.ash*0.017,0,0.22); MAT_FILTRO.uniforms.uTime.value=tNow;
+  const tdoc=new Array(8).fill(e.Tin); MAT_DOC.uniforms.uTemp.value=tdoc; MAT_DOC.uniforms.uTime.value=tNow;
+  const cal=clamp((e.Tpk-300)/700,0,1), calD=clamp((e.Tin-300)/400,0,1), calG=clamp((e.Tg-160)/330,0,1);
+  M2.inoxCalor.emissiveIntensity+=(0.45*cal*cal-M2.inoxCalor.emissiveIntensity)*clamp(dtS*4,0,1);
+  M2.inoxInt.emissiveIntensity+=(0.55*cal-M2.inoxInt.emissiveIntensity)*clamp(dtS*4,0,1);
+  M2.colector.emissiveIntensity+=(0.75*calG*calG-M2.colector.emissiveIntensity)*clamp(dtS*4,0,1);
+  // ---- las luces de la contrapresión: cuántas se encienden según la contrapresión a caudal de referencia ----
+  const nl=Math.round(clamp((e.dpR-6.0e3)/(RETO.dp-6.0e3),0,1.15)*5-0.001);
+  LEDS_DP.forEach((l,i)=>l.material.color.set(i<nl||(i===0&&e.dpR>5e3)?l.userData.col:'#3a3f44'));
+  // ---- el motor vibra y gira sus poleas con la carga ----
+  MOTOR.position.y=Y_ARR+0.13*ES+0.0035*e.L*Math.sin(performance.now()*0.045); for(const p of POLEAS) p.rotation.y+=(4+16*e.L)*dtS;
+  // ---- las partículas ----
+  SIM.vD=0.75+2.3*clamp(e.mGas/0.16,0,1);
+  const vF=0.55, fHol=clamp(0.12+e.mS/14,0.12,1), fNO2=clamp(e.yNO2/260,0,1), calGas=clamp((e.Tin-380)/260,0,1);
+  const px=new THREE.Vector3();
+  const lane=(p,s,out,rd)=>{
+    // posición de un punto de la línea de gas con su canal asignado
+    const yi=yFranja(2*p.k), yo=yFranja(2*p.k+1);
+    if(s<S_D0-0.40){ const idx=rutaEn(s,out), r=(s>S_DOC0&&s<S_DOC1)?R_DOC*0.78:rd; const dirx=idx===3?1:(idx===2?0:-1), diry=idx===2?-1:0; out.set(out.x-diry*p.oy*r,out.y+dirx*p.oy*r,p.oz*r); return 0; }
+    if(s<S_D0){ const u=(s-(S_D0-0.40))/0.40, ez=ease(u); out.set(X_D0-0.40+(s-(S_D0-0.40)),mezcla(Y_ABA+p.oy*rd,yi,ez),mezcla(p.oz*rd,0.03,ez)); return 1; }
+    if(s<S_D1){ const x=X_D0+(s-S_D0), xc=X_D0+p.uc*LM; const y=x<xc?yi:(x<xc+0.07?mezcla(yi,yo,(x-xc)/0.07):yo); out.set(x,y,0.03); return x<xc?2:3; }
+    if(s<S_D1+0.40){ const u=(s-S_D1)/0.40, ez=ease(u); out.set(X_D1+(s-S_D1),mezcla(yo,Y_ABA+p.oy*rd,ez),mezcla(0.03,p.oz*rd,ez)); return 4; }
+    const idx=rutaEn(s,out); out.set(out.x,out.y+p.oy*rd,p.oz*rd); return 5;
+  };
+  const vS=s=>(s>S_D0-0.4&&s<S_D1+0.4)?SIM.vD*vF:SIM.vD;
+  // hollín: se queda pegado a la pared del canal donde cruza el gas
+  for(let i=0;i<NH;i++){ const p=PH[i];
+    if(p.pega>0){ p.pega+=dtS*1.3; if(p.pega>=1){ p.pega=0; p.s=rnd()*0.4; p.k=Math.floor(rnd()*nIn); p.uc=0.10+0.78*rnd(); p.act=rnd()<fHol; p.quedo=rnd()<DPF.eta*(1-(CALC.run.par.crack||0)); } }
+    else { p.s+=vS(p.s)*p.ve*dtS;
+      if(p.s>=RUTA.total){ p.s=rnd()*0.4; p.k=Math.floor(rnd()*nIn); p.uc=0.10+0.78*rnd(); p.act=rnd()<fHol; p.quedo=rnd()<DPF.eta*(1-(CALC.run.par.crack||0)); }
+      if(p.quedo&&p.s>S_D0&&p.s<S_D1&&X_D0+(p.s-S_D0)>=X_D0+p.uc*LM) p.pega=0.001; }
+    let r=0.0001;
+    if(p.act){ lane(p,p.pega>0?S_D0+p.uc*LM:p.s,_p2,R_TUBO*0.72);
+      if(p.pega>0){ _p2.y+=(HPITCH*0.42)*(p.oy>0?1:-1)*0.8; } r=0.020*(p.pega>0?(1-p.pega):1); }
+    _col.copy(C_HOL); _m4.compose(_p2,_q0,V3(r,r,r)); IM_HOL.setMatrixAt(i,_m4); IM_HOL.setColorAt(i,_col); }
+  // gas: cruza la pared y sale por el canal vecino (se calienta de color con la post-inyección)
+  for(let i=0;i<NG;i++){ const p=PG[i]; p.s+=vS(p.s)*p.ve*dtS; if(p.s>=RUTA.total){ p.s=rnd()*0.4; p.k=Math.floor(rnd()*nIn); p.uc=0.08+0.84*rnd(); }
+    lane(p,p.s,_p2,R_TUBO*0.72); const calL=(p.s<S_D0-0.4&&p.s>S_DOC0)?calGas:(p.s>=S_D0-0.4?clamp((e.Tpk-420)/380,0,1):0);
+    _col.copy(C_GAS).lerp(C_CAL,calL*0.85); const r=0.014; _m4.compose(_p2,_q0,V3(r,r,r)); IM_GAS.setMatrixAt(i,_m4); IM_GAS.setColorAt(i,_col); }
+  // dióxido de nitrógeno (cian): viaja con el gas hasta la torta y reacciona con el hollín
+  for(let i=0;i<NQ;i++){ const p=PQ[i]; p.s+=vS(p.s)*p.ve*dtS; const xc=X_D0+p.uc*LM, x=X_D0+(p.s-S_D0);
+    if(p.s>=S_D1||(p.s>S_D0&&x>=xc)){ p.s=S_DOC1+0.02+rnd()*(S_D0-S_DOC1-0.15); p.k=Math.floor(rnd()*nIn); p.uc=0.08+0.84*rnd(); p.act=rnd()<fNO2; }
+    const vis=p.act&&e.yNO2>8; lane(p,p.s,_p2,R_TUBO*0.72); const r=vis?0.021:0.0001; _col.copy(C_NO2).multiplyScalar(1.3); _m4.compose(_p2,_q0,V3(r,r,r)); IM_NO2.setMatrixAt(i,_m4); IM_NO2.setColorAt(i,_col); }
+  // diésel de la post-inyección: sale con el gas del motor y arde en el oxidante
+  for(let i=0;i<NF;i++){ const p=PF[i]; p.s+=SIM.vD*p.ve*dtS; if(p.s>=S_DOC0+0.30){ p.s=rnd()*0.2; }
+    const idx=rutaEn(p.s,_p2); const r0=R_TUBO*0.72, dirx=idx===3?1:(idx===2?0:-1), diry=idx===2?-1:0; _p2.set(_p2.x-diry*p.oy*r0,_p2.y+dirx*p.oy*r0,p.oz*r0);
+    const r=e.inyecta?0.016:0.0001; _col.copy(C_FUE).multiplyScalar(1.2); _m4.compose(_p2,_q0,V3(r,r,r)); IM_FUE.setMatrixAt(i,_m4); IM_FUE.setColorAt(i,_col); }
+  // chispas: donde el hollín arde (más en las celdas que arden más deprisa)
+  let tot=0; const w=[]; for(let j=0;j<Nc;j++){ const k=Tr.mC[base+j]*kO2(Tr.TC[base+j],e.yO2); w.push(k); tot+=k; }
+  const nChi=clamp(tot*1400,0,NC);
+  for(let i=0;i<NC;i++){ const p=PC[i]; p.t+=dtS*(0.9+1.6*p.h); if(p.t>=1){ p.t=0; p.h=rnd(); p.z=rnd(); let u=rnd()*tot, j=0; while(j<Nc-1&&u>w[j]){ u-=w[j]; j++; } p.u=(j+rnd())/Nc; p.k=Math.floor(rnd()*nIn); }
+    const vis=i<nChi&&!oculta; const x=X_D0+p.u*LM, y=yFranja(2*p.k)+(p.z-0.5)*HPITCH*0.7+p.t*0.05;
+    _p2.set(x,y,0.025); const r=vis?0.011*(1-p.t)*(0.6+0.8*p.h):0.0001; _col.copy(C_CHI).multiplyScalar(3.2); _m4.compose(_p2,_q0,V3(r,r,r)); IM_CHI.setMatrixAt(i,_m4); IM_CHI.setColorAt(i,_col); }
+  // penacho de la salida: humo pálido; si hay grieta o fuga, sale humo oscuro
+  const fuga=clamp((R.fugaPct-1.2)/20,0,1)*0.9;
+  for(let i=0;i<NP;i++){ const p=PP[i]; p.u+=dtS*(0.26+0.2*p.h); if(p.u>=1){ p.u-=1; p.w=rnd()*DOSPI; p.tipo=rnd()<fuga?1:0; }
+    const t=p.u; _p2.set(X_FIN+0.02+p.vx*t*1.2,Y_ABA+0.02+p.vy*t*1.5+0.05*Math.sin(p.w+t*5),0.10*Math.sin(p.w*2+t*3));
+    const r=(p.tipo===1?0.034:0.026)*(0.5+t*1.2)*(1-t*0.8); _col.copy(p.tipo===1?C_HOL:C_HUMO); if(p.tipo===0) _col.multiplyScalar(0.55); _m4.compose(_p2,_q0,V3(r,r,r)); IM_PEN.setMatrixAt(i,_m4); IM_PEN.setColorAt(i,_col); }
+  for(const im of [IM_HOL,IM_GAS,IM_NO2,IM_FUE,IM_CHI,IM_PEN]){ im.instanceMatrix.needsUpdate=true; im.instanceColor.needsUpdate=true; }
+}
+
+/* ===================== 14. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 70 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  todo:{dir:V3(-0.12,0.18,1),anc:()=>V3(0.42,1.68,0),toff:V3(0,0,0),obj:()=>({w:4.95,h:3.3}),fov:34,tope:0.74},
+  motor:{dir:V3(-0.22,0.14,1),anc:()=>V3(1.2,2.55,0),toff:V3(0,0,0),obj:()=>({w:3.6,h:2.4}),fov:34,tope:0.66},
+  filtro:{dir:V3(-0.12,0.20,1),anc:()=>V3((X_D0+X_D1)/2,Y_ABA,0),toff:V3(0,0,0),obj:()=>({w:3.2,h:2.2}),fov:34,tope:0.70},
+  presion:{dir:V3(-0.10,0.12,1),anc:()=>V3(0.62,1.78,0),toff:V3(0,0,0),obj:()=>({w:4.7,h:1.95}),fov:34,tope:0.66},
+  salida:{dir:V3(-0.16,0.14,1),anc:()=>V3(2.45,1.05,0),toff:V3(0,0,0),obj:()=>({w:2.9,h:2.0}),fov:34,tope:0.66},
+};
+const CAM={off:V3(-1.5,1.2,6),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 15. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const NOMBRE_PERFIL={ciudad:'Ciudad',mixto:'Mixto',carretera:'Carretera',parada:'Parada'};
+const NOMBRE_LARGO={ciudad:'Ciudad con paradas',mixto:'Ciudad y carretera, filtro de 100 000 km',carretera:'Carretera',parada:'Parada en plena quema'};
+const FRASE='Decides cuándo quemar el hollín que se acumula en el filtro del escape de un diésel.';
+const fT=T=>fN(T)+' °C';
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · filtro del humo</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='tour') h+=`<p class="intro">El motor suelta <b>hollín</b> (puntos negros) y el filtro lo atrapa. Si se llena, el motor se ahoga: hay que quemarlo. Te lo muestro paso a paso.</p></div>`;
+  else if(EST.modo==='probar') h+=`<p class="intro">Mueve las barras y vigila tres cosas: que la <b>contrapresión</b> no suba, que el filtro no se ponga <b>demasiado caliente</b> y que gastes poco diésel.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Situación</div><div class="seg" id="segCiclo">${Object.keys(NOMBRE_PERFIL).map(k=>`<button class="b ${EST.perfil===k?'on':''}" data-perfil="${k}">${NOMBRE_PERFIL[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Quemar cuando el filtro tenga</div><b id="vD">${fN(EST.thr,2)} g/L</b></div><input type="range" id="rD" min="1" max="8" step="0.25" value="${EST.thr}" aria-label="Gramos de hollín por litro de filtro a los que se empieza a quemar">
+      <div class="marcas"><span>1 · poco</span><span>8 · lleno</span></div></div>
+    <div class="cg"><div class="cl"><div>Temperatura de la quema</div><b id="vT">${fT(EST.Tobj)}</b></div><input type="range" id="rT" min="560" max="680" step="5" value="${EST.Tobj}" aria-label="Temperatura que se busca al quemar el hollín">
+      <div class="marcas"><span>560</span><span>680</span></div></div>
+    <div class="cg"><div class="cl"><div>Antigüedad del filtro</div><b id="vC">${fN(EST.km)} km</b></div><input type="range" id="rC" min="0" max="200000" step="10000" value="${EST.km}" aria-label="Kilómetros del filtro; más kilómetros, más ceniza">
+      <div class="marcas"><span>nuevo</span><span>200 000</span></div></div>
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else h+=htmlGuia();
+  const bal=CALC?Math.abs(CALC.run.bal.C)/Math.max(CALC.run.A.sIn,1e-9):0;
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">ΔP = ΔP<sub>canales</sub> + ΔP<sub>pared</sub> + ΔP<sub>torta</sub> · ΔP<sub>pared</sub> = μ·Q·w/(k·A) · ΔP<sub>torta</sub> = μ·Q·w<sub>s</sub>/(k<sub>s</sub>·A) · w<sub>s</sub> = m/(ρ<sub>s</sub>·A)</div>
+    <div class="fl">Ley de Darcy: el gas debe cruzar la pared y, encima, la torta de hollín; la torta crece con la masa guardada. La ceniza quita pared útil y no se quema nunca.</div>
+    <div class="formula">dm/dt = η·ṁ<sub>hollín</sub> − m·(k<sub>O2</sub> + k<sub>NO2</sub>) · k = k<sub>ref</sub>·exp[−E/R·(1/T − 1/T<sub>ref</sub>)]</div>
+    <div class="fl">Quema por oxígeno (E = ${fN(KIN.EO2/1000)} kJ/mol): sólo cuenta por encima de ~550 °C. Quema por NO<sub>2</sub> (E = ${fN(KIN.ENO2/1000)} kJ/mol): suave, entre 250 y 450 °C. Cada gramo de carbono que arde suelta ${fN(DHC_O2/1000,1)} kJ.</div>
+    <div class="formula">C<sub>s</sub>·dT/dt = ṁ·c<sub>p</sub>·(T<sub>ent</sub> − T) + Q<sub>quema</sub> − UA·(T − T<sub>amb</sub>)</div>
+    <div class="fl">Con poco gas (ralentí) el calor de la quema no se lleva y el filtro se dispara. El balance de carbono cierra con ${fN(bal,3)} de residuo relativo.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>El filtro son <b>8 celdas en serie</b> con gas y sólido a la misma temperatura en cada una; la contrapresión usa el hollín medio, como si se repartiera parejo.</li>
+    <li>La quema es de primer orden en el hollín; la torta y la obstrucción en profundidad son <b>correlaciones didácticas</b>, sin histéresis.</li>
+    <li>El esquema dibuja ${NS} canales; uno real tiene miles. Los usos de ${fN(PERFILES.ciudad.T/60)} h son <b>sintéticos</b>, no un ciclo normalizado.</li>
+    <li>La temperatura máxima del reto (${fN(RETO.T)} °C) es didáctica. No es CFD ni una homologación.</li>
+  </ul><div class="src">Konstandopoulos y Johnson, <i>Wall-flow diesel particulate filters</i>, SAE 890405 · Guzzella y Onder · Johnson, <i>Diesel emission control in review</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-perfil]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.perfil=b.dataset.perfil; EST.km=kmDePerfil(EST.perfil==='parada'?'ciudad':EST.perfil); SIM.t=0; pintaHUD(); re(); });
+  const lig=(id,campo,ev,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=+e.value; el(ev).textContent=fmt(EST[campo]); re(); }; };
+  lig('rD','thr','vD',v=>fN(v,2)+' g/L'); lig('rT','Tobj','vT',fT); lig('rC','km','vC',v=>fN(v)+' km');
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 16. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#a8927f',t?11:14,'center','500'); };
+const COL={hol:'#c9a37a',dp:'#ffffff',lim:'#ff5a4a',thr:'#ffb703',o2:'#ff9a3c',no2:'#4fe3f2',tg:'#d8c7b8',tb:'#ff6a55',on:'rgba(255,154,60,0.16)'};
+const GRID='rgba(220,190,160,0.10)', EJE='#7a5a40', TXT='#c9ae98';
+const ejeT=(Wd,X0,X1)=>{ const T=CALC.run.pf.T*60; return t=>X0+t/T*(X1-X0); };
+function cursor(x,X,Y0,Y1){ const px=X(SIM.t); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+function bandasQuema(x,X,Y0,Y1){ const T=CALC.run.tr.reg, dt=CALC.run.dRec, N=CALC.run.nRec+1; let ini=-1;
+  for(let i=0;i<=N;i++){ const on=i<N&&T[i]===1; if(on&&ini<0) ini=i; if(!on&&ini>=0){ x.fillStyle=COL.on; x.fillRect(X(ini*dt),Y0,Math.max(1.5,X(i*dt)-X(ini*dt)),Y1-Y0); ini=-1; } } }
+function ejeY(x,X0,X1,Y,vals,fmt){ x.__uy=undefined; for(const v of vals){ raya(x,X0,Y(v),X1,Y(v),GRID); if(Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11){ x.__uy=Y(v); txt(x,fmt?fmt(v):String(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } } }
+function ejeX(x,X,Tmin,Hd){ const horas=Tmin>=120, paso=horas?60:(Tmin>=30?5:2); for(let m=0;m<=Tmin+1e-9;m+=paso){ const t=m*60; raya(x,X(t),Hd-14,X(t),Hd-11,EJE); txt(x,horas?String(m/60):String(m),X(t),Hd-3,TXT,8.5,'center','500'); } }
+
+/* ---- hollín guardado (área) y contrapresión (línea) en el tiempo ---- */
+function pintaHollin(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  if(ocultaSalida()){ sinDatos(x,Wd,Hd,'el resultado se muestra al validar'); el('t_fu').textContent=''; return; }
+  const X0=26, X1=Wd-26, Y0=8, Y1=Hd-16, T=C.run.tr, N=C.run.nRec, dt=C.run.dRec, X=ejeT(Wd,X0,X1), Tmin=C.run.pf.T;
+  let mx=8; for(let i=0;i<=N;i+=2) mx=Math.max(mx,T.carga[i]); mx=Math.ceil(mx/2)*2; const Y=v=>Y1-v/mx*(Y1-Y0);
+  const pmax=Math.max(20,Math.ceil(C.run.dpMaxRef/5e3)*5), Yp=v=>Y1-v/1e3/pmax*(Y1-Y0);
+  bandasQuema(x,X,Y0,Y1);
+  ejeY(x,X0,X1,Y,[0,mx/4,mx/2,3*mx/4,mx],v=>fN(v)); ejeX(x,X,Tmin,Hd);
+  txt(x,'g/L',X0+4,Y0+8,COL.hol,8.5,'left','600'); txt(x,'kPa',X1+3,Y0+8,'#ffffff',8.5,'left','600'); txt(x,Tmin>=120?'h':'min',X1+3,Hd-3,TXT,8.5,'left','600');
+  for(const v of [0,5,10,15,20,25]) if(v<=pmax) txt(x,String(v),X1+3,Yp(v*1e3)+3,'#ddd',8,'left','500');
+  x.fillStyle='rgba(201,163,122,0.20)'; x.beginPath(); x.moveTo(X(0),Y(0)); for(let i=0;i<=N;i+=1) x.lineTo(X(i*dt),Y(T.carga[i])); x.lineTo(X(Tmin*60),Y(0)); x.closePath(); x.fill();
+  x.strokeStyle=COL.hol; x.lineWidth=1.8; x.beginPath(); for(let i=0;i<=N;i++){ const px=X(i*dt), py=Y(T.carga[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  if(C.p.thr!==undefined&&C.p.thr<=mx) raya(x,X0,Y(C.p.thr),X1,Y(C.p.thr),'rgba(255,183,3,0.75)',1,[4,3]);
+  raya(x,X0,Yp(RETO.dp),X1,Yp(RETO.dp),'rgba(255,90,74,0.8)',1,[2,3]);
+  x.strokeStyle=COL.dp; x.lineWidth=1.4; x.beginPath(); const medida=enDiagnostico()&&GUIA.dx&&GUIA.dx.k==='sensor'; for(let i=0;i<=N;i++){ const px=X(i*dt), py=Yp(medida?300:T.dpR[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  cursor(x,X,Y0,Y1); el('t_fu').textContent=(C.fija?'':'t = '+nombreTiempo(SIM.t));
+}
+function pintaLeyHollin(){
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:${COL.hol}"></i>hollín (g/L)</span><span class="lg"><i style="--c:${COL.dp}"></i>contrapresión (kPa)</span><span class="lg"><i class="dash" style="--c:${COL.thr}"></i>umbral</span><span class="lg"><i class="bl" style="--c:rgba(255,154,60,.5)"></i>quema</span>`;
+}
+/* ---- contrapresión según el hollín, con tres caudales (la torta de hollín y la pared, Darcy) ---- */
+function pintaDpCarga(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC, e=SIM.e; if(!C||!e) return;
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, Cm=10, Pm=24, X=g=>X0+g/Cm*(X1-X0), Y=v=>Y1-v/Pm*(Y1-Y0), ash=C.run.ash;
+  ejeY(x,X0,X1,Y,[0,8,16,24],v=>String(v));
+  for(const g of [0,2,4,6,8,10]){ raya(x,X(g),Y1,X(g),Y1+3,EJE); txt(x,String(g),X(g),Hd-3,TXT,8.5,'center','500'); }
+  raya(x,X0,Y(RETO.dp/1e3),X1,Y(RETO.dp/1e3),'rgba(255,90,74,0.8)',1,[2,3]);
+  const fl=[[0.032,426,'ralentí','#b9a597'],[0.09,600,'medio','#e8b27a'],[REF.mdot,REF.T,'plena carga','#ffffff']];
+  for(const [md,Tk,nm,col] of fl){ x.strokeStyle=col; x.lineWidth=nm==='plena carga'?2:1.4; x.beginPath();
+    for(let g=0;g<=Cm+1e-9;g+=0.25){ const d=dpFiltro(g*DPF.VL,ash,md,Tk).tot/1e3, px=X(g), py=Y(d); g?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); }
+  const fil=C.fija&&false; const dnow=dpFiltro(e.carga*DPF.VL,ash,e.mGas,Math.max(e.Tin+273.15,e.Tg+273.15)).tot/1e3;
+  x.fillStyle='#ffb703'; x.beginPath(); x.arc(X(clamp(e.carga,0,Cm)),Y(clamp(dnow,0,Pm)),3.8,0,DOSPI); x.fill();
+  txt(x,'kPa',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'g/L',X1,Y1-4,TXT,8.5,'right','600');
+  txt(x,'plena',X1-4,Y(dpFiltro(Cm*DPF.VL,ash,REF.mdot,REF.T).tot/1e3)-3,'#fff',8,'right','600'); txt(x,'ralentí',X1-4,Y(dpFiltro(Cm*DPF.VL,ash,0.032,426).tot/1e3)-3,'#b9a597',8,'right','600');
+  el('t_pw').textContent=ash>0.05?'ceniza '+fN(ash,1)+' g/L':'sin ceniza';
+}
+/* ---- ¿a qué temperatura se quema?: velocidad de la quema por oxígeno y por NO2 (escala logarítmica) ---- */
+function pintaCinetica(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC, e=SIM.e; if(!C||!e) return;
+  const X0=22, X1=Wd-6, Y0=6, Y1=Hd-14, Tmin=200, Tmax=800, lo=-8, hi=-1, X=T=>X0+(T-Tmin)/(Tmax-Tmin)*(X1-X0), Y=k=>Y1-(Math.log10(k)-lo)/(hi-lo)*(Y1-Y0);
+  for(const p of [-7,-5,-3]) { raya(x,X0,Y(Math.pow(10,p)),X1,Y(Math.pow(10,p)),GRID); txt(x,'1e'+String(p).replace('-','−'),X0-2,Y(Math.pow(10,p))+3,TXT,7.5,'right','500'); }
+  for(const T of [200,400,600,800]){ raya(x,X(T),Y1,X(T),Y1+3,EJE); txt(x,String(T),X(T),Hd-3,TXT,8.5,'center','500'); }
+  x.fillStyle='rgba(79,227,242,0.10)'; x.fillRect(X(250),Y0,X(450)-X(250),Y1-Y0); x.fillStyle='rgba(255,154,60,0.10)'; x.fillRect(X(550),Y0,X(800)-X(550),Y1-Y0);
+  txt(x,'pasiva',(X(250)+X(450))/2,Y0+9,COL.no2,8.5,'center','600'); txt(x,'activa',(X(550)+X(800))/2,Y0+9,COL.o2,8.5,'center','600');
+  const traza=(f,col)=>{ x.strokeStyle=col; x.lineWidth=1.9; x.beginPath(); for(let T=Tmin;T<=Tmax;T+=10){ const px=X(T), py=Y(clamp(f(T+273.15),Math.pow(10,lo),Math.pow(10,hi))); T>Tmin?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); };
+  traza(T=>kO2(T,0.10),COL.o2); traza(T=>kNO2(T)*300,COL.no2);
+  const Tm=clamp(e.Tpk,Tmin,Tmax), kM=Math.max(kO2(Tm+273.15,e.yO2),Math.pow(10,lo)); x.fillStyle='#fff'; x.beginPath(); x.arc(X(Tm),Y(clamp(kM,Math.pow(10,lo),Math.pow(10,hi))),3.6,0,DOSPI); x.fill();
+  txt(x,'1/s',X0+3,Y1-4,TXT,8.5,'left','600'); txt(x,'°C',X1-2,Y1-4,TXT,8.5,'right','600');
+  el('t_fr').textContent='';
+}
+/* ---- temperatura del gas que llega y de la parte más caliente del filtro ---- */
+function pintaTemp(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  if(ocultaSalida()){ sinDatos(x,Wd,Hd,'el resultado se muestra al validar'); el('t_sp').textContent=''; return; }
+  const X0=30, X1=Wd-6, Y0=4, Yb=Hd-14, X=ejeT(Wd,X0,X1), T=C.run.tr, N=C.run.nRec, dt=C.run.dRec, Tmx=1100, Y=v=>Yb-v/Tmx*(Yb-Y0);
+  bandasQuema(x,X,Y0,Yb);
+  ejeY(x,X0,X1,Y,[0,300,600,900],v=>String(v)); ejeX(x,X,C.run.pf.T,Hd+2);
+  raya(x,X0,Y(RETO.T),X1,Y(RETO.T),'rgba(255,90,74,0.8)',1,[3,3]); txt(x,'límite',X1-3,Y(RETO.T)-3,'#ff9a8a',8.5,'right','600');
+  const tz=(arr,col,w,dash)=>{ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let i=0;i<=N;i++){ const px=X(i*dt), py=Y(arr[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]); };
+  tz(T.Tin,COL.tg,1.2,[3,3]); tz(T.Tpk,COL.tb,2);
+  cursor(x,X,Y0,Yb); txt(x,'°C',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_sp').textContent='';
+}
+function pintaDockFijo(){
+  const C=CALC;
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(enCalcula()?'Un punto fijo':(enDiagnostico()?'Averigua la falla':(C&&!C.fija?(C.parada?'Parada en plena quema':C.run.pf.nombre):'Filtro de hollín')));
+  pintaLeyHollin();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  if(enDiagnostico()){ lab(1,'Contrapresión medida'); lab(2,'Contrapresión esperada'); lab(3,'Partículas que salen'); lab(4,'Hollín contado'); lab(5,'Gas que llega'); lab(6,'Km desde la última quema'); }
+  else { lab(1,'Hollín guardado'); lab(2,'Contrapresión'); lab(3,'Temp. del filtro'); lab(4,'Gas que llega'); lab(5,'Diésel extra'); lab(6,'Quemas hechas'); }
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function quemasHasta(i){ const R=CALC.run; if(!R.nCum){ R.nCum=new Uint8Array(R.nRec+1); let n=0,pr=0; for(let k=0;k<=R.nRec;k++){ if(R.tr.reg[k]===1&&pr===0) n++; pr=R.tr.reg[k]; R.nCum[k]=Math.min(255,n); } } return R.nCum[i]; }
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d||0)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t=''; const oc=ocultaSalida();
+  el('p_sub').textContent=C.fija?'':nombreTiempo(SIM.t);
+  if(enDiagnostico()){
+    const D=GUIA.dx, R=C.run, esp=dpFiltro(e.carga*DPF.VL,0,e.mGas,e.Tin+273.15).tot/1e3, med=D.k==='sensor'?0.3:e.dp/1e3, part=R.fugaPct*0.01*R.A.sIn>0?R.fugaPct:1;
+    set('f_1',sm(med,'kPa',1)); set('f_2',sm(esp,'kPa',1)); set('f_3',sm(D.k==='grieta'?clamp(part*3.2,0,99):1.0,'%',0)); set('f_4',sm(e.carga,'g/L',1)); set('f_5',sm(e.Tin,'°C')); set('f_6',sm(D.km,'km'));
+    for(const i of [1,2,3,4,5,6]) _cl('f_'+i,''); Av.className='dk-aviso'; Av.textContent=''; return; }
+  if(oc){ for(const i of [1,2,3,5,6]){ set('f_'+i,'¿?'); _cl('f_'+i,'oculto'); } set('f_4',sm(e.Tin,'°C')); _cl('f_4',''); }
+  else { set('f_1',sm(e.carga,'g/L',1)); _cl('f_1',e.carga>=C.p.thr&&C.p.thr!==undefined?'warn':'');
+    set('f_2',sm(e.dpR/1e3,'kPa a tope',1)); _cl('f_2',e.dpR>RETO.dp?'bad':'');
+    set('f_3',sm(e.Tpk,'°C')); _cl('f_3',e.Tpk>RETO.T?'bad':(e.Tpk>RETO.T-120?'warn':''));
+    set('f_4',sm(e.Tin,'°C')); _cl('f_4','');
+    set('f_5',sm(e.fuelJ/MOT.LHVd,'L',2)); _cl('f_5','');
+    set('f_6',String(quemasHasta(e.i))); _cl('f_6',''); }
+  if(!oc&&e.Tpk>RETO.T){ cl='mal'; t='El filtro pasó del límite: con tanto hollín y poco gas, la quema se desboca y la cerámica se puede agrietar o fundir.'; }
+  else if(!oc&&e.Tpk>720&&e.L<L_MIN_REG){ cl='ojo'; t='Ralentí con el filtro caliente: casi no pasa gas y el calor de la quema se queda dentro.'; }
+  else if(!oc&&e.dpR>RETO.dp){ cl='ojo'; t='La contrapresión pasó el límite: al motor le cuesta empujar el gas y gasta más.'; }
+  else if(!oc&&e.inyecta){ cl='bien'; t='Quemando a la fuerza: el motor inyecta diésel de más y calienta el filtro a ~'+fN(C.run.Tobj)+' °C.'; }
+  else if(!oc&&e.kP>2e-5&&e.Tin<460){ cl='bien'; t='Quema suave por NO₂: a 250–450 °C el hollín arde despacio mientras manejas.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaHollin(); pintaDpCarga(); pintaCinetica(); pintaTemp(); }
+
+/* ===================== 17. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[60,'1 min/s'],[150,'2,5 min/s'],[300,'5 min/s'],[900,'15 min/s']];
+const VISTAS_BARRA=[['todo','Todo'],['motor','Motor'],['filtro','Filtro'],['presion','Presión'],['salida','Salida']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad del uso">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent=C.fija?'punto fijo':nombreTiempo(SIM.t);
+  const v=velEfectiva(e); el('tLento').textContent=(!C.fija&&(e.reg||e.Tpk>720))?'cámara lenta · 1 s = '+fN(v/60,v>=60?0:1)+' min':'';
+  let t,c;
+  if(!oculta_()&&e.Tpk>RETO.T){ t='¡se desboca! '+fN(e.Tpk)+' °C'; c='#ff5a4a'; }
+  else if(e.inyecta){ t='quemando a la fuerza: '+fN(e.Tpk)+' °C'; c='#ff9a3c'; }
+  else if(e.kP>2e-5&&e.Tin<460){ t='quema suave por NO₂'; c='#4fe3f2'; }
+  else if(e.L<L_MIN_REG){ t='motor al ralentí'; c='#bca896'; }
+  else { t='el filtro atrapa hollín'; c='#c9a37a'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+const oculta_=()=>ocultaSalida();
+
+/* ===================== 18. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Motor diésel',()=>V3(1.62,3.40,0.1)],
+  ['Oxidante: prepara la quema',()=>V3(-1.34,1.52,0.1)],
+  ['Filtro de partículas',()=>V3(0.75,1.98,0.12)],
+  ['Hollín en las paredes',()=>V3(1.30,0.98,0.1)],
+  ['Toma de presión (antes)',()=>V3(-1.02,1.98,0.1)],
+  ['Toma de presión (después)',()=>V3(2.62,1.60,0.1)],
+  ['Luces de contrapresión',()=>V3(-0.98,2.30,0.1)],
+  ['Salida',()=>V3(2.85,1.30,0.1)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(255,197,138,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  motor:'Motor diésel. Al quemar el combustible suelta hollín: partículas negras de carbono que hacen daño a los pulmones',
+  oxidante:'Oxidante: un panal con metal precioso. Prepara el escape: con la quema a la fuerza quema el diésel extra y calienta el filtro',
+  filtro:'Filtro de partículas en corte. Un panal de cerámica con canales tapados en extremos alternos: el gas debe cruzar la pared y el hollín se queda pegado en ella',
+  escape:'Tubo de escape (de vidrio para ver el gas por dentro). Los puntos negros son hollín, los blancos gas, los celestes NO₂ y los naranjas diésel de la quema',
+  sensorT:'Sensor de temperatura: la computadora vigila que el filtro no pase de su límite mientras quema el hollín',
+  sensorDP:'Sensor de presión diferencial: compara la presión antes y después del filtro. Cuanto más hollín, más sube; las luces se encienden de verde a rojo',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||p===PLATAFORMA||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||h.object.renderOrder===5||h.object.renderOrder===3||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 19. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 20. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: el hollín, el filtro,
+   la contrapresión, la quema suave, la quema a la fuerza, el peligro de parar y tu turno. Cada paso lleva la cámara a su pieza
+   y la señala con un aro. */
+const TOUR={paso:0,auto:false,timer:null};
+const TOUR_PASOS=[
+  {t:'El hollín',vista:'todo',foco:()=>V3(1.2,3.15,0.5),par:{perfil:'ciudad',thr:99,Tobj:640,ash:0},t0:()=>100*60,
+   x:'El motor diésel suelta <b>hollín</b>: partículas negras de carbono (los puntos negros). Hacen daño a los pulmones, así que un <b>filtro</b> las atrapa antes de la salida.'},
+  {t:'El filtro por dentro',vista:'filtro',foco:()=>V3(0.5,0.98,0.2),par:{perfil:'ciudad',thr:99,Tobj:640,ash:0},t0:()=>100*60,
+   x:'Es un panal de cerámica cortado por la mitad. Los canales están tapados en extremos alternos: el gas debe <b>cruzar la pared</b> y el hollín se queda pegado en ella (la capa oscura).'},
+  {t:'Se llena y ahoga al motor',vista:'presion',foco:()=>V3(-0.98,2.12,0.2),par:{perfil:'ciudad',thr:99,Tobj:640,ash:0},t0:()=>170*60,
+   x:'Cuanto más hollín, más cuesta empujar el gas: sube la <b>contrapresión</b> (las luces de la caja). Con el filtro lleno el motor se ahoga y gasta más.'},
+  {t:'Quemar sin hacer nada',vista:'filtro',foco:()=>V3(0.0,0.98,0.2),par:{perfil:'carretera',thr:99,Tobj:640,ash:0},t0:()=>150*60,
+   x:'En carretera el escape pasa de 300 °C y el <b>NO₂</b> (puntos celestes) quema un poco de hollín mientras manejas. En ciudad el escape está frío y no basta.'},
+  {t:'Quemar a la fuerza',vista:'filtro',foco:()=>V3(1.0,0.98,0.2),par:{perfil:'ciudad',thr:3,Tobj:640,ash:0},t0:C=>{ const tr=C.run.tr; for(let k=0;k<=C.run.nRec;k++) if(tr.reg[k]===1) return tr.t[k]+420; return 100*60; },
+   x:'Al llegar al hollín que tú eliges, el motor inyecta diésel de más y calienta el filtro a unos 640 °C. El hollín se enciende (chispas) y se vuelve gas.'},
+  {t:'El peligro: parar a media quema',vista:'filtro',foco:()=>V3(1.5,0.98,0.2),par:{perfil:'parada',thr:6,Tobj:660,ash:0},t0:C=>(C.run.pf.seg[0][0]+0.9)*60,
+   x:'Si el conductor se detiene a mitad de la quema, casi no pasa gas pero el oxígeno sigue entrando: el hollín arde sin freno y el filtro se pone <b>al rojo blanco</b>.'},
+  {t:'Tu turno',vista:'todo',foco:null,par:{perfil:'ciudad',thr:4,Tobj:640,ash:0},t0:()=>100*60,
+   x:'Tú decides a cuánto hollín quemar y a qué temperatura. Pulsa «Probar yo» y vigila la contrapresión, la temperatura máxima y el diésel extra.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); SIM.t=clamp(P.t0(CALC),0,CALC.run.pf.T*60-CALC.run.dRec-1); ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 21. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (cuántas horas tarda en llenarse el filtro con el hollín que suelta el motor), 2 · Ajusta (a cuánto
+   hollín se quema y a qué temperatura, para que la contrapresión no pase de su límite, el filtro no pase de su temperatura y el
+   diésel extra sea poco: el resultado sólo aparece al validar, y la ventana es INTERIOR en las dos perillas) y 3 · Diagnostica
+   (¿por qué falla el filtro?, sólo con lo que se ve en el dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+const fijoPf=(L,ash,m0)=>({nombre:'Punto fijo',T:30,seg:[[30,L]],ash,m0,Tb0:motor(L).Tg});
+
+/* ---------- Fase 1 · Calcula las horas hasta llenar el filtro ---------- */
+const CASOS_CALC=[{L:0.25,y:3},{L:0.35,y:4},{L:0.5,y:5},{L:0.7,y:4}];            // carga del motor y g/L objetivo
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.L; let c; do{ c=pickOne(CASOS_CALC); }while(c.L===p);
+  const g=Math.round(motor(c.L).mS*10)/10; GUIA.r1={L:c.L,y:c.y,g,ans:c.y*DPF.VL/(DPF.eta*g)}; }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe las horas (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-ok)<=Math.max(0.05,0.06*ok)){
+    RETOS.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`El filtro retiene el ${fN(DPF.eta*100)} % de ${fN(r.g,1)} g/h: se quedan <b>${fN(DPF.eta*r.g,2)} g/h</b>. Para ${fN(r.y)} g/L en ${fN(DPF.VL,1)} L hacen falta ${fN(r.y*DPF.VL,1)} g. <b>${fN(r.y*DPF.VL,1)} ÷ ${fN(DPF.eta*r.g,2)} = ${fN(ok,1)} h</b>. Sin quemar nada, ése es el tiempo que tarda en llenarse.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal(); const d=v>ok?'alto':'bajo';
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: el filtro se queda con el 99 % del hollín, y los g/L se pasan a gramos multiplicando por los litros del filtro.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,2)} h) está ${d}. Calcula los gramos que hacen falta (g/L × litros) y divídelos entre los gramos que se quedan cada hora. (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · A cuánto hollín quemar y a qué temperatura ---------- */
+function prepararAjusta(){
+  GUIA.r2={thr:3,Tobj:600,validado:false,res:null,ver:'ciudad',intentos:0};
+  reiniciaCalculo(); pintaHUD(); pintaChips();
+}
+/** Evalúa un ajuste en los dos usos y en la parada en plena quema (la prueba térmica no depende de la ceniza: se hace una vez).
+ *  con `rapido`, si la contrapresión o el diésel ya fallan, se salta la prueba de peor caso (que es la más cara). */
+function evalua(thr,Tobj,rapido){
+  const Rs=ESCENARIOS.map(esc=>simula({perfil:esc.perfil,thr,Tobj}));
+  const dp=Math.max(...Rs.map(R=>R.dpMaxRef)), fuel=Math.max(...Rs.map(R=>R.extraComb));
+  if(rapido&&(dp>RETO.dp||fuel>RETO.fuel)) return {ok:false,dp,fuel,T:Math.max(...Rs.map(R=>R.Tpk))};
+  const P=peorParada({thr,Tobj,ash:0}), out=ESCENARIOS.map((esc,i)=>({perfil:esc.perfil,R:Rs[i],P,c:cumple(Rs[i],P)}));
+  const ok=out.every(o=>o.c.dp&&o.c.T&&o.c.fuel); return {out,ok,dp,T:Math.max(P.Tpk,...Rs.map(R=>R.Tpk)),fuel};
+}
+function pintaChips(){
+  const c=el('chipEx'); if(!c||!GUIA.r2) return; const r=GUIA.r2, V=r.res;
+  const f=(ok,t)=>`<span class="chip ${V?(ok?'ok':'mal'):''}">${t}</span>`;
+  c.innerHTML=f(V&&V.dp<=RETO.dp,`Contrapresión máxima <b>${V?fN(V.dp/1e3,1)+' kPa':'—'}</b> <small>(hasta ${fN(RETO.dp/1e3,1)})</small>`)
+    +f(V&&V.T<=RETO.T,`Temperatura máxima del filtro <b>${V?fN(V.T)+' °C':'—'}</b> <small>(hasta ${fN(RETO.T)})</small>`)
+    +f(V&&V.fuel<=RETO.fuel,`Diésel extra <b>${V?fN(V.fuel,1)+' %':'—'}</b> <small>(hasta ${fN(RETO.fuel,1)})</small>`);
+}
+/** Qué valores de umbral (a la temperatura elegida) y de temperatura (al umbral elegido) habrían cumplido todo: la ventana. */
+function ventanaReto(r,fin){
+  // rangos contiguos alrededor de lo elegido, calculados por tandas para no congelar la pantalla
+  const ts=[],Ts=[]; for(let t=1;t<=8.001;t+=0.25) ts.push(+t.toFixed(2)); for(let T=560;T<=680;T+=5) Ts.push(T);
+  const tareas=[...ts.map(t=>[0,t]),...Ts.map(T=>[1,T])], res={0:{},1:{}}; let i=0;
+  const tanda=()=>{ const lim=performance.now()+30; while(i<tareas.length&&performance.now()<lim){ const [k,v]=tareas[i++]; res[k][v]=k===0?evalua(v,r.Tobj,true).ok:evalua(r.thr,v,true).ok; }
+    if(i<tareas.length){ setTimeout(tanda,0); return; }
+    const rango=(lista,mapa,x)=>{ let a=lista.indexOf(x); if(a<0||!mapa[x]) return null; let lo=a,hi=a; while(lo>0&&mapa[lista[lo-1]]) lo--; while(hi<lista.length-1&&mapa[lista[hi+1]]) hi++; return [lista[lo],lista[hi]]; };
+    fin({thr:rango(ts,res[0],r.thr),T:rango(Ts,res[1],r.Tobj)}); };
+  setTimeout(tanda,0);
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const V=evalua(r.thr,r.Tobj); r.res=V; r.validado=true; r.intentos++; RETOS.intentos++;
+  const peor=V.out.find(o=>!(o.c.dp&&o.c.T&&o.c.fuel)); r.ver=peor?peor.perfil:'ciudad';
+  reiniciaCalculo(); SIM.t=0; pintaChips();
+  const cifras=`Contrapresión máxima <b>${fN(V.dp/1e3,1)} kPa</b> (hasta ${fN(RETO.dp/1e3,1)}), temperatura máxima del filtro <b>${fN(V.T)} °C</b> (hasta ${fN(RETO.T)}), diésel extra <b>${fN(V.fuel,1)} %</b> (hasta ${fN(RETO.fuel,1)}).`;
+  if(V.ok){
+    RETOS.fallos2=0; sonido.bien();
+    const base=`${cifras} Probado en ciudad y en un recorrido mixto con un filtro de 100 000 km, y con la parada en plena quema.`;
+    feedback('good','¡Lo conseguiste! ✓',base+' Calculando qué otros ajustes habrían servido…',true);
+    ventanaReto(r,w=>{ if(!el('feedback').classList.contains('show')||GUIA.paso==='quiz') return; el('fbText').innerHTML=base+` ${w.thr?`Con esa temperatura, cualquier umbral entre <b>${fN(w.thr[0],2)} y ${fN(w.thr[1],2)} g/L</b> habría servido`:''}${w.T?`${w.thr?' y con':'Con'} ese umbral, una quema entre <b>${fN(w.T[0])} y ${fN(w.T[1])} °C</b>`:''}: la ventana está en el interior, no en los extremos.`; });
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(V.dp>RETO.dp) msg+='Dejaste que el filtro se <b>llenara demasiado</b>: la contrapresión pasó su límite. ';
+    if(V.T>RETO.T) msg+='En la parada en plena quema el filtro pasó de su <b>temperatura máxima</b>: había mucho hollín y una quema muy caliente. ';
+    if(V.fuel>RETO.fuel) msg+='Gastaste <b>demasiado diésel</b>: quemas muy seguido o la quema es tan fría que dura mucho tiempo inyectando. ';
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Pista: ni la quema más fría (dura demasiado) ni la más caliente (peligrosa), ni dejar que se llene del todo ni quemar a cada rato: la ventana está en el interior.',true); pintaHUD(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); pintaHUD(); pintaChips(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'ceniza',L:0.6,m0:0.9,ash:10,crack:0,km:140},
+  {k:'corto',L:0.2,m0:6.8,ash:1,crack:0,km:1400},
+  {k:'grieta',L:0.6,m0:0.4,ash:2,crack:0.7,km:320},
+  {k:'sensor',L:0.6,m0:2.6,ash:2,crack:0,km:350},
+];
+const NOMBRE_DX={ceniza:'El filtro está lleno de ceniza',corto:'Sólo hace trayectos cortos',grieta:'El filtro está agrietado',sensor:'El sensor de presión falla'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara la contrapresión medida con la esperada, las partículas que salen y la temperatura del gas.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='ceniza') return `Con poco hollín la contrapresión medida es mucho mayor que la esperada: lo que estorba es la <b>ceniza</b> de los aditivos del aceite, que no se quema nunca. La quema no la arregla: hay que limpiar o cambiar el filtro.`;
+  if(k==='corto') return `El hollín contado es altísimo y la contrapresión medida coincide con la esperada: el filtro está realmente lleno. El gas llega frío porque el motor casi no trabaja: <b>nunca alcanza la temperatura para quemar</b>. Hay que hacer un recorrido largo o una quema forzada.`;
+  if(k==='grieta') return `La contrapresión medida es mucho menor que la esperada y salen muchas partículas: el gas se escapa por una <b>grieta</b> sin cruzar la pared. Suele venir de una quema que se desbocó.`;
+  return `Salen pocas partículas y el filtro tiene hollín, pero la contrapresión medida es casi cero y no cambia: falla el <b>sensor de presión</b> o sus tubitos, no el filtro.`;
+}
+function noEs(k){
+  if(k==='ceniza') return 'Aquí el hollín contado es alto y la contrapresión medida coincide con la esperada: la ceniza no explica la diferencia.';
+  if(k==='corto') return 'La temperatura del gas que llega es normal: mira si el filtro está realmente lleno de hollín.';
+  if(k==='grieta') return 'Las partículas que salen son pocas: con una grieta saldrían muchas.';
+  return 'La contrapresión medida sí cambia y concuerda con la esperada: el sensor funciona.';
+}
+const QUIZ=[
+  {q:'¿Por qué el hollín no se quema solo cuando manejas despacio en la ciudad?',ok:'El escape está frío y a esa temperatura el hollín casi no arde',mal:['Porque en la ciudad el motor no suelta hollín','Porque el filtro no deja pasar el gas','Porque la ceniza lo protege']},
+  {q:'Estás quemando el hollín y el conductor se detiene con el motor al ralentí. ¿Por qué es peligroso?',ok:'Casi no pasa gas que se lleve el calor y el oxígeno sigue entrando: la quema se desboca',mal:['Porque se acaba el diésel','Porque el hollín se apaga y tapa el filtro','Porque la ceniza se convierte en hollín']},
+  {q:'¿Qué le pasa a la ceniza durante la quema?',ok:'No se quema: se queda y poco a poco llena el filtro',mal:['Se quema igual que el hollín','Se convierte en gas','Sale por el escape como humo negro']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v':
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2',`El filtro se queda con el ${fN(DPF.eta*100)} % del hollín que entra. Multiplica los g/h que suelta el motor por 0,99.`); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2',`Pasa los g/L a gramos: g/L × ${fN(DPF.VL,1)} L. Luego divide esos gramos entre los que se quedan por hora.`); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarAjusta(); break;
+    case 'ver-ciudad': if(GUIA.r2){ GUIA.r2.ver='ciudad'; reiniciaCalculo(); SIM.t=0; pintaHUD(); pintaChips(); } break;
+    case 'ver-mixto': if(GUIA.r2){ GUIA.r2.ver='mixto'; reiniciaCalculo(); SIM.t=0; pintaHUD(); pintaChips(); } break;
+    case 'dx-ceniza': diagnostica('ceniza'); break; case 'dx-corto': diagnostica('corto'); break; case 'dx-grieta': diagnostica('grieta'); break; case 'dx-sensor': diagnostica('sensor'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿En cuántas horas se llena el filtro?',
+      teach:`Este motor suelta <b>${fN(r.g,1)} g/h</b> de hollín y el filtro (${fN(DPF.VL,1)} L) retiene el <b>99 %</b>. Parte de un filtro limpio y no quemes nada.<div class="task">¿Cuántas horas tarda en llegar a <b>${fN(r.y)} g de hollín por litro</b>? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? horas" aria-label="Horas hasta llenar el filtro"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Ni se ahoga ni se desboca',
+      teach:`Dos recorridos: ciudad, y ciudad con carretera con el filtro más viejo. Además se prueba una <b>parada en plena quema</b>. Elige a cuánto hollín quemar y a qué temperatura; el resultado se ve al validar.<div class="why"><b>Ojo:</b> quemar a cada rato gasta diésel; esperar demasiado ahoga al motor y, si se detiene, se desboca. ${tri('d_try2',RETOS.fallos2,4)}</div><div class="chips" id="chipEx"></div>${r.validado?`<div class="seg" id="segVer"><button class="b ${r.ver==='ciudad'?'on':''}" data-act="ver-ciudad">Ver ciudad</button><button class="b ${r.ver==='mixto'?'on':''}" data-act="ver-mixto">Ver mixto</button></div>`:''}`,
+      acts:`<div class="cg"><div class="cl"><div>Quemar cuando el filtro tenga</div><b id="v2D">${fN(r.thr,2)} g/L</b></div><input type="range" id="r2D" min="1" max="8" step="0.25" value="${r.thr}" aria-label="Gramos de hollín por litro a los que se quema"></div>
+        <div class="cg"><div class="cl"><div>Temperatura de la quema</div><b id="v2T">${fT(r.Tobj)}</b></div><input type="range" id="r2T" min="560" max="680" step="5" value="${r.Tobj}" aria-label="Temperatura de la quema"></div>
+        <button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla este filtro',
+      teach:`Este camión tiene problemas con su filtro. Lee el dock: compara la contrapresión medida con la esperada, mira las partículas que salen y la temperatura.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Parada» y sube el umbral para ver cómo se desboca la quema.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula'&&GUIA.r1) return {pfObj:fijoPf(GUIA.r1.L,0,0),thr:99,Tobj:600,ash:0,m0:0,regen:false,kPas:0};
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {perfil:r.ver,thr:r.thr,Tobj:r.Tobj,ash:PERFILES[r.ver].ash}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {pfObj:fijoPf(c.L,c.ash,c.m0),thr:99,Tobj:600,ash:c.ash,m0:c.m0,crack:c.crack,regen:false}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  SIM.t=0; reiniciaCalculo(); ponVista(EST.modo==='reto'?'filtro':'todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2D:['thr','v2D',v=>fN(v,2)+' g/L'],r2T:['Tobj','v2T',fT]}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=+t.value; GUIA.r2.validado=false; GUIA.r2.res=null; el(m[1]).textContent=m[2](+t.value); reiniciaCalculo(); SIM.t=0; pintaChips(); const sv=el('segVer'); if(sv) sv.remove(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un soplido grave del escape cuyo tono sigue al caudal de gas (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=60; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(34+q*60,t,0.15); zg.gain.setTargetAtTime(on&&q>0?0.010:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo de uso avanza dt·velocidad en cada cuadro (más lento mientras quema y cuando se desboca, con su factor rotulado), y con ESE
+   tiempo se mueven las partículas, se pintan el hollín y el calor de las celdas del filtro y las chispas, y se dibujan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*velEfectiva(SIM.e);
+  aplicaEscena(dtS,dtSim);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(SIM.e&&!EST.pausa?clamp(SIM.e.mGas/0.16,0,1):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: el motor suelta hollín (puntos negros) y el filtro ya lo está atrapando en sus
+   paredes, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.t=TOUR_PASOS[0].t0(CALC);
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{g:GUIA.r1.g,y:GUIA.r1.y,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{thr:GUIA.r2.thr,Tobj:GUIA.r2.Tobj,ver:GUIA.r2.ver,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const R=C.run;
+    return {perfil:C.p.perfil,thr:C.p.thr,Tobj:R.Tobj,ash:R.ash,nReg:R.nReg,dpMaxRef:R.dpMaxRef,Tpk:R.Tpk,peorParada:(C.peor||(C.peor=peorParada({thr:C.p.thr,Tobj:C.p.Tobj,ash:R.ash}))).Tpk,extra:R.extraComb,cargaMax:R.cargaMax,cargaFin:R.cargaFin,fuga:R.fugaPct,balC:R.bal.C/Math.max(R.A.sIn,1e-12)}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  celdas(){ const e=SIM.e, R=SIM.calc.run, b=(e?e.i:0)*R.N; return Array.from({length:R.N},(_,j)=>({mg:+R.tr.mC[b+j].toFixed(3),T:+(R.tr.TC[b+j]-273.15).toFixed(1)})); },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{thr:GUIA.r2.thr,Tobj:GUIA.r2.Tobj,ver:GUIA.r2.ver,res:GUIA.r2.res&&{dp:GUIA.r2.res.dp,T:GUIA.r2.res.T,fuel:GUIA.r2.res.fuel,ok:GUIA.r2.res.ok}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s); },
+  salta:(t)=>{ SIM.t=clamp(t,0,CALC.run.pf.T*60-CALC.run.dRec-1); aplicaEscena(0.001,0.001); },
+  saltaReg:(dm)=>{ const tr=CALC.run.tr; for(let k=0;k<=CALC.run.nRec;k++) if(tr.reg[k]===1){ SIM.t=tr.t[k]+(dm||0)*60; aplicaEscena(0.001,0.001); return SIM.t; } return -1; },
+  saltaPico:()=>{ const tr=CALC.run.tr; let kk=0,mx=-1; for(let k=0;k<=CALC.run.nRec;k++) if(tr.Tpk[k]>mx){ mx=tr.Tpk[k]; kk=k; } SIM.t=tr.t[kk]; aplicaEscena(0.001,0.001); return mx; },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(thr,Tobj)=>{ const r=GUIA.r2; if(r){ r.thr=thr; r.Tobj=Tobj; r.validado=false; r.res=null; reiniciaCalculo(); pintaHUD(); pintaChips(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('dpf-gpf-hollin-regeneracion',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{motor:MOTOR,oxidante:DOC,filtro:FILTRO,sensores:SENSORES,tubos:TUBOS}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-dpf-gpf-hollin-regeneracion.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

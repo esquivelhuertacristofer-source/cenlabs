@@ -1,0 +1,35 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-149",
+  titulo: "Filtro de partículas (DPF/GPF): hollín, contrapresión y regeneración",
+  subtitulo: "Autotrónica · cuándo quemar el hollín que se acumula en el filtro del escape",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Decides cuándo quemar el hollín que se acumula en el filtro del escape de un diésel. Al abrir el laboratorio ya está funcionando: el motor suelta hollín (puntos negros) y un recorrido guiado te lo explica sin siglas sin definir.
+
+El filtro es un panal con canales tapados de forma alterna: el gas pasa por las paredes y el hollín se queda pegado. Mientras se llena, al motor le cuesta más empujar el escape (la contrapresión sube).
+
+Para limpiarlo hay que quemar el hollín, y eso pide calor: o llega solo en carretera, o el motor inyecta diésel de más. Con muy poco aire que se lleve el calor, la quema puede salirse de control.
+
+Tu misión es elegir cuándo empezar a quemar y a qué temperatura para que el filtro no se ahogue, no se sobrecaliente ni se gaste combustible de más. La respuesta no está escrita: sale de la física, y no está en los extremos.`,
+  conceptos: [
+    { icono: '⚫', nombre: 'Hollín', descripcion: 'Partículas de carbón que suelta el diésel. El filtro las atrapa en una capa sobre sus paredes y se mide en gramos por litro de filtro.' },
+    { icono: '📈', nombre: 'Contrapresión', descripcion: 'Cuánto le cuesta al motor empujar el gas por el filtro. Sube con el hollín, con la ceniza y con el caudal.' },
+    { icono: '🔥', nombre: 'Regeneración', descripcion: 'Quemar el hollín para vaciar el filtro. Es pasiva si el calor llega solo y activa si el motor inyecta diésel extra para subir la temperatura.' },
+    { icono: '⚠️', nombre: 'Límite térmico', descripcion: 'El hollín al quemarse da calor. Si el gas casi no se mueve (ralentí), ese calor se queda y el filtro puede dañarse.' },
+  ],
+  mision: [
+    'Sigue el recorrido paso a paso: el hollín que sale, el filtro, la contrapresión y la quema.',
+    'En «Probar», mueve el umbral de carga y la temperatura de quema y mira cómo cambian la presión, el diésel gastado y la temperatura máxima.',
+    'En el reto, calcula primero cuánto hollín y calor hay en juego y luego ajusta umbral y temperatura para que funcione en ciudad y con un filtro de 100 000 km.',
+    'Diagnostica una falla por sus lecturas y contesta la pregunta de cierre.',
+  ],
+  aplicaciones: [
+    { area: 'Automoción y transporte', ejemplo: 'Casi todos los diésel modernos y muchos gasolina de inyección directa llevan filtro de partículas para cumplir Euro 6 y Euro VI.' },
+    { area: 'Taller y diagnóstico', ejemplo: 'Un testigo de filtro con regeneraciones interrumpidas por viajes cortos, o una presión diferencial alta o baja, indica hollín, ceniza o un filtro roto.' },
+  ],
+};
+
+export default briefing;
