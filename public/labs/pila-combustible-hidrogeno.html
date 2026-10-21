@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Pila de Combustible de Hidrógeno (PEMFC) — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1628;--panel:rgba(8,16,30,.86);--line:#1F3556;--ink:#EAF1FA;
+    --dim:#8FA9C8;--accent:#27C3B0;--accent2:#7FE7D6;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cT:#34d399;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#121D30;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#18263D}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#05101F;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#05101F;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#4FD6C5}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#05101F}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#7FE7D6;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6C86A6;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7E93AD;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04132A}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#08111f;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(31,53,86,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(31,53,86,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6C86A6}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9DB6D4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(31,53,86,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#B2C6DE;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#121D30;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#CFE0F2;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cT);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,32,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(8,16,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(8,16,30,.92);border:1px solid rgba(125,184,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(8,16,30,.84);border:1px solid rgba(125,184,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-top{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(8,16,30,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+
+  /* ---- cifras y pliego del reto ---- */
+  .dk-top{display:flex;flex-direction:column;gap:5px}
+  .dk-pl{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+  .pc{border:1px solid rgba(31,53,86,.95);border-radius:8px;padding:3px 5px 4px;background:rgba(0,0,0,.2);min-width:0;transition:border-color .25s,background .25s}
+  .pc .pl{font-size:9.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+  .pc b{display:flex;align-items:baseline;justify-content:space-between;gap:2px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+  .pc b i{font-style:normal;font-size:11px}
+  .pc.ok{border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.07)} .pc.ok b i{color:var(--good)}
+  .pc.no{border-color:rgba(244,71,94,.5);background:rgba(244,71,94,.07)} .pc.no b i{color:#ff8a98}
+  .pc.na{opacity:.55}
+  .cg input[type=range]:disabled{opacity:.4}
+  .cg .cl.dis{opacity:.55}
+  .btnrow{display:flex;gap:6px}.btnrow .b{flex:1}
+  .hud .nota{font-size:11.2px;line-height:1.45;color:var(--dim)}
+  .hud .nota b{color:var(--ink);font-weight:600}
+  .estado3{display:flex;flex-direction:column;gap:6px}
+  /* móvil: la corriente ocupa su fila; presión|temperatura y humedad en pareja */
+  body.movil .hmandos>:nth-child(2){grid-column:auto}
+  body.movil .hmandos>.btnrow{grid-column:1/-1}
+  .hud .eyebrow{white-space:nowrap}
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Pila de combustible PEM · hidrógeno</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Pila en marcha</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-top">
+    <div class="dk-fig">
+      <div class="fg"><div class="fl">Tensión de celda</div><b id="f_vc">—</b></div>
+      <div class="fg"><div class="fl">Tensión de la pila</div><b id="f_vs">—</b></div>
+      <div class="fg"><div class="fl">Corriente · A/cm²</div><b id="f_i">—</b></div>
+      <div class="fg"><div class="fl">Potencia neta</div><b id="f_p">—</b></div>
+      <div class="fg"><div class="fl">H₂ consumido</div><b id="f_h">—</b></div>
+      <div class="fg"><div class="fl">Calor a evacuar</div><b id="f_q">—</b></div>
+    </div>
+    <div class="dk-pl" id="plie"></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Tensión de celda <span id="t_bud"></span></div><div class="dk-g" id="gBud"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Rendimiento <span id="t_eta"></span></div><div class="dk-g" id="gEta"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">Curva de polarización <span id="t_pol"></span></div>
+  <div class="dk-g fu" id="gPol"><canvas></canvas></div>
+  <div class="dk-ley" id="leyPol"></div>
+  <div class="dk-tit t-sp">Balance de potencia <span id="t_ba"></span></div>
+  <div class="dk-g sp" id="gBa"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — PILA DE COMBUSTIBLE DE HIDRÓGENO (PEMFC)
+   (Autotrónica · mecanica-136)
+
+   Una pila de membrana de intercambio protónico cortada por la mitad: placas
+   bipolares con sus canales de H₂ y de aire, GDL, catalizador y membrana
+   (se dibujan 10 de las N celdas y los espesores van ensanchados), túneles de
+   alimentación, refrigerante, colectores de cobre, tapas con tirantes y el
+   motor que consume la potencia. Abre funcionando: el H₂ baja por los canales
+   del ánodo, el aire sube a contracorriente, los protones cruzan la membrana,
+   los electrones dan la vuelta por el motor y el agua nace en el cátodo.
+
+   La física (Nernst, polarización de Tafel–óhmica–concentración, Springer
+   para la membrana, Faraday, calor, compresor, reto de dimensionado) está en
+   un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI;
+/* ---------- 1.1 Constantes (CODATA 2018 y tablas de libro) ---------- */
+const FAR=96485.33212, RGAS=8.314462618;                    // C/mol · J/(mol·K)
+const M_H2=2.01588e-3, M_O2=31.9988e-3, M_H2O=18.01528e-3, M_AIRE=28.9647e-3;   // kg/mol
+const H_PCI=241826, H_PCS=285830;                           // J/mol de H₂: vapor de agua (PCI) y agua líquida (PCS)
+const E_PCI=H_PCI/(2*FAR), E_PCS=H_PCS/(2*FAR);             // «tensión» termoneutra: 1,2532 V y 1,4812 V
+const PCI_MASA=H_PCI/M_H2;                                  // 119,96 MJ/kg
+const X_O2=0.2095, P_AMB=101325, T_AMB=298.15;              // aire seco · presión y temperatura ambiente
+
+/* ---------- 1.2 La celda ----------
+   Una celda de membrana de intercambio protónico (PEM) de A = 250–350 cm².
+   V = E_Nernst − V_act − V_óhm − V_conc, con
+     E_Nernst = E0(T) + (RT/2F)·ln(p_H2·√p_O2)           (Larminie y Dicks, presiones en atm)
+     V_act    = (RT/αF)·ln((J + J_n)/J0)                  (Tafel; J_n = pérdida interna y cruce de H₂)
+     V_óhm    = J·(t_m/σ(λ,T) + R_el)                     (Springer 1991: σ y λ(a))
+     V_conc   = c·(RT/2F)·ln(J_L/(J_L − J))               (c = 1 + 1/α_t, transporte de O₂)
+   Las constantes de la celda son valores de libro/artículo (declarados en la ficha); no se ajustaron a una pila comercial. */
+const CELDA={tm:0.0025,Rel:0.035,alfa:1.0,cConc:3.0,J0ref:4.0e-6,pO2ref:0.30,gam:1.0,EaJ0:66000,Tref:353.15,Jn:0.003,JL0:2.10,floodRH:0.80,floodK:0.55};
+const psat=T=>{ const C=T-273.15; return 611.21*Math.exp((18.678-C/234.5)*(C/(257.14+C))); };   // Pa · Buck (1996)
+const E0=T=>1.229-0.85e-3*(T-298.15);
+/** Nernst con presiones PARCIALES en atm. */
+const nernst=(T,pH2,pO2)=>E0(T)+RGAS*T/(2*FAR)*Math.log(pH2*Math.sqrt(pO2));
+/** Contenido de agua de la membrana λ (moles de H₂O por sulfonato) frente a la actividad del agua a (Springer 1991). */
+const lambdaMem=a=>{ a=Math.max(0,Math.min(1,a)); return 0.043+17.81*a-39.85*a*a+36*a*a*a; };
+/** Conductividad protónica del Nafion, S/cm (Springer 1991). */
+const sigmaMem=(lam,T)=>Math.max(1e-3,(0.005139*lam-0.00326)*Math.exp(1268*(1/303-1/T)));
+const FALLAS=['seca','inunda','cruce','cata'];
+/** Las condiciones de una celda: de (T, P, humedad, falla) salen todas las constantes del modelo. */
+function condiciones(T,P,RH,falla){
+  const pv=RH*psat(T), pH2=Math.max(0.05,(P-pv)/P_AMB), pO2=Math.max(0.02,X_O2*(P-pv)/P_AMB);
+  const aMem=falla==='seca'?Math.min(RH,0.22):RH, lam=lambdaMem(aMem);
+  const Rm=CELDA.tm/sigmaMem(lam,T);
+  const flood=RH>CELDA.floodRH?Math.pow((RH-CELDA.floodRH)/(1-CELDA.floodRH),2):0;
+  let J0=CELDA.J0ref*Math.pow(pO2/CELDA.pO2ref,CELDA.gam)*Math.exp(-CELDA.EaJ0/RGAS*(1/T-1/CELDA.Tref));
+  let Jn=CELDA.Jn, JL=CELDA.JL0*Math.pow(P/2e5,0.4)*(1-CELDA.floodK*flood);
+  let cc=CELDA.cConc; if(falla==='inunda'){ JL*=0.86; cc*=1.6; }
+  if(falla==='cruce') Jn*=14;
+  if(falla==='cata') J0*=0.02;
+  return {T,P,RH,pH2,pO2,E:nernst(T,pH2,pO2),J0,Jn,JL,cc,Rm,Rel:CELDA.Rel,R:Rm+CELDA.Rel,lam,aMem,falla:falla||null};
+}
+/** Tensión de una celda a la densidad de corriente J (A/cm²), con su desglose. */
+function celda(J,c){
+  const RT=RGAS*c.T;
+  const Vact=RT/(CELDA.alfa*FAR)*Math.log((J+c.Jn)/c.J0);
+  const Vohm=J*c.R;
+  const Vconc=J<c.JL?c.cc*RT/(2*FAR)*Math.log(c.JL/(c.JL-J)):Infinity;
+  const V=Math.max(0,c.E-Vact-Vohm-Vconc);
+  return {J,E:c.E,Vact,Vohm,Vconc:Math.min(Vconc,c.E),V};
+}
+/** Densidad de corriente de máxima potencia (A/cm²) por búsqueda de la sección áurea sobre J·V(J). */
+function JdePmax(c){
+  let a=0.01,b=c.JL*0.9999; const g=(Math.sqrt(5)-1)/2;
+  let x1=b-g*(b-a), x2=a+g*(b-a); const p=J=>J*celda(J,c).V;
+  for(let i=0;i<120;i++){ if(p(x1)<p(x2)) { a=x1; x1=x2; x2=a+g*(b-a); } else { b=x2; x2=x1; x1=b-g*(b-a); } }
+  return (a+b)/2;
+}
+
+/* ---------- 1.3 La pila y sus auxiliares ----------
+   N celdas en serie con una corriente I común. El aire lo da un compresor (isentrópico con rendimiento) a la presión P
+   con una estequiometría de 2; el calor lo retira un circuito de refrigerante y un radiador de UA fijo. */
+const BOP={lamAire:1.8,etaC:0.72,etaM:0.93,cp:1005,gam:1.4,Tin:T_AMB,muF:0.98,Pctrl:600,Pfija:400,kCool:0.008};
+function compresor(mAire,P){
+  const w=BOP.cp*BOP.Tin/BOP.etaC*(Math.pow(P/P_AMB,(BOP.gam-1)/BOP.gam)-1);   // J/kg
+  return mAire*w/BOP.etaM;
+}
+function pila(N,I,A,c){
+  const J=I/A, ce=celda(J,c), Vc=ce.V, Vs=N*Vc, Pb=Vs*I;
+  const nH2=N*I/(2*FAR), nO2=N*I/(4*FAR);
+  const mH2=nH2*M_H2, mH2sum=mH2/BOP.muF, mH2O=nH2*M_H2O;                 // kg/s: consumo de Faraday, suministro con purga, agua producida
+  const mAire=BOP.lamAire*nO2/X_O2*M_AIRE;
+  const Q=N*I*(E_PCI-Vc);                                                // calor de la reacción no convertido en electricidad
+  const Pcomp=compresor(mAire,c.P), Pcool=BOP.Pfija+BOP.kCool*Q, Paux=Pcomp+Pcool+BOP.Pctrl;
+  const Pquim=mH2sum*PCI_MASA, Ppurga=Pquim-N*I*E_PCI;
+  const Pnet=Pb-Paux;
+  return {N,I,J,Vc,Vs,Pb,Pnet,Paux,Pcomp,Pcool,Pctrl:BOP.Pctrl,Q,Ppurga,Pquim,mH2,mH2sum,mH2O,mAire,nH2,
+    etaCelda:Vc*BOP.muF/E_PCI,etaBruto:Pb/Pquim,etaNeto:Pnet/Pquim,ce};
+}
+/** Corriente (A) que da la potencia neta Pobj con N celdas: raíz de la rama de menor corriente (la de mejor rendimiento). */
+function IparaPneta(N,A,c,Pobj,Jm){
+  if(Jm==null) Jm=JdePmax(c);
+  let lo=0.5, hi=Jm*A;
+  const f=I=>pila(N,I,A,c).Pnet-Pobj;
+  if(f(hi)<0) return null;                       // ni en el máximo llega
+  for(let i=0;i<60;i++){ const m=(lo+hi)/2; if(f(m)>0) hi=m; else lo=m; }
+  return (lo+hi)/2;
+}
+
+/* ---------- 1.4 El reto: 100 kW netos con η_neto mínimo, en la ventana de la CC–CC, con el radiador y con las MENOS celdas ---------- */
+const OPER={Pobj:100000,tolP:0.02,Vmin:220,Vmax:420,Nmin:150,Nmax:600,Imax:600,Pmin:1.2e5,Pmax:3.0e5,Tamb:303.15};
+/** Los criterios del pliego de un punto de operación (pl = pila(...)). */
+function pliego(pl,sc,Nopt){
+  const Qmax=sc.UA*(sc.T-OPER.Tamb);
+  return [
+    {id:'P',ok:Math.abs(pl.Pnet-OPER.Pobj)<=OPER.tolP*OPER.Pobj},
+    {id:'eta',ok:pl.etaNeto>=sc.etaMin},
+    {id:'V',ok:pl.Vs>=OPER.Vmin&&pl.Vs<=OPER.Vmax},
+    {id:'Q',ok:pl.Q<=Qmax},
+    {id:'N',ok:Nopt!=null&&pl.N<=Math.ceil(Nopt*1.06)+1}
+  ];
+}
+/** Las MENOS celdas con las que existe algún (P, I) que cumpla los cuatro criterios físicos. null si no hay ninguna. */
+function celdasMinimas(sc){
+  const Qmax=sc.UA*(sc.T-OPER.Tamb);
+  const cs=[]; for(let P=OPER.Pmin;P<=OPER.Pmax+1;P+=0.1e5){ const c=condiciones(sc.T,P,sc.RH,null); cs.push({P,c,Jm:JdePmax(c)}); }
+  for(let N=OPER.Nmin;N<=OPER.Nmax;N++){
+    for(const {P,c,Jm} of cs){
+      const I=IparaPneta(N,sc.A,c,OPER.Pobj,Jm); if(I==null) continue;
+      const pl=pila(N,I,sc.A,c);
+      if(pl.etaNeto>=sc.etaMin&&pl.Vs>=OPER.Vmin&&pl.Vs<=OPER.Vmax&&pl.Q<=Qmax&&I<=OPER.Imax) return {N,P,I,pl};
+    }
+  }
+  return null;
+}
+/** Los escenarios del reto (área de celda, temperatura, humedad, rendimiento exigido, radiador). */
+const ESCENARIOS=[
+  {A:300,T:348.15,RH:0.85,etaMin:0.44,UA:2.65e3},
+  {A:250,T:343.15,RH:0.90,etaMin:0.45,UA:2.70e3},
+  {A:350,T:353.15,RH:0.80,etaMin:0.44,UA:2.60e3},
+  {A:300,T:353.15,RH:0.75,etaMin:0.46,UA:2.60e3}
+];
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.86;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.localClippingEnabled=true;                 // el corte: un plano z = 0 para toda la exposición
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,abajo){
+  const c=cv(512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const r=x.createRadialGradient(256,190,20,256,250,380); r.addColorStop(0,'rgba(110,160,255,0.09)'); r.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=r; x.fillRect(0,0,512,512);
+  return tex(c,{srgb:true});
+}
+const scene=new THREE.Scene();
+scene.background=fondoDegradado('#111c30','#04070d');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.5;
+
+const camera=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,0.02,60);
+camera.position.set(0.30,0.34,1.85);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.07;
+controls.minDistance=0.10; controls.maxDistance=7; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(0,0.05,0);
+
+/* Luz de estudio: clave cálida alta con sombra suave, contra fría que recorta
+   los cantos, relleno bajo y frío, y una luz frontal sin sombra que entra por
+   el corte: sin ella el interior de las pads queda en la sombra de la de arriba. */
+const LUZ={};
+LUZ.clave=new THREE.DirectionalLight('#fff2e4',2.0); LUZ.clave.position.set(1.3,2.4,1.9); LUZ.clave.castShadow=true;
+LUZ.clave.shadow.mapSize.set(2048,2048); LUZ.clave.shadow.bias=-0.0004; LUZ.clave.shadow.normalBias=0.010;
+Object.assign(LUZ.clave.shadow.camera,{left:-0.95,right:0.95,top:0.95,bottom:-0.6,near:0.5,far:8});
+LUZ.clave.target.position.set(0,0.05,-0.05); scene.add(LUZ.clave,LUZ.clave.target);
+LUZ.contra=new THREE.SpotLight('#b9d3ff',2.8,10,Math.PI/4,0.6,1.4); LUZ.contra.position.set(-1.4,1.7,-1.8); LUZ.contra.target.position.set(0,0.10,0); scene.add(LUZ.contra,LUZ.contra.target);
+LUZ.relleno=new THREE.DirectionalLight('#a6c4e0',0.32); LUZ.relleno.position.set(-1.8,0.9,2.2); scene.add(LUZ.relleno);
+LUZ.frente=new THREE.DirectionalLight('#e8f1ff',0.42); LUZ.frente.position.set(0.25,0.55,2.5); LUZ.frente.target.position.set(0,0.1,-0.1); scene.add(LUZ.frente,LUZ.frente.target);
+LUZ.hemi=new THREE.HemisphereLight('#a9c1d6','#0d1114',0.18); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las espiras que conducen, los
+   símbolos de corriente y las líneas del campo. El umbral está por encima
+   del brillo de cualquier metal iluminado. En calidad media no hay
+   resplandor, y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.28,2.0); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   PBR con entorno. Nada de poro ni grano fino —se lee como lija sobre caras
+   grandes—: variaciones lentas de rugosidad (la piel de fundición de §21) y,
+   donde la pieza lo pide, su dibujo: la serigrafía de la placa. */
+const DOSPI_=Math.PI*2;
+function normalDeAltura(W,H,h,fuerza){
+  const c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H);
+  const A=(i,j)=>h((i+W)%W,(j+H)%H);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const dx=(A(i+1,j)-A(i-1,j))*fuerza, dy=(A(i,j+1)-A(i,j-1))*fuerza, L=Math.hypot(dx,dy,1), o=(j*W+i)*4;
+    im.data[o]=(-dx/L*0.5+0.5)*255; im.data[o+1]=(-dy/L*0.5+0.5)*255; im.data[o+2]=(1/L*0.5+0.5)*255; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return c;
+}
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+function pielLenta(semilla,{px=256,celdas=4,oct=3,rug0=0.45,rugA=0.08,relieve=0.5}={}){
+  const f=fbmP(semilla,celdas,oct), k=celdas/px;
+  const c=cv(px), x=c.getContext('2d'), im=x.createImageData(px,px);
+  for(let j=0;j<px;j++) for(let i=0;i<px;i++){ const v=clamp(rug0+(f(i*k,j*k)-0.5)*2*rugA,0,1)*255, o=(j*px+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  return {r:tex(c),n:tex(normalDeAltura(px,px,(i,j)=>f(i*k,j*k),relieve))};
+}
+const T_PINT=pielLenta(11,{celdas:5,rug0:0.5,rugA:0.05,relieve:0.3});
+const T_PLAS=pielLenta(37,{celdas:9,rug0:0.9,rugA:0.06,relieve:0.45});
+// la fundición de las carcasas: la piel lisa de §21 de la biblioteca
+const T_FUND=P3.pielFundicion({px:256,semilla:23,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(5,5);
+const T_FUND2=P3.pielFundicion({px:256,semilla:41,manchas:0.05,relieve:2.0,celda:16});
+for(const t of [T_FUND2.map,T_FUND2.roughnessMap,T_FUND2.normalMap]) t.repeat.set(7,7);
+
+/* EL CORTE. Toda la exposición se secciona por el plano z = 0 y se conserva la
+   mitad de atrás. Las caras de sección no son geometría: cada pieza es un
+   sólido cerrado y, donde el plano la abre, lo que se ve por el hueco son sus
+   caras de ATRÁS. Ésas se pintan como la cara de corte de un plano de taller:
+   el punto se lleva por el rayo de la cámara hasta el plano y allí se dibuja
+   el patrón de la pieza —rayado a ±45° en lo macizo, anillos en las bobinas de
+   película del condensador, hilos en el cobre de las ranuras— iluminado como
+   una cara plana que mira a +Z. El cobre de las ranuras conserva su brillo en
+   la sección: es la corriente que lo recorre. */
+const PLANO=new THREE.Plane(new THREE.Vector3(0,0,-1),0);
+const PASO_G={value:0.0028};
+const LUCES_CORTE=THREE.ShaderChunk.lights_fragment_begin.replaceAll('receiveShadow','(receiveShadow&&gl_FrontFacing)');
+function corte(m,o={}){
+  m.side=THREE.DoubleSide; m.clippingPlanes=[PLANO]; m.clipShadows=true;
+  const pat=o.patron==='anillos'?1:(o.patron==='hilos'?2:0);
+  const U={cFondo:{value:new THREE.Color(o.fondo||'#8a9096')},cLinea:{value:new THREE.Color(o.linea||'#5d636a')},
+    cSent:{value:o.sentido||1},cPaso:{value:o.paso||1},cPasoG:PASO_G,cRay:{value:o.rayado===false?0:1},cRug:{value:o.rug??0.64},
+    cPat:{value:pat},cCentro:{value:new THREE.Vector2(...(o.centro||[0,0]))},cBrillo:{value:o.brillo?1:0}};
+  m.userData.cap=U;
+  m.onBeforeCompile=(sh)=>{
+    Object.assign(sh.uniforms,U);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;')
+      .replace('#include <fog_vertex>','#include <fog_vertex>\n{ vec4 wc=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\n wc=instanceMatrix*wc;\n#endif\n vMundoC=(modelMatrix*wc).xyz; }');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vMundoC;\nfloat cLnG=0.0;\nuniform vec3 cFondo; uniform vec3 cLinea; uniform float cSent; uniform float cPaso; uniform float cPasoG; uniform float cRay; uniform float cRug; uniform float cPat; uniform vec2 cCentro; uniform float cBrillo;')
+      .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+      if(!gl_FrontFacing){
+        vec3 dC=vMundoC-cameraPosition;
+        float tC=clamp(-cameraPosition.z/(dC.z<-1e-5?dC.z:-1e-5),0.0,1.0);
+        vec3 pC=cameraPosition+dC*tC;
+        if(cRay>0.5){
+          float ln=0.0;
+          if(cPat<0.5){
+            float uu=(pC.x*cSent+pC.y)*0.70710678/(cPaso*cPasoG);
+            float fw=clamp(fwidth(uu),0.0,0.5);
+            float dl=0.5-abs(fract(uu)-0.5);
+            ln=(1.0-smoothstep(0.12-fw,0.12+fw,dl))*(1.0-smoothstep(0.25,0.5,fw));
+          } else if(cPat<1.5){
+            float uu=length(pC.xy-cCentro)/(cPaso*0.0011);
+            float fw=clamp(fwidth(uu),0.0,0.5);
+            float dl=0.5-abs(fract(uu)-0.5);
+            ln=(1.0-smoothstep(0.16-fw,0.16+fw,dl))*(1.0-smoothstep(0.25,0.5,fw));
+          } else {
+            vec2 q=pC.xy/(cPaso*0.0016); q.y*=1.1547; q.x+=0.5*mod(floor(q.y),2.0);
+            vec2 f=fract(q)-0.5; f.y/=1.1547; float r=length(f);
+            float fw=clamp(fwidth(r)*1.5,0.0,0.5);
+            ln=smoothstep(0.38-fw,0.38+fw,r)*(1.0-smoothstep(0.18,0.35,fw));
+          }
+          diffuseColor.rgb=mix(cFondo,cLinea,ln*0.9);
+          metalnessFactor=0.12; cLnG=ln;
+        }
+        roughnessFactor=cRug;
+        normal=normalize((viewMatrix*vec4(0.0,0.0,1.0,0.0)).xyz);
+      }`)
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\nif(!gl_FrontFacing) totalEmissiveRadiance*=cBrillo*(1.0-0.8*cLnG);')
+      .replace('#include <lights_physical_fragment>','#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nif(!gl_FrontFacing) material.clearcoat=0.0;\n#endif\n#ifdef USE_SHEEN\nif(!gl_FrontFacing) material.sheenColor=vec3(0.0);\n#endif')
+      .replace('#include <lights_fragment_begin>',LUCES_CORTE);
+  };
+  m.customProgramCacheKey=()=>'corte'+pat+(o.brillo?'b':'');
+  return m;
+}
+
+
+/* ===================== 4b. MATERIALES DE LA PILA ===================== */
+
+/* Cada pieza corta con su tono y las vecinas con el rayado en sentidos opuestos, como manda el dibujo técnico:
+   así se distinguen sin rótulos. */
+const CAP={
+  placa:{fondo:'#8d959c',linea:'#656c73',sentido:1,paso:0.55},
+  placaB:{fondo:'#7f878e',linea:'#5a6168',sentido:-1,paso:0.55},
+  marco:{fondo:'#6c747b',linea:'#4d5359',sentido:1,paso:0.7},
+  gdl:{fondo:'#33373d',linea:'#14161a',patron:'hilos',paso:0.5},
+  cat:{fondo:'#1b1c1f',linea:'#0a0a0b',sentido:1,paso:0.3},
+  mem:{fondo:'#9fdcff',linea:'#6fb8e0',sentido:-1,paso:0.22},
+  junta:{fondo:'#2d3135',linea:'#1b1e21',sentido:1,paso:0.5},
+  alu:{fondo:'#a2a9b0',linea:'#868d94',sentido:-1,paso:0.8},
+  cobre:{fondo:'#c08350',linea:'#a36a3c',sentido:1,paso:0.5},
+  aislante:{fondo:'#c98a3a',linea:'#9b6620',sentido:-1,paso:0.6},
+  acero:{fondo:'#79828c',linea:'#5d656e',sentido:1},
+  carga:{fondo:'#46505a',linea:'#2e353c',sentido:-1,paso:0.8},
+  refri:{fondo:'#3a8fc4',linea:'#2a6f9c',sentido:1,paso:0.4},
+  naranja:{fondo:'#e0702a',linea:'#b85418',sentido:-1,paso:0.6},
+};
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const V2=k=>new THREE.Vector2(k,k);
+const M={
+  placa: corte(fis({color:'#aab1b8',metalness:0.88,roughness:0.34,roughnessMap:T_PINT.r,normalMap:T_PINT.n,normalScale:V2(0.18),clearcoat:0.12,clearcoatRoughness:0.4}),CAP.placa),
+  marco: corte(pbr({color:'#8f979f',metalness:0.8,roughness:0.46,roughnessMap:T_PINT.r}),CAP.marco),
+  gdl: corte(pbr({color:'#2b2e33',metalness:0.1,roughness:0.92,roughnessMap:T_PLAS.r,normalMap:T_PLAS.n,normalScale:V2(0.5)}),CAP.gdl),
+  catA: corte(fis({color:'#141517',metalness:0.35,roughness:0.5,clearcoat:0.3,clearcoatRoughness:0.5,emissive:'#000000'}),CAP.cat),
+  catC: corte(fis({color:'#141517',metalness:0.35,roughness:0.5,clearcoat:0.3,clearcoatRoughness:0.5,emissive:'#000000'}),CAP.cat),
+  mem: corte(fis({color:'#8fd7ff',metalness:0,roughness:0.18,transparent:true,opacity:0.72,clearcoat:0.8,clearcoatRoughness:0.15,depthWrite:false,emissive:'#0a2a3a'}),CAP.mem),
+  junta: corte(pbr({color:'#1b1e21',metalness:0,roughness:0.78,roughnessMap:T_PLAS.r}),CAP.junta),
+  alu: corte(fis({color:'#8da3ba',metalness:0.8,roughness:0.42,map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:V2(0.2),clearcoat:0.25,clearcoatRoughness:0.4}),CAP.alu),
+  cobre: corte(pbr({color:'#c98450',metalness:1,roughness:0.28}),CAP.cobre),
+  aislante: corte(fis({color:'#c98a3a',metalness:0,roughness:0.5,clearcoat:0.3,clearcoatRoughness:0.4}),CAP.aislante),
+  acero: corte(pbr({color:'#b4bac1',metalness:0.92,roughness:0.28}),CAP.acero),
+  carga: corte(fis({color:'#36404a',metalness:0.75,roughness:0.42,map:T_FUND2.map,roughnessMap:T_FUND2.roughnessMap,normalMap:T_FUND2.normalMap,normalScale:V2(0.2),clearcoat:0.2}),CAP.carga),
+  naranja: corte(fis({color:'#ef6f1a',metalness:0,roughness:0.42,clearcoat:0.35,clearcoatRoughness:0.4,roughnessMap:T_PLAS.r}),CAP.naranja),
+};
+// el refrigerante: translúcido, con el color por vértice (de frío a caliente)
+M.refri=corte(pbr({color:'#ffffff',vertexColors:true,metalness:0,roughness:0.2,transparent:true,opacity:0.58,depthWrite:false}),CAP.refri);
+const M_BANCO_ENTERO=pbr({color:'#151b20',metalness:0.05,roughness:0.95,envMapIntensity:0.35});
+const M_SUELO=pbr({color:'#10161b',metalness:0.35,roughness:0.6,roughnessMap:T_PINT.r,envMapIntensity:0.4});
+// el gas dentro de cada canal: una lámina translúcida (azul el H₂, rojiza el aire) que deja ver el canal sin tapar las partículas
+M.tintH2=new THREE.MeshBasicMaterial({color:'#3fa6ff',transparent:true,opacity:0.17,depthWrite:false});
+M.tintAire=new THREE.MeshBasicMaterial({color:'#ff7a45',transparent:true,opacity:0.14,depthWrite:false});
+
+
+
+
+
+/* ===================== 5. GEOMETRÍA =====================
+   `torno` revoluciona un perfil cerrado (a, r) alrededor del eje X con
+   normales ANALÍTICAS: ninguna sale nula y las aristas vivas no se
+   redondean. `prisma` extruye a lo largo de Z un contorno con sus huecos, con
+   normales suaves en las curvas y vivas en las esquinas: así se hacen las
+   chapas del estátor y del rotor, que el corte enseña de frente. */
+const DOSPI3=Math.PI*2;
+function preparaPerfil(perfil){
+  let P=[];
+  for(const p of perfil){ const q=[p[0],Math.max(0,p[1])], u=P[P.length-1]; if(!u||Math.hypot(u[0]-q[0],u[1]-q[1])>1e-9) P.push(q); }
+  while(P.length>2&&Math.hypot(P[0][0]-P[P.length-1][0],P[0][1]-P[P.length-1][1])<1e-9) P.pop();
+  let A=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; A+=p[0]*q[1]-q[0]*p[1]; }
+  if(A<0) P.reverse();
+  return P;
+}
+function orienta(pos,nor,idx,i0){
+  let S=0;
+  for(let k=i0;k<idx.length;k+=3){ const a=idx[k]*3,b=idx[k+1]*3,c=idx[k+2]*3;
+    const ux=pos[b]-pos[a],uy=pos[b+1]-pos[a+1],uz=pos[b+2]-pos[a+2], vx=pos[c]-pos[a],vy=pos[c+1]-pos[a+1],vz=pos[c+2]-pos[a+2];
+    S+=(uy*vz-uz*vy)*(nor[a]+nor[b]+nor[c])+(uz*vx-ux*vz)*(nor[a+1]+nor[b+1]+nor[c+1])+(ux*vy-uy*vx)*(nor[a+2]+nor[b+2]+nor[c+2]); }
+  if(S<0) for(let k=i0;k<idx.length;k+=3){ const t=idx[k+1]; idx[k+1]=idx[k+2]; idx[k+2]=t; }
+}
+function geoDe(pos,nor,uv,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeBoundingSphere(); return g;
+}
+function torno(perfil,o={}){
+  const {seg=64,phi0=0,phi1=DOSPI3,canto=30,uRep=1,vEsc=1,tapas=true}=o;
+  const P=preparaPerfil(perfil), n=P.length, EN=[], L=[];
+  for(let i=0;i<n;i++){ const p=P[i],q=P[(i+1)%n], da=q[0]-p[0], dr=q[1]-p[1], l=Math.hypot(da,dr)||1e-12; EN.push([dr/l,-da/l]); L.push(l); }
+  const cc=Math.cos(canto*Math.PI/180), med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+  const pos=[],nor=[],uv=[],idx=[]; let s=0;
+  for(let i=0;i<n;i++){
+    const p=P[i],q=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+    if(p[1]<1e-9&&q[1]<1e-9){ s+=L[i]; continue; }
+    const n0=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, n1=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+    const o0=pos.length/3;
+    for(let j=0;j<=seg;j++){
+      const f=phi0+(phi1-phi0)*j/seg, c=Math.cos(f), sn=Math.sin(f), u=(f-phi0)/DOSPI3*uRep;
+      pos.push(p[0],p[1]*c,-p[1]*sn, q[0],q[1]*c,-q[1]*sn);
+      nor.push(n0[0],n0[1]*c,-n0[1]*sn, n1[0],n1[1]*c,-n1[1]*sn);
+      uv.push(u,s*vEsc, u,(s+L[i])*vEsc);
+    }
+    for(let j=0;j<seg;j++){ const a=o0+2*j; idx.push(a,a+1,a+3, a,a+3,a+2); }
+    s+=L[i];
+  }
+  orienta(pos,nor,idx,0);
+  if(Math.abs(phi1-phi0)<DOSPI3-1e-6&&tapas){
+    const tri=THREE.ShapeUtils.triangulateShape(P.map(([a,r])=>new THREE.Vector2(a,r)),[]);
+    for(const [f,sg] of [[phi0,-1],[phi1,1]]){
+      const c=Math.cos(f), sn=Math.sin(f), o0=pos.length/3, i0=idx.length;
+      for(const [a,r] of P){ pos.push(a,r*c,-r*sn); nor.push(0,-sn*sg,-c*sg); uv.push(a*8,r*8); }
+      for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+      orienta(pos,nor,idx,i0);
+    }
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+const tornoY=(perfil,o)=>torno(perfil,o).rotateZ(Math.PI/2);     // eje +Y (a → y)
+const tornoZ=(perfil,o)=>torno(perfil,o).rotateY(-Math.PI/2);    // eje +Z (a → z)
+function areaDe(P){ let a=0; for(let i=0;i<P.length;i++){ const p=P[i],q=P[(i+1)%P.length]; a+=p[0]*q[1]-q[0]*p[1]; } return a/2; }
+/** Prisma a lo largo de Z: lazos[0] es el contorno exterior y el resto son
+ *  huecos. Paredes con normales hacia fuera del sólido, suaves si el giro
+ *  entre dos lados es menor que `canto`, y las dos tapas. */
+function prisma(lazos,z0,z1,o={}){
+  const {canto=28,uEsc=1}=o, cc=Math.cos(canto*Math.PI/180);
+  const L=lazos.map((l,i)=>{ const p=l.slice(); const a=areaDe(p); if((i===0&&a<0)||(i>0&&a>0)) p.reverse(); return p; });
+  const pos=[],nor=[],uv=[],idx=[];
+  for(const P of L){
+    const n=P.length, EN=[];
+    for(let i=0;i<n;i++){ const a=P[i],b=P[(i+1)%n], tx=b[0]-a[0], ty=b[1]-a[1], l=Math.hypot(tx,ty)||1e-12; EN.push([ty/l,-tx/l,l]); }
+    const med=(u,w)=>{ const x=u[0]+w[0], y=u[1]+w[1], l=Math.hypot(x,y)||1; return [x/l,y/l]; };
+    let s=0;
+    for(let i=0;i<n;i++){
+      const a=P[i],b=P[(i+1)%n],e=EN[i],ea=EN[(i-1+n)%n],ed=EN[(i+1)%n];
+      if(e[2]<1e-10) continue;
+      const na=(ea[0]*e[0]+ea[1]*e[1])>cc?med(ea,e):e, nb=(e[0]*ed[0]+e[1]*ed[1])>cc?med(e,ed):e;
+      const o0=pos.length/3;
+      pos.push(a[0],a[1],z1, b[0],b[1],z1, b[0],b[1],z0, a[0],a[1],z0);
+      nor.push(na[0],na[1],0, nb[0],nb[1],0, nb[0],nb[1],0, na[0],na[1],0);
+      uv.push(s*uEsc,z1*uEsc, (s+e[2])*uEsc,z1*uEsc, (s+e[2])*uEsc,z0*uEsc, s*uEsc,z0*uEsc); s+=e[2];
+      idx.push(o0,o0+2,o0+1, o0,o0+3,o0+2);
+    }
+  }
+  const c=L[0].map(([x,y])=>new THREE.Vector2(x,y)), H=L.slice(1).map(h=>h.map(([x,y])=>new THREE.Vector2(x,y)));
+  const tri=THREE.ShapeUtils.triangulateShape(c,H), todos=c.concat(...H);
+  for(const [z,nz] of [[z1,1],[z0,-1]]){
+    const o0=pos.length/3, i0=idx.length;
+    for(const p of todos){ pos.push(p.x,p.y,z); nor.push(0,0,nz); uv.push(p.x*uEsc,p.y*uEsc); }
+    for(const t of tri) idx.push(o0+t[0],o0+t[1],o0+t[2]);
+    orienta(pos,nor,idx,i0);
+  }
+  return geoDe(pos,nor,uv,idx);
+}
+/** Un rectángulo de esquinas redondeadas como contorno [x,y]. */
+function rectR(x0,y0,x1,y1,r,seg=5){ return P3.contornoRedondeado([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],r,seg); }
+/** Un sólido «hueco»: la misma malla con las normales y el sentido al revés.
+ *  Metido dentro de otro sólido es una CAVIDAD: por el corte se ve su pared. */
+function invierte(g){
+  const n=g.attributes.normal; for(let i=0;i<n.count;i++) n.setXYZ(i,-n.getX(i),-n.getY(i),-n.getZ(i));
+  if(g.index){ const ix=g.index; for(let i=0;i<ix.count;i+=3){ const t=ix.getX(i+1); ix.setX(i+1,ix.getX(i+2)); ix.setX(i+2,t); } }
+  else { for(const k of Object.keys(g.attributes)){ const a=g.attributes[k], s=a.itemSize;
+    for(let i=0;i<a.count;i+=3) for(let c=0;c<s;c++){ const t=a.array[(i+1)*s+c]; a.array[(i+1)*s+c]=a.array[(i+2)*s+c]; a.array[(i+2)*s+c]=t; } } }
+  return g;
+}
+function cil(r,h,eje='y',seg=32,r2){ const g=new THREE.CylinderGeometry(r2??r,r,h,seg,1,false); if(eje==='x') g.rotateZ(-Math.PI/2); else if(eje==='z') g.rotateX(Math.PI/2); return g; }
+const en=(g,x,y,z)=>{ g.translate(x,y,z); return g; };
+/** Caja por sus esquinas, con un redondeo de canto opcional. */
+function cajaE(x0,y0,z0,x1,y1,z1,r){ const w=x1-x0,h=y1-y0,d=z1-z0; const g=r?new RoundedBoxGeometry(w,h,d,2,Math.min(r,w/2.01,h/2.01,d/2.01)):new THREE.BoxGeometry(w,h,d); g.translate((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); return g; }
+const PIEZAS=[];          // lo que se puede señalar con el ratón
+function pieza(g,m,padre,k,{sombra=true,recibe=true}={}){
+  const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; if(k) o.userData.pieza=k; padre.add(o); return o;
+}
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+
+/* ===================== 6. LA PILA EN CORTE =====================
+   Medidas en metros, eje X a lo largo de la pila (negativo a la izquierda, positivo a la derecha), Y hacia arriba. TODO se
+   corta por el plano z = 0 y se conserva la mitad de atrás: el corte pasa por el centro de un canal de cada placa y por los
+   túneles de H₂ (arriba) y de aire (abajo). ESQUEMA: se dibujan 10 de las N celdas y los espesores van ENSANCHADOS (la
+   membrana real mide 25 µm y aquí 4 mm); la altura y la anchura de la zona activa sí son las de una celda de 300 cm².
+   Cada celda: placa bipolar | GDL ánodo | catalizador ánodo | membrana | catalizador cátodo | GDL cátodo | placa bipolar. */
+const NC=10;                                              // celdas dibujadas
+const LAY={aire:0.007,hojaC:0.003,cool:0.006,hojaA:0.003,h2:0.007};
+const W_BPP=LAY.aire+LAY.hojaC+LAY.cool+LAY.hojaA+LAY.h2;  // placa bipolar completa
+const W_EXT=LAY.hojaA+LAY.h2;                              // placa de extremo (sólo un lado con canales)
+const W_GDL=0.008, W_CLA=0.002, W_MEM=0.004, W_CLC=0.003;
+const W_MEA=W_GDL+W_CLA+W_MEM+W_CLC+W_GDL;
+const YP=0.25, ZP=0.17;                                    // semialtura y semiancho de las placas
+const YA=0.15, ZA=0.14;                                    // ventana activa
+const YB=0.222, RB=0.013, RN=0.006;                        // eje (y) de los túneles, su radio y el medio ancho de su cuello
+const EXPO=new THREE.Group(); scene.add(EXPO);
+const BANCO=new THREE.Group(); scene.add(BANCO);
+const fus=a=>P3.fusiona(a.filter(Boolean));
+const circ=(cy,cz,r,n=40)=>P3.circulo(cy,cz,r,n);
+/** Prisma a lo largo de X: el contorno se da en (y, z). */
+function prismaX(lazos,x0,x1,o){
+  const g=prisma(lazos,x0,x1,o);
+  g.applyMatrix4(new THREE.Matrix4().set(0,0,1,0, 1,0,0,0, 0,1,0,0, 0,0,0,1));
+  return g;
+}
+const rect=(y0,z0,y1,z1,r)=>r?rectR(y0,z0,y1,z1,r,5):[[y0,z0],[y1,z0],[y1,z1],[y0,z1]];
+/** Ventana activa con un cuello que sube (dir = +1) o baja (dir = −1) hasta el túnel y lo abre. */
+function ventanaCuello(dir){
+  const P=[], a0=Math.asin(RN/RB), yn=YB-Math.sqrt(RB*RB-RN*RN);
+  P.push([-YA,-ZA],[YA,-ZA],[YA,-RN],[yn,-RN]);
+  const f0=Math.PI+a0, f1=f0+(Math.PI*2-2*a0);
+  for(let i=0;i<=28;i++){ const f=f0+(f1-f0)*i/28; P.push([YB+RB*Math.cos(f),RB*Math.sin(f)]); }
+  P.push([yn,RN],[YA,RN],[YA,ZA],[-YA,ZA]);
+  return dir>0?P:P.map(([y,z])=>[-y,z]);
+}
+const TUN_H2=circ(YB,0,RB), TUN_AIRE=circ(-YB,0,RB);       // los dos túneles pasantes
+const contorno=()=>rect(-YP,-ZP,YP,ZP,0.02);
+/** Piezas macizas de la placa bipolar con sus túneles (todas salvo la que lo abre con su cuello). */
+const sinCuello=(lazo,huecos)=>[lazo,...huecos];
+const xMundo=[];                                          // [x0,x1] de cada placa (se llena abajo)
+
+/* ---------- 6.1 Reparto de las capas a lo largo de X ---------- */
+let STACK_X0=0, STACK_X1=0, REFRI=null, xTapaI=null, xTapaD=null;
+const CEL=[], BPP=[];
+(function(){
+  let x=0;
+  BPP.push({k:0,x0:x,x1:x+W_EXT,tipo:'ini'}); x+=W_EXT;
+  for(let k=0;k<NC;k++){
+    CEL.push({k,xc:x}); x+=W_MEA;
+    if(k<NC-1){ BPP.push({k:k+1,x0:x,x1:x+W_BPP,tipo:'int'}); x+=W_BPP; }
+  }
+  BPP.push({k:NC,x0:x,x1:x+W_EXT,tipo:'fin'}); x+=W_EXT;
+  const d=-x/2; for(const b of BPP){ b.x0+=d; b.x1+=d; } for(const c of CEL) c.xc+=d;
+  STACK_X0=BPP[0].x0; STACK_X1=BPP[BPP.length-1].x1;
+})();
+const xAn=c=>c.xc-LAY.h2/2, xCa=c=>c.xc+W_MEA+LAY.aire/2;     // centros de los canales de H₂ y de aire de la celda c
+const xCLa=c=>c.xc+W_GDL+W_CLA/2, xCLc=c=>c.xc+W_GDL+W_CLA+W_MEM+W_CLC/2;
+
+/* ---------- 6.2 Geometría fusionada por material ---------- */
+(function(){
+  const placas=[], marcos=[], gdl=[], catA=[], catC=[], mem=[], junta=[], coolG=[];
+  const nervios=(x0,x1)=>{ const a=[]; for(let j=0;j<7;j++){ const cz=-0.010-0.020*j; a.push(new THREE.BoxGeometry(x1-x0,2*YA,0.010).translate((x0+x1)/2,0,cz)); } return a; };
+  for(const b of BPP){
+    let x=b.x0;
+    const aireX=b.tipo!=='ini', h2X=b.tipo!=='fin', hojaCX=b.tipo!=='ini', coolX=b.tipo==='int', hojaAX=b.tipo!=='fin';
+    // placa: del lado izquierdo (aire, cátodo de la celda anterior) al derecho (H₂, ánodo de la siguiente)
+    if(aireX){ placas.push(...nervios(x,x+LAY.aire)); x+=LAY.aire; }
+    if(hojaCX){ const w=b.tipo==='fin'?0.003:LAY.hojaC; placas.push(prismaX([contorno(),TUN_H2,TUN_AIRE],x,x+w,{canto:35})); x+=w; }
+    if(coolX){
+      marcos.push(prismaX([contorno(),rect(-0.20,-0.135,0.20,0.135,0.01),TUN_H2,TUN_AIRE],x,x+LAY.cool,{canto:35}));
+      coolG.push(new THREE.BoxGeometry(LAY.cool-0.0004,0.396,0.268,1,14,1).translate(x+LAY.cool/2,0,0)); x+=LAY.cool; }
+    if(hojaAX){ const w=b.tipo==='ini'?0.003:LAY.hojaA; placas.push(prismaX([contorno(),TUN_H2,TUN_AIRE],x,x+w,{canto:35})); x+=w; }
+    if(h2X){ placas.push(...nervios(x,x+LAY.h2)); x+=LAY.h2; }
+  }
+  // los anillos de las dos capas de canales: la ventana activa con su cuello hacia el túnel de aire (abajo) o de H₂ (arriba) es el hueco
+  for(const b of BPP){
+    if(b.tipo!=='ini') marcos.push(prismaX([contorno(),ventanaCuello(-1),TUN_H2],b.x0,b.x0+LAY.aire,{canto:35}));
+    if(b.tipo!=='fin') marcos.push(prismaX([contorno(),ventanaCuello(+1),TUN_AIRE],b.x1-LAY.h2,b.x1,{canto:35}));
+  }
+  for(const c of CEL){
+    const x=c.xc;
+    gdl.push(new THREE.BoxGeometry(W_GDL,2*YA-0.002,2*ZA-0.002).translate(x+W_GDL/2,0,0));
+    catA.push(new THREE.BoxGeometry(W_CLA,2*YA-0.002,2*ZA-0.002).translate(x+W_GDL+W_CLA/2,0,0));
+    mem.push(new THREE.BoxGeometry(W_MEM,2*YA+0.014,2*ZA+0.014).translate(x+W_GDL+W_CLA+W_MEM/2,0,0));
+    catC.push(new THREE.BoxGeometry(W_CLC,2*YA-0.002,2*ZA-0.002).translate(x+W_GDL+W_CLA+W_MEM+W_CLC/2,0,0));
+    gdl.push(new THREE.BoxGeometry(W_GDL,2*YA-0.002,2*ZA-0.002).translate(x+W_GDL+W_CLA+W_MEM+W_CLC+W_GDL/2,0,0));
+    junta.push(prismaX([contorno(),rect(-YA,-ZA,YA,ZA,0.004),TUN_H2,TUN_AIRE],x,x+W_MEA,{canto:35}));
+  }
+  const tintA=[], tintC=[];
+  for(const c of CEL){ tintA.push(new THREE.BoxGeometry(LAY.h2,2*YA,0.0098).translate(c.xc-LAY.h2/2,0,-0.0026)); tintC.push(new THREE.BoxGeometry(LAY.aire,2*YA,0.0098).translate(c.xc+W_MEA+LAY.aire/2,0,-0.0026)); }
+  const gA=pieza(fus(tintA),M.tintH2,EXPO,'canalH2',{sombra:false,recibe:false}); gA.renderOrder=1;
+  const gC=pieza(fus(tintC),M.tintAire,EXPO,'canalAire',{sombra:false,recibe:false}); gC.renderOrder=1;
+  const pl=pieza(fus(placas),M.placa,EXPO,'placa'); pl.castShadow=false;
+  pieza(fus(marcos),M.marco,EXPO,'placa');
+  pieza(fus(gdl),M.gdl,EXPO,'gdl',{sombra:false});
+  pieza(fus(catA),M.catA,EXPO,'cat',{sombra:false});
+  pieza(fus(catC),M.catC,EXPO,'cat',{sombra:false});
+  const mm_=pieza(fus(mem),M.mem,EXPO,'membrana',{sombra:false}); mm_.renderOrder=2;
+  pieza(fus(junta),M.junta,EXPO,'junta',{sombra:false});
+  // el refrigerante: un bloque por placa, con un degradado de color por vértice que actualiza el modelo
+  const cg=fus(coolG); const cn=cg.attributes.position.count;
+  cg.setAttribute('color',new THREE.BufferAttribute(new Float32Array(cn*3),3).setUsage(THREE.DynamicDrawUsage));
+  REFRI=pieza(cg,M.refri,EXPO,'refrigerante',{sombra:false,recibe:false}); REFRI.renderOrder=1;
+})();
+
+/* ---------- 6.3 Los extremos: colectores de cobre, aislantes, placas de aluminio y tirantes ---------- */
+const X_IZQ=STACK_X0, X_DER=STACK_X1;
+const COLEC=0.008, AISL=0.010, TAPA=0.040;
+(function(){
+  const lado=(sg)=>{                                        // sg = −1 izquierda (ánodo, con puertos), +1 derecha
+    const x0=sg<0?X_IZQ:X_DER, huecos=sg<0?[TUN_H2,TUN_AIRE]:[];
+    const e=(w)=>{ const a=sg<0?x0-w:x0, b=sg<0?x0:x0+w; return [a,b]; };
+    let [a,b]=e(COLEC); EXPO.add(Object.assign(new THREE.Mesh(prismaX([rect(-0.215,-0.14,0.215,0.14,0.012),...huecos],a,b,{canto:35}),M.cobre),{castShadow:false,receiveShadow:true,userData:{pieza:'colector'}}));
+    // lengüeta del colector: sube por encima de la pila y recibe el cable
+    const xl=(a+b)/2;
+    pieza(new THREE.BoxGeometry(COLEC,0.115,0.05).translate(xl,YP+0.015,-0.05),M.cobre,EXPO,'colector');
+    pieza(new THREE.CylinderGeometry(0.011,0.011,0.012,20).rotateX(0).translate(xl,YP+0.078,-0.05),M.acero,EXPO,'terminal');
+    const x1=sg<0?a:b; [a,b]=sg<0?[x1-AISL,x1]:[x1,x1+AISL];
+    pieza(prismaX([rect(-0.24,-0.155,0.24,0.155,0.014),...huecos],a,b,{canto:35}),M.aislante,EXPO,'aislante',{sombra:false});
+    const x2=sg<0?a:b; [a,b]=sg<0?[x2-TAPA,x2]:[x2,x2+TAPA];
+    const placa=pieza(prismaX([rect(-0.285,-0.215,0.285,0.215,0.03),...huecos],a,b,{canto:35}),M.alu,EXPO,'tapa');
+    return {xTapaExt:sg<0?a:b,xTapaInt:sg<0?b:a};
+  };
+  const L=lado(-1), R=lado(+1);
+  xTapaI=L; xTapaD=R;
+  // tirantes (4) con tuercas y arandelas: dos quedan detrás de la pila y asoman por arriba y por abajo
+  const xa=L.xTapaExt-0.012, xb=R.xTapaExt+0.012;
+  const tir=[];
+  for(const sy of [-1,1]) for(const sz of [-1,1]){
+    const y=sy*0.262, z=sz*0.200;
+    tir.push(new THREE.CylinderGeometry(0.0075,0.0075,xb-xa,20).rotateZ(Math.PI/2).translate((xa+xb)/2,y,z));
+    for(const x of [xa,xb]){
+      tir.push(new THREE.CylinderGeometry(0.0125,0.0125,0.014,6).rotateZ(Math.PI/2).translate(x,y,z));
+      tir.push(new THREE.CylinderGeometry(0.0165,0.0165,0.003,24).rotateZ(Math.PI/2).translate(x+(x<0?0.0085:-0.0085),y,z)); }
+  }
+  pieza(fus(tir),M.acero,EXPO,'tirante');
+  // los puertos de la tapa izquierda: H₂ arriba, aire abajo (racores con su manguera)
+  const pu=[];
+  for(const [y,r] of [[YB,0.017],[-YB,0.017]]){
+    pu.push(new THREE.CylinderGeometry(r*1.5,r*1.5,0.022,28).rotateZ(Math.PI/2).translate(L.xTapaExt-0.011,y,0));
+    pu.push(new THREE.CylinderGeometry(r,r,0.075,28).rotateZ(Math.PI/2).translate(L.xTapaExt-0.055,y,0));
+    pu.push(new THREE.CylinderGeometry(r*1.2,r*1.2,0.010,28).rotateZ(Math.PI/2).translate(L.xTapaExt-0.020,y,0)); }
+  pieza(fus(pu),M.acero,EXPO,'puerto');
+  // apoyos de la bancada
+  const ap=[]; for(const sx of [L,R]) for(const sz of [-0.15,0.15]) ap.push(new THREE.BoxGeometry(0.05,0.045,0.07).translate((sx.xTapaExt+sx.xTapaInt)/2,-0.285-0.0225,sz));
+  pieza(fus(ap),M.carga,EXPO,'apoyo');
+})();
+const X_L=X_IZQ-COLEC/2, X_R=X_DER+COLEC/2;                // x de las lengüetas
+
+/* ---------- 6.4 El circuito exterior: cable naranja y la carga (un motor con su rotor) ---------- */
+const Y_CAB=YP+0.085, Z_CAB=-0.05, Y_MOT=YP+0.135;
+const CURVA_EXT=new THREE.CatmullRomCurve3([
+  V3(X_L,YP+0.084,Z_CAB),V3(X_L,Y_MOT-0.02,Z_CAB),V3(X_L+0.04,Y_MOT,Z_CAB),V3(-0.10,Y_MOT,Z_CAB),V3(0.10,Y_MOT,Z_CAB),
+  V3(X_R-0.04,Y_MOT,Z_CAB),V3(X_R,Y_MOT-0.02,Z_CAB),V3(X_R,YP+0.084,Z_CAB)],false,'catmullrom',0.15);
+(function(){
+  pieza(new THREE.TubeGeometry(CURVA_EXT,120,0.0085,14,false),M.naranja,EXPO,'cable',{sombra:false});
+  // el motor: carcasa con aletas, tapas y eje; el rotor (aspas) gira con la potencia
+  const mo=[];
+  mo.push(new THREE.CylinderGeometry(0.046,0.046,0.17,48).rotateZ(Math.PI/2).translate(0,Y_MOT,Z_CAB));
+  for(let i=0;i<9;i++) mo.push(new THREE.CylinderGeometry(0.052,0.052,0.006,48).rotateZ(Math.PI/2).translate(-0.065+i*0.0163,Y_MOT,Z_CAB));
+  mo.push(new THREE.CylinderGeometry(0.052,0.052,0.012,48).rotateZ(Math.PI/2).translate(-0.091,Y_MOT,Z_CAB));
+  mo.push(new THREE.CylinderGeometry(0.052,0.052,0.012,48).rotateZ(Math.PI/2).translate(0.091,Y_MOT,Z_CAB));
+  mo.push(new THREE.BoxGeometry(0.15,0.020,0.07).translate(0,Y_MOT-0.056,Z_CAB));
+  pieza(fus(mo),M.carga,EXPO,'carga');
+  pieza(new THREE.BoxGeometry(0.04,0.069,0.05).translate(0,YP+0.0345,Z_CAB),M.carga,EXPO,'apoyo',{sombra:false});
+})();
+const ROTOR=new THREE.Group(); ROTOR.position.set(0.099,Y_MOT,Z_CAB); EXPO.add(ROTOR);
+(function(){
+  const asp=[]; for(let i=0;i<6;i++){ const g=new THREE.BoxGeometry(0.004,0.052,0.016); g.translate(0,0.030,0); g.rotateX(i*Math.PI/3); asp.push(g); }
+  asp.push(new THREE.CylinderGeometry(0.010,0.010,0.012,20).rotateZ(Math.PI/2));
+  const r=pieza(fus(asp),M.acero,ROTOR,'rotor',{sombra:false});
+})();
+
+/* ---------- 6.5 Suelo y bancada ---------- */
+const piso=new THREE.Mesh(new THREE.CircleGeometry(7,64),M_BANCO_ENTERO); piso.rotation.x=-Math.PI/2; piso.position.y=-0.34; piso.receiveShadow=true; BANCO.add(piso);
+pieza(P3.fusiona([prismaX([rect(-0.335,-0.30,-0.31,0.30,0)],X_IZQ-0.20,X_DER+0.20)]),M_SUELO,BANCO,'bancada');
+
+
+
+/* ===================== 7. EL ESTADO Y EL MODELO =====================
+   Un solo estado (EST): lo que el alumno mueve. De él sale, una vez por cambio, el modelo completo (celda, pila, auxiliares,
+   curvas). Y de ese modelo salen —en cada cuadro, con el MISMO reloj— el ritmo de las partículas, el calor de los
+   catalizadores, el color de la membrana y del refrigerante, el giro de la carga, las gráficas del dock y las cifras. */
+const EST={modo:'marcha',N:400,I:425,P:2.0e5,T:353.15,RH:0.90,A:300,falla:null,vis:1,pausa:REDUCIDO,autoRunning:false};
+const SIMU={t:0,tReal:0,c:null,pl:null,clave:'',curva:null,ref:null,Jpn:0,pl0:null,H2acum:0,aguaAcum:0,flood:0,gir:0,
+  sc:null,Nopt:null,optimo:null,pliego:null,tCalc:0};
+const claveEst=()=>[EST.N,EST.I.toFixed(2),EST.P,EST.T.toFixed(2),EST.RH.toFixed(3),EST.A,EST.falla].join('|');
+const colTemp=(function(){
+  const st=[[20,[0.14,0.40,0.95]],[55,[0.16,0.62,0.92]],[80,[0.32,0.78,0.86]],[95,[0.95,0.68,0.36]],[115,[1.0,0.34,0.20]]];
+  return (TK,out)=>{ const C=TK-273.15; let i=0; while(i<st.length-2&&C>st[i+1][0]) i++;
+    const a=st[i], b=st[i+1], u=clamp((C-a[0])/(b[0]-a[0]),0,1); for(let k=0;k<3;k++) out[k]=a[1][k]+(b[1][k]-a[1][k])*u; return out; };
+})();
+function recalcula(){
+  const k0=claveEst();
+  const c=condiciones(EST.T,EST.P,EST.RH,EST.falla);
+  const Imax=0.985*c.JL*EST.A; if(EST.I>Imax) EST.I=Imax;
+  const k=claveEst(); if(k===SIMU.clave) return false;
+  SIMU.clave=k; const t0=performance.now();
+  SIMU.c=c; SIMU.pl=pila(EST.N,EST.I,EST.A,c);
+  // la curva completa de esta pila a esta presión: J, V de celda, potencia neta, rendimientos
+  const n=140, cur=[], Jtop=c.JL*0.992;
+  for(let i=0;i<=n;i++){ const J=Jtop*i/n, p=pila(EST.N,J*EST.A,EST.A,c); cur.push({J,V:p.Vc,Pn:p.Pnet,Pb:p.Pb,eC:p.etaCelda,eN:p.etaNeto,Vs:p.Vs}); }
+  SIMU.curva=cur; SIMU.c0=EST.falla?condiciones(EST.T,EST.P,EST.RH,null):c;
+  if(EST.falla){ const r=[]; for(let i=0;i<=n;i++){ const J=SIMU.c0.JL*0.992*i/n, p=pila(EST.N,J*EST.A,EST.A,SIMU.c0); r.push({J,V:p.Vc,Pn:p.Pnet}); } SIMU.ref=r; } else SIMU.ref=null;
+  let im=0; for(let i=1;i<cur.length;i++) if(cur[i].Pn>cur[im].Pn) im=i; SIMU.Jpn=cur[im].J; SIMU.Pnmax=cur[im].Pn;
+  SIMU.flood=clamp((EST.RH-CELDA.floodRH)/(1-CELDA.floodRH),0,1);
+  SIMU.OCV=celda(0,c).V; SIMU.OCV0=celda(0,SIMU.c0).V;
+  SIMU.pliego=SIMU.sc?pliego(SIMU.pl,SIMU.sc,SIMU.Nopt):null;
+  SIMU.tCalc=performance.now()-t0; return true;
+}
+
+/* ===================== 8. LAS PARTÍCULAS =====================
+   Un solo Points con todo lo que se mueve: H₂ y el aire (O₂ y N₂) fluyendo por sus canales a contracorriente, los
+   protones que cruzan cada membrana (+X), los electrones que atraviesan las placas bipolares (−X) y recorren el circuito
+   exterior, las gotas de agua que nacen en el cátodo y los túneles de alimentación. El RITMO es proporcional a la corriente
+   (Faraday); el número de partículas es fijo (esquema: no es la cantidad real de moléculas). */
+const T_H2=0,T_O2=1,T_N2=2,T_AG=3,T_HP=4,T_EL=5,T_EX=6,T_TH=7,T_TA=8;
+const SPEC=[{n:22,t:T_H2},{n:14,t:T_O2},{n:16,t:T_N2},{n:10,t:T_AG},{n:20,t:T_HP}];
+const PDESC=[];
+(function(){
+  let s=20260;
+  const rnd=()=>{ s=(s+0x6D2B79F5)|0; let t=Math.imul(s^(s>>>15),1|s); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };
+  for(const c of CEL) for(const sp of SPEC) for(let i=0;i<sp.n;i++)
+    PDESC.push({t:sp.t,k:c.k,u:rnd(),y0:-YA+rnd()*2*YA,z:-0.0008-rnd()*0.0030,w:rnd()*6.283});
+  // electrones: una corriente por cada placa bipolar (de la celda k hacia la k−1) y la de los extremos
+  for(let k=0;k<=NC;k++){
+    const xs=k===0?CEL[0].xc+W_GDL+W_CLA/2:(k===NC?X_DER+0.001:CEL[k].xc+W_GDL+W_CLA/2);
+    const xe=k===0?X_IZQ-COLEC*0.5:xCLc(CEL[k-1]);
+    for(let i=0;i<12;i++) PDESC.push({t:T_EL,k,u:rnd(),y0:-YA+rnd()*2*YA,z:-0.0008-rnd()*0.0030,w:rnd()*6.283,xs,xe});
+  }
+  for(let i=0;i<44;i++) PDESC.push({t:T_EX,k:0,u:i/44+rnd()*0.01,y0:0,z:0,w:0});
+  for(let i=0;i<34;i++) PDESC.push({t:T_TH,k:0,u:rnd(),y0:(rnd()-0.5)*0.016,z:-rnd()*0.009,w:rnd()*6.283});
+  for(let i=0;i<34;i++) PDESC.push({t:T_TA,k:0,u:rnd(),y0:(rnd()-0.5)*0.016,z:-rnd()*0.009,w:rnd()*6.283});
+})();
+const NP=PDESC.length;
+const gPar=new THREE.BufferGeometry();
+const pPos=new Float32Array(NP*3), pCol=new Float32Array(NP*3), pAl=new Float32Array(NP), pSz=new Float32Array(NP);
+gPar.setAttribute('position',new THREE.BufferAttribute(pPos,3).setUsage(THREE.DynamicDrawUsage));
+gPar.setAttribute('aColor',new THREE.BufferAttribute(pCol,3).setUsage(THREE.DynamicDrawUsage));
+gPar.setAttribute('aAlpha',new THREE.BufferAttribute(pAl,1).setUsage(THREE.DynamicDrawUsage));
+gPar.setAttribute('aSize',new THREE.BufferAttribute(pSz,1).setUsage(THREE.DynamicDrawUsage));
+const M_PUNTOS=new THREE.ShaderMaterial({
+  uniforms:{uPx:{value:600}},
+  vertexShader:`attribute vec3 aColor; attribute float aAlpha; attribute float aSize; varying vec3 vC; varying float vA; uniform float uPx;
+    void main(){ vC=aColor; vA=aAlpha; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv; gl_PointSize=clamp(aSize*uPx/(-mv.z),3.2,15.0); }`,
+  fragmentShader:`varying vec3 vC; varying float vA;
+    void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d); float a=smoothstep(0.5,0.12,r)*vA; if(a<0.01) discard;
+      gl_FragColor=vec4(vC*(1.0+1.6*smoothstep(0.24,0.0,r)),a); }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+const PUNTOS=new THREE.Points(gPar,M_PUNTOS); PUNTOS.frustumCulled=false; PUNTOS.renderOrder=4; PUNTOS.raycast=()=>{}; scene.add(PUNTOS);
+const PH={g:0,p:0,e:0,a:0};                                  // las fases (se acumulan: si el ritmo cambia, nada salta)
+const fr=x=>x-Math.floor(x), borde=u=>Math.min(1,u/0.07,(1-u)/0.07);
+const COL={h2:[0.78,0.95,1.0],o2:[1.0,0.45,0.30],n2:[0.45,0.56,0.72],ag:[0.55,0.82,1.0],hp:[1.0,0.80,0.25],el:[0.35,0.95,1.0]};
+const _pc=new THREE.Vector3();
+const EXT_N=240, EXT_PTS=[]; for(let i=0;i<=EXT_N;i++){ const p=CURVA_EXT.getPointAt(i/EXT_N); EXT_PTS.push([p.x,p.y,p.z]); }
+function animaParticulas(dt){
+  const pl=SIMU.pl; if(!pl) return;
+  const jr=clamp(pl.J/1.6,0,1.4), v=EST.vis;
+  if(!EST.pausa){ PH.g+=dt*v*(0.04+0.34*jr); PH.p+=dt*v*0.62*jr; PH.e+=dt*v*0.95*jr; PH.a+=dt*v*(0.015+0.26*jr); }
+  const hum=SIMU.flood, dX=X_DER-X_IZQ;
+  for(let i=0;i<NP;i++){
+    const d=PDESC[i], o=i*3; let x=0,y=0,z=d.z,a=0,s=0.006,c=COL.h2;
+    const cel=CEL[Math.min(d.k,NC-1)];
+    switch(d.t){
+      case T_H2:{ const u=fr(d.u+PH.g); x=xAn(cel)+0.0016*Math.sin(d.w+u*18); y=YA-u*2*YA; a=(0.30+0.70*(1-0.62*u))*borde(u); s=0.0046; c=COL.h2; break; }
+      case T_O2:{ const u=fr(d.u+PH.g); x=xCa(cel)+0.0016*Math.sin(d.w+u*18); y=-YA+u*2*YA; a=(0.25+0.75*(1-0.52*u))*borde(u); s=0.0046; c=COL.o2; break; }
+      case T_N2:{ const u=fr(d.u+PH.g); x=xCa(cel)+0.0016*Math.sin(d.w+u*15); y=-YA+u*2*YA; a=0.5*borde(u); s=0.0050; c=COL.n2; break; }
+      case T_AG:{ const u=fr(d.u+PH.a), y0=d.y0*0.8;
+        const sm=Math.min(1,u*5), sm2=sm*sm*(3-2*sm);
+        x=(xCLc(cel)+0.0036)*(1-sm2)+xCa(cel)*sm2; y=y0+u*(YA-y0); a=0.9*borde(u); s=(0.0030+0.0032*u)*(1+1.8*hum*(0.4+0.6*jr)); c=COL.ag; break; }
+      case T_HP:{ const u=fr(d.u+PH.p); x=xCLa(cel)+u*(xCLc(cel)-xCLa(cel)); y=d.y0+0.004*Math.sin(d.w+u*9); a=Math.pow(Math.sin(Math.PI*u),0.6)*(pl.I>0.5?1:0.0); s=0.0068; c=COL.hp; break; }
+      case T_EL:{ const u=fr(d.u+PH.e); x=d.xs+(d.xe-d.xs)*u; y=d.y0; a=Math.pow(Math.sin(Math.PI*u),0.5)*(pl.I>0.5?0.95:0); s=0.0040; c=COL.el; break; }
+      case T_EX:{ const u=fr(d.u+PH.e*0.22), q=EXT_PTS[Math.min(EXT_N,Math.floor(u*EXT_N))]; x=q[0]; y=q[1]; z=q[2]+0.002; a=pl.I>0.5?1:0; s=0.0066; c=COL.el; break; }
+      case T_TH:{ const u=fr(d.u+PH.g*0.8); x=X_IZQ-0.02+u*(dX+0.03); y=YB+d.y0; z=d.z*0.9; a=(0.9-0.75*u)*borde(u); s=0.0034; c=COL.h2; break; }
+      default:{ const u=fr(d.u+PH.g*0.8); x=X_IZQ-0.02+u*(dX+0.03); y=-YB+d.y0; z=d.z*0.9; a=0.8*borde(u); s=0.0036; c=(i&1)?COL.o2:COL.n2; }
+    }
+    pPos[o]=x; pPos[o+1]=y; pPos[o+2]=z; pCol[o]=c[0]; pCol[o+1]=c[1]; pCol[o+2]=c[2]; pAl[i]=a*0.95; pSz[i]=s;
+  }
+  gPar.attributes.position.needsUpdate=true; gPar.attributes.aColor.needsUpdate=true; gPar.attributes.aAlpha.needsUpdate=true; gPar.attributes.aSize.needsUpdate=true;
+}
+
+/* ===================== 9. LO QUE SE VE: CALOR, HIDRATACIÓN, REFRIGERANTE, CARGA =====================
+   El catalizador del cátodo se pone al rojo con el calor por celda (J·(1,2532 − V)); la membrana pasa de blanquecina (seca)
+   a azul translúcida (hidratada) con λ(a); el refrigerante cambia de color con T y sube ΔT = Q/(ṁ·cp); la carga gira con P. */
+const C_CAL=new THREE.Color('#ff5a1f'), C_MEM_SECA=new THREE.Color('#e8e2c8'), C_MEM_HUM=new THREE.Color('#7fd3ff');
+const CP_REFRI=14000;                                         // ṁ·cp del circuito de refrigerante, W/K (3,3 kg/s de agua-glicol)
+let claveRefri='';
+function pintaColores(dt){
+  const pl=SIMU.pl, c=SIMU.c; if(!pl||!c) return;
+  const q=pl.J*(E_PCI-pl.Vc), f=clamp(q/0.9,0,1.2);       // W/cm² de calor
+  M.catC.emissive.copy(C_CAL).multiplyScalar(0.01+0.13*f); M.catA.emissive.copy(C_CAL).multiplyScalar(0.005+0.04*f);
+  const w=clamp(c.lam/14,0,1);
+  M.mem.color.copy(C_MEM_SECA).lerp(C_MEM_HUM,w); M.mem.opacity=0.55+0.25*w;
+  const dT=pl.Q/CP_REFRI, k=Math.round(c.T*2)+'|'+Math.round(dT*4);
+  if(k!==claveRefri){ claveRefri=k; const col=REFRI.geometry.attributes.color, pos=REFRI.geometry.attributes.position, o=[0,0,0];
+    for(let i=0;i<pos.count;i++){ const u=(pos.getY(i)+0.198)/0.396; colTemp(c.T+dT*(u-0.5)-3,o); col.setXYZ(i,o[0],o[1],o[2]); }
+    col.needsUpdate=true; }
+  if(!EST.pausa) ROTOR.rotation.x+=dt*EST.vis*clamp(pl.Pnet/100000,0,1.3)*14;
+}
+/* Un cuadro de la escena. dt: tiempo de pantalla (s); t: reloj. */
+function aplicaEscena(dt,t){
+  recalcula();
+  const pl=SIMU.pl; if(!pl) return;
+  if(!EST.pausa){ SIMU.t+=dt*EST.vis; SIMU.tReal+=dt; SIMU.H2acum+=pl.mH2sum*dt; SIMU.aguaAcum+=pl.mH2O*dt; }
+  animaParticulas(dt); pintaColores(dt);
+}
+
+
+
+/* ===================== 10. CÁMARAS ENCAJADAS EN EL HUECO LIBRE ===================== */
+
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function encaja(t,dir,pts,caja,margen=0){
+  if(margen){ const mx=(caja.x1-caja.x0)*margen, my=(caja.y1-caja.y0)*margen; caja={x0:caja.x0+mx,x1:caja.x1-mx,y0:caja.y0+my,y1:caja.y1-my}; }
+  const cam=camera.clone(), W=innerWidth, H=innerHeight, tan=Math.tan(cam.fov*Math.PI/360);
+  cam.aspect=W/H; cam.updateProjectionMatrix();
+  const cw=caja.x1-caja.x0, ch=caja.y1-caja.y0, cx_=(caja.x0+caja.x1)/2, cy_=(caja.y0+caja.y1)/2;
+  let dist=3; const q=new THREE.Vector3(), der=new THREE.Vector3(), arr=new THREE.Vector3(); t=t.clone(); dir=dir.clone().normalize();
+  for(let it=0;it<10;it++){
+    cam.position.copy(t).addScaledVector(dir,dist); cam.lookAt(t); cam.updateMatrixWorld();
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const p of pts){ q.copy(p).project(cam); const sx=(q.x+1)/2*W, sy=(1-q.y)/2*H;
+      a0=Math.min(a0,sx); a1=Math.max(a1,sx); b0=Math.min(b0,sy); b1=Math.max(b1,sy); }
+    const k=Math.max((a1-a0)/cw,(b1-b0)/ch), wpp=2*tan*dist/H;
+    der.setFromMatrixColumn(cam.matrixWorld,0); arr.setFromMatrixColumn(cam.matrixWorld,1);
+    t.addScaledVector(der,((a0+a1)/2-cx_)*wpp).addScaledVector(arr,-((b0+b1)/2-cy_)*wpp);
+    dist*=k;
+  }
+  return [t.clone().addScaledVector(dir,dist),t];
+}
+const caja3=(x0,y0,z0,x1,y1,z1)=>{ const r=[]; for(const x of [x0,x1]) for(const y of [y0,y1]) for(const z of [z0,z1]) r.push(V3(x,y,z)); return r; };
+
+
+const VISTA={actual:'conjunto'};
+function vistaCam(v){
+  const H=huecoLibre(), cen=pts=>new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+  const c4=CEL[4];
+  if(v==='celda'){ const p=caja3(c4.xc-0.040,-0.078,-0.02,c4.xc+W_MEA+0.040,0.078,0.012); return encaja(cen(p),V3(0.10,0.10,1),p,H,0.02); }
+  if(v==='membrana'){ const p=caja3(c4.xc+0.002,-0.032,-0.02,c4.xc+W_MEA-0.002,0.032,0.01); return encaja(cen(p),V3(0.08,0.08,1),p,H,0.02); }
+  if(v==='circuito'){ const p=caja3(X_IZQ-0.04,YP-0.05,-0.12,X_DER+0.04,Y_MOT+0.07,0.02); return encaja(cen(p),V3(0.10,0.22,1),p,H,0.03); }
+  const p=caja3(xTapaI.xTapaExt-0.10,-0.345,-0.22,xTapaD.xTapaExt+0.03,Y_MOT+0.07,0.03);
+  return encaja(cen(p),V3(0.12,0.17,1),p,H,0.035);
+}
+
+
+
+const CAMT={on:false};
+function ponVista(v,dur){
+  VISTA.actual=v; const [p,t]=vistaCam(v);
+  Object.assign(CAMT,{on:true,u:0,dur:dur===undefined?(REDUCIDO?0.001:1.2):dur,p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t});
+  pintaBarras();
+}
+function pasaCam(dt){
+  if(!CAMT.on) return;
+  CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+  camera.position.lerpVectors(CAMT.p0,CAMT.p1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+  if(CAMT.u>=1) CAMT.on=false;
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+
+/* ===================== 11. EL HUD (izquierda) ===================== */
+const bar=x=>fN(x/1e5,2)+' bar';
+const gradosC=T=>fN(T-273.15,0)+' °C';
+function slider(id,etq,val,min,max,step,mostrado,marcas,desact){
+  return `<div class="cg"><div class="cl ${desact?'dis':''}"><div>${etq}</div><b id="v_${id}">${mostrado}</b></div><input type="range" id="r_${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${etq.replace(/<[^>]+>/g,'')}" ${desact?'disabled':''}>${marcas||''}</div>`;
+}
+const mk=(txt)=>`<div class="marcas">${txt.map(t=>`<span>${t}</span>`).join('')}</div>`;
+const lblI=()=>fN(EST.I,0)+' A · '+fN(EST.I/EST.A,2)+' A/cm²';
+const mI=()=>slider('i','Corriente <em class="gr">I</em>',EST.I,0,560,1,lblI(),mk(['0','280','560 A']));
+const mN=()=>slider('n','Celdas en serie <em class="gr">N</em>',EST.N,150,600,1,fN(EST.N,0)+' celdas',mk(['150','375','600']));
+const mP=()=>slider('p','Presión del aire <em class="gr">p</em>',EST.P/1e5,1.2,3.0,0.05,bar(EST.P),mk(['1,2','2,1','3,0 bar']));
+const mT=()=>slider('t','Temperatura <em class="gr">T</em>',EST.T-273.15,50,95,1,gradosC(EST.T),mk(['50','72','95 °C']));
+const mH=()=>slider('h','Humedad de los gases',EST.RH*100,30,100,1,fN(EST.RH*100,0)+' %',mk(['30','65','100 %']));
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · Pila de combustible</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>El hidrógeno entra, la electricidad sale</h2>
+    <p class="intro">En cada celda el H₂ suelta sus electrones: los <b>protones</b> (dorado) cruzan la membrana y los <b>electrones</b> (cian) dan la vuelta por el motor. En el cátodo se unen al O₂: salen <b>agua y calor</b>.</p></div>`;
+  } else h+=`<h2>Dimensiónala y diagnostícala</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    h+=`<div class="hmandos">${mI()}${mN()}${mP()}${mT()}${mH()}
+    <div class="btnrow"><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl">La tensión de una celda es la del equilibrio menos tres pérdidas:</div>
+    <div class="formula">V = E<sub>N</sub> − V<sub>act</sub> − V<sub>óhm</sub> − V<sub>conc</sub><br>E<sub>N</sub> = E₀(T) + (RT/2F)·ln(p<sub>H₂</sub>·√p<sub>O₂</sub>)<br>V<sub>act</sub> = (RT/αF)·ln((J+J<sub>n</sub>)/J₀)<br>V<sub>óhm</sub> = J·(t<sub>m</sub>/σ(λ,T) + R<sub>el</sub>)<br>V<sub>conc</sub> = c·(RT/2F)·ln(J<sub>L</sub>/(J<sub>L</sub>−J))</div>
+    <div class="fl">Faraday fija el consumo y el agua; el resto de la energía del H₂ (PCI = 1,2532 V por celda) es calor:</div>
+    <div class="formula">ṁ<sub>H₂</sub> = N·I·M<sub>H₂</sub>/(2F)<br>Q = N·I·(1,2532 − V)<br>η = V/1,2532</div>
+    <div class="fl">El compresor se lleva parte de la potencia: <b>P<sub>comp</sub> = ṁ<sub>aire</sub>·c<sub>p</sub>T/(η<sub>c</sub>η<sub>m</sub>)·(PR<sup>0,286</sup> − 1)</b>. Por eso la presión tiene un óptimo.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Las constantes de la celda son valores de libro y de artículo (Larminie y Dicks, Springer), no el ajuste de una pila comercial.</li>
+    <li>Modelo estacionario y de una dimensión: sin gradientes a lo largo del canal, sin agua líquida (la inundación es una correlación) y sin transitorios.</li>
+    <li>El 3D es un esquema: se dibujan 10 de las N celdas y los espesores van ensanchados; el número de partículas es fijo y su ritmo sigue a la corriente.</li>
+    <li>Sin turboexpansor ni convertidor CC–CC; los auxiliares son el compresor, el refrigerante y la electrónica.</li>
+  </ul><div class="src">Larminie y Dicks, <i>Fuel Cell Systems Explained</i> · Springer, Zawodzinski y Gottesfeld, <i>J. Electrochem. Soc.</i> 138 (1991) · Barbir, <i>PEM Fuel Cells</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  const lig=(id,fn,lbl)=>{ const r=el('r_'+id); if(!r) return; r.oninput=()=>{ if(EST.autoRunning) return; fn(+r.value); el('v_'+id).innerHTML=lbl(); }; };
+  lig('i',v=>{ EST.I=v; },lblI);
+  lig('n',v=>{ EST.N=v; },()=>fN(EST.N,0)+' celdas');
+  lig('p',v=>{ EST.P=Math.round(v*20)/20*1e5; },()=>bar(EST.P));
+  lig('t',v=>{ EST.T=v+273.15; },()=>gradosC(EST.T));
+  lig('h',v=>{ EST.RH=v/100; },()=>fN(EST.RH*100,0)+' %');
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint',null);
+  H.querySelectorAll('[data-quiz]').forEach(b=>b.onclick=()=>responde(+b.dataset.quiz));
+}
+function sincronizaMandos(){
+  const set=(id,v,t)=>{ const r=el('r_'+id), l=el('v_'+id); if(r&&document.activeElement!==r) r.value=v; if(l) l.innerHTML=t; };
+  set('i',EST.I,lblI()); set('n',EST.N,fN(EST.N,0)+' celdas'); set('p',EST.P/1e5,bar(EST.P)); set('t',EST.T-273.15,gradosC(EST.T)); set('h',EST.RH*100,fN(EST.RH*100,0)+' %');
+}
+
+/* ===================== 12. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function punto(x,px,py,r,col){ x.fillStyle=col; x.beginPath(); x.arc(px,py,r,0,DOSPI); x.fill(); }
+const LBUD=lienzo('gBud'), LETA=lienzo('gEta'), LPOL=lienzo('gPol'), LBA=lienzo('gBa');
+const COLV='#7DB8FF', COLP='#34d399', COLQ='#FFA24A', COLA='#B38CFF', COLG='#8FA9C8';
+/** Lo que el dock NO debe enseñar antes de validar el reto: cuáles son las menos celdas (el chip de N queda neutro). */
+const enReto=()=>EST.modo==='guia'&&GUIA.fase===0&&!GUIA.retoOk;
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.fase===1&&!GUIA.dxOk;
+const retoVivo=()=>EST.modo==='guia'&&GUIA.fase===0;
+
+/* El presupuesto de tensión de UNA celda al punto de trabajo: de E_N a V, restando cada pérdida. */
+function pintaBud(){
+  const L=LBUD, x=abre(L), W=L.w, Hh=L.h, pl=SIMU.pl, ce=pl.ce; if(!pl) return;
+  const X0=6, X1=W-6, Y0=14, Y1=Hh-16, vmax=1.30, Yv=v=>Y1-(v/vmax)*(Y1-Y0);
+  const bars=[['E',0,ce.E,'#8fb2e6'],['act',ce.E-ce.Vact,ce.E,'#f4a259'],['óhm',ce.E-ce.Vact-ce.Vohm,ce.E-ce.Vact,'#e76f51'],['conc',ce.V,ce.E-ce.Vact-ce.Vohm,'#b38cff'],['V',0,ce.V,COLP]];
+  const bw=(X1-X0)/bars.length, gap=Math.min(7,bw*0.22);
+  raya(x,X0,Yv(E_PCI),X1,Yv(E_PCI),'rgba(255,255,255,0.28)',1,[3,3]); txt(x,'1,253',X1,Yv(E_PCI)-2,'#9DB6D4',8.5,'right','500');
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5576');
+  bars.forEach(([n,lo,hi,c],i)=>{ const bx=X0+i*bw+gap/2, y1=Yv(hi), y0=Yv(lo); x.fillStyle=c; x.globalAlpha=0.88; x.fillRect(bx,y1,bw-gap,Math.max(1.2,y0-y1)); x.globalAlpha=1;
+    const val=i===0||i===4?fN(hi,3):'−'+fN((hi-lo)*1000,0);
+    txt(x,val,bx+(bw-gap)/2,Math.max(11,y1-3),'#dbe7f5',9,'center','600'); txt(x,n,bx+(bw-gap)/2,Hh-3,'#7E93AD',9,'center','500'); });
+  el('t_bud').textContent='';
+}
+function ejes(x,X0,X1,Y0,Y1){ raya(x,X0,Y1+0.5,X1,Y1+0.5,'#3d5576'); }
+/* η frente a J con la pila actual: la de la celda y la neta (con el compresor y los auxiliares). */
+function pintaEta(){
+  const L=LETA, x=abre(L), W=L.w, Hh=L.h, C=SIMU.curva, pl=SIMU.pl; if(!C) return;
+  const X0=26, X1=W-6, Y0=8, Y1=Hh-15, Jm=2.0, ylo=0.2, yhi=0.7, X=J=>X0+J/Jm*(X1-X0), Y=e=>Y1-(clamp(e,ylo,yhi)-ylo)/(yhi-ylo)*(Y1-Y0);
+  for(const e of [0.3,0.4,0.5,0.6]){ raya(x,X0,Y(e),X1,Y(e),'rgba(143,169,200,0.10)'); txt(x,fN(e*100,0)+' %',X0-3,Y(e)+3,'#6C86A6',8.5,'right','500'); }
+  for(const J of [0,0.5,1,1.5,2]){ raya(x,X(J),Y1,X(J),Y1+3,'#3d5576'); txt(x,fN(J,1),X(J),Hh-3,'#6C86A6',8.5,'center','500'); }
+  if(retoVivo()&&SIMU.sc){ raya(x,X0,Y(SIMU.sc.etaMin),X1,Y(SIMU.sc.etaMin),'rgba(52,211,153,0.65)',1,[3,3]); }
+  const trazo=(key,col,w)=>{ x.strokeStyle=col; x.lineWidth=w; x.beginPath(); let ini=false; for(const p of C){ if(p[key]<=ylo*0.5||p.V<=0.05) continue; const px=X(p.J), py=Y(p[key]); ini?x.lineTo(px,py):x.moveTo(px,py); ini=true; } x.stroke(); };
+  trazo('eC','#8fb2e6',1.3); trazo('eN',COLP,1.9);
+  raya(x,X(pl.J),Y0,X(pl.J),Y1,'rgba(255,255,255,0.35)',1,[2,2]); punto(x,X(pl.J),Y(pl.etaNeto),3.6,'#ffffff');
+  txt(x,'A/cm²',X1,Hh-3,'#6C86A6',8.5,'right','500');
+  el('t_eta').innerHTML='<span style="color:'+COLP+'">η neto '+fN(pl.etaNeto*100,1)+' %</span>';
+}
+/* La curva de polarización (azul) y la potencia neta (verde) de la pila, con el punto de trabajo. */
+function pintaPol(){
+  const L=LPOL, x=abre(L), W=L.w, Hh=L.h, C=SIMU.curva, pl=SIMU.pl, c=SIMU.c; if(!C||!pl) return;
+  const X0=30, X1=W-36, Y0=10, Y1=Hh-15, Jm=2.0, vmax=1.3;
+  const pTop=Math.max(40e3,Math.ceil(SIMU.Pnmax*1.12/40e3)*40e3);
+  const X=J=>X0+J/Jm*(X1-X0), YV=v=>Y1-clamp(v/vmax,0,1)*(Y1-Y0), YPw=p=>Y1-clamp(p/pTop,0,1)*(Y1-Y0);
+  for(const v of [0.4,0.8,1.2]){ raya(x,X0,YV(v),X1,YV(v),'rgba(143,169,200,0.10)'); txt(x,fN(v,1),X0-3,YV(v)+3,'#8fb2e6',8.5,'right','500'); }
+  for(const p of [0.5,1]){ txt(x,fN(pTop*p/1000,0),X1+3,YPw(pTop*p)+3,'#6fcf9f',8.5,'left','500'); }
+  
+  for(const J of [0,0.5,1,1.5,2]){ raya(x,X(J),Y1,X(J),Y1+3,'#3d5576'); txt(x,fN(J,1),X(J),Hh-3,'#6C86A6',8.5,'center','500'); }
+  ejes(x,X0,X1,Y0,Y1);
+  raya(x,X0,YV(E_PCI),X1,YV(E_PCI),'rgba(255,255,255,0.22)',1,[3,3]); txt(x,'1,253 V (PCI)',X0+3,YV(E_PCI)-2,'#9DB6D4',8.5,'left','500');
+  // la corriente límite
+  const xl=X(Math.min(c.JL,Jm)); x.fillStyle='rgba(244,71,94,0.10)'; x.fillRect(xl,Y0,X1-xl,Y1-Y0); raya(x,xl,Y0,xl,Y1,'rgba(244,71,94,0.55)',1,[3,3]); txt(x,'J límite',xl-2,Y0+9,'#ff9aa6',8.5,'right','600');
+  const tr=(arr,key,fy,col,w,dash)=>{ x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]); x.beginPath(); let ini=false; for(const p of arr){ const py=fy(p[key]); if(p.V<=0.02&&key==='V') continue; ini?x.lineTo(X(p.J),py):x.moveTo(X(p.J),py); ini=true; } x.stroke(); x.setLineDash([]); };
+  if(SIMU.ref){ tr(SIMU.ref,'V',YV,'rgba(190,205,225,0.55)',1.3,[4,3]); tr(SIMU.ref,'Pn',YPw,'rgba(190,205,225,0.28)',1.1,[4,3]); }
+  tr(C,'Pn',YPw,COLP,1.7); tr(C,'V',YV,COLV,2.1);
+  // la potencia neta máxima de esta pila
+  const jm=SIMU.Jpn; x.fillStyle='#e8fff4'; x.beginPath(); x.moveTo(X(jm),YPw(SIMU.Pnmax)-4); x.lineTo(X(jm)+3.5,YPw(SIMU.Pnmax)); x.lineTo(X(jm),YPw(SIMU.Pnmax)+4); x.lineTo(X(jm)-3.5,YPw(SIMU.Pnmax)); x.fill();
+  raya(x,X(pl.J),Y0,X(pl.J),Y1,'rgba(255,255,255,0.35)',1,[2,2]);
+  punto(x,X(pl.J),YV(pl.Vc),3.8,'#ffffff'); punto(x,X(pl.J),YPw(Math.max(0,pl.Pnet)),3.8,'#9ff0c8');
+  el('t_pol').textContent='OCV '+fN(SIMU.OCV,3)+' V · HFR '+fN(c.R*1000,0)+' mΩ·cm²';
+}
+function pintaLeyPol(){
+  el('leyPol').innerHTML=`<span class="lg"><i style="--c:${COLV}"></i>V de celda (V)</span><span class="lg"><i style="--c:${COLP}"></i>potencia neta (kW)</span>`+(SIMU.ref?`<span class="lg"><i class="dash" style="--c:#b8c8dc"></i>pila sana</span>`:'');
+}
+/* El balance de potencia: la potencia química del H₂ (PCI) repartida. */
+function pintaBa(){
+  const L=LBA, x=abre(L), W=L.w, Hh=L.h, pl=SIMU.pl; if(!pl) return;
+  const X0=6, X1=W-6, Pq=pl.Pquim, ancho=X1-X0, y=10, hb=Math.max(14,Math.min(22,Hh-34));
+  const partes=[['neta',Math.max(0,pl.Pnet),COLP],['auxiliares',pl.Paux,COLA],['calor',pl.Q,COLQ],['purga',pl.Ppurga,COLG]];
+  let xx=X0; for(const [n,v,c] of partes){ const w=v/Pq*ancho; x.fillStyle=c; x.globalAlpha=0.9; x.fillRect(xx,y,Math.max(0.8,w-0.6),hb); x.globalAlpha=1; xx+=w; }
+  let lx=X0, ly=y+hb+11;
+  for(const [n,v,c] of partes){ x.fillStyle=c; x.fillRect(lx,ly-7,7,7); const t=n+' '+fN(v/1000,1)+' kW'; txt(x,t,lx+10,ly,'#c4d6ee',9.5,'left','500'); lx+=10+x.measureText(t).width+9; }
+  el('t_ba').textContent='H₂ aporta '+fN(Pq/1000,0)+' kW';
+}
+function pintaCifras(){
+  const pl=SIMU.pl, set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; };
+  set('f_vc',fN(pl.Vc,3)+'<small> V</small>'); set('f_vs',fN(pl.Vs,0)+'<small> V</small>');
+  set('f_i',fN(pl.I,0)+'<small> A · '+fN(pl.J,2)+'</small>'); set('f_p',fN(pl.Pnet/1000,1)+'<small> kW</small>');
+  set('f_h',fN(pl.mH2*1000,2)+'<small> g/s</small>'); set('f_q',fN(pl.Q/1000,0)+'<small> kW</small>');
+}
+const NOM_CRIT={P:'la potencia neta (100 kW ±2 %)',eta:'el rendimiento neto',V:'la tensión de la pila (ventana de la CC–CC)',Q:'el calor (capacidad del radiador)',N:'el número de celdas'};
+function pintaPliego(){
+  const pl=SIMU.pl, e=el('plie'); let h='';
+  if(retoVivo()&&SIMU.sc){
+    const sc=SIMU.sc, Qmax=sc.UA*(sc.T-OPER.Tamb), pq=SIMU.pliego;
+    const ch=[['P = 100 kW',fN(pl.Pnet/1000,1)+'<small> kW</small>',pq[0].ok],['η ≥ '+fN(sc.etaMin*100,0)+' %',fN(pl.etaNeto*100,1)+'<small> %</small>',pq[1].ok],
+      ['V '+OPER.Vmin+'–'+OPER.Vmax,fN(pl.Vs,0)+'<small> V</small>',pq[2].ok],['Q ≤ '+fN(Qmax/1000,0)+' kW',fN(pl.Q/1000,0)+'<small> kW</small>',pq[3].ok]];
+    h=ch.map(([l,v,ok])=>`<div class="pc ${ok?'ok':'no'}"><div class="pl">${l}</div><b>${v}<i>${ok?'✓':'✗'}</i></b></div>`).join('');
+    const rev=GUIA.retoOk;
+    h+=`<div class="pc ${rev?(pq[4].ok?'ok':'no'):'na'}"><div class="pl">N mínimo</div><b>${fN(pl.N,0)}<i>${rev?(pq[4].ok?'✓':'✗'):'?'}</i></b></div>`;
+  } else {
+    const ch=[['η neto',fN(pl.etaNeto*100,1)+'<small> %</small>'],['auxiliares',fN(pl.Paux/1000,1)+'<small> kW</small>'],['agua',fN(pl.mH2O*1000,1)+'<small> g/s</small>'],['aire',fN(pl.mAire*1000,0)+'<small> g/s</small>'],['T refrig.',fN(SIMU.c.T-273.15+pl.Q/CP_REFRI/2,0)+'<small> °C</small>']];
+    h=ch.map(([l,v])=>`<div class="pc"><div class="pl">${l}</div><b>${v}</b></div>`).join('');
+  }
+  if(e.dataset.h!==h){ e.innerHTML=h; e.dataset.h=h; }
+}
+function pintaDockFijo(){
+  const pl=SIMU.pl; if(!pl) return;
+  el('p_mode').textContent=EST.modo==='marcha'?'Pila en marcha':'Laboratorio guiado';
+  el('p_sub').textContent=fN(pl.N,0)+' celdas · '+bar(EST.P)+' · '+gradosC(EST.T);
+  pintaLeyPol();
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const pl=SIMU.pl, c=SIMU.c; if(!pl) return;
+  pintaCifras(); pintaPliego(); pintaDockFijo();
+  const A=el('aviso'); let cl='', t='';
+  if(pl.J>=0.93*c.JL){ cl='mal'; t='Cerca de la corriente límite: al cátodo no llega O₂ suficiente y la tensión se desploma.'; }
+  else if(c.lam<6&&EST.modo==='marcha'){ cl='ojo'; t='Membrana seca (λ = '+fN(c.lam,1)+'): la conducción de protones cae y la resistencia óhmica sube.'; }
+  else if(EST.RH>0.95&&EST.modo==='marcha'){ cl='ojo'; t='Gases saturados: el agua líquida empieza a tapar los poros y baja la corriente límite.'; }
+  else if(pl.Pnet<0){ cl='ojo'; t='Los auxiliares gastan más de lo que la pila genera.'; }
+  A.className='dk-aviso'+(t?' on '+cl:''); if(A.textContent!==t) A.textContent=t;
+}
+
+
+
+/* ===================== 13. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'ritmo ×0,5'],[1,'ritmo ×1'],[2,'ritmo ×2']];
+el('vbar').innerHTML=[['conjunto','Conjunto'],['celda','Celda'],['membrana','Membrana'],['circuito','Circuito']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Ritmo visual">${VEL.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vis=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',VISTA.actual===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vis) sel.value=String(EST.vis);
+  el('tLento').textContent='esquema: ritmo ∝ corriente';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const pl=SIMU.pl, e=el('tEst'); if(!pl) return;
+  el('tReloj').textContent='t = '+fN(SIMU.tReal,0)+' s · H₂ '+fN(SIMU.H2acum*1000,0)+' g';
+  const t=fN(pl.Pnet/1000,0)+' kW netos · η '+fN(pl.etaNeto*100,0)+' %';
+  const mal=pl.J>=0.93*SIMU.c.JL||pl.Pnet<0;
+  e.firstChild.style.background=mal?'#ff6b7e':'#34d399'; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 14. RÓTULOS Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Placa bipolar',()=>V3(BPP[4].x0+LAY.aire+LAY.hojaC/2,-0.09,0)],
+  ['Canal de H₂',()=>V3(xAn(CEL[4]),0.115,0)],
+  ['Membrana',()=>V3(CEL[4].xc+W_GDL+W_CLA+W_MEM/2,YA+0.006,0)],
+  ['Canal de aire',()=>V3(xCa(CEL[4]),-0.115,0)],
+  ['Refrigerante',()=>V3(BPP[5].x0+LAY.aire+LAY.hojaC+LAY.cool/2,0.04,0)],
+  ['Túnel de H₂',()=>V3(0.07,YB,0)],
+  ['Colector de cobre',()=>V3(X_L,0.09,0)],
+  ['Motor (la carga)',()=>V3(0,Y_MOT,Z_CAB)],
+];
+
+
+
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(125,184,255,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx_=(H.x0+H.x1)/2, izq=[], der=[];
+  ANCLAS.forEach(([t,f],i)=>{ q.copy(f()).project(camera); const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; (x<cx_?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i], w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+
+
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  placa:'Placa bipolar: conduce los electrones de una celda a la siguiente y reparte los gases por sus canales. Aquí el corte pasa por el centro de un canal',
+  canalH2:'Canal de H₂ del ánodo: el hidrógeno baja por aquí y se va consumiendo (el tinte azul sólo marca el canal)',
+  canalAire:'Canal de aire del cátodo: el aire sube a contracorriente; el O₂ se consume y el agua formada sale con él',
+  gdl:'Capa de difusión de gas (GDL): fibra de carbono porosa que lleva el gas hasta el catalizador y saca el agua',
+  cat:'Capa catalítica: platino sobre carbono. En el ánodo parte el H₂; en el cátodo se forma el agua. Se calienta con el calor de la reacción',
+  membrana:'Membrana de Nafion: deja pasar protones y no electrones. Hidratada es azulada; seca se vuelve blanquecina y resistiva (ensanchada: la real mide 25 µm)',
+  junta:'Junta y marco de la celda: sella los gases y los túneles',
+  refrigerante:'Refrigerante dentro de la placa bipolar: se calienta con el calor de la pila (ΔT = Q/ṁcp) y lo lleva al radiador',
+  colector:'Colector de corriente de cobre: recoge los electrones de toda la pila y los lleva al cable',
+  terminal:'Borne de la pila: el izquierdo es el negativo y el derecho el positivo',
+  aislante:'Placa aislante: separa el colector de la tapa de aluminio',
+  tapa:'Tapa de aluminio: aprieta la pila con cuatro tirantes para que las juntas sellen y los contactos conduzcan',
+  tirante:'Tirante de acero: mantiene la presión de compresión sobre todas las celdas',
+  puerto:'Racor de la tapa: arriba entra el H₂ y abajo el aire a presión',
+  apoyo:'Apoyo de la bancada',
+  cable:'Cable de alta tensión (naranja por norma): lleva la corriente de la pila a la carga',
+  carga:'Motor de tracción (la carga): consume la potencia neta de la pila',
+  rotor:'Rotor del motor: gira más deprisa cuanto mayor es la potencia neta',
+  bancada:'Bancada de pruebas',
+};
+
+
+
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx_,cy_){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx_-r.left)/r.width*2-1,-(cy_-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([EXPO,BANCO],true);
+  for(const h of hits){
+    const m=Array.isArray(h.object.material)?h.object.material[0]:h.object.material;
+    if(h.point.z>0.0015&&m&&m.clippingPlanes&&renderer.localClippingEnabled) continue;      // del lado cortado: no se ve
+    let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue;
+    return h; }
+  return null;
+}
+function piezaDe(h){ if(!h) return null; let o=h.object; while(o&&!(o.userData&&o.userData.pieza)) o=o.parent; return o?o:null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const o=piezaDe(hitBajo(e.clientX,e.clientY)), k=o&&o.userData.pieza, t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+
+/* ===================== 15. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una
+   tableta), la escena va arriba y guía e instrumentos comparten una hoja con
+   pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+/** La hoja mide lo que pide su contenido (entre 240 px y el 62 % del alto en el móvil), para que la guía nunca
+    tenga que desplazarse por dentro; la cámara se vuelve a encajar en el hueco que queda. */
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras();
+    if(ant){ clearTimeout(window.__hjWPT); window.__hjWPT=setTimeout(()=>ponVista(VISTA.actual,REDUCIDO?0.001:0.4),40); } }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); });
+
+
+
+/* ===================== 16. EL LABORATORIO GUIADO =====================
+   Tres fases: 0 · Reto (100 kW netos con η_neto mínimo, en la ventana de la CC–CC, dentro de lo que evacua el radiador y con
+   LAS MENOS celdas), 1 · Diagnóstico (una de cuatro fallas al azar y su reparación) y 2 · Cierre (una pregunta con las
+   opciones barajadas). Cada intento sortea una pila distinta —área de celda, temperatura, humedad, rendimiento exigido y
+   radiador—; tres fallos en el reto cambian el dato. Ni el HUD, ni el dock, ni los mensajes muestran cuántas son «las menos
+   celdas» antes de validar. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajaFY=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const GUIA={fase:0,iniciado:false,retoOk:false,dxOk:false,hecho:false,scen:null,intentos:0,fallos:0,fallosDx:0,resiembras:0,pistas:0,falla:null,sintoma:'',
+  quiz:null,quizResp:-1,quizOk:false,ultimaCorrecta:-1};
+
+/* Interpolación de los mandos (para que las cifras rueden en vez de saltar). */
+const TW={items:[],u:1,dur:1};
+function muevea(o,dur=0.8){
+  if(REDUCIDO||dur<=0){ Object.assign(EST,o); sincronizaMandos(); return; }
+  TW.items=Object.keys(o).map(k=>({k,a:EST[k],b:o[k]})); TW.u=0; TW.dur=dur;
+}
+function pasaTween(dt){
+  if(TW.u>=1) return;
+  TW.u=Math.min(1,TW.u+dt/TW.dur); const e=ease(TW.u);
+  for(const it of TW.items) EST[it.k]=it.a+(it.b-it.a)*e;
+  sincronizaMandos();
+}
+
+/* ---------- Fase 0: el reto ---------- */
+function sorteaEscenario(){
+  const prev=GUIA.scen; let e;
+  do{ e=pickOne(ESCENARIOS); } while(prev&&prev.A===e.A&&prev.T===e.T&&ESCENARIOS.length>1);
+  GUIA.scen=e; return e;
+}
+function aplicaEscenario(sc){
+  SIMU.sc=sc; EST.A=sc.A; EST.T=sc.T; EST.RH=sc.RH; EST.falla=null; EST.autoRunning=false;
+  const o=celdasMinimas(sc); SIMU.optimo=o; SIMU.Nopt=o?o.N:null;
+  // el punto de salida: más celdas de las necesarias, poca presión y la mitad de la corriente para los 100 kW
+  const N0=clamp(Math.round((o?o.N:400)*1.30),150,600), P0=1.4e5, c0=condiciones(sc.T,P0,sc.RH,null);
+  const I100=IparaPneta(N0,sc.A,c0,OPER.Pobj)||300;
+  muevea({N:N0,P:P0,I:Math.round(I100*0.55)},0.9);
+}
+function startReto(){
+  GUIA.fase=0; GUIA.iniciado=true; GUIA.retoOk=false; GUIA.dxOk=false; GUIA.fallos=0; GUIA.pistas=0; GUIA.falla=null;
+  aplicaEscenario(sorteaEscenario()); ponVista('conjunto');
+}
+function criteriosFallan(){ return SIMU.pliego.slice(0,4).map((c,i)=>c.ok?null:c.id).filter(Boolean); }
+function validar(){
+  recalcula(); SIMU.pliego=pliego(SIMU.pl,SIMU.sc,SIMU.Nopt);
+  const fallan=criteriosFallan(); GUIA.intentos++;
+  const pl=SIMU.pl, sc=SIMU.sc, o=SIMU.optimo;
+  if(!fallan.length&&SIMU.pliego[4].ok){
+    GUIA.retoOk=true; GUIA.fallos=0; sonido.bien();
+    feedback('good','¡Cumple el pliego! ✓',
+      `${fN(pl.Pnet/1000,1)} kW netos con ${fN(pl.N,0)} celdas a ${fN(pl.I,0)} A (${fN(pl.J,2)} A/cm²) y ${bar(EST.P)}: η neto ${fN(pl.etaNeto*100,1)} %, ${fN(pl.Vs,0)} V y ${fN(pl.Q/1000,0)} kW de calor. `+
+      `Con estas condiciones la pila más pequeña posible llevaría <b>${fN(o.N,0)} celdas</b> (a ${bar(o.P)} y ${fN(o.I,0)} A). `+
+      `Subir la presión mejora la tensión pero el compresor se lleva ${fN(pl.Pcomp/1000,1)} kW: lo que cuenta es la potencia NETA.`,true);
+    pasoGuia();
+  } else if(!fallan.length){
+    GUIA.fallos++; sonido.mal();
+    feedback('bad','Cumple, pero te sobran celdas','Los cuatro criterios físicos están en ✓, pero existe una pila con bastantes menos celdas que también los cumple. Cada celda de más es membrana, platino y peso. Quita celdas y ajusta la corriente y la presión.');
+    pasoGuia();
+  } else {
+    GUIA.fallos++; sonido.mal();
+    if(GUIA.fallos>=3){
+      GUIA.fallos=0; GUIA.resiembras++; aplicaEscenario(sorteaEscenario());
+      feedback('bad','Tres intentos fallidos','Llega otra pila: otra celda, otra temperatura y otro radiador. Lee el pliego del dock y busca qué criterio falla.');
+    } else {
+      feedback('bad','Todavía no cumple',`Falla ${fallan.map(i=>NOM_CRIT[i]).join(', ')}. Mira el pliego del dock. (intentos fallidos: ${GUIA.fallos}/3)`);
+    }
+    pasoGuia();
+  }
+}
+function pista(){
+  if(GUIA.pistas===0){ GUIA.pistas=1; feedback('good','Pista 1 de 2','Para la misma potencia, menos celdas exigen más corriente en cada una: baja la tensión de celda, baja el rendimiento y sube el calor. Busca el punto donde el rendimiento o el radiador te frenan.'); }
+  else if(GUIA.pistas===1){ GUIA.pistas=2; feedback('good','Pista 2 de 2','La presión sube la tensión (Nernst y cinética) pero el compresor consume más. Mira la potencia neta y el η neto, no la bruta: la presión que más ayuda queda en el interior del rango.'); }
+  else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que mide el dock.');
+}
+
+/* ---------- Fase 1: el diagnóstico ---------- */
+const NOM_FALLA={seca:'membrana seca (humidificación fallida)',inunda:'cátodo inundado',cruce:'cruce de hidrógeno (membrana picada)',cata:'catalizador degradado'};
+function sintomaDe(f){
+  const c0=SIMU.c0||condiciones(EST.T,EST.P,EST.RH,null), cf=condiciones(EST.T,EST.P,EST.RH,f), J=EST.I/EST.A;
+  const dVop=(celda(J,c0).V-celda(J,cf).V)*1000, dOCV=(celda(0,c0).V-celda(0,cf).V)*1000;
+  if(f==='seca') return `SÍNTOMA: a la corriente de trabajo la tensión de celda es ${fN(dVop,0)} mV menor que la de la pila sana, y la caída crece en línea recta con la corriente. La tensión en circuito abierto es la de siempre y la resistencia de alta frecuencia (HFR) subió de ${fN(c0.R*1000,0)} a ${fN(cf.R*1000,0)} mΩ·cm². ¿Qué lo causa?`;
+  if(f==='inunda') return `SÍNTOMA: hasta media curva la pila rinde igual que la sana, pero la rodilla llega mucho antes: a la corriente de trabajo faltan ${fN(dVop,0)} mV y la tensión se desploma al subir un poco más. El OCV y la HFR no cambiaron. ¿Qué lo causa?`;
+  if(f==='cruce') return `SÍNTOMA: en circuito abierto la tensión es ${fN(dOCV,0)} mV menor que la de la pila sana, pero a la corriente de trabajo la diferencia es de sólo ${fN(dVop,0)} mV. La HFR no cambió. ¿Qué lo causa?`;
+  return `SÍNTOMA: toda la curva baja casi en paralelo: ${fN(dOCV,0)} mV en circuito abierto y ${fN(dVop,0)} mV todavía a la corriente de trabajo. La HFR y la rodilla de corriente límite no cambiaron. ¿Qué lo causa?`;
+}
+function startDx(){
+  GUIA.fase=1; GUIA.dxOk=false; GUIA.fallosDx=0; GUIA.sintoma='';
+  GUIA.falla=pickOne(FALLAS); EST.falla=GUIA.falla; SIMU.clave='';
+  recalcula(); GUIA.sintoma=sintomaDe(GUIA.falla);
+  pasoGuia(); ponVista('conjunto');
+}
+function diagnostica(f){
+  if(!GUIA.falla||GUIA.dxOk) return; GUIA.intentos++;
+  if(f===GUIA.falla){
+    GUIA.dxOk=true; sonido.bien(); const c=SIMU.c;
+    const expl={seca:`Sin agua, la membrana pasa a λ = ${fN(c.lam,1)} y su conductividad se desploma: aparece una resistencia óhmica de ${fN(c.R*1000,0)} mΩ·cm² (la HFR lo delata). El OCV no cambia porque sin corriente no hay caída óhmica.`,
+      inunda:`El agua líquida tapa los poros de la GDL y el O₂ llega con dificultad al catalizador: la corriente límite cae a ${fN(c.JL,2)} A/cm² y la rodilla de concentración aparece antes. La HFR y el OCV no cambian.`,
+      cruce:`Una membrana picada deja pasar H₂ al cátodo: la pérdida interna J<sub>n</sub> sube y el potencial mixto baja el OCV a ${fN(SIMU.OCV,3)} V. A corriente alta esa fuga pesa poco frente a J y las curvas se juntan.`,
+      cata:`Con el área activa de platino reducida, J₀ cae y la sobretensión de activación sube en TODA la curva; la HFR y la corriente límite siguen igual.`}[f];
+    feedback('good','Diagnóstico correcto ✓',expl+' <b>Ahora corrígelo.</b>',true); pasoGuia();
+  } else {
+    GUIA.fallosDx++; sonido.mal();
+    if(GUIA.fallosDx>=3){
+      GUIA.fallosDx=0; GUIA.resiembras++; GUIA.falla=pickOne(FALLAS.filter(x=>x!==GUIA.falla)); EST.falla=GUIA.falla; SIMU.clave=''; recalcula();
+      GUIA.sintoma=sintomaDe(GUIA.falla);
+      feedback('bad','Tres intentos fallidos','Ahora la pila presenta OTRA falla: observa de nuevo el dock.',true);
+    } else {
+      const no={seca:'una membrana seca subiría la HFR y dejaría el OCV igual',inunda:'un cátodo inundado hundiría la tensión sólo cerca de la corriente límite',cruce:'un cruce de H₂ baja el OCV y casi nada la tensión a corriente alta',cata:'un catalizador degradado desplaza toda la curva sin tocar la HFR'}[f];
+      feedback('bad','No es esa la falla',`Eso (${NOM_FALLA[f]}) daría otro síntoma: ${no}. Observa otra vez. (intentos fallidos: ${GUIA.fallosDx}/3)`,true);
+    }
+    pasoGuia();
+  }
+}
+function reparar(){
+  if(!GUIA.dxOk||GUIA.hecho) return;
+  EST.falla=null; SIMU.clave=''; GUIA.hecho=true; sonido.bien();
+  feedback('good','¡Reparado! ✓','La curva vuelve a la de la pila sana. Completaste el dimensionado y diagnosticaste una falla real de una pila PEM. Falta la pregunta de cierre.',true);
+  pasoGuia();
+}
+
+/* ---------- Fase 2: el cierre ---------- */
+const BANCO_Q=[
+  {q:'Subes la corriente de la pila con las mismas condiciones. ¿Qué le pasa a la tensión de cada celda?',
+   ok:'Baja: crecen las pérdidas de activación, óhmicas y de concentración',
+   mal:['Sube: pasa más carga por el mismo catalizador','No cambia: la fija la reacción H₂ + ½O₂ → H₂O','Sube hasta alcanzar el potencial de Nernst']},
+  {q:'En circuito abierto la celda real da unos 0,95–1,0 V y no los 1,18 V de Nernst. ¿Por qué?',
+   ok:'El cruce de H₂ y las corrientes internas fijan un potencial mixto en el cátodo',
+   mal:['Porque el agua formada baja la tensión','Porque el catalizador no se ha activado','Porque Nernst sólo vale para el agua líquida']},
+  {q:'¿Por qué la membrana del Nafion tiene que estar húmeda?',
+   ok:'Los protones se mueven por los grupos sulfónicos hidratados: sin agua la resistencia óhmica se dispara',
+   mal:['Porque el agua es el combustible','Porque así los electrones atraviesan la membrana','Para enfriar el catalizador de platino']},
+  {q:'Duplicas la presión de operación del aire. ¿Qué compromiso aparece?',
+   ok:'Sube la tensión de la celda, pero el compresor consume más y el rendimiento NETO puede bajar',
+   mal:['Sólo mejora: más presión siempre da más potencia neta','Sólo empeora: la tensión de celda baja con la presión','No cambia nada: la tensión depende sólo de la corriente']},
+  {q:'La energía química del H₂ (PCI) que no sale como electricidad en la pila, ¿a dónde va?',
+   ok:'Sale como calor que el refrigerante debe evacuar al radiador',
+   mal:['Se acumula en la membrana como carga','Sale como más H₂ en el agua producida','Desaparece: la celda es 100 % eficiente']},
+];
+function preparaQuiz(){
+  const it=pickOne(BANCO_Q); const opciones=[it.ok,...it.mal];
+  let ord, idx; let guard=0;
+  do{ ord=barajaFY(opciones.map((t,i)=>i)); idx=ord.indexOf(0); guard++; }while(idx===GUIA.ultimaCorrecta&&guard<20);
+  GUIA.ultimaCorrecta=idx; GUIA.quiz={q:it.q,opc:ord.map(i=>opciones[i]),ok:idx,expl:it.ok}; GUIA.quizResp=-1; GUIA.quizOk=false;
+}
+function startCierre(){ GUIA.fase=2; preparaQuiz(); pasoGuia(); ponVista('conjunto'); }
+function responde(i){
+  if(GUIA.fase!==2||GUIA.quizResp>=0) return; GUIA.quizResp=i; GUIA.quizOk=(i===GUIA.quiz.ok);
+  if(GUIA.quizOk){ sonido.bien(); feedback('good','Correcto ✓','Respuesta: '+GUIA.quiz.opc[GUIA.quiz.ok]+'.',true); }
+  else { sonido.mal(); feedback('bad','No es esa','La correcta era: '+GUIA.quiz.opc[GUIA.quiz.ok]+'.',true); }
+  pasoGuia();
+}
+
+/* ---------- el enrutador de acciones ---------- */
+function handleAction(act){
+  switch(act){
+    case 'validar': if(GUIA.fase===0&&!GUIA.retoOk) validar(); break;
+    case 'hint': if(GUIA.fase===0&&!GUIA.retoOk) pista(); break;
+    case 'to-dx': if(GUIA.retoOk&&GUIA.fase===0) startDx(); break;
+    case 'dx-seca': diagnostica('seca'); break;
+    case 'dx-inunda': diagnostica('inunda'); break;
+    case 'dx-cruce': diagnostica('cruce'); break;
+    case 'dx-cata': diagnostica('cata'); break;
+    case 'reparar': reparar(); break;
+    case 'to-cierre': if(GUIA.hecho&&GUIA.fase===1) startCierre(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+const tries=(n,t)=>`<span class="tries">intentos fallidos: <b>${n}</b>/${t}</span>`;
+function contenidoGuia(){
+  const sc=GUIA.scen;
+  if(GUIA.fase===0){
+    const done=GUIA.retoOk, Qmax=sc.UA*(sc.T-OPER.Tamb);
+    return {no:'Reto',head:'Pliego del dock',title:'Entrega 100 kW netos con las menos celdas',
+      teach:`Celdas de <b>${fN(sc.A,0)} cm²</b> a <b>${gradosC(sc.T)}</b>, gases al <b>${fN(sc.RH*100,0)} %</b>. Se exige <b>η neto ≥ ${fN(sc.etaMin*100,0)} %</b>, la CC–CC admite ${OPER.Vmin}–${OPER.Vmax} V y el radiador evacua como mucho <b>${fN(Qmax/1000,0)} kW</b>.
+      <div class="task">Ajusta N, I y p hasta que los cuatro criterios estén en ✓ y la pila no lleve más celdas de las necesarias. ${tries(GUIA.fallos,3)}</div>`,
+      mandos:mN()+mI()+mP(),
+      acts:done?`<button class="b primary good" data-act="to-dx">Continuar al diagnóstico →</button>`:`<button class="b primary" data-act="validar">✓ Validar</button><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`};
+  }
+  if(GUIA.fase===1){
+    if(!GUIA.dxOk) return {no:'Diagnóstico',head:'¿Cuál es la falla?',title:'La pila rinde menos de lo debido',
+      teach:`La pila de antes cumplía el pliego y algo cambió. Lee la curva de polarización contra la de la pila sana (trazo punteado) e <b>identifica la causa</b>.<div class="task" id="symptomTask">${GUIA.sintoma}</div>${tries(GUIA.fallosDx,3)}`,
+      mandos:'',acts:`<button class="b" data-act="dx-seca"><span class="ic">≈</span> Membrana seca</button><button class="b" data-act="dx-inunda"><span class="ic">◍</span> Cátodo inundado</button><button class="b" data-act="dx-cruce"><span class="ic">⇢</span> Cruce de hidrógeno</button><button class="b" data-act="dx-cata"><span class="ic">◌</span> Catalizador degradado</button>`};
+    if(!GUIA.hecho) return {no:'Diagnóstico',head:'Reparación',title:'Corrige la falla',
+      teach:`Diagnóstico correcto: <b>${NOM_FALLA[GUIA.falla]}</b>. Corrígela y mira la curva volver a la de la pila sana.`,mandos:'',acts:`<button class="b primary good" data-act="reparar">🔧 Corregir la falla</button>`};
+    return {no:'Diagnóstico',head:'✓',title:'Falla corregida',teach:`La curva vuelve a la de la pila sana. Falta una pregunta para cerrar.`,mandos:'',acts:`<button class="b primary" data-act="to-cierre">Pregunta de cierre →</button>`};
+  }
+  const Q=GUIA.quiz, resp=GUIA.quizResp>=0;
+  return {no:'Cierre',head:resp?(GUIA.quizOk?'Correcto':'Revisa'):'Una pregunta',title:'Para cerrar',
+    teach:`${Q.q}`,mandos:'',
+    acts:Q.opc.map((t,i)=>`<button class="b ${resp?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-quiz="${i}" ${resp?'disabled':''}>${t}</button>`).join('')+(resp?`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`:'')};
+}
+function htmlGuia(){
+  if(!GUIA.iniciado){ return `<div class="retoBox"><h3>Preparando la pila…</h3></div>`; }
+  const ps=['Reto','Diagnóstico','Cierre'], C=contenidoGuia();
+  const ok=i=>(i===0&&GUIA.retoOk)||(i===1&&GUIA.hecho)||(i===2&&GUIA.quizResp>=0&&GUIA.quizOk);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.fase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div>${C.mandos}<div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Repinta la guía tras un cambio de paso. */
+function pasoGuia(){ if(EST.modo==='guia') pintaHUD(); }
+
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia';
+    if(!GUIA.iniciado) startReto(); else ponVista(VISTA.actual);
+  } else {
+    EST.modo='marcha'; EST.falla=null; SIMU.sc=null; SIMU.pliego=null; SIMU.clave='';
+    Object.assign(EST,{A:300,N:400,P:2.0e5,T:353.15,RH:0.90}); EST.I=380; sincronizaMandos(); ponVista('conjunto');
+  }
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  if(EST.modo==='guia'&&GUIA.iniciado&&GUIA.fase===0&&!SIMU.sc) aplicaEscenario(GUIA.scen);
+  pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), b=el('btnAuto');
+  const prev={I:EST.I,N:EST.N,P:EST.P,T:EST.T,RH:EST.RH,pausa:EST.pausa,vista:VISTA.actual};
+  const lock=()=>{ hud.style.pointerEvents='none'; if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } };
+  try{
+    lock(); EST.pausa=false; Object.assign(EST,{N:400,P:2.0e5,T:353.15,RH:0.9}); muevea({I:380},0.6); ponVista('conjunto');
+    showToast('Paso 1 · El <b>H₂</b> entra por arriba y el <b>aire</b> por abajo, a contracorriente. En cada celda el H₂ cede electrones: los <b>protones</b> cruzan la membrana y los <b>electrones</b> dan la vuelta por el motor.',8200);
+    await espera(8600);
+    ponVista('membrana');
+    showToast('Paso 2 · Mira la membrana: sólo deja pasar protones (dorado). Los electrones (cian) van por las placas, de una celda a la anterior, y salen por el borne negativo.',7600);
+    await espera(8000);
+    ponVista('conjunto'); muevea({I:520},2.4);
+    showToast('Paso 3 · Más corriente: Faraday dice que el H₂, el aire y el agua suben en proporción; también el calor. Pero la <b>tensión de celda baja</b>: mira la curva de polarización.',8200);
+    await espera(8600);
+    muevea({I:380,P:1.3e5},1.6);
+    showToast('Paso 4 · Con poca presión la celda rinde menos. Sube la presión: mejora la tensión, pero el compresor cobra. Lo que cuenta es el <b>η neto</b>, que tiene su óptimo en medio.',8200);
+    await espera(8600);
+    muevea({P:2.6e5},2.6); await espera(3000);
+    muevea({P:2.0e5,RH:0.35},1.8); ponVista('membrana');
+    showToast('Paso 5 · Con los gases muy secos la membrana se vuelve blanquecina y su resistencia sube. Con los gases saturados, el agua tapa los poros y baja la corriente límite: la humedad también tiene su punto.',8200);
+    await espera(8600);
+  } finally {
+    EST.autoRunning=false; hud.style.pointerEvents=''; muevea({I:prev.I,N:prev.N,P:prev.P,T:prev.T,RH:prev.RH},0.8);
+    EST.pausa=prev.pausa; pintaHUD(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+
+/* ===================== 17. SONIDO (sintetizado) =====================
+   Un zumbido suave que sube con la potencia neta: una pila no suena (suena su compresor);
+   esto es sólo un apoyo para seguir el reloj. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,osc=null,gain=null,filt=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      osc=ctx.createOscillator(); osc.type='sine'; filt=ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900;
+      gain=ctx.createGain(); gain.gain.value=0; osc.connect(filt); filt.connect(gain); gain.connect(master); osc.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(activo,P){ if(!ctx) return; const t=ctx.currentTime;
+    osc.frequency.setTargetAtTime(110+P/450,t,0.08);
+    gain.gain.setTargetAtTime(on&&activo?0.018+0.012*Math.min(1,P/100000):0,t,0.12); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gain?gain.gain.value:0; }, get freq(){ return osc?osc.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+
+/* ===================== 18. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.clave.shadow.mapSize.x!==ms){ LUZ.clave.shadow.mapSize.set(ms,ms); if(LUZ.clave.shadow.map){ LUZ.clave.shadow.map.dispose(); LUZ.clave.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  M_PUNTOS.uniforms.uPx.value=innerHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+  colocaBarras();
+  clearTimeout(window.__rzWPT); window.__rzWPT=setTimeout(()=>ponVista(VISTA.actual,0.01),140);
+}
+window.addEventListener('resize',alCambiarTamano);
+
+
+/* ===================== 19. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo avanza dt en cada cuadro, y con ESE tiempo se pintan la escena (partículas, calor, carga) y el dock (cifras,
+   cursores, acumulados de H₂ y de agua). */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  pasaTween(dt);
+  aplicaEscena(dt,t);
+  pasaCam(dt);
+  sonido.actualiza(!EST.pausa&&!!SIMU.pl,SIMU.pl?SIMU.pl.Pnet:0);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); if(!EST.autoRunning&&document.activeElement&&document.activeElement.type!=='range') sincronizaMandos(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaBud(); pintaEta(); pintaPol(); pintaBa(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos();
+}
+
+/* ===================== 20. ARRANQUE =====================
+   Abre funcionando: 400 celdas a 425 A (1,42 A/cm²), 2 bar, 80 °C y gases al 90 %. */
+disposicion();
+aplicaCalidad();
+recalcula();
+pintaHUD();
+pintaDockFijo();
+pintaBarras();
+ponVista('conjunto',0.001);
+cuadro();
+setTimeout(()=>showToast('Una pila de combustible <b>cortada por la mitad</b> y generando. '+(matchMedia('(hover: hover)').matches?'Pasa el ratón por':'Toca')+' una pieza para saber qué es.',5200),600);
+
+/* ===================== 21. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':(['reto','diagnostico','cierre'][GUIA.fase]||'reto'); },
+  get solved(){ return GUIA.hecho; },
+  get intentos(){ return GUIA.intentos; },
+  quizAnswer(){ return GUIA.quizResp; },
+  quizCorrectIndex(){ return GUIA.quiz?GUIA.quiz.ok:-1; },
+  state(){ return {fase:GUIA.fase,escenario:GUIA.scen,falla:GUIA.falla,intentos:GUIA.intentos,resiembras:GUIA.resiembras,
+    fallos:{reto:GUIA.fallos,dx:GUIA.fallosDx},pistas:GUIA.pistas,retoOk:GUIA.retoOk,dxOk:GUIA.dxOk,resuelto:GUIA.hecho,quizOk:GUIA.quizOk}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const pl=SIMU.pl, c=SIMU.c; if(!pl) return {activo:false};
+    return {activo:true,N:pl.N,I:pl.I,J:pl.J,P:EST.P,T:EST.T,RH:EST.RH,A:EST.A,falla:EST.falla,Vc:pl.Vc,Vs:pl.Vs,Pb:pl.Pb,Pnet:pl.Pnet,Paux:pl.Paux,Pcomp:pl.Pcomp,Q:pl.Q,
+      etaNeto:pl.etaNeto,etaCelda:pl.etaCelda,mH2:pl.mH2,mH2O:pl.mH2O,mAire:pl.mAire,E:c.E,JL:c.JL,R:c.R,lam:c.lam,OCV:SIMU.OCV,Jpn:SIMU.Jpn,
+      pliego:SIMU.pliego&&SIMU.pliego.map(x=>x.ok),Nopt:SIMU.Nopt,tCalc:SIMU.tCalc,H2acum:SIMU.H2acum}; },
+  escena(){ return {vista:VISTA.actual,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vis:EST.vis,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,particulas:NP,celdasDibujadas:NC,rotor:+ROTOR.rotation.x.toFixed(3),
+    emisivoCat:+M.catC.emissive.r.toFixed(3)}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia',true); },
+  action:(a)=>handleAction(a,null),
+  quiz:(i)=>responde(i),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); sincronizaMandos(); recalcula(); pintaHUD(); pintaDockFijo(); pintaBarras(); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  falla:(f)=>{ EST.falla=f; GUIA.falla=f; SIMU.clave=''; recalcula(); },
+  recalcula:()=>{ SIMU.clave=''; recalcula(); },
+  sync:()=>{ TW.u=1; sincronizaMandos(); },
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  state:()=>({fase:GUIA.fase,falla:GUIA.falla,retoOk:GUIA.retoOk,dxOk:GUIA.dxOk,hecho:GUIA.hecho,quiz:GUIA.quiz&&{ok:GUIA.quiz.ok,resp:GUIA.quizResp},escenario:GUIA.scen,optimo:SIMU.optimo&&{N:SIMU.optimo.N,P:SIMU.optimo.P,I:SIMU.optimo.I}}),
+});
+instalaDiag('pila-combustible-hidrogeno',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{expo:EXPO,banco:BANCO,rotor:ROTOR}});
+
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-pila-combustible-hidrogeno.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Autonomía de un VE: ecuación de carga de ruta — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#07151A;--panel:rgba(7,19,24,.88);--line:#1A3640;--ink:#EAF4F2;
+    --dim:#8FB3B0;--accent:#2DD4BF;--accent2:#7DE9D9;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#7DE9D9;--cR:#FFB347;--cE:#FF6B3D;--cG:#C8D6E2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#12262c;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#183339}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#5eead4}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#06120f}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#2DD4BF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f8a85;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f948f;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#04211c}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#081a1f;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(26,54,64,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(26,54,64,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f8a85}
+  .dk-tit{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#9fbab4;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(26,54,64,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c9c4;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#12262c;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfe0dc;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(8,20,26,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(7,19,24,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d6d2}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,22,24,.92);border:1px solid rgba(125,211,252,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,22,24,.84);border:1px solid rgba(125,211,252,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(7,19,24,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  .leyF{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--dim)}
+  .leyF i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c)}
+  .leyF{gap:4px 8px}
+  .tbar input[type=range]{width:120px;accent-color:#2DD4BF;height:16px}
+  body.movil .tbar input[type=range],body.movil .tbar select{display:none}
+  .tbar .viaje{font-size:11.5px;color:var(--ink);font-variant-numeric:tabular-nums;min-width:96px}
+  body.movil .leyF{display:none} body.movil .toast{display:none}
+  .dk-cuatro{display:flex;gap:4px;flex-wrap:wrap}
+  .chips{display:flex;flex-direction:column;gap:4px}
+  .chip{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{font-variant-numeric:tabular-nums;color:var(--ink)}
+  .chip.ok{border-color:rgba(52,211,153,.5);color:#a7f3d0}.chip.ok b{color:#a7f3d0}
+  .chip.no{border-color:rgba(244,71,94,.5);color:#ffb3bd}.chip.no b{color:#ffb3bd}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · autonomía de un VE</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Ruta de montaña</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl">Consumo</div><b id="f_c">—</b></div>
+    <div class="fg"><div class="fl">Potencia bat.</div><b id="f_p">—</b></div>
+    <div class="fg"><div class="fl">Velocidad</div><b id="f_v">—</b></div>
+    <div class="fg"><div class="fl">Pendiente</div><b id="f_g">—</b></div>
+    <div class="fg"><div class="fl">Carga (SOC)</div><b id="f_s">—</b></div>
+    <div class="fg"><div class="fl">Autonomía</div><b id="f_a">—</b></div>
+  </div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit">Wh/km vs v <span id="t_co"></span></div><div class="dk-g tr" id="gCo"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit">Energía en kWh <span id="t_de"></span></div><div class="dk-g fr" id="gDe"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-fu">Perfil y carga de la batería <span id="t_pe"></span></div>
+  <div class="dk-g fu" id="gPe"><canvas></canvas></div>
+  <div class="dk-ley" id="lePe"></div>
+  <div class="dk-tit t-sp">Potencia en la batería (kW) <span id="t_po"></span></div>
+  <div class="dk-g sp" id="gPo"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — AUTONOMÍA DE UN VE: ECUACIÓN DE CARGA DE RUTA
+   (Autotrónica · mecanica-134)
+
+   Un crossover eléctrico en media sección (batería de 96 módulos, inversor, motor trasero) recorre
+   una ruta SINTÉTICA de 240 km con un puerto de 2 350 m (no es un ciclo normalizado). La cuña de
+   carretera bajo el coche es un diorama de corte geológico; la pendiente se dibuja EXAGERADA ×4.
+   Cada tramo de 100 m plantea F = m·g·C_rr·cosθ + ½ρ(z)·C_d·A·v² + m·g·sinθ + m·a y la potencia
+   en la batería sale de ahí con un modelo de pérdidas del tren y de regeneración limitada. Un script
+   de Node extrae TAL CUAL el bloque de física y verifica conservación, autonomía y velocidad óptima.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos
+   marcas— y lo prueba: lo que se prueba es lo que corre.
+
+   Un crossover eléctrico recorre una ruta SINTÉTICA de 240 km con un puerto de montaña
+   (no es un ciclo normalizado). En cada tramo de 100 m se plantea la ecuación de carga:
+     F = m·g·C_rr·cosθ + ½ρ(z)·C_d·A·v² + m·g·sinθ + m·a
+   La potencia en la batería sale de la fuerza en la rueda y de un modelo de pérdidas del tren
+   (inversor + motor + reductor); en frenado hay regeneración LIMITADA (potencia y fuerza máximas,
+   desvanece a baja velocidad) y lo que el motor no puede absorber lo disipa el freno de fricción.
+   La energía se integra con diferencias finitas exactas: v² es lineal en la distancia dentro de
+   cada tramo (aceleración constante), así que el trabajo de la inercia es ΔEc exacto, el de la
+   pendiente es m·g·Δz exacto y el del aire usa la media de v² exacta. */
+
+/* FISICA:INICIO */
+const DOSPI=2*Math.PI, G=9.80665, RAD=Math.PI/180;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const suave=t=>{ t=clamp(t,0,1); return t*t*(3-2*t); };
+/** Atmósfera estándar ISA (troposfera): ρ(z) = ρ0·(1 − L·z/T0)^(g/(R·L) − 1), con L = 6,5 K/km y T0 = 288,15 K: a 2 400 m el aire pesa ≈ 21 % menos. */
+const AIRE={ rho0:1.225, beta:0.0065/288.15, k:4.25588 };
+const rhoAlt=z=>AIRE.rho0*Math.pow(1-AIRE.beta*z,AIRE.k);
+/** El coche: crossover eléctrico de 45 kWh útiles. P0: electrónica del inversor y bombas; kfe: pérdidas en el hierro y
+ *  mecánicas ∝ v; ki: conducción del inversor ∝ |F| (corriente); kcu: cobre ∝ F² (corriente²). */
+const VEH={ m0:1750, A:2.30, Cd:0.27, Crr:0.010, rw:0.34, Ebat:45*3.6e6, etaBat:0.97,
+  P0:250, kfe:18, ki:0.9, kcu:7e-4, Pregmax:65e3, Fregmax:4200, vFade:2.5, Paux:800, aAcc:0.7, aDec:0.9 };
+const KWH=3.6e6;
+/** La ruta: puntos (km, m) unidos por coseno (pendiente nula en cada punto) más dos ondulaciones suaves. */
+const RUTA={ L:240e3, ds:100, nombre:'Ruta sintética de 240 km con puerto',
+  knots:[[0,600],[40,640],[100,2350],[140,1000],[190,800],[240,860]],
+  zonas:[[0,40e3],[40e3,100e3],[100e3,140e3],[140e3,240e3]], zonaTipo:[0,1,2,0] };
+function zRuta(s){
+  const k=RUTA.knots, km=clamp(s,0,RUTA.L)/1000; let i=0; while(i<k.length-2&&km>k[i+1][0]) i++;
+  const u=clamp((km-k[i][0])/(k[i+1][0]-k[i][0]),0,1), w=0.5-0.5*Math.cos(Math.PI*u);
+  return k[i][1]+(k[i+1][1]-k[i][1])*w+3*Math.sin(DOSPI*s/1900)+8*Math.sin(DOSPI*s/6300+1);
+}
+/** Tramo 0 = llano, 1 = subida al puerto, 2 = bajada (las zonas de cada ruta). */
+const rutaLlana=L=>({ L, ds:RUTA.ds, z0:700, zonas:[[0,L]], zonaTipo:[0], llana:true });
+const zDe=(ruta,s)=>ruta.zf?ruta.zf(s):(ruta.llana?ruta.z0:zRuta(s));
+
+/** Fuerzas de la ecuación de carga en un punto: z altura [m], sn = sinθ, v [m/s], a [m/s²]. */
+function fuerzas(v,a,sn,z,par){
+  const p=par||VEH, m=p.m0+(p.carga||0), cs=Math.sqrt(1-sn*sn);
+  const Fa=0.5*rhoAlt(z)*p.Cd*p.A*v*v, Fr=m*G*p.Crr*cs, Fg=m*G*sn, Fi=m*a;
+  return { Fa, Fr, Fg, Fi, F:Fa+Fr+Fg+Fi, m };
+}
+/** Potencia eléctrica en bornes de la batería para la fuerza F en la rueda a la velocidad v (F<0: frena y regenera). */
+function potenciaElec(F,v,p,Paux){
+  const perd=(f)=>p.P0+p.kfe*v+p.ki*Math.abs(f)+p.kcu*f*f;
+  if(F>=0){ const Pl=perd(F); return { Pel:F*v+Pl+Paux, Pl, Freg:0, Ffric:0 }; }
+  let Freg=Math.min(-F,p.Fregmax,p.Pregmax/Math.max(v,1e-9))*suave(v/p.vFade);
+  if(Freg*v-perd(Freg)<0) Freg=0;                                      // no se regenera si lo recuperado no paga las pérdidas
+  const Pl=perd(Freg);
+  return { Pel:-Freg*v+Pl+Paux, Pl, Freg, Ffric:-F-Freg };
+}
+/** En la batería: la química gasta 1/η al descargar y guarda η al cargar. */
+const aQuimica=(Pel,p)=>Pel>0?Pel/p.etaBat:Pel*p.etaBat;
+
+function tramoDeRuta(ruta,s){ const z=ruta.zonas; for(let i=0;i<z.length;i++) if(s<z[i][1]) return ruta.zonaTipo[i]; return ruta.zonaTipo[z.length-1]; }
+/** Plan = [v_llano, v_subida, v_bajada] en km/h (o un solo número: velocidad constante). */
+function simulaRuta(plan,esc,par,ruta){
+  const p=Object.assign({},VEH,par||{}), R=ruta||RUTA, e=esc||{}, Paux=e.Paux!=null?e.Paux:p.Paux, soc0=e.soc0!=null?e.soc0:1;
+  p.carga=e.carga||0;
+  const pl=Array.isArray(plan)?plan:[plan,plan,plan], ds=R.ds, N=Math.round(R.L/ds);
+  const tg=new Float64Array(N+1), v=new Float64Array(N+1);
+  for(let i=0;i<=N;i++) tg[i]=pl[tramoDeRuta(R,Math.min(i*ds,R.L-1e-6))]/3.6;
+  const vb=new Float64Array(N+1); vb[N]=tg[N];
+  for(let i=N-1;i>=0;i--) vb[i]=Math.min(tg[i],Math.sqrt(vb[i+1]*vb[i+1]+2*p.aDec*ds));
+  v[0]=e.vIni!=null?e.vIni/3.6:0;
+  for(let i=0;i<N;i++) v[i+1]=Math.min(vb[i+1],Math.sqrt(v[i]*v[i]+2*p.aAcc*ds));
+  const A=n=>new Float64Array(n), s=A(N+1), z=A(N+1), t=A(N+1), soc=A(N+1), Ech=A(N+1);
+  const pel=A(N), Fa=A(N), Fr=A(N), Fg=A(N), Fi=A(N), Fre=A(N), Ffr=A(N), sn=A(N), vm=A(N);
+  const cum={ Ea:A(N+1), Er:A(N+1), Eg:A(N+1), Ei:A(N+1), Eloss:A(N+1), Eaux:A(N+1), Efric:A(N+1), Eel:A(N+1), Egen:A(N+1), Ereg:A(N+1), Ebat:A(N+1) };
+  for(let i=0;i<=N;i++){ s[i]=i*ds; z[i]=zDe(R,s[i]); }
+  soc[0]=soc0;
+  for(let i=0;i<N;i++){
+    const v1=v[i], v2=v[i+1], a=(v2*v2-v1*v1)/(2*ds), dt=2*ds/(v1+v2), vmed=ds/dt;
+    const dz=z[i+1]-z[i], sin_=dz/ds, zm=0.5*(z[i]+z[i+1]);
+    const m=p.m0+p.carga, cs=Math.sqrt(1-sin_*sin_);
+    const fa=0.5*rhoAlt(zm)*p.Cd*p.A*0.5*(v1*v1+v2*v2), fr=m*G*p.Crr*cs, fg=m*G*sin_, fi=m*a, F=fa+fr+fg+fi;
+    const q=potenciaElec(F,vmed,p,Paux), Pc=aQuimica(q.Pel,p);
+    t[i+1]=t[i]+dt; Ech[i+1]=Ech[i]+Pc*dt; soc[i+1]=soc0-Ech[i+1]/p.Ebat;
+    pel[i]=q.Pel; Fa[i]=fa; Fr[i]=fr; Fg[i]=fg; Fi[i]=fi; Fre[i]=q.Freg; Ffr[i]=q.Ffric; sn[i]=sin_; vm[i]=vmed;
+    cum.Ea[i+1]=cum.Ea[i]+fa*ds; cum.Er[i+1]=cum.Er[i]+fr*ds; cum.Eg[i+1]=cum.Eg[i]+fg*ds; cum.Ei[i+1]=cum.Ei[i]+fi*ds;
+    cum.Eloss[i+1]=cum.Eloss[i]+q.Pl*dt; cum.Eaux[i+1]=cum.Eaux[i]+Paux*dt; cum.Efric[i+1]=cum.Efric[i]+q.Ffric*ds;
+    cum.Eel[i+1]=cum.Eel[i]+q.Pel*dt; cum.Egen[i+1]=cum.Egen[i]+Math.max(0,-q.Pel)*dt; cum.Ereg[i+1]=cum.Ereg[i]+q.Freg*ds; cum.Ebat[i+1]=cum.Ebat[i]+(Pc-q.Pel)*dt;
+  }
+  let socMin=1e9; for(let i=0;i<=N;i++) socMin=Math.min(socMin,soc[i]);
+  return { p,R,N,ds,esc:{Paux,soc0,carga:p.carga},plan:pl,s,z,t,v,soc,Ech,pel,Fa,Fr,Fg,Fi,Fre,Ffr,sn,vm,cum,
+    T:t[N],socFin:soc[N],socMin,Echem:Ech[N] };
+}
+/** Estado en la distancia s: lo que se ve en la escena, en las cifras y en las curvas sale de aquí. */
+function muestraRuta(S,s){
+  const N=S.N, ds=S.ds, x=clamp(s,0,S.R.L), i=Math.min(N-1,Math.floor(x/ds)), u=(x-S.s[i])/ds;
+  const L=(a)=>a[i]+(a[i+1]-a[i])*u;
+  const v=L(S.v), z=L(S.z), cs=Math.sqrt(1-S.sn[i]*S.sn[i]), pel=S.pel[i];
+  return { s:x,i,u,v,z,t:L(S.t),soc:L(S.soc),sn:S.sn[i],grade:S.sn[i]/cs,pel,Fa:S.Fa[i],Fr:S.Fr[i],Fg:S.Fg[i],Fi:S.Fi[i],Freg:S.Fre[i],Ffric:S.Ffr[i],
+    F:S.Fa[i]+S.Fr[i]+S.Fg[i]+S.Fi[i],Pw:(S.Fa[i]+S.Fr[i]+S.Fg[i]+S.Fi[i])*v,
+    whkm:v>0.5?aQuimica(pel,S.p)/v/3.6:0, zona:tramoDeRuta(S.R,x) };
+}
+/** Acumulados hasta s (para el desglose de energía que crece con el viaje). */
+function acumulaRuta(S,s){
+  const N=S.N, ds=S.ds, x=clamp(s,0,S.R.L), i=Math.min(N-1,Math.floor(x/ds)), u=(x-S.s[i])/ds, o={};
+  for(const k in S.cum){ const a=S.cum[k]; o[k]=a[i]+(a[i+1]-a[i])*u; } return o;
+}
+
+/* ---------- 1.2 Régimen estacionario: consumo, autonomía y velocidad óptima ---------- */
+/** Consumo a velocidad constante v [m/s] en una carretera de pendiente sn a la altura z: Wh/km EN LA BATERÍA. */
+function consumoCte(v,par,z,sn,Paux){
+  const p=Object.assign({},VEH,par||{}), f=fuerzas(v,0,sn||0,z||0,p), q=potenciaElec(f.F,v,p,Paux!=null?Paux:p.Paux);
+  return { v,F:f.F,Fa:f.Fa,Fr:f.Fr,Fg:f.Fg,Pel:q.Pel,Pl:q.Pl,Pc:aQuimica(q.Pel,p),whkm:aQuimica(q.Pel,p)/v/3.6,
+    partes:{ aire:f.Fa/3.6/p.etaBat, rod:f.Fr/3.6/p.etaBat, pend:f.Fg/3.6/p.etaBat, tren:q.Pl/v/3.6/p.etaBat, aux:(Paux!=null?Paux:p.Paux)/v/3.6/p.etaBat } };
+}
+/** Autonomía [km] entre dos SOC a velocidad constante. */
+function autonomiaCte(v,par,socIni,socFin,z,Paux){
+  const p=Object.assign({},VEH,par||{}), c=consumoCte(v,p,z||0,0,Paux);
+  return (socIni-socFin)*p.Ebat/KWH*1000/c.whkm;
+}
+/** Velocidad [m/s] de mínimo consumo por km (sección áurea; la curva Wh/km(v) es convexa para v > 0). */
+function vOptima(par,z,Paux,vlo,vhi){
+  let a=vlo||4, b=vhi||45; const r=(Math.sqrt(5)-1)/2, f=v=>consumoCte(v,par,z||0,0,Paux).whkm;
+  let c=b-r*(b-a), d=a+r*(b-a), fc=f(c), fd=f(d);
+  for(let i=0;i<90;i++){ if(fc<fd){ b=d; d=c; fd=fc; c=b-r*(b-a); fc=f(c); } else { a=c; c=d; fc=fd; d=a+r*(b-a); fd=f(d); } }
+  return 0.5*(a+b);
+}
+/** Versión didáctica del cálculo de la fase 1: η global, sin auxiliares, sobre llano a nivel del mar, entre SOC 100 % y 10 %. */
+function autonomiaDidactica(c){
+  const F=0.5*AIRE.rho0*c.Cd*c.A*Math.pow(c.v/3.6,2)+c.m*G*c.Crr;
+  return 0.90*c.E*1000*c.eta*3.6/F;
+}
+
+/* ---------- 1.3 El reto de planeación ----------
+   Tres velocidades (llano, subida, bajada) → SOC de llegada ≥ 10 % sin vaciar la batería en el puerto y tiempo ≤ T_lim.
+   Se comprueba por barrido que el conjunto factible es pequeño y que NI el plan más rápido NI el más lento lo cumplen. */
+const PLAN={ vmin:50, vmax:130, paso:10 };
+const SOC_MIN=0.10, SOC_PISO=0.02;
+const RUTA_G=Object.assign({},RUTA,{ds:250});                   // rejilla gruesa sólo para sortear el escenario
+function evaluaPlan(sc,plan,ruta){
+  const S=simulaRuta(plan,{carga:sc.carga,Paux:sc.Paux,soc0:sc.soc0},null,ruta);
+  return { S,socFin:S.socFin,socMin:S.socMin,T:S.T,okSoc:S.socFin>=SOC_MIN,okPiso:S.socMin>=SOC_PISO,okT:S.T<=sc.Tlim };
+}
+function barridoPlan(sc,paso,ruta){
+  const out=[], P=paso||PLAN.paso; const vs=[]; for(let v=PLAN.vmin;v<=PLAN.vmax+1e-9;v+=P) vs.push(v);
+  for(const a of vs) for(const b of vs) for(const c of vs){ const e=evaluaPlan(sc,[a,b,c],ruta); out.push({plan:[a,b,c],socFin:e.socFin,socMin:e.socMin,T:e.T,ok:e.okSoc&&e.okPiso&&e.okT}); }
+  return out;
+}
+const elige=(rnd,a)=>a[Math.floor(rnd()*a.length)];
+function generaReto(rnd){
+  for(let it=0;it<30;it++){
+    const sc={ carga:elige(rnd,[0,150,300]), Paux:elige(rnd,[500,1200,2200]), soc0:elige(rnd,[0.90,0.95,1.0]) };
+    const g=barridoPlan(Object.assign({Tlim:1e9},sc),20,RUTA_G);       // rejilla gruesa para acotar
+    // T_lim: de las horas candidatas, la primera que deja entre 4 % y 22 % de los planes (con SOC bueno) cumpliendo ambas
+    const bueno=g.filter(x=>x.socFin>=SOC_MIN&&x.socMin>=SOC_PISO); if(bueno.length<4) continue;
+    for(let h=2.4;h<=4.6;h+=0.05){
+      const Tlim=Math.round(h*3600/60)*60, ok=bueno.filter(x=>x.T<=Tlim).length, fr=ok/g.length;
+      if(fr>=0.03&&fr<=0.2){
+        const sc2=Object.assign({Tlim},sc), full=barridoPlan(sc2,null,RUTA_G), n=full.filter(x=>x.ok).length;
+        const lento=evaluaPlan(sc2,[PLAN.vmin,PLAN.vmin,PLAN.vmin],RUTA_G), rapido=evaluaPlan(sc2,[PLAN.vmax,PLAN.vmax,PLAN.vmax],RUTA_G);
+        if(n>=12&&n<=140&&!lento.okT&&!rapido.okSoc) return Object.assign(sc2,{ nFactibles:n, nPlanes:full.length });
+      }
+    }
+  }
+  return null;
+}
+
+/* ---------- 1.4 Diagnóstico: tres averías con huellas distintas en la curva Wh/km(v) ----------
+   neumáticos blandos: C_rr ×k (exceso CONSTANTE en Wh/km); baca con carga: C_d·A ×k (exceso ∝ v²); auxiliar atascado: +P kW (exceso ∝ 1/v). */
+const AVERIAS={
+  rod:{ nombre:'Neumáticos blandos' }, baca:{ nombre:'Baca con carga' }, aux:{ nombre:'Auxiliar atascado' } };
+function parAveria(k,mag){
+  if(k==='rod') return { par:{ Crr:VEH.Crr*mag }, Paux:VEH.Paux };
+  if(k==='baca') return { par:{ Cd:VEH.Cd*mag }, Paux:VEH.Paux };
+  if(k==='aux') return { par:{}, Paux:VEH.Paux+mag*1000 };
+  return { par:{}, Paux:VEH.Paux };
+}
+/* FISICA:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.localClippingEnabled=true;                                   // el corte del coche: la mitad cercana se quita con un plano
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado3(paradas){
+  const c=cv(8,512),x=c.getContext('2d'), g=x.createLinearGradient(0,0,0,512); for(const [p,col] of paradas) g.addColorStop(p,col);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.62,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.7;
+scene.fog=new THREE.Fog('#2a4a58',45,190);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,400);
+camera.position.set(5.2,3.2,8.4);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=2.2; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0,0.9,0);
+
+/* Luz de atardecer de montaña: sol bajo y cálido con sombra suave (su cámara de sombras sólo cubre el diorama),
+   relleno frío del cielo y una hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#ffd9b0',2.2); LUZ.sol.castShadow=true; LUZ.sol.position.set(-6,7.5,7); LUZ.sol.target.position.set(0,0.4,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-6,right:6,top:5,bottom:-4,near:1,far:26});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc4e0',0.9); LUZ.relleno.position.set(6,3.5,8); scene.add(LUZ.relleno);
+LUZ.contra=new THREE.DirectionalLight('#7de9d9',0.8); LUZ.contra.position.set(5,2.5,-6); scene.add(LUZ.contra);
+LUZ.hemi=new THREE.HemisphereLight('#a9d0e0','#10181c',0.5); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: los módulos de la batería, el flujo de energía, las flechas y el sol. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.5,0.3,1.5); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y de rugosidad. */
+const DOSPI_=Math.PI*2;
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto visto desde arriba: una baldosa = 6 m a lo largo (u). Goma oscura con variación lenta, juntas de losa cada 3 m,
+ *  líneas de borde blancas y arcén de grava. */
+function texAsfalto(){
+  const W=512,H=256,c=cv(W,H),x=c.getContext('2d'), f=fbmP(3,3,3), im=x.createImageData(W,H);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/H*3), v=j/H, grava=v<0.07||v>0.93;
+    const b=grava?0.34+(n-0.5)*0.10:0.17+(n-0.5)*0.05, o=(j*W+i)*4, t=Math.max(0,Math.min(255,b*255));
+    im.data[o]=t*(grava?1.04:0.96); im.data[o+1]=t*(grava?0.98:1.0); im.data[o+2]=t*(grava?0.88:1.06); im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  x.fillStyle='rgba(235,240,245,0.92)'; x.fillRect(0,H*0.105,W,H*0.028); x.fillRect(0,H*0.867,W,H*0.028);
+  x.fillStyle='rgba(8,10,12,0.75)'; x.fillRect(0,0,3,H); x.fillRect(W/2-1.5,0,3,H);
+  x.fillStyle='rgba(255,255,255,0.05)'; x.fillRect(4,0,3,H); x.fillRect(W/2+2,0,3,H);
+  const t=tex(c,{srgb:true}); t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+/** Corte de terreno: capas paralelas a la carretera (asfalto, balasto, suelo, arcilla, roca) con fronteras onduladas de
+ *  periodo entero (la baldosa de 6 m cierra sin costura) y rayado fino a 45° de bajo contraste. v = 0 abajo, 1 arriba. */
+function texEstratos(){
+  const W=512,H=256,c=cv(W,H),x=c.getContext('2d');
+  // coordenadas del canvas: y = 0 es el techo del corte (v = 1)
+  const capas=[[0.00,'#2b3036'],[0.06,'#8a7a62'],[0.14,'#5a4330'],[0.30,'#a0683a'],[0.46,'#7d8794'],[0.64,'#5d6a78'],[0.82,'#46515f']];
+  x.fillStyle='#2b3036'; x.fillRect(0,0,W,H);
+  capas.forEach(([y0,col],k)=>{ x.fillStyle=col; x.beginPath(); x.moveTo(0,H);
+    for(let i=0;i<=W;i+=4){ const u=i/W, yy=(y0+(k?0.016*Math.sin(DOSPI_*(2*u+k))+0.010*Math.sin(DOSPI_*(5*u+k*0.37)):0))*H; if(i===0) x.lineTo(0,yy); else x.lineTo(i,yy); }
+    x.lineTo(W,H); x.closePath(); x.fill(); });
+  x.strokeStyle='rgba(255,255,255,0.07)'; x.lineWidth=1;
+  for(let k=-H;k<W;k+=9){ x.beginPath(); x.moveTo(k,H); x.lineTo(k+H,0); x.stroke(); }
+  const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,10,20,0.45)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  const t=tex(c,{srgb:true}); t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+/** Cresta de montañas en silueta (alfa): fbm periódico en x. */
+function texCresta(semilla,base,amp,col,nieve){
+  const W=1024,H=256,c=cv(W,H),x=c.getContext('2d'), f=fbmP(semilla,4,4);
+  x.clearRect(0,0,W,H);
+  const ys=[]; for(let i=0;i<=W;i+=2) ys.push(H*(base-amp*Math.pow(f(i/W*4,semilla),1.25)*1.6));
+  x.fillStyle=col; x.beginPath(); x.moveTo(0,H); ys.forEach((y,k)=>x.lineTo(k*2,y)); x.lineTo(W,H); x.closePath(); x.fill();
+  if(nieve){ const lim=H*(base-amp*0.70); x.save(); x.beginPath(); x.moveTo(0,H); ys.forEach((y,k)=>x.lineTo(k*2,y)); x.lineTo(W,H); x.closePath(); x.clip();
+    x.fillStyle='rgba(236,246,255,0.9)'; x.beginPath(); x.moveTo(0,0); x.lineTo(W,0); for(let i=W;i>=0;i-=8) x.lineTo(i,lim+10*Math.sin(i*0.045)+6*Math.sin(i*0.13)); x.closePath(); x.fill(); x.restore(); }
+  const vel=x.createLinearGradient(0,H*0.30,0,H); vel.addColorStop(0,'rgba(0,0,0,0)'); vel.addColorStop(1,'rgba(42,74,88,0.7)');
+  x.globalCompositeOperation='source-atop'; x.fillStyle=vel; x.fillRect(0,0,W,H); x.globalCompositeOperation='source-over';
+  const t=tex(c,{srgb:true}); t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+function texPunto(){
+  const c=cv(64),x=c.getContext('2d'), g=x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.35,'rgba(255,255,255,0.55)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,64,64); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; return t;
+}
+const T_ASF=texAsfalto(), T_EST=texEstratos(), T_PUNTO=texPunto();
+const T_CR1=texCresta(5,0.92,0.30,'#9dc0d0',true), T_CR2=texCresta(9,0.92,0.30,'#628fa3',false), T_CR3=texCresta(13,0.93,0.28,'#3d6a7e',false);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const CLIP=[new THREE.Plane(new THREE.Vector3(0,0,-1),0.02)];          // el corte: se conserva z ≤ 0,02 (la mitad lejana)
+const cortada=o=>Object.assign(o,{clippingPlanes:CLIP,clipShadows:true,side:THREE.DoubleSide});
+const M={
+  asfalto: pbr({color:'#b4bbc3',map:T_ASF,roughness:0.88,metalness:0.0,envMapIntensity:0.35}),
+  estratos: pbr({color:'#ffffff',map:T_EST,roughness:0.92,metalness:0.0,envMapIntensity:0.3}),
+  pintura: cortada(fis({color:'#c9d3da',metalness:0.35,roughness:0.28,clearcoat:1,clearcoatRoughness:0.08})),
+  cristal: cortada(fis({color:'#0d1f2a',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.62,envMapIntensity:1.6})),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  carbono: fis({color:'#1a1e24',metalness:0.45,roughness:0.34,clearcoat:1,clearcoatRoughness:0.12}),
+  faro: cortada(pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:0.55})),
+  piloto: cortada(pbr({color:'#6b0a12',metalness:0.1,roughness:0.2,emissive:'#ff1f2d',emissiveIntensity:0.9})),
+  asiento: cortada(pbr({color:'#3a4a58',metalness:0.1,roughness:0.75})),
+  cobre: pbr({color:'#d9822b',metalness:0.85,roughness:0.32}),
+  naranjaHV: pbr({color:'#ff8a1f',metalness:0.1,roughness:0.5,emissive:'#ff6a00',emissiveIntensity:0.25}),
+  cajaBat: fis({color:'#2dd4bf',metalness:0.1,roughness:0.15,transparent:true,opacity:0.14,depthWrite:false,envMapIntensity:1.2}),
+  bandeja: pbr({color:'#2a3138',metalness:0.7,roughness:0.45}),
+  poste: pbr({color:'#d7dde3',metalness:0.2,roughness:0.5}),
+  valla: pbr({color:'#8f9aa6',metalness:0.85,roughness:0.38}),
+  blanco: pbr({color:'#e8edf2',metalness:0.1,roughness:0.5}),
+  discoCal: pbr({color:'#9aa1a8',metalness:0.9,roughness:0.4,emissive:'#ff3b0a',emissiveIntensity:0}),
+  cresta1: new THREE.MeshBasicMaterial({map:T_CR1,transparent:true,depthWrite:false,fog:true}),
+  cresta2: new THREE.MeshBasicMaterial({map:T_CR2,transparent:true,depthWrite:false,fog:true}),
+  cresta3: new THREE.MeshBasicMaterial({map:T_CR3,transparent:true,depthWrite:false,fog:true}),
+};
+M.alu=M.llanta; M.aluminio=M.llanta; M.hierro=M.acero; M.negro=M.goma;
+scene.background=fondoDegradado3([[0,'#0d2d44'],[0.10,'#1d5f7c'],[0.19,'#3f8fa0'],[0.255,'#f1b27c'],[0.31,'#86a9b0'],[0.45,'#2d5566'],[1,'#0b1f29']]);
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 tacos cuesta 3 llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=true; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI_, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+const mezcla=(a,b,t)=>a+(b-a)*t;
+/** Interpola linealmente-suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+/* ===================== 6. EL DIORAMA DE CARRETERA =====================
+   Un trozo de carretera de 7,2 m cortado como un bloque geológico: arriba el asfalto, en la cara cercana las capas del terreno.
+   El bloque se inclina con la pendiente de la ruta (EXAGERADA ×4) alrededor del contacto del coche; el asfalto, el corte y los postes
+   corren hacia atrás a ¼ de la velocidad real. Mapa de ejes: el coche avanza hacia +X; la altura es Y; Z es el ancho; la cámara mira desde +Z. */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const TL=2.95, TZ=1.9, TH=1.5;                                          // semilongitud, semianchura y espesor del bloque (m)
+const DIO=new THREE.Group(); DIO.userData.pieza='diorama'; MUNDO.add(DIO);
+T_ASF.repeat.set(2*TL/6,1); T_EST.repeat.set(2*TL/6,1);
+const T_EST2=T_EST.clone(); T_EST2.needsUpdate=true; T_EST2.repeat.set(2*TZ/6,1);
+const M_EST2=new THREE.MeshStandardMaterial({color:'#ffffff',map:T_EST2,roughness:0.92,metalness:0,envMapIntensity:0.3});
+(function construyeDiorama(){
+  const top=new THREE.Mesh(new THREE.PlaneGeometry(2*TL,2*TZ),M.asfalto); top.rotation.x=-Math.PI/2; top.receiveShadow=true; top.userData.pieza='asfalto'; DIO.add(top);
+  const cara=(w,mat,x,z,ry,pieza)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,TH),mat); m.position.set(x,-TH/2,z); m.rotation.y=ry; m.receiveShadow=true; m.userData.pieza=pieza; DIO.add(m); return m; };
+  cara(2*TL,M.estratos,0,TZ,0,'corte'); cara(2*TL,M.estratos,0,-TZ,Math.PI,'corte');
+  cara(2*TZ,M_EST2,TL,0,Math.PI/2,'corte'); cara(2*TZ,M_EST2,-TL,0,-Math.PI/2,'corte');
+  const fondo=new THREE.Mesh(new THREE.PlaneGeometry(2*TL,2*TZ),M.bandeja); fondo.rotation.x=Math.PI/2; fondo.position.y=-TH; DIO.add(fondo);
+  // el borde del asfalto: un canto de hormigón en las cuatro aristas superiores
+  // cantos de hormigón en las aristas del borde y la valla metálica del lado lejano: una sola malla por material
+  const adorno=new THREE.Group(), caja=(w,h,d,mat,x,y,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); adorno.add(m); };
+  caja(2*TL+0.06,0.05,0.06,M.blanco,0,-0.02,TZ+0.01); caja(2*TL+0.06,0.05,0.06,M.blanco,0,-0.02,-TZ-0.01);
+  caja(2*TL-0.2,0.20,0.05,M.valla,0,0.62,-TZ+0.28); caja(2*TL-0.2,0.06,0.05,M.valla,0,0.34,-TZ+0.28);
+  const adf=fusiona(adorno); adf.userData.pieza='diorama'; DIO.add(adf);
+})();
+/* Postes de la valla (lado lejano) y delineadores (lado cercano, bajitos): corren con el asfalto. */
+const POSTES={ n:8, sep:2*TL/8, mesh:null, deli:null };
+(function(){
+  POSTES.mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(0.07,0.80,0.07),M.valla,POSTES.n); POSTES.mesh.castShadow=true; POSTES.mesh.frustumCulled=false; DIO.add(POSTES.mesh);
+  POSTES.deli=new THREE.InstancedMesh(new THREE.BoxGeometry(0.08,0.20,0.04),M.poste,POSTES.n); POSTES.deli.castShadow=true; POSTES.deli.frustumCulled=false; DIO.add(POSTES.deli);
+})();
+const _mP=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _sP=new THREE.Vector3(), _pP=new THREE.Vector3();
+function colocaPostes(desp){
+  for(let i=0;i<POSTES.n;i++){
+    const x=((i*POSTES.sep-desp)%(2*TL)+2*TL)%(2*TL)-TL, borde=Math.min(1,Math.min(x+TL,TL-x)/0.35), k=Math.max(0.001,suave(borde));
+    _sP.set(1,k,1); _pP.set(x,0.40*k,-TZ+0.28); _mP.compose(_pP,_q0,_sP); POSTES.mesh.setMatrixAt(i,_mP);
+    _sP.set(1,k,1); _pP.set(x+POSTES.sep*0.5>TL?x-POSTES.sep*0.5:x+POSTES.sep*0.5,0.10*k,TZ-0.16);
+    const x2=_pP.x, b2=Math.min(1,Math.min(x2+TL,TL-x2)/0.35), k2=Math.max(0.001,suave(b2)); _sP.set(1,k2,1); _pP.y=0.10*k2; _mP.compose(_pP,_q0,_sP); POSTES.deli.setMatrixAt(i,_mP);
+  }
+  POSTES.mesh.instanceMatrix.needsUpdate=true; POSTES.deli.instanceMatrix.needsUpdate=true;
+}
+
+/* El fondo (no se inclina): tres crestas de montaña con paralaje, el sol bajo y la altura de la ruta, que sube y baja las crestas. */
+const FONDO=new THREE.Group(); scene.add(FONDO);
+const CRESTAS=[ {mat:M.cresta3,z:-34,w:150,h:20,y0:0,par:0.10,k:0.0034}, {mat:M.cresta2,z:-70,w:240,h:36,y0:0,par:0.05,k:0.0026}, {mat:M.cresta1,z:-130,w:420,h:70,y0:0,par:0.025,k:0.0016} ];
+CRESTAS.forEach(c=>{ c.mat.map.repeat.set(2,1); const m=new THREE.Mesh(new THREE.PlaneGeometry(c.w,c.h),c.mat); m.position.set(0,c.y0+c.h/2-3,c.z); m.renderOrder=-5; m.userData.pieza='montana'; c.mesh=m; FONDO.add(m); });
+const SOL=new THREE.Sprite(new THREE.SpriteMaterial({map:T_PUNTO,color:'#ffcf9a',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,fog:false}));
+SOL.scale.set(34,34,1); SOL.position.set(-55,8,-150); SOL.renderOrder=-9; FONDO.add(SOL);
+
+/* ===================== 7. EL COCHE (media sección) ===================== */
+const LRUEDA=0.34, VIA=1.62, EJE_D=1.38, EJE_T=1.37;                  // radio del neumático, vía y distancias de los ejes al centro (m)
+const POS_RUEDA=[[EJE_D,-VIA/2],[EJE_D,VIA/2],[-EJE_T,-VIA/2],[-EJE_T,VIA/2]];     // (x, z) en el coche
+const CAR={xc:0.0,hl:2.36,cx0:-1.50,cx1:0.80,techo:1.52,yt:perfil1D([[-2.40,0.80],[-2.20,0.97],[-1.7,1.04],[-0.8,1.03],[0.2,0.96],[1.0,0.86],[1.7,0.74],[2.10,0.58]])};
+const PACK={x0:-1.20,x1:1.20,y0:0.17,y1:0.33,zw:0.68,nx:24,nz:2};
+const SELLO={cabeza:[0,0.20,0.30]};
+/** Techo de la cabina en x local (misma ley que el loft de la cabina). */
+function techoLocal(x){
+  const base=CAR.yt(x);
+  if(x<=CAR.cx0||x>=CAR.cx1) return base;
+  const t=(x-CAR.cx0)/(CAR.cx1-CAR.cx0), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55);
+  return Math.max(base+0.0,mezcla(base,CAR.techo,env));
+}
+let MODULOS=null, DISCO_MAT=null, MOTOR=null;
+function construyeCoche(){
+  const raiz=new THREE.Group(), fija=new THREE.Group();
+  const xc=CAR.xc, hl=CAR.hl, yt=CAR.yt;
+  const secs=[], N=44;
+  for(let i=0;i<=N;i++){
+    const x=xc-hl*Math.cos(Math.PI*i/N), u=(x-xc)/hl, ab=Math.pow(Math.abs(u),4.2);
+    let w=0.95*Math.pow(Math.max(0.0004,1-ab),1/4.2);
+    w-=0.11*(Math.exp(-Math.pow((x-EJE_D)/0.42,2))+Math.exp(-Math.pow((x+EJE_T)/0.42,2)));
+    const yb=0.30+0.16*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  fija.add(new THREE.Mesh(lofteo(secs,30),M.pintura));
+  const cab=[], cabM=26, x0=CAR.cx0, x1=CAR.cx1;
+  for(let i=0;i<=cabM;i++){
+    const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),CAR.techo,env));
+    cab.push({x,w:Math.max(0.03,0.84*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30});
+  }
+  fija.add(new THREE.Mesh(lofteo(cab,26),M.cristal));
+  const tec=[], tM=18, tx0=x0+0.10, tx1=x1-0.06;
+  for(let i=0;i<=tM;i++){
+    const t=i/tM, x=mezcla(tx0,tx1,t), tx=(x-x0)/(x1-x0), env=Math.pow(Math.sin(Math.PI*Math.pow(tx,0.85)),0.55), techo=Math.max(yt(x)+0.05,mezcla(yt(x),CAR.techo,env));
+    const wtop=0.84*Math.pow(env,0.35)*(1-0.30);
+    tec.push({x,w:Math.max(0.03,wtop+0.012),y0:techo-0.045,y1:techo+0.005,n:4.5,tum:0.0});
+  }
+  fija.add(new THREE.Mesh(lofteo(tec,20),M.pintura));
+  // pasos de rueda, faros y pilotos (barras de luz)
+  for(const [px,pz] of POS_RUEDA){
+    const lado=Math.sign(pz), liner=new THREE.Mesh(new THREE.CylinderGeometry(0.40,0.40,0.02,28),M.bajos); liner.rotation.x=Math.PI/2; liner.position.set(px,LRUEDA+0.07,lado*0.80); fija.add(liner);
+    const labio=new THREE.Mesh(new THREE.TorusGeometry(0.425,0.034,8,28,Math.PI),M.pintura); labio.position.set(px,LRUEDA+0.07,lado*0.80); fija.add(labio);
+  }
+  for(const lado of [-1,1]){
+    const faro=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.06,0.34),M.faro); faro.position.set(2.18,0.62,lado*0.62); faro.rotation.y=lado*0.16; fija.add(faro);
+  }
+  const barra=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.045,1.40),M.piloto); barra.position.set(-2.36,0.80,0); fija.add(barra);
+  // interior: suelo, dos asientos y el volante (sólo se ven en el lado lejano, que es el que queda tras el corte)
+  const suelo=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.03,1.44),M.bandeja); suelo.position.set(-0.1,0.37,0); fija.add(suelo);
+  for(const [sx,sy] of [[0.45,0.0],[-0.70,0.0]]){
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.52,0.16,0.46),M.asiento); base.position.set(sx,0.50,-0.36); fija.add(base);
+    const resp=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.62,0.46),M.asiento); resp.position.set(sx-0.26,0.84,-0.36); resp.rotation.z=0.16; fija.add(resp);
+  }
+  const volante=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.018,8,24),M.bajos); volante.position.set(1.02,0.98,-0.36); volante.rotation.y=Math.PI/2; volante.rotation.x=0.5; fija.add(volante);
+  const salpic=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.20,1.40),M.bajos); salpic.position.set(1.30,0.84,0); salpic.rotation.z=-0.35; fija.add(salpic);
+  const fus=fusiona(fija); fus.userData.pieza='coche'; raiz.add(fus);
+
+  /* LA BATERÍA: caja translúcida sobre bandeja, con 24×2 módulos que se encienden según el SOC (MeshBasic: lo que emite). */
+  const pk=new THREE.Group(); pk.userData.pieza='bateria';
+  const bandeja=new THREE.Mesh(new THREE.BoxGeometry(2.44,0.02,1.40),M.bandeja); bandeja.position.set(0,PACK.y0,0); pk.add(bandeja);
+  const caja=new THREE.Mesh(new THREE.BoxGeometry(2.44,PACK.y1-PACK.y0+0.04,1.40),M.cajaBat); caja.position.set(0,(PACK.y0+PACK.y1)/2+0.01,0); caja.renderOrder=4; pk.add(caja);
+  const dx=(PACK.x1-PACK.x0)/PACK.nx;
+  MODULOS=new THREE.InstancedMesh(new THREE.BoxGeometry(dx-0.014,0.105,0.60),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),PACK.nx*PACK.nz);
+  const mm=new THREE.Matrix4(); let k=0;
+  for(let r=0;r<PACK.nz;r++) for(let i=0;i<PACK.nx;i++){ mm.makeTranslation(PACK.x0+dx*(i+0.5),0.255,(r?1:-1)*0.34); MODULOS.setMatrixAt(k,mm); MODULOS.setColorAt(k,new THREE.Color('#0b2a2f')); k++; }
+  MODULOS.frustumCulled=false; MODULOS.userData.pieza='bateria'; pk.add(MODULOS);
+  raiz.add(pk);
+
+  /* EL TREN: inversor (módulo de potencia del kit) y motor trasero (máquina eléctrica del kit, eje en Z), con su cable de alta tensión. */
+  const invG=new THREE.Group(); const inv0=P3.moduloPotencia(M,{ancho:0.34,fondo:0.40,alto:0.15,potencia:3,pines:4}); inv0.position.set(-0.95,0.40,-0.10); invG.add(inv0); const inv=fusiona(invG); inv.userData.pieza='inversor'; raiz.add(inv);
+  const mot=P3.maquinaElectrica(M,{d:0.36,largo:0.36,aletas:14,patas:false,bornes:false,ventilador:false,placa:false,eje:0.02}); mot.rotation.y=-Math.PI/2; mot.position.set(-EJE_T,LRUEDA,-0.04);
+  const motG=new THREE.Group(); motG.add(mot);
+  for(const lado of [-1,1]){ const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.64,10),M.acero); sh.rotation.x=Math.PI/2; sh.position.set(-EJE_T,LRUEDA,lado*0.50); motG.add(sh); }
+  const motF=fusiona(motG); motF.userData.pieza='motor'; raiz.add(motF); MOTOR=motF;
+  const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(RUTA_A.map(p=>V3(...p)),false,'catmullrom',0.15),48,0.018,8),M.naranjaHV); cable.userData.pieza='cable'; raiz.add(cable);
+  raiz.traverse(o=>{ if(o.isMesh&&o!==caja&&o!==MODULOS){ o.castShadow=true; o.receiveShadow=true; } });
+  // ruedas con su freno de disco (el disco se enrojece cuando frena la fricción)
+  const spins=[];
+  const matDisco=Object.assign({},M,{hierro:M.discoCal});
+  POS_RUEDA.forEach(([px,pz],ix)=>{
+    const lado=Math.sign(pz), piv=new THREE.Group(); piv.position.set(px,LRUEDA,pz); raiz.add(piv);
+    const spin=new THREE.Group(); piv.add(spin);
+    const t=P3.neumatico(M,{dExt:LRUEDA*2,dLlanta:0.47,ancho:0.225,tacos:0,radios:5}), tf=fusiona(t); tf.rotation.y=lado*Math.PI/2; spin.add(tf);
+    if(ix<2){ const d=P3.discoFreno(matDisco,{dExt:0.33,dInt:0.18,espesor:0.035,nAletas:24,campana:false}); d.rotation.x=Math.PI/2; d.position.z=-lado*0.07; const df=fusiona(d); spin.add(df); }
+    spins.push(spin);
+  });
+  raiz.traverse(o=>{ if(o.isMesh&&o!==caja&&o!==MODULOS&&o.material!==M.cajaBat){ o.castShadow=true; o.receiveShadow=true; } });
+  raiz.userData.asas={spins};
+  return raiz;
+}
+/* Camino del flujo de energía eléctrica (batería → inversor → motor) y del mecánico (motor → semieje → rueda cercana). */
+var RUTA_A=[[-0.30,0.27,0.0],[-1.10,0.27,0.0],[-1.10,0.46,-0.06],[-0.95,0.50,-0.06],[-1.24,0.52,-0.04],[-1.375,0.42,-0.04]];
+const RUTA_B=[[-EJE_T,LRUEDA,0.10],[-EJE_T,LRUEDA,0.80]];
+const COCHE=new THREE.Group(); MUNDO.add(COCHE);
+const COCHE_L=construyeCoche(); COCHE.add(COCHE_L); COCHE_L.userData.pieza='coche';
+const ASAS=COCHE_L.userData.asas;
+
+/* Las cuatro fuerzas de la ecuación de carga, como flechas sobre el techo (1 m = 500 N): aire, rodadura, pendiente y la tracción que las equilibra. */
+const FLECHAS={}; const KF=0.002;
+function creaFlecha(nombre,color,pieza,y,x0){
+  const gr=new THREE.Group(), mat=new THREE.MeshBasicMaterial({color,toneMapped:false,transparent:true,opacity:0.95});
+  const asta=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1,12),mat); asta.geometry.translate(0,0.5,0);
+  const punta=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.22,16),mat);
+  gr.add(asta,punta); gr.userData.pieza=pieza; asta.userData.pieza=pieza; punta.userData.pieza=pieza; gr.position.set(x0,y,0); COCHE.add(gr);
+  const o={gr,asta,punta,mat,sig:1,set(L,signo){ const l=Math.max(0.02,L); asta.scale.y=Math.max(0.001,l-0.2); punta.position.y=Math.max(0.02,l-0.1); asta.visible=l>0.24; gr.visible=L>0.03; o.sig=signo; gr.rotation.z=signo>=0?-Math.PI/2:Math.PI/2; }};
+  FLECHAS[nombre]=o; return o;
+}
+creaFlecha('fa','#38BDF8','flechaAire',1.80,0.9); creaFlecha('fr','#FB923C','flechaRod',2.02,0.9); creaFlecha('fg','#C4B5FD','flechaPend',2.24,0.9); creaFlecha('ft','#FFB703','flechaTrac',2.46,-0.9);
+
+/* El flujo de energía: 36 esferas a lo largo del cable (A) y 20 por el semieje (B). Su número sigue a la potencia; el sentido, a su signo. */
+const FLUJO={ nA:36, nB:20, fase:0 };
+const E_ESF=new THREE.InstancedMesh(new THREE.SphereGeometry(0.034,8,6),new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),FLUJO.nA+FLUJO.nB);
+E_ESF.frustumCulled=false; E_ESF.userData.pieza='flujo'; E_ESF.raycast=()=>{}; COCHE.add(E_ESF);
+const CURVA_A=new THREE.CatmullRomCurve3(RUTA_A.map(p=>V3(...p)),false,'catmullrom',0.15), CURVA_B=new THREE.LineCurve3(V3(...RUTA_B[0]),V3(...RUTA_B[1]));
+const _pt=new THREE.Vector3(), _mE=new THREE.Matrix4(), _cE=new THREE.Color(), _sE=new THREE.Vector3();
+/** Pone las esferas: dens ∈ [0,1] es la fracción visible; dir = +1 (descarga: batería→rueda) o −1 (regeneración). */
+function pintaFlujo(dens,dir,dt,col){
+  FLUJO.fase=(FLUJO.fase+dt*(0.18+0.9*dens)*dir+10)%1;
+  const tot=FLUJO.nA+FLUJO.nB, vis=Math.round(dens*FLUJO.nA);
+  for(let i=0;i<tot;i++){
+    const enA=i<FLUJO.nA, j=enA?i:i-FLUJO.nA, n=enA?FLUJO.nA:FLUJO.nB, on=enA?j<vis:j<Math.round(dens*FLUJO.nB);
+    const u=(((j/n)+FLUJO.fase)%1+1)%1; (enA?CURVA_A:CURVA_B).getPoint(u,_pt);
+    const k=on?(0.75+0.35*Math.sin(u*Math.PI)):0.0001; _sE.set(k,k,k); _mE.compose(_pt,_q0,_sE); E_ESF.setMatrixAt(i,_mE);
+    _cE.set(enA?col:(dir>0?'#bff7ee':'#c9ffe3')); E_ESF.setColorAt(i,_cE);
+  }
+  E_ESF.instanceMatrix.needsUpdate=true; if(E_ESF.instanceColor) E_ESF.instanceColor.needsUpdate=true;
+}
+let _socK=-1;
+/** Enciende los módulos de izquierda a derecha según el SOC; el del borde queda a media luz. Verde > 40 %, ámbar > 15 %, rojo por debajo. */
+function pintaModulos(soc){
+  const k=Math.round(clamp(soc,0,1)*480); if(k===_socK) return; _socK=k;
+  const n=PACK.nx, f=clamp(soc,0,1)*n, c=new THREE.Color();
+  for(let r=0;r<PACK.nz;r++) for(let i=0;i<n;i++){ const lit=clamp(f-i,0,1), id=r*n+i;
+    if(lit<=0.001) c.set('#0b2a2f'); else { c.set(soc>0.40?'#34d399':(soc>0.15?'#fbbf24':'#f4475e')); c.multiplyScalar(0.25+0.95*lit); }
+    MODULOS.setColorAt(id,c); }
+  MODULOS.instanceColor.needsUpdate=true;
+}
+
+/* ===================== 18. SONIDO (sintetizado) =====================
+   El rumor del viento (ruido filtrado) y el zumbido del inversor (seno que sube con la velocidad). */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,gain=null,filt=null,src=null,osc=null,og=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate), d=buf.getChannelData(0); let ult=0; for(let i=0;i<d.length;i++){ ult=(ult+0.02*(Math.random()*2-1))/1.02; d[i]=ult*3.5; }
+      src=ctx.createBufferSource(); src.buffer=buf; src.loop=true; filt=ctx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=500; filt.Q.value=0.7;
+      gain=ctx.createGain(); gain.gain.value=0; src.connect(filt); filt.connect(gain); gain.connect(master); src.start();
+      osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=300; og=ctx.createGain(); og.gain.value=0; osc.connect(og); og.connect(master); osc.start();
+    }catch(e){ ctx=null; } }
+  function actualiza(v,p){ if(!ctx) return; const t=ctx.currentTime, u=Math.max(0,Math.min(1,v)), q=Math.max(0,Math.min(1,p||0)); filt.frequency.setTargetAtTime(300+900*u,t,0.1); gain.gain.setTargetAtTime(on?0.01+0.07*u*u:0,t,0.1);
+    osc.frequency.setTargetAtTime(240+1400*u,t,0.1); og.gain.setTargetAtTime(on?0.004+0.012*q:0,t,0.1); }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+  return {init,actualiza,
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    clac:()=>tono(320,0.06,0.04,'triangle'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; },
+    get vol(){ return gain?gain.gain.value:0; }, get freq(){ return filt?filt.frequency.value:0; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+
+/* ===================== 9. EL ESTADO Y EL RELOJ =====================
+   EST son los mandos (lo que pide el alumno). El viaje es una simulación completa de la ruta (SIMULA) y el reloj de todo es la
+   DISTANCIA recorrida VJ.s: la escena, las flechas, el flujo de energía, las cifras y las curvas del dock se leen del mismo
+   punto s de la misma simulación, así que mover un mando cambia las tres cosas a la vez. El viaje de 240 km se comprime en
+   EST.dur segundos (tiempo comprimido ×C, rotulado); el paisaje corre a ¼ de la velocidad real. */
+const EST={modo:'marcha',plan:[90,80,100],Paux:800,carga:0,dur:60,pausa:REDUCIDO,autoRunning:false,vista:'coche',rot:false,vTest:80};
+const VIS={tilt:0};
+const SIM={spin:0,scroll:0,postes:0};
+const VJ={S:null,clave:'',p:null,s:0,hold:0,corriendo:false,terminado:false};
+const RUTA_LL=rutaLlana(240e3), PREVIA=8000, PASO_V=0.25, EXAGERA=4;
+let ST=null;
+const kmh=v=>v*3.6;
+const clamp01=x=>Math.max(0,Math.min(1,x));
+/** Lo que se simula ahora: «En marcha»: los mandos; en el laboratorio guiado, lo que pida el paso. */
+function paramsViaje(){
+  if(EST.modo==='guia'){ const p=guiaViaje(); if(p) return p; }
+  return { plan:EST.plan.slice(), esc:{ Paux:EST.Paux, carga:EST.carga, soc0:1 }, par:null, ruta:RUTA, tag:'marcha' };
+}
+function simulaViaje(){
+  const p=paramsViaje(), clave=JSON.stringify([p.plan,p.esc,p.par,p.ruta===RUTA?'r':'l',p.tag]);
+  if(clave===VJ.clave&&VJ.S) return;
+  const cambioTag=!VJ.p||VJ.p.tag!==p.tag;
+  VJ.clave=clave; VJ.p=p; VJ.S=simulaRuta(p.plan,p.esc,p.par,p.ruta);
+  if(cambioTag){ VJ.s=0; VJ.hold=0; VJ.terminado=false; }
+}
+/** Avanza la posición. El tiempo de la simulación corre ×C más deprisa que el del reloj de pared (C = T_total / duración del viaje). */
+function pasaViaje(dt){
+  const S=VJ.S; if(!S||EST.pausa) return;
+  const C=S.T/Math.max(5,EST.dur), m=muestraRuta(S,VJ.s), v=Math.max(m.v,3), L=S.R.L;
+  const previa=EST.modo==='guia'&&GUIA.paso==='decide'&&GUIA.viaje==='listo';
+  if(EST.modo==='guia'&&GUIA.paso==='decide'&&GUIA.viaje==='fin') return;
+  VJ.s+=v*C*dt;
+  if(previa){ if(VJ.s>=PREVIA) VJ.s-=PREVIA; return; }
+  if(VJ.s>=L){
+    VJ.s=L;
+    if(EST.modo==='guia'&&GUIA.paso==='decide'&&GUIA.viaje==='corre'){ finViaje(); return; }
+    VJ.hold+=dt; if(VJ.hold>2.4){ VJ.s=0; VJ.hold=0; }
+  }
+}
+/** El estado leído del viaje en la distancia actual. */
+function calcula(){
+  simulaViaje(); const S=VJ.S, m=muestraRuta(S,VJ.s), ac=acumulaRuta(S,VJ.s), par=Object.assign({},VEH,S.p);
+  const cte=m.v>0.5?consumoCte(m.v,S.p,m.z,0,S.esc.Paux):null;
+  const aut=cte?Math.max(0,(m.soc-SOC_MIN)*S.p.Ebat/KWH*1000/cte.whkm):0;
+  ST={S,m,ac,par,p:VJ.p,cte,aut,C:S.T/Math.max(5,EST.dur)};
+  return ST;
+}
+const SOC_VERDE=0.40;
+/** Pone el modelo en la escena: inclinación del bloque, corte del terreno, ruedas, batería, flechas, flujo de energía y fondo. */
+function aplicaEscena(dtR){
+  const S=calcula(), m=S.m, k=REDUCIDO?1:1-Math.exp(-dtR/0.30);
+  // la pendiente se dibuja EXAGERADA ×4 y llega suavizada
+  const alvo=Math.atan(EXAGERA*m.grade); VIS.tilt+=(alvo-VIS.tilt)*k; MUNDO.rotation.z=VIS.tilt;
+  // el paisaje corre a ¼ de la velocidad real; las ruedas giran con él
+  const dx=EST.pausa?0:m.v*PASO_V*dtR;
+  SIM.scroll+=dx; SIM.spin+=dx/LRUEDA; SIM.postes+=dx;
+  T_ASF.offset.x=(SIM.scroll/6)%1; T_EST.offset.x=(SIM.scroll/6)%1;
+  colocaPostes(SIM.postes);
+  for(const sp of ASAS.spins) sp.rotation.z=-SIM.spin;
+  for(const c of CRESTAS){ c.mat.map.offset.x=(c.mat.map.offset.x+dx*c.par/(c.w/2))%1; c.mesh.position.y=c.y0+c.h/2-1.2-(m.z-1500)*c.k; }
+  // la batería y el flujo de energía
+  pintaModulos(m.soc);
+  const P=m.pel, dens=m.v>0.5?clamp01(Math.abs(P)/70e3)*0.92+0.08:0.0, reg=P<0;
+  pintaFlujo(dens,reg?-1:1,EST.pausa?0:dtR,reg?'#34d399':'#ffb703');
+  // las fuerzas de la ecuación de carga (1 m = 500 N): aire, rodadura, pendiente y la tracción que las equilibra
+  FLECHAS.fa.set(Math.min(3.3,m.Fa*KF),-1); FLECHAS.fr.set(Math.min(3.3,m.Fr*KF),-1); FLECHAS.fg.set(Math.min(3.3,Math.abs(m.Fg)*KF),m.Fg>=0?-1:1);
+  const Ft=m.F; FLECHAS.ft.mat.color.set(Ft>=0?'#FFB703':'#34D399'); FLECHAS.ft.set(Math.min(3.3,Math.abs(Ft)*KF),Ft>=0?1:-1);
+  // el disco de freno se pone al rojo cuando frena la fricción (lo que el motor no puede regenerar)
+  M.discoCal.emissiveIntensity=2.4*clamp01(m.Ffric*m.v/40e3);
+}
+
+/* ===================== 11. CÁMARAS ===================== */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+/** Desplaza el centro de la proyección al centro del hueco libre: el coche queda en medio de lo que se ve, sin mover la cámara. */
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+/** Cada vista: dirección desde el objetivo, objetivo, campo de visión y la caja que debe verse entera. */
+const VISTAS={
+  coche:  {dir:V3(0.42,0.17,1.0), t:V3(0,0.50,0),fov:30,c:V3(0,0.48,0),m:V3(3.0,2.05,1.9)},
+  bateria:{dir:V3(0.55,0.62,1.0), t:V3(0,0.28,0),fov:30,c:V3(0,0.28,0),m:V3(1.5,0.55,0.8)},
+  tren:   {dir:V3(-0.75,0.34,1.0),t:V3(-1.2,0.45,0),fov:30,c:V3(-1.2,0.45,0),m:V3(0.85,0.55,0.8)},
+  ruta:   {dir:V3(0.30,0.08,1.0), t:V3(0,2.6,0),fov:38,c:V3(0,2.6,-6),m:V3(7.5,3.8,8)},
+};
+const _cam=new THREE.PerspectiveCamera(34,1,0.1,400);
+/** Distancia a la que la caja de la vista llena el 64 % del alto (o el 90 % del ancho) del hueco libre. */
+function encuadre(v){
+  const V=VISTAS[v]||VISTAS.coche, H=huecoLibre(), hh=Math.max(120,H.y1-H.y0), ww=Math.max(160,H.x1-H.x0), dir=V.dir.clone().normalize();
+  _cam.fov=V.fov; _cam.aspect=innerWidth/innerHeight; _cam.updateProjectionMatrix();
+  const esq=[]; for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]) esq.push(V3(V.c.x+sx*V.m.x,V.c.y+sy*V.m.y,V.c.z+sz*V.m.z));
+  let lo=1.2, hi=90;
+  for(let it=0;it<24;it++){
+    const d=(lo+hi)/2; _cam.position.copy(V.t).addScaledVector(dir,d); _cam.lookAt(V.t); _cam.updateMatrixWorld(true); _cam.matrixWorldInverse.copy(_cam.matrixWorld).invert();
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; for(const e of esq){ const p=e.clone().project(_cam); x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
+    const pw=(x1-x0)/2*innerWidth, ph=(y1-y0)/2*innerHeight, f=Math.max(ph/hh/0.66,pw/ww/0.94);
+    if(f>1) lo=d; else hi=d;
+  }
+  const d=(lo+hi)/2; return {pos:V.t.clone().addScaledVector(dir,d),target:V.t.clone(),fov:V.fov};
+}
+const CAMT={on:false,u:0,dur:1,o0:V3(),o1:V3(),t0:V3(),t1:V3(),f0:34,f1:34};
+function ponVista(v,dur){
+  EST.vista=v; const d=dur===undefined?(REDUCIDO?0.001:1.1):dur, e=encuadre(v);
+  Object.assign(CAMT,{on:true,u:0,dur:d,o0:camera.position.clone(),o1:e.pos,t0:controls.target.clone(),t1:e.target,f0:camera.fov,f1:e.fov});
+  if(typeof pintaBarras==='function') pintaBarras();
+}
+function pasaCam(dt){
+  if(CAMT.on){
+    CAMT.u=Math.min(1,CAMT.u+dt/Math.max(CAMT.dur,1e-3)); const e=ease(CAMT.u);
+    camera.position.lerpVectors(CAMT.o0,CAMT.o1,e); controls.target.lerpVectors(CAMT.t0,CAMT.t1,e);
+    camera.fov=CAMT.f0+(CAMT.f1-CAMT.f0)*e; camera.updateProjectionMatrix();
+    if(CAMT.u>=1) CAMT.on=false;
+  }
+}
+controls.addEventListener('start',()=>{ CAMT.on=false; });
+
+/* ===================== 12. EL HUD (izquierda) ===================== */
+const NOM_TRAMO=['llano','subida al puerto','bajada'];
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica</div>`;
+  if(EST.modo==='marcha'){
+    h+=`<h2>¿Cuánto cuesta subir un puerto?</h2>
+    <p class="intro">Un crossover eléctrico recorre 240 km de montaña. Las <b>flechas</b> son las fuerzas de la ecuación de carga; las <b>esferas</b>, la energía que sale de la batería o vuelve a ella al frenar. Cambia la velocidad de cada tramo.</p></div>`;
+  } else h+=`<h2>Calcula, planea y diagnostica</h2></div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='marcha'?'on':''}" data-mode="marcha"><i>◎</i>En marcha</button><button class="b ${EST.modo==='guia'?'on':''}" data-mode="guia"><i>✎</i>Laboratorio guiado</button></div>`;
+  if(EST.modo==='marcha'){
+    const pos=(v,a,b)=>((v-a)/(b-a)*100).toFixed(1)+'%';
+    const sl=(id,tit,lab,min,max,step,val,unidad,marcas)=>`<div class="cg"><div class="cl"><div>${tit}</div><b id="${lab}">${val}</b></div><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${tit}"><div class="marcas abs">${marcas}</div></div>`;
+    const mk=(a,b,m)=>`<span style="left:0;transform:none">${a}</span><span style="left:${pos(m,a,b)}">${m}</span><span style="left:100%;transform:translateX(-100%)">${b}</span>`;
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl"><div>Llano</div><b id="vL">${fN(EST.plan[0])} km/h</b></div><input type="range" id="rL" min="50" max="130" step="5" value="${EST.plan[0]}" aria-label="Velocidad en el llano en kilómetros por hora"><div class="marcas abs">${mk(50,130,90)}</div></div>
+    <div class="cg"><div class="cl"><div>Subida al puerto</div><b id="vS">${fN(EST.plan[1])} km/h</b></div><input type="range" id="rS" min="50" max="130" step="5" value="${EST.plan[1]}" aria-label="Velocidad en la subida al puerto en kilómetros por hora"><div class="marcas abs">${mk(50,130,90)}</div></div>
+    <div class="cg"><div class="cl"><div>Bajada</div><b id="vB">${fN(EST.plan[2])} km/h</b></div><input type="range" id="rB" min="50" max="130" step="5" value="${EST.plan[2]}" aria-label="Velocidad en la bajada en kilómetros por hora"><div class="marcas abs">${mk(50,130,90)}</div></div>
+    <div class="cg"><div class="cl"><div>Auxiliares (clima)</div><b id="vA">${fN(EST.Paux/1000,1)} kW</b></div><input type="range" id="rA" min="300" max="3000" step="100" value="${EST.Paux}" aria-label="Potencia de auxiliares en kilovatios"><div class="marcas abs"><span style="left:0;transform:none">0,3</span><span style="left:100%;transform:translateX(-100%)">3,0</span></div></div>
+    <div class="fila"><button class="b" id="btnReinicia">↺ Reiniciar viaje</button><button class="b auto" id="btnAuto">Recorrido guiado</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="fl">En cada tramo de 100 m la <b>fuerza en la rueda</b> es la suma de cuatro términos:</div>
+    <div class="formula">F = m·g·C<sub>rr</sub>·cosθ + ½ρ(z)·C<sub>d</sub>·A·v² + m·g·sinθ + m·a</div>
+    <div class="fl"><b>Batería</b>: P<sub>bat</sub> = F·v + P<sub>pérdidas</sub> + P<sub>aux</sub> al traccionar, con P<sub>pérdidas</sub> = P<sub>0</sub> + k<sub>fe</sub>·v + k<sub>i</sub>·|F| + k<sub>cu</sub>·F². Al frenar (F &lt; 0) el motor regenera hasta F<sub>máx</sub> y P<sub>máx</sub>, con desvanecimiento a baja velocidad; el resto lo disipa el freno de fricción.</div>
+    <div class="formula">Wh/km = P<sub>bat</sub> / (3,6·v)<br>SOC = SOC<sub>0</sub> − ∫P<sub>bat</sub>dt / E<sub>bat</sub></div>
+    <div class="fl"><b>Óptimo</b>: sin pérdidas de corriente, el mínimo de Wh/km está en v* = ∛((P<sub>0</sub> + P<sub>aux</sub>)/(2·½ρC<sub>d</sub>A)): a velocidad menor, los auxiliares gastan más por kilómetro. El aire pesa ρ(z) = ρ<sub>0</sub>(1 − 6,5 K/km·z/288,15 K)<sup>4,256</sup> (ISA).</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>La ruta es <b>sintética</b> (240 km con un puerto de 2 350 m), <b>no un ciclo normalizado</b> como el WLTP. La pendiente del dibujo está exagerada ×4; las cifras usan la real.</li>
+    <li>Tren de potencia con pérdidas de forma simple (fijas, ∝ v, ∝ |F| y ∝ F²); regeneración con tope de potencia y fuerza; rendimiento de la batería 0,97 constante. Sin temperatura, sin envejecimiento, sin límite de potencia de carga ni de descarga.</li>
+    <li>Velocidad por tramo con rampas de aceleración constantes; sin viento, sin curvas y sin tráfico. El tiempo del viaje se comprime en el dibujo y el paisaje corre a ¼ de la velocidad real.</li>
+  </ul><div class="src">Ehsani et al., <i>Modern Electric, Hybrid Electric and Fuel Cell Vehicles</i> · Guzzella y Sciarretta, <i>Vehicle Propulsion Systems</i> · Atmósfera estándar ISA.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='marcha'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud');
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  const lig=(id,idv,f)=>{ const r=el(id); if(r) r.oninput=()=>{ if(EST.autoRunning) return; f(+r.value); }; };
+  lig('rL','vL',v=>{ EST.plan[0]=v; el('vL').textContent=fN(v)+' km/h'; });
+  lig('rS','vS',v=>{ EST.plan[1]=v; el('vS').textContent=fN(v)+' km/h'; });
+  lig('rB','vB',v=>{ EST.plan[2]=v; el('vB').textContent=fN(v)+' km/h'; });
+  lig('rA','vA',v=>{ EST.Paux=v; el('vA').textContent=fN(v/1000,1)+' kW'; });
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  if(el('btnReinicia')) el('btnReinicia').onclick=()=>{ if(!EST.autoRunning){ VJ.s=0; VJ.hold=0; } };
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+function sincronizaMandos(){
+  const set=(id,idv,val,txt)=>{ const r=el(id); if(r){ r.value=val; const l=el(idv); if(l) l.textContent=txt; } };
+  set('rL','vL',EST.plan[0],fN(EST.plan[0])+' km/h'); set('rS','vS',EST.plan[1],fN(EST.plan[1])+' km/h'); set('rB','vB',EST.plan[2],fN(EST.plan[2])+' km/h'); set('rA','vA',EST.Paux,fN(EST.Paux/1000,1)+' kW');
+}
+
+/* ===================== 13. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+function punto(x,px,py,r,col){ x.fillStyle=col; x.beginPath(); x.arc(px,py,r,0,DOSPI); x.fill(); x.strokeStyle='#fff'; x.lineWidth=1.2; x.stroke(); }
+const LCO=lienzo('gCo'), LDE=lienzo('gDe'), LPE=lienzo('gPe'), LPO=lienzo('gPo');
+const C_AIRE='#38BDF8', C_ROD='#FB923C', C_PEN='#C4B5FD', C_TREN='#F472B6', C_AUX='#94A3B8', C_SOC='#34D399', C_DES='#FFB703', C_REG='#34D399', C_TOT='#FFFFFF', C_ELEV='#5E8196', C_GRIS='#8FB3B0';
+const GRID='rgba(143,179,176,0.12)', EJE='#3a5a63', TXT='#6f9a98';
+/** Lo que el dock NO debe enseñar todavía. */
+const enPredice=()=>EST.modo==='guia'&&GUIA.paso==='predice';
+const enDiagnostico=()=>EST.modo==='guia'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enDecide=()=>EST.modo==='guia'&&GUIA.paso==='decide';
+const ocultaTodo=()=>enPredice()||enDiagnostico();
+/** «progresivo»: sólo se dibuja lo recorrido (el viaje del reto en curso); «nada»: ni la carga prevista (antes de probar). */
+function modoSOC(){
+  if(ocultaTodo()) return 'nada';
+  if(enDecide()){ if(GUIA.viaje==='listo') return 'nada'; if(GUIA.viaje==='corre') return 'progresivo'; }
+  return 'total';
+}
+/** Curvas del consumo estacionario (llano, a la altura actual): se recalculan sólo si cambia el coche o la altura. */
+let CURV=null, CURVk='';
+function curvas(){
+  const S=ST, p=S.S.p, Paux=S.S.esc.Paux, zb=Math.round(S.m.z/50)*50, k=[p.Cd,p.A,p.Crr,p.m0,p.carga,Paux,zb].join('|');
+  if(CURV&&k===CURVk) return CURV; CURVk=k;
+  const pts=[]; let mn=1e9, vmn=0;
+  for(let kk=20;kk<=140;kk+=2){ const v=kk/3.6, c=consumoCte(v,p,zb,0,Paux); pts.push([kk,c.whkm,c.partes]); if(c.whkm<mn){ mn=c.whkm; vmn=kk; } }
+  const vo=vOptima(p,zb,Paux)*3.6, san=[]; for(let kk=20;kk<=140;kk+=2) san.push([kk,consumoCte(kk/3.6,{},zb,0,VEH.Paux).whkm]);
+  CURV={pts,vo,mn:consumoCte(vo/3.6,p,zb,0,Paux).whkm,san}; return CURV;
+}
+const f1=(x)=>fN(x,1);
+
+/* ---- Perfil de la ruta y SOC: elevación (área), SOC (línea) y la reserva del 10 % ---- */
+function pintaPerfil(){
+  const S=ST; if(!S) return; const x=abre(LPE), Wd=LPE.w, Hd=LPE.h, R=S.S.R, SS=S.S, L=R.L/1000;
+  const X0=30, X1=Wd-30, Y0=10, Y1=Hd-14, X=km=>X0+km/L*(X1-X0), zmin=400, zmax=2600, Yz=z=>Y1-(z-zmin)/(zmax-zmin)*(Y1-Y0), Ys=c=>Y1-c*(Y1-Y0);
+  // bandas de tramo
+  if(!R.llana){ R.zonas.forEach((z,i)=>{ const t=R.zonaTipo[i], a=X(z[0]/1000), b=X(z[1]/1000); x.fillStyle=t===1?'rgba(251,146,60,0.07)':(t===2?'rgba(52,211,153,0.07)':'rgba(148,163,184,0.03)'); x.fillRect(a,Y0,b-a,Y1-Y0);
+    txt(x,['llano','subida','bajada'][t],(a+b)/2,Y0+9,'rgba(143,179,176,0.55)',8,'center','600'); }); }
+  for(const c of [0.25,0.5,0.75,1]) raya(x,X0,Ys(c),X1,Ys(c),GRID);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,EJE); raya(x,X0,Y0,X0,Y1,EJE); raya(x,X1,Y0,X1,Y1,EJE);
+  for(const kk of [0,60,120,180,240]) if(kk<=L){ raya(x,X(kk),Y1,X(kk),Y1+3,EJE); txt(x,String(kk),X(kk),Hd-2,TXT,8.5,'center','500'); }
+  for(const c of [0,0.5,1]) txt(x,String(c*100),X1+3,Ys(c)+3,C_SOC,8.5,'left','500');
+  for(const z of [500,1500,2500]) txt(x,fN(z),X0-3,Yz(z)+3,TXT,8.5,'right','500');
+  txt(x,'m',X0-3,Y0+3,TXT,8,'right','600'); 
+  // la elevación
+  x.beginPath(); x.moveTo(X(0),Y1); for(let i=0;i<=SS.N;i+=6) x.lineTo(X(SS.s[i]/1000),Yz(SS.z[i])); x.lineTo(X(L),Y1); x.closePath();
+  const g=x.createLinearGradient(0,Y0,0,Y1); g.addColorStop(0,'rgba(120,170,195,0.55)'); g.addColorStop(1,'rgba(60,100,120,0.12)'); x.fillStyle=g; x.fill();
+  x.strokeStyle='#8fb9cc'; x.lineWidth=1.4; x.beginPath(); for(let i=0;i<=SS.N;i+=6){ const px=X(SS.s[i]/1000), py=Yz(SS.z[i]); i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  // la reserva del 10 %
+  raya(x,X0,Ys(SOC_MIN),X1,Ys(SOC_MIN),'rgba(255,183,3,0.75)',1,[4,3]); txt(x,'reserva 10 %',X0+4,Ys(SOC_MIN)-3,'#ffb703',8.5,'left','600');
+  // la carga
+  const modo=modoSOC(), sc=VJ.s/1000;
+  const traza=(hasta,col,alfa,w,dash)=>{ x.globalAlpha=alfa; x.strokeStyle=col; x.lineWidth=w; x.setLineDash(dash||[]); x.beginPath(); let ini=false;
+    for(let i=0;i<=SS.N;i+=4){ const km=SS.s[i]/1000; if(km>hasta) break; const px=X(km), py=Ys(clamp(SS.soc[i],0,1.05)); ini?x.lineTo(px,py):x.moveTo(px,py); ini=true; } x.stroke(); x.setLineDash([]); x.globalAlpha=1; };
+  if(modo==='total'){ traza(L,C_SOC,0.28,1.6,[3,3]); traza(sc,C_SOC,1,2.4); }
+  else if(modo==='progresivo') traza(sc,C_SOC,1,2.4);
+  // el cursor
+  const cx=X(sc); raya(x,cx,Y0,cx,Y1,'rgba(255,255,255,0.45)',1); punto(x,cx,Yz(S.m.z),3.4,'#bcd7e4');
+  if(modo!=='nada') punto(x,cx,Ys(clamp(S.m.soc,0,1.05)),3.8,C_SOC);
+  else txt(x,ocultaTodo()?'dato oculto en este reto':'la carga prevista se verá al probar el viaje',X1-4,Y1-22,C_GRIS,8.5,'right','600');
+  el('t_pe').textContent=R.llana?('km '+f1(sc)):('km '+f1(sc)+' · '+fN(S.m.z)+' m');
+}
+/* ---- Consumo frente a la velocidad: áreas apiladas (aire, rodadura, pendiente, tren, auxiliares) y el mínimo ---- */
+function pintaCons(){
+  const S=ST; if(!S) return; const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=curvas();
+  const X0=26, X1=Wd-6, Y0=8, Y1=Hd-14, ym=320, X=kk=>X0+(kk-20)/120*(X1-X0), Y=w=>Y1-clamp(w,0,ym)/ym*(Y1-Y0);
+  for(const q of [100,200,300]) raya(x,X0,Y(q),X1,Y(q),GRID);
+  raya(x,X0,Y1+0.5,X1,Y1+0.5,EJE); raya(x,X0,Y0,X0,Y1,EJE);
+  for(const kk of [40,80,120]){ raya(x,X(kk),Y1,X(kk),Y1+3,EJE); txt(x,String(kk),X(kk),Hd-2,TXT,8.5,'center','500'); }
+  for(const q of [100,200,300]) txt(x,String(q),X0-3,Y(q)+3,TXT,8.5,'right','500');
+  txt(x,'Wh/km',X0+3,Y0+8,TXT,8.5,'left','600');
+  if(enPredice()){ txt(x,'dato oculto en este reto',(X0+X1)/2,(Y0+Y1)/2,C_GRIS,10,'center','600'); el('t_co').textContent=''; return; }
+  if(enDiagnostico()){
+    x.setLineDash([4,3]); x.strokeStyle='rgba(255,255,255,0.55)'; x.lineWidth=1.5; x.beginPath(); C.san.forEach((q,i)=>{ const px=X(q[0]),py=Y(q[1]); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke(); x.setLineDash([]);
+    txt(x,'coche sano (referencia)',X1-2,Y0+9,'rgba(255,255,255,0.7)',8.5,'right','600');
+    for(const q of GUIA.pts){ punto(x,X(q[0]),Y(q[1]),3.2,'#ffb703'); }
+    const c=S.cte; if(c) punto(x,X(clamp(S.m.v*3.6,20,140)),Y(c.whkm),4.2,C_TOT);
+    txt(x,'tus medidas',X0+4,Y1-4,'#ffb703',8.5,'left','700'); el('t_co').textContent=''; return;
+  }
+  // áreas apiladas: aire, rodadura, tren, auxiliares (la pendiente es 0 en el llano de referencia)
+  const capas=[['aux',C_AUX],['tren',C_TREN],['rod',C_ROD],['aire',C_AIRE]];
+  let base=C.pts.map(()=>0);
+  for(const [k,col] of capas){ const top=C.pts.map((q,i)=>base[i]+Math.max(0,q[2][k]));
+    x.beginPath(); C.pts.forEach((q,i)=>{ const px=X(q[0]), py=Y(top[i]); i?x.lineTo(px,py):x.moveTo(px,py); }); for(let i=C.pts.length-1;i>=0;i--) x.lineTo(X(C.pts[i][0]),Y(base[i])); x.closePath();
+    x.globalAlpha=0.55; x.fillStyle=col; x.fill(); x.globalAlpha=1; base=top; }
+  x.strokeStyle=C_TOT; x.lineWidth=2; x.beginPath(); C.pts.forEach((q,i)=>{ const px=X(q[0]),py=Y(q[1]); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  // el mínimo
+  raya(x,X(C.vo),Y(C.mn),X(C.vo),Y1,'rgba(255,255,255,0.45)',1,[2,3]); punto(x,X(C.vo),Y(C.mn),3.6,'#ffd166');
+  txt(x,'mín. '+fN(C.vo,0)+' km/h',Math.min(X1-2,X(C.vo)+6),Y(C.mn)-6,'#ffd166',8.5,'left','700');
+  txt(x,'aire',X(124),Y(C.pts[52][2].aire+C.pts[52][2].rod+C.pts[52][2].tren+C.pts[52][2].aux)+11,C_AIRE,8.5,'center','700');
+  // dónde está el coche: el consumo de llano a su velocidad (punto) y el instantáneo con la pendiente (anillo)
+  const kk=clamp(S.m.v*3.6,20,140), cc=S.cte; if(cc){ punto(x,X(kk),Y(cc.whkm),3.8,C_TOT); }
+  const wi=S.m.whkm, py=Y(wi); x.strokeStyle=wi>ym?'#ff9a9a':(wi<0?C_REG:'#fff'); x.lineWidth=1.6; x.beginPath(); x.arc(X(kk),py,5.4,0,DOSPI); x.stroke();
+  el('t_co').textContent='ahora '+fN(wi,0);
+}
+/* ---- Dónde va la energía: barras del viaje hasta ahora (kWh) ---- */
+function pintaDesglose(){
+  const S=ST; if(!S) return; const x=abre(LDE), Wd=LDE.w, Hd=LDE.h, A=S.ac;
+  if(enPredice()||enDiagnostico()){ txt(x,'se muestra en el viaje',Wd/2,Hd/2,C_GRIS,10,'center','600'); el('t_de').textContent=''; return; }
+  const kw=j=>j/3.6e6;
+  const filas=[['Aire',kw(A.Ea),C_AIRE],['Rodadura',kw(A.Er),C_ROD],['Pendiente',kw(A.Eg+A.Ei),C_PEN],['Tren',kw(A.Eloss),C_TREN],['Auxiliares',kw(A.Eaux),C_AUX],['Fricción',kw(A.Efric),'#ff6b6b']];
+  const reg=kw(A.Egen), net=kw(A.Eel), vmax=Math.max(8,...filas.map(f=>Math.abs(f[1])),reg);
+  const n=filas.length+1, X0=58, X1=Wd-34, Y0=8, h=Math.min(15,(Hd-Y0-6)/n-3);
+  const X=v=>X0+(v/(vmax*1.05))*(X1-X0);
+  raya(x,X0,Y0-2,X0,Y0+n*(h+3),EJE);
+  filas.forEach((f,i)=>{ const y=Y0+i*(h+3), w=X(Math.abs(f[1]))-X0; x.fillStyle=f[2]; x.globalAlpha=0.85; x.fillRect(f[1]>=0?X0:X0-w,y,Math.max(1,w),h); x.globalAlpha=1;
+    txt(x,f[0],X0-4,y+h-3,TXT,9,'right','600'); txt(x,fN(f[1],1),Math.min(Wd-2,X0+Math.max(1,w)+4),y+h-3,'#d7e6e3',9,'left','600'); });
+  const yr=Y0+filas.length*(h+3); x.fillStyle=C_REG; x.globalAlpha=0.85; const wr=X(reg)-X0; x.fillRect(X0,yr,Math.max(1,wr),h); x.globalAlpha=1;
+  txt(x,'Regenera',X0-4,yr+h-3,C_REG,9,'right','700'); txt(x,fN(reg,1),X0+Math.max(1,wr)+4,yr+h-3,C_REG,9,'left','700');
+  el('t_de').textContent='Σ '+fN(net,1);
+}
+/* ---- Potencia en la batería frente a la distancia: descarga (ámbar) y regeneración (verde) ---- */
+function pintaPotencia(){
+  const S=ST; if(!S) return; const x=abre(LPO), Wd=LPO.w, Hd=LPO.h, SS=S.S, L=SS.R.L/1000;
+  const X0=30, X1=Wd-8, Y0=8, Y1=Hd-14, pm=90, Yp=(p)=>Y1-(clamp(p,-30,pm)+30)/(pm+30)*(Y1-Y0), X=km=>X0+km/L*(X1-X0);
+  raya(x,X0,Yp(0),X1,Yp(0),'rgba(143,179,176,0.45)',1); raya(x,X0,Y0,X0,Y1,EJE);
+  for(const p of [-20,40,80]) txt(x,String(p),X0-3,Yp(p)+3,TXT,8.5,'right','500');
+  for(const kk of [0,60,120,180,240]) if(kk<=L) txt(x,String(kk),X(kk),Hd-2,TXT,8.5,'center','500');
+  const modo=modoSOC();
+  if(modo==='nada'){ txt(x,ocultaTodo()?'—':'se verá al probar el viaje',(X0+X1)/2,(Y0+Y1)/2,C_GRIS,10,'center','600'); el('t_po').textContent=''; return; }
+  const sc=VJ.s/1000, hasta=modo==='progresivo'?sc:L;
+  const area=(pos,col)=>{ x.fillStyle=col; x.beginPath(); let ini=false, ult=0; for(let i=0;i<SS.N;i+=3){ const km=SS.s[i]/1000; if(km>hasta) break; const p=SS.pel[i]/1000, v=pos?Math.max(0,p):Math.min(0,p), px=X(km); if(!ini){ x.moveTo(px,Yp(0)); ini=true; } x.lineTo(px,Yp(v)); ult=px; } if(ini){ x.lineTo(ult,Yp(0)); x.closePath(); x.fill(); } };
+  area(true,'rgba(255,183,3,0.55)'); area(false,'rgba(52,211,153,0.7)');
+  const cx=X(sc); raya(x,cx,Y0,cx,Y1,'rgba(255,255,255,0.45)',1); punto(x,cx,Yp(S.m.pel/1000),3.4,S.m.pel<0?C_REG:C_DES);
+  el('t_po').textContent=fN(S.m.pel/1000,0)+' kW';
+}
+function pintaDockFijo(){
+  const gu=EST.modo==='guia';
+  el('p_mode').textContent=gu?'Laboratorio guiado':'Ruta de montaña';
+  pintaLeyPe(); pintaSub();
+}
+function pintaLeyPe(){
+  el('lePe').innerHTML=`<span class="lg"><i class="bl" style="--c:${C_ELEV}"></i>elevación</span><span class="lg"><i style="--c:${C_SOC}"></i>carga</span><span class="lg"><i class="dash" style="--c:#ffb703"></i>reserva</span>`;
+}
+function pintaSub(){
+  const S=ST; if(!S) return;
+  const t=EST.modo==='guia'&&GUIA.paso==='decide'?'plan de velocidades':(S.S.R.llana?fN(S.m.v*3.6)+' km/h constantes':'ruta sintética · '+fN(S.S.R.L/1000)+' km'); const e=el('p_sub'); if(e.textContent!==t) e.textContent=t;
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const S=ST; if(!S) return; const set=(id,h)=>{ const e=el(id); if(e.innerHTML!==h) e.innerHTML=h; }, m=S.m, oc=enPredice();
+  if(oc){ set('f_c','¿?'); _cl('f_c','oculto'); set('f_p','¿?'); _cl('f_p','oculto'); set('f_a','¿?'); _cl('f_a','oculto'); }
+  else { set('f_c',fN(m.whkm,0)+'<small> Wh/km</small>'); _cl('f_c',m.whkm<0?'warn':''); set('f_p',fN(m.pel/1000,1)+'<small> kW</small>'); _cl('f_p',''); set('f_a',fN(S.aut,0)+'<small> km</small>'); _cl('f_a',''); }
+  set('f_v',fN(m.v*3.6,0)+'<small> km/h</small>'); set('f_g',fN(m.grade*100,1)+'<small> %</small>');
+  if(modoSOC()==='nada'&&!(enDecide()&&GUIA.viaje==='listo')){ set('f_s','¿?'); _cl('f_s','oculto'); } else { set('f_s',fN(m.soc*100,1)+'<small> %</small>'); _cl('f_s',m.soc<SOC_MIN?'bad':''); }
+  pintaSub();
+  const Av=el('aviso'); let cl='', t='';
+  if(!oc&&m.Ffric*m.v>2000){ cl='ojo'; t='Bajada: el motor no absorbe todo; el freno de fricción disipa '+fN(m.Ffric*m.v/1000,0)+' kW.'; }
+  else if(!oc&&m.soc<SOC_MIN&&modoSOC()!=='nada'){ cl='mal'; t='Por debajo de la reserva del 10 %.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+
+/* ===================== 14. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const DURS=[[30,'30 s'],[60,'60 s'],[120,'120 s']];
+el('vbar').innerHTML=[['coche','Coche'],['bateria','Batería'],['tren','Tren'],['ruta','Ruta']].map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tDur" aria-label="Duración del viaje en el dibujo">${DURS.map(([v,t])=>`<option value="${v}">viaje en ${t}</option>`).join('')}</select>
+  <input type="range" id="tPos" min="0" max="1000" step="1" value="0" aria-label="Posición en la ruta"><span class="viaje" id="tViaje"></span><span class="lento" id="tLento"></span><span class="est" id="tEst"><i></i><span></span></span><span class="leyF"><i style="--c:#ffb703"></i>descarga <i style="--c:#34d399"></i>regeneración</span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tDur').onchange=e=>{ EST.dur=+e.target.value; pintaBarras(); };
+el('tPos').oninput=e=>{ if(!scrubOk()) return; VJ.s=+e.target.value/1000*VJ.S.R.L; VJ.hold=0; };
+/** El deslizador de posición sólo existe donde no regala la respuesta: en «En marcha». */
+const scrubOk=()=>EST.modo==='marcha'&&!EST.autoRunning&&!!VJ.S;
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tDur'); if(+sel.value!==EST.dur) sel.value=String(EST.dur);
+  el('tPos').style.display=EST.modo==='marcha'?'':'none';
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+const hm=t=>{ const h=Math.floor(t/3600), mi=Math.floor((t%3600)/60); return h+' h '+(mi<10?'0':'')+mi+' min'; };
+function pintaReloj(){
+  const S=ST, e=el('tEst'); if(!S) return;
+  el('tViaje').textContent='km '+fN(VJ.s/1000,1)+' · '+hm(S.m.t);
+  el('tLento').textContent='tiempo ×'+fN(S.C,0)+' · paisaje ¼';
+  if(document.activeElement!==el('tPos')) el('tPos').value=Math.round(VJ.s/S.S.R.L*1000);
+  let t, c='#7DE9D9';
+  if(EST.pausa){ t='en pausa'; c='#8FB3B0'; }
+  else if(S.m.pel<0){ t='regenerando'; c='#34d399'; }
+  else if(S.m.Ffric*S.m.v>2000){ t='freno de fricción'; c='#ff6b6b'; }
+  else t=NOM_TRAMO[S.m.zona]||'';
+  e.firstChild.style.background=c; if(e.lastChild.textContent!==t) e.lastChild.textContent=t;
+}
+
+/* ===================== 15. RÓTULOS Y TOOLTIP ===================== */
+const W3=(x,y,z)=>()=>COCHE.localToWorld(V3(x,y,z));
+const ANCLAS=[
+  ['Batería · 96 módulos',W3(0.3,0.30,0.70),()=>true],
+  ['Inversor',W3(-0.95,0.58,-0.10),()=>true],
+  ['Motor trasero',W3(-1.38,0.35,0.22),()=>true],
+  ['Cable de alta tensión',W3(-1.10,0.46,-0.06),()=>true],
+  ['Aire ½ρC_dAv²',()=>COCHE.localToWorld(V3(0.9-Math.min(3.3,ST?ST.m.Fa*KF:0)*0.5,1.80,0)),()=>true],
+  ['Rodadura m·g·C_rr',()=>COCHE.localToWorld(V3(0.9-Math.min(3.3,ST?ST.m.Fr*KF:0)*0.5,2.02,0)),()=>true],
+  ['Pendiente m·g·sinθ',()=>COCHE.localToWorld(V3(0.9-(ST&&ST.m.Fg>=0?1:-1)*Math.min(3.3,ST?Math.abs(ST.m.Fg)*KF:0)*0.5,2.24,0)),()=>true],
+  ['Tracción (equilibra)',()=>COCHE.localToWorld(V3(-0.9+(ST&&ST.m.F>=0?1:-1)*Math.min(3.3,ST?Math.abs(ST.m.F)*KF:0)*0.5,2.46,0)),()=>true],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(const [t] of ANCLAS){ const d=document.createElement('div'); d.className='rot3'; d.textContent=t; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(125,233,217,.55)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f,ok],i)=>{ if(!ok()) return; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  coche:'Crossover eléctrico en media sección: se quitó la mitad cercana de la carrocería para ver el tren de potencia',
+  bateria:'Batería de 45 kWh útiles en 96 módulos. Los que se iluminan son la carga (SOC); el verde pasa a ámbar y a rojo al vaciarse',
+  inversor:'Inversor: convierte la corriente continua de la batería en la alterna del motor y pierde calor en cada conmutación',
+  motor:'Motor de tracción en el eje trasero; sus semiejes llevan el par a las ruedas',
+  cable:'Cable de alta tensión (naranja por norma). Por aquí van las esferas de energía',
+  flujo:'Cada esfera es energía: ámbar sale de la batería hacia la rueda; verde vuelve a la batería al frenar (regeneración)',
+  flechaAire:'Fuerza del aire: ½·ρ(z)·C_d·A·v². Se multiplica por 4 al duplicar la velocidad y baja con la altura',
+  flechaRod:'Rodadura: m·g·C_rr·cosθ. Casi constante con la velocidad',
+  flechaPend:'Pendiente: m·g·sinθ. Frena en subida y empuja en bajada',
+  flechaTrac:'Tracción necesaria: suma de las otras tres más m·a. En verde, el motor frena y regenera',
+  asfalto:'La pendiente se dibuja EXAGERADA ×4; el asfalto corre a ¼ de la velocidad real',
+  corte:'Corte geológico del terreno bajo la carretera (esquema)',
+  montana:'Fondo: las crestas suben y bajan con la altura de la ruta',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects([MUNDO,FONDO],true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible) vis=false; if(!vis) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; for(let o=h.object;o;o=o.parent){ if(o.userData&&o.userData.pieza) return o.userData.pieza; } return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 16. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.47:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.6,240,560));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.62:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); ponVista(EST.vista,0.001); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); ponVista(EST.vista,0.001); centraEnHueco(); });
+
+/* ===================== 17. EL LABORATORIO GUIADO =====================
+   Tres fases: 1 · Calcula (la autonomía a velocidad constante por la ecuación de carga), 2 · Planea (tres velocidades —llano,
+   subida y bajada— para llegar con SOC ≥ 10 % sin pasarse del tiempo: ni el plan más lento ni el más rápido lo cumplen) y
+   3 · Diagnostica (¿neumáticos blandos, baca con carga o un auxiliar atascado?, sólo con la huella en la curva Wh/km), y cierra
+   con un quiz de tres preguntas. El resultado del plan sólo aparece al terminar el viaje; cuatro intentos fallidos cambian el escenario. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'predice',iniciado:false,dxOk:false,r1:null,r2:null,preparando:false,dx:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0,orden:null,pts:[],vTest:80,viaje:'listo',idN:0};
+
+/* ---------- Fase 1 · Calcula ---------- */
+const E1=[40,50,60,75,90], V1=[70,90,110,130], CD1=[0.23,0.27,0.31], A1=[2.2,2.4,2.6], M1=[1500,1800,2100], CR1=[0.008,0.010,0.012], ETA1=[0.88,0.90,0.92];
+function sorteaCaso1(){
+  let c; do{ c={E:pickOne(E1),v:pickOne(V1),Cd:pickOne(CD1),A:pickOne(A1),m:pickOne(M1),Crr:pickOne(CR1),eta:pickOne(ETA1),id:++GUIA.idN}; c.ans=autonomiaDidactica(c); c.F=0.5*AIRE.rho0*c.Cd*c.A*Math.pow(c.v/3.6,2)+c.m*G*c.Crr; }
+  while(c.ans<140||c.ans>520||(GUIA.r1&&GUIA.r1.E===c.E&&GUIA.r1.v===c.v&&GUIA.r1.Cd===c.Cd&&GUIA.r1.m===c.m));
+  GUIA.r1=c;
+}
+function checkPredice(){
+  const raw=String((el('ansV')||{}).value||'').trim().replace(/\s| /g,'').replace(',','.'), v=parseFloat(raw), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la autonomía en km (con coma o punto decimal).'); return; }
+  RETO.intentos++;
+  if(Math.abs(v-ok)<=Math.max(5,0.03*ok)){
+    RETO.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`A ${fN(r.v)} km/h la fuerza en la rueda es F = ½ρC<sub>d</sub>Av² + m·g·C<sub>rr</sub> = ${fN(r.F,0)} N, o sea ${fN(r.F/3.6,1)} Wh por km en la rueda. Con η = ${fN(r.eta,2)} la batería da 0,9 × ${fN(r.E)} kWh × η, así que <b>autonomía = 0,9·E·η / (F/3,6) = ${fN(ok,0)} km</b>. Duplicar la velocidad no duplica el consumo: el aire cobra v².`,true);
+    paso('decide'); prepararDecide();
+  } else {
+    RETO.fallos1++; sonido.mal();
+    const d=v>ok?'alto':'bajo', alt=Math.abs(v-ok/0.9)<Math.max(5,0.03*ok/0.9);
+    if(RETO.fallos1>=3){ RETO.fallos1=0; RETO.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el coche: suma la fuerza del aire (½ρC_dAv²) y la de rodadura (m·g·C_rr) y pásala a energía por kilómetro.'); pintaHUD(); pintaDockFijo(); }
+    else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,v%1?1:0)}) está ${d}.`+(alt?' ¿Usaste el 100 % de la batería? Aquí sólo se gasta del 100 % al 10 %.':' Recuerda: F en newtons, v en m/s dentro del v², y energía por km = F·1 000 m / 3 600 s·W.')+` (intentos fallidos: ${RETO.fallos1}/3)`);
+      const t=el('d_try'); if(t) t.textContent=RETO.fallos1;
+    }
+  }
+}
+
+/* ---------- Fase 2 · Planea ---------- */
+function prepararDecide(){
+  GUIA.preparando=true; GUIA.r2=null; GUIA.viaje='listo'; pintaHUD();
+  setTimeout(()=>{
+    let sc=null; for(let i=0;i<6&&!sc;i++) sc=generaReto(Math.random);
+    if(!sc){ let x=7; sc=generaReto(()=>(x=x*48271%2147483647)/2147483647); }
+    GUIA.r2={sc,plan:[80,80,80],planProbado:null,intentos:0,res:null,id:++GUIA.idN};
+    GUIA.preparando=false; GUIA.viaje='listo'; VJ.clave=''; pintaHUD(); pintaDockFijo();
+  },40);
+}
+function pruebaViaje(){
+  const r=GUIA.r2; if(!r||GUIA.preparando||GUIA.viaje!=='listo') return;
+  r.planProbado=r.plan.slice(); r.res=null; GUIA.viaje='corre'; VJ.clave=''; VJ.s=0; VJ.hold=0; EST.pausa=false; pintaHUD(); pintaDock();
+}
+function finViaje(){
+  const r=GUIA.r2; if(!r) return; GUIA.viaje='fin';
+  const e=evaluaPlan(r.sc,r.planProbado); r.res=e; RETO.intentos++; r.intentos++;
+  const pasa=e.okSoc&&e.okPiso&&e.okT;
+  if(pasa){
+    RETO.fallos2=0; sonido.bien();
+    feedback('good','¡Llegaste! ✓',`Plan ${r.planProbado.map(v=>fN(v)).join(' / ')} km/h: llegas con <b>${fN(e.socFin*100,1)} %</b> de carga en <b>${hm(e.T)}</b> (límite ${hm(r.sc.Tlim)}). Ir más despacio ahorra energía por kilómetro hasta cierto punto, pero el tiempo manda; ir deprisa gasta v² en aire. Lo bueno está en medio.`,true);
+  } else {
+    RETO.fallos2++; sonido.mal();
+    const f=[]; if(!e.okSoc||!e.okPiso) f.push(e.socMin<0?'la batería se agota antes de llegar':'llegas con '+fN(e.socFin*100,1)+' % (< 10 %)'); if(!e.okT) f.push('tardas '+hm(e.T)+' (límite '+hm(r.sc.Tlim)+')');
+    let msg='No cumple: '+f.join(' y ')+'.';
+    if(!e.okSoc&&e.okT) msg+=' Hay margen de tiempo: baja la velocidad donde menos tiempo pierdes.'; else if(e.okSoc&&!e.okT) msg+=' Sobra batería: puedes ir más deprisa en algún tramo.'; else msg+=' Ni la energía ni el tiempo alcanzan con este reparto de velocidades.';
+    if(RETO.fallos2>=4){ RETO.fallos2=0; RETO.resiembras++; feedback('bad','Cuatro intentos sin lograrlo',msg+' Cambia el escenario: otra carga, otros auxiliares y otro límite.',true); prepararDecide(); return; }
+    feedback('bad','Todavía no',msg+` (intentos: ${RETO.fallos2}/4)`,true);
+  }
+  pintaHUD(); pintaDock();
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const RANGO_AV={ rod:[1.7,2.2], baca:[1.35,1.6], aux:[1.8,2.6] };
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let k; do{ k=pickOne(['rod','baca','aux']); }while(k===p);
+  const [a,b]=RANGO_AV[k], mag=Math.round((a+Math.random()*(b-a))*20)/20;
+  GUIA.dx={k,mag,id:++GUIA.idN}; GUIA.dxOk=false; GUIA.vTest=80; GUIA.pts=[]; GUIA.orden=barajar(['rod','baca','aux']);
+  VJ.clave=''; registraPunto(); pintaHUD(); pintaDockFijo();
+}
+function registraPunto(){
+  if(!GUIA.dx) return; const av=parAveria(GUIA.dx.k,GUIA.dx.mag), v=GUIA.vTest, c=consumoCte(v/3.6,av.par,RUTA_LL.z0,0,av.Paux);
+  GUIA.pts=GUIA.pts.filter(q=>q[0]!==v); GUIA.pts.push([v,c.whkm]);
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETO.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETO.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx),true);
+    paso('quiz'); iniciaQuiz();
+  } else {
+    RETO.fallos3++; sonido.mal();
+    if(RETO.fallos3>=3){ RETO.fallos3=0; RETO.resiembras++; feedback('bad','Tres intentos fallidos','Es otro coche: mide su consumo a velocidades muy distintas y mira cómo se separa de la curva del coche sano.',true); iniciaDiag(); }
+    else { feedback('bad','No es esa',noEs(k)+` (intentos fallidos: ${RETO.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(d){
+  const av=parAveria(d.k,d.mag);
+  if(d.k==='rod') return `Neumáticos blandos: el exceso es casi el mismo a cualquier velocidad, porque la rodadura m·g·C_rr no depende de v. Aquí C_rr valía ${fN(VEH.Crr*d.mag,4)} en vez de ${fN(VEH.Crr,3)}: inflar los neumáticos a su presión devuelve la autonomía.`;
+  if(d.k==='baca') return `Baca con carga: el exceso crece con la velocidad al cuadrado, porque lo que cambia es C_d·A (×${fN(d.mag,2)}). A 50 km/h casi no se nota; a 120 km/h pesa. Quitar la baca es gratis.`;
+  return `Auxiliar atascado: el exceso es mayor a baja velocidad, porque son ${fN(av.Paux/1000,1)} kW constantes en lugar de ${fN(VEH.Paux/1000,1)} kW y cada kilómetro tarda más cuanto más despacio vas. Se apaga el auxiliar y listo.`;
+}
+function noEs(k){
+  if(k==='rod') return 'Con los neumáticos blandos el exceso en Wh/km sería casi igual a 50 que a 120 km/h. Mide a las dos velocidades y compara.';
+  if(k==='baca') return 'Con una baca el exceso casi desaparece a baja velocidad y se dispara a alta (crece como v²). Mide a las dos velocidades y compara.';
+  return 'Con un auxiliar atascado el exceso sería mayor a baja velocidad que a alta (crece como 1/v). Mide a las dos velocidades y compara.';
+}
+const QUIZ=[
+  {q:'Bajas de 120 a 90 km/h por llano. ¿En qué fracción queda la POTENCIA que gasta el aire?',ok:()=>`En el ${fN(Math.pow(0.75,3)*100,0)} % (crece como v³)`,mal:()=>[`En el ${fN(75,0)} % (como v)`,`En el ${fN(Math.pow(0.75,2)*100,0)} % (como v²)`,`En el ${fN(Math.pow(0.75,4)*100,0)} % (como v⁴)`]},
+  {q:'Bajando el puerto el coche no recupera toda la energía que gastó al subir. ¿Por qué?',ok:()=>'Porque el aire, la rodadura y el tren se llevan parte, y la regeneración tiene un tope de potencia',mal:()=>['Porque la batería no se carga con el coche en movimiento','Porque la gravedad pesa menos al bajar que al subir','Porque el freno regenerativo sólo funciona en llano']},
+  {q:'A velocidades muy bajas el consumo por kilómetro vuelve a SUBIR. ¿Por qué?',ok:()=>'Porque auxiliares y pérdidas fijas gastan potencia constante y cada kilómetro tarda más',mal:()=>['Porque el aire frena más cuanto más despacio vas','Porque el motor no puede girar despacio','Porque la rodadura crece al bajar la velocidad']},
+];
+function iniciaQuiz(){ GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], ok=Q.ok(), opts=barajar([ok,...Q.mal()]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETO.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETO.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({predice:0,decide:1,diag:2,quiz:2,completo:2})[p]; VJ.clave=''; if(EST.modo==='guia') pintaHUD(); }
+function handleAction(act,btn){
+  switch(act){
+    case 'check-v': checkPredice(); break;
+    case 'hint-v':
+      if(RETO.pistas===0){ RETO.pistas=1; feedback('good','Pista 1 de 2','A velocidad constante en llano la fuerza en la rueda es F = ½·ρ·C<sub>d</sub>·A·v² + m·g·C<sub>rr</sub> (v en m/s). Cada newton, durante un kilómetro, son F/3,6 Wh.'); }
+      else if(RETO.pistas===1){ RETO.pistas=2; feedback('good','Pista 2 de 2','La energía útil es el 90 % de la batería (del 100 % al 10 %). Dividida entre la energía por kilómetro que sale de la rueda, y multiplicada por η, da los km.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'probar': pruebaViaje(); break;
+    case 'reintenta': { const r=GUIA.r2; if(r&&GUIA.viaje==='fin'){ GUIA.viaje='listo'; VJ.clave=''; VJ.s=0; r.res=null; el('feedback').classList.remove('show'); pintaHUD(); } break; }
+    case 'ir-diag': el('feedback').classList.remove('show'); paso('diag'); iniciaDiag(); break;
+    case 'dx-rod': diagnostica('rod'); break; case 'dx-baca': diagnostica('baca'); break; case 'dx-aux': diagnostica('aux'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'predice': { const r=GUIA.r1; return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Hasta dónde llega?',
+      teach:`Un VE con <b>${fN(r.E)} kWh</b> útiles, η = ${fN(r.eta,2)} hasta la rueda, <b>${fN(r.m)} kg</b>, C<sub>d</sub> = ${fN(r.Cd,2)}, A = ${fN(r.A,1)} m², C<sub>rr</sub> = ${fN(r.Crr,3)}, a <b>${fN(r.v)} km/h</b> por llano (ρ = 1,225 kg/m³, sin auxiliares). Gasta del 100 % al 10 %.<div class="task">¿Qué autonomía tiene, en km? ${tri('d_try',RETO.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? km" aria-label="Autonomía en kilómetros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'decide': { const r=GUIA.r2;
+      if(GUIA.preparando||!r) return {no:'Fase 2 · Reto 2',head:'Tu plan',title:'Preparando la ruta…',teach:'Calculando el escenario.',acts:''};
+      const sc=r.sc, e=r.res, chip=(ok,t,v)=>`<div class="chip ${e?(ok?'ok':'no'):''}"><span>${t}</span><b>${v}</b></div>`, corre=GUIA.viaje==='corre', fin=GUIA.viaje==='fin', bloquea=corre||fin;
+      const sl=(id,idv,t,val)=>`<div class="cg"><div class="cl"><div>${t}</div><b id="${idv}">${fN(val)} km/h</b></div><input type="range" id="${id}" min="${PLAN.vmin}" max="${PLAN.vmax}" step="${PLAN.paso/2}" value="${val}" ${bloquea?'disabled':''} aria-label="${t}"></div>`;
+      const pl=(fin||corre)?r.planProbado:r.plan;
+      return {no:'Fase 2 · Reto 2',head:'Tu plan',title:'Llega con carga y a tiempo',
+      teach:`Sales con <b>${fN(sc.soc0*100,0)} %</b>, ${fN(sc.carga)} kg de equipaje y auxiliares de ${fN(sc.Paux/1000,1)} kW. Llega con <b>≥ 10 %</b> en menos de <b>${hm(sc.Tlim)}</b>. ${tri('d_try2',RETO.fallos2,4)}<div class="chips">
+        ${chip(e&&e.okSoc&&e.okPiso,'Carga al llegar','≥ 10 %'+(e?' · '+fN(e.socFin*100,1)+' %':''))}
+        ${chip(e&&e.okT,'Tiempo de viaje','≤ '+hm(sc.Tlim)+(e?' · '+hm(e.T):''))}</div>`,
+      acts:sl('r2L','v2L','Llano',pl[0])+sl('r2S','v2S','Subida al puerto',pl[1])+sl('r2B','v2B','Bajada',pl[2])
+        +(fin?(e&&e.okSoc&&e.okPiso&&e.okT?'<button class="b primary" data-act="ir-diag">Siguiente: diagnóstico →</button>':'<button class="b primary" data-act="reintenta">↺ Cambiar el plan</button>'):`<button class="b primary" data-act="probar" ${corre?'disabled':''}>${corre?'Viajando…':'▶ Probar el viaje'}</button>`)}; }
+    case 'diag': { const ord=GUIA.orden||['rod','baca','aux'], N={rod:'Neumáticos blandos',baca:'Baca con carga',aux:'Auxiliar atascado'};
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Gasta de más… ¿por qué?',
+      teach:`Este coche consume más que el sano (línea de trazos). Mídelo a velocidades muy distintas y mira <b>cómo</b> se separa.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETO.fallos3,3)}</div>`,
+      acts:`<div class="cg"><div class="cl"><div>Velocidad de prueba</div><b id="vdV">${fN(GUIA.vTest)} km/h</b></div><input type="range" id="rdV" min="40" max="130" step="5" value="${GUIA.vTest}" aria-label="Velocidad de prueba en kilómetros por hora"></div>`
+        +ord.map(k=>`<button class="b" data-act="dx-${k}">${N[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, planeaste y diagnosticaste',
+      teach:`Acertaste ${RETO.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>En marcha</b> y compara: bajar de velocidad en la subida y subirla en la bajada cambia el tiempo mucho más de lo que cambia la energía.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Planea','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETO.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que se simula en cada paso del laboratorio guiado (null: lo que digan los mandos). */
+function guiaViaje(){
+  const p=GUIA.paso;
+  if(p==='predice'&&GUIA.r1){ const r=GUIA.r1; return { plan:r.v, esc:{ Paux:0, soc0:1, vIni:r.v }, par:{ Cd:r.Cd, A:r.A, Crr:r.Crr, m0:r.m }, ruta:RUTA_LL, tag:'p'+r.id }; }
+  if(p==='decide'){ const r=GUIA.r2;
+    if(!r) return { plan:[80,80,80], esc:{ Paux:800, soc0:1 }, par:null, ruta:RUTA, tag:'d0' };
+    const pl=(GUIA.viaje==='listo'?r.plan:r.planProbado)||r.plan;
+    return { plan:pl.slice(), esc:{ Paux:r.sc.Paux, carga:r.sc.carga, soc0:r.sc.soc0 }, par:null, ruta:RUTA, tag:'d'+r.id }; }
+  if((p==='diag'||p==='quiz'||p==='completo')&&GUIA.dx){ const av=parAveria(GUIA.dx.k,GUIA.dx.mag);
+    return { plan:GUIA.vTest, esc:{ Paux:av.Paux, soc0:1, vIni:GUIA.vTest }, par:av.par, ruta:RUTA_LL, tag:'x'+GUIA.dx.id }; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  if(m==='guia'){
+    EST.modo='guia'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('predice'); }
+  } else EST.modo='marcha';
+  document.body.classList.toggle('m-marcha',EST.modo==='marcha'); document.body.classList.toggle('m-guia',EST.modo==='guia');
+  VJ.clave=''; pintaHUD(); pintaDockFijo(); pintaBarras(); ponVista(EST.vista,0.6);
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t) return;
+  const pl=(i,idv,val)=>{ if(GUIA.r2&&GUIA.viaje==='listo'){ GUIA.r2.plan[i]=val; el(idv).textContent=fN(val)+' km/h'; } };
+  if(t.id==='r2L') pl(0,'v2L',+t.value); if(t.id==='r2S') pl(1,'v2S',+t.value); if(t.id==='r2B') pl(2,'v2B',+t.value);
+  if(t.id==='rdV'){ GUIA.vTest=+t.value; el('vdV').textContent=fN(GUIA.vTest)+' km/h'; }
+});
+document.addEventListener('change',e=>{ const t=e.target; if(t&&t.id==='rdV'){ registraPunto(); } });
+
+/* ---------- el recorrido guiado de «En marcha» ---------- */
+const espera=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(EST.autoRunning||EST.modo!=='marcha') return; EST.autoRunning=true; sonido.init();
+  const hud=el('hud'), prev={plan:EST.plan.slice(),Paux:EST.Paux,vista:EST.vista,dur:EST.dur,pausa:EST.pausa};
+  const fija=o=>{ Object.assign(EST,o); pintaHUD(); hud.style.pointerEvents='none'; const b=el('btnAuto'); if(b){ b.disabled=true; b.textContent='Recorrido en curso…'; } pintaDockFijo(); pintaBarras(); };
+  const en=km=>{ VJ.s=km*1000; VJ.hold=0; };
+  try{
+    fija({plan:[100,90,100],Paux:800,dur:120,pausa:false}); simulaViaje(); en(8); ponVista('coche');
+    showToast('Paso 1 · En el llano mandan el <b>aire</b> (azul) y la <b>rodadura</b> (naranja). La tracción (ámbar) las iguala; las esferas llevan la energía al motor.',8200);
+    await espera(8600);
+    en(62); showToast('Paso 2 · En la subida entra la <b>pendiente</b> (violeta) y la tracción se dispara: la potencia y los Wh/km del dock suben, y los módulos de la batería se apagan.',8200);
+    await espera(8600);
+    ponVista('bateria'); showToast('Paso 3 · Cada módulo apagado es carga gastada. El borde del módulo encendido marca el SOC.',6200);
+    await espera(6600);
+    en(128); ponVista('coche'); showToast('Paso 4 · En la bajada la pendiente empuja: el motor <b>regenera</b> (esferas verdes) hasta su tope y el freno de fricción disipa el resto.',8200);
+    await espera(8600);
+    ponVista('ruta'); showToast('Paso 5 · Vista de la ruta: las crestas suben y bajan con la altura. En el dock, la curva de Wh/km frente a v tiene un <b>mínimo</b>.',7600);
+    await espera(8000);
+  } finally {
+    Object.assign(EST,{plan:prev.plan,Paux:prev.Paux,dur:prev.dur,pausa:prev.pausa}); EST.autoRunning=false; hud.style.pointerEvents='';
+    pintaHUD(); pintaDockFijo(); ponVista(prev.vista); pintaBarras();
+  }
+}
+
+
+/* ===================== 19. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.min(devicePixelRatio,alta?2:1.5));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 20. EL LAZO: UN SOLO RELOJ =====================
+   La posición del viaje VJ.s avanza con el tiempo de pared (comprimido ×C) y con ESA posición se leen la escena, las flechas,
+   el flujo de energía, las cifras y las curvas del dock: todo sale del mismo punto de la misma simulación. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, CONGELA=false;          // CONGELA: sólo para pruebas (capturas en equipos sin GPU): no dibuja hasta que se pida una imagen
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  simulaViaje(); pasaViaje(dt);
+  aplicaEscena(dt);
+  pasaCam(dt);
+  sonido.actualiza(EST.pausa||!ST?0:ST.m.v/38,ST?clamp01(Math.abs(ST.m.pel)/70e3):0);
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.05&&seVe(el('panel'))){ tLienzo=t; pintaPerfil(); pintaCons(); pintaDesglose(); pintaPotencia(); }
+  controls.update();
+  if(!CONGELA){ renderer.info.reset(); composer.render(); colocaRotulos(); }
+}
+
+/* ===================== 21. ARRANQUE =====================
+   Abre rodando: el crossover va a 90 km/h por el llano de salida, con la batería llena, el flujo de energía en marcha y la
+   cámara en el coche. Sin tocar nada ya se ve qué gasta cada kilómetro. */
+disposicion();
+aplicaCalidad();
+pintaHUD();
+simulaViaje(); VJ.s=3000; calcula();
+{ const a=Math.atan(EXAGERA*ST.m.grade); VIS.tilt=a; }
+aplicaEscena(0);
+pintaBarras();
+ponVista('coche',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+setTimeout(()=>showToast('Un crossover eléctrico por una ruta de montaña. Las esferas son energía; las flechas, las fuerzas de la ecuación de carga.',5600),700);
+
+/* ===================== 22. GANCHOS DE PRUEBA ===================== */
+window.__labDebug={
+  get mode(){ return EST.modo==='marcha'?'marcha':GUIA.paso; },
+  get solved(){ return RETO.hecho; },
+  get intentos(){ return RETO.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {fase:GUIA.phase,paso:GUIA.paso,intentos:RETO.intentos,resiembras:RETO.resiembras,fallos:{p:RETO.fallos1,d:RETO.fallos2,x:RETO.fallos3},pistas:RETO.pistas,viaje:GUIA.viaje,
+    r1:GUIA.r1?{E:GUIA.r1.E,v:GUIA.r1.v,m:GUIA.r1.m}:null,r2:GUIA.r2?{plan:GUIA.r2.plan,sc:GUIA.r2.sc}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETO.quizAcierto,resuelto:RETO.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const S=ST; if(!S) return {activo:false}; const m=S.m;
+    return {s:m.s,v:m.v,z:m.z,grade:m.grade,soc:m.soc,pel:m.pel,whkm:m.whkm,Fa:m.Fa,Fr:m.Fr,Fg:m.Fg,Fi:m.Fi,F:m.F,Freg:m.Freg,Ffric:m.Ffric,t:m.t,zona:m.zona,T:S.S.T,socFin:S.S.socFin,aut:S.aut,vOpt:S.cte?vOptima(S.S.p,m.z,S.S.esc.Paux)*3.6:null}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,dur:EST.dur,modo:EST.modo,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,inclinacionGrados:+(VIS.tilt/RAD).toFixed(2),
+    flechas:{fa:FLECHAS.fa.gr.visible,fr:FLECHAS.fr.gr.visible,fg:FLECHAS.fg.gr.visible,ft:FLECHAS.ft.gr.visible}}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v}; },
+  /** Fracción del alto del lienzo (y del hueco libre) que ocupa el objeto principal: coche + bloque de carretera + flechas. */
+  ocupacion(){ MUNDO.updateMatrixWorld(true); const b=new THREE.Box3().setFromObject(COCHE), b2=new THREE.Box3().setFromObject(DIO); b.union(b2);
+    let y0=1e9,y1=-1e9,x0=1e9,x1=-1e9; for(const sx of [b.min.x,b.max.x]) for(const sy of [b.min.y,b.max.y]) for(const sz of [b.min.z,b.max.z]){ const p=V3(sx,sy,sz).project(camera); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); }
+    const H=huecoLibre(); return {altoLienzo:+((y1-y0)/2).toFixed(3),altoHueco:+(((y1-y0)/2*innerHeight)/(H.y1-H.y0)).toFixed(3),anchoHueco:+(((x1-x0)/2*innerWidth)/(H.x1-H.x0)).toFixed(3)}; },
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('guia'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2,dx:GUIA.dx,viaje:GUIA.viaje}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',vol:sonido.vol,freq:sonido.freq,soundOn:sonido.on}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); sincronizaMandos(); pintaHUD(); pintaDockFijo(); pintaBarras(); VJ.clave=''; simulaViaje(); },
+  ir:(km)=>{ VJ.s=km*1000; VJ.hold=0; calcula(); aplicaEscena(0); },
+  avanza:(s)=>{ for(let t=0;t<s;t+=0.05) { simulaViaje(); pasaViaje(0.05); } aplicaEscena(0.5); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  paso:(p)=>{ if(EST.modo!=='guia') setMode('guia',true); paso(p); if(p==='decide') prepararDecide(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  fisica:()=>({simulaRuta,consumoCte,autonomiaCte,vOptima,evaluaPlan,generaReto,muestraRuta}),
+  r2:()=>GUIA.r2,
+  dur:(s)=>{ EST.dur=s; pintaBarras(); },
+  congela:(on)=>{ CONGELA=!!on; },
+  una:()=>{ controls.update(); pintaDock(); pintaReloj(); pintaPerfil(); pintaCons(); pintaDesglose(); pintaPotencia(); renderer.info.reset(); composer.render(); colocaRotulos(); },
+});
+instalaDiag('autonomia-ve-carga-de-ruta',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{coche:COCHE,diorama:DIO,fondo:FONDO}});
+
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-autonomia-ve-carga-de-ruta.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
