@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Fusión de sensores con filtro de Kalman — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08161F;--panel:rgba(7,20,28,.88);--line:#21495C;--ink:#EAF4F8;
+    --dim:#9BB8C4;--accent:#5BC8FF;--accent2:#A8E2FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#5BC8FF;--cR:#FFA445;--cE:#3DDC97;--cG:#C8D6D2;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#0f2733;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#173748}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#8ad8ff}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#5BC8FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#0f2733;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(91,200,255,.38);background:rgba(91,200,255,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(91,200,255,.55),0 0 24px 6px rgba(91,200,255,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · seguir a un coche con radar y cámara</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Distancia</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Error</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Velocidad relativa</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Duda (±)</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Peso radar</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Peso cámara</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Distancia al coche de adelante</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Velocidad <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Peso de lo nuevo <span id="t_fr" title="Consistencia ν²/S: 1 es lo ideal"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Error de la estimación <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — FUSIÓN DE SENSORES CON FILTRO DE KALMAN: SEGUIR A UN COCHE CON RADAR Y CÁMARA
+   (Autotrónica · mecanica-151)
+
+   Un coche de adelante frena; el radar (bueno en distancia y velocidad, flojo en el lado) y la cámara (buena en el lado,
+   floja en la distancia) lo miden con error. Un filtro de Kalman por eje (posición y velocidad) mezcla lo que ESPERABA
+   con lo que MIDIÓ, ponderando por la duda de cada uno. Las trayectorias, el ruido, el filtro y las métricas son un único
+   modelo, en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Fusión de sensores con filtro de Kalman: física pura (sin three). SI salvo donde se diga. ----
+   Cadena: el coche de adelante sigue una trayectoria EXACTA (frenada trapezoidal con rampas de tirón, balanceo lateral
+   senoidal) → radar y cámara lo miden con ruido gaussiano de SEMILLA FIJA (no depende de lo que haga el alumno) →
+   un filtro de Kalman lineal por eje (estado [posición, velocidad], modelo de velocidad constante, ruido de proceso
+   de aceleración blanca discreta) las fusiona con actualizaciones escalares secuenciales (equivalentes a la forma
+   por lotes porque los errores de las medidas son independientes) y la forma de Joseph para la covarianza. */
+const DOSPI=Math.PI*2;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>t*t*(3-2*t);
+
+/* ---- Tiempo ---- */
+const DT=0.05, TFIN=24, NPAS=Math.round(TFIN/DT);              // paso del filtro: 20 Hz; 481 instantes de 0 a 24 s
+const RAD_CADA=2, CAM_CADA=4;                                   // el radar entrega una medida cada 2 pasos (10 Hz) y la cámara cada 4 (5 Hz)
+
+/* ---- Sensores (datos de catálogo; el escenario los empeora o los mejora con kR y kC) ----
+   rx: error del radar en distancia (m) · rv: error del radar en velocidad relativa (m/s, efecto Doppler)
+   rth: error del radar en ángulo (rad) · cx: error de la cámara en distancia (fracción de la distancia, por el tamaño
+   aparente del coche) · cth: error de la cámara en ángulo (rad). El error lateral es distancia × error angular. */
+const SENS={rx:0.80,rv:0.60,rth:2.5*Math.PI/180,cx:0.08,cth:0.40*Math.PI/180};
+const RQY=0.15;               // el coche se mueve de lado unas 7 veces menos que a lo largo: Q lateral = RQY·Q longitudinal
+const P0={sx:1.5,sv:1.0};     // incertidumbre inicial (1σ) de posición (m) y velocidad (m/s), en los dos ejes
+
+/* ---- Generador pseudoaleatorio (mulberry32) y normal de Box–Muller: las medidas son reproducibles ---- */
+function prng(semilla){ let a=semilla>>>0; return ()=>{ a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+function normal(rnd){ let u=rnd(); if(u<1e-12) u=1e-12; const v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(DOSPI*v); }
+
+/* ---- Perfil de velocidad de un coche: frena Δv con aceleración máxima ab y rampas lineales de tirón de duración tr.
+   Segmentos de aceleración lineal a(τ)=a0+j·τ integrados en forma EXACTA (polinomios): v y x salen de fórmulas, no de pasos. ---- */
+function creaPerfil(p){
+  const {v0,tb,ab,dv,tr}=p, tp=dv/ab-tr;
+  const seg=[{t0:0,a0:0,j:0},{t0:tb,a0:0,j:-ab/tr},{t0:tb+tr,a0:-ab,j:0},{t0:tb+tr+tp,a0:-ab,j:ab/tr},{t0:tb+2*tr+tp,a0:0,j:0}];
+  let v=v0,x=0;
+  for(let i=0;i<seg.length;i++){
+    seg[i].v=v; seg[i].x=x;
+    if(i<seg.length-1){ const T=seg[i+1].t0-seg[i].t0; x+=v*T+seg[i].a0*T*T/2+seg[i].j*T*T*T/6; v+=seg[i].a0*T+seg[i].j*T*T/2; }
+  }
+  return t=>{ let i=seg.length-1; while(i>0&&t<seg[i].t0) i--; const s=seg[i], u=t-s.t0;
+    return {x:s.x+s.v*u+s.a0*u*u/2+s.j*u*u*u/6, v:s.v+s.a0*u+s.j*u*u/2, a:s.a0+s.j*u}; };
+}
+
+/* ---- Escenarios: la trayectoria, quién deja de ver y cuánto empeoran los sensores (kR, kC) ----
+   Lo que ve el alumno es la descripción; los factores kR y kC (el error REAL respecto al de catálogo) los descubre al validar. */
+const ESCENARIOS=[
+  {id:'autopista',nombre:'Frenazo en autopista',d0:38,
+   lider:{v0:22.5,tb:9.0,ab:5.0,dv:9.0,tr:0.4}, ego:{v0:22.5,tb:10.0,ab:4.0,dv:9.0,tr:0.5},
+   lat:{y0:0.30,A:0.55,Tper:9.0}, kR:1.30,kC:0.80, hueco:null, lim:{rms:0.30,lat:0.22}, semilla:1151},
+  {id:'lluvia',nombre:'Frenazo bajo la lluvia',d0:36,
+   lider:{v0:22.5,tb:9.5,ab:5.5,dv:10.0,tr:0.4}, ego:{v0:22.5,tb:10.4,ab:4.2,dv:10.0,tr:0.5},
+   lat:{y0:-0.20,A:0.50,Tper:8.0}, kR:1.10,kC:2.40, hueco:null, lim:{rms:0.34,lat:0.29}, semilla:2237},
+  {id:'rocio',nombre:'Frenazo tras el rocío de un camión',d0:37,
+   lider:{v0:22.5,tb:9.0,ab:5.0,dv:9.0,tr:0.4}, ego:{v0:22.5,tb:10.0,ab:4.0,dv:9.0,tr:0.5},
+   lat:{y0:0.10,A:0.45,Tper:10.0}, kR:1.00,kC:1.50, hueco:{t0:8.0,t1:9.8}, lim:{rms:0.30,lat:0.27}, semilla:3341},
+];
+const escPorId=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[0];
+
+/* ---- La verdad: distancia, velocidad y aceleración relativas (coche de adelante menos el nuestro) y posición lateral ---- */
+function verdad(esc){
+  const L=creaPerfil(esc.lider), E=creaPerfil(esc.ego), w=DOSPI/esc.lat.Tper, A=esc.lat.A, y0=esc.lat.y0;
+  const fn=t=>{ const l=L(t), e=E(t);
+    return {x:esc.d0+l.x-e.x, xE:e.x, v:l.v-e.v, a:l.a-e.a, vL:l.v, aL:l.a, vE:e.v,
+            y:y0+A*Math.sin(w*t), vy:A*w*Math.cos(w*t), ay:-A*w*w*Math.sin(w*t)}; };
+  const tr={x:new Float64Array(NPAS+1),v:new Float64Array(NPAS+1),a:new Float64Array(NPAS+1),y:new Float64Array(NPAS+1),vy:new Float64Array(NPAS+1),vL:new Float64Array(NPAS+1),aL:new Float64Array(NPAS+1),vE:new Float64Array(NPAS+1),xE:new Float64Array(NPAS+1)};
+  for(let k=0;k<=NPAS;k++){ const s=fn(k*DT); tr.x[k]=s.x; tr.v[k]=s.v; tr.a[k]=s.a; tr.y[k]=s.y; tr.vy[k]=s.vy; tr.vL[k]=s.vL; tr.aL[k]=s.aL; tr.vE[k]=s.vE; tr.xE[k]=s.xE; }
+  return {fn,tr};
+}
+const disponible=(esc,t)=>!(esc.hueco&&t>=esc.hueco.t0&&t<esc.hueco.t1);
+
+/* ---- Lo que miden radar y cámara: verdad + ruido gaussiano. Siempre se sortean los cinco números por paso
+   (aunque el sensor no vea), así la realización de ruido no cambia al cambiar de escenario o de hueco. ---- */
+function medidas(esc){
+  const V=verdad(esc).tr, rnd=prng(esc.semilla), N=NPAS+1;
+  const M={rx:new Float64Array(N),rv:new Float64Array(N),ry:new Float64Array(N),cx:new Float64Array(N),cy:new Float64Array(N),
+           rOk:new Uint8Array(N),cOk:new Uint8Array(N)};
+  for(let k=0;k<N;k++){
+    const t=k*DT, x=V.x[k], n1=normal(rnd), n2=normal(rnd), n3=normal(rnd), n4=normal(rnd), n5=normal(rnd);
+    M.rx[k]=x+SENS.rx*esc.kR*n1; M.rv[k]=V.v[k]+SENS.rv*esc.kR*n2; M.ry[k]=V.y[k]+x*SENS.rth*esc.kR*n3;
+    M.cx[k]=x+SENS.cx*esc.kC*x*n4; M.cy[k]=V.y[k]+x*SENS.cth*esc.kC*n5;
+    const ok=disponible(esc,t); M.rOk[k]=(ok&&k%RAD_CADA===0)?1:0; M.cOk[k]=(ok&&k%CAM_CADA===0)?1:0;
+  }
+  return M;
+}
+
+/* ---- Filtro de Kalman de dos estados ---- */
+const mat2=(a,b,c,d)=>[[a,b],[c,d]];
+/** Predicción: x⁻ = F x ; P⁻ = F P Fᵀ + Q, con F=[[1,T],[0,1]] y Q = σa²·[[T⁴/4,T³/2],[T³/2,T²]] (aceleración constante en cada paso, independiente de un paso al otro). */
+function predice(x,P,T,sa){
+  x[0]+=T*x[1];
+  const p00=P[0][0]+T*(P[0][1]+P[1][0])+T*T*P[1][1], p01=P[0][1]+T*P[1][1], p11=P[1][1], q=sa*sa;
+  P[0][0]=p00+q*T*T*T*T/4; P[0][1]=p01+q*T*T*T/2; P[1][0]=P[0][1]; P[1][1]=p11+q*T*T;
+}
+/** Corrección con una medida escalar z = h·x + ruido(R). Devuelve la innovación, su varianza y la ganancia. P por la forma de Joseph. */
+function corrige(x,P,h,z,R){
+  const Ph0=P[0][0]*h[0]+P[0][1]*h[1], Ph1=P[1][0]*h[0]+P[1][1]*h[1];
+  const S=h[0]*Ph0+h[1]*Ph1+R, K0=Ph0/S, K1=Ph1/S, nu=z-(h[0]*x[0]+h[1]*x[1]);
+  x[0]+=K0*nu; x[1]+=K1*nu;
+  const a00=1-K0*h[0], a01=-K0*h[1], a10=-K1*h[0], a11=1-K1*h[1];
+  const m00=a00*P[0][0]+a01*P[1][0], m01=a00*P[0][1]+a01*P[1][1], m10=a10*P[0][0]+a11*P[1][0], m11=a10*P[0][1]+a11*P[1][1];
+  const n00=m00*a00+m01*a01+K0*R*K0, n01=m00*a10+m01*a11+K0*R*K1, n11=m10*a10+m11*a11+K1*R*K1;
+  P[0][0]=n00; P[0][1]=n01; P[1][0]=n01; P[1][1]=n11;
+  return {nu,S,K0,K1};
+}
+/** Corrida completa del filtro sobre las medidas de un escenario. prm = {q (m/s²), fR, fC}: q es cuánto puede cambiar la aceleración
+ *  entre una medida y la siguiente según el filtro; fR y fC son cuántas veces mayor (o menor) que el de catálogo cree el filtro que es el error del radar y de la cámara. */
+function filtra(esc,prm,M){
+  M=M||medidas(esc);
+  const N=NPAS+1, q=prm.q, fR=prm.fR, fC=prm.fC, sq=q, sqy=q*RQY;
+  const T={xh:new Float64Array(N),vh:new Float64Array(N),yh:new Float64Array(N),vyh:new Float64Array(N),
+    Pxx:new Float64Array(N),Pxv:new Float64Array(N),Pvv:new Float64Array(N),Pyy:new Float64Array(N),Pyv:new Float64Array(N),Pvyvy:new Float64Array(N),
+    Krx:new Float64Array(N),Kcx:new Float64Array(N),nis:new Float64Array(N).fill(NaN),nisC:new Float64Array(N).fill(NaN),nuR:new Float64Array(N).fill(NaN),sR:new Float64Array(N).fill(NaN),nCnt:0};
+  const x=[M.rx[0],M.rv[0]], P=mat2(P0.sx*P0.sx,0,0,P0.sv*P0.sv), y=[M.ry[0],0], Q=mat2(P0.sx*P0.sx,0,0,P0.sv*P0.sv);
+  const guarda=k=>{ T.xh[k]=x[0]; T.vh[k]=x[1]; T.yh[k]=y[0]; T.vyh[k]=y[1]; T.Pxx[k]=P[0][0]; T.Pxv[k]=P[0][1]; T.Pvv[k]=P[1][1]; T.Pyy[k]=Q[0][0]; T.Pyv[k]=Q[0][1]; T.Pvyvy[k]=Q[1][1]; };
+  guarda(0);
+  for(let k=1;k<N;k++){
+    predice(x,P,DT,sq); predice(y,Q,DT,sqy);
+    const xp=Math.max(x[0],1);            // la distancia prevista sirve para escalar los errores angulares y de tamaño aparente
+    if(M.rOk[k]){
+      const a=corrige(x,P,[1,0],M.rx[k],Math.pow(SENS.rx*fR,2)); T.Krx[k]=a.K0; T.nis[k]=a.nu*a.nu/a.S; T.nuR[k]=a.nu; T.sR[k]=Math.sqrt(a.S); T.nCnt++;
+      corrige(x,P,[0,1],M.rv[k],Math.pow(SENS.rv*fR,2));
+      corrige(y,Q,[1,0],M.ry[k],Math.pow(xp*SENS.rth*fR,2));
+    }
+    if(M.cOk[k]){
+      const b=corrige(x,P,[1,0],M.cx[k],Math.pow(SENS.cx*fC*xp,2)); T.Kcx[k]=b.K0; T.nisC[k]=b.nu*b.nu/b.S;
+      corrige(y,Q,[1,0],M.cy[k],Math.pow(xp*SENS.cth*fC,2));
+    }
+    guarda(k);
+  }
+  return T;
+}
+
+/* ---- Métricas con la verdad en la mano (sólo se enseñan al validar o en «Probar») ---- */
+function metricas(esc,T,V){
+  V=V||verdad(esc).tr; const N=NPAS+1, k0=Math.round(2/DT), kb=Math.round(esc.lider.tb/DT), kf=Math.min(N-1,Math.round((esc.lider.tb+5)/DT));
+  let sx=0,nx=0,pico=0,sv=0,nv=0,nees=0,nn=0,sy=0,ny=0;
+  for(let k=k0;k<N;k++){
+    const ex=T.xh[k]-V.x[k], ev=T.vh[k]-V.v[k], ey=T.yh[k]-V.y[k]; sx+=ex*ex; nx++; sy+=ey*ey; ny++;
+    if(k>=kb&&k<=kf) pico=Math.max(pico,Math.abs(ex));
+    if(k<kb-Math.round(0.5/DT)&&!(esc.hueco&&k*DT>=esc.hueco.t0-0.2&&k*DT<=esc.hueco.t1+1.0)){ sv+=ev*ev; nv++; }
+    const det=T.Pxx[k]*T.Pvv[k]-T.Pxv[k]*T.Pxv[k]; nees+=(T.Pvv[k]*ex*ex-2*T.Pxv[k]*ex*ev+T.Pxx[k]*ev*ev)/det; nn++;
+  }
+  // el retraso con que el filtro «se entera» de la frenada: primer instante tras tb en que la velocidad relativa baja de −2 m/s
+  const corte=-2; let tV=null,tE=null;
+  for(let k=kb;k<N;k++){ if(tV===null&&V.v[k]<=corte) tV=k*DT; if(tE===null&&T.vh[k]<=corte) tE=k*DT; if(tV!==null&&tE!==null) break; }
+  const retraso=tE===null?6:Math.max(0,tE-tV);
+  // consistencia basada en la innovación del radar (no necesita la verdad): media de ν²/S, ideal 1
+  let sn=0,cn=0; for(let k=k0;k<N;k++) if(!isNaN(T.nis[k])){ sn+=T.nis[k]; cn++; }
+  return {rmsX:Math.sqrt(sx/nx),pico,rmsV:Math.sqrt(sv/Math.max(nv,1)),retraso,nees:nees/nn,nis:cn?sn/cn:NaN,rmsY:Math.sqrt(sy/ny),tV,tE};
+}
+/* ---- El reto: cinco condiciones a la vez. El error de distancia y el lateral (RMS, m) tienen un tope por escenario (esc.lim);
+   el retraso, la estabilidad de la velocidad y la «honestidad» (NEES medio, ideal 2 para dos estados) son comunes. ---- */
+const RETO={retraso:0.40,rmsV:0.25,neesMin:1.0,neesMax:4.0};
+function cumple(m,esc){ return {rms:m.rmsX<=esc.lim.rms,lat:m.rmsY<=esc.lim.lat,retraso:m.retraso<=RETO.retraso,vel:m.rmsV<=RETO.rmsV,nees:m.nees>=RETO.neesMin&&m.nees<=RETO.neesMax}; }
+function cumpleTodo(m,esc){ const c=cumple(m,esc); return c.rms&&c.lat&&c.retraso&&c.vel&&c.nees; }
+/** Corre todo: medidas + filtro + métricas. */
+function simula(esc,prm){ const M=medidas(esc), V=verdad(esc).tr, T=filtra(esc,prm,M); return {M,V,T,m:metricas(esc,T,V)}; }
+
+/* ---- Fusión de dos números (la analogía del promedio ponderado): lo que esperaba (x⁻ ± σ⁻) y lo que medí (z ± σz) ---- */
+function fusiona1(xp,sp,z,sz){ const K=sp*sp/(sp*sp+sz*sz), x=xp+K*(z-xp), s=Math.sqrt((1-K)*sp*sp); return {K,x,s}; }
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.75;
+scene.fog=new THREE.Fog('#1b3a4e',20,60);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(3.4,7.4,4.4);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=34; controls.maxPolarAngle=Math.PI*0.49;
+controls.target.set(0,0.2,-3.6);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',2.7); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-4.5,10,2.0); LUZ.sol.target.position.set(0,0,-3.8);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-6,right:6,top:8,bottom:-8,near:1,far:34});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.9); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.4); LUZ.rim.position.set(-3,4,-9); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las lecturas de los sensores, la estimación y los bordes de la plataforma.
+   En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.32,0.30,0.96); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta) dibujadas como objetos, no como ruido. */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Asfalto: tono lento (baja frecuencia), sin grano. */
+function texAsfalto(){
+  const W=256,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(5,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), v=Math.max(0,Math.min(255,(0.80+(n-0.5)*0.17)*255)), o=(j*W+i)*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_ASF=texAsfalto(), T_PLAT=texPlataforma();
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  asfalto: fis({color:'#5b6168',map:T_ASF,roughness:0.72,metalness:0,clearcoat:0.12,clearcoatRoughness:0.6}),
+  pintura: fis({color:'#2f6fd0',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  pinturaL: fis({color:'#ee5a2b',metalness:0.55,roughness:0.30,clearcoat:1,clearcoatRoughness:0.10}),
+  cristal: fis({color:'#0b1a24',metalness:0.0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.02,transparent:true,opacity:0.90,envMapIntensity:1.6}),
+  bajos: pbr({color:'#16181b',metalness:0.3,roughness:0.7}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.78}),
+  llanta: pbr({color:'#cfd4da',metalness:0.92,roughness:0.28}),
+  acero: pbr({color:'#a9afb6',metalness:0.9,roughness:0.34}),
+  faro: pbr({color:'#e9f3ff',metalness:0.1,roughness:0.15,emissive:'#cfe6ff',emissiveIntensity:0.9}),
+  piloto: pbr({color:'#6b0a12',metalness:0.1,roughness:0.2,emissive:'#ff1f2d',emissiveIntensity:0.55}),
+  sensor: pbr({color:'#101418',metalness:0.5,roughness:0.25,emissive:'#4fa3ff',emissiveIntensity:0.5}),
+  poste: pbr({color:'#6c757d',metalness:0.7,roughness:0.5}),
+  riel: pbr({color:'#aab4bb',metalness:0.85,roughness:0.34}),
+  arbol: pbr({color:'#ffffff',roughness:0.9,metalness:0,envMapIntensity:0.35}),
+  tronco: pbr({color:'#4b3a2d',roughness:0.9,metalness:0}),
+};
+M.alu=M.llanta; M.aluminio=M.llanta; M.hierro=M.acero; M.negro=M.goma;
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una rueda con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+/** Una carrocería «lofteada»: anillos de superelipse que se estrechan hacia los extremos.
+ *  secs: [{x, w (semianchura), y0, y1, n (exponente), tum (estrechamiento arriba, 0..1)}]. */
+function lofteo(secs,seg=28){
+  const pos=[],idx=[],nR=secs.length;
+  for(const s of secs){
+    const yc=(s.y0+s.y1)/2, hh=Math.max(1e-3,(s.y1-s.y0)/2), ex=2/(s.n||3);
+    for(let k=0;k<seg;k++){
+      const th=k/seg*DOSPI, c=Math.cos(th), sn=Math.sin(th);
+      const yy=yc+hh*Math.sign(sn)*Math.pow(Math.abs(sn),ex), f=(yy-s.y0)/(2*hh);
+      const zz=Math.max(1e-3,s.w)*(1-(s.tum||0)*f*f)*Math.sign(c)*Math.pow(Math.abs(c),ex);
+      pos.push(s.x,yy,zz);
+    }
+  }
+  const cI=pos.length/3; pos.push(secs[0].x,(secs[0].y0+secs[0].y1)/2,0); pos.push(secs[nR-1].x,(secs[nR-1].y0+secs[nR-1].y1)/2,0);
+  for(let i=0;i<nR-1;i++) for(let k=0;k<seg;k++){
+    const a=i*seg+k, b=i*seg+(k+1)%seg, c2=(i+1)*seg+k, d=(i+1)*seg+(k+1)%seg;
+    idx.push(a,c2,b, b,c2,d);
+  }
+  for(let k=0;k<seg;k++){ idx.push(cI,k,(k+1)%seg); idx.push(cI+1,(nR-1)*seg+(k+1)%seg,(nR-1)*seg+k); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  // el sentido de las caras: si el volumen con signo sale negativo, se invierten
+  let vol=0; for(let i=0;i<idx.length;i+=3){ const a=idx[i]*3,b=idx[i+1]*3,c3=idx[i+2]*3;
+    vol+=pos[a]*(pos[b+1]*pos[c3+2]-pos[b+2]*pos[c3+1])-pos[a+1]*(pos[b]*pos[c3+2]-pos[b+2]*pos[c3])+pos[a+2]*(pos[b]*pos[c3+1]-pos[b+1]*pos[c3]); }
+  if(vol<0) for(let i=0;i<idx.length;i+=3){ const t=idx[i+1]; idx[i+1]=idx[i+2]; idx[i+2]=t; }
+  g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
+  return g;
+}
+/** Interpola de forma suave una lista de puntos [x,valor]. */
+function perfil1D(pts){ return x=>{ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++) if(x<=pts[i][0]){ const t=(x-pts[i-1][0])/(pts[i][0]-pts[i-1][0]); return mezcla(pts[i-1][1],pts[i][1],suave(t)); } return pts[pts.length-1][1]; }; }
+
+/* ===================== 6. EL BANCO: PLATAFORMA, CARRETERA Y FONDO =====================
+   Esquema didáctico (se declara en la ficha): la distancia se dibuja a SZ = 0,16 unidades por metro y el lado a
+   SX = 0,24 unidades por metro; los coches se dibujan algo más largos que esa escala de distancia para que se lean. El
+   coche nuestro está abajo (parachoques delantero en z = 0) y el de adelante a z = −distancia·SZ. Las marcas de la
+   carretera, los postes y los árboles corren hacia atrás a la velocidad de nuestro coche. */
+const SZ=0.16, SX=0.27, KCAR=0.28, X_TRAS=-2.45, X_DEL=1.95;     // KCAR: escala del modelo del coche (m → unidades)
+const Z_FIN=-10.2, Z_INI=1.7, ANCHO_PLAT=6.8, LANE=3.7*SX;      // LANE: ancho de un carril en unidades
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+renderer.localClippingEnabled=true;
+const CLIP=[new THREE.Plane(V3(0,0,-1),Z_INI),new THREE.Plane(V3(0,0,1),-Z_FIN)];     // las marcas que corren se recortan en los extremos del banco
+{
+  const L=Z_INI-Z_FIN, cz=(Z_INI+Z_FIN)/2;
+  const g=new RoundedBoxGeometry(ANCHO_PLAT,0.16,L,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0,-0.08,cz); PLATAFORMA.add(p);
+  const w=ANCHO_PLAT/2-0.07,h=L/2-0.07,r=0.08, sh=new THREE.Shape();
+  sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0,0.002,cz); PLATAFORMA.add(n);
+  // la calzada: tres carriles de 3,7 m (0,89 unidades) y arcenes
+  const ANCHO_CALZ=3*LANE+0.5, calz=new THREE.PlaneGeometry(ANCHO_CALZ,L-0.3); calz.rotateX(-Math.PI/2);
+  const T=M.asfalto; T.map.repeat.set(ANCHO_CALZ/2.2,(L-0.3)/2.2);
+  const c=malla(calz,M.asfalto,{sombra:false}); c.position.set(0,0.004,cz); PLATAFORMA.add(c); c.userData.clave='carretera';
+  const lin=new THREE.MeshBasicMaterial({color:'#e9eef0',toneMapped:false,transparent:true,opacity:0.85,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  for(const x of [-1.5*LANE,1.5*LANE]){ const l=malla(new THREE.PlaneGeometry(0.05,L-0.3).rotateX(-Math.PI/2),lin,{sombra:false,recibe:false}); l.position.set(x,0.008,cz); PLATAFORMA.add(l); }
+}
+scene.background=fondoDegradado('#07151e','#17394d','#5f93ad'); scene.fog.color.set('#214a60');
+{
+  const d=malla(new THREE.CircleGeometry(40,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(60,130,170,0.50)','rgba(20,50,70,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.set(0,-0.17,-4); d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(50,50),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.set(0,-0.165,-4); s.userData.fondo=true; MUNDO.add(s);
+}
+
+/* ---- lo que corre con la carretera: rayas discontinuas, postes de la barrera y árboles ---- */
+const ROAD={dash:new THREE.Group(),post:new THREE.Group(),tree:new THREE.Group(),Pd:12*SZ,Pp:8*SZ,Pt:16*SZ};
+MUNDO.add(ROAD.dash,ROAD.post,ROAD.tree);
+function conClip(m){ m.clippingPlanes=CLIP; m.clipShadows=true; return m; }
+{
+  const L=Z_INI-Z_FIN;
+  // rayas: 3 m de raya cada 12 m, en las dos divisiones entre carriles
+  const matD=conClip(new THREE.MeshBasicMaterial({color:'#eef1f3',toneMapped:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));
+  const nD=Math.ceil(L/ROAD.Pd)+2, imD=new THREE.InstancedMesh(new THREE.BoxGeometry(0.05,0.006,3*SZ),matD,nD*2), m4=new THREE.Matrix4();
+  for(let i=0;i<nD;i++) for(let s=0;s<2;s++){ m4.makeTranslation((s?1:-1)*0.5*LANE,0.009,Z_INI+ROAD.Pd-i*ROAD.Pd); imD.setMatrixAt(i*2+s,m4); }
+  imD.frustumCulled=false; imD.castShadow=false; ROAD.dash.add(imD);
+  // barrera: postes cada 8 m y un riel continuo (el riel es estático)
+  const matP=conClip(M.poste.clone()), nP=Math.ceil(L/ROAD.Pp)+2, imP=new THREE.InstancedMesh(new THREE.BoxGeometry(0.035,0.16,0.035),matP,nP*2);
+  for(let i=0;i<nP;i++) for(let s=0;s<2;s++){ m4.makeTranslation((s?1:-1)*(1.5*LANE+0.27),0.08,Z_INI+ROAD.Pp-i*ROAD.Pp); imP.setMatrixAt(i*2+s,m4); }
+  imP.frustumCulled=false; imP.castShadow=true; ROAD.post.add(imP);
+  for(const s of [-1,1]){ const r=malla(new THREE.BoxGeometry(0.022,0.05,L-0.3),M.riel,{sombra:true}); r.position.set(s*(1.5*LANE+0.25),0.13,(Z_INI+Z_FIN)/2); PLATAFORMA.add(r); }
+  // árboles pequeños cada 16 m, fuera de la barrera
+  const matT=conClip(M.arbol.clone()), matTr=conClip(M.tronco.clone()), nT=Math.ceil(L/ROAD.Pt)+2;
+  const copas=new THREE.InstancedMesh(new THREE.ConeGeometry(0.17,0.42,9),matT,nT*2), troncos=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025,0.03,0.14,7),matTr,nT*2), col=new THREE.Color();
+  for(let i=0;i<nT;i++) for(let s=0;s<2;s++){ const z=Z_INI+ROAD.Pt-i*ROAD.Pt+(s?0.7:-0.5), x=(s?1:-1)*(1.5*LANE+0.95+0.12*((i*7+s*3)%3)); const k=0.85+0.25*(((i*5+s*11)%7)/7);
+    m4.compose(V3(x,0.14+0.21*k,z),new THREE.Quaternion(),V3(k,k,k)); copas.setMatrixAt(i*2+s,m4); col.setHSL(0.30+0.04*((i+s)%3),0.38,0.26+0.05*((i*3+s)%4)/4); copas.setColorAt(i*2+s,col);
+    m4.makeTranslation(x,0.07,z); troncos.setMatrixAt(i*2+s,m4); }
+  copas.frustumCulled=false; troncos.frustumCulled=false; copas.castShadow=true; troncos.castShadow=true; ROAD.tree.add(copas,troncos);
+}
+/** Mueve lo que corre según el camino recorrido por nuestro coche (m). */
+function correCarretera(xE){
+  const s=xE*SZ;
+  ROAD.dash.position.z=s%ROAD.Pd; ROAD.post.position.z=s%ROAD.Pp; ROAD.tree.position.z=s%ROAD.Pt;
+  M.asfalto.map.offset.y=(s/2.2)%1;
+}
+/* regla de distancia: marcas al borde izquierdo cada 5 m (largas cada 10 m), sin cifras en el 3D (las cifras van en el dock) */
+{
+  const mat=new THREE.MeshBasicMaterial({color:'#ffd66b',transparent:true,opacity:0.8,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4});
+  const im=new THREE.InstancedMesh(new THREE.BoxGeometry(1,0.006,0.016),mat,10), m4=new THREE.Matrix4();
+  for(let i=1;i<=10;i++){ const diez=i%2===0, ancho=diez?0.30:0.14; m4.compose(V3(-1.5*LANE-0.08+ancho/2,0.012,-i*5*SZ),new THREE.Quaternion(),V3(ancho,1,1)); im.setMatrixAt(i-1,m4); }
+  im.userData.clave='regla'; PLATAFORMA.add(im);
+}
+
+/* ===================== 7. LOS COCHES =====================
+   El modelo (el de la biblioteca del ADAS, a escala de metros) mide 4,4 m y se reduce con KCAR a unas 1,0 unidades.
+   Su +X (el morro) se gira a −Z. Cada coche lleva su propia pintura y su propia luz de freno. */
+const POS_RUEDA=[[1.10,-0.775],[1.10,0.775],[-1.50,-0.775],[-1.50,0.775]];
+const LRUEDA=0.31;
+function construyeCoche(pint,piloto){
+  const raiz=new THREE.Group(), caja=new THREE.Group(); caja.position.y=0.12; raiz.add(caja);
+  const fija=new THREE.Group();
+  const xc=-0.25, hl=2.2;
+  const yt=perfil1D([[-2.45,0.62],[-2.2,0.80],[-1.5,0.88],[-0.6,0.86],[0.4,0.82],[1.1,0.76],[1.7,0.66],[1.95,0.50]]);
+  const secs=[], N=44;
+  for(let i=0;i<=N;i++){
+    const x=xc-hl*Math.cos(Math.PI*i/N), u=(x-xc)/hl, ab=Math.pow(Math.abs(u),4.2);
+    let w=0.90*Math.pow(Math.max(0.0004,1-ab),1/4.2);
+    w-=0.12*(Math.exp(-Math.pow((x-1.10)/0.40,2))+Math.exp(-Math.pow((x+1.50)/0.40,2)));
+    const yb=0.27+0.22*Math.pow(Math.min(1,Math.abs(u)),4), y1=Math.max(yb+0.06,yt(x));
+    secs.push({x,w:Math.max(0.02,w),y0:yb,y1,n:3.4,tum:0.10});
+  }
+  fija.add(new THREE.Mesh(lofteo(secs,30),pint));
+  const cab=[], cabM=26, x0=-1.28, x1=0.62;
+  for(let i=0;i<=cabM;i++){
+    const t=i/cabM, x=mezcla(x0,x1,t), env=Math.pow(Math.sin(Math.PI*Math.pow(t,0.85)),0.55), base=yt(x)-0.03, techo=Math.max(base+0.03,mezcla(yt(x),1.43,env));
+    cab.push({x,w:Math.max(0.03,0.80*Math.pow(env,0.35)),y0:base,y1:techo,n:3.0,tum:0.30});
+  }
+  fija.add(new THREE.Mesh(lofteo(cab,26),M.cristal));
+  const tec=[], tM=18, tx0=-0.92, tx1=0.30;
+  for(let i=0;i<=tM;i++){
+    const t=i/tM, x=mezcla(tx0,tx1,t), tx=(x-x0)/(x1-x0), env=Math.pow(Math.sin(Math.PI*Math.pow(tx,0.85)),0.55), techo=Math.max(yt(x)+0.05,mezcla(yt(x),1.43,env));
+    const wtop=0.80*Math.pow(env,0.35)*(1-0.30);
+    tec.push({x,w:Math.max(0.03,wtop+0.012),y0:techo-0.045,y1:techo+0.005,n:4.5,tum:0.0});
+  }
+  fija.add(new THREE.Mesh(lofteo(tec,20),pint));
+  const bajos=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.07,1.30),M.bajos); bajos.position.set(-0.25,0.27,0); fija.add(bajos);
+  for(const [px,pz] of POS_RUEDA){
+    const lado=Math.sign(pz), liner=new THREE.Mesh(new THREE.CylinderGeometry(0.385,0.385,0.02,28),M.bajos); liner.rotation.x=Math.PI/2; liner.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(liner);
+    const labio=new THREE.Mesh(new THREE.TorusGeometry(0.405,0.034,8,28,Math.PI),pint); labio.position.set(px,LRUEDA-0.12,lado*0.775); fija.add(labio);
+  }
+  // sensores: el radar tras el parachoques y la cámara bajo el retrovisor
+  const radarM=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.15,0.50),M.sensor); radarM.position.set(1.93,0.50,0); fija.add(radarM);
+  const camM=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.055,0.09,14),M.sensor); camM.rotation.z=Math.PI/2; camM.position.set(0.52,1.12,0); fija.add(camM);
+  for(const lado of [-1,1]){
+    const faro=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.075,0.32),M.faro); faro.position.set(1.80,0.60,lado*0.58); faro.rotation.y=lado*0.18; fija.add(faro);
+    const pil=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.09,0.34),piloto); pil.position.set(-2.26,0.70,lado*0.60); pil.rotation.y=lado*0.14; fija.add(pil);
+  }
+  const fus=fusiona(fija); fus.position.y=-0.12; caja.add(fus);
+  const pivs=[], spins=[];
+  POS_RUEDA.forEach(([px,pz],i)=>{
+    const lado=Math.sign(pz), piv=new THREE.Group(); piv.position.set(px,LRUEDA,pz); piv.userData.rueda=i; raiz.add(piv);
+    const spin=new THREE.Group(); piv.add(spin);
+    const t=P3.neumatico(M,{dExt:LRUEDA*2,dLlanta:0.43,ancho:0.215,tacos:0,radios:5}), tf=fusiona(t); tf.rotation.y=lado*Math.PI/2; spin.add(tf);
+    pivs.push(piv); spins.push(spin);
+  });
+  raiz.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  raiz.userData.asas={caja,pivs,spins,piloto};
+  return raiz;
+}
+/** Un coche colocado en el banco: grupo exterior (posición y giro), interior a escala. */
+function montaCoche(pint,clave){
+  const piloto=M.piloto.clone(), raiz=construyeCoche(pint,piloto), ext=new THREE.Group(), inte=new THREE.Group();
+  inte.scale.setScalar(KCAR); inte.add(raiz); ext.add(inte); ext.rotation.y=Math.PI/2;      // +X del modelo → −Z de la escena
+  ext.traverse(o=>{ if(o.isMesh) o.userData.clave=clave; });
+  ext.userData.asas=raiz.userData.asas; MUNDO.add(ext); return ext;
+}
+const COCHE_E=montaCoche(M.pintura,'nuestro');
+const COCHE_L=montaCoche(M.pinturaL,'lider');
+const OFS_DEL=X_DEL*KCAR, OFS_TRAS=-X_TRAS*KCAR;        // del centro del modelo al parachoques delantero y al trasero (unidades)
+const LARGO_COCHE=(X_DEL-X_TRAS)*KCAR, ANCHO_COCHE=1.80*KCAR*1.0;
+COCHE_E.position.set(0,0,OFS_DEL);        // el morro de nuestro coche está en z = 0
+/** Coloca un coche con su parachoques trasero en (zTras): la distancia al coche de adelante se mide hasta ahí. */
+function ponCoche(c,xLat,zTras,spin,a){
+  const A=c.userData.asas;
+  c.position.set(xLat,0,zTras-OFS_TRAS);
+  A.caja.rotation.z=-Math.min(0.05,0.0045*Math.max(0,-a));                    // cabeceo ilustrativo: el morro baja al frenar (a<0 es frenar)
+  for(const s of A.spins) s.rotation.z=-spin;
+  A.piloto.emissiveIntensity=a<-0.8?2.6:0.55;
+}
+
+/* ===================== 8. EL RADAR, LA CÁMARA Y SUS CAMPOS =====================
+   Un abanico sobre el suelo por sensor (con el mismo esquema de escalas: el ángulo se dibuja con SX y SZ, así que un abanico
+   «ancho» lo es de verdad en metros). Se desvanece con la distancia, con arcos cada 10 m. */
+function creaAbanico(semiGrados,R,col,aOpac,hApice){
+  const semi=semiGrados*Math.PI/180, N=32, pos=[],colr=[],idx=[];
+  const P=(a,r)=>[Math.sin(a)*r*SX,0.03,-Math.cos(a)*r*SZ];
+  pos.push(0,0.03,0); colr.push(1,1,1,aOpac);
+  for(let i=0;i<=N;i++){ const a=-semi+2*semi*i/N, p=P(a,R); pos.push(...p); colr.push(1,1,1,0); }
+  for(let i=0;i<N;i++) idx.push(0,i+1,i+2);
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(colr,4)); g.setIndex(idx);
+  const m=new THREE.MeshBasicMaterial({color:col,vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5,toneMapped:false});
+  const sector=new THREE.Mesh(g,m); sector.renderOrder=7; sector.raycast=()=>{};
+  const lp=[];
+  for(const s of [-1,1]){ const p=P(s*semi,R); lp.push(0,hApice,0,p[0],0.03,p[2]); }
+  for(let r=10;r<R;r+=10){ for(let i=0;i<N;i++){ const a0=-semi+2*semi*i/N, a1=-semi+2*semi*(i+1)/N, p0=P(a0,r), p1=P(a1,r); lp.push(p0[0],0.034,p0[2],p1[0],0.034,p1[2]); } }
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+  const lm=new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.55,toneMapped:false,depthWrite:false});
+  const lineas=new THREE.LineSegments(lg,lm); lineas.renderOrder=8; lineas.raycast=()=>{};
+  const grupo=new THREE.Group(); grupo.add(sector,lineas);
+  return {grupo,sector,lineas,mat:m,lmat:lm,R,semi};
+}
+const ABANICO_R=creaAbanico(8,50,'#FFA445',0.40,0.14);
+const ABANICO_C=creaAbanico(24,24,'#58d6ff',0.24,0.32);
+ABANICO_R.grupo.position.set(0,0,0);                         // el radar, en el parachoques delantero
+ABANICO_C.grupo.position.set(0,0,OFS_DEL-0.52*KCAR);        // la cámara, bajo el retrovisor
+MUNDO.add(ABANICO_R.grupo,ABANICO_C.grupo);
+ABANICO_R.sector.userData.clave='radar'; ABANICO_C.sector.userData.clave='camara';
+// el módulo del radar sobresale unos milímetros: su pieza ya está dentro del coche, aquí sólo se señala con un destello en el morro
+const DEST_R=malla(new THREE.SphereGeometry(0.035,12,8),new THREE.MeshBasicMaterial({color:'#FFA445',toneMapped:false}),{sombra:false,recibe:false}); DEST_R.position.set(0,0.14,0.005); MUNDO.add(DEST_R);
+const DEST_C=malla(new THREE.SphereGeometry(0.03,12,8),new THREE.MeshBasicMaterial({color:'#58d6ff',toneMapped:false}),{sombra:false,recibe:false}); DEST_C.position.set(0,0.32,ABANICO_C.grupo.position.z); MUNDO.add(DEST_C);
+
+/* ===================== 9. LAS LECTURAS Y LA ESTIMACIÓN =====================
+   Cuadrados naranjas: lecturas del radar. Círculos azules: lecturas de la cámara. Se quedan 2 s y se apagan. En verde: lo que
+   el filtro cree (la caja de un coche, el punto detrás y la elipse con el 95 % de su duda). */
+function instancias(n,geo,mat){ const im=new THREE.InstancedMesh(geo,mat,n); im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3).fill(1),3); im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false; im.renderOrder=6; MUNDO.add(im); return im; }
+const MAT_PUNTO=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+const NRD=22, NCM=12;
+const IM_R=instancias(NRD,new THREE.BoxGeometry(1,1,1),MAT_PUNTO), IM_C=instancias(NCM,new THREE.SphereGeometry(1,12,8),MAT_PUNTO);
+IM_R.userData.clave='lecR'; IM_C.userData.clave='lecC';
+const C_RAD=new THREE.Color('#FFA445'), C_CAM=new THREE.Color('#58d6ff'), C_EST=new THREE.Color('#3DDC97');
+const H_LEC=0.36;
+/* la estimación: contorno del coche en el suelo, caja de aristas y relleno translúcido */
+const ESTIM=new THREE.Group(); MUNDO.add(ESTIM);
+{
+  const mv=new THREE.LineBasicMaterial({color:'#3DDC97',toneMapped:false,transparent:true,opacity:0.95});
+  const caja=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(ANCHO_COCHE*1.08,0.33,LARGO_COCHE*1.04)),mv); caja.position.set(0,0.165,-LARGO_COCHE/2); caja.userData.clave='estim'; ESTIM.add(caja);
+  const rel=new THREE.Mesh(new THREE.PlaneGeometry(ANCHO_COCHE*1.08,LARGO_COCHE*1.04).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#3DDC97',transparent:true,opacity:0.20,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6}));
+  rel.position.set(0,0.02,-LARGO_COCHE/2); rel.userData.clave='estim'; rel.renderOrder=5; ESTIM.add(rel);
+  // el punto de medida: la cara trasera del coche, que es lo que ven los sensores
+  const punto=malla(new THREE.SphereGeometry(0.035,14,10),new THREE.MeshBasicMaterial({color:'#3DDC97',toneMapped:false}),{sombra:false,recibe:false}); punto.position.set(0,0.06,0); punto.userData.clave='estim'; ESTIM.add(punto);
+}
+/* la elipse: una cinta delgada que se reconstruye cada cuadro con los semiejes (m) del 95 % de la duda */
+const NEL=64, ELI={g:new THREE.BufferGeometry(),pos:new Float32Array((NEL+1)*2*3)};
+{
+  const ix=[]; for(let i=0;i<NEL;i++){ const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3; ix.push(a,b,c,b,d,c); }
+  ELI.g.setAttribute('position',new THREE.BufferAttribute(ELI.pos,3)); ELI.g.setIndex(ix);
+  ELI.mesh=new THREE.Mesh(ELI.g,new THREE.MeshBasicMaterial({color:'#6dffb8',toneMapped:false,side:THREE.DoubleSide,depthWrite:false,transparent:true,opacity:0.95,polygonOffset:true,polygonOffsetFactor:-8,polygonOffsetUnits:-8}));
+  ELI.mesh.frustumCulled=false; ELI.mesh.renderOrder=9; ELI.mesh.raycast=()=>{}; ELI.mesh.userData.clave='elipse'; MUNDO.add(ELI.mesh);
+  ELI.fill=new THREE.Mesh(new THREE.CircleGeometry(1,48).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#3DDC97',transparent:true,opacity:0.26,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-7,polygonOffsetUnits:-7}));
+  ELI.fill.renderOrder=8; ELI.fill.raycast=()=>{}; ELI.fill.userData.clave='elipse'; MUNDO.add(ELI.fill);
+}
+const Q95=Math.sqrt(5.991464547107979);            // semieje del 95 % para 2 grados de libertad: √χ²(2; 0,95)
+const VIS_MIN=0.03;                                 // la elipse nunca se dibuja menor que esto (unidades): sólo para que se vea
+function pintaElipse(cx,cz,rx,rz){
+  rx=Math.max(VIS_MIN,rx); rz=Math.max(VIS_MIN,rz); const t=0.012;
+  for(let i=0;i<=NEL;i++){ const a=i/NEL*DOSPI, c=Math.cos(a), s=Math.sin(a);
+    const o=i*6; ELI.pos[o]=cx+c*(rx-t); ELI.pos[o+1]=0.036; ELI.pos[o+2]=cz+s*(rz-t); ELI.pos[o+3]=cx+c*(rx+t); ELI.pos[o+4]=0.036; ELI.pos[o+5]=cz+s*(rz+t); }
+  ELI.g.attributes.position.needsUpdate=true; ELI.g.computeBoundingSphere();
+  ELI.fill.position.set(cx,0.034,cz); ELI.fill.scale.set(rx,1,rz);
+}
+/* el rocío del camión: una nube translúcida que tapa a los dos sensores mientras dura el hueco de medidas */
+const NNUB=18, NUBE=new THREE.Group(); MUNDO.add(NUBE);
+{
+  const mat=new THREE.MeshBasicMaterial({color:'#e3edf2',transparent:true,opacity:0.0,depthWrite:false,toneMapped:false});
+  const im=new THREE.InstancedMesh(new THREE.SphereGeometry(1,16,12),mat,NNUB); im.frustumCulled=false; im.raycast=()=>{}; im.userData.clave='nube'; im.renderOrder=4; NUBE.add(im);
+  const ps=[]; for(let i=0;i<NNUB;i++){ const a=i*2.399, r=0.5+0.45*((i*37)%11)/11; ps.push({x:Math.cos(a)*r*0.9,z:Math.sin(a)*r*0.9,y:0.18+0.22*((i*13)%7)/7,base:0.26+0.16*((i*29)%5)/5,fase:i}); }
+  NUBE.userData={mat,im,ps}; NUBE.visible=false;
+}
+
+/* ===================== 10. ELEMENTOS Y ESTADOS DEL BANCO ===================== */
+const MOVILES=[PLATAFORMA,ROAD.dash,ROAD.post,ROAD.tree,ESTIM,ELI.mesh,ELI.fill,NUBE,COCHE_E,COCHE_L,ABANICO_R.grupo,ABANICO_C.grupo,DEST_R,DEST_C];
+for(const o of [IM_R,IM_C]) MOVILES.push(o);
+
+/* ===================== 11. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t es el
+   tiempo del escenario (s) y avanza dt·velocidad; mueve los coches, las lecturas, la estimación, la elipse y el cursor de todas
+   las gráficas. Los modos: «Recorrido» (paso a paso), «Probar» (mandos libres) y «Reto». */
+const EST={modo:'tour',esc:'autopista',q:3.0,fR:1.3,fC:0.8,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const SIM={t:0,calc:null,ver:0,e:null};
+let CALC=null;
+const BASE={};                                      // por escenario: la verdad y las medidas (no dependen de los mandos)
+function baseDe(id){
+  if(!BASE[id]){ const esc=escPorId(id), vv=verdad(esc); BASE[id]={esc,V:vv.tr,fn:vv.fn,M:medidas(esc)}; }
+  return BASE[id];
+}
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {esc:EST.esc,q:EST.q,fR:EST.fR,fC:EST.fC};
+}
+function calcula(p){
+  const B=baseDe(p.esc), T=filtra(B.esc,{q:p.q,fR:p.fR,fC:p.fC},B.M), m=metricas(B.esc,T,B.V), N=NPAS+1;
+  // ganancias «sostenidas» (la última que hubo) para dibujarlas como escalón, y la media móvil de la consistencia (innovación)
+  const krH=new Float64Array(N), kcH=new Float64Array(N), nisA=new Float64Array(N); let kr=0,kc=0,sn=0,cn=0;
+  for(let k=0;k<N;k++){ if(B.M.rOk[k]&&k>0) kr=T.Krx[k]; if(B.M.cOk[k]&&k>0) kc=T.Kcx[k]; krH[k]=kr; kcH[k]=kc;
+    if(k>=Math.round(2/DT)&&!isNaN(T.nis[k])){ sn+=T.nis[k]; cn++; } nisA[k]=cn?sn/cn:NaN; }
+  return {p,B,esc:B.esc,T,m,krH,kcH,nisA,c:cumple(m,B.esc)};
+}
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  SIM.t=Math.min(SIM.t,TFIN-DT*2-0.001); if(SIM.t<0) SIM.t=0;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+const lerpA=(a,k,f)=>{ const k1=Math.min(k+1,a.length-1); return a[k]+(a[k1]-a[k])*f; };
+/* ---- el estado del sistema en el instante t: la verdad es analítica; la estimación, interpolada entre pasos del filtro ---- */
+function estadoEn(t){
+  const C=CALC; if(!C) return null; const T=C.T, B=C.B, k=clamp(Math.floor(t/DT),0,NPAS), f=clamp(t/DT-k,0,1), tv=B.fn(t);
+  const xh=lerpA(T.xh,k,f), vh=lerpA(T.vh,k,f), yh=lerpA(T.yh,k,f), pxx=lerpA(T.Pxx,k,f), pyy=lerpA(T.Pyy,k,f);
+  return {k,t,tv,xh,vh,yh,sx:Math.sqrt(Math.max(pxx,0)),sy:Math.sqrt(Math.max(pyy,0)),ex:xh-tv.x,ey:yh-tv.y,ev:vh-tv.v,
+    kr:C.krH[k],kc:C.kcH[k],nis:C.nisA[k],disp:disponible(C.esc,t),aE:tv.aL-tv.a};
+}
+
+/* ===================== 12. LO QUE SE VE ===================== */
+const _m4=new THREE.Matrix4(), _q0=new THREE.Quaternion(), _col=new THREE.Color(), _p=new THREE.Vector3(), _s=new THREE.Vector3();
+const ocultaVerdad=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado);   // el error real, mientras se ajusta
+let nubeK=0, pulsoR=0, pulsoC=0;
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;                       // dtR: tiempo real del cuadro; suaviza lo visual aunque el reloj del escenario esté en pausa
+  const C=CALC; if(!C) return;
+  const Tc=TFIN-DT*2; SIM.t+=dtSim; if(SIM.t>=Tc) SIM.t=SIM.t-Tc;
+  const e=estadoEn(SIM.t); if(!e) return; SIM.e=e;
+  const tv=e.tv, B=C.B, T=C.T, esc=C.esc;
+  // ---- los coches ----
+  const zT=-tv.x*SZ, xL=tv.x-esc.d0+tv.xE;                   // xL: camino recorrido por el coche de adelante (m)
+  ponCoche(COCHE_L,tv.y*SX,zT,xL/LRUEDA,tv.aL);
+  COCHE_E.position.set(0,0,OFS_DEL);                          // nuestro coche no se mueve en el banco: se mueve la carretera
+  { const A=COCHE_E.userData.asas; A.caja.rotation.z=-Math.min(0.05,0.0045*Math.max(0,-e.aE)); for(const s of A.spins) s.rotation.z=-tv.xE/LRUEDA; A.piloto.emissiveIntensity=e.aE<-0.8?2.6:0.55; }
+  correCarretera(tv.xE);
+  // ---- la estimación del filtro ----
+  ESTIM.position.set(e.yh*SX,0,-e.xh*SZ);
+  pintaElipse(e.yh*SX,-e.xh*SZ,Q95*e.sy*SX,Q95*e.sx*SZ);
+  // ---- las lecturas (se quedan 2 s) ----
+  const M=B.M; let nr=0, nc=0; const kHoy=e.k;
+  for(let j=kHoy;j>=Math.max(0,kHoy-40);j--){
+    const edad=SIM.t-j*DT; if(edad<0||edad>2.0) continue;
+    if(M.rOk[j]&&nr<NRD){ const fr=1-edad/2; _p.set(M.ry[j]*SX,H_LEC,-M.rx[j]*SZ); const r=0.052*(0.55+0.45*fr);
+      _m4.compose(_p,_q0,_s.set(r,r,r)); IM_R.setMatrixAt(nr,_m4); _col.copy(C_RAD).multiplyScalar(0.30+0.9*fr*fr); IM_R.setColorAt(nr,_col); nr++; }
+    if(M.cOk[j]&&nc<NCM){ const fr=1-edad/2; _p.set(M.cy[j]*SX,H_LEC+0.10,-M.cx[j]*SZ); const r=0.046*(0.55+0.45*fr);
+      _m4.compose(_p,_q0,_s.set(r,r,r)); IM_C.setMatrixAt(nc,_m4); _col.copy(C_CAM).multiplyScalar(0.30+0.9*fr*fr); IM_C.setColorAt(nc,_col); nc++; }
+  }
+  _m4.compose(_p.set(0,-5,0),_q0,_s.set(0.0001,0.0001,0.0001));
+  for(let i=nr;i<NRD;i++){ IM_R.setMatrixAt(i,_m4); } for(let i=nc;i<NCM;i++){ IM_C.setMatrixAt(i,_m4); }
+  IM_R.count=NRD; IM_C.count=NCM;
+  for(const im of [IM_R,IM_C]){ im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; }
+  // ---- los sensores: el destello se aviva cuando llega una lectura; los campos se apagan si no ven ----
+  const lr=M.rOk[kHoy]?1:0, lc=M.cOk[kHoy]?1:0;
+  pulsoR+=((lr?1:0)-pulsoR)*clamp(dtR*18,0,1); pulsoC+=((lc?1:0)-pulsoC)*clamp(dtR*18,0,1);
+  DEST_R.scale.setScalar(0.8+0.9*pulsoR); DEST_C.scale.setScalar(0.8+0.9*pulsoC);
+  const vis=e.disp?1:0.18, objA=vis;
+  ABANICO_R.mat.opacity+=(objA-ABANICO_R.mat.opacity)*clamp(dtR*6,0,1); ABANICO_C.mat.opacity+=(objA-ABANICO_C.mat.opacity)*clamp(dtR*6,0,1);
+  ABANICO_R.lmat.opacity=0.18+0.4*ABANICO_R.mat.opacity; ABANICO_C.lmat.opacity=0.18+0.4*ABANICO_C.mat.opacity;
+  // ---- la nube de rocío del camión: aparece mientras el escenario no deja ver ----
+  const hueco=esc.hueco, objN=(hueco&&!e.disp)?1:0; nubeK+=(objN-nubeK)*clamp(dtR*5,0,1);
+  NUBE.visible=nubeK>0.02; NUBE.userData.mat.opacity=0.24*nubeK;
+  if(NUBE.visible){ const zc=-tv.x*SZ*0.45, pul=1+0.06*Math.sin(SIM.t*3);
+    NUBE.position.set(tv.y*SX*0.4,0,zc); NUBE.scale.set(1.3*pul,1,1.9*pul);
+    { const U=NUBE.userData; U.ps.forEach((p,i)=>{ const f=p.fase, s=p.base*(0.9+0.15*Math.sin(SIM.t*1.7+f)); _m4.compose(_p.set(p.x,p.y+0.03*Math.sin(SIM.t*2+f)-0.0,p.z),_q0,_s.set(s,s,s)); U.im.setMatrixAt(i,_m4); }); U.im.instanceMatrix.needsUpdate=true; } }
+}
+
+/* ===================== 13. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const NOMBRE_ESC={autopista:'Autopista',lluvia:'Lluvia',rocio:'Rocío'};
+const FRASE='Combinas un radar y una cámara, cada uno con errores, para saber dónde está realmente el coche de adelante.';
+/* mandos: Q va en escala logarítmica de 0,05 a 10 m/s²; la confianza en cada sensor, de ×4 (me fío poco) a ×1/4 (me fío mucho) del error de catálogo */
+const qDeU=u=>0.05*Math.pow(200,u/100), uDeQ=q=>100*Math.log(q/0.05)/Math.log(200);
+const fDeU=u=>Math.pow(4,1-u/50), uDeF=f=>50*(1-Math.log(f)/Math.log(4));
+const txtQ=q=>'±'+fN(q,2)+' m/s²', txtR=f=>'±'+fN(SENS.rx*f,2)+' m', txtC=f=>'±'+fN(SENS.cx*f*100,1)+' %';
+function slidersHTML(p,ids){
+  const [iq,ir,ic]=ids;
+  return `<div class="cg"><div class="cl"><div>Cuánto puede cambiar su velocidad entre lecturas <em class="gr">(Q)</em></div><b id="v${iq}">${txtQ(p.q)}</b></div><input type="range" id="${iq}" min="0" max="100" step="1" value="${Math.round(uDeQ(p.q))}" aria-label="Cuánto puede cambiar la velocidad del coche entre dos lecturas, en metros por segundo cuadrado">
+    <div class="marcas"><span>casi nada</span><span>mucho</span></div></div>
+  <div class="cg"><div class="cl"><div>Cuánto me fío del radar <em class="gr">(error en distancia)</em></div><b id="v${ir}">${txtR(p.fR)}</b></div><input type="range" id="${ir}" min="0" max="100" step="1" value="${Math.round(uDeF(p.fR))}" aria-label="Cuánto me fío del radar">
+    <div class="marcas"><span>poco</span><span>mucho</span></div></div>
+  <div class="cg"><div class="cl"><div>Cuánto me fío de la cámara <em class="gr">(error en distancia)</em></div><b id="v${ic}">${txtC(p.fC)}</b></div><input type="range" id="${ic}" min="0" max="100" step="1" value="${Math.round(uDeF(p.fC))}" aria-label="Cuánto me fío de la cámara">
+    <div class="marcas"><span>poco</span><span>mucho</span></div></div>`;
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · seguir a un coche</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='tour') h+=`</div>`;
+  else if(EST.modo==='probar') h+=`<p class="intro">Mueve las barras: el filtro <b>mezcla lo que esperaba con lo que midió</b>. Busca que la caja verde siga al coche sin retraso ni temblor.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">Situación</div><div class="seg" id="segEsc">${Object.keys(NOMBRE_ESC).map(k=>`<button class="b ${EST.esc===k?'on':''}" data-esc="${k}">${NOMBRE_ESC[k]}</button>`).join('')}</div></div>
+    ${slidersHTML(EST,['rQ','rR','rC'])}
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else h+=htmlGuia();
+  const m=CALC?CALC.m:null;
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">x̂ = x⁻ + K·(z − x⁻) · K = P⁻ / (P⁻ + R)</div>
+    <div class="fl">Es un <b>promedio ponderado</b>: x⁻ es lo que esperaba (con duda P⁻), z lo que midió (con duda R). Si R es chico, K se acerca a 1 y manda la medida; si P⁻ es chico, K se acerca a 0 y manda lo esperado. La duda baja a P = (1 − K)·P⁻.</div>
+    <div class="formula">x⁻ = F·x · P⁻ = F·P·Fᵀ + Q · F = [[1, T],[0, 1]], T = ${fN(DT,2)} s</div>
+    <div class="fl">Se supone velocidad constante; Q = σ<sub>a</sub>²·[[T⁴/4, T³/2],[T³/2, T²]] deja que la aceleración cambie un poco en cada paso. Sin lecturas sólo hay predicción y P crece con exactitud: var(x) = P₀ + n²T²·P₀<sub>vv</sub> + σ<sub>a</sub>²T⁴·n(4n²−1)/12.</div>
+    <div class="formula">Radar: x, v (Doppler), y = d·θ · Cámara: y = d·θ, x por tamaño aparente</div>
+    <div class="fl">Honestidad: NEES = eᵀ·P⁻¹·e debe valer 2 en promedio; ν²/S (innovación) debe valer 1. ${m?`Aquí: NEES ${fN(m.nees,1)} · innovación ${fN(m.nis,2)}.`:''}</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>Cada eje (distancia y lado) lleva su <b>propio filtro de dos estados</b>; los dos sensores se mezclan con actualizaciones escalares, equivalentes a la forma por lotes.</li>
+    <li>Los errores son <b>gaussianos e independientes</b> con semilla fija; el radar mide a ${fN(1/(DT*RAD_CADA),0)} Hz y la cámara a ${fN(1/(DT*CAM_CADA),0)} Hz. No hay falsas alarmas ni asociación de datos.</li>
+    <li>El esquema <b>no está a escala</b>: la distancia se dibuja a ${fN(SZ,2)} y el lado a ${fN(SX,2)} unidades por metro, y los coches se alargan para leerse. La elipse es el 95 % de la duda (mínimo visible).</li>
+    <li>Los tres escenarios son <b>sintéticos</b>; no son datos de un vehículo. No es un seguidor de producción ni una homologación.</li>
+  </ul><div class="src">Bar-Shalom, Li y Kirubarajan, <i>Estimation with Applications to Tracking and Navigation</i> · Kalman (1960) · ISO 15622 (control de crucero adaptativo).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.esc=b.dataset.esc; SIM.t=0; pintaHUD(); re(); });
+  const lig=(id,campo,f,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=f(+e.value); el('v'+id).textContent=fmt(EST[campo]); re(); }; };
+  lig('rQ','q',qDeU,txtQ); lig('rR','fR',fDeU,txtR); lig('rC','fC',fDeU,txtC);
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 14. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#7f9aa8',t?11:14,'center','500'); };
+const COL={rad:'#FFA445',cam:'#58d6ff',est:'#3DDC97',ver:'#F2F5F7',hueco:'rgba(200,215,225,0.13)',banda:'rgba(61,220,151,0.17)'};
+const GRID='rgba(160,200,220,0.10)', EJE='#3f6a80', TXT='#8eb3c5';
+const ejeT=(X0,X1)=>t=>X0+t/TFIN*(X1-X0);
+function cursor(x,X,Y0,Y1){ const px=X(SIM.t); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+function bandaHueco(x,X,Y0,Y1){ const h=CALC&&CALC.esc.hueco; if(!h) return; x.fillStyle=COL.hueco; x.fillRect(X(h.t0),Y0,X(h.t1)-X(h.t0),Y1-Y0); }
+function ejeY(x,X0,X1,Y,vals,fmt){ x.__uy=undefined; for(const v of vals){ raya(x,X0,Y(v),X1,Y(v),GRID); if(Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11){ x.__uy=Y(v); txt(x,fmt?fmt(v):String(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } } }
+function ejeX(x,X,Hd,paso){ for(let t=0;t<=TFIN;t+=paso){ raya(x,X(t),Hd-14,X(t),Hd-11,EJE); txt(x,String(t),X(t),Hd-3,TXT,8.5,'center','500'); } }
+const paso_=(a,b)=>{ const r=b-a, c=r>16?5:(r>8?2:1); return c; };
+function lineaSerie(x,X,Y,arr,col,w,dash){ x.setLineDash(dash||[]); x.strokeStyle=col; x.lineWidth=w; x.beginPath(); for(let k=0;k<=NPAS;k++){ const px=X(k*DT), py=Y(arr[k]); k?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.setLineDash([]); }
+
+/* ---- distancia: lecturas del radar y de la cámara, estimación con su banda de duda y (si se puede) la verdad ---- */
+function pintaDist(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-8, Y0=8, Y1=Hd-16, T=C.T, M=C.B.M, V=C.B.V, X=ejeT(X0,X1);
+  let mn=1e9,mx=-1e9; for(let k=0;k<=NPAS;k+=2){ mn=Math.min(mn,V.x[k]); mx=Math.max(mx,V.x[k]); }
+  mn=Math.floor((mn-3)/5)*5; mx=Math.ceil((mx+3)/5)*5; const Y=v=>Y1-(v-mn)/(mx-mn)*(Y1-Y0);
+  bandaHueco(x,X,Y0,Y1);
+  const vals=[]; for(let v=mn;v<=mx+1e-9;v+=5) vals.push(v); ejeY(x,X0,X1,Y,vals,v=>String(v)); ejeX(x,X,Hd,4);
+  txt(x,'m',X0+4,Y0+8,TXT,8.5,'left','600'); txt(x,'s',X1,Hd-3,TXT,8.5,'right','600');
+  // banda de duda (±2σ) y estimación
+  x.fillStyle=COL.banda; x.beginPath();
+  for(let k=0;k<=NPAS;k++){ const px=X(k*DT), py=Y(T.xh[k]+2*Math.sqrt(T.Pxx[k])); k?x.lineTo(px,py):x.moveTo(px,py); }
+  for(let k=NPAS;k>=0;k--) x.lineTo(X(k*DT),Y(T.xh[k]-2*Math.sqrt(T.Pxx[k])));
+  x.closePath(); x.fill();
+  // lecturas (hasta el instante actual: se van dibujando con el reloj)
+  const kt=Math.min(NPAS,Math.floor(SIM.t/DT));
+  for(let k=0;k<=kt;k++){ if(M.cOk[k]){ x.fillStyle=COL.cam; x.beginPath(); x.arc(X(k*DT),Y(M.cx[k]),1.7,0,DOSPI); x.fill(); } }
+  for(let k=0;k<=kt;k++){ if(M.rOk[k]){ x.fillStyle=COL.rad; x.fillRect(X(k*DT)-1.5,Y(M.rx[k])-1.5,3,3); } }
+  if(!ocultaVerdad()) lineaSerie(x,X,Y,V.x,COL.ver,1.2,[3,3]);
+  lineaSerie(x,X,Y,T.xh,COL.est,2);
+  cursor(x,X,Y0,Y1); el('t_fu').textContent='t = '+fN(SIM.t,0)+' s';
+}
+function pintaLeyDist(){
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:${COL.rad}"></i>radar</span><span class="lg"><i class="bl" style="--c:${COL.cam};border-radius:50%"></i>cámara</span><span class="lg"><i style="--c:${COL.est}"></i>estimación y su duda</span><span class="lg"><i class="dash" style="--c:${COL.ver}"></i>${ocultaVerdad()?'real (al validar)':'real'}</span><span class="lg"><i class="bl" style="--c:rgba(200,215,225,.35)"></i>sin lecturas</span>`;
+}
+/* ---- velocidad relativa: el Doppler del radar, la estimación y la verdad ---- */
+function pintaVel(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC; if(!C) return;
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, X=ejeT(X0,X1), T=C.T, M=C.B.M, V=C.B.V;
+  const Y=v=>Y1-(v+8)/10*(Y1-Y0); bandaHueco(x,X,Y0,Y1);
+  ejeY(x,X0,X1,Y,[-8,-4,0,2],v=>String(v)); raya(x,X0,Y(0),X1,Y(0),'rgba(160,200,220,0.28)',1);
+  const kt=Math.min(NPAS,Math.floor(SIM.t/DT));
+  x.fillStyle=COL.rad; for(let k=0;k<=kt;k++) if(M.rOk[k]) x.fillRect(X(k*DT)-1,Y(M.rv[k])-1,2,2);
+  if(!ocultaVerdad()) lineaSerie(x,X,Y,V.v,COL.ver,1.2,[3,3]);
+  lineaSerie(x,X,Y,T.vh,COL.est,1.9);
+  cursor(x,X,Y0,Y1); txt(x,'m/s',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_pw').textContent=SIM.e?fN(SIM.e.vh,1)+' m/s':'';
+}
+/* ---- ganancia de Kalman: cuánto pesa la medida nueva (radar y cámara) en la distancia ---- */
+function pintaK(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC, e=SIM.e; if(!C||!e) return;
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, X=ejeT(X0,X1), Y=v=>Y1-v*(Y1-Y0);
+  bandaHueco(x,X,Y0,Y1); ejeY(x,X0,X1,Y,[0,0.5,1],v=>fN(v*100));
+  lineaSerie(x,X,Y,C.krH,COL.rad,1.7); lineaSerie(x,X,Y,C.kcH,COL.cam,1.7);
+  cursor(x,X,Y0,Y1); txt(x,'%',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_fr').textContent=isNaN(e.nis)?'':'consist. '+fN(e.nis,1);
+}
+/* ---- error de la estimación (necesita la verdad: se oculta mientras se ajusta) ---- */
+function pintaErr(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  if(ocultaVerdad()){ sinDatos(x,Wd,Hd,'el error real se muestra al validar'); el('t_sp').textContent=''; return; }
+  const X0=30, X1=Wd-6, Y0=4, Yb=Hd-14, X=ejeT(X0,X1), T=C.T, V=C.B.V;
+  let mx=0.5; for(let k=0;k<=NPAS;k+=2){ mx=Math.max(mx,Math.abs(T.xh[k]-V.x[k]),2*Math.sqrt(T.Pxx[k])*0.8); } mx=Math.min(8,Math.ceil(mx*2)/2); const Y=v=>(Y0+Yb)/2-v/mx*((Yb-Y0)/2);
+  bandaHueco(x,X,Y0,Yb);
+  ejeY(x,X0,X1,Y,[-mx,0,mx],v=>fN(v,1)); ejeX(x,X,Hd+2,4);
+  x.fillStyle=COL.banda; x.beginPath(); for(let k=0;k<=NPAS;k++){ const px=X(k*DT), py=Y(2*Math.sqrt(T.Pxx[k])); k?x.lineTo(px,py):x.moveTo(px,py); }
+  for(let k=NPAS;k>=0;k--) x.lineTo(X(k*DT),Y(-2*Math.sqrt(T.Pxx[k]))); x.closePath(); x.fill();
+  x.strokeStyle=COL.ver; x.lineWidth=1.6; x.beginPath(); for(let k=0;k<=NPAS;k++){ const px=X(k*DT), py=Y(T.xh[k]-V.x[k]); k?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+  cursor(x,X,Y0,Yb); txt(x,'m',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_sp').textContent='RMS '+fN(C.m.rmsX,2)+' m';
+}
+function pintaDockFijo(){
+  const rt=EST.modo==='reto';
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?(CALC?NOMBRE_ESC[CALC.esc.id]:''):(enCalcula()?'Un solo instante':(enDiagnostico()?'Averigua la falla':(CALC?CALC.esc.nombre:''))));
+  pintaLeyDist();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  lab(1,'Distancia estimada'); lab(2,'Error real'); lab(3,'Velocidad relativa'); lab(4,'Duda (±2σ)'); lab(5,'Peso del radar'); lab(6,'Peso de la cámara');
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d===undefined?1:d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t=''; const oc=ocultaVerdad();
+  el('p_sub').textContent='t = '+fN(SIM.t,0)+' s';
+  set('f_1',sm(e.xh,'m')); _cl('f_1','');
+  if(oc){ set('f_2','¿?'); _cl('f_2','oculto'); } else { set('f_2',sm(e.ex,'m',2)); _cl('f_2',Math.abs(e.ex)>2*e.sx?'bad':''); }
+  set('f_3',sm(e.vh,'m/s')); _cl('f_3','');
+  set('f_4',sm(2*e.sx,'m',2)); _cl('f_4',2*e.sx>1.2?'warn':'');
+  set('f_5',e.kr>0?sm(e.kr*100,'%',0):'<small>—</small>'); _cl('f_5','');
+  set('f_6',e.kc>0?sm(e.kc*100,'%',0):'<small>—</small>'); _cl('f_6','');
+  if(enDiagnostico()||enCalcula()){ cl=''; t=''; }
+  else if(!e.disp){ cl='ojo'; t='Sin lecturas: el filtro sólo predice y su duda (el óvalo) crece.'; }
+  else if(e.tv.aL<-1&&C.m.retraso>0.4&&!oc){ cl='mal'; t='El coche frena y el filtro tarda en enterarse: Q es demasiado pequeña.'; }
+  else if(e.tv.aL<-1){ cl='ojo'; t='El coche de adelante frena fuerte: la velocidad cambia de golpe.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaDist(); pintaVel(); pintaK(); pintaErr(); }
+
+/* ===================== 15. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'×0,5'],[1,'×1'],[2,'×2'],[4,'×4']];
+const VISTAS_BARRA=[['todo','Todo'],['sensores','Sensores'],['lider','Coche de adelante'],['cenital','Desde arriba']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,0)+' s';
+  el('tLento').textContent='';
+  let t,c;
+  if(!e.disp){ t='sin lecturas: sólo predice'; c='#ffd88a'; }
+  else if(e.tv.aL<-1){ t='el de adelante frena'; c='#ff6a55'; }
+  else { t='siguiendo al coche de adelante'; c='#3DDC97'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 16. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Nuestro coche',()=>V3(0.0,0.42,OFS_DEL-0.1)],
+  ['Radar: mide bien la distancia',()=>V3(0,0.12,-0.02)],
+  ['Cámara: mide bien el lado',()=>V3(0.0,0.30,OFS_DEL-0.52*KCAR)],
+  ['Coche de adelante (el real)',()=>SIM.e?V3(SIM.e.tv.y*SX,0.42,-SIM.e.tv.x*SZ-0.50):V3(0,0.4,-5)],
+  ['Lecturas del radar',()=>SIM.e?V3(SIM.calc.B.M.ry[SIM.e.k]*SX+0.25,H_LEC,-SIM.calc.B.M.rx[SIM.e.k]*SZ+0.05):V3(0,0.3,-5)],
+  ['Lecturas de la cámara',()=>SIM.e?V3(SIM.calc.B.M.cy[SIM.e.k]*SX-0.25,H_LEC+0.1,-SIM.calc.B.M.cx[SIM.e.k]*SZ-0.1):V3(0,0.3,-5)],
+  ['Lo que el filtro cree',()=>SIM.e?V3(SIM.e.yh*SX,0.34,-SIM.e.xh*SZ-LARGO_COCHE*0.7):V3(0,0.3,-5)],
+  ['La duda del filtro (95 %)',()=>SIM.e?V3(SIM.e.yh*SX+0.12,0.04,-SIM.e.xh*SZ):V3(0,0.04,-5)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(168,226,255,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  nuestro:'Nuestro coche. Lleva un radar en el parachoques y una cámara bajo el retrovisor para saber dónde va el coche de adelante',
+  lider:'El coche de adelante, el de verdad. En la vida real nadie sabe su posición exacta: por eso hace falta estimarla',
+  radar:'Campo del radar: un haz estrecho y largo. Mide muy bien la distancia y la velocidad, pero se equivoca de lado',
+  camara:'Campo de la cámara: un abanico ancho y corto. Sabe bien de qué lado está el coche, pero calcula mal la distancia por su tamaño en la imagen',
+  lecR:'Lecturas del radar (cuadros naranjas): una línea delgada hacia adelante y abierta hacia los lados',
+  lecC:'Lecturas de la cámara (círculos azules): estiradas hacia adelante y atrás, pero muy juntas de lado',
+  estim:'Lo que el filtro de Kalman cree: la caja verde. Es el promedio ponderado de lo que esperaba y de lo que midieron los dos sensores',
+  elipse:'La duda del filtro: la elipse verde contiene al coche con un 95 % de seguridad. Crece si no llegan lecturas y baja cuando llegan',
+  nube:'Rocío de un camión: tapa a los dos sensores. Sin lecturas, el filtro sólo puede predecir',
+  regla:'Regla de distancia: una marca cada 5 m desde nuestro parachoques (las largas cada 10 m)',
+  carretera:'Carretera de tres carriles. Se mueve hacia atrás a la velocidad de nuestro coche',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 17. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+/* ===================== 18. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: los dos sensores, lo
+   que se equivoca cada uno, la mezcla, qué pasa si no ven, el frenazo y tu turno. Cada paso lleva la cámara a su pieza y la
+   señala con un aro. */
+const TOUR={paso:0,auto:false,timer:null};
+const posLider=()=>SIM.e?V3(SIM.e.tv.y*SX,0.30,-SIM.e.tv.x*SZ-OFS_TRAS):V3(0,0.3,-5);
+const posLecR=()=>{ const e=SIM.e, M=SIM.calc&&SIM.calc.B.M; if(!e||!M) return V3(0,0.3,-5); let k=e.k; while(k>0&&!M.rOk[k]) k--; return V3(M.ry[k]*SX,H_LEC,-M.rx[k]*SZ); };
+const posLecC=()=>{ const e=SIM.e, M=SIM.calc&&SIM.calc.B.M; if(!e||!M) return V3(0,0.3,-5); let k=e.k; while(k>0&&!M.cOk[k]) k--; return V3(M.cy[k]*SX,H_LEC+0.1,-M.cx[k]*SZ); };
+const posEst=()=>SIM.e?V3(SIM.e.yh*SX,0.20,-SIM.e.xh*SZ-LARGO_COCHE*0.5):V3(0,0.2,-5);
+const PAR_BIEN={esc:'autopista',q:3.0,fR:1.3,fC:0.8};
+const TOUR_PASOS=[
+  {t:'Dos sensores, un coche',vista:'todo',foco:posLider,par:PAR_BIEN,t0:3.0,
+   x:'Vas en el coche azul; delante va uno naranja. El <b>radar</b> (cuadros naranjas) y la <b>cámara</b> (círculos azules) lo miden, pero los dos se equivocan un poco.'},
+  {t:'El radar',vista:'lider',foco:posLecR,par:PAR_BIEN,t0:4.0,
+   x:'Mide muy bien <b>qué tan lejos</b> está: sus cuadros forman una línea fina hacia adelante. Pero se equivoca de <b>lado</b>: se abren hacia los costados.'},
+  {t:'La cámara',vista:'lider',foco:posLecC,par:PAR_BIEN,t0:5.0,
+   x:'Hace lo contrario: sabe bien de <b>qué lado</b> está el coche, pero calcula mal la <b>distancia</b>. Por eso sus círculos se estiran hacia adelante y atrás.'},
+  {t:'Mezclar los dos',vista:'lider',foco:posEst,par:PAR_BIEN,t0:6.0,
+   x:'El <b>filtro de Kalman</b> hace un <b>promedio ponderado</b> entre lo que esperaba y lo que midió, y pesa más a quien menos duda. La caja verde es su mejor idea; el óvalo, cuánto duda.'},
+  {t:'Cuando no ve',vista:'todo',foco:()=>SIM.e?V3(0,0.3,-SIM.e.tv.x*SZ*0.45):V3(0,0.3,-3),par:{esc:'rocio',q:3.0,fR:1.0,fC:1.5},t0:7.0,
+   x:'Una nube de agua tapa los sensores. Sin lecturas el filtro sólo puede <b>predecir</b>, y su óvalo de duda crece. Al volver a ver, se corrige.'},
+  {t:'El frenazo',vista:'todo',foco:posLider,par:{esc:'autopista',q:0.25,fR:1.3,fC:0.8},t0:6.6,
+   x:'El de adelante frena fuerte. Si el filtro cree que el coche casi nunca cambia de velocidad (<b>Q</b> chica), llega tarde: la caja verde se queda atrás. Con Q grande reacciona, pero tiembla.'},
+  {t:'Tu turno',vista:'todo',foco:null,par:PAR_BIEN,t0:3.0,
+   x:'Tú decides <b>Q</b> (cuánto puede cambiar la velocidad) y <b>cuánto te fías</b> de cada sensor. Pulsa «Probar yo» y busca que siga al coche sin retraso ni temblor.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); SIM.t=P.t0; ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 19. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (mezclar «lo que esperaba» con «lo que midió» con sus dudas: la ganancia de Kalman a mano), 2 · Ajusta
+   (Q y la confianza en el radar y en la cámara, para cinco condiciones a la vez: error de distancia, error de lado, retraso
+   al enterarse de la frenada, velocidad sin temblor y un filtro «honesto»; el error real sólo aparece al validar, y la
+   ventana es INTERIOR en Q y en la confianza) y 3 · Diagnostica (¿por qué falla este filtro?, sólo con lo que se ve en el dock).
+   Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Calcula: el promedio ponderado ---------- */
+const CASOS_1=[{xp:30,sp:2,z:31.5,sz:1},{xp:25,sp:1,z:27,sz:2},{xp:40,sp:3,z:38,sz:2},{xp:32,sp:2,z:35,sz:4},{xp:28,sp:4,z:27,sz:2},{xp:35,sp:3,z:33,sz:1},{xp:22,sp:2,z:23.5,sz:1}];
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.xp; let c; do{ c=pickOne(CASOS_1); }while(c.xp===p); GUIA.r1=Object.assign({},c,{res:fusiona1(c.xp,c.sp,c.z,c.sz)}); }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.res.x;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe la distancia en metros (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-ok)<=0.06){
+    RETOS.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`El peso de la medida nueva es K = ${fN(r.sp,1)}² ÷ (${fN(r.sp,1)}² + ${fN(r.sz,1)}²) = <b>${fN(r.res.K,2)}</b>. Estimación = ${fN(r.xp,1)} + ${fN(r.res.K,2)}·(${fN(r.z,1)} − ${fN(r.xp,1)}) = <b>${fN(ok,2)} m</b>, y la duda baja a ±${fN(r.res.s,2)} m: mezclar siempre reduce la duda. Eso hace el filtro, muchas veces por segundo.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal(); const entre=(v>Math.min(r.xp,r.z)-1e-9&&v<Math.max(r.xp,r.z)+1e-9);
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: pesa más a quien duda menos, y el peso de la medida nueva es K = duda² esperada ÷ (duda² esperada + duda² medida).'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',(entre?'Tu resultado está entre lo esperado y lo medido, bien, pero no con el peso correcto. ':'El resultado tiene que quedar entre lo que esperabas y lo que mediste. ')+`Calcula primero K con los cuadrados de las dudas. (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta Q y la confianza en cada sensor ---------- */
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id&&RETOS.resiembras>0);
+  GUIA.r2={esc:e,q:0.5,fR:1,fC:1,validado:false,res:null,intentos:0};
+  reiniciaCalculo(); pintaHUD();
+}
+/** Rango de Q (m/s²) que cumple todo con la confianza tal como está: la ventana. */
+function rangoQ(r){
+  const B=baseDe(r.esc.id); let a=null,b=null;
+  for(let i=0;i<=100;i++){ const q=qDeU(i), T=filtra(B.esc,{q,fR:r.fR,fC:r.fC},B.M), m=metricas(B.esc,T,B.V); if(cumpleTodo(m,B.esc)){ if(a===null) a=q; b=q; } }
+  return a===null?null:[a,b];
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, m=CALC.m; r.res=m; r.validado=true; r.intentos++; RETOS.intentos++;
+  const c=cumple(m,E), ok=cumpleTodo(m,E);
+  reiniciaCalculo();
+  const cifras=`Error de distancia <b>${fN(m.rmsX,2)} m</b> (máx. ${fN(E.lim.rms,2)}), de lado <b>${fN(m.rmsY,2)} m</b> (máx. ${fN(E.lim.lat,2)}), te enteraste de la frenada con <b>${fN(m.retraso,1)} s</b> de retraso (máx. ${fN(RETO.retraso,1)}), la velocidad tembló <b>${fN(m.rmsV,2)} m/s</b> (máx. ${fN(RETO.rmsV,2)}) y el filtro fue <b>${m.nees<RETO.neesMin?'tímido':(m.nees>RETO.neesMax?'presumido':'honesto')}</b> (NEES ${fN(m.nees,1)}; ideal 2).`;
+  if(ok){
+    RETOS.fallos2=0; sonido.bien(); const rg=rangoQ(r);
+    feedback('good','¡Lo conseguiste! ✓',`${cifras} ${rg?`Con esos otros ajustes, cualquier Q entre <b>${fN(rg[0],1)} y ${fN(rg[1],1)} m/s²</b> habría servido: más pequeña se retrasa y se vuelve presumida; más grande tiembla. La ventana está en el interior, no en los extremos.`:''}`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(!c.retraso) msg+='Te enteraste <b>tarde</b> de la frenada: el filtro cree que el coche casi no cambia de velocidad (Q chica) o se fía poco del radar, que mide la velocidad directamente. ';
+    if(!c.vel) msg+='La velocidad estimada <b>tiembla</b>: el filtro deja que cualquier ruido la cambie (Q grande) o se fía de más del radar. ';
+    if(!c.rms) msg+='El error de <b>distancia</b> es grande: mira si estás creyendo de más a un sensor que se equivoca mucho en distancia. ';
+    if(!c.lat) msg+='El error de <b>lado</b> es grande: la cámara es la que sabe del lado, y el radar no. ';
+    if(!c.nees) msg+=m.nees>RETO.neesMax?'El filtro es <b>presumido</b>: su óvalo es más chico que su error real, así que cree saber más de lo que sabe. ':'El filtro es <b>tímido</b>: su óvalo es mucho mayor que su error real, así que desperdicia lo que mide. ';
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia el escenario.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'lento',esc:'autopista',q:0.25,fR:1.3,fC:0.8},
+  {k:'nervioso',esc:'autopista',q:10,fR:1.3,fC:0.8},
+  {k:'camara',esc:'lluvia',q:3.5,fR:1.5,fC:0.2},
+  {k:'ciego',esc:'rocio',q:1.3,fR:1.0,fC:1.5},
+];
+const NOMBRE_DX={lento:'Cree que el coche casi no cambia',nervioso:'Cree que cambia todo el tiempo',camara:'Se fía de más de la cámara',ciego:'Se pierde cuando no ve'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara la estimación con la verdad (línea punteada), mira cuándo aparece el error y si la velocidad tiembla.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='lento') return 'La velocidad estimada va suave pero llega tarde a la frenada, y el error se queda de un solo lado: con Q tan chica el filtro no se deja convencer por las lecturas nuevas.';
+  if(k==='nervioso') return 'El error de distancia es chico, pero la velocidad estimada tiembla: con Q tan grande cada lectura con ruido la mueve, aunque el coche no haya cambiado.';
+  if(k==='camara') return 'La distancia tiembla y el error crece porque el filtro cree que la cámara mide la distancia casi perfecta, y con lluvia es la que peor la mide. Debería fiarse del radar para la distancia.';
+  return 'El error se dispara justo en la franja gris, la que no tiene lecturas: el coche frena y el filtro sigue en línea recta porque no tiene medidas que lo corrijan hasta que vuelve a ver.';
+}
+function noEs(k){
+  if(k==='lento') return 'Mira la velocidad: aquí no llega tarde a la frenada.';
+  if(k==='nervioso') return 'Mira la línea verde de la velocidad: aquí no tiembla tanto.';
+  if(k==='camara') return 'Compara el error de distancia con el de otros casos: aquí no es la cámara la que lo estropea.';
+  return 'Busca la franja gris (sin lecturas): aquí el error no nace ahí.';
+}
+const QUIZ=[
+  {q:'¿Qué hace el filtro de Kalman al mezclar lo que esperaba con lo que midió?',ok:'Un promedio ponderado: pesa más a quien tiene menos duda',mal:['Se queda siempre con la última medida','Promedia los dos con el mismo peso siempre','Descarta al sensor que más se equivoca']},
+  {q:'Si durante dos segundos no llega ninguna lectura, ¿qué le pasa a la duda del filtro?',ok:'Crece: sólo predice y cada paso añade incertidumbre',mal:['Se queda igual','Baja a cero porque no hay ruido','Se vuelve infinita de golpe']},
+  {q:'Pones Q muy chica (crees que el coche casi nunca cambia de velocidad) y el de adelante frena fuerte. ¿Qué ocurre?',ok:'El filtro se retrasa: sigue creyendo que va a la misma velocidad',mal:['El filtro se adelanta al coche','Mide mejor porque ignora el ruido','Se apaga el radar']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v':
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2','El peso de la medida nueva es <b>K = duda² esperada ÷ (duda² esperada + duda² medida)</b>. Usa los cuadrados de las dudas.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2','La estimación es <b>lo esperado + K · (lo medido − lo esperado)</b>. Con K cerca de 1 manda la medida; cerca de 0, lo esperado.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarAjusta(); break;
+    case 'dx-lento': diagnostica('lento'); break; case 'dx-nervioso': diagnostica('nervioso'); break; case 'dx-camara': diagnostica('camara'); break; case 'dx-ciego': diagnostica('ciego'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Dónde está el coche?',
+      teach:`Esperabas al coche a <b>${fN(r.xp,1)} m</b> (duda ±${fN(r.sp,1)} m). El radar mide <b>${fN(r.z,1)} m</b> (duda ±${fN(r.sz,1)} m). Mezcla los dos: pesa más a quien duda menos.<div class="task">¿A qué distancia crees que está? ${tri('d_try',RETOS.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? metros" aria-label="Distancia estimada en metros"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Que siga al coche sin retraso ni temblor',
+      teach:`Situación: <b>${r.esc.nombre.toLowerCase()}</b>. Meta: error de distancia menor que <b>${fN(r.esc.lim.rms,2)} m</b> y de lado menor que <b>${fN(r.esc.lim.lat,2)} m</b>, enterarse de la frenada en menos de <b>${fN(RETO.retraso,1)} s</b> y velocidad sin temblor (menos de ${fN(RETO.rmsV,2)} m/s).<div class="why"><b>Ojo:</b> un filtro que presume de seguro y se equivoca, o que duda más de lo que debe, no vale. ${tri('d_try2',RETOS.fallos2,4)}</div>`,
+      acts:`${slidersHTML(r,['r2Q','r2R','r2C'])}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla este filtro',
+      teach:`Este filtro sigue mal a un coche. Mira las gráficas (la línea punteada es la verdad) y el error.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Rocío» y mira cómo crece el óvalo cuando el camión tapa los sensores.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula') return PAR_BIEN;
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {esc:r.esc.id,q:r.q,fR:r.fR,fC:r.fC}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {esc:c.esc,q:c.q,fR:c.fR,fC:c.fC}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  SIM.t=0; reiniciaCalculo(); ponVista('todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2Q:['q',qDeU,txtQ,'vr2Q'],r2R:['fR',fDeU,txtR,'vr2R'],r2C:['fC',fDeU,txtC,'vr2C']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=m[1](+t.value); GUIA.r2.validado=false; el(m[3]).textContent=m[2](GUIA.r2[m[0]]); reiniciaCalculo(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 20. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en unidades) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 70 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const anclaLider=()=>SIM.e?V3(SIM.e.tv.y*SX*0.5,0.18,-SIM.e.tv.x*SZ-0.25):V3(0,0.18,-5);
+const VISTAS={
+  todo:{dir:V3(0.46,0.86,0.80),anc:()=>V3(0,0.10,-3.85),toff:V3(0,0,0),obj:()=>({w:6.2,h:6.4}),fov:34,tope:0.72},
+  sensores:{dir:V3(0.60,0.56,0.95),anc:()=>V3(0,0.14,-1.25),toff:V3(0,0,0),obj:()=>({w:3.3,h:3.0}),fov:34,tope:0.70},
+  lider:{dir:V3(0.50,0.66,0.90),anc:anclaLider,toff:V3(0,0,0),obj:()=>({w:3.0,h:2.7}),fov:34,tope:0.70},
+  cenital:{dir:V3(0.03,1,0.16),anc:()=>V3(0,0,-3.85),toff:V3(0,0,0),obj:()=>({w:6.2,h:9.4}),fov:34,tope:0.72},
+};
+const CAM={off:V3(3,6,5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 21. SONIDO (sintetizado) =====================
+   Un zumbido grave de rodadura cuyo tono sigue a la velocidad de nuestro coche (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=60; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=200; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(38+q*50,t,0.15); zg.gain.setTargetAtTime(on&&q>0?0.008:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 22. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 23. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo del escenario avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven los coches, las lecturas, la estimación
+   y la elipse, y se dibujan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  aplicaEscena(dtS,dtSim,dt);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(SIM.e&&!EST.pausa?clamp(SIM.e.tv.vE/25,0,1):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 24. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: los dos coches ruedan, los sensores sueltan sus lecturas y el filtro ya
+   sigue al coche de adelante, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.t=TOUR_PASOS[0].t0;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{xp:GUIA.r1.xp,ans:GUIA.r1.res.x}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,q:GUIA.r2.q,fR:GUIA.r2.fR,fC:GUIA.r2.fC,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const m=C.m;
+    return {esc:C.esc.id,q:C.p.q,fR:C.p.fR,fC:C.p.fC,rmsX:m.rmsX,pico:m.pico,retraso:m.retraso,rmsV:m.rmsV,nees:m.nees,nis:m.nis,rmsY:m.rmsY,cumple:C.c,todo:cumpleTodo(m,C.esc)}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,q:GUIA.r2.q,fR:GUIA.r2.fR,fC:GUIA.r2.fC,res:GUIA.r2.res&&{rmsX:GUIA.r2.res.rmsX,nees:GUIA.r2.res.nees}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s,Math.max(s,0.5)); },
+  salta:(t)=>{ SIM.t=clamp(t,0,TFIN-DT*2-0.001); aplicaEscena(0.001,0.001,1.0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(q,fR,fC)=>{ const r=GUIA.r2; if(r){ r.q=q; r.fR=fR; r.fC=fC; r.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(id)=>{ const r=GUIA.r2; if(r){ r.esc=escPorId(id); reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('fusion-sensores-kalman',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{cocheNuestro:COCHE_E,cocheLider:COCHE_L,radar:ABANICO_R.grupo,camara:ABANICO_C.grupo,estimacion:ESTIM,nube:NUBE}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-fusion-sensores-kalman.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

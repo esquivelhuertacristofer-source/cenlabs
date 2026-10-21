@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Ciberseguridad del bus CAN — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08161F;--panel:rgba(7,20,28,.88);--line:#21495C;--ink:#EAF4F8;
+    --dim:#9BB8C4;--accent:#5BC8FF;--accent2:#A8E2FF;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cD:#4EA8FF;--cC:#FFC23D;--cM:#3DDC97;--cL:#5E6B75;--cA:#FF5468;--cF:#5BC8FF;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05080a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#0f2733;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#173748}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#031a20;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#8ad8ff}
+  .b.auto{border-color:rgba(255,183,3,.6);color:var(--hv);background:rgba(255,183,3,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,183,3,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#031a20}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#5BC8FF;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#031a20}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,183,3,.35);background:rgba(255,183,3,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#09121c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(30,53,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(30,53,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(30,53,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,183,3,.08);color:#ffd88a;border:1px solid rgba(255,183,3,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#0f2733;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(91,200,255,.38);background:rgba(91,200,255,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(91,200,255,.55),0 0 24px 6px rgba(91,200,255,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(124,196,255,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(124,196,255,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .pliego{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px}
+  .pliego .chip{padding:3px 7px;font-size:11px;line-height:1.3}
+  .pliego .chip small{display:block}
+  .tabs{display:none}
+  .bitley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da}
+  .bitley i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;background:var(--c)}
+  body.m-reto .hud.compacto h2{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{display:none}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-marcha">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · seguridad de los mensajes del coche · bus CAN</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">El bus en marcha</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Bus ocupado</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Sitio libre</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Retardo de la orden</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Intruso acierta</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Hueco que tolera</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Fallos propios</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">El bus en el tiempo</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Bus ocupado <span id="t_pw"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Largo de la firma <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">La ventana del contador <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+   LAB — CIBERSEGURIDAD DEL BUS CAN: AUTENTICACIÓN DE MENSAJES Y ATAQUE DE REPRODUCCIÓN
+   (Autotrónica · mecanica-152)
+
+   Un bus CAN a 500 kbit/s con cuatro módulos (puerta de enlace, motor, tablero y freno) y una caja de un intruso conectada
+   al puerto de diagnóstico. La puerta de enlace manda al freno la orden «frenar» cada T ms. Tú eliges cuántos bits de FIRMA
+   (MAC truncado) y de VENTANA de contador protegen cada trama de 64 bits, y cada cuánto se envía. La trama real (CRC-15,
+   relleno de bits), la carga del bus, la probabilidad de adivinar la firma y la verificación con contador son un único
+   modelo, en un bloque puro que un script de Node extrae TAL CUAL y verifica.
+   MODELO DIDÁCTICO, NO UNA IMPLEMENTACIÓN DE SecOC: la «firma» es una mezcla de bits sin valor criptográfico.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+const DOSPI=Math.PI*2;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+
+/* ---------- 1. La trama CAN: bits reales, CRC-15 y relleno de bits ---------- */
+const BUS={bps:500000, tbit:1/500000};            // 500 kbit/s → 2 µs por bit
+const CAN_ID_FRENO=0x0A0;                          // identificador de 11 bits de la orden de frenado
+/** CRC-15 de CAN (polinomio 0x4599, valor inicial 0) sobre una lista de bits. */
+function crc15(bits){ let crc=0; for(const b of bits){ const nx=((crc>>14)&1)^b; crc=(crc<<1)&0x7FFF; if(nx) crc^=0x4599; } return crc; }
+const aBits=(v,n)=>{ const o=[]; for(let i=n-1;i>=0;i--) o.push((v>>>i)&1); return o; };
+/** Bits de SOF a CRC de una trama de datos CAN 2.0A (11 bits de ID) con n bytes: es la zona que se rellena. */
+function bitsTrama(id,bytes){
+  const h=[0,...aBits(id,11),0,0,0,...aBits(bytes.length,4)];
+  for(const B of bytes) h.push(...aBits(B,8));
+  return h.concat(aBits(crc15(h),15));
+}
+/** Relleno de bits: tras cinco bits iguales seguidos se inserta uno de signo contrario (el insertado también cuenta en la racha). */
+function rellena(bits){
+  const o=[]; let ult=-1, racha=0;
+  for(const b of bits){ o.push(b); if(b===ult) racha++; else{ ult=b; racha=1; }
+    if(racha===5){ const s=1-b; o.push(s); ult=s; racha=1; } }
+  return o;
+}
+/** Bits que ocupa en el cable una trama real: zona rellenada + delimitador de CRC (1) + ACK (2) + fin de trama (7) + espacio entre tramas (3). */
+const bitsEnCable=(id,bytes)=>rellena(bitsTrama(id,bytes)).length+13;
+/** Cota del PEOR caso con relleno (Davis et al.): 34 + 8n + 13 + ⌊(33 + 8n)/4⌋ bits. Con 8 bytes: 135 bits = 270 µs. */
+const bitsPeor=n=>34+8*n+13+Math.floor((33+8*n)/4);
+const bitsMin=n=>34+8*n+13;
+const tTrama=n=>bitsPeor(n)*BUS.tbit;              // s
+
+/* ---------- 2. El mensaje de frenado y el reparto de sus 64 bits ---------- */
+const MSG={D:16, C:8, ID:CAN_ID_FRENO};            // 16 bits de orden de frenado · 8 bits de contador que viajan
+const usado=m=>MSG.D+MSG.C+m;                      // bits ocupados (datos + contador + firma)
+const libres=m=>64-usado(m);                       // negativo = no cabe
+const dlcDe=m=>Math.max(1,Math.min(8,Math.ceil(usado(m)/8)));
+
+/* ---------- 3. Carga del bus y retardo ---------- */
+const FONDO=[[10,4],[20,6],[50,8],[100,10]];       // [periodo ms, nº de mensajes de 8 bytes] del resto del coche
+const U_FONDO=FONDO.reduce((a,[T,n])=>a+n*tTrama(8)/(T/1000),0);
+const cargaFreno=(T,m)=>tTrama(dlcDe(m))/(T/1000);
+const carga=(T,m)=>U_FONDO+cargaFreno(T,m);
+const tMac=m=>30e-6+2e-6*m;                        // tiempo de calcular/comprobar la firma en un módulo (didáctico)
+/** Retardo del peor caso de la orden: esperar al siguiente envío (T) + ser bloqueada por una trama de 8 bytes + su propia trama + firmar y comprobar. */
+const retardo=(T,m)=>T/1000+tTrama(8)+tTrama(dlcDe(m))+2*tMac(m);   // s
+
+/* ---------- 4. Seguridad: adivinar la firma, repetir, perder sincronía ---------- */
+/** Probabilidad de que UN intento al azar acierte una firma truncada de m bits: 2^−m. */
+const pIntento=m=>Math.pow(2,-m);
+/** Probabilidad de que algún intento acierte entre N: 1 − (1 − 2^−m)^N (calculada sin perder cifras). */
+function pForja(m,N){ const p=pIntento(m); if(p>=1) return 1; return -Math.expm1(N*Math.log1p(-p)); }
+const intentosMedios=m=>Math.pow(2,m);             // media de la geométrica: 1/p
+/** Edad máxima de una orden vieja que el módulo aceptaría: W mensajes de retraso a un mensaje cada T ms. */
+const edadMax=(T,W)=>W*T;                          // ms
+/** Desincronizaciones por hora: se pierden W mensajes seguidos (cada uno con prob. q) y el contador sale de la ventana. */
+const desincPorHora=(T,W,q)=>(3.6e6/T)*(1-q)*Math.pow(q,W);
+
+/* ---------- 5. Firma didáctica (NO es criptografía) y verificación con ventana de contador ---------- */
+/** Mezcla de bits tipo murmur3: sirve para ver cómo se comporta una firma truncada, no protege nada de verdad. */
+function mezcla32(h){ h^=h>>>16; h=Math.imul(h,0x85ebca6b); h^=h>>>13; h=Math.imul(h,0xc2b2ae35); h^=h>>>16; return h>>>0; }
+function macCompleto(clave,datos,fv){
+  let h1=mezcla32((clave^0x9e3779b9)>>>0), h2=mezcla32((clave^0x85ebca77)>>>0);
+  for(const w of [datos>>>0,(fv>>>0),Math.floor(fv/4294967296)>>>0]){ h1=mezcla32((h1^w)+Math.imul(h2,0x27d4eb2f)>>>0); h2=mezcla32((h2+w)^Math.imul(h1,0x165667b1)>>>0); }
+  return [h1>>>0,h2>>>0];
+}
+/** Firma truncada a m bits (0 ≤ m ≤ 40): los m bits de más peso de una mezcla de 64. */
+function macTrunc(clave,datos,fv,m){
+  if(m<=0) return 0; const [h1,h2]=macCompleto(clave,datos,fv);
+  if(m<=32) return h1>>>(32-m);
+  const extra=m-32; return h1*Math.pow(2,extra)+(h2>>>(32-extra));
+}
+const CLAVE=0x5ec0c0de;
+/** Emisor: lleva un contador largo (invisible) y envía sólo sus 8 bits bajos. */
+function nuevoEmisor(){ return {fv:0}; }
+function emite(em,datos,m){ em.fv++; return {datos,cnt:em.fv&255,mac:macTrunc(CLAVE,datos,em.fv,m),fv:em.fv}; }
+/** Receptor: guarda el último contador largo aceptado; acepta si el avance está en 1..W y la firma cuadra con ese contador. */
+function nuevoReceptor(){ return {ult:0}; }
+function recibe(rx,tr,m,W){
+  const d=(tr.cnt-(rx.ult&255)+256)&255;
+  if(d<1||d>W) return {ok:false,motivo:'contador'};
+  const fv=rx.ult+d;
+  if(macTrunc(CLAVE,tr.datos,fv,m)!==tr.mac) return {ok:false,motivo:'firma'};
+  rx.ult=fv; return {ok:true,motivo:'',avance:d};
+}
+
+/* ---------- 6. Los escenarios del reto y su pliego ---------- */
+const ESCENARIOS=[
+  {id:'taller',  nombre:'Visita al taller',   N:20000,  edad:80, q:0.03, texto:'El intruso prueba 20 000 firmas al azar'},
+  {id:'autopista',nombre:'Autopista',          N:300000, edad:70, q:0.03, texto:'El intruso prueba 300 000 firmas al azar'},
+];
+const LIM={pForja:1e-3, carga:0.30, libres:8, retardo:0.012, desinc:1e-3};   // desinc: por hora de marcha (1 cada 1 000 h)
+/** Evalúa un diseño (m, W, T) contra un escenario: todas las cifras y los cinco criterios. */
+function evalua(m,W,T,E){
+  const r={m,W,T,pF:pForja(m,E.N),edad:edadMax(T,W),des:desincPorHora(T,W,E.q),U:carga(T,m),lib:libres(m),ret:retardo(T,m)};
+  r.c={forja:r.pF<=LIM.pForja, repite:r.edad<=E.edad, sync:r.des<=LIM.desinc, bus:r.U<=LIM.carga, sitio:r.lib>=LIM.libres, lat:r.ret<=LIM.retardo};
+  r.ok=r.c.forja&&r.c.repite&&r.c.sync&&r.c.bus&&r.c.sitio&&r.c.lat; return r;
+}
+const RANGO={m:[0,40],W:[1,40],T:[2,20]};
+/** Lista todas las combinaciones válidas de un escenario (la ventana buscada es interior en los tres mandos). */
+function barrido(E){
+  const out=[]; for(let m=RANGO.m[0];m<=RANGO.m[1];m++) for(let W=RANGO.W[0];W<=RANGO.W[1];W++) for(let T=RANGO.T[0];T<=RANGO.T[1];T++){ if(evalua(m,W,T,E).ok) out.push([m,W,T]); }
+  return out;
+}
+/** Valores de UN mando que cumplen todo con los otros dos fijos: la ventana que se enseña tras validar. */
+function ventanaDe(eje,m,W,T,E){
+  const v={m,W,T}, [a,b]=RANGO[eje]; let lo=null, hi=null;
+  for(let x=a;x<=b;x++){ v[eje]=x; if(evalua(v.m,v.W,v.T,E).ok){ if(lo===null) lo=x; hi=x; } }
+  return lo===null?null:[lo,hi];
+}
+/* FISICA:FIN */
+
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.82;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.28;
+scene.fog=new THREE.Fog('#1b3a4e',16,48);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(0.2,4.6,6.4);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.2; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.52;
+controls.target.set(0.0,0.4,0.2);
+
+/* Iluminación de estudio: luz principal cálida con sombra suave desde arriba-izquierda, relleno frío, contraluz
+   cian que recorta las piezas y hemisférica. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1e0',1.7); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-3.5,8,5.5); LUZ.sol.target.position.set(0.0,0.3,0.2);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.03;
+Object.assign(LUZ.sol.shadow.camera,{left:-4.5,right:4.5,top:4.5,bottom:-4.5,near:1,far:30});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fc6e6',0.7); LUZ.relleno.position.set(7,3,4); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#5fe0f0',1.5); LUZ.rim.position.set(-3,4,-8); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#a9d8ee','#1c3441',0.45); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: las tramas, las luces de los módulos y los bordes
+   de la plataforma. En calidad media no hay resplandor y la escena no depende de él para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.22,0.30,0.97); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono y marcas propias de un banco
+   técnico (retícula fina, viñeta, vetas de las celdas) dibujadas como objetos, no como ruido. */
+
+function texPlataforma(){
+  const W=512,c=cv(W),x=c.getContext('2d');
+  const g=x.createRadialGradient(W*0.45,W*0.4,W*0.05,W/2,W/2,W*0.75); g.addColorStop(0,'#2b4654'); g.addColorStop(1,'#14262f');
+  x.fillStyle=g; x.fillRect(0,0,W,W);
+  x.strokeStyle='rgba(120,210,226,0.10)'; x.lineWidth=1;
+  for(let i=0;i<=16;i++){ const p=i*W/16; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  x.strokeStyle='rgba(120,210,226,0.22)'; x.lineWidth=2;
+  for(let i=0;i<=4;i++){ const p=i*W/4; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+const T_PLAT=texPlataforma();
+T_PLAT.repeat.set(1,1);
+const pbr=o=>new THREE.MeshStandardMaterial(o), fis=o=>new THREE.MeshPhysicalMaterial(o);
+const M={
+  plinto: fis({color:'#ffffff',map:T_PLAT,roughness:0.42,metalness:0.2,clearcoat:0.6,clearcoatRoughness:0.25}),
+  canto: pbr({color:'#0c1a21',metalness:0.6,roughness:0.4}),
+  neon: new THREE.MeshBasicMaterial({color:'#4fe3f2',toneMapped:false}),
+  aluminio: pbr({color:'#cfd9df',metalness:0.92,roughness:0.34}),
+  acero: pbr({color:'#aeb7bf',metalness:0.9,roughness:0.3}),
+  cobre: pbr({color:'#c9794a',metalness:0.95,roughness:0.28}),
+  laton: pbr({color:'#d2ae58',metalness:0.9,roughness:0.3}),
+  goma: pbr({color:'#15191c',metalness:0.1,roughness:0.75}),
+  negro: pbr({color:'#0f1417',metalness:0.3,roughness:0.6}),
+  vidrio: fis({color:'#9fd7e6',metalness:0,roughness:0.04,clearcoat:1,clearcoatRoughness:0.03,transparent:true,opacity:0.10,envMapIntensity:1.6,side:THREE.DoubleSide,depthWrite:false}),
+};
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Junta una pieza hecha de muchas mallas en una malla por material: así una bobina con 40 piezas cuesta pocas llamadas. */
+function fusiona(grupo){
+  grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map();
+  grupo.traverse(o=>{ if(!o.isMesh) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(), m=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+    g.applyMatrix4(m);
+    if(!g.attributes.uv){ g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2)); }
+    const k=o.material; if(!por.has(k)) por.set(k,[]); por.get(k).push(g); });
+  const out=new THREE.Group();
+  for(const [mat,gs] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count;
+      pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry();
+    G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent; me.receiveShadow=true; out.add(me);
+  }
+  return out;
+}
+
+/** Funde las mallas ESTÁTICAS de un grupo en una malla por material (y por «clave» de pieza, para que el rótulo y el
+ *  tooltip sigan sabiendo de qué pieza son). Las que se mueven, las instanciadas, las de material múltiple y el fondo se
+ *  quedan como están. */
+function fusionaPartes(grupo,excluir){
+  excluir=excluir||[]; grupo.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(grupo.matrixWorld).invert(), por=new Map(), viejas=[];
+  const fuera=o=>{ for(let p=o;p&&p!==grupo;p=p.parent) if(excluir.includes(p)||(p.userData&&p.userData.fondo===true)) return true; return false; };
+  grupo.traverse(o=>{ if(!o.isMesh||o.isInstancedMesh||fuera(o)||o.userData.noFusion) return;
+    const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld));
+    if(!g.attributes.uv) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    const clave=o.userData.clave||'', ro=o.renderOrder||0;
+    const mete=(mat,geo)=>{ const k=mat.uuid+'|'+clave; if(!por.has(k)) por.set(k,{mat,clave,gs:[],ro}); por.get(k).gs.push(geo); };
+    if(Array.isArray(o.material)){
+      const grupos=g.groups&&g.groups.length?g.groups:[{start:0,count:g.attributes.position.count,materialIndex:0}];
+      for(const gr of grupos){ const mat=o.material[gr.materialIndex]; if(!mat) continue; const sub=new THREE.BufferGeometry();
+        for(const nom of ['position','normal','uv']){ const at=g.attributes[nom]; sub.setAttribute(nom,new THREE.BufferAttribute(at.array.slice(gr.start*at.itemSize,(gr.start+gr.count)*at.itemSize),at.itemSize)); }
+        mete(mat,sub); }
+      g.dispose();
+    } else mete(o.material,g);
+    viejas.push(o); });
+  for(const o of viejas){ o.parent.remove(o); }
+  for(const [,{mat,clave,gs,ro}] of por){
+    let n=0; for(const g of gs) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of gs){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const G=new THREE.BufferGeometry(); G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    const me=new THREE.Mesh(G,mat); me.castShadow=!mat.transparent&&!(mat.blending===THREE.AdditiveBlending); me.receiveShadow=true; me.renderOrder=ro; if(clave) me.userData.clave=clave; grupo.add(me);
+  }
+}
+
+
+/* ===================== 6. EL BANCO: PLATAFORMA, SUELO Y FONDO ===================== */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+const PLATAFORMA=new THREE.Group(); MUNDO.add(PLATAFORMA);
+{
+  const g=new RoundedBoxGeometry(4.5,0.16,3.9,4,0.05);
+  const p=malla(g,[M.canto,M.canto,M.plinto,M.canto,M.canto,M.canto]); p.position.set(0,-0.08,0.05); PLATAFORMA.add(p);
+  const sh=new THREE.Shape(); const w=2.18,h=1.88,r=0.08; sh.moveTo(-w+r,-h); sh.lineTo(w-r,-h); sh.quadraticCurveTo(w,-h,w,-h+r); sh.lineTo(w,h-r); sh.quadraticCurveTo(w,h,w-r,h); sh.lineTo(-w+r,h); sh.quadraticCurveTo(-w,h,-w,h-r); sh.lineTo(-w,-h+r); sh.quadraticCurveTo(-w,-h,-w+r,-h);
+  const pts=sh.getPoints(60); const neon=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>V3(q.x,0.0,q.y)),true),240,0.012,6,true);
+  const n=malla(neon,M.neon,{sombra:false,recibe:false}); n.position.set(0,0.002,0.05); PLATAFORMA.add(n);
+}
+{
+  const d=malla(new THREE.CircleGeometry(30,64),new THREE.MeshBasicMaterial({map:texRadial('rgba(60,130,170,0.50)','rgba(20,50,70,0)'),transparent:true,depthWrite:false,toneMapped:false}),{sombra:false,recibe:false});
+  d.rotation.x=-Math.PI/2; d.position.y=-0.17; d.userData.fondo=true; MUNDO.add(d);
+  const s=malla(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:0.35}),{sombra:false,recibe:true}); s.rotation.x=-Math.PI/2; s.position.y=-0.165; s.userData.fondo=true; MUNDO.add(s);
+}
+scene.background=fondoDegradado('#07151e','#17394d','#5f93ad'); scene.fog.color.set('#214a60');
+
+/* Colores de la trama: los MISMOS en la rejilla de 64 bits, en las tramas que viajan y en la leyenda del dock. */
+const COL_BIT={dato:'#4EA8FF',cont:'#FFC23D',mac:'#3DDC97',libre:'#5E6B75',ataque:'#FF5468'};
+const T_FUND=P3.pielFundicion({px:256,semilla:52,manchas:0.06,relieve:2.4,celda:18});
+for(const t of [T_FUND.map,T_FUND.roughnessMap,T_FUND.normalMap]) t.repeat.set(2,2);
+const nF=new THREE.Vector2(0.22,0.22);
+const lampara=c=>new THREE.MeshBasicMaterial({color:c,toneMapped:false});
+const M2={
+  negro: pbr({color:'#12181c',metalness:0.3,roughness:0.6}),
+  acero: pbr({color:'#a9b3ba',metalness:0.7,roughness:0.42}),
+  laton: pbr({color:'#c9a24a',metalness:0.8,roughness:0.35}),
+  goma: pbr({color:'#15191c',metalness:0.1,roughness:0.8}),
+  ecu: pbr({color:'#355468',metalness:0.55,roughness:0.46}),
+  ecuTapa: pbr({color:'#3f5a69',metalness:0.25,roughness:0.62}),
+  conector: pbr({color:'#101417',metalness:0.3,roughness:0.65}),
+  cable: pbr({color:'#1a2025',roughness:0.6,metalness:0.1}),
+  canH: pbr({color:'#f0b429',metalness:0.1,roughness:0.4}),
+  canL: pbr({color:'#34c98c',metalness:0.1,roughness:0.4}),
+  funda: fis({color:'#a9dcee',metalness:0,roughness:0.05,clearcoat:1,clearcoatRoughness:0.04,transparent:true,opacity:0.13,envMapIntensity:1.4,side:THREE.DoubleSide,depthWrite:false}),
+  fundicion: pbr({color:'#6a7a85',map:T_FUND.map,roughnessMap:T_FUND.roughnessMap,normalMap:T_FUND.normalMap,normalScale:nF,metalness:0.55,roughness:0.6}),
+  disco: pbr({color:'#6d7880',metalness:0.55,roughness:0.5,emissive:'#ff2a00',emissiveIntensity:0}),
+  discoOscuro: pbr({color:'#343d43',metalness:0.5,roughness:0.6,emissive:'#ff2a00',emissiveIntensity:0}),
+  pinza: fis({color:'#d6382f',metalness:0.35,roughness:0.32,clearcoat:0.8,clearcoatRoughness:0.2}),
+  pastilla: pbr({color:'#2a2522',roughness:0.85}),
+  tileBase: pbr({color:'#0e1920',metalness:0.6,roughness:0.42}),
+  tileLed: new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false}),
+  intruso: pbr({color:'#1c1418',metalness:0.4,roughness:0.55,emissive:'#ff2a44',emissiveIntensity:0.10}),
+  alerta: new THREE.MeshBasicMaterial({color:'#ff3b52',toneMapped:false}),
+  escudo: new THREE.MeshBasicMaterial({color:'#2fb4c4',toneMapped:false}),
+  dial: new THREE.MeshBasicMaterial({color:'#2a5a70',toneMapped:false}),
+  aguja: new THREE.MeshBasicMaterial({color:'#ff8a3c',toneMapped:false}),
+  lGW: lampara('#34d399'), lMOT: lampara('#34d399'), lTAB: lampara('#34d399'), lFRE: lampara('#6b7a84'), lINT: lampara('#ff3b52'),
+  anillo: new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,side:THREE.DoubleSide}),
+  seg: [0,1,2,3].map(()=>new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false})),
+};
+
+const ESTATICO=new THREE.Group(); MUNDO.add(ESTATICO);
+const rad=g=>g*Math.PI/180;
+function pieza(geo,mat,clave,pos,opt){ const m=malla(geo,mat,opt); if(clave) m.userData.clave=clave; if(pos) m.position.set(pos[0],pos[1],pos[2]); return m; }
+function cajaR(w,h,d,r){ return new RoundedBoxGeometry(w,h,d,3,r); }
+const Y_BUS=0.30, Y_F=0.43;
+
+/* ===================== 7. EL BUS: PAR TRENZADO, TERMINADORES Y DERIVACIONES ===================== */
+const X_BUS0=-1.78, X_BUS1=1.78;
+{
+  const hel=(fase)=>{ const p=[]; const N=420; for(let i=0;i<=N;i++){ const u=i/N, a=u*13*DOSPI+fase; p.push(V3(X_BUS0+(X_BUS1-X_BUS0)*u,Y_BUS+0.034*Math.cos(a),0.034*Math.sin(a))); } return new THREE.CatmullRomCurve3(p); };
+  const h1=new THREE.TubeGeometry(hel(0),420,0.021,8,false), h2=new THREE.TubeGeometry(hel(Math.PI),420,0.021,8,false);
+  ESTATICO.add(pieza(h1,M2.canH,'bus'),pieza(h2,M2.canL,'bus'));
+  const funda=new THREE.CylinderGeometry(0.075,0.075,X_BUS1-X_BUS0,20,1,true); funda.rotateZ(Math.PI/2); ESTATICO.add(pieza(funda,M2.funda,'bus',[(X_BUS0+X_BUS1)/2,Y_BUS,0],{sombra:false}));
+  for(const sx of [-1,1]){   // terminadores de 120 Ω en cada punta
+    const t=pieza(new THREE.CylinderGeometry(0.075,0.075,0.2,20),M2.ecuTapa,'bus',[sx*(X_BUS1+0.09),Y_BUS,0]); t.rotation.z=Math.PI/2; ESTATICO.add(t);
+    const b=pieza(new THREE.CylinderGeometry(0.081,0.081,0.04,20),M2.canH,'bus',[sx*(X_BUS1+0.04),Y_BUS,0]); b.rotation.z=Math.PI/2; ESTATICO.add(b);
+  }
+  // soportes del cable
+  for(const x of [-1.6,-0.7,0.7,1.6]) ESTATICO.add(pieza(cajaR(0.09,Y_BUS,0.16,0.02),M2.ecu,'bus',[x,Y_BUS/2-0.03,0]));
+}
+/** Derivación: cable desde el módulo hasta el bus con su caja de empalme. */
+function derivacion(x,zModulo){
+  const L=Math.abs(zModulo), g=new THREE.CylinderGeometry(0.03,0.03,L,12); g.rotateX(Math.PI/2);
+  ESTATICO.add(pieza(g,M2.cable,'bus',[x,Y_BUS,zModulo/2]));
+  ESTATICO.add(pieza(cajaR(0.17,0.12,0.17,0.03),M2.conector,'bus',[x,Y_BUS,0]));
+}
+
+/* ===================== 8. LOS MÓDULOS ===================== */
+/** Caja de un módulo con aletas, conector hacia el bus y tira de luz delantera. */
+function cuerpoModulo(clave,w,h,d,{lamp,zCon}){
+  const g=new THREE.Group();
+  g.add(pieza(cajaR(w,h,d,0.04),M2.ecu,clave,[0,h/2,0]));
+  g.add(pieza(cajaR(w-0.12,0.025,d-0.12,0.01),M2.ecuTapa,clave,[0,h+0.008,0]));
+  for(let i=0;i<6;i++) g.add(pieza(new THREE.BoxGeometry(w*0.62,0.05,0.02),M2.ecuTapa,clave,[0,h+0.04,-d*0.28+i*0.065]));
+  g.add(pieza(cajaR(0.26,0.13,0.1,0.02),M2.conector,clave,[0,0.12,zCon*(d/2+0.04)]));
+  for(let i=0;i<4;i++){ const pn=new THREE.CylinderGeometry(0.012,0.012,0.05,8); pn.rotateX(Math.PI/2); g.add(pieza(pn,M2.laton,clave,[-0.075+i*0.05,0.12,zCon*(d/2+0.1)])); }
+  const l=new THREE.Mesh(new THREE.BoxGeometry(w*0.7,0.03,0.012),lamp); l.position.set(0,h*0.72,(d/2+0.006)); l.userData.clave=clave; g.add(l);
+  return g;
+}
+const MODULOS={};
+// ---- Puerta de enlace (manda la orden de frenado) ----
+{
+  const g=cuerpoModulo('gateway',0.95,0.34,0.62,{lamp:M2.lGW,zCon:1}); g.position.set(-1.4,0,-1.2); ESTATICO.add(g);
+  for(let i=0;i<3;i++) g.add(pieza(cajaR(0.14,0.09,0.05,0.01),M2.conector,'gateway',[-0.27+i*0.27,0.26,0.325]));
+  const sh=new THREE.Shape(); sh.moveTo(0,0.55); sh.lineTo(0.40,0.42); sh.lineTo(0.40,0.08); sh.quadraticCurveTo(0.40,-0.32,0,-0.58); sh.quadraticCurveTo(-0.40,-0.32,-0.40,0.08); sh.lineTo(-0.40,0.42); sh.closePath();
+  const eg=new THREE.ExtrudeGeometry(sh,{depth:0.06,bevelEnabled:true,bevelThickness:0.012,bevelSize:0.012,bevelSegments:2,curveSegments:14}); eg.scale(0.27,0.27,1); eg.computeVertexNormals(); sana(eg);
+  const e=pieza(eg,M2.escudo,'gateway',[0.0,0.58,-0.03],{sombra:false}); g.add(e); g.add(pieza(cajaR(0.2,0.06,0.12,0.02),M2.ecuTapa,'gateway',[0,0.41,-0.03]));
+  MODULOS.gw=g;
+}
+// ---- Motor (peana con el módulo, bloque, cuatro cilindros y volante que gira) ----
+const MOTOR_G=new THREE.Group(), VOLANTE=new THREE.Group();
+{
+  const gm=new THREE.Group(); gm.position.set(0,0,-1.2); ESTATICO.add(gm);
+  gm.add(pieza(cajaR(0.98,0.12,0.50,0.03),M2.ecu,'motor',[0,0.06,0]));
+  const l=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.03,0.012),M2.lMOT); l.position.set(0,0.085,0.256); l.userData.clave='motor'; gm.add(l);
+  gm.add(pieza(cajaR(0.26,0.13,0.1,0.02),M2.conector,'motor',[0,0.08,0.30]));
+  gm.add(pieza(cajaR(0.62,0.20,0.40,0.03),M2.fundicion,'motor',[-0.20,0.22,0]));
+  for(let i=0;i<4;i++){ gm.add(pieza(new THREE.CylinderGeometry(0.075,0.085,0.17,20),M2.fundicion,'motor',[-0.38+i*0.12,0.405,0])); gm.add(pieza(new THREE.CylinderGeometry(0.05,0.05,0.04,16),M2.ecuTapa,'motor',[-0.38+i*0.12,0.51,0])); }
+  gm.add(pieza(cajaR(0.56,0.05,0.2,0.015),M2.ecuTapa,'motor',[-0.20,0.47,0]));
+  const polea=pieza(new THREE.CylinderGeometry(0.1,0.1,0.06,28),M2.goma,'motor',[-0.57,0.25,0]); polea.rotation.z=Math.PI/2; gm.add(polea);
+  MODULOS.mot=gm;
+  MOTOR_G.position.set(0.23,0.25,-1.2); MUNDO.add(MOTOR_G); MOTOR_G.add(VOLANTE);
+  const vol=pieza(new THREE.CylinderGeometry(0.17,0.17,0.07,40),M2.acero,'motor'); vol.rotation.z=Math.PI/2; VOLANTE.add(vol);
+  for(let i=0;i<10;i++){ const a=i/10*DOSPI; const d=pieza(new THREE.BoxGeometry(0.075,0.03,0.03),M2.negro,'motor',[0.0,Math.cos(a)*0.115,Math.sin(a)*0.115]); d.rotation.x=a; VOLANTE.add(d); }
+}
+// ---- Tablero (cuadro de instrumentos con dos relojes y agujas) ----
+const AGUJAS=[];
+{
+  const g=cuerpoModulo('tablero',0.95,0.20,0.62,{lamp:M2.lTAB,zCon:1}); g.position.set(1.4,0,-1.2); ESTATICO.add(g); MODULOS.tab=g;
+  const placa=pieza(cajaR(0.88,0.07,0.42,0.03),M2.negro,'tablero',[1.4,0.31,-1.28]); placa.rotation.x=rad(-22); ESTATICO.add(placa);
+  for(const dx of [-0.22,0.22]){
+    const c=new THREE.Group(); c.position.set(1.4+dx,0.35,-1.255); c.rotation.x=rad(-22);
+    const bisel=pieza(new THREE.TorusGeometry(0.15,0.018,12,40),M2.acero,'tablero'); bisel.rotation.x=Math.PI/2; bisel.position.y=0.045; c.add(bisel);
+    const cara=pieza(new THREE.CylinderGeometry(0.145,0.145,0.02,40),M2.dial,'tablero',[0,0.04,0]); c.add(cara);
+    for(let i=0;i<9;i++){ const a=rad(-130+i*32.5); const t=pieza(new THREE.BoxGeometry(0.012,0.012,0.04),M2.escudo,'tablero',[Math.sin(a)*0.115,0.052,-Math.cos(a)*0.115]); t.rotation.y=a; c.add(t); }
+    const ag=new THREE.Group(); ag.position.y=0.062; const aguja=pieza(new THREE.BoxGeometry(0.014,0.012,0.12),M2.aguja,'tablero',[0,0,-0.055],{sombra:false}); ag.add(aguja); c.add(ag);
+    const hub=pieza(new THREE.CylinderGeometry(0.025,0.025,0.02,14),M2.acero,'tablero',[0,0.066,0]); c.add(hub);
+    ESTATICO.add(c); AGUJAS.push(ag);
+  }
+}
+// ---- Freno: módulo + disco ventilado + pinza ----
+const DISCO=new THREE.Group(), PINZA=new THREE.Group(), PASTILLAS=[];
+const FRE_ANCLA=V3(1.4,0.5,1.30);
+{
+  const g=cuerpoModulo('freno',0.90,0.34,0.50,{lamp:M2.lFRE,zCon:-1}); g.position.set(1.4,0,0.78); ESTATICO.add(g); MODULOS.fre=g;
+  DISCO.position.copy(FRE_ANCLA); MUNDO.add(DISCO);
+  const cil=(r0,r1,h,seg,mat)=>{ const c=pieza(new THREE.CylinderGeometry(r0,r1,h,seg),mat,'disco'); c.rotation.x=Math.PI/2; return c; };
+  const pistaA=cil(0.43,0.43,0.028,72,M2.disco); pistaA.position.z=0.04; const pistaB=cil(0.43,0.43,0.028,72,M2.disco); pistaB.position.z=-0.04; DISCO.add(pistaA,pistaB);
+  const nucleo=cil(0.40,0.40,0.05,72,M2.discoOscuro); DISCO.add(nucleo);
+  for(let i=0;i<30;i++){ const a=i/30*DOSPI; const al=pieza(new THREE.BoxGeometry(0.17,0.012,0.056),M2.discoOscuro,'disco',[Math.cos(a)*0.31,Math.sin(a)*0.31,0]); al.rotation.z=a+0.35; DISCO.add(al); }
+  const campana=cil(0.19,0.21,0.1,40,M2.discoOscuro); campana.position.z=0.08; DISCO.add(campana);
+  for(let r=0;r<2;r++) for(let i=0;i<36;i++){ const a=(i+r*0.5)/36*DOSPI, rr=r===0?0.255:0.335; const h=pieza(new THREE.CylinderGeometry(0.017,0.017,0.006,10),M2.negro,'disco',[Math.cos(a)*rr,Math.sin(a)*rr,0.0575],{sombra:false}); h.rotation.x=Math.PI/2; DISCO.add(h); }
+  for(let i=0;i<5;i++){ const a=i/5*DOSPI+0.3; const t=pieza(new THREE.CylinderGeometry(0.02,0.02,0.04,12),M2.negro,'disco',[Math.cos(a)*0.12,Math.sin(a)*0.12,0.135]); t.rotation.x=Math.PI/2; DISCO.add(t); }
+  const aro=pieza(new THREE.TorusGeometry(0.43,0.006,6,80),M2.acero,'disco'); aro.position.z=0.056; DISCO.add(aro);
+  // pinza sobre la parte alta del disco (no gira)
+  PINZA.position.copy(FRE_ANCLA); MUNDO.add(PINZA);
+  const cuerpoP=pieza(cajaR(0.38,0.12,0.31,0.04),M2.pinza,'pinza',[0,0.47,0]); PINZA.add(cuerpoP);
+  for(const sz of [1,-1]) PINZA.add(pieza(cajaR(0.34,0.30,0.07,0.03),M2.pinza,'pinza',[0,0.33,sz*0.125]));
+  for(const sx of [-0.09,0.09]){ const p=pieza(new THREE.CylinderGeometry(0.014,0.014,0.07,10),M2.acero,'pinza',[sx,0.40,0.18]); p.rotation.x=Math.PI/2; PINZA.add(p); }
+  const latiguillo=pieza(new THREE.CylinderGeometry(0.016,0.016,0.4,10),M2.cable,'pinza',[0.11,0.52,-0.08]); latiguillo.rotation.z=0.5; PINZA.add(latiguillo);
+  for(const sz of [1,-1]){ const p=pieza(cajaR(0.2,0.14,0.035,0.01),M2.pastilla,'pinza',[0,0.35,sz*0.085]); PINZA.add(p); PASTILLAS.push(p); }
+}
+// ---- Intruso: la caja conectada al puerto de diagnóstico ----
+const ALERTA=new THREE.Group(), ANTENA=new THREE.Group();
+{
+  const g=new THREE.Group(); g.position.set(-1.4,0,1.0); ESTATICO.add(g);
+  g.add(pieza(cajaR(0.90,0.30,0.58,0.05),M2.intruso,'intruso',[0,0.15,0]));
+  g.add(pieza(cajaR(0.82,0.02,0.50,0.01),M2.negro,'intruso',[0,0.31,0]));
+  for(let i=0;i<4;i++) g.add(pieza(new THREE.BoxGeometry(0.62,0.012,0.022),M2.alerta,'intruso',[0,0.325,-0.17+i*0.11],{sombra:false}));
+  const l=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.03,0.012),M2.lINT); l.position.set(0,0.22,0.296); l.userData.clave='intruso'; g.add(l);
+  ANTENA.position.set(0.30,0.31,-0.18); g.add(ANTENA);
+  ANTENA.add(pieza(new THREE.CylinderGeometry(0.012,0.016,0.36,10),M2.acero,'intruso',[0,0.18,0]));
+  ANTENA.add(pieza(new THREE.SphereGeometry(0.03,14,10),M2.alerta,'intruso',[0,0.37,0],{sombra:false}));
+  // triángulo de aviso que flota sobre la caja
+  const tri=new THREE.Shape(); tri.moveTo(0,0.5); tri.lineTo(0.5,-0.4); tri.lineTo(-0.5,-0.4); tri.closePath();
+  const hole=new THREE.Path(); hole.moveTo(0,0.28); hole.lineTo(0.30,-0.25); hole.lineTo(-0.30,-0.25); hole.closePath(); tri.holes.push(hole);
+  const eg=new THREE.ExtrudeGeometry(tri,{depth:0.05,bevelEnabled:false}); eg.scale(0.30,0.30,1); eg.computeVertexNormals(); sana(eg);
+  ALERTA.position.set(-1.4,0.78,1.0); MUNDO.add(ALERTA); const tt=pieza(eg,M2.alerta,'intruso',null,{sombra:false}); tt.position.set(0,0,-0.025); ALERTA.add(tt);
+  // el enchufe del puerto de diagnóstico (16 patillas) en el extremo de su cable
+  const D=new THREE.Shape(); D.moveTo(-0.17,0.09); D.lineTo(0.17,0.09); D.lineTo(0.14,-0.09); D.lineTo(-0.14,-0.09); D.closePath();
+  const eo=new THREE.ExtrudeGeometry(D,{depth:0.12,bevelEnabled:true,bevelThickness:0.01,bevelSize:0.01,bevelSegments:2}); eo.computeVertexNormals(); sana(eo);
+  const obd=pieza(eo,M2.conector,'obd',[-1.4,0.13,0.62]); obd.rotation.y=Math.PI/2*0; ESTATICO.add(obd);
+  const cab=new THREE.CylinderGeometry(0.03,0.03,0.18,12); cab.rotateX(Math.PI/2); ESTATICO.add(pieza(cab,M2.cable,'obd',[-1.4,0.13,0.55]));
+  for(let i=0;i<8;i++) ESTATICO.add(pieza(new THREE.BoxGeometry(0.018,0.018,0.014),M2.laton,'obd',[-1.4-0.14+i*0.04,0.135,0.74]));
+  MODULOS.int=g;
+}
+// derivaciones al bus: cada módulo con su cable
+derivacion(-1.4,-0.89); derivacion(0,-0.93); derivacion(1.4,-0.89); derivacion(1.4,0.53);
+{ // del intruso: cable propio desde el enchufe hasta el bus
+  const L=0.62, g=new THREE.CylinderGeometry(0.032,0.032,L,12); g.rotateX(Math.PI/2); ESTATICO.add(pieza(g,M2.cable,'obd',[-1.4,Y_BUS,L/2]));
+  ESTATICO.add(pieza(cajaR(0.17,0.12,0.17,0.03),M2.conector,'obd',[-1.4,Y_BUS,0]));
+  const sub=new THREE.CylinderGeometry(0.032,0.032,0.32,12); ESTATICO.add(pieza(sub,M2.cable,'obd',[-1.4,(Y_BUS+0.13)/2,0.62]));
+}
+
+const ANILLO=new THREE.Mesh(new THREE.TorusGeometry(0.50,0.022,8,56),M2.anillo); ANILLO.rotation.x=Math.PI/2; ANILLO.position.set(1.4,0.18,0.78); ANILLO.visible=false; ANILLO.userData.fondo=true; MUNDO.add(ANILLO);
+
+/* ===================== 9. LA TRAMA DE 64 BITS (rejilla de 8 bytes × 8 bits) ===================== */
+const REJ=new THREE.Group(); REJ.position.set(0,0.34,1.12); REJ.rotation.x=0.35; MUNDO.add(REJ);
+const PASO_T=0.188;
+let IM_TILE=null;
+{
+  REJ.add(pieza(cajaR(1.64,0.06,1.64,0.04),M2.ecu,'trama',[0,0,0]));
+  REJ.add(pieza(cajaR(1.56,0.02,1.56,0.02),M2.negro,'trama',[0,0.036,0],{sombra:false}));
+  const base=new THREE.InstancedMesh(new THREE.BoxGeometry(0.168,0.03,0.168),M2.tileBase,64);
+  IM_TILE=new THREE.InstancedMesh(new THREE.BoxGeometry(0.118,0.022,0.118),M2.tileLed,64); IM_TILE.userData.clave='trama';
+  base.userData.clave='trama';
+  const m4=new THREE.Matrix4();
+  for(let k=0;k<64;k++){ const i=k%8, j=Math.floor(k/8), x=(i-3.5)*PASO_T, z=(j-3.5)*PASO_T;
+    m4.makeTranslation(x,0.062,z); base.setMatrixAt(k,m4); m4.makeTranslation(x,0.082,z); IM_TILE.setMatrixAt(k,m4); IM_TILE.setColorAt(k,new THREE.Color('#5E6B75')); }
+  base.castShadow=false; base.receiveShadow=true; IM_TILE.castShadow=false; REJ.add(base,IM_TILE);
+  for(const sx of [-0.62,0.62]) ESTATICO.add(pieza(new THREE.CylinderGeometry(0.035,0.045,0.60,12),M2.ecu,'trama',[sx,0.30,0.38]));
+}
+const COLORES_BIT={dato:new THREE.Color(COL_BIT.dato),cont:new THREE.Color(COL_BIT.cont),mac:new THREE.Color(COL_BIT.mac),libre:new THREE.Color(COL_BIT.libre).multiplyScalar(0.45),ataque:new THREE.Color(COL_BIT.ataque)};
+/** Pinta los 64 bits según la firma elegida: 16 datos, 8 contador, m firma y el resto libre. */
+function pintaTrama(m){
+  for(let k=0;k<64;k++){ const c=k<MSG.D?COLORES_BIT.dato:(k<MSG.D+MSG.C?COLORES_BIT.cont:(k<MSG.D+MSG.C+m?COLORES_BIT.mac:COLORES_BIT.libre)); IM_TILE.setColorAt(k,c); }
+  IM_TILE.instanceColor.needsUpdate=true;
+}
+
+/* ===================== 10. LAS TRAMAS QUE VIAJAN POR EL BUS ===================== */
+/* Cada trama son cuatro barras pegadas (datos · contador · firma · libre) con el largo proporcional a sus bits: si alargas la
+   firma, TODAS las tramas del bus cambian de forma. La tira del intruso lleva el rojo mezclado en cada color. */
+const NFR=96, LF=0.58;
+const IM_SEG=[0,1,2,3].map(k=>{ const im=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),M2.seg[k],NFR); im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false; im.userData.clave='trama'; MUNDO.add(im); return im; });
+const RUTAS={
+  gw:[V3(-1.4,Y_F,-0.89),V3(-1.4,Y_F,0),V3(1.4,Y_F,0),V3(1.4,Y_F,0.53)],
+  int:[V3(-1.4,Y_F,0.62),V3(-1.4,Y_F,0),V3(1.4,Y_F,0),V3(1.4,Y_F,0.53)],
+  mot:[V3(0,Y_F,-0.99),V3(0,Y_F,0),V3(1.4,Y_F,0),V3(1.4,Y_F,-0.89)],
+  tab:[V3(1.4,Y_F,-0.89),V3(1.4,Y_F,0),V3(0,Y_F,0),V3(0,Y_F,-0.99)],
+};
+for(const k of Object.keys(RUTAS)){ const P=RUTAS[k], L=[0]; for(let i=1;i<P.length;i++) L.push(L[i-1]+P[i].distanceTo(P[i-1])); RUTAS[k]={P,L,total:L[L.length-1]}; }
+const _pp=V3(0,0,0), _tt=V3(0,0,0), _q=new THREE.Quaternion(), _m4=new THREE.Matrix4(), _s3=V3(1,1,1), _e=new THREE.Euler(), _col=new THREE.Color();
+function rutaPunto(R,s,out,tan){
+  s=clamp(s,0,R.total-1e-6); let i=1; while(i<R.P.length-1&&s>R.L[i]) i++;
+  const u=(s-R.L[i-1])/(R.L[i]-R.L[i-1]); out.copy(R.P[i-1]).lerp(R.P[i],u); tan.copy(R.P[i]).sub(R.P[i-1]).normalize(); return i;
+}
+
+fusionaPartes(ESTATICO,[ANTENA,...AGUJAS]); fusionaPartes(DISCO); fusionaPartes(PINZA,PASTILLAS); fusionaPartes(VOLANTE);
+
+
+/* ===================== 12. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.t es el
+   tiempo de una PASADA de 13 s (en cámara lenta ×1/25: el periodo T de la orden se ve 25 veces más largo) y avanza dt·velocidad;
+   con él viajan las tramas, se encienden las luces de los módulos y corre el cursor de la línea de tiempo del dock. Los
+   veredictos (aceptada / rechazada) los da la MISMA función de verificación que prueba el script de Node. */
+const SLOW=25, CYC=13, VEL_TR=2.2;
+const EST={modo:'tour',esc:'taller',m:28,W:7,T:10,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false};
+const SIM={t:0,calc:null,ver:0,e:null,ult:null};
+let CALC=null;
+const escDe=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[0];
+
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {esc:EST.esc,m:EST.m,W:EST.W,T:EST.T};
+}
+function rng32(seed){ let a=seed>>>0; return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
+const flightDe=r=>RUTAS[r].total/VEL_TR;
+
+/** Una pasada del bus: las órdenes de la puerta de enlace al freno, las pérdidas por ruido, y los cuatro ataques del intruso,
+ *  todos pasados por la verificación REAL (contador + firma truncada) en el orden en que llegan al freno. */
+function simulaCiclo(p){
+  const {m,W,T}=p, E=escDe(p.esc), Tv=T*SLOW/1000, R=rng32(1234+m*7+W*13+T*101);
+  const em=nuevoEmisor(), rx=nuevoReceptor(); em.fv=70000; rx.ult=70000;
+  const ev=[], hist=[], J=3;
+  const iJ=Math.ceil(9.4/Tv), i0=Math.ceil((-flightDe('gw')-0.1)/Tv);
+  for(let i=Math.ceil((-flightDe('gw')-0.1)/Tv);;i++){            // arranca con tramas ya en vuelo: el bus está vivo desde el segundo cero
+    const t0=0.1+i*Tv; if(t0>CYC-0.2) break;
+    const tr=emite(em,0x0A5,m), jam=i>=iJ&&i<iJ+J, natural=!jam&&(i===6||R()<E.q*0.6);
+    hist.push(tr);
+    ev.push({tipo:'legit',ruta:'gw',t0,t1:t0+flightDe('gw'),tr,perdida:jam||natural,jam,corta:1.5+R()*1.4});
+  }
+  // los cuatro ataques: repetir una trama muy vieja; repetirla justo cuando su contador "cae" en la ventana; inventar firmas; y
+  // bloquear tres órdenes seguidas (el ruido o el propio intruso), que es lo que pone a prueba la ventana
+  ev.push({tipo:'rep',sub:'viejo',ruta:'int',t0:3.4,t1:3.4+flightDe('int'),fab:(rx)=>hist[0]});
+  ev.push({tipo:'rep',sub:'vuelta',ruta:'int',t0:4.7,t1:4.7+flightDe('int'),fab:(rx)=>{ const d=1+Math.floor(R()*W); return {datos:0xFFF,cnt:(rx.ult+d)&255,mac:macTrunc(CLAVE,0xFFF,rx.ult+d-256,m)}; }});
+  for(let k=0;k<5;k++){ const t0=6.0+k*0.42; ev.push({tipo:'forja',sub:'firma',ruta:'int',t0,t1:t0+flightDe('int'),fab:(rx)=>{ const d=1+Math.floor(R()*W); return {datos:0xFFF,cnt:(rx.ult+d)&255,mac:m===0?0:Math.floor(R()*Math.pow(2,m))}; }}); }
+  ev.sort((a,b)=>a.t1-b.t1);
+  let aceptadas=0, ataques=0, legitRech=0, legitOk=0, perdidas=0;
+  for(const e of ev){
+    if(e.tipo==='legit'){
+      if(e.perdida){ e.v='perdida'; perdidas++; continue; }
+      const r=recibe(rx,e.tr,m,W); e.res=r; e.v=r.ok?'ok':'rechazada'; if(r.ok) legitOk++; else legitRech++;
+    } else {
+      ataques++; e.tr=e.fab(rx); const r=recibe(rx,e.tr,m,W); e.res=r; e.v=r.ok?'frenada':'bloqueada'; if(r.ok) aceptadas++;
+    }
+  }
+  return {ev,Tv,aceptadas,ataques,legitRech,legitOk,perdidas,iJ,J};
+}
+function calcula(p){ const E=escDe(p.esc); return {p,E,r:evalua(p.m,p.W,p.T,E),run:simulaCiclo(p)}; }
+let _mTrama=-1;
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  if(CALC.p.m!==_mTrama){ _mTrama=CALC.p.m; pintaTrama(_mTrama); }
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+  if(typeof pintaSemaforo==='function'&&EST.modo==='probar') pintaSemaforo();
+}
+const ocultaSalida=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado);   // el resultado de la defensa, mientras se ajusta
+
+/* ===================== 13. LO QUE SE VE ===================== */
+const V_COL={ok:'#34d399',rechazada:'#ffb703',perdida:'#ffb703',frenada:'#ff3b52',bloqueada:'#4fe3f2',neutro:'#c8d6e0'};
+const FREN={apr:0,w:3.0,cal:0};
+const NEUTRO_RING=new THREE.Color(V_COL.neutro);
+function colorSeg(k,esAtaque,out){
+  const base=k===0?COLORES_BIT.dato:(k===1?COLORES_BIT.cont:(k===2?COLORES_BIT.mac:COLORES_BIT.libre));
+  out.copy(base); if(esAtaque) out.lerp(COLORES_BIT.ataque,0.55); return out;
+}
+const OCULTO_M=new THREE.Matrix4().makeScale(0,0,0);
+function aplicaEscena(dtS,dtSim){
+  const C=CALC; if(!C) return;
+  SIM.t+=dtSim; if(SIM.t>=CYC) SIM.t-=CYC;
+  const t=SIM.t, run=C.run, oculta=ocultaSalida(), m=C.p.m;
+  // ---- las tramas del mensaje de frenado: cuatro barras (datos · contador · firma · libre) con largo proporcional a sus bits ----
+  const L=[MSG.D,MSG.C,m,Math.max(0,64-MSG.D-MSG.C-m)].map(b=>LF*b/64);
+  let n=0;
+  const poneTrama=(ruta,s,esAtaque,escala,largoK)=>{
+    if(n>=NFR) return; const R=RUTAS[ruta]; let off=0;
+    for(let k=0;k<4;k++){ const lk=L[k]*largoK; if(lk<=0.0005) { continue; }
+      rutaPunto(R,s-off-lk/2,_pp,_tt); const yaw=Math.atan2(-_tt.z,_tt.x);
+      _e.set(0,yaw,0); _q.setFromEuler(_e);
+      _s3.set(lk*0.96*escala,0.044*escala,0.108*escala); _m4.compose(_pp,_q,_s3); IM_SEG[k].setMatrixAt(n,_m4);
+      IM_SEG[k].setColorAt(n,colorSeg(k,esAtaque,_col)); off+=lk; }
+    for(let k=0;k<4;k++) if(L[k]*largoK<=0.0005){ IM_SEG[k].setMatrixAt(n,OCULTO_M); }
+    n++;
+  };
+  for(const e of run.ev){
+    if(t<e.t0||t>e.t1+0.05) continue;
+    const R=RUTAS[e.ruta], s=(t-e.t0)*VEL_TR;
+    if(e.tipo==='legit'&&e.perdida){ if(s>e.corta) continue; const f=clamp(1-(s-(e.corta-0.35))/0.35,0,1); poneTrama(e.ruta,s,false,f<1?0.35+0.65*f:1,f<1?0.7+0.3*f:1); continue; }
+    if(s>R.total+LF) continue; poneTrama(e.ruta,Math.min(s,R.total+LF*0.4),e.tipo!=='legit',1,1);
+  }
+  // tráfico del resto del coche (motor → tablero cada 10 ms y tablero → motor cada 20 ms, en cámara lenta)
+  for(const [ruta,Pb,fase] of [['mot',0.25,0.05],['tab',0.5,0.2]]){
+    const total=RUTAS[ruta].total, nvuelo=Math.ceil(total/VEL_TR/Pb)+1;
+    for(let j=0;j<nvuelo;j++){ const s=((t-fase)%Pb+Pb)%Pb*VEL_TR+j*Pb*VEL_TR; if(s>total) continue; poneTrama2(ruta,s); }
+  }
+  function poneTrama2(ruta,s){
+    if(n>=NFR) return; const R=RUTAS[ruta]; const lk=LF*0.55; rutaPunto(R,s-lk/2,_pp,_tt); const yaw=Math.atan2(-_tt.z,_tt.x);
+    _e.set(0,yaw,0); _q.setFromEuler(_e); _s3.set(lk,0.045,0.13); _m4.compose(_pp,_q,_s3); IM_SEG[0].setMatrixAt(n,_m4);
+    _col.set('#6f93b8'); IM_SEG[0].setColorAt(n,_col); for(let k=1;k<4;k++) IM_SEG[k].setMatrixAt(n,OCULTO_M); n++; }
+  for(let i=n;i<NFR;i++) for(let k=0;k<4;k++) IM_SEG[k].setMatrixAt(i,OCULTO_M);
+  for(const im of IM_SEG){ im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; im.count=NFR; }
+  // ---- la última trama que llegó al freno: su veredicto (anillo + luz + pinza) ----
+  let ult=null; for(const e of run.ev){ if(e.t1>t) break; if(e.v!=='perdida') ult=e; }
+  // el veredicto del intruso aparece 0,9 s; si se acaba la pasada, el último se olvida
+  const edad=ult?t-ult.t1:99, vivo=edad<1.1;
+  let apl=0, colAnillo=NEUTRO_RING, lamp=M2.lFRE;
+  if(ult&&vivo){ const k=oculta?'neutro':ult.v; colAnillo=_col.set(V_COL[k]||V_COL.neutro);
+    if(!oculta&&ult.v==='frenada') apl=1; }
+  M2.anillo.color.copy(colAnillo); const f=vivo?1-edad/1.1:0; M2.anillo.opacity=(ult&&ult.tipo==='legit'?0.30:0.9)*f*f;
+  ANILLO.scale.setScalar(0.5+edad*0.9); ANILLO.visible=vivo;
+  const lc=ult&&vivo?(oculta?V_COL.neutro:V_COL[ult.v]):'#6b7a84'; lamp.color.set(lc);
+  // la pinza aprieta y el disco se calienta mientras dura el efecto de las tramas FALSAS aceptadas: depende sólo del reloj, no del cuadro
+  const sm01=x=>{ x=clamp(x,0,1); return x*x*(3-2*x); };
+  let apr=0, cal=0;
+  for(const e of run.ev){ if(e.tipo==='legit'||e.v!=='frenada'||e.t1>t) continue; const a=t-e.t1; if(a>6) continue;
+    apr=Math.max(apr,sm01(a/0.25)*(1-sm01((a-1.8)/0.7))); cal=Math.max(cal,sm01(a/0.7)*(1-sm01((a-2.2)/2.6))); }
+  FREN.apr=oculta?0:apr; FREN.cal=oculta?0:cal;
+  FREN.w=3.0*(1-0.93*FREN.apr); DISCO.rotation.z-=FREN.w*dtS;
+  M2.disco.emissiveIntensity=0.7*FREN.cal; M2.discoOscuro.emissiveIntensity=0.5*FREN.cal;
+  const pz=0.085-0.0135*FREN.apr; PASTILLAS[0].position.z=pz; PASTILLAS[1].position.z=-pz;
+  // las otras luces: la puerta de enlace parpadea al emitir; el intruso pulsa; el motor y el tablero siguen vivos
+  const ahora=performance.now()*0.001;
+  M2.lGW.color.set('#34d399').multiplyScalar(0.55+0.45*Math.abs(Math.sin(t*Math.PI/Math.max(0.05,run.Tv))));
+  M2.lMOT.color.set('#34d399').multiplyScalar(0.6+0.4*Math.abs(Math.sin(t*12.6)));
+  M2.lTAB.color.set('#34d399').multiplyScalar(0.6+0.4*Math.abs(Math.sin(t*6.3+1)));
+  const ataca=run.ev.some(e=>e.tipo!=='legit'&&t>=e.t0&&t<=e.t1);
+  const jamActivo=t>=0.1+run.iJ*run.Tv&&t<=0.1+(run.iJ+run.J)*run.Tv+1.2;
+  M2.lINT.color.set('#ff3b52').multiplyScalar((ataca||jamActivo?0.7+0.3*Math.sin(ahora*14):0.35));
+  ALERTA.rotation.y+=dtS*1.1; ALERTA.position.y=0.80+0.04*Math.sin(ahora*2.2); ANTENA.rotation.z=0.12*Math.sin(ahora*(jamActivo?9:2));
+  M2.escudo.color.set('#2fb4c4');
+  // ---- el motor y el cuadro de instrumentos ----
+  VOLANTE.rotation.x+=dtS*(5.5+2*Math.sin(t*0.7)); AGUJAS[0].rotation.y=rad(-20+55*(0.5+0.5*Math.sin(t*0.9))); AGUJAS[1].rotation.y=rad(-10+40*(0.5+0.5*Math.sin(t*0.5+1.4)));
+  SIM.e={t,ult,edad,vivo,apr:FREN.apr,ataca,jamActivo,n};
+}
+
+/* ===================== 14. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 70 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const VISTAS={
+  todo:{dir:V3(-0.10,1.40,1),anc:()=>V3(0.0,0.30,0.16),toff:V3(0,0,0),obj:()=>({w:4.0,h:3.15}),fov:34,tope:0.74},
+  bus:{dir:V3(-0.10,1.10,1),anc:()=>V3(0.0,0.30,0.0),toff:V3(0,0,0),obj:()=>({w:4.0,h:2.4}),fov:34,tope:0.68},
+  trama:{dir:V3(-0.05,1.0,1),anc:()=>V3(0.0,0.42,1.10),toff:V3(0,0,0),obj:()=>({w:2.3,h:1.95}),fov:34,tope:0.70},
+  freno:{dir:V3(-0.35,0.62,1),anc:()=>V3(1.35,0.40,0.95),toff:V3(0,0,0),obj:()=>({w:2.5,h:2.1}),fov:34,tope:0.70},
+  intruso:{dir:V3(0.35,0.80,1),anc:()=>V3(-1.30,0.38,0.55),toff:V3(0,0,0),obj:()=>({w:2.5,h:2.1}),fov:34,tope:0.70},
+};
+const CAM={off:V3(-1.5,1.2,6),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1};
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:V.dir.clone().normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+
+/* ===================== 15. CIFRAS EN PALABRAS ===================== */
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+const supe=n=>String(n).split('').map(c=>SUP[c]||c).join('');
+/** «1 de 1 700» (o un porcentaje si es probable): la probabilidad dicha como se dice en la calle. */
+function fUnoDe(p){
+  if(p>=0.5) return fN(p*100,p>=0.995?0:1)+' %';
+  const x=1/p; if(x<1e7) return '1 de '+fN(Math.round(x));
+  const e=Math.floor(Math.log10(x)), mant=x/Math.pow(10,e); return '1 de '+fN(mant,1)+'×10'+supe(e);
+}
+function fFallos(des){
+  if(des>=1) return fN(des,des<10?1:0)+' por hora';
+  const h=1/des; if(h>=1e9) return 'ninguno en la práctica'; if(h<1e7) return '1 cada '+fN(Math.round(h))+' h';
+  const e=Math.floor(Math.log10(h)), mant=h/Math.pow(10,e); return '1 cada '+fN(mant,1)+'×10'+supe(e)+' h';
+}
+/** Cifra corta para la casilla del dock: «130 000 h» entre fallos, o «10 476 por hora». */
+function fFallosCorto(des){ if(des>=1) return fN(des,des<10?1:0)+'<small> /h</small>'; const h=1/des; if(h<1e5) return fN(Math.round(h))+'<small> h</small>'; if(h<1e9) return fN(Math.round(h/1000))+' mil<small> h</small>'; return '&gt; 10'+supe(9)+'<small> h</small>'; }
+function fFallosMil(des){ if(des>=1) return fN(des,des<10?1:0)+' por h'; const h=1/des; if(h<1e5) return '1 cada '+fN(Math.round(h))+' h'; if(h<1e9) return '1 cada '+fN(Math.round(h/1000))+' mil h'; return 'ninguno'; }
+const rotuloFallos=des=>des>=1?'Fallos por hora':'Horas entre fallos';
+const fMs=(x,d)=>fN(x,d===undefined?0:d)+' ms';
+
+/* ===================== 16. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const FRASE='Proteges los mensajes de los módulos del coche para que un intruso no pueda repetirlos y mandar frenar.';
+const NOMBRE_ESC={taller:'Visita al taller',autopista:'Autopista'};
+/** Los seis criterios del pliego, en palabras. Los tres que dependen del ataque se ocultan mientras se ajusta el reto. */
+function chipsPliego(C,ocultar){
+  const r=C.r, E=C.E, ch=(ok,t,v,lim,oc)=>`<div class="chip ${oc?'':(ok?'ok':'mal')}"><b>${t}</b> ${oc?'<span>—</span>':v}<small>${lim}</small></div>`;
+  return `<div class="pliego">`
+    +ch(r.c.forja,'Intruso acierta',fUnoDe(r.pF),'tope: 1 de '+fN(1/LIM.pForja),ocultar)
+    +ch(r.c.repite,'Hueco',fMs(r.edad),'tope: '+fMs(E.edad),ocultar)
+    +ch(r.c.sync,'Fallos',fFallosMil(r.des),'tope: 1 cada '+fN(1/LIM.desinc)+' h',ocultar)
+    +ch(r.c.bus,'Bus',fN(r.U*100,1)+' %','tope: '+fN(LIM.carga*100)+' %',false)
+    +ch(r.c.sitio,'Libres',fN(r.lib)+' bits','mínimo: '+fN(LIM.libres)+' bits',false)
+    +ch(r.c.lat,'Retardo',fMs(r.ret*1000,1),'tope: '+fMs(LIM.retardo*1000),false)
+  +`</div>`;
+}
+function pintaHUD(){
+  const H=el('hud'), C=CALC;
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · bus CAN</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='probar') h+=`<p class="intro">Mueve las barras: la trama de 64 bits, el bus y los intentos del intruso cambian al instante.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">
+    <div class="cg"><div class="cl">El intruso</div><div class="seg" id="segEsc">${Object.keys(NOMBRE_ESC).map(k=>`<button class="b ${EST.esc===k?'on':''}" data-esc="${k}">${NOMBRE_ESC[k]}</button>`).join('')}</div></div>
+    <div class="cg"><div class="cl"><div>Largo de la firma</div><b id="vM">${fN(EST.m)} bits</b></div><input type="range" id="rM" min="0" max="40" step="1" value="${EST.m}" aria-label="Largo de la firma, en bits">
+      <div class="marcas"><span>0</span><span>40</span></div></div>
+    <div class="cg"><div class="cl"><div>Ventana del contador</div><b id="vW">${fN(EST.W)} mensajes</b></div><input type="range" id="rW" min="1" max="40" step="1" value="${EST.W}" aria-label="Ventana del contador, en mensajes">
+      <div class="marcas"><span>1</span><span>40</span></div></div>
+    <div class="cg"><div class="cl"><div>Un mensaje cada</div><b id="vT">${fN(EST.T)} ms</b></div><input type="range" id="rT" min="2" max="20" step="1" value="${EST.T}" aria-label="Periodo de la orden de frenado, en milisegundos">
+      <div class="marcas"><span>2</span><span>20</span></div></div>
+    <div id="semaforo">${C?chipsPliego(C,false):''}</div>
+    <div class="fila"><button class="b auto" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else h+=htmlGuia();
+  const tF=tTrama(8);
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">64 bits = 16 de orden + 8 de contador + <i>m</i> de firma · libres = 64 − 24 − <i>m</i></div>
+    <div class="fl">Una firma de <i>m</i> bits se acierta al azar con probabilidad 2<sup>−<i>m</i></sup>; con <i>N</i> intentos, <b>P = 1 − (1 − 2<sup>−<i>m</i></sup>)<sup><i>N</i></sup></b>.</div>
+    <div class="formula">bus = Σ bits · 2 µs / periodo</div>
+    <div class="fl">Una trama de 8 bytes ocupa ${bitsPeor(8)} bits en el peor caso (con relleno de bits) = ${fN(tF*1e6)} µs: a 10 ms son ${fN(tF/0.010*100,1)} % del bus.</div>
+    <div class="fl">El contador se acepta si avanza entre 1 y <i>W</i>. El freno puede quedar «ciego» hasta <b><i>W</i>·<i>T</i></b>. Se pierde la sincronía si faltan <i>W</i> órdenes seguidas: (3,6·10⁶/<i>T</i>)·(1−<i>q</i>)·<i>q</i><sup><i>W</i></sup> por hora.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li><b>Modelo didáctico, no SecOC.</b> La firma es una mezcla de bits sin valor criptográfico; el contador completo es largo y sólo viajan sus 8 últimos bits.</li>
+    <li>El intruso no conoce la clave: <b>adivina al azar</b>. No hay ataques a la clave ni temporizador de vigilancia.</li>
+    <li>El resto del coche son 28 mensajes sintéticos (${fN(U_FONDO*100,2)} % del bus), sin arbitraje ni errores reales.</li>
+    <li>Los envíos se ven en <b>cámara lenta ×1/25</b> y las distancias no están a escala.</li>
+  </ul><div class="src">ISO 11898-1 (CAN) · AUTOSAR, <i>Specification of Secure Onboard Communication</i> · Davis et al., <i>Controller Area Network schedulability analysis</i>.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); if(typeof pintaPliegoReto==='function') pintaPliegoReto(); H.classList.toggle('compacto',EST.modo==='reto'&&GUIA.paso==='ajusta'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); pintaSemaforo(); };
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.esc=b.dataset.esc; SIM.t=0; pintaHUD(); re(); });
+  const lig=(id,campo,ev,fmt)=>{ const e=el(id); if(e) e.oninput=()=>{ if(EST.autoRunning) return; EST[campo]=+e.value; el(ev).textContent=fmt(EST[campo]); re(); }; };
+  lig('rM','m','vM',v=>fN(v)+' bits'); lig('rW','W','vW',v=>fN(v)+' mensajes'); lig('rT','T','vT',v=>fN(v)+' ms');
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+function pintaSemaforo(){ const s=el('semaforo'); if(s&&CALC) s.innerHTML=chipsPliego(CALC,false); }
+
+/* ===================== 17. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#7f9aa8',t?11:14,'center','500'); };
+const GRID='rgba(160,200,220,0.10)', EJE='#3f6a80', TXT='#8eb3c5';
+const CV={ok:'#58d6ff',rech:'#ffb703',bloq:'#4fe3f2',acep:'#ff3b52',neutro:'#9bb0bd',dato:COL_BIT.dato,mac:COL_BIT.mac,cont:COL_BIT.cont};
+
+/* ---- la línea de tiempo del bus: lo mismo que se ve viajar, con el mismo reloj ---- */
+function pintaLinea(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=64, X1=Wd-8, Y0=6, Yb=Hd-15, X=t=>X0+t/CYC*(X1-X0), oc=ocultaSalida(), run=C.run;
+  const lanas=[['Órdenes',0.22],['Repite',0.52],['Inventa',0.82]];
+  for(const [n,f] of lanas){ const y=Y0+f*(Yb-Y0); raya(x,X0,y,X1,y,GRID); txt(x,n,X0-6,y+3.5,TXT,9.5,'right','600'); }
+  for(let t=0;t<=CYC;t+=2){ raya(x,X(t),Yb,X(t),Yb+3,EJE); txt(x,String(t),X(t),Hd-3,TXT,8.5,'center','500'); } txt(x,'s',X1,Hd-3,TXT,8.5,'right','600');
+  const yL=Y0+0.22*(Yb-Y0), yR=Y0+0.52*(Yb-Y0), yF=Y0+0.82*(Yb-Y0), t=SIM.t;
+  for(const e of run.ev){
+    const llegó=e.t1<=t, px=X(e.t1);
+    if(e.tipo==='legit'){
+      if(e.perdida){ const pxs=X(e.t0+e.corta/VEL_TR); if(t>=e.t0+e.corta/VEL_TR){ txt(x,'×',pxs,yL+4,CV.rech,11,'center','700'); } continue; }
+      x.fillStyle=llegó?((e.v==='ok'||oc)?CV.ok:CV.rech):'rgba(88,214,255,0.22)'; const h=llegó?9:5; x.fillRect(px-0.9,yL-h/2,1.8,h);
+    } else {
+      const y=e.tipo==='rep'?yR:yF;
+      if(!llegó){ x.strokeStyle='rgba(255,84,104,0.55)'; x.lineWidth=1; x.beginPath(); x.arc(px,y,3.2,0,DOSPI); x.stroke(); continue; }
+      if(oc){ x.fillStyle=CV.neutro; x.beginPath(); x.arc(px,y,3.4,0,DOSPI); x.fill(); continue; }
+      if(e.v==='frenada'){ x.fillStyle=CV.acep; x.beginPath(); x.moveTo(px,y-6); x.lineTo(px+6,y); x.lineTo(px,y+6); x.lineTo(px-6,y); x.closePath(); x.fill(); }
+      else { x.fillStyle=CV.bloq; x.beginPath(); x.arc(px,y,3.4,0,DOSPI); x.fill(); }
+    }
+  }
+  raya(x,X(t),Y0,X(t),Yb,'rgba(255,255,255,0.85)',1.2);
+  el('t_fu').textContent='t = '+fN(t,1)+' s · cámara lenta ×1/'+SLOW;
+}
+function pintaLeyLinea(){
+  const oc=ocultaSalida();
+  el('leyFu').innerHTML=`<span class="lg"><i style="--c:${CV.ok}"></i>orden que llega</span><span class="lg"><i style="--c:${CV.rech}"></i>perdida o rechazada</span>`
+    +(oc?`<span class="lg"><i class="bl" style="--c:${CV.neutro}"></i>intruso (resultado al validar)</span>`:`<span class="lg"><i class="bl" style="--c:${CV.bloq}"></i>intruso rechazado</span><span class="lg"><i class="bl" style="--c:${CV.acep}"></i>intruso aceptado</span>`);
+}
+/* ---- cuánto bus ocupa el mensaje: carga total frente a T ---- */
+function pintaBus(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-6, Y0=8, Y1=Hd-14, m=C.p.m, T=C.p.T, Tmin=2, Tmax=20, X=v=>X0+(v-Tmin)/(Tmax-Tmin)*(X1-X0);
+  const Ymax=0.62, Ymin=0.20, Y=u=>Y1-(clamp(u,Ymin,Ymax)-Ymin)/(Ymax-Ymin)*(Y1-Y0);
+  for(const v of [0.3,0.4,0.5,0.6]){ raya(x,X0,Y(v),X1,Y(v),GRID); txt(x,fN(v*100),X0-4,Y(v)+3,TXT,8.5,'right','500'); }
+  for(const v of [2,6,10,14,18]){ raya(x,X(v),Y1,X(v),Y1+3,EJE); txt(x,String(v),X(v),Hd-3,TXT,8.5,'center','500'); }
+  x.fillStyle='rgba(52,211,153,0.07)'; x.fillRect(X0,Y(LIM.carga),X1-X0,Y1-Y(LIM.carga));
+  raya(x,X0,Y(LIM.carga),X1,Y(LIM.carga),'rgba(255,183,3,0.75)',1,[3,3]); txt(x,'tope '+fN(LIM.carga*100)+' %',X1-2,Y(LIM.carga)-3,'#ffcf66',8.5,'right','600');
+  raya(x,X0,Y(U_FONDO),X1,Y(U_FONDO),'rgba(143,161,171,0.55)',1,[1,3]); txt(x,'resto del coche',X0+3,Y(U_FONDO)+10,'#8fa1ab',8,'left','500');
+  x.strokeStyle='#58d6ff'; x.lineWidth=1.9; x.beginPath(); for(let v=Tmin;v<=Tmax;v+=0.25){ const px=X(v), py=Y(carga(v,m)); v===Tmin?x.moveTo(px,py):x.lineTo(px,py); } x.stroke();
+  const cp=carga(T,m); x.fillStyle='#fff'; x.beginPath(); x.arc(X(T),Y(cp),3.6,0,DOSPI); x.fill();
+  txt(x,'% del bus',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'ms',X1,Hd-3,TXT,8.5,'right','600');
+  el('t_pw').textContent=fN(T)+' ms: '+fN(cp*100,1)+' %';
+}
+/* ---- qué tan fácil es acertar la firma: P frente al largo de la firma (en escala logarítmica) ---- */
+function pintaFirma(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC; if(!C) return;
+  if(ocultaSalida()){ sinDatos(x,Wd,Hd,'se muestra al validar'); el('t_fr').textContent=''; return; }
+  const X0=26, X1=Wd-6, Y0=6, Y1=Hd-14, N=C.E.N, m=C.p.m, X=v=>X0+v/40*(X1-X0), Lmin=-10, Y=p=>Y1-(clamp(Math.log10(Math.max(p,1e-12)),Lmin,0)-Lmin)/(0-Lmin)*(Y1-Y0);
+  for(const e of [0,-3,-6,-9]){ const py=Y1-(e-Lmin)/(0-Lmin)*(Y1-Y0); raya(x,X0,py,X1,py,GRID); txt(x,e===0?'100 %':'10'+supe(e),X0-4,py+3,TXT,8,'right','500'); }
+  for(const v of [0,10,20,30,40]){ raya(x,X(v),Y1,X(v),Y1+3,EJE); txt(x,String(v),X(v),Hd-3,TXT,8.5,'center','500'); }
+  x.fillStyle='rgba(52,211,153,0.08)'; x.fillRect(X0,Y(LIM.pForja),X1-X0,Y1-Y(LIM.pForja));
+  raya(x,X0,Y(LIM.pForja),X1,Y(LIM.pForja),'rgba(255,183,3,0.75)',1,[3,3]);
+  x.strokeStyle=CV.mac; x.lineWidth=2; x.beginPath(); for(let v=0;v<=40;v+=0.5){ const px=X(v), py=Y(pForja(v,N)); v===0?x.moveTo(px,py):x.lineTo(px,py); } x.stroke();
+  raya(x,X(32),Y0,X(32),Y1,'rgba(243,236,213,0.45)',1,[2,3]); txt(x,'cabe',X(32)+2,Y0+8,'#e9e0c3',8,'left','600');
+  x.fillStyle='#fff'; x.beginPath(); x.arc(X(m),Y(pForja(m,N)),3.6,0,DOSPI); x.fill();
+  txt(x,'prob.',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'bits',X1,Hd-3,TXT,8.5,'right','600');
+  el('t_fr').textContent='N = '+fN(N);
+}
+/* ---- la ventana: hueco tolerado y fallos propios, cada uno frente a su límite (por debajo de la raya = bien) ---- */
+function pintaVentana(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  if(ocultaSalida()){ sinDatos(x,Wd,Hd,'se muestra al validar'); el('t_sp').textContent=''; return; }
+  const X0=34, X1=Wd-6, Y0=4, Yb=Hd-14, E=C.E, T=C.p.T, W=C.p.W, X=v=>X0+(v-1)/(40-1)*(X1-X0), Lr=3, Y=r=>Yb-(clamp(Math.log10(Math.max(r,1e-12)),-Lr,Lr)+Lr)/(2*Lr)*(Yb-Y0);
+  x.fillStyle='rgba(52,211,153,0.07)'; x.fillRect(X0,Y(1),X1-X0,Yb-Y(1));
+  for(const e of [-2,0,2]){ raya(x,X0,Y(Math.pow(10,e)),X1,Y(Math.pow(10,e)),e===0?'rgba(255,183,3,0.75)':GRID,1,e===0?[3,3]:[]); }
+  txt(x,'límite',X0-4,Y(1)+3,'#ffcf66',8,'right','600'); txt(x,'fuera',X0-4,Y(100)+3,TXT,8,'right','500'); txt(x,'bien',X0-4,Y(0.01)+3,TXT,8,'right','500');
+  for(const v of [1,10,20,30,40]){ raya(x,X(v),Yb,X(v),Yb+3,EJE); txt(x,String(v),X(v),Hd-3,TXT,8.5,'center','500'); }
+  const traza=(f,col)=>{ x.strokeStyle=col; x.lineWidth=1.9; x.beginPath(); for(let v=1;v<=40;v+=0.5){ const px=X(v), py=Y(f(v)); v===1?x.moveTo(px,py):x.lineTo(px,py); } x.stroke(); };
+  traza(v=>edadMax(T,v)/E.edad,CV.rech); traza(v=>desincPorHora(T,v,E.q)/LIM.desinc,CV.ok);
+  for(const [f,col] of [[v=>edadMax(T,v)/E.edad,CV.rech],[v=>desincPorHora(T,v,E.q)/LIM.desinc,CV.ok]]){ x.fillStyle=col; x.beginPath(); x.arc(X(W),Y(f(W)),3.4,0,DOSPI); x.fill(); }
+  raya(x,X(W),Y0,X(W),Yb,'rgba(255,255,255,0.35)',1);
+  txt(x,'ventana',X1,Y0+9,TXT,8.5,'right','600');
+  el('t_sp').innerHTML='<span style="color:#ffb703">━ ciego</span> <span style="color:#58d6ff">━ fallos</span>';
+}
+function pintaDockFijo(){
+  const rt=EST.modo==='reto';
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(enCalcula()?'El bus':(enDiagnostico()?'Averigua la falla':(rt&&CALC?NOMBRE_ESC[CALC.p.esc]:'El bus en marcha')));
+  pintaLeyLinea();
+  const lab=(i,t)=>{ el('l_f'+i).textContent=t; };
+  if(enDiagnostico()){ lab(1,'Falsas aceptadas'); lab(2,'Vieja aceptada'); lab(3,'Propias rechazadas'); lab(4,'Bus ocupado'); lab(5,'Retardo'); lab(6,'Órdenes por s'); }
+  else { lab(1,'Bus ocupado'); lab(2,'Sitio libre'); lab(3,'Retardo'); lab(4,'Intruso acierta'); lab(5,'Hueco tolerado'); lab(6,'Fallos propios'); }
+}
+const _cl=(id,c)=>{ const e=el(id); if(e.className!==c) e.className=c; };
+function pintaDock(){
+  const C=CALC; if(!C) return; const r=C.r, set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d||0)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t=''; const oc=ocultaSalida(), run=C.run;
+  el('p_sub').textContent=NOMBRE_ESC[C.p.esc]||'';
+  if(enDiagnostico()){
+    const E=C.E, esp=pIntento(C.p.m)*E.N;
+    set('f_1',sm(esp,'de '+fN(E.N),esp<10?1:0)); _cl('f_1',esp>=1?'bad':'');
+    set('f_2',sm(r.edad,'ms')); _cl('f_2',r.c.repite?'':'bad');
+    set('f_3',sm(r.des,'por h',r.des<10?1:0)); _cl('f_3',r.c.sync?'':'bad');
+    set('f_4',sm(r.U*100,'%',1)); _cl('f_4',''); set('f_5',sm(r.ret*1000,'ms',1)); _cl('f_5',''); set('f_6',sm(1000/C.p.T,'por s')); _cl('f_6','');
+    Av.className='dk-aviso'; Av.textContent=''; return; }
+  set('f_1',sm(r.U*100,'%',1)); _cl('f_1',r.c.bus?'':'bad');
+  set('f_2',r.lib>=0?sm(r.lib,'bits'):'<small>no cabe</small>'); _cl('f_2',r.c.sitio?'':'warn');
+  set('f_3',sm(r.ret*1000,'ms',1)); _cl('f_3',r.c.lat?'':'bad');
+  if(oc){ for(const i of [4,5,6]){ set('f_'+i,'¿?'); _cl('f_'+i,'oculto'); } el('l_f6').textContent='Fallos propios'; }
+  else { set('f_4',fUnoDe(r.pF)); _cl('f_4',r.c.forja?'':'bad'); set('f_5',sm(r.edad,'ms')); _cl('f_5',r.c.repite?'':'warn'); set('f_6',fFallosCorto(r.des)); _cl('f_6',r.c.sync?'':'bad'); el('l_f6').textContent=rotuloFallos(r.des); }
+  const e=SIM.e;
+  if(!oc&&e&&e.vivo&&e.ult){ if(e.ult.v==='frenada'){ cl='mal'; t='¡El freno obedeció una trama falsa! '+(e.ult.tipo==='forja'?'Adivinó la firma.':'Pasó el contador y la firma.'); }
+    else if(e.ult.v==='bloqueada'){ cl='bien'; t=e.ult.res.motivo==='contador'?'Trama repetida rechazada: su contador es viejo.':'Trama rechazada: la firma no cuadra con el contador.'; }
+    else if(e.ult.v==='rechazada'){ cl='ojo'; t='El freno rechazó una orden legítima: su contador quedó desfasado (se perdieron más mensajes que la ventana o una trama falsa lo adelantó).'; } }
+  else if(!oc&&r.lib<0){ cl='ojo'; t='La firma no cabe en los 64 bits de la trama.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaLinea(); pintaBus(); pintaFirma(); pintaVentana(); }
+
+/* ===================== 18. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[1,'×1'],[2,'×2'],[4,'×4']];
+const VISTAS_BARRA=[['todo','Todo'],['bus','Bus'],['trama','Trama'],['freno','Freno'],['intruso','Intruso']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad">${VEL.map(([v,t])=>`<option value="${v}">pasada ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent='t = '+fN(SIM.t,1)+' s';
+  el('tLento').textContent='cámara lenta ×1/'+SLOW+' · esquema, sin escala';
+  let t,c; const oc=ocultaSalida();
+  if(oc){ t='el resultado se muestra al validar'; c='#9bb0bd'; }
+  else if(e.vivo&&e.ult&&e.ult.v==='frenada'){ t='¡el freno obedeció al intruso!'; c='#ff3b52'; }
+  else if(e.vivo&&e.ult&&e.ult.v==='bloqueada'){ t='trama del intruso rechazada'; c='#4fe3f2'; }
+  else if(e.vivo&&e.ult&&e.ult.v==='rechazada'){ t='orden legítima rechazada: sin sincronía'; c='#ffb703'; }
+  else { t='orden de frenado cada '+fN(C.p.T)+' ms'; c='#5bc8ff'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==t) est.lastChild.textContent=t;
+}
+
+/* ===================== 19. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const ANCLAS=[
+  ['Puerta de enlace: manda la orden',()=>V3(-1.4,0.62,-1.2)],
+  ['Motor',()=>V3(0.15,0.66,-1.2)],
+  ['Tablero',()=>V3(1.4,0.5,-1.2)],
+  ['Freno: obedece',()=>V3(1.4,0.98,1.30)],
+  ['Intruso',()=>V3(-1.4,1.12,1.0)],
+  ['Cable del bus (par trenzado)',()=>V3(-0.62,0.42,0)],
+  ['Trama de 64 bits',()=>V3(0,0.78,0.78)],
+  ['Puerto de diagnóstico',()=>V3(-1.4,0.2,0.66)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(168,226,255,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ ROT.els[i].d.textContent=t; q.copy(f()).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  gateway:'Puerta de enlace: la computadora que manda al freno la orden «frenar x %» cada cierto número de milisegundos',
+  motor:'Módulo del motor: manda y recibe sus propios mensajes (régimen, par). Es parte del tráfico normal del bus',
+  tablero:'Cuadro de instrumentos: lee mensajes del bus para mover sus agujas',
+  freno:'Módulo del freno: obedece las órdenes que llegan por el bus. Sólo debe obedecer las que pasan la firma y el contador',
+  disco:'Disco de freno. Se pone al rojo cuando el módulo obedece una orden de frenar fuerte',
+  pinza:'Pinza de freno: aprieta las pastillas contra el disco cuando el módulo obedece',
+  intruso:'El intruso: una caja conectada al puerto de diagnóstico. Escucha el bus y prueba mensajes grabados o inventados',
+  obd:'Puerto de diagnóstico (OBD): el enchufe del taller. Da acceso directo al bus, por eso hay que proteger los mensajes',
+  bus:'El bus CAN: un par de cables trenzados (amarillo y verde) por donde viajan todos los mensajes, a 500 000 bits por segundo',
+  trama:'La trama: 64 bits. Azul = la orden, amarillo = contador, verde = firma, gris = sitio libre. Cada cuadro es un bit',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||p===PLATAFORMA||(p.userData&&p.userData.fondo===true)) vis=false; if(!vis||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 20. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 21. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de seis pasos que explica, sin siglas sin definir, qué se ve: el bus, el intruso,
+   la firma, el contador, el sitio limitado y tu turno. Cada paso lleva la cámara a su pieza y la señala con un aro. */
+const TOUR={paso:0,auto:false,timer:null};
+const TOUR_PASOS=[
+  {t:'Los módulos hablan por un cable',vista:'todo',foco:()=>V3(0,0.40,0),par:{esc:'taller',m:28,W:7,T:10},t0:1.0,
+   x:'Los módulos del coche (freno, motor, tablero) se mandan mensajes por un mismo cable, el <b>bus</b>. Cada mensaje es una <b>trama</b>: una tarjeta que ves viajar.'},
+  {t:'Un intruso escucha',vista:'todo',foco:()=>V3(-1.4,0.62,1.0),par:{esc:'taller',m:0,W:7,T:10},t0:7.2,
+   x:'Alguien conectó una caja al puerto de diagnóstico. Puede mandar mensajes falsos, como «frenar fuerte». <b>Sin protección</b> el freno le obedece: mira el disco ponerse al rojo.'},
+  {t:'La firma',vista:'trama',foco:()=>V3(0.38,0.62,1.22),par:{esc:'taller',m:28,W:7,T:10},t0:7.6,
+   x:'Cada trama lleva una <b>firma</b> (cuadros verdes): un código que sólo conocen los módulos. El intruso no puede calcularla, sólo adivinarla, y casi nunca acierta.'},
+  {t:'Un número que cambia',vista:'bus',foco:()=>V3(0.0,0.50,1.0),par:{esc:'taller',m:28,W:7,T:10},t0:4.9,
+   x:'También lleva un <b>contador</b> (cuadros amarillos) que sube de uno en uno. Una trama repetida trae un número viejo y se descarta. La <b>ventana</b> son los números adelantados que acepta, por si se pierde alguna orden.'},
+  {t:'El sitio es limitado',vista:'trama',foco:()=>V3(0.0,0.66,1.0),par:{esc:'taller',m:32,W:7,T:10},t0:1.0,
+   x:'La trama sólo tiene <b>64 bits</b>. Una firma más larga es más difícil de adivinar, pero deja menos sitio libre (gris). Y mandar la orden más seguido ocupa más el bus.'},
+  {t:'Tu turno',vista:'todo',foco:null,par:{esc:'taller',m:28,W:7,T:10},t0:1.0,
+   x:'Tú eliges el <b>largo de la firma</b>, la <b>ventana</b> del contador y <b>cada cuánto</b> se envía la orden. Pulsa «Probar yo» y vigila los instrumentos de la derecha.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const P=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${P.t}</h3><p class="intro tx">${P.x}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const P=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); SIM.t=P.t0; ponVista(P.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 22. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (la probabilidad de que un intruso acierte una firma de m bits en N intentos), 2 · Ajusta (el largo de
+   la firma, la ventana del contador y el periodo, para cumplir SEIS requisitos a la vez: la defensa sólo aparece al validar y la
+   ventana es INTERIOR en los tres mandos) y 3 · Diagnostica (¿por qué falla esta defensa?, sólo con lo que se ve en el dock).
+   Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+
+/* ---------- Fase 1 · Calcula la probabilidad de acertar ---------- */
+const CASOS_P=[[16,1000],[20,10000],[18,2000],[24,100000],[22,30000]];                 // [bits de firma, intentos]
+function sorteaCaso1(){ const p=GUIA.r1&&GUIA.r1.m; let c; do{ c=pickOne(CASOS_P); }while(GUIA.r1&&c[0]===p);
+  GUIA.r1={m:c[0],N:c[1],ans:100*pForja(c[0],c[1])}; }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/[\s  %]/g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.ans;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el porcentaje (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  if(Math.abs(v-ok)<=Math.max(0.01,0.07*ok)){
+    RETOS.fallos1=0; sonido.bien();
+    feedback('good','¡Correcto! ✓',`Hay 2<sup>${r.m}</sup> = ${fN(Math.pow(2,r.m))} firmas posibles y sólo una vale: cada intento acierta 1 de ${fN(Math.pow(2,r.m))}. Con ${fN(r.N)} intentos: ${fN(r.N)} ÷ ${fN(Math.pow(2,r.m))} ≈ <b>${fN(ok,2)} %</b>. Cada bit más de firma <b>divide por dos</b> esa probabilidad.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal(); const d=v>ok?'alto':'bajo';
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos','Cambia el caso. Recuerda: con <i>m</i> bits hay 2<sup><i>m</i></sup> firmas y sólo una acierta; con <i>N</i> intentos la probabilidad es más o menos <i>N</i> ÷ 2<sup><i>m</i></sup>.'); reiniciaCalculo(); pintaHUD(); }
+    else { feedback('bad','Revisa el cálculo',`Tu resultado (${fN(v,2)} %) está ${d}. Cuenta cuántas firmas posibles hay (2 elevado a los bits) y cuántas pruebas el intruso. (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta la firma, la ventana y el periodo ---------- */
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESCENARIOS); }while(GUIA.r2&&ESCENARIOS.length>1&&e.id===GUIA.r2.esc.id&&RETOS.resiembras>0);
+  GUIA.r2={esc:e,m:16,W:3,T:15,validado:false,res:null,intentos:0};
+  reiniciaCalculo(); pintaHUD();
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, R=evalua(r.m,r.W,r.T,E); r.res=R; r.validado=true; r.intentos++; RETOS.intentos++;
+  reiniciaCalculo();
+  const cifras=`El intruso acierta <b>${fUnoDe(R.pF)}</b> (mín. 1 de ${fN(1/LIM.pForja)}) · tiempo ciego <b>${fMs(R.edad)}</b> (máx. ${fMs(E.edad)}) · fallos propios <b>${fFallos(R.des)}</b> · bus <b>${fN(R.U*100,1)} %</b> (máx. ${fN(LIM.carga*100)}) · libres <b>${fN(R.lib)} bits</b> (mín. ${LIM.libres}) · retardo <b>${fMs(R.ret*1000,1)}</b> (máx. ${fMs(LIM.retardo*1000)}).`;
+  if(R.ok){
+    RETOS.fallos2=0; sonido.bien();
+    const vm=ventanaDe('m',r.m,r.W,r.T,E), vw=ventanaDe('W',r.m,r.W,r.T,E), vt=ventanaDe('T',r.m,r.W,r.T,E);
+    feedback('good','¡Lo conseguiste! ✓',`${cifras} Con los otros dos mandos así, servían <b>firmas de ${fN(vm[0])} a ${fN(vm[1])} bits</b>, <b>ventanas de ${fN(vw[0])} a ${fN(vw[1])}</b> y <b>periodos de ${fN(vt[0])} a ${fN(vt[1])} ms</b>: por debajo falla un requisito y por encima otro. La solución está en el interior, no en los extremos.`,false,16000);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal(); const c=R.c; let msg=cifras+' ';
+    if(!c.forja) msg+='La <b>firma es corta</b>: el intruso, probando al azar, acierta demasiado pronto. ';
+    if(!c.sitio) msg+='La firma es tan larga que <b>no quedan 8 bits libres</b> en la trama. ';
+    if(!c.repite) msg+='La <b>ventana por el periodo</b> deja al freno demasiado tiempo «ciego»: acórtalos. ';
+    if(!c.sync) msg+='Con ruido se pierden varias órdenes seguidas y, si la <b>ventana es estrecha</b>, el freno pierde la sincronía. ';
+    if(!c.bus) msg+='La orden se manda tan seguido que <b>ocupa demasiado bus</b>. ';
+    if(!c.lat) msg+='La orden se manda tan despacio que su <b>retardo</b> pasa el tope. ';
+    if(RETOS.fallos2>=5){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cinco validaciones sin lograrlo',msg+'Cambia el escenario.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/5)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'sinfirma',m:0,W:7,T:10},
+  {k:'corta',m:12,W:7,T:10},
+  {k:'ancha',m:28,W:40,T:10},
+  {k:'estrecha',m:28,W:1,T:10},
+];
+const NOMBRE_DX={sinfirma:'No hay firma',corta:'La firma es demasiado corta',ancha:'La ventana es demasiado ancha',estrecha:'La ventana es demasiado estrecha'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),false,12000);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira cuántas tramas falsas se aceptan, qué tan vieja es la orden que se acepta y cuántas órdenes propias se rechazan.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='sinfirma') return 'Sin firma, cualquier trama con un contador en la ventana se acepta: de 20 000 intentos pasan los 20 000. El contador solo frena las repeticiones viejas, no a quien inventa mensajes.';
+  if(k==='corta') return 'Con 12 bits sólo hay 4 096 firmas: de 20 000 intentos al azar pasan unos 5. El resto del diseño está bien; lo que falla es el largo de la firma.';
+  if(k==='ancha') return 'Con una ventana de 40 mensajes a 10 ms, el freno puede quedar 400 ms sin órdenes válidas y seguir aceptando: a 100 km/h son 11 m. Las firmas y los fallos propios están bien.';
+  return 'Con ventana de 1, basta perder UNA orden por ruido para que la siguiente parezca «adelantada» y se rechace: el freno rechaza miles de órdenes propias por hora. La firma y el hueco están bien.';
+}
+function noEs(k){
+  if(k==='sinfirma') return 'Aquí casi no pasan tramas falsas: mira la primera cifra.';
+  if(k==='corta') return 'Aquí pasan 0 ó 20 000 tramas falsas, no unas pocas: compara la primera cifra.';
+  if(k==='ancha') return 'La orden más vieja que se acepta es corta: mira la segunda cifra.';
+  return 'Las órdenes propias no se rechazan en exceso: mira la tercera cifra.';
+}
+const QUIZ=[
+  {q:'Si lleva contador, ¿por qué una trama grabada y repetida más tarde no engaña al freno?',ok:'Porque su contador es viejo y el freno la descarta',mal:['Porque el cable no deja pasar tramas repetidas','Porque el intruso no puede enviar tramas','Porque el freno no revisa nada']},
+  {q:'Si alargas la firma de 24 a 25 bits, ¿qué le pasa a la dificultad de adivinarla?',ok:'Se duplica: hay el doble de firmas posibles',mal:['Aumenta sólo un poquito (un 4 %)','No cambia','Se reduce a la mitad']},
+  {q:'Con una ventana de 1 mensaje, ¿qué pasa cuando el ruido hace perder una sola orden?',ok:'El freno pierde la sincronía y rechaza las órdenes siguientes',mal:['No pasa nada: acepta la siguiente igual','Acepta una orden falsa del intruso','El bus se apaga']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v':
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2','Cada bit puede valer 0 ó 1: con 3 bits hay 2 × 2 × 2 = 8 firmas posibles, y sólo una acierta.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2','Con <i>m</i> bits hay 2<sup><i>m</i></sup> firmas. Un intento acierta 1 de esas; con <i>N</i> intentos, más o menos <i>N</i> veces eso. Pásalo a porcentaje.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'validar': validarAjusta(); break;
+    case 'dx-sinfirma': diagnostica('sinfirma'); break; case 'dx-corta': diagnostica('corta'); break; case 'dx-ancha': diagnostica('ancha'); break; case 'dx-estrecha': diagnostica('estrecha'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,mx)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${mx}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:'¿Qué tan fácil es adivinar una firma?',
+      teach:`El intruso inventa firmas al azar. Cada firma tiene <b>${fN(r.m)} bits</b>: hay 2<sup>${r.m}</sup> posibles y sólo una vale. Si prueba <b>${fN(r.N)}</b> firmas distintas, <div class="task">¿qué probabilidad tiene de acertar? (en %) ${tri('d_try',RETOS.fallos1,3)}</div>`,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? por ciento" aria-label="Probabilidad de acertar, en porcentaje"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Cumple los seis requisitos',
+      teach:`<b>${r.esc.nombre}.</b> ${r.esc.texto}. La firma, el hueco y los fallos propios se miden al validar. ${tri('d_try2',RETOS.fallos2,5)}<div id="pliegoReto"></div>`,
+      acts:`<div class="cg"><div class="cl"><div>Largo de la firma</div><b id="v2M">${fN(r.m)} bits</b></div><input type="range" id="r2M" min="0" max="40" step="1" value="${r.m}" aria-label="Largo de la firma"></div>
+        <div class="cg"><div class="cl"><div>Ventana del contador</div><b id="v2W">${fN(r.W)} mensajes</b></div><input type="range" id="r2W" min="1" max="40" step="1" value="${r.W}" aria-label="Ventana del contador"></div>
+        <div class="cg"><div class="cl"><div>Un mensaje cada</div><b id="v2T">${fN(r.T)} ms</b></div><input type="range" id="r2T" min="2" max="20" step="1" value="${r.T}" aria-label="Periodo de la orden"></div>
+        <button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla la defensa',
+      teach:`Este coche se defiende mal. Lee las tres primeras cifras del dock: tramas falsas que pasan, la orden más vieja aceptada y órdenes propias rechazadas.<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Autopista» y mira cómo un intruso más rápido obliga a alargar la firma.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en el banco en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula'&&GUIA.r1) return {esc:'taller',m:GUIA.r1.m,W:7,T:10};
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {esc:r.esc.id,m:r.m,W:r.W,T:r.T}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {esc:'taller',m:c.m,W:c.W,T:c.T}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  SIM.t=EST.modo==='reto'?6.5:1.0; reiniciaCalculo(); ponVista('todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras(); pintaPliegoReto();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false,ms=7000){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),ms); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+/** El pliego del reto (los seis requisitos): los costos se ven en vivo; el resultado de la defensa, al validar. */
+function pintaPliegoReto(){ const p=el('pliegoReto'); if(!p||!CALC) return; p.innerHTML=chipsPliego(CALC,ocultaSalida()); }
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta') return;
+  const m={r2M:['m','v2M',v=>fN(v)+' bits'],r2W:['W','v2W',v=>fN(v)+' mensajes'],r2T:['T','v2T',v=>fN(v)+' ms']}[t.id]; if(!m) return;
+  GUIA.r2[m[0]]=+t.value; GUIA.r2.validado=false; el(m[1]).textContent=m[2](+t.value); reiniciaCalculo(); pintaPliegoReto(); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 23. SONIDO (sintetizado) =====================
+   Un zumbido grave muy atenuado del bus y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=60; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(48+q*40,t,0.15); zg.gain.setTargetAtTime(on&&q>0?0.008:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 24. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const ms=alta?2048:1024; if(LUZ.sol.shadow.mapSize.x!==ms){ LUZ.sol.shadow.mapSize.set(ms,ms); if(LUZ.sol.shadow.map){ LUZ.sol.shadow.map.dispose(); LUZ.sol.shadow.map=null; } }
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 25. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo de la pasada avanza dt·velocidad en cada cuadro, y con ESE tiempo viajan las tramas, se encienden las luces, frena el
+   disco y se mueve el cursor de la línea de tiempo del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  aplicaEscena(dtS,dtSim);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(SIM.e&&!EST.pausa?0.25:0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); if(EST.modo==='reto'&&GUIA.paso==='ajusta') pintaPliegoReto(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 26. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: las tramas ya viajan por el bus, las luces de los módulos parpadean y el
+   intruso está conectado, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+SIM.t=TOUR_PASOS[0].t0;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 27. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin plataforma, suelo ni fondo sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(){
+  const ocultos=[]; PLATAFORMA.visible=false; scene.traverse(o=>{ if(o.userData&&o.userData.fondo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  PLATAFORMA.visible=true; for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{m:GUIA.r1.m,N:GUIA.r1.N,ans:GUIA.r1.ans}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,m:GUIA.r2.m,W:GUIA.r2.W,T:GUIA.r2.T,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const R=C.r, run=C.run;
+    return {esc:C.p.esc,m:C.p.m,W:C.p.W,T:C.p.T,pForja:R.pF,edad:R.edad,desinc:R.des,carga:R.U,libres:R.lib,retardo:R.ret,ok:R.ok,criterios:R.c,
+      ataques:run.ataques,aceptadas:run.aceptadas,legitOk:run.legitOk,legitRech:run.legitRech,perdidas:run.perdidas}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v,tramas:SIM.e?SIM.e.n:0}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  freno(){ return {apr:+FREN.apr.toFixed(3),cal:+FREN.cal.toFixed(3),ult:SIM.e&&SIM.e.ult?SIM.e.ult.v:null,vivo:SIM.e?SIM.e.vivo:false}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,m:GUIA.r2.m,W:GUIA.r2.W,T:GUIA.r2.T,res:GUIA.r2.res&&{ok:GUIA.r2.res.ok,c:GUIA.r2.res.c}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s); },
+  salta:(t)=>{ SIM.t=clamp(t,0,CYC-0.01); aplicaEscena(0.001,0.001); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(m,W,T)=>{ const r=GUIA.r2; if(r){ r.m=m; r.W=W; r.T=T; r.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(c)=>{ const r=GUIA.r2; if(r){ r.esc=ESCENARIOS.find(e=>e.id===c)||r.esc; reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('ciberseguridad-can-secoc',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{bus:ESTATICO,disco:DISCO,pinza:PINZA,rejilla:REJ,motor:MOTOR_G,alerta:ALERTA}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-ciberseguridad-can-secoc.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

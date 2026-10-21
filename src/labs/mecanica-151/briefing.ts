@@ -1,0 +1,29 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-151",
+  titulo: "Fusión de sensores con filtro de Kalman: seguir a un coche con radar y cámara",
+  subtitulo: "Autotrónica",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Combinas un radar y una cámara, cada uno con errores, para saber dónde está realmente el coche de adelante.
+El radar mide muy bien la distancia pero se equivoca de lado; la cámara, al revés. El filtro de Kalman hace un promedio ponderado entre lo que esperaba (por la velocidad que llevaba el coche) y lo que midió, y pesa más a quien menos duda.
+Primero haces esa mezcla a mano con dos números; luego ajustas cuánto puede cambiar la velocidad del coche y cuánto te fías de cada sensor para seguirlo en un frenazo; al final diagnosticas por qué falla un filtro mal ajustado.`,
+  conceptos: [
+    { icono: '⚖️', nombre: 'Promedio ponderado y ganancia', descripcion: 'La estimación es x̂ = x⁻ + K·(z − x⁻) con K = P⁻/(P⁻ + R): si el sensor duda poco (R chica) manda la medida; si lo esperado duda poco (P⁻ chica) manda lo esperado.' },
+    { icono: '📡', nombre: 'Radar y cámara se complementan', descripcion: 'El radar mide distancia y velocidad (Doppler) con poco error y el lado con mucho; la cámara mide bien el ángulo y mal la distancia. Fusionados, el error baja frente a cualquiera de los dos solos.' },
+    { icono: '🎚️', nombre: 'Ruido de proceso Q y consistencia', descripcion: 'Q chica retrasa al filtro en un frenazo; Q grande hace temblar la velocidad. Un filtro honesto tiene NEES medio 2 y su óvalo de duda crece cuando no llegan lecturas.' },
+  ],
+  mision: [
+    'Calcula la mezcla ponderada de lo que esperabas y lo que midió un sensor, con sus dudas.',
+    'Elige Q y la confianza en el radar y en la cámara para seguir a un coche que frena, con poco error, sin retraso y sin temblor.',
+    'Diagnostica si un filtro falla por Q chica, Q grande, exceso de confianza en la cámara o por perder las lecturas.',
+  ],
+  aplicaciones: [
+    { area: 'Control de crucero adaptativo', ejemplo: 'El coche mantiene la distancia al de adelante con una estimación que mezcla radar y cámara, y debe enterarse pronto de un frenazo.' },
+    { area: 'Frenado autónomo de emergencia', ejemplo: 'Una estimación demasiado confiada o retrasada frena tarde o sin motivo; por eso se valida la consistencia del filtro.' },
+  ],
+};
+
+export default briefing;
