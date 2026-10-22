@@ -1,0 +1,27 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-162",
+  titulo: "Sensor de lluvia: luz y limpiaparabrisas automático",
+  subtitulo: "Autotrónica",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Ajusta el limpiaparabrisas para que responda a la lluvia sin activarse en seco.\nEl sensor envía luz dentro del vidrio. Las gotas dejan escapar parte de ella y el receptor detecta el cambio.\nExplora el corte óptico, ajusta el ángulo y la sensibilidad, y comprueba tu decisión en cuatro situaciones. Después diagnostica por qué otro sistema falla.`,
+  conceptos: [
+    { icono: '💡', nombre: 'Luz que vuelve', descripcion: 'La reflexión total conserva la luz dentro del vidrio seco; el agua puede abrir una salida.' },
+    { icono: '💧', nombre: 'Señal de lluvia', descripcion: 'La fracción mojada cambia la potencia que recibe el detector.' },
+    { icono: '⚙️', nombre: 'Sensibilidad', descripcion: 'Un umbral muy sensible confunde suciedad con lluvia; uno poco sensible no reacciona a tiempo.' },
+  ],
+  mision: [
+    'Relaciona las gotas y el cambio de luz recibida.',
+    'Ajusta ángulo y sensibilidad para distinguir cuatro situaciones.',
+    'Diagnostica un fallo por sus síntomas y responde la pregunta final.',
+  ],
+  aplicaciones: [
+    { area: 'Automatización del vehículo', ejemplo: 'Control del limpiaparabrisas con un sensor óptico.' },
+    { area: 'Diagnóstico', ejemplo: 'Distinguir un problema de acoplamiento al vidrio de una pala gastada.' },
+  ],
+};
+
+export default briefing;

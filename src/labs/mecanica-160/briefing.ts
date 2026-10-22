@@ -1,0 +1,62 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-160',
+  titulo: 'Llenado de un tanque de hidrógeno a 700 bar: el calor de la compresión',
+  subtitulo: 'Autotrónica · gas real, calor de compresión y pre-enfriamiento',
+  acento: '#2A9D8F',
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Llenas un tanque de hidrógeno lo más rápido posible sin que el gas lo caliente demasiado. Delante tienes el surtidor, la manguera con su pre-enfriador y un tanque tipo IV cortado por la mitad.
+
+Cada punto del tanque es hidrógeno: azul es frío y rojo es caliente. Al apretarse el gas se calienta, como el aire de una bomba de bicicleta, y el tanque no puede pasar de 85 °C.
+
+En el panel verás la temperatura del gas y de la pared, la presión, la carga del tanque y por qué el hidrógeno a 700 bar no se comporta como un gas ideal.
+
+Cuando pases al laboratorio guiado tendrás que elegir la rapidez de subida de la presión y el frío del gas para llenar a tiempo y sin pasarte de temperatura.`,
+  conceptos: [
+    {
+      icono: '🔥',
+      nombre: 'Calor de la compresión',
+      descripcion: 'Al meter gas a presión se calienta por compresión y por la entalpía con que entra. Sin enfriar, el llenado se corta por temperatura con menos de un tercio de carga; con gas a −40 °C llega al 100 % con unos 74 °C.',
+    },
+    {
+      icono: '⚗️',
+      nombre: 'Gas real (Abel–Noble)',
+      descripcion: 'A 700 bar el hidrógeno tiene Z ≈ 1,45: pesa unos 40,5 kg/m³ y no los 59 de un gas ideal. Por eso a 60 °C el tanque a 700 bar sólo está al 90 % de carga.',
+    },
+    {
+      icono: '🌡️',
+      nombre: 'Estado de carga (SOC)',
+      descripcion: 'El SOC es la densidad del gas entre la nominal (700 bar y 15 °C). Un tanque caliente llega a 700 bar con menos hidrógeno dentro: llenar más rápido deja menos carga.',
+    },
+    {
+      icono: '❄️',
+      nombre: 'Pre-enfriamiento y rampa',
+      descripcion: 'El enfriador baja la temperatura del gas que entra, pero gasta energía; la rampa de presión fija el tiempo. Hay una ventana intermedia donde se llena a tiempo, sin pasar de 85 °C y sin gastar de más.',
+    },
+  ],
+  mision: [
+    'RECONOCE el surtidor, la manguera con su enfriador y las capas del tanque en corte; usa las vistas de la barra.',
+    'SIGUE el recorrido: mira cómo se calienta el gas y qué hace el gas frío que entra.',
+    'PRUEBA la rapidez de subida de la presión, la temperatura de salida del enfriador, el día y la presión inicial.',
+    'RETO · Elige la rampa y el pre-enfriamiento para llenar al 95 % o más a tiempo, sin pasar de 85 °C y sin gastar de más en el enfriador.',
+    'DIAGNOSTICA luego un llenado que falla (enfriador, manguera, calor del día o rampa) leyendo las gráficas.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Estaciones de hidrógeno',
+      ejemplo: 'Los surtidores de 700 bar enfrían el gas hasta cerca de −40 °C para llenar un coche en unos tres minutos sin pasar de 85 °C.',
+    },
+    {
+      area: 'Autobuses y camiones',
+      ejemplo: 'Los tanques de vehículos pesados son más grandes: el calor de la compresión y el tiempo de llenado cuentan más, y el enfriador pesa en el costo de cada kilogramo.',
+    },
+    {
+      area: 'Diseño de tanques',
+      ejemplo: 'El forro de polímero se calienta enseguida y la fibra aguanta poco por encima de 85 °C: de ahí el límite, que decide cuánto se enfría y cuán rápido se llena.',
+    },
+  ],
+};
+
+export default briefing;

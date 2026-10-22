@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CEN Labs · Supercapacitores y frenado</title>
+<link rel="stylesheet" href="/labs/vendor/outfit/outfit.css">
+<style>
+:root{color-scheme:dark;--ink:#e9f3fa;--dim:#9db4c7;--accent:#74e8da;--edge:#263c50;--panel:#101c2bec}*{box-sizing:border-box}body{margin:0;background:#070d18;color:var(--ink);font:14px Outfit,system-ui,sans-serif;overflow:hidden}button,input,select{font:inherit}button,select{background:#172a3e;color:var(--ink);border:1px solid var(--edge);border-radius:9px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}button.on,button.primary{background:var(--accent);color:#072323;border-color:var(--accent)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #ffd27b;outline-offset:3px}header{height:66px;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--edge)}header b{letter-spacing:.1em;color:var(--accent)}header small{display:block;color:var(--dim);font-size:11px;margin-top:3px}.title{font-size:13px}#stage{position:absolute;left:0;top:66px;right:358px;bottom:178px;background:radial-gradient(ellipse at 55% 35%,#1b354a,#08111e 70%)}#stage canvas{display:block;width:100%;height:100%;touch-action:none}#caption{position:absolute;left:22px;bottom:18px;color:#a9c5d8;font-size:11px;pointer-events:none}.viewbar{position:absolute;top:15px;left:20px;display:flex;gap:5px;z-index:2}.viewbar button{font-size:12px;padding:7px 10px}aside{position:absolute;right:12px;top:80px;bottom:12px;width:334px;background:var(--panel);border:1px solid var(--edge);border-radius:17px;padding:18px;display:flex;flex-direction:column;gap:12px}h1{font-size:23px;line-height:1.12;margin:0}p{line-height:1.45;margin:0;color:var(--dim)}.eyebrow{color:var(--accent);font-size:10px;text-transform:uppercase;letter-spacing:.17em}.intro{font-size:13px;color:#d7e8f5}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.tabs button{font-size:12px;padding:8px 3px}.controls{display:grid;gap:11px}label{display:block;font-size:12px;color:var(--dim)}label span{display:flex;justify-content:space-between;gap:8px}output{font-variant-numeric:tabular-nums;color:var(--accent)}input[type=range]{width:100%;accent-color:var(--accent);margin:7px 0 0}select{width:100%;font-size:12px;margin-top:6px}.row{display:flex;gap:6px}.row>*{flex:1}.content{display:none;font-size:13px}.content.show{display:grid;gap:10px}#task{color:#d7e8f5;font-size:13px}#feedback{font-size:12px;line-height:1.4;min-height:18px}.good{color:#6be8ae}.bad{color:#ffbd94}.results{display:grid;gap:4px;font-size:11px}.result{display:flex;justify-content:space-between;background:#071320;padding:5px 8px;border-radius:6px}.options{display:grid;gap:6px}.options button{text-align:left;font-size:12px}.footer{margin-top:auto;display:flex;gap:5px}.footer button{font-size:11px;padding:7px 8px}.dock{position:absolute;bottom:12px;left:16px;right:370px;height:154px;display:grid;grid-template-columns:1fr 1.4fr;gap:20px;padding:17px 20px;background:var(--panel);border:1px solid var(--edge);border-radius:15px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px}.metric small{font-size:10px;color:var(--dim);display:block}.metric strong{display:block;font-size:23px;font-weight:500;font-variant-numeric:tabular-nums}.metric strong.accent{color:var(--accent)}.chart{position:relative;min-width:0}.chart canvas{width:100%;height:83px;display:block}.legend{display:flex;gap:12px;font-size:10px;color:var(--dim);margin-bottom:7px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#74e8da;margin-right:4px}.legend i.gold{background:#ffce86}#tour{position:absolute;z-index:30;left:24px;bottom:198px;width:310px;border:1px solid #629d9c;border-radius:13px;background:#102334f5;padding:17px;box-shadow:0 15px 55px #0008}#tour h2{font-size:17px;margin:6px 0 7px}#tour p{color:#c3d5e0;font-size:13px}#tour .row{margin-top:13px}#tour button{font-size:12px;padding:7px}#model{position:fixed;inset:0;z-index:90;background:#030a12d9;display:none;align-items:center;justify-content:center;padding:20px}#model.show{display:flex}.modelcard{max-width:660px;max-height:85vh;overflow:auto;padding:28px;background:#101f30;border:1px solid var(--edge);border-radius:18px}.modelcard h2{margin-top:0}.modelcard p{margin:12px 0}.modelcard code{color:#9bf3db}.modelcard button{float:right}#fichaFab{top:13px!important;left:48%!important}#toast{position:fixed;left:25px;top:75px;padding:10px;background:#173044;border-radius:8px;z-index:50;display:none}
+@media(max-height:760px) and (min-width:761px){aside{gap:9px;padding:14px}h1{font-size:20px}.controls{gap:7px}.content.show{gap:7px}.footer button{padding:6px}.dock{height:140px}#stage{bottom:164px}}
+@media(max-width:1000px) and (min-width:761px){aside{width:298px;right:10px}#stage{right:318px}.dock{right:330px;grid-template-columns:1fr;height:160px;gap:5px;padding:12px}.metrics{grid-template-columns:repeat(4,1fr);gap:5px}.metric strong{font-size:19px}.chart canvas{height:60px}.legend{margin-bottom:3px}#tour{width:270px}}
+@media(max-width:760px){header{height:61px;padding:9px 14px}header .title{max-width:176px;font-size:12px}header b{font-size:12px}.title small{display:none}#stage{top:61px;right:0;bottom:456px}#caption{left:13px;bottom:9px;font-size:9px;max-width:290px}.viewbar{top:8px;left:10px}.viewbar button{font-size:10px;padding:6px 8px}aside{left:10px;right:10px;bottom:8px;top:auto;width:auto;height:438px;padding:12px;gap:7px}h1{font-size:18px}.eyebrow{display:none}.intro{font-size:12px}.controls{grid-template-columns:1fr 1fr;gap:8px 13px}.controls .weather{grid-column:1 / -1}.controls label{font-size:11px}.controls select{padding:6px;margin-top:3px}.controls input{margin-top:3px}.content.show{gap:6px}.tabs button{font-size:11px;padding:6px}.footer{margin-top:auto;justify-content:flex-end}.footer button{flex:none;padding:5px 9px}.dock{left:auto;right:12px;top:109px;bottom:auto;height:54px;width:154px;display:block;padding:7px 10px;background:#0c1a2bce;pointer-events:none;border-radius:9px}.dock .chart,.metric:nth-child(n+3){display:none}.metrics{gap:7px}.metric strong{font-size:18px}.metric small{font-size:8px}.content p,#task{font-size:12px}.options{grid-template-columns:1fr 1fr;gap:4px}.options button{font-size:10px;padding:6px}.results{grid-template-columns:1fr 1fr;gap:3px}.result{font-size:9px;padding:4px}.row button{padding:6px 9px}.footer #btnPause{display:none}#tour{left:12px;right:12px;bottom:468px;width:auto;padding:12px}#tour h2{font-size:15px}#tour p{font-size:12px}#tour .row{margin-top:8px}#fichaFab{top:17px!important;bottom:auto!important;left:auto!important;right:13px!important;transform:none!important;padding:6px 8px!important}#fichaFab .ft2{display:none}#fichaFab .ft1{font-size:10px!important}#feedback{font-size:11px}.modelcard{padding:20px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+aside:has(#reto.show){gap:8px}aside:has(#reto.show) .controls{gap:7px}aside:has(#reto.show) .content.show{gap:7px}aside:has(#reto.show) #feedback{font-size:11px}aside:has(#reto.show) .results{gap:3px}aside:has(#reto.show) .result{padding:4px 7px}
+@media(max-width:760px){header .title{display:none}.metric strong{white-space:nowrap;font-size:16px}.footer #btnPause{display:inline-block}aside:has(#diagnostico.show) .controls,aside:has(#quiz.show) .controls{display:none}}
+</style>
+</head>
+<body>
+<header><div><b>CEN / AUTOTRÓNICA</b><small>Práctica 163 · 40 min</small></div><div class="title">Potencia rápida, espacio para frenar<small>Banco de supercapacitores</small></div></header>
+<main id="stage" aria-label="Banco tridimensional de supercapacitores"><div class="viewbar"><button id="viewBank" class="on">Banco</button><button id="viewCell">Celda en corte</button><button id="btnLabels" aria-pressed="false">Rótulos</button></div><div id="caption">120 celdas por rama · carcasa en corte · circuito de refrigeración ilustrativo</div></main>
+<aside><div class="eyebrow">Energía que entra y sale</div><h1>Supercapacitores</h1><p class="intro">Dimensiona un banco que ayude al acelerar y conserve espacio para recuperar energía al frenar.</p>
+<nav class="tabs"><button class="on" data-mode="explorar">Explorar</button><button data-mode="reto">Reto</button><button data-mode="diagnostico">Diagnóstico</button></nav>
+<div class="controls"><label><span>Ramas en paralelo <output id="branchesOut"></output></span><input id="branches" type="range" min="1" max="8" value="3" step="1" aria-label="Ramas en paralelo"></label><label><span>Tensión inicial <output id="voltsOut"></output></span><input id="volts" type="range" min="150" max="320" step="1" value="320" aria-label="Tensión inicial"></label></div>
+<section class="content show" id="explorar"><p>Al acelerar sale energía. Al frenar vuelve a entrar. La resistencia interna transforma parte en calor.</p><div class="row"><button id="restart">Repetir ciclo</button><button id="phase">Ver frenado</button></div><p id="phaseText"></p></section>
+<section class="content" id="reto"><p id="task">Entrega ≥300 kJ en 8 s a 200 A; termina ≥180 V. Reserva ≥1,2 MJ para frenar, usa ≤600 celdas y ≤80 A por rama.</p><button id="validate" class="primary">Validar el dimensionamiento</button><div class="results" id="results"></div><div id="feedback" role="status"></div><button id="openQuiz" hidden>Pregunta de cierre →</button></section>
+<section class="content" id="diagnostico"><p id="symptom"></p><div class="options" id="diagnosisOptions"></div><p id="diagnosisFeedback" role="status"></p><button id="newCase">Otro caso</button></section>
+<section class="content" id="quiz"><p>¿Por qué no conviene iniciar siempre con la tensión máxima?</p><div class="options" id="quizOptions"></div><p id="quizFeedback" role="status"></p></section>
+<div class="footer"><button id="btnAuto">Guía</button><button id="btnPause">Pausar</button><button id="btnQuality">Calidad: alta</button><button id="btnModel">Modelo</button></div></aside>
+<section class="dock" aria-label="Instrumentos"><div class="metrics"><div class="metric"><small>Tensión del banco</small><strong class="accent" id="voltage"></strong></div><div class="metric"><small>Energía almacenada</small><strong id="energy"></strong></div><div class="metric"><small>Potencia al vehículo</small><strong id="power"></strong></div><div class="metric"><small>Calor acumulado</small><strong id="heat"></strong></div></div><div class="chart"><div class="legend"><span><i></i>Tensión / 324 V</span><span><i class="gold"></i>Energía / capacidad máxima</span><span>Un ciclo · 14 s</span></div><canvas id="trace" aria-label="Tensión y energía durante el ciclo"></canvas></div></section>
+<section id="tour" role="dialog" aria-label="Recorrido guiado"><div class="eyebrow" id="tourCount"></div><h2 id="tourTitle"></h2><p id="tourText"></p><div class="row"><button id="tourPrev">Atrás</button><button id="tourNext" class="primary">Siguiente</button><button id="tourSkip">Saltar</button></div></section>
+<div id="model" role="dialog" aria-label="Modelo físico"><div class="modelcard"><button id="closeModel">Cerrar</button><h2>Un almacén rápido de energía</h2><p>Cada rama tiene 120 celdas en serie, de 3 000 F y 2,7 V. Se usa una resistencia de 0,23 mΩ por celda, como referencia representativa de Eaton XL60. No se reproduce un módulo comercial.</p><p><code>C = Np Ccelda / Ns</code>; <code>R = Ns Rcelda / Np</code>; <code>Vmax = Ns Vcelda</code>. En serie crece la tensión y baja la capacitancia; en paralelo crece la capacitancia y baja la resistencia.</p><p><code>E = ½ C V²</code>; <code>V(t) = V₀ − I t / C</code>; <code>Vterminal = V − I R</code>. Corriente positiva significa descarga. La resistencia interna calienta: <code>Q = I² R t</code>. La potencia externa es <code>P = I Vterminal</code>.</p><p>Ciclo sintético: descarga de 200 A durante 8 s, seguida de carga de 150 A durante 6 s. No es un ciclo normalizado. Cada repetición empieza con un banco nuevo en las mismas condiciones. Si se agota o alcanza la tensión máxima, la protección interrumpe la corriente.</p><p>La energía que recibe el vehículo es la caída de energía almacenada menos el calor. Al cargar, la energía externa suministrada es la ganancia almacenada más el calor. El gráfico y los colores usan el mismo tiempo y voltaje del modelo.</p><p>Cada celda del banco se representa individualmente. La carcasa y las conexiones son un diseño didáctico; la refrigeración se muestra, pero no tiene cálculo térmico. El corte interior ilustra electrodos y separador: no calcula poros, difusión, temperatura, balanceo de celdas, autodescarga, envejecimiento ni convertidor de potencia.</p></div></div>
+<script type="importmap">{"imports":{"three":"/labs/vendor/three@0.160.0/build/three.module.min.js","three/addons/":"/labs/vendor/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import {instalaDiag} from '/labs/_diag3d.js';
+/* FISICA:INICIO */
+const CELL=Object.freeze({C:3000,R:.00023,V:2.7,Ns:120});
+function bank(np,esr=1){if(!Number.isInteger(np)||np<1)throw new RangeError('Ramas positivas enteras');return {C:CELL.C*np/CELL.Ns,R:CELL.Ns*CELL.R*esr/np,max:CELL.Ns*CELL.V,cells:np*CELL.Ns,np};}
+function pulse(b,v0,current,seconds){
+  const limit=current>0?v0*b.C/current:current<0?(b.max-v0)*b.C/(-current):Infinity;
+  const t=Math.max(0,Math.min(seconds,limit));
+  const v=v0-current*t/b.C,heat=current*current*b.R*t;
+  const initial=.5*b.C*v0*v0,energy=.5*b.C*v*v,delivered=initial-energy-heat;
+  const active=t>=seconds&&v>0&&v<b.max;
+  return {v,t,heat,initial,energy,delivered,current:active?current:0,terminal:v-(active?current:0)*b.R,
+    power:active?current*(v-current*b.R):0,limited:t<seconds};
+}
+function cycle(b,v0,time){const t=((time%14)+14)%14;
+  if(t<8)return {...pulse(b,v0,200,t),phase:'acelerar',time:t};
+  const first=pulse(b,v0,200,8),second=pulse(b,first.v,-150,t-8);
+  return {...second,heat:first.heat+second.heat,delivered:first.delivered+second.delivered,initial:first.initial,phase:'frenar',time:t};
+}
+function dimension(np,v0){const b=bank(np),p=pulse(b,v0,200,8),room=.5*b.C*(b.max*b.max-v0*v0);
+  const checks=[{name:'Energía entregada',value:p.delivered,unit:'kJ',scale:.001,ok:p.delivered>=300000},
+    {name:'Tensión al terminar',value:p.v,unit:'V',scale:1,ok:p.v>=180},
+    {name:'Espacio para frenar',value:room,unit:'MJ',scale:1e-6,ok:room>=1200000},
+    {name:'Cantidad de celdas',value:b.cells,unit:'celdas',scale:1,ok:b.cells<=600},
+    {name:'Corriente por rama',value:200/np,unit:'A',scale:1,ok:200/np<=80}];
+  return {ok:checks.every(c=>c.ok),checks,pulse:p,room};
+}
+/* FISICA:FIN */
+const $=id=>document.getElementById(id),fmt=(n,d=0)=>Number(n).toFixed(d).replace('.',','),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S={np:3,v0:320,t:0,paused:reduced,mode:'explorar',view:'bank',labels:false,attempts:0,solved:false,quizAnswer:-1,quizCorrectIndex:-1,diagnosis:0,quality:innerWidth<820||/Mobi|Android/.test(navigator.userAgent)||(navigator.hardwareConcurrency||8)<=2?'media':'alta'};
+const stage=$('stage'),renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0x07111e,0);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;renderer.outputColorSpace=THREE.SRGBColorSpace;stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(34,1,.1,100),controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=2;controls.maxDistance=20;
+const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment();scene.environment=pmrem.fromScene(room,.05).texture;scene.environmentIntensity=.8;room.dispose();pmrem.dispose();scene.add(new THREE.HemisphereLight(0xb8ddff,0x122031,1.6));
+for(const [color,i,p]of [[0xffe6c9,3,[3,6,4]],[0x80cfff,2,[-3,2,-2]]]){const l=new THREE.DirectionalLight(color,i);l.position.set(...p);scene.add(l);}
+// Módulo realista de 120 celdas por rama; geometría agrupada para no penalizar el aula.
+// Módulo realista de 120 celdas por rama; geometría agrupada para no penalizar el aula.
+const housing=new THREE.MeshStandardMaterial({color:0x344759,metalness:.88,roughness:.26});
+const metal=new THREE.MeshStandardMaterial({color:0xbac6cb,metalness:.92,roughness:.23});
+const copper=new THREE.MeshStandardMaterial({color:0xc58c51,metalness:.86,roughness:.25});
+const rubber=new THREE.MeshStandardMaterial({color:0x111923,metalness:.08,roughness:.5});
+const fill=new THREE.MeshStandardMaterial({color:0x58ceb8,emissive:0x0c776d,emissiveIntensity:.4,metalness:.4,roughness:.25});
+const foil=new THREE.MeshStandardMaterial({color:0x5c7281,metalness:.88,roughness:.28,side:THREE.DoubleSide});
+const separator=new THREE.MeshStandardMaterial({color:0xbab7a4,metalness:.12,roughness:.58,side:THREE.DoubleSide});
+const orange=new THREE.MeshStandardMaterial({color:0xde651b,metalness:.15,roughness:.34});
+const pcb=new THREE.MeshStandardMaterial({color:0x184d46,metalness:.25,roughness:.45});
+const flowMat=new THREE.MeshBasicMaterial({color:0x7cf4d5});
+const bankGroup=new THREE.Group(),cellGroup=new THREE.Group(),structure=new THREE.Group();
+bankGroup.add(structure);scene.add(bankGroup,cellGroup);
+function box(p,w,h,d,m,x=0,y=0,z=0){const a=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,3,Math.min(w,h,d)*.14),m);a.position.set(x,y,z);a.castShadow=true;a.receiveShadow=true;p.add(a);return a;}
+function cable(parent,pts,r,material){const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)),false,'centripetal');const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,48,r,10,false),material);mesh.castShadow=true;parent.add(mesh);return curve;}
+function lathe(parent,profile,material,x=0,y=0,z=0,options={}){const m=new THREE.Mesh(P3.revolucion(profile,{seg:40,...options}),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
+// Cada celda existe: 10 × 12 = 120 por rama. Instancias para cuerpo, tapa, sello y postes.
+const canGeo=P3.revolucion([[0,-.02],[.078,-.02],[.085,.015],[.085,.46],[.081,.49],[.076,.50],[0,.50]],{seg:20});
+const caps=new THREE.InstancedMesh(canGeo,housing,960);
+const tops=new THREE.InstancedMesh(new THREE.CylinderGeometry(.076,.076,.022,16),metal,960);
+const rings=new THREE.InstancedMesh(new THREE.TorusGeometry(.078,.008,6,20),rubber,960);
+const terminals=new THREE.InstancedMesh(new THREE.CylinderGeometry(.014,.017,.035,10),copper,1920);
+for(const mesh of [caps,tops,rings,terminals]){mesh.castShadow=true;mesh.receiveShadow=true;bankGroup.add(mesh);}
+const dummy=new THREE.Object3D();let builtNP=0,packW=4.7,packD=6.0,flowPath;
+const flow=new THREE.InstancedMesh(new THREE.SphereGeometry(.026,8,6),flowMat,24);bankGroup.add(flow);
+function place(mesh,index,pos,rotation=[0,0,0]){dummy.position.set(...pos);dummy.rotation.set(...rotation);dummy.scale.setScalar(1);dummy.updateMatrix();mesh.setMatrixAt(index,dummy.matrix);}
+function rebuild(){
+  $('branchesOut').textContent=S.np+' · '+bank(S.np).cells+' celdas';$('voltsOut').textContent=S.v0+' V';
+  if(builtNP===S.np)return;builtNP=S.np;
+  structure.traverse(o=>{if(o.isMesh)o.geometry.dispose();});structure.clear();
+  const across=Math.min(2,S.np),deep=Math.ceil(S.np/2),pitch=.195;
+  packW=across*2.12+.55;packD=deep*2.55+1.25;
+  const zFront=packD/2,zBack=-packD/2;
+  // Bandeja de aluminio, canales inferiores y junta de sellado, con el frente abierto.
+  box(structure,packW,.14,packD,metal,0,-.17,0);
+  box(structure,packW+.10,.09,packD+.10,rubber,0,-.25,0);
+  const finGeos=[];for(let j=0;j<15;j++)finGeos.push(P3.coloca(new THREE.BoxGeometry(.045,.12,packD-.12),(j-7)*(packW-.22)/14,-.29,0));
+  const fins=new THREE.Mesh(P3.fusiona(finGeos),housing);fins.castShadow=true;structure.add(fins);
+  for(const side of [-1,1]){
+    box(structure,.09,.75,packD,housing,side*packW/2,.10,0);
+    box(structure,.14,.035,packD+.04,rubber,side*packW/2,.49,0);
+    // Nervaduras de la fundición, sólo en el exterior.
+    const ribs=[];for(let i=0;i<12;i++)ribs.push(P3.coloca(new THREE.BoxGeometry(.07,.60,.035),side*(packW/2+.06),.09,zBack+.16+i*(packD-.32)/11));
+    const ribsMesh=new THREE.Mesh(P3.fusiona(ribs),housing);ribsMesh.castShadow=true;structure.add(ribsMesh);
+  }
+  box(structure,packW,.7,.08,housing,0,.075,zBack);
+  box(structure,packW,.22,.09,housing,0,-.08,zFront);
+  // Ala recortada de la tapa: conserva visibilidad de las celdas y señala el corte.
+  box(structure,.33,.065,packD,metal,-packW/2+.15,.56,0);
+  for(let i=0;i<8;i++){
+    const x=(i%2?1:-1)*(packW/2-.13),z=zBack+.16+Math.floor(i/2)*(packD-.32)/3;
+    const bolt=P3.tornilloHex({acero:metal},{d:.014,largo:.04});bolt.position.set(x,.58,z);structure.add(bolt);
+  }
+  // Circuito de refrigeración visible bajo el conjunto, independiente del balance eléctrico.
+  for(const x of [-packW/2+.30,packW/2-.30]){
+    cable(structure,[[x,-.12,zBack+.3],[x,-.12,zFront-.15],[x,-.08,zFront+.22],[x,.04,zFront+.30]],.035,metal);
+    lathe(structure,[[0,0],[.065,0],[.065,.10],[.05,.12],[0,.12]],copper,x,.02,zFront+.30);
+  }
+  // Barras en serpentina: el positivo de una celda se une al negativo de la siguiente.
+  const connectionGeos=[];let index=0;
+  for(let branch=0;branch<S.np;branch++){
+    const bx=(branch%2-(across-1)/2)*2.12,bz=zBack+.30+Math.floor(branch/2)*2.55;
+    box(structure,1.99,.065,2.40,rubber,bx,-.055,bz+1.08);
+    box(structure,.035,.54,2.39,rubber,bx-1.025,.21,bz+1.08);
+    const positions=[];
+    for(let row=0;row<12;row++)for(let col=0;col<10;col++){
+      const serp=row%2?9-col:col,x=bx+(serp-4.5)*pitch,z=bz+row*pitch;
+      place(caps,index,[x,0,z]);place(tops,index,[x,.505,z]);place(rings,index,[x,.49,z],[Math.PI/2,0,0]);
+      place(terminals,index*2,[x-.032,.535,z]);place(terminals,index*2+1,[x+.032,.535,z]);
+      positions.push([x,z]);index++;
+    }
+    for(let j=0;j<119;j++){
+      const a=positions[j],b=positions[j+1],start=new THREE.Vector3(a[0]+.032,.558,a[1]),end=new THREE.Vector3(b[0]-.032,.558,b[1]);
+      const delta=end.clone().sub(start),g=new THREE.BoxGeometry(.035,.015,delta.length());
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),delta.normalize()));g.translate((start.x+end.x)/2,.558,(start.z+end.z)/2);connectionGeos.push(g);
+    }
+    // Terminales de rama y conexión al distribuidor.
+    const last=positions.at(-1);cable(structure,[[last[0]+.032,.56,last[1]],[bx+.95,.67,last[1]+.14],[bx+.95,.67,zFront-.65],[packW/2-.28,.54,zFront-.50]],.024,orange);
+  }
+  const links=new THREE.Mesh(P3.fusiona(connectionGeos),copper);links.castShadow=true;links.receiveShadow=true;structure.add(links);
+  caps.count=index;tops.count=index;rings.count=index;terminals.count=index*2;
+  for(const m of [caps,tops,rings,terminals]){m.instanceMatrix.needsUpdate=true;m.computeBoundingBox();m.computeBoundingSphere();}
+  // Electrónica de supervisión y contactores sobre una placa accesible en el frente.
+  box(structure,packW-.45,.07,.68,pcb,0,.05,zFront-.38);
+  for(let i=0;i<6;i++){box(structure,.15,.055,.16,rubber,-packW/2+.48+i*.27,.12,zFront-.36);box(structure,.11,.018,.05,metal,-packW/2+.48+i*.27,.16,zFront-.36);}
+  for(const x of [-.32,.32]){
+    box(structure,.38,.42,.38,rubber,x,.27,zFront-.28);
+    lathe(structure,[[0,0],[.065,0],[.065,.085],[0,.085]],copper,x,.49,zFront-.28);
+  }
+  // Tomas naranjas de alta tensión y mazo con curvatura y alivio de tensión.
+  for(const x of [-.55,.55]){
+    box(structure,.25,.26,.20,orange,x,.08,zFront+.06);
+    for(let k=0;k<5;k++)box(structure,.28,.019,.22,rubber,x,-.015+k*.045,zFront+.06);
+    cable(structure,[[x,.08,zFront+.15],[x,.08,zFront+.45],[x*1.5,.12,zFront+.70],[x*1.8,.19,zFront+1.0]],.065,orange);
+  }
+  flowPath=new THREE.CatmullRomCurve3([new THREE.Vector3(0,.69,zBack+.5),new THREE.Vector3(0,.69,0),new THREE.Vector3(0,.69,zFront-.35),new THREE.Vector3(.55,.21,zFront+.35),new THREE.Vector3(.99,.23,zFront+1)]);
+  // Soportes de montaje con orejas y fijaciones, fuera del volumen de las celdas.
+  for(const x of [-1,1])for(const z of [zBack+.30,zFront-.25]){
+    box(structure,.32,.09,.32,metal,x*(packW/2+.13),-.20,z);
+    lathe(structure,[[.035,0],[.08,0],[.08,.03],[.035,.03],[.035,0]],rubber,x*(packW/2+.18),-.14,z);
+    box(structure,.28,.14,.28,rubber,x*(packW/2-.18),-.36,z);
+  }
+  // Carcasa, fijaciones y conexiones agrupadas por material: el detalle no cuesta
+  // una llamada por tornillo. Las celdas continúan como instancias independientes.
+  structure.updateMatrixWorld(true);const merged=new Map(),inverse=structure.matrixWorld.clone().invert();
+  structure.traverse(o=>{if(!o.isMesh)return;const g=o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inverse);const key=o.material.uuid;if(!merged.has(key))merged.set(key,{material:o.material,geometries:[]});merged.get(key).geometries.push(g);o.geometry.dispose();});
+  structure.clear();for(const {material,geometries}of merged.values()){const m=new THREE.Mesh(P3.fusiona(geometries),material);m.castShadow=true;m.receiveShadow=true;structure.add(m);geometries.forEach(g=>g.dispose());}
+  if(typeof frameCamera==='function')frameCamera();
+}
+// Celda de doble capa en media sección, con arrollamiento continuo y camisa metálica.
+lathe(cellGroup,[[.74,-1.22],[.81,-1.22],[.85,-1.15],[.85,1.12],[.80,1.21],[.745,1.21],[.74,-1.22]],housing,0,0,0,{seg:64,arco:Math.PI*1.34,fase:Math.PI*.33});
+lathe(cellGroup,[[0,-1.27],[.83,-1.27],[.83,-1.21],[0,-1.21]],metal);
+lathe(cellGroup,[[0,1.20],[.78,1.20],[.78,1.25],[0,1.25]],metal,0,0,0,{seg:64,arco:Math.PI*1.34,fase:Math.PI*.33});
+lathe(cellGroup,[[0,1.25],[.23,1.25],[.23,1.48],[.19,1.52],[0,1.52]],metal);
+lathe(cellGroup,[[.25,1.24],[.30,1.24],[.30,1.30],[.25,1.30],[.25,1.24]],rubber);
+// Una geometría por material y corte frontal explícito del arrollamiento.
+function woundRibbon(offset){
+  const vertices=[],indices=[],N=1800;
+  for(let i=0;i<N;i++){
+    const a=i/N*24*Math.PI,b=(i+1)/N*24*Math.PI,phi=(a%(2*Math.PI));
+    if(phi>Math.PI*.16&&phi<Math.PI*.84)continue;
+    const r=.10+.63*i/N+offset,s=.10+.63*(i+1)/N+offset,k=vertices.length/3;
+    vertices.push(r*Math.cos(a),-1.12,r*Math.sin(a),r*Math.cos(a),1.11,r*Math.sin(a),s*Math.cos(b),1.11,s*Math.sin(b),s*Math.cos(b),-1.12,s*Math.sin(b));indices.push(k,k+1,k+2,k,k+2,k+3);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g;
+}
+for(const [offset,material]of [[0,foil],[.009,separator],[.018,copper]]){const m=new THREE.Mesh(woundRibbon(offset),material);m.castShadow=true;m.receiveShadow=true;cellGroup.add(m);}
+const energyColumn=box(cellGroup,.045,2.1,.045,fill,0,0,.02);
+for(const y of [-1.19,1.17])lathe(cellGroup,[[.76,y],[.79,y],[.79,y+.035],[.76,y+.035],[.76,y]],metal,0,0,0,{seg:64,arco:Math.PI*1.34,fase:Math.PI*.33});
+const label=document.createElement('div');label.textContent='Electrodos enrollados · separador · camisa';Object.assign(label.style,{position:'absolute',bottom:'43px',left:'20px',fontSize:'11px',color:'#cce4ef',display:'none'});stage.appendChild(label);
+// Estudio y sombras de contacto: fuera del grupo medido como protagonista.
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+scene.children.filter(o=>o.isHemisphereLight).forEach(l=>l.intensity=.65);
+const key=scene.children.find(o=>o.isDirectionalLight);key.intensity=4;key.position.set(-3,7,5);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.normalBias=.025;key.shadow.bias=-.00015;Object.assign(key.shadow.camera,{left:-7,right:7,top:8,bottom:-8,near:.1,far:30});
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.ShadowMaterial({color:0x000711,opacity:.38}));floor.rotation.x=-Math.PI/2;floor.position.y=-.43;floor.receiveShadow=true;scene.add(floor);
+
+function dims(){const r=stage.getBoundingClientRect();return {w:r.width,h:r.height};}
+function frameCamera(){
+ const {w,h}=dims();renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+ scene.updateMatrixWorld(true);const object=S.view==='bank'?bankGroup:cellGroup,bounds=new THREE.Box3().setFromObject(object),center=bounds.getCenter(new THREE.Vector3());
+ const portrait=innerWidth<761,dir=S.view==='bank'?new THREE.Vector3(portrait?.85:.85,portrait?1.8:1.5,portrait?.50:1.55):new THREE.Vector3(.18,.5,1);
+ dir.normalize();let distance=Math.max(3,bounds.getSize(new THREE.Vector3()).length()*1.4);
+ for(let k=0;k<10;k++){
+  camera.position.copy(center).addScaledVector(dir,distance);camera.lookAt(center);camera.updateMatrixWorld(true);const points=[];
+  for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z])points.push(new THREE.Vector3(x,y,z).project(camera));
+  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),ratio=Math.max((Math.max(...xs)-Math.min(...xs))/1.72,(Math.max(...ys)-Math.min(...ys))/1.30);distance*=ratio;
+ }
+ controls.target.copy(center);controls.update();
+}
+function setView(v){S.view=v;bankGroup.visible=v==='bank';cellGroup.visible=v==='cell';$('viewBank').classList.toggle('on',v==='bank');$('viewCell').classList.toggle('on',v==='cell');frameCamera();}
+function quality(){renderer.setPixelRatio(Math.min(devicePixelRatio,S.quality==='alta'?2:1.5));$('btnQuality').textContent='Calidad: '+S.quality;frameCamera();}
+let last=performance.now(),ui=0;
+function drawTrace(){const c=$('trace'),r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio,2);c.width=r.width*d;c.height=r.height*d;const ctx=c.getContext('2d');ctx.scale(d,d);const w=r.width,h=r.height,b=bank(S.np);ctx.strokeStyle='#294056';for(let k=0;k<3;k++){ctx.beginPath();ctx.moveTo(0,5+k*(h-10)/2);ctx.lineTo(w,5+k*(h-10)/2);ctx.stroke();}
+ for(const [color,type]of [['#74e8da','v'],['#ffce86','energy']]){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<=140;i++){const t=i/10,m=cycle(b,S.v0,Math.min(t,13.999)),val=type==='v'?m.v/b.max:m.energy/(.5*b.C*b.max*b.max);const x=t/14*w,y=h-5-val*(h-10);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}
+ ctx.strokeStyle='#d9edf6';ctx.beginPath();const x=(S.t%14)/14*w;ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+function update(){const m=cycle(bank(S.np),S.v0,S.t);$('voltage').textContent=fmt(m.v,0)+' V';$('energy').textContent=fmt(m.energy/1e6,2)+' MJ';$('power').textContent=fmt(m.power/1000,1)+' kW';$('heat').textContent=fmt(m.heat/1000,1)+' kJ';$('phaseText').textContent=(m.phase==='acelerar'?'Aceleración · sale energía':'Frenado · entra energía')+' · '+fmt(m.time,1)+' s';drawTrace();}
+function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.1);last=now;if(!S.paused)S.t+=dt;const m=cycle(bank(S.np),S.v0,S.t),fraction=m.energy/(.5*bank(S.np).C*324**2);fill.color.setHSL(.43+.08*fraction,.50,.23+.3*fraction);fill.emissiveIntensity=.15+.5*fraction;energyColumn.scale.y=Math.max(.01,fraction);energyColumn.position.y=-1.05+1.05*fraction;
+ flowMat.color.set(m.current>=0?0x7cf4d5:0xffcf82);for(let i=0;i<24;i++){const f=((S.t*.3*(m.current>=0?1:-1)+i/24)%1+1)%1;dummy.position.copy(flowPath.getPoint(f));dummy.scale.setScalar(m.current===0?.01:1);dummy.rotation.set(0,0,0);dummy.updateMatrix();flow.setMatrixAt(i,dummy.matrix);}flow.instanceMatrix.needsUpdate=true;label.style.display=S.labels&&S.view==='cell'?'block':'none';controls.update();renderer.render(scene,camera);if(now-ui>100){ui=now;update();}}
+function invalidate(){S.solved=false;S.t=0;$('results').replaceChildren();$('feedback').textContent='';$('openQuiz').hidden=true;rebuild();}
+$('branches').oninput=e=>{S.np=+e.target.value;invalidate();};$('volts').oninput=e=>{S.v0=+e.target.value;invalidate();};$('restart').onclick=()=>{S.t=0;};$('phase').onclick=()=>{S.t=8;};$('viewBank').onclick=()=>setView('bank');$('viewCell').onclick=()=>setView('cell');$('btnLabels').onclick=()=>{S.labels=!S.labels;$('btnLabels').setAttribute('aria-pressed',String(S.labels));};
+function mode(m){S.mode=m;document.querySelectorAll('.content').forEach(e=>e.classList.toggle('show',e.id===m));document.querySelectorAll('[data-mode]').forEach(e=>e.classList.toggle('on',e.dataset.mode===m));if(m==='diagnostico')showDiagnosis();}
+for(const e of document.querySelectorAll('[data-mode]'))e.onclick=()=>mode(e.dataset.mode);
+$('btnPause').onclick=()=>{S.paused=!S.paused;$('btnPause').textContent=S.paused?'Continuar':'Pausar';};$('btnPause').textContent=S.paused?'Continuar':'Pausar';$('btnQuality').onclick=()=>{S.quality=S.quality==='alta'?'media':'alta';quality();};$('btnModel').onclick=()=>$('model').classList.add('show');$('closeModel').onclick=()=>$('model').classList.remove('show');
+$('validate').onclick=()=>{S.attempts++;const r=dimension(S.np,S.v0);S.solved=r.ok;$('results').replaceChildren(...r.checks.map(c=>{const e=document.createElement('div');e.className='result';const a=document.createElement('span'),b=document.createElement('b');a.textContent=c.name;b.className=c.ok?'good':'bad';b.textContent=(c.ok?'✓ ':'✕ ')+fmt(c.value*c.scale,c.unit==='MJ'?2:0)+' '+c.unit;e.append(a,b);return e;}));$('feedback').className=r.ok?'good':'bad';$('feedback').textContent=r.ok?'Banco válido: ayuda al acelerar y deja capacidad libre para frenar.':'Revisa los criterios incumplidos. Más tensión almacena más energía, pero deja menos espacio libre.';$('openQuiz').hidden=!r.ok;};
+function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+const answers=shuffle([{text:'Queda menos espacio para almacenar la energía del frenado.',ok:true},{text:'La capacitancia se vuelve negativa.',ok:false},{text:'La resistencia deja de producir calor.',ok:false},{text:'Las celdas en serie se desconectan solas.',ok:false}]);S.quizCorrectIndex=answers.findIndex(a=>a.ok);
+for(const [i,a]of answers.entries()){const b=document.createElement('button');b.textContent=a.text;b.onclick=()=>{if(S.quizAnswer>=0)return;S.quizAnswer=i;$('quizFeedback').textContent=a.ok?'Correcto: la energía máxima es finita y depende del cuadrado de la tensión.':'El límite es el espacio energético hasta la tensión máxima. Revisa E = ½ C V².';$('quizFeedback').className=a.ok?'good':'bad';$('quizOptions').querySelectorAll('button').forEach(e=>e.disabled=true);};$('quizOptions').appendChild(b);}$('openQuiz').onclick=()=>mode('quiz');
+const faults=[{id:'esr',answer:'Resistencia interna elevada',symptom:()=>{const b=bank(3,4);return 'Con 200 A, la tensión cae de inmediato '+fmt(200*b.R,2)+' V; en 8 s genera '+fmt(200**2*b.R*8/1000,1)+' kJ de calor. La pendiente lenta de tensión sigue igual.';},why:'Una resistencia mayor aumenta el salto I·R y el calor I²·R, sin cambiar la capacitancia.'},{id:'branch',answer:'Una rama desconectada',symptom:()=>{const a=bank(3),b=bank(2);return 'Antes la tensión bajaba '+fmt(200/a.C,2)+' V/s; ahora baja '+fmt(200/b.C,2)+' V/s a igual corriente. La tensión máxima no cambió.';},why:'Perder una rama reduce C y aumenta la pendiente I/C; el número de celdas en serie sigue igual.'},{id:'full',answer:'Banco demasiado lleno',symptom:()=>{const b=bank(3),room=.5*b.C*(b.max**2-320**2);return 'A 320 V sólo quedan '+fmt(room/1000,0)+' kJ hasta el máximo. La protección corta la carga al frenar, aunque la descarga funciona.';},why:'La protección evita superar Vmax. Es necesario reservar espacio energético antes de recuperar.'}];
+function showDiagnosis(){$('symptom').textContent=faults[S.diagnosis].symptom();$('diagnosisFeedback').textContent='';$('diagnosisOptions').replaceChildren(...shuffle(faults).map(f=>{const b=document.createElement('button');b.textContent=f.answer;b.onclick=()=>{const ok=f.id===faults[S.diagnosis].id;$('diagnosisFeedback').className=ok?'good':'bad';$('diagnosisFeedback').textContent=ok?faults[S.diagnosis].why:'Esa causa no explica todos los síntomas. Compara el salto, la pendiente y el calor.';};return b;}));}$('newCase').onclick=()=>{S.diagnosis=(S.diagnosis+1)%faults.length;showDiagnosis();};
+const tour=[{title:'Un almacén de respuesta rápida',text:'El banco entrega corriente al acelerar y la recibe al frenar. Observa cómo cambian tensión, energía y dirección del flujo.',view:'bank'},{title:'Energía en dos superficies',text:'Los electrodos y el separador se enrollan dentro de cada celda. El corte es ilustrativo: la energía se calcula con la capacitancia y la tensión.',view:'cell'},{title:'Serie y paralelo',text:'Cada rama suma 120 celdas en serie. Añadir ramas permite repartir corriente y aumenta la energía disponible.',view:'bank'},{title:'Deja espacio para frenar',text:'En Reto, decide cuántas ramas y con qué tensión comenzar. Debes cumplir potencia, espacio, corriente y cantidad de celdas a la vez.',view:'bank'}];let tourIndex=0;
+function paintTour(){const t=tour[tourIndex];$('tourCount').textContent='Guía · '+(tourIndex+1)+' / '+tour.length;$('tourTitle').textContent=t.title;$('tourText').textContent=t.text;$('tourPrev').disabled=tourIndex===0;$('tourNext').textContent=tourIndex===tour.length-1?'Comenzar':'Siguiente';setView(t.view);}
+$('tourPrev').onclick=()=>{tourIndex=Math.max(0,tourIndex-1);paintTour();};$('tourNext').onclick=()=>{if(tourIndex===tour.length-1){$('tour').hidden=true;mode('reto');}else{tourIndex++;paintTour();}};$('tourSkip').onclick=()=>$('tour').hidden=true;$('btnAuto').onclick=()=>{tourIndex=0;$('tour').hidden=false;paintTour();};
+function mideObjeto(){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);const g=S.view==='bank'?bankGroup:cellGroup,b=new THREE.Box3().setFromObject(g),ys=[];for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])ys.push(new THREE.Vector3(x,y,z).project(camera).y);return {vista:S.view,altoPorcentaje:(Math.max(...ys)-Math.min(...ys))*50,lienzo:dims()};}
+window.__labDebug={get mode(){return S.mode;},get solved(){return S.solved;},get quizAnswer(){return S.quizAnswer;},get quizCorrectIndex(){return S.quizCorrectIndex;},state:()=>({resuelto:S.solved,intentos:S.attempts,np:S.np,v0:S.v0,t:S.t,view:S.view,paused:S.paused}),modelo:()=>cycle(bank(S.np),S.v0,S.t),mideObjeto,escena:()=>({llamadas:renderer.info.render.calls,tri:renderer.info.render.triangles,calidad:S.quality,pixel:renderer.getPixelRatio()})};
+instalaDiag('supercapacitores-potencia-frenado',{escena:scene,camara:camera,controles:controls,renderizador:renderer,grupos:{banco:bankGroup,celda:cellGroup}});new ResizeObserver(frameCamera).observe(stage);rebuild();quality();paintTour();update();requestAnimationFrame(loop);
+</script>
+<script src="_ficha-tecnica.js"></script><script src="_ficha-supercapacitores-potencia-frenado.js"></script><script src="_puente.js"></script></body></html>

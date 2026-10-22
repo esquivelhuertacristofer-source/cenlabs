@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CEN Labs · Sensor óptico de lluvia</title>
+<link rel="stylesheet" href="/labs/vendor/outfit/outfit.css">
+<style>
+:root{color-scheme:dark;--ink:#e9f3fa;--dim:#9db4c7;--accent:#74e8da;--edge:#263c50;--panel:#101c2bec}*{box-sizing:border-box}body{margin:0;background:#070d18;color:var(--ink);font:14px Outfit,system-ui,sans-serif;overflow:hidden}button,input,select{font:inherit}button,select{background:#172a3e;color:var(--ink);border:1px solid var(--edge);border-radius:9px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}button.on,button.primary{background:var(--accent);color:#072323;border-color:var(--accent)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #ffd27b;outline-offset:3px}header{height:66px;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--edge)}header b{letter-spacing:.1em;color:var(--accent)}header small{display:block;color:var(--dim);font-size:11px;margin-top:3px}.title{font-size:13px}#stage{position:absolute;left:0;top:66px;right:358px;bottom:178px;background:radial-gradient(ellipse at 55% 35%,#1b354a,#08111e 70%)}#stage canvas{display:block;width:100%;height:100%;touch-action:none}#caption{position:absolute;left:22px;bottom:18px;color:#a9c5d8;font-size:11px;pointer-events:none}.viewbar{position:absolute;top:15px;left:20px;display:flex;gap:5px;z-index:2}.viewbar button{font-size:12px;padding:7px 10px}aside{position:absolute;right:12px;top:80px;bottom:12px;width:334px;background:var(--panel);border:1px solid var(--edge);border-radius:17px;padding:18px;display:flex;flex-direction:column;gap:12px}h1{font-size:23px;line-height:1.12;margin:0}p{line-height:1.45;margin:0;color:var(--dim)}.eyebrow{color:var(--accent);font-size:10px;text-transform:uppercase;letter-spacing:.17em}.intro{font-size:13px;color:#d7e8f5}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.tabs button{font-size:12px;padding:8px 3px}.controls{display:grid;gap:11px}label{display:block;font-size:12px;color:var(--dim)}label span{display:flex;justify-content:space-between;gap:8px}output{font-variant-numeric:tabular-nums;color:var(--accent)}input[type=range]{width:100%;accent-color:var(--accent);margin:7px 0 0}select{width:100%;font-size:12px;margin-top:6px}.row{display:flex;gap:6px}.row>*{flex:1}.content{display:none;font-size:13px}.content.show{display:grid;gap:10px}#task{color:#d7e8f5;font-size:13px}#feedback{font-size:12px;line-height:1.4;min-height:18px}.good{color:#6be8ae}.bad{color:#ffbd94}.results{display:grid;gap:4px;font-size:11px}.result{display:flex;justify-content:space-between;background:#071320;padding:5px 8px;border-radius:6px}.options{display:grid;gap:6px}.options button{text-align:left;font-size:12px}.footer{margin-top:auto;display:flex;gap:5px}.footer button{font-size:11px;padding:7px 8px}.dock{position:absolute;bottom:12px;left:16px;right:370px;height:154px;display:grid;grid-template-columns:1fr 1.4fr;gap:20px;padding:17px 20px;background:var(--panel);border:1px solid var(--edge);border-radius:15px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px}.metric small{font-size:10px;color:var(--dim);display:block}.metric strong{display:block;font-size:23px;font-weight:500;font-variant-numeric:tabular-nums}.metric strong.accent{color:var(--accent)}.chart{position:relative;min-width:0}.chart canvas{width:100%;height:83px;display:block}.legend{display:flex;gap:12px;font-size:10px;color:var(--dim);margin-bottom:7px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#74e8da;margin-right:4px}.legend i.gold{background:#ffce86}#tour{position:absolute;z-index:30;left:24px;bottom:198px;width:310px;border:1px solid #629d9c;border-radius:13px;background:#102334f5;padding:17px;box-shadow:0 15px 55px #0008}#tour h2{font-size:17px;margin:6px 0 7px}#tour p{color:#c3d5e0;font-size:13px}#tour .row{margin-top:13px}#tour button{font-size:12px;padding:7px}#model{position:fixed;inset:0;z-index:90;background:#030a12d9;display:none;align-items:center;justify-content:center;padding:20px}#model.show{display:flex}.modelcard{max-width:660px;max-height:85vh;overflow:auto;padding:28px;background:#101f30;border:1px solid var(--edge);border-radius:18px}.modelcard h2{margin-top:0}.modelcard p{margin:12px 0}.modelcard code{color:#9bf3db}.modelcard button{float:right}#fichaFab{top:13px!important;left:48%!important}#toast{position:fixed;left:25px;top:75px;padding:10px;background:#173044;border-radius:8px;z-index:50;display:none}
+@media(max-height:760px) and (min-width:761px){aside{gap:9px;padding:14px}h1{font-size:20px}.controls{gap:7px}.content.show{gap:7px}.footer button{padding:6px}.dock{height:140px}#stage{bottom:164px}}
+@media(max-width:1000px) and (min-width:761px){aside{width:298px;right:10px}#stage{right:318px}.dock{right:330px;grid-template-columns:1fr;height:160px;gap:5px;padding:12px}.metrics{grid-template-columns:repeat(4,1fr);gap:5px}.metric strong{font-size:19px}.chart canvas{height:60px}.legend{margin-bottom:3px}#tour{width:270px}}
+@media(max-width:760px){header{height:61px;padding:9px 14px}header .title{max-width:176px;font-size:12px}header b{font-size:12px}.title small{display:none}#stage{top:61px;right:0;bottom:456px}#caption{left:13px;bottom:9px;font-size:9px;max-width:290px}.viewbar{top:8px;left:10px}.viewbar button{font-size:10px;padding:6px 8px}aside{left:10px;right:10px;bottom:8px;top:auto;width:auto;height:438px;padding:12px;gap:7px}h1{font-size:18px}.eyebrow{display:none}.intro{font-size:12px}.controls{grid-template-columns:1fr 1fr;gap:8px 13px}.controls .weather{grid-column:1 / -1}.controls label{font-size:11px}.controls select{padding:6px;margin-top:3px}.controls input{margin-top:3px}.content.show{gap:6px}.tabs button{font-size:11px;padding:6px}.footer{margin-top:auto;justify-content:flex-end}.footer button{flex:none;padding:5px 9px}.dock{left:auto;right:12px;top:109px;bottom:auto;height:54px;width:154px;display:block;padding:7px 10px;background:#0c1a2bce;pointer-events:none;border-radius:9px}.dock .chart,.metric:nth-child(n+3){display:none}.metrics{gap:7px}.metric strong{font-size:18px}.metric small{font-size:8px}.content p,#task{font-size:12px}.options{grid-template-columns:1fr 1fr;gap:4px}.options button{font-size:10px;padding:6px}.results{grid-template-columns:1fr 1fr;gap:3px}.result{font-size:9px;padding:4px}.row button{padding:6px 9px}.footer #btnPause{display:none}#tour{left:12px;right:12px;bottom:468px;width:auto;padding:12px}#tour h2{font-size:15px}#tour p{font-size:12px}#tour .row{margin-top:8px}#fichaFab{top:17px!important;bottom:auto!important;left:auto!important;right:13px!important;transform:none!important;padding:6px 8px!important}#fichaFab .ft2{display:none}#fichaFab .ft1{font-size:10px!important}#feedback{font-size:11px}.modelcard{padding:20px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+aside:has(#reto.show){gap:8px}aside:has(#reto.show) .controls{gap:7px}aside:has(#reto.show) .content.show{gap:7px}aside:has(#reto.show) #feedback{font-size:11px}aside:has(#reto.show) .results{gap:3px}aside:has(#reto.show) .result{padding:4px 7px}
+@media(max-width:760px){header .title{display:none}.metric strong{white-space:nowrap;font-size:16px}.footer #btnPause{display:inline-block}aside:has(#reto.show) .weather{display:none}aside:has(#diagnostico.show) .controls,aside:has(#quiz.show) .controls{display:none}}
+</style>
+</head>
+<body>
+<header><div><b>CEN / AUTOTRÓNICA</b><small>Práctica 162 · 40 min</small></div><div class="title">La lluvia cambia el camino de la luz<small>Sensor óptico · corte didáctico</small></div></header>
+<main id="stage" aria-label="Sensor óptico tridimensional"><div class="viewbar"><button id="viewOptic" class="on">Corte óptico</button><button id="viewGlass">Parabrisas</button><button id="btnLabels" aria-pressed="false">Rótulos</button></div><div id="caption">Infrarrojo mostrado en ámbar · espesor ampliado · tamaños no a escala</div></main>
+<aside>
+<div class="eyebrow">Una gota, una señal</div><h1>Sensor de lluvia</h1>
+<p class="intro">Ajusta el limpiaparabrisas para que responda a la lluvia sin activarse en seco.</p>
+<nav class="tabs"><button class="on" data-mode="explorar">Explorar</button><button data-mode="reto">Reto</button><button data-mode="diagnostico">Diagnóstico</button></nav>
+<div class="controls">
+<label><span>Ángulo dentro del vidrio <output id="angleOut"></output></span><input id="angle" type="range" min="30" max="78" value="48" step="1" aria-label="Ángulo dentro del vidrio"></label>
+<label><span>Caída que activa el barrido <output id="thresholdOut"></output></span><input id="threshold" type="range" min="5" max="65" value="52" step="1" aria-label="Caída que activa el barrido"></label>
+<label class="weather">Agua que llega<select id="weather"><option value="0">Seco</option><option value="0.04">Llovizna</option><option value="0.12" selected>Lluvia</option><option value="0.28">Aguacero</option></select></label>
+</div>
+<section class="content show" id="explorar"><p>En seco, la luz rebota en el vidrio. Las gotas dejan escapar parte de ella; el sensor recibe menos.</p><div class="row"><button id="wipe">Barrer una vez</button><button id="auto" class="on" aria-pressed="true">Automático</button></div></section>
+<section class="content" id="reto"><p id="task">Elige ángulo y sensibilidad. Debe ignorar suciedad y bruma, detectar lluvia y conservar al menos 80 % de luz en seco.</p><button id="validate" class="primary">Validar los cuatro casos</button><div id="results" class="results"></div><div id="feedback" role="status"></div><button id="openQuiz" hidden>Pregunta de cierre →</button></section>
+<section class="content" id="diagnostico"><p id="symptom"></p><div id="diagnosisOptions" class="options"></div><p id="diagnosisFeedback" role="status"></p><button id="newCase">Otro caso</button></section>
+<section class="content" id="quiz"><p>¿Por qué llega menos luz al receptor cuando hay gotas?</p><div id="quizOptions" class="options"></div><p id="quizFeedback" role="status"></p></section>
+<div class="footer"><button id="btnAuto">Guía</button><button id="btnPause">Pausar</button><button id="btnQuality">Calidad: alta</button><button id="btnModel">Modelo</button></div>
+</aside>
+<section class="dock" aria-label="Instrumentos"><div class="metrics"><div class="metric"><small>Luz recibida</small><strong class="accent" id="signal"></strong></div><div class="metric"><small>Vidrio mojado</small><strong id="coverage"></strong></div><div class="metric"><small>Receptor</small><strong id="voltage"></strong></div><div class="metric"><small>Barridos</small><strong id="wipes"></strong></div></div><div class="chart"><div class="legend"><span><i></i>Luz recibida</span><span><i class="gold"></i>Umbral de activación</span><span>Últimos 16 s</span></div><canvas id="trace" aria-label="Luz recibida frente al tiempo"></canvas></div></section>
+<section id="tour" role="dialog" aria-label="Recorrido guiado"><div class="eyebrow" id="tourCount"></div><h2 id="tourTitle"></h2><p id="tourText"></p><div class="row"><button id="tourPrev">Atrás</button><button id="tourNext" class="primary">Siguiente</button><button id="tourSkip">Saltar</button></div></section>
+<div id="model" role="dialog" aria-label="Modelo físico"><div class="modelcard"><button id="closeModel">Cerrar</button><h2>Luz, gotas y control</h2><p><code>n₁ sen θ₁ = n₂ sen θ₂</code>. La ley de Snell fija la dirección. Si n₁ &gt; n₂ y θ₁ supera el ángulo crítico, toda la luz vuelve al vidrio.</p><p><code>θc = asin(n₂/n₁)</code>. Vidrio: n = 1,50; agua: 1,333; aire: 1,00. Son índices didácticos constantes; el modelo no reproduce un laminado comercial ni su dispersión.</p><p><code>R = (Rs + Rp)/2</code>. Se calculan las ecuaciones de Fresnel para luz no polarizada. Con cobertura C: <code>P/P₀ = g [(1−C) Raire + C Ragua]</code>. g representa el acoplamiento óptico. El receptor ideal transforma potencia en voltaje.</p><p><code>C(t+Δt)=1−(1−C(t)) exp(−a Δt)</code>. La llegada de agua se modela como cobertura de una zona homogénea. Cada barrido retira el 88 % del agua; no se simulan impactos ni dinámica de fluidos. La pala sigue una ley sinusoidal impuesta, no un motor eléctrico.</p><p>La electrónica se calibra en seco con el mismo ángulo. Se activa cuando la caída relativa supera el ajuste. El reto usa cuatro casos sintéticos con variaciones deterministas de señal, y no representa una certificación de seguridad.</p><p id="critical"></p><p>La cámara lenta de los puntos luminosos es ilustrativa: no representa el tiempo de vuelo de fotones. Las gotas y el corte tienen dimensiones ampliadas.</p></div></div>
+<script type="importmap">{"imports":{"three":"/labs/vendor/three@0.160.0/build/three.module.min.js","three/addons/":"/labs/vendor/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+/* FISICA:INICIO */
+const OPT = Object.freeze({glass:1.5,water:1.333,air:1,source:0.002,responsivity:0.55,resistance:2200,residual:0.12});
+const rad = d => d*Math.PI/180;
+function critical(n1,n2){return n1>n2?Math.asin(n2/n1)*180/Math.PI:90;}
+function fresnel(n1,n2,deg){
+  if(!(n1>0&&n2>0&&deg>=0&&deg<90))throw new RangeError('Índices y ángulo fuera de dominio');
+  const ci=Math.cos(rad(deg)),st=n1/n2*Math.sin(rad(deg));
+  if(st>=1)return {R:1,T:0,Rs:1,Rp:1,transmitted:null,tir:true};
+  const ct=Math.sqrt(1-st*st);
+  const Rs=((n1*ci-n2*ct)/(n1*ci+n2*ct))**2;
+  const Rp=((n2*ci-n1*ct)/(n2*ci+n1*ct))**2;
+  const R=(Rs+Rp)/2;
+  return {R,T:1-R,Rs,Rp,transmitted:Math.asin(st)*180/Math.PI,tir:false};
+}
+function optics(angle,coverage,coupling=1){
+  const dry=fresnel(OPT.glass,OPT.air,angle),wet=fresnel(OPT.glass,OPT.water,angle);
+  const c=Math.max(0,Math.min(1,coverage));
+  const returned=coupling*((1-c)*dry.R+c*wet.R);
+  const power=OPT.source*returned;
+  return {dry,wet,returned,power,voltage:power*OPT.responsivity*OPT.resistance,
+    loss:1-returned/(coupling*dry.R),contrast:1-wet.R/dry.R};
+}
+function accumulate(c,a,dt){return 1-(1-c)*Math.exp(-a*dt);}
+function wipeCoverage(c,residual=OPT.residual){return c*residual;}
+const RAIN_CASES=Object.freeze([
+  {name:'Seco con suciedad',coverage:0.12,bias:0.025,want:false},
+  {name:'Bruma sin lluvia',coverage:0.17,bias:0.02,want:false},
+  {name:'Lluvia ligera',coverage:0.40,bias:-0.035,want:true},
+  {name:'Lluvia intensa',coverage:0.72,bias:-0.025,want:true},
+]);
+function challenge(angle,threshold){
+  const dryOK=optics(angle,0).returned>=.8;
+  const cases=RAIN_CASES.map(c=>{const loss=optics(angle,c.coverage).loss+c.bias;
+    const fires=loss>threshold;return {...c,loss,fires,ok:fires===c.want&&dryOK};});
+  return {ok:cases.every(c=>c.ok),dryOK,cases};
+}
+/* FISICA:FIN */
+const $=id=>document.getElementById(id),fmt=(v,n=0)=>Number(v).toLocaleString('es-MX',{minimumFractionDigits:n,maximumFractionDigits:n}).replace(/\./g,','),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S={angle:48,threshold:.52,rate:.12,c:.38,t:0,auto:true,paused:reduced,wiping:false,wipeStart:-10,wipes:0,lastWipe:-10,mode:'explorar',view:'optic',labels:false,attempts:0,solved:false,quizAnswer:-1,quizCorrectIndex:-1,diagnosis:0,quality:innerWidth<820||/Mobi|Android/.test(navigator.userAgent)||(navigator.hardwareConcurrency||8)<=2?'media':'alta'};
+const stage=$('stage'),renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x07111e,0);stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(34,1,.1,100),controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.minDistance=3;controls.maxDistance=18;controls.enablePan=false;
+const pmrem=new THREE.PMREMGenerator(renderer),environment=new RoomEnvironment();scene.environment=pmrem.fromScene(environment,.06).texture;scene.environmentIntensity=.8;environment.dispose();pmrem.dispose();
+scene.add(new THREE.HemisphereLight(0xb8e4ff,0x122033,1.5));
+for(const [color,intensity,pos] of [[0xffedd9,3,[2,5,5]],[0x7dbbff,2,[-4,1,-3]]]){const l=new THREE.DirectionalLight(color,intensity);l.position.set(...pos);scene.add(l);}
+const metal=new THREE.MeshStandardMaterial({color:0x677987,metalness:.85,roughness:.28});
+const rubber=new THREE.MeshStandardMaterial({color:0x142333,metalness:.1,roughness:.48});
+const pcb=new THREE.MeshStandardMaterial({color:0x145349,metalness:.35,roughness:.38});
+const glass=new THREE.MeshPhysicalMaterial({color:0x79d9e6,metalness:.05,roughness:.12,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false});
+const water=new THREE.MeshPhysicalMaterial({color:0x9de8ff,metalness:.1,roughness:.08,transparent:true,opacity:.7,depthWrite:false});
+const amber=new THREE.MeshBasicMaterial({color:0xffbb56,transparent:true,opacity:.85});
+const teal=new THREE.MeshBasicMaterial({color:0x7cf4e1,transparent:true,opacity:.8});
+const leaked=new THREE.MeshBasicMaterial({color:0x87cfff,transparent:true,opacity:.8});
+const opticsGroup=new THREE.Group(),windshield=new THREE.Group();scene.add(opticsGroup,windshield);
+function box(parent,w,h,d,mat,x=0,y=0,z=0){const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,2,Math.min(w,h,d)*.12),mat);m.position.set(x,y,z);parent.add(m);return m;}
+function tube(parent,points,r,mat){const path=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)),false,'centripetal');const m=new THREE.Mesh(new THREE.TubeGeometry(path,32,r,8,false),mat);parent.add(m);return m;}
+function cylinder(parent,r,h,mat,x,y,z){const m=new THREE.Mesh(P3.revolucion([[0,0],[r,0],[r*.98,h*.1],[r*.98,h*.85],[r*.85,h],[0,h]],{seg:24}),mat);m.position.set(x,y,z);parent.add(m);return m;}
+// Media sección ampliada del vidrio y del módulo: luz realmente reflejada/refractada.
+box(opticsGroup,4.8,.82,1.2,glass,0,.30,0);
+box(opticsGroup,4.9,.045,1.24,metal,0,-.12,0);
+
+
+const emitter=cylinder(opticsGroup,.22,.20,metal,-.85,-.47,0),receiver=cylinder(opticsGroup,.22,.20,metal,.85,-.47,0);
+const emitterTip=cylinder(opticsGroup,.16,.09,amber,-.85,-.27,0),receiverTip=cylinder(opticsGroup,.16,.09,teal,.85,-.27,0);
+for(const x of [-1.55,1.55]){const bolt=P3.tornilloHex({acero:metal},{d:.018,largo:.05});bolt.position.set(x,-.63,.35);opticsGroup.add(bolt);}
+const rayIn=box(opticsGroup,.035,1,.035,amber),rayBack=box(opticsGroup,.035,1,.035,teal),rayOut=box(opticsGroup,.035,1,.035,leaked);
+const hit=new THREE.Vector3(0,.72,0),end1=new THREE.Vector3(),end2=new THREE.Vector3(),end3=new THREE.Vector3();
+function segment(mesh,a,b){mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.scale.set(1,a.distanceTo(b),1);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());}
+const opticDrops=new THREE.InstancedMesh(new THREE.SphereGeometry(1,16,10),water,32);opticsGroup.add(opticDrops);
+const dropletPositions=Array.from({length:32},(_,i)=>({x:(i%8-3.5)*.53,z:(Math.floor(i/8)-1.5)*.27,r:.10+(i%3)*.018}));
+const photons=new THREE.InstancedMesh(new THREE.SphereGeometry(.045,10,8),amber,12);opticsGroup.add(photons);
+const dummy=new THREE.Object3D();
+// El parabrisas es una segunda vista del mismo estado; las gotas no son otra simulación.
+const shape=[[-2.35,-1.45],[2.35,-1.45],[1.86,1.47],[-1.86,1.47]];
+const windGlass=new THREE.Mesh(P3.extruido(shape,{espesor:.1,bisel:.025}),glass);windshield.add(windGlass);
+for(let i=0;i<4;i++){const a=shape[i],b=shape[(i+1)%4];tube(windshield,[[a[0],a[1],0],[b[0],b[1],0]],.07,rubber);}
+box(windshield,.66,.48,.18,rubber,0,.92,.15);box(windshield,.32,.18,.04,teal,0,.92,.26);
+const windDrops=new THREE.InstancedMesh(new THREE.SphereGeometry(1,12,8),water,160);windshield.add(windDrops);
+const windPoints=Array.from({length:160},(_,i)=>({x:Math.sin(i*127.1)*1.65,y:Math.sin(i*311.7)*1.27,r:.025+(i%4)*.009}));
+const bladePivot=new THREE.Group();bladePivot.position.set(-.3,-1.30,.23);windshield.add(bladePivot);
+box(bladePivot,.055,1.7,.055,metal,0,.75,0);box(bladePivot,1.0,.09,.09,rubber,0,1.48,0);
+cylinder(windshield,.12,.12,metal,-.3,-1.35,.18);
+const labelEls=[];
+for(const [text,p,view] of [['Emisor',[-.95,-.56,0],'optic'],['Receptor',[.95,-.56,0],'optic'],['Gotas',[.25,1.02,0],'optic'],['Vidrio',[-1.65,.4,0],'optic'],['Sensor',[0,1.1,.2],'glass'],['Pala',[.2,-.4,.3],'glass']]){const e=document.createElement('span');e.textContent=text;Object.assign(e.style,{position:'absolute',padding:'3px 6px',background:'#0c2137df',borderRadius:'5px',fontSize:'10px',pointerEvents:'none',display:'none'});stage.appendChild(e);labelEls.push({e,p:new THREE.Vector3(...p),view});}
+function dimensions(){const r=stage.getBoundingClientRect();return {w:r.width,h:r.height};}
+function frameCamera(){
+ const {w,h}=dimensions();renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+ opticsGroup.rotation.z=innerWidth<761?Math.PI/4:0;scene.updateMatrixWorld(true);
+ const object=S.view==='optic'?opticsGroup:windshield,bounds=new THREE.Box3().setFromObject(object),center=bounds.getCenter(new THREE.Vector3());
+ const dir=(S.view==='optic'?new THREE.Vector3(.12,.48,1):new THREE.Vector3(.03,.09,1)).normalize();
+ let distance=Math.max(3,bounds.getSize(new THREE.Vector3()).length()*1.4);
+ for(let k=0;k<10;k++){
+  camera.position.copy(center).addScaledVector(dir,distance);camera.lookAt(center);camera.updateMatrixWorld(true);const ps=[];
+  for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z])ps.push(new THREE.Vector3(x,y,z).project(camera));
+  const xs=ps.map(p=>p.x),ys=ps.map(p=>p.y);distance*=Math.max((Math.max(...xs)-Math.min(...xs))/1.72,(Math.max(...ys)-Math.min(...ys))/1.30);
+ }
+ controls.target.copy(center);controls.update();
+}
+function setView(v){S.view=v;opticsGroup.visible=v==='optic';windshield.visible=v==='glass';$('viewOptic').classList.toggle('on',v==='optic');$('viewGlass').classList.toggle('on',v==='glass');frameCamera();}
+function applyQuality(){renderer.setPixelRatio(Math.min(devicePixelRatio,S.quality==='alta'?2:1.5));$('btnQuality').textContent='Calidad: '+S.quality;frameCamera();}
+function triggerWipe(){if(!S.wiping){S.wiping=true;S.wipeStart=S.t;S.lastWipe=S.t;}}
+let accumulator=0,lastReal=performance.now(),lastSample=-1,lastUI=-1;
+const history=[];
+function step(dt){const old=S.t;S.t+=dt;S.c=accumulate(S.c,S.rate,dt);
+  if(S.wiping&&old<S.wipeStart+.4&&S.t>=S.wipeStart+.4){S.c=wipeCoverage(S.c);S.wipes++;}
+  if(S.wiping&&S.t>=S.wipeStart+.8)S.wiping=false;
+  const o=optics(S.angle,S.c);if(S.auto&&!S.wiping&&S.t-S.lastWipe>1.4&&o.loss>S.threshold)triggerWipe();}
+function paintScene(){const o=optics(S.angle,S.c),dx=.90*Math.tan(rad(S.angle));
+  end1.set(-dx,-.18,0);end2.set(dx,-.18,0);emitter.position.x=-dx;receiver.position.x=dx;emitterTip.position.x=-dx;receiverTip.position.x=dx;
+  // En los ángulos extremos el haz sobrepasa el corte: no se pretende un módulo comercial.
+  segment(rayIn,end1,hit);segment(rayBack,hit,end2);teal.opacity=.12+.8*o.returned;
+  const tr=o.wet.transmitted;
+  end3.set(tr===null?0:1.1*Math.sin(rad(tr)),.72+(tr===null?1:1.1*Math.cos(rad(tr))),0);
+  segment(rayOut,hit,end3);rayOut.visible=tr!==null&&S.c>.015;leaked.opacity=S.c*o.wet.T*.9;
+  for(let i=0;i<32;i++){const p=dropletPositions[i];dummy.position.set(p.x,.73,p.z);const scale=i/32<S.c?p.r:.00001;dummy.scale.set(scale,scale*.7,scale);dummy.updateMatrix();opticDrops.setMatrixAt(i,dummy.matrix);}opticDrops.instanceMatrix.needsUpdate=true;
+  for(let i=0;i<160;i++){const p=windPoints[i];dummy.position.set(p.x,p.y,.17);const scale=i/160<S.c?p.r:.00001;dummy.scale.set(scale,scale*1.3,scale*.5);dummy.updateMatrix();windDrops.setMatrixAt(i,dummy.matrix);}windDrops.instanceMatrix.needsUpdate=true;
+  for(let i=0;i<12;i++){const f=(S.t*.45+i/12)%1;dummy.position.copy(f<.5?end1:hit).lerp(f<.5?hit:end2,f<.5?f*2:(f-.5)*2);dummy.scale.setScalar(.9);dummy.updateMatrix();photons.setMatrixAt(i,dummy.matrix);}photons.instanceMatrix.needsUpdate=true;
+  bladePivot.rotation.z=S.wiping?-.8+1.6*Math.sin(Math.PI*Math.min(1,(S.t-S.wipeStart)/.8)):-.8;
+  for(const l of labelEls){l.e.style.display=S.labels&&l.view===S.view?'block':'none';if(S.labels){const p=l.p.clone().applyMatrix4(l.view==='optic'?opticsGroup.matrixWorld:windshield.matrixWorld).project(camera),{w,h}=dimensions();l.e.style.left=((p.x+1)*w/2)+'px';l.e.style.top=((1-p.y)*h/2)+'px';}}
+}
+function drawTrace(){const canvas=$('trace'),r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);const w=r.width,h=r.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle='#294056';ctx.lineWidth=1;for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,5+i*(h-10)/2);ctx.lineTo(w,5+i*(h-10)/2);ctx.stroke();}ctx.setLineDash([4,4]);ctx.strokeStyle='#ffce86';ctx.beginPath();const triggerLevel=optics(S.angle,0).returned*(1-S.threshold);ctx.moveTo(0,5+(1-triggerLevel)*(h-10));ctx.lineTo(w,5+(1-triggerLevel)*(h-10));ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle='#74e8da';ctx.lineWidth=2;ctx.beginPath();history.forEach((p,i)=>{const x=w*(1-(S.t-p.t)/16),y=5+(1-p.returned)*(h-10);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();}
+function updateUI(){const o=optics(S.angle,S.c);$('signal').textContent=fmt(o.returned*100)+' %';$('coverage').textContent=fmt(S.c*100)+' %';$('voltage').textContent=fmt(o.voltage,2)+' V';$('wipes').textContent=String(S.wipes);$('angleOut').textContent=fmt(S.angle)+'°';$('thresholdOut').textContent=fmt(S.threshold*100)+' %';drawTrace();}
+function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-lastReal)/1000,.1);lastReal=now;if(!S.paused){accumulator+=dt;while(accumulator>=1/120){step(1/120);accumulator-=1/120;}}
+  if(S.t-lastSample>.1||lastSample<0){lastSample=S.t;history.push({t:S.t,returned:optics(S.angle,S.c).returned});while(history.length&&S.t-history[0].t>16)history.shift();}
+  if(now-lastUI>100){lastUI=now;updateUI();}controls.update();paintScene();renderer.render(scene,camera);}
+function mode(m){S.mode=m;document.querySelectorAll('.content').forEach(e=>e.classList.toggle('show',e.id===m));document.querySelectorAll('[data-mode]').forEach(e=>e.classList.toggle('on',e.dataset.mode===m));if(m==='diagnostico')showDiagnosis();}
+for(const e of document.querySelectorAll('[data-mode]'))e.onclick=()=>mode(e.dataset.mode);
+$('angle').oninput=e=>{S.angle=+e.target.value;invalidate();updateUI();};$('threshold').oninput=e=>{S.threshold=+e.target.value/100;invalidate();updateUI();};$('weather').onchange=e=>{S.rate=+e.target.value;};
+function invalidate(){S.solved=false;$('results').replaceChildren();$('feedback').textContent='';$('openQuiz').hidden=true;}
+$('wipe').onclick=triggerWipe;$('auto').onclick=()=>{S.auto=!S.auto;$('auto').classList.toggle('on',S.auto);$('auto').setAttribute('aria-pressed',String(S.auto));};
+$('viewOptic').onclick=()=>setView('optic');$('viewGlass').onclick=()=>setView('glass');$('btnLabels').onclick=()=>{S.labels=!S.labels;$('btnLabels').setAttribute('aria-pressed',String(S.labels));};
+$('btnPause').onclick=()=>{S.paused=!S.paused;$('btnPause').textContent=S.paused?'Continuar':'Pausar';};$('btnPause').textContent=S.paused?'Continuar':'Pausar';
+$('btnQuality').onclick=()=>{S.quality=S.quality==='alta'?'media':'alta';applyQuality();};
+$('btnModel').onclick=()=>$('model').classList.add('show');$('closeModel').onclick=()=>$('model').classList.remove('show');
+$('critical').textContent='Con estos índices: ángulo crítico vidrio–aire '+fmt(critical(OPT.glass,OPT.air),2)+'°; vidrio–agua '+fmt(critical(OPT.glass,OPT.water),2)+'°.';
+$('validate').onclick=()=>{S.attempts++;const result=challenge(S.angle,S.threshold);S.solved=result.ok;$('results').replaceChildren(...result.cases.map(c=>{const row=document.createElement('div');row.className='result';const name=document.createElement('span');name.textContent=c.name;const value=document.createElement('b');value.className=c.ok?'good':'bad';value.textContent=(c.ok?'✓ ':'✕ ')+fmt(c.loss*100,1)+' %';row.append(name,value);return row;}));$('feedback').className=result.ok?'good':'bad';$('feedback').textContent=result.ok?'Ajuste válido: distingue los cuatro casos. Explica qué cambia al mojar el vidrio.':'Revisa los casos: compara la caída medida con el umbral. Cambia un ajuste a la vez.';$('openQuiz').hidden=!result.ok;};
+function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+const answers=shuffle([{text:'Las gotas permiten que parte de la luz salga del vidrio.',correct:true},{text:'El agua corta la alimentación del emisor.',correct:false},{text:'El receptor deja de convertir luz en corriente.',correct:false},{text:'La luz infrarroja se transforma en sonido.',correct:false}]);S.quizCorrectIndex=answers.findIndex(a=>a.correct);
+for(const [i,a]of answers.entries()){const b=document.createElement('button');b.textContent=a.text;b.onclick=()=>{if(S.quizAnswer>=0)return;S.quizAnswer=i;$('quizFeedback').textContent=a.correct?'Correcto: cambia la frontera óptica, y por eso cambia la reflexión.':'La frontera vidrio–agua permite transmitir luz que antes se reflejaba. Revisa el corte óptico.';$('quizFeedback').className=a.correct?'good':'bad';$('quizOptions').querySelectorAll('button').forEach(x=>x.disabled=true);};$('quizOptions').appendChild(b);}
+$('openQuiz').onclick=()=>mode('quiz');
+const faults=[{id:'angle',text:()=>{const a=optics(72,0),b=optics(72,.65);return 'En seco: '+fmt(a.voltage,2)+' V. Mojado: '+fmt(b.voltage,2)+' V. La pala funciona al pulsar Barrer, pero el agua no cambia la señal.';},answer:'Ángulo demasiado grande',why:'Por encima del ángulo crítico del agua, la luz también se refleja totalmente con gotas.'},{id:'coupling',text:()=>{const o=optics(48,0,.45);return 'El emisor pasa su autoprueba. Aun en seco el receptor entrega '+fmt(o.voltage,2)+' V, menos que antes. Presionar el módulo contra el vidrio recupera la señal.';},answer:'Mal contacto óptico',why:'El acoplamiento g reduce la potencia en seco y mojado. La respuesta a la presión distingue el contacto de una pala gastada.'},{id:'blade',text:()=>{const before=.60,after=wipeCoverage(before,.65);return 'El sensor ordena barrer. La cobertura pasa de '+fmt(before*100)+' % a '+fmt(after*100)+' % y quedan franjas de agua. La señal responde normalmente al mojar el vidrio.';},answer:'Goma de la pala gastada',why:'La óptica funciona, pero queda agua después del barrido. Se ha cambiado sólo el residuo del modelo.'}];
+function showDiagnosis(){$('symptom').textContent=faults[S.diagnosis].text();$('diagnosisFeedback').textContent='';$('diagnosisOptions').replaceChildren(...shuffle(faults).map(f=>{const b=document.createElement('button');b.textContent=f.answer;b.onclick=()=>{const ok=f.id===faults[S.diagnosis].id;$('diagnosisFeedback').className=ok?'good':'bad';$('diagnosisFeedback').textContent=ok?faults[S.diagnosis].why:'Esa causa no explica todos los síntomas. Compara seco, mojado y resultado del barrido.';};return b;}));}
+$('newCase').onclick=()=>{S.diagnosis=(S.diagnosis+1)%faults.length;showDiagnosis();};
+const tour=[{title:'La lluvia se detecta con luz',text:'El emisor envía luz dentro del vidrio. En seco, rebota y vuelve al receptor. El ámbar representa infrarrojo invisible.',view:'optic'},{title:'Una gota abre una salida',text:'Con agua, parte de la luz escapa. Mira el haz azul y cómo baja la luz recibida. Puedes pausar para examinarlo.',view:'optic'},{title:'La pala cierra el ciclo',text:'El mismo sensor ordena el barrido. Se retira agua, vuelve más luz y la pala espera hasta que haga falta otra pasada.',view:'glass'},{title:'Ahora decide tú',text:'En Reto, ajusta el ángulo y la caída que activa la pala. Debe detectar lluvia sin confundirse con suciedad seca.',view:'optic'}];let tourIndex=0;
+function paintTour(){const t=tour[tourIndex];$('tourCount').textContent='Guía · '+(tourIndex+1)+' / '+tour.length;$('tourTitle').textContent=t.title;$('tourText').textContent=t.text;$('tourPrev').disabled=tourIndex===0;$('tourNext').textContent=tourIndex===tour.length-1?'Comenzar':'Siguiente';setView(t.view);}
+$('tourPrev').onclick=()=>{tourIndex=Math.max(0,tourIndex-1);paintTour();};$('tourNext').onclick=()=>{if(tourIndex===tour.length-1){$('tour').hidden=true;mode('reto');}else{tourIndex++;paintTour();}};$('tourSkip').onclick=()=>$('tour').hidden=true;$('btnAuto').onclick=()=>{tourIndex=0;$('tour').hidden=false;paintTour();};
+function mideObjeto(){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);const g=S.view==='optic'?opticsGroup:windshield,b=new THREE.Box3().setFromObject(g);const points=[];for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])points.push(new THREE.Vector3(x,y,z).project(camera));const ys=points.map(p=>p.y);return {vista:S.view,altoPorcentaje:(Math.max(...ys)-Math.min(...ys))*50,lienzo:dimensions()};}
+// Sensor circular con placa, lentes, electrónica y fijaciones. Corte ampliado.
+const sensorSkin=new THREE.MeshStandardMaterial({color:0x253747,metalness:.74,roughness:.3});
+const copper=new THREE.MeshStandardMaterial({color:0xc39458,metalness:.86,roughness:.27});
+const chipMat=new THREE.MeshStandardMaterial({color:0x172129,metalness:.24,roughness:.42});
+const lensMat=new THREE.MeshPhysicalMaterial({color:0x9eddd5,roughness:.055,transmission:.62,thickness:.18,ior:1.48,transparent:true,opacity:.78,depthWrite:false});
+const baseCase=new THREE.Mesh(P3.revolucion([[0,0],[1.40,0],[1.52,.06],[1.55,.22],[1.49,.28],[1.38,.28],[1.38,.16],[0,.16]],{seg:64}),sensorSkin);baseCase.position.y=-.91;opticsGroup.add(baseCase);
+const circuit=new THREE.Mesh(P3.revolucion([[0,0],[1.35,0],[1.35,.045],[0,.045]],{seg:64}),pcb);circuit.position.y=-.69;opticsGroup.add(circuit);
+const electronics=new THREE.Group();opticsGroup.add(electronics);
+for(const [x,z]of [[-.50,.56],[.45,.58],[.18,-.57],[-.55,-.54]]){
+  box(electronics,.31,.07,.23,chipMat,x,-.60,z);
+  for(let j=0;j<5;j++)for(const side of [-1,1])box(electronics,.017,.022,.08,metal,x+(j-2)*.045,-.62,z+side*.14);
+}
+for(let i=0;i<20;i++){
+  const a=i/20*Math.PI*2,x=Math.cos(a)*1.13,z=Math.sin(a)*1.13;
+  box(electronics,.09,.045,.045,i%3?copper:chipMat,x,-.60,z);
+}
+for(const x of [-1.05,1.05])for(const z of [-.40,.40]){
+  const screw=P3.tornilloHex({acero:metal},{d:.014,largo:.04});screw.position.set(x,-.55,z);electronics.add(screw);
+}
+// Pistas de cobre sin texto: continuidad entre sensor, receptor y conector.
+const trackGeos=[];
+for(let i=0;i<9;i++){trackGeos.push(P3.coloca(new THREE.BoxGeometry(.022,.007,.43),-.7+i*.17,-.638,-.53));trackGeos.push(P3.coloca(new THREE.BoxGeometry(.24,.007,.02),-.7+i*.17,-.638,-.31));}
+const tracks=new THREE.Mesh(P3.fusiona(trackGeos),copper);electronics.add(tracks);
+box(electronics,.72,.23,.28,rubber,0,-.78,1.47);
+for(let i=0;i<6;i++)box(electronics,.035,.08,.18,copper,(i-2.5)*.09,-.73,1.60);
+for(const side of [-1,1])box(electronics,.09,.14,.38,metal,side*1.42,-.76,.04);
+const inputLens=new THREE.Mesh(P3.revolucion([[0,0],[.19,0],[.23,.06],[.24,.16],[.20,.25],[0,.29]],{seg:40}),lensMat);
+const outputLens=inputLens.clone();opticsGroup.add(inputLens,outputLens);
+// Se conserva el ajuste de rayos con el ángulo; las lentes siguen sus extremos.
+const oldPaintScene=paintScene;
+paintScene=function(){oldPaintScene();inputLens.position.set(end1.x,-.43,0);outputLens.position.set(end2.x,-.43,0);};
+// Agrupar piezas pequeñas por material para mantener el detalle en equipos modestos.
+electronics.updateMatrixWorld(true);const grouped=new Map(),inv=electronics.matrixWorld.clone().invert();
+electronics.traverse(o=>{if(!o.isMesh)return;const key=o.material.uuid;if(!grouped.has(key))grouped.set(key,{mat:o.material,geos:[]});grouped.get(key).geos.push(o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv));o.geometry.dispose();});
+electronics.clear();for(const {mat,geos}of grouped.values()){const m=new THREE.Mesh(P3.fusiona(geos),mat);m.castShadow=true;m.receiveShadow=true;electronics.add(m);geos.forEach(g=>g.dispose());}
+// Aristas y cara de sección del vidrio: el interior sigue legible.
+for(const z of [-.61,.61]){box(opticsGroup,4.80,.018,.018,metal,0,-.09,z);box(opticsGroup,4.80,.010,.012,teal,0,.71,z);}
+// Pala con alma de acero, perfil de goma y articulación, todos ligados al mismo pivote.
+box(bladePivot,.91,.025,.035,metal,0,1.46,.07);
+box(bladePivot,.85,.018,.025,rubber,0,1.51,.08);
+for(const x of [-.29,0,.29])box(bladePivot,.045,.16,.045,metal,x,1.43,.055);
+const pivot=new THREE.Mesh(P3.revolucion([[0,0],[.13,0],[.13,.05],[.10,.09],[0,.09]],{seg:32}),metal);pivot.rotation.x=Math.PI/2;pivot.position.set(-.3,-1.30,.28);windshield.add(pivot);
+// Materiales y luz de estudio: vidrio y gotas transmiten; metal y goma no se confunden.
+glass.transmission=.58;glass.thickness=.8;glass.ior=1.5;glass.opacity=.62;glass.roughness=.04;glass.needsUpdate=true;
+water.transmission=.42;water.thickness=.18;water.ior=1.333;water.opacity=.8;water.roughness=.035;water.needsUpdate=true;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+scene.children.filter(o=>o.isHemisphereLight).forEach(l=>l.intensity=.65);
+const keyLight=scene.children.find(o=>o.isDirectionalLight);keyLight.intensity=3.6;keyLight.castShadow=true;keyLight.shadow.mapSize.set(1536,1536);keyLight.shadow.normalBias=.015;keyLight.shadow.bias=-.0001;Object.assign(keyLight.shadow.camera,{left:-5,right:5,top:5,bottom:-5,near:.1,far:20});
+scene.traverse(o=>{if(o.isMesh&&!o.material.transparent){o.castShadow=true;o.receiveShadow=true;}});
+
+window.__labDebug={get mode(){return S.mode;},get solved(){return S.solved;},get quizAnswer(){return S.quizAnswer;},get quizCorrectIndex(){return S.quizCorrectIndex;},state:()=>({resuelto:S.solved,intentos:S.attempts,angle:S.angle,threshold:S.threshold,c:S.c,t:S.t,wipes:S.wipes,paused:S.paused,view:S.view}),modelo:()=>optics(S.angle,S.c),mideObjeto,escena:()=>({llamadas:renderer.info.render.calls,tri:renderer.info.render.triangles,calidad:S.quality,pixel:renderer.getPixelRatio()})};
+instalaDiag('sensor-lluvia-optico',{escena:scene,camara:camera,controles:controls,renderizador:renderer,grupos:{optica:opticsGroup,parabrisas:windshield}});
+new ResizeObserver(frameCamera).observe(stage);applyQuality();paintTour();updateUI();requestAnimationFrame(loop);
+</script>
+<!-- Ficha y puente compartidos, conservados del molde motor-electrico. -->
+<script src="_ficha-tecnica.js"></script><script src="_ficha-sensor-lluvia-optico.js"></script><script src="_puente.js"></script>
+</body></html>

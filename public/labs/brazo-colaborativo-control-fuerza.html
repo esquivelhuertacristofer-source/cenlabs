@@ -1,0 +1,96 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CEN · Brazo colaborativo y control de fuerza</title><link rel="stylesheet" href="/labs/vendor/outfit/outfit.css"><link rel="stylesheet" href="/labs/_insignia-auto.css"></head><body>
+<script type="importmap">{"imports":{"three":"/labs/vendor/three@0.160.0/build/three.module.min.js","three/addons/":"/labs/vendor/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import {boot,THREE,P3,fmt,box,lathe,tube,mergeByMaterial} from './_insignia-auto.js';
+import {installCell} from './_programa-celda.js';
+/* FISICA:INICIO */
+const CO={mass:8,environment:1600,force:20,amplitude:.006,omega:6,L1:.9,L2:.8,height:.45};
+function contact(t,K,B){
+ const a=K+CO.environment-CO.mass*CO.omega**2,b=B*CO.omega,D=a*a+b*b;
+ const re=CO.environment*a/D,im=-CO.environment*b/D,phi=CO.omega*t;
+ const h=CO.amplitude*Math.sin(phi),x0=CO.force/CO.environment;
+ const x=x0+CO.amplitude*(re*Math.sin(phi)+im*Math.cos(phi));
+ const v=CO.amplitude*CO.omega*(re*Math.cos(phi)-im*Math.sin(phi));
+ const acceleration=-CO.amplitude*CO.omega**2*(re*Math.sin(phi)+im*Math.cos(phi));
+ const force=CO.environment*(x-h),errorAmplitude=CO.environment*CO.amplitude*Math.hypot(re-1,im);
+ const discriminant=B*B-4*CO.mass*(K+CO.environment);
+ const decay=discriminant<=0?B/(2*CO.mass):(B-Math.sqrt(discriminant))/(2*CO.mass);
+ return {h,x,v,acceleration,force,re,im,errorAmplitude,minimum:CO.force-errorAmplitude,maximum:CO.force+errorAmplitude,
+  decayTime:Math.log(50)/decay,handDeflection:30/K,phase:phi,pathAngle:phi/3,
+  dampingPower:B*(CO.amplitude*CO.omega)**2*(re*re+im*im)/2};
+}
+function cobotIK(x,y,z){
+ const r=Math.hypot(x,z),dy=y-CO.height,c=(r*r+dy*dy-CO.L1**2-CO.L2**2)/(2*CO.L1*CO.L2);
+ if(Math.abs(c)>1+1e-10)return null;
+ const elbow=-Math.acos(Math.max(-1,Math.min(1,c))),shoulder=Math.atan2(dy,r)-Math.atan2(CO.L2*Math.sin(elbow),CO.L1+CO.L2*Math.cos(elbow));
+ return {yaw:Math.atan2(-z,x),shoulder,elbow,wrist:-Math.PI/2-shoulder-elbow};
+}
+function cobotFK(q){const r=CO.L1*Math.cos(q.shoulder)+CO.L2*Math.cos(q.shoulder+q.elbow),y=CO.height+CO.L1*Math.sin(q.shoulder)+CO.L2*Math.sin(q.shoulder+q.elbow);return {x:r*Math.cos(q.yaw),y,z:-r*Math.sin(q.yaw)};}
+function cobotChallenge(K,B){const m=contact(0,K,B);return {ok:m.errorAmplitude<=4&&m.decayTime<=1.2&&m.handDeflection<=.03,checks:[{name:'Variación de fuerza',value:m.errorAmplitude,unit:'N',ok:m.errorAmplitude<=4},{name:'Apagar un golpe',value:m.decayTime,unit:'s',ok:m.decayTime<=1.2},{name:'Ceder en aire',value:m.handDeflection*1000,unit:'mm',ok:m.handDeflection<=.03}]};}
+/* FISICA:FIN */
+const cfg={id:164,slug:'brazo-colaborativo-control-fuerza',title:'Brazo colaborativo',shortTitle:'Programa una celda robotizada',subtitle:'Movimiento y fuerza de contacto',eyebrow:'Robótica de contacto',area:'AUTOTRÓNICA',
+ intro:'Programa una garra para cargar, pulir y entregar una pieza; ajusta el contacto sin aplastarla.',
+ caption:'Cámara lenta ×1/5 · relieve y compresión de la almohadilla ×5 · geometría didáctica',
+ explore:'Un brazo rígido choca con los relieves. Uno que cede demasiado se aparta al tocarlo. La fuerza depende de ese compromiso.',
+ task:'Mantén la variación de fuerza ≤4 N; apaga un golpe en ≤1,2 s y limita a 30 mm lo que cede en aire ante 30 N.',
+ controls:[{id:'K',label:'Rigidez al contacto',min:200,max:4000,step:50,value:3500,unit:'N/m'},{id:'B',label:'Freno al movimiento',min:10,max:250,step:5,value:20,unit:'N·s/m'}],
+ views:[{id:'robot',name:'Brazo completo',dir:[.8,.55,1.3],mobileDir:[.55,.45,1.4]},{id:'tool',name:'Contacto',dir:[.7,.6,1.4]}],timeScale:.2,
+ metrics:[{label:'Fuerza de contacto',value:m=>fmt(m.force,1)+' N'},{label:'Variación máxima',value:m=>fmt(m.errorAmplitude,1)+' N'},{label:'En aire, ante 30 N',value:m=>fmt(m.handDeflection*1000,1)+' mm'},{label:'Decaimiento al 2 %',value:m=>fmt(m.decayTime,2)+' s'}],
+ chartLabel:'Fuerza (cian) y referencia de 20 N (ámbar) · un periodo',
+ model:(t,v)=>contact(t,v.K,v.B),
+ challenge:v=>{const r=cobotChallenge(v.K,v.B);return {ok:r.ok,checks:r.checks.map(c=>({...c,value:fmt(c.value,c.unit==='s'?2:1)+' '+c.unit}))};},
+ success:'Contacto estable: sigue el relieve, cede una distancia limitada y amortigua el movimiento.',failure:'Revisa los criterios: más rigidez reduce el desplazamiento al tocarlo, pero dificulta seguir los relieves. El freno tiene su propio compromiso.',
+ quiz:{question:'¿Por qué un robot de pulido necesita ceder un poco?',answers:[{text:'Para absorber relieves sin aumentar demasiado la fuerza.',ok:true},{text:'Para dejar de medir el contacto.',ok:false},{text:'Para que todas las articulaciones queden libres.',ok:false},{text:'Para eliminar la masa de la herramienta.',ok:false}],explanation:'La rigidez y el amortiguamiento fijan cómo cambia la fuerza cuando la superficie no es perfectamente plana.'},
+ faults:[{id:'stiff',answer:'Demasiada rigidez',symptom:()=>{const m=contact(0,3500,80);return 'El brazo cede sólo '+fmt(m.handDeflection*1000,1)+' mm ante 30 N, pero la fuerza de pulido oscila ±'+fmt(m.errorAmplitude,1)+' N.';},why:'Una rigidez elevada reduce el movimiento, pero el brazo no acompaña bien el relieve.'},{id:'damping',answer:'Falta de amortiguamiento',symptom:()=>{const m=contact(0,1100,15);return 'El ajuste sigue el relieve, pero la envolvente de un golpe tarda '+fmt(m.decayTime,1)+' s en bajar al 2 %.';},why:'El término B disipa movimiento. Si es pequeño, una perturbación permanece más tiempo.'},{id:'soft',answer:'Demasiado blando',symptom:()=>{const m=contact(0,300,80);return 'La fuerza de pulido cambia poco, pero al empujarlo en aire con 30 N el extremo se aparta '+fmt(m.handDeflection*1000,0)+' mm.';},why:'Una rigidez muy baja permite seguir el relieve, pero no sostiene bien la posición frente a una fuerza externa.'}],
+ tour:[{title:'El brazo ya está puliendo',text:'La herramienta recorre una pieza con pequeños relieves. Mira la almohadilla: se comprime cuando cambia la fuerza.',view:'robot'},{title:'El contacto no es sólo una posición',text:'Un pequeño desplazamiento puede producir mucha fuerza. El sensor mide esa fuerza y el brazo se comporta como un resorte con freno.',view:'tool'},{title:'Dos ajustes, dos compromisos',text:'La rigidez fija cuánto cede. El freno hace que se apaguen las oscilaciones, pero demasiado freno dificulta seguir la superficie.',view:'robot'},{title:'Programa la celda completa',text:'Abre Programar con bloques: lleva la pieza de entrada al soporte con la garra, cambia a pulidora y entrega el resultado en salida. Cada bloque se ejecuta en el 3D.',view:'robot'},{title:'Comprueba agarre y contacto',text:'La fuerza de mordaza debe sostener la pieza durante los traslados. Ajusta también rigidez y freno: el reto exige completar el ciclo y cumplir los tres límites.',view:'robot'}],
+ labels:'Base · hombro · codo · muñeca · sensor de fuerza · almohadilla',
+ modelHTML:'<p>El contacto se reduce a una masa aparente de 8 kg. La superficie tiene rigidez de 1 600 N/m y relieve sinusoidal de 6 mm a 6 rad/s. Son parámetros didácticos.</p><p><code>M x″ + B x′ + K(x−xref) = Ft − ke(x−h)</code>; <code>F = ke(x−h)</code>. Se calcula la solución armónica exacta en contacto continuo. No se simula la puesta en marcha ni una pérdida de contacto.</p><p><code>H = ke / (K+ke−Mω² + j Bω)</code>. La amplitud del error de fuerza es <code>ke A |H−1|</code>. El desplazamiento ante una fuerza estática de 30 N es <code>30/K</code>.</p><p>El tiempo al 2 % corresponde a la envolvente de los polos lineales: <code>ln(50)/α</code>. No es una certificación ni el tiempo exacto de establecimiento de cualquier trayectoria.</p><p>La posición del brazo usa cinemática inversa analítica de base, hombro y codo. La muñeca conserva la herramienta normal a la altura de referencia; las otras articulaciones son ideales. El motor de pulido gira a velocidad impuesta. Relieve y compresión se amplían cinco veces.</p><p>Sin dinámica completa de seis ejes, fricción de pulido, límites de par, seguridad colaborativa, desgaste ni calidad superficial. La refrigeración y los componentes visibles son estructurales. Fuente del principio: MIT, Robotic Manipulation, capítulo Manipulator Control.</p>',
+ graph(ctx,w,h,m,v){ctx.strokeStyle='#294056';ctx.lineWidth=1;for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(0,5+j*(h-10)/2);ctx.lineTo(w,5+j*(h-10)/2);ctx.stroke();}const y=f=>h/2-(f-20)*(h-12)/24;ctx.strokeStyle='#ffce86';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,y(20));ctx.lineTo(w,y(20));ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle='#74e8da';ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<=150;i++){const q=contact(i/150*2*Math.PI/CO.omega,v.K,v.B);if(i===0)ctx.moveTo(0,y(q.force));else ctx.lineTo(i/150*w,y(q.force));}ctx.stroke();const x=((m.phase%(2*Math.PI))/(2*Math.PI))*w;ctx.strokeStyle='#c5e6f0';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();},
+ build({scene,mats}){
+  const hero=new THREE.Group(),detail=new THREE.Group();scene.add(hero,detail);
+  const fixed=new THREE.Group();hero.add(fixed);
+  box(fixed,2.2,.12,1.7,mats.dark,.65,-.12,0);
+  for(const x of [-.15,1.4])for(const z of [-.43,.43])box(fixed,.13,.24,.13,mats.rubber,x,-.30,z);
+  // Pedestal fundido, brida de montaje y tornillos; forma torneada y nervios.
+  lathe(fixed,[[0,0],[.27,0],[.29,.035],[.25,.08],[.21,.10],[.18,.35],[.23,.38],[.23,.43],[0,.43]],mats.steel);
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2,b=P3.tornilloHex({acero:mats.aluminum},{d:.018,largo:.035});b.position.set(.245*Math.cos(a),.07,.245*Math.sin(a));fixed.add(b);}
+  const yaw=new THREE.Group();yaw.position.y=CO.height;hero.add(yaw);
+  function joint(parent,r=.11){const g=new THREE.Group();parent.add(g);const shell=lathe(g,[[0,-.10],[r*.8,-.10],[r,-.07],[r,.07],[r*.8,.10],[0,.10]],mats.paint);shell.rotation.x=Math.PI/2;const cap=lathe(g,[[0,0],[r*.72,0],[r*.72,.025],[0,.025]],mats.aluminum,[0,0,.10]);cap.rotation.x=Math.PI/2;for(let i=0;i<6;i++){const a=i/6*Math.PI*2,b=P3.tornilloHex({acero:mats.aluminum},{d:.009,largo:.018});b.rotation.x=Math.PI/2;b.position.set(r*.82*Math.cos(a),r*.82*Math.sin(a),.105);g.add(b);}mergeByMaterial(g);return g;}
+  const shoulder=new THREE.Group();yaw.add(shoulder);joint(shoulder,.14);
+  function link(parent,length,width){const outline=P3.contornoRedondeado([[.02,-width],[length-.08,-width*.70],[length+.02,-width*.50],[length+.04,width*.50],[length-.08,width*.70],[.02,width]],.045,5);const mesh=new THREE.Mesh(P3.extruido(outline,{espesor:.14,bisel:.016,biselSeg:3}),mats.aluminum);mesh.position.z=-.07;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);box(parent,length*.66,.09,.155,mats.paint,length*.46,0,0);tube(parent,[[.04,width*.78,.10],[length*.4,width*.9,.12],[length-.05,width*.75,.10]],.015,mats.dark);}
+  link(shoulder,CO.L1,.095);const elbow=new THREE.Group();elbow.position.x=CO.L1;shoulder.add(elbow);joint(elbow,.115);link(elbow,CO.L2,.075);
+  const wrist=new THREE.Group();wrist.position.x=CO.L2;elbow.add(wrist);joint(wrist,.085);
+  const wristYaw=new THREE.Group();wrist.add(wristYaw);lathe(wristYaw,[[0,0],[.07,0],[.075,.09],[.06,.14],[0,.14]],mats.paint).rotation.z=-Math.PI/2;
+  function tool(parent){const group=new THREE.Group();parent.add(group);const motor=lathe(group,[[0,0],[.057,0],[.066,.02],[.066,.12],[.05,.15],[0,.15]],mats.steel);motor.rotation.z=-Math.PI/2;
+   for(let i=0;i<9;i++){const fin=lathe(group,[[.06,.025+i*.009],[.071,.025+i*.009],[.071,.029+i*.009],[.06,.029+i*.009],[.06,.025+i*.009]],mats.aluminum);fin.rotation.z=-Math.PI/2;}
+   const sensor=lathe(group,[[0,.15],[.057,.15],[.057,.18],[0,.18]],mats.copper);sensor.rotation.z=-Math.PI/2;
+   const spindle=new THREE.Group();group.add(spindle);const hub=lathe(spindle,[[0,.18],[.04,.18],[.055,.22],[.083,.23],[0,.23]],mats.aluminum);hub.rotation.z=-Math.PI/2;
+   const pad=new THREE.Mesh(new THREE.CylinderGeometry(.085,.09,1,48),mats.rubber);pad.geometry.rotateZ(-Math.PI/2);pad.castShadow=true;group.add(pad);
+   for(let i=0;i<8;i++){const a=i/8*Math.PI*2;box(spindle,.02,.012,.035,mats.dark,.225,.055*Math.cos(a),.055*Math.sin(a));}
+   const stat=new THREE.Group();for(const child of [...group.children])if(child!==pad&&child!==spindle)stat.add(child);group.add(stat);mergeByMaterial(stat);mergeByMaterial(spindle);return {group,pad,spindle};}
+  const end=tool(wristYaw);
+  // Apoyos de la mesa: la pieza está realmente sostenida sobre la bancada.
+  for(const x of [.83,1.27])for(const z of [-.22,.22]){box(fixed,.075,.48,.075,mats.steel,x,.24,z);box(fixed,.12,.035,.12,mats.aluminum,x,.015,z);}
+  // Pieza con relieve armónico en una mesa de trabajo y mordazas.
+  const work=new THREE.Group();work.position.set(1.05,.60,0);fixed.add(work);
+  box(work,.68,.12,.68,mats.steel,0,-.06,0);for(const x of [-.27,.27])box(work,.07,.09,.55,mats.dark,x,.02,0);
+  const verts=[],indices=[],N=72,R=12;for(let j=0;j<=R;j++)for(let i=0;i<=N;i++){const r=.24*j/R,a=i/N*Math.PI*2,height=.12-5*CO.amplitude*(r/.17)**3*Math.sin(3*a);verts.push(r*Math.cos(a),height,r*Math.sin(a));}
+  for(let j=0;j<R;j++)for(let i=0;i<N;i++){const k=j*(N+1)+i;indices.push(k,k+1,k+N+2,k,k+N+2,k+N+1);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(indices);geo.computeVertexNormals();P3.sanaNormales(geo);const piece=new THREE.Mesh(geo,mats.aluminum);piece.material=piece.material.clone();piece.material.side=THREE.DoubleSide;piece.castShadow=true;piece.receiveShadow=true;const workpiece=new THREE.Group();workpiece.position.copy(work.position);hero.add(workpiece);workpiece.add(piece);
+  // Armario de control con puerta, aletas y mazo de cables; sin pantallas en el 3D.
+  box(fixed,.35,.48,.32,mats.dark,-.42,.16,-.23);box(fixed,.31,.40,.018,mats.steel,-.42,.16,-.055);for(let i=0;i<7;i++)box(fixed,.23,.008,.012,mats.rubber,-.42,.03+i*.035,-.039);tube(fixed,[[-.4,.38,-.25],[-.27,.48,-.3],[0,.43,-.23]],.022,mats.orange);
+  mergeByMaterial(fixed);
+  // Una segunda vista amplía exactamente el mismo contacto, no otro ensayo.
+  const toolZoom=tool(detail);detail.rotation.z=-Math.PI/2;detail.scale.setScalar(2.5);const target=box(detail,.10,.30,.30,mats.aluminum,.34,0,0);target.material=target.material.clone();
+  for(const g of [shoulder,elbow,wrist])g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  return {workpiece,wristYaw,hero,views:{robot:hero,tool:detail},yaw,shoulder,elbow,wrist,end,toolZoom,target,floorY:-.45,floorYs:{robot:-.45,tool:-1.45}};
+ },
+ update(v,m){
+  const a=m.pathAngle,x=1.05+.17*Math.cos(a),z=.17*Math.sin(a),top=.72+.12-5*m.x,h=.12-5*(m.x-m.h);
+  const q=cobotIK(x,top+.23,z);if(q){v.yaw.rotation.y=q.yaw;v.shoulder.rotation.z=q.shoulder;v.elbow.rotation.z=q.elbow;v.wrist.rotation.z=q.wrist;}
+  for(const end of [v.end,v.toolZoom]){end.pad.scale.x=Math.max(.005,h);end.pad.position.x=.23+h/2;end.spindle.rotation.x=m.phase*20;}
+  v.target.position.x=.23+h+.05;v.target.material.color.setHSL(.52-.34*Math.min(1,m.force/35),.2,.42);
+ }
+};
+cfg.views.push({id:'gripper',name:'Garra',dir:[.8,.5,1.4]});
+const app=boot(cfg);installCell(app,cfg,{contact,cobotIK,cobotChallenge});
+</script><script src="_ficha-tecnica.js"></script><script src="_ficha-brazo-colaborativo-control-fuerza.js"></script><script src="_puente.js"></script></body></html>

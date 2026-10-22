@@ -6178,6 +6178,241 @@ En el modo Predicción vas a calcular Vout e Iz ANTES de ver el medidor. En el m
     "titulo": "Diodo Zener: Regulador Shunt de Voltaje",
     "videoUrl": "",
   },
+  "mecanica-160": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Estaciones de hidrógeno",
+        "ejemplo": "Los surtidores de 700 bar enfrían el gas hasta cerca de −40 °C para llenar un coche en unos tres minutos sin pasar de 85 °C.",
+      },
+      {
+        "area": "Autobuses y camiones",
+        "ejemplo": "Los tanques de vehículos pesados son más grandes: el calor de la compresión y el tiempo de llenado cuentan más, y el enfriador pesa en el costo de cada kilogramo.",
+      },
+      {
+        "area": "Diseño de tanques",
+        "ejemplo": "El forro de polímero se calienta enseguida y la fibra aguanta poco por encima de 85 °C: de ahí el límite, que decide cuánto se enfría y cuán rápido se llena.",
+      },
+    ],
+    "bienvenida": "Llenas un tanque de hidrógeno lo más rápido posible sin que el gas lo caliente demasiado. Delante tienes el surtidor, la manguera con su pre-enfriador y un tanque tipo IV cortado por la mitad.
+
+Cada punto del tanque es hidrógeno: azul es frío y rojo es caliente. Al apretarse el gas se calienta, como el aire de una bomba de bicicleta, y el tanque no puede pasar de 85 °C.
+
+En el panel verás la temperatura del gas y de la pared, la presión, la carga del tanque y por qué el hidrógeno a 700 bar no se comporta como un gas ideal.
+
+Cuando pases al laboratorio guiado tendrás que elegir la rapidez de subida de la presión y el frío del gas para llenar a tiempo y sin pasarte de temperatura.",
+    "codigo": "MEC-160",
+    "conceptos": [
+      {
+        "descripcion": "Al meter gas a presión se calienta por compresión y por la entalpía con que entra. Sin enfriar, el llenado se corta por temperatura con menos de un tercio de carga; con gas a −40 °C llega al 100 % con unos 74 °C.",
+        "icono": "🔥",
+        "nombre": "Calor de la compresión",
+      },
+      {
+        "descripcion": "A 700 bar el hidrógeno tiene Z ≈ 1,45: pesa unos 40,5 kg/m³ y no los 59 de un gas ideal. Por eso a 60 °C el tanque a 700 bar sólo está al 90 % de carga.",
+        "icono": "⚗️",
+        "nombre": "Gas real (Abel–Noble)",
+      },
+      {
+        "descripcion": "El SOC es la densidad del gas entre la nominal (700 bar y 15 °C). Un tanque caliente llega a 700 bar con menos hidrógeno dentro: llenar más rápido deja menos carga.",
+        "icono": "🌡️",
+        "nombre": "Estado de carga (SOC)",
+      },
+      {
+        "descripcion": "El enfriador baja la temperatura del gas que entra, pero gasta energía; la rampa de presión fija el tiempo. Hay una ventana intermedia donde se llena a tiempo, sin pasar de 85 °C y sin gastar de más.",
+        "icono": "❄️",
+        "nombre": "Pre-enfriamiento y rampa",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "RECONOCE el surtidor, la manguera con su enfriador y las capas del tanque en corte; usa las vistas de la barra.",
+      "SIGUE el recorrido: mira cómo se calienta el gas y qué hace el gas frío que entra.",
+      "PRUEBA la rapidez de subida de la presión, la temperatura de salida del enfriador, el día y la presión inicial.",
+      "RETO · Elige la rampa y el pre-enfriamiento para llenar al 95 % o más a tiempo, sin pasar de 85 °C y sin gastar de más en el enfriador.",
+      "DIAGNOSTICA luego un llenado que falla (enfriador, manguera, calor del día o rampa) leyendo las gráficas.",
+    ],
+    "subtitulo": "Autotrónica · gas real, calor de compresión y pre-enfriamiento",
+    "titulo": "Llenado de un tanque de hidrógeno a 700 bar: el calor de la compresión",
+    "videoUrl": "",
+  },
+  "mecanica-161": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Alumbrado adaptativo",
+        "ejemplo": "Los faros matriciales de los coches actuales mantienen las luces altas encendidas y recortan la luz alrededor de los otros vehículos.",
+      },
+      {
+        "area": "Seguridad vial nocturna",
+        "ejemplo": "Ver antes a un peatón o a un ciclista de ropa oscura, que con luces bajas aparece demasiado tarde para frenar.",
+      },
+      {
+        "area": "Visión por computadora",
+        "ejemplo": "La cámara que detecta vehículos, motos y señales decide qué segmentos apagar; su retraso fija el margen necesario.",
+      },
+    ],
+    "bienvenida": "Controlas los faros del coche para iluminar bien el camino sin deslumbrar al que viene de frente.
+De noche, las luces altas te dejan ver al peatón de lejos, pero le quitan la vista al conductor del coche que se acerca.
+Un faro matricial está hecho de muchos LED. Una cámara ve al coche que viene y apaga sólo los LED que lo apuntan, así queda una zona oscura que lo sigue.
+Tu trabajo: calcular hasta dónde llega la luz, elegir cuántos LED, qué tan ancha es la zona oscura y qué tan fuerte es la luz, y comprobar que el peatón se ve y que nadie sale deslumbrado.",
+    "codigo": "MEC-161",
+    "conceptos": [
+      {
+        "descripcion": "La luz que llega a un punto baja con el cuadrado de la distancia: al doble de lejos llega cuatro veces menos. Por eso las luces bajas sólo alcanzan unas decenas de metros.",
+        "icono": "💡",
+        "nombre": "La luz se acaba con la distancia",
+      },
+      {
+        "descripcion": "La cámara ve al coche que viene y se apagan los LED que lo apuntan. Como la cámara tarda, la zona oscura necesita un margen; si el margen es muy ancho, se apaga también al peatón.",
+        "icono": "🚗",
+        "nombre": "La zona oscura",
+      },
+      {
+        "descripcion": "La lluvia apaga la luz, la ropa oscura necesita más luz para verse y en una curva el peatón queda fuera del centro del haz si el faro no gira con el volante.",
+        "icono": "🌧️",
+        "nombre": "Clima, ropa y curvas",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula hasta dónde llega un faro o cuántos grados ocupa el coche que viene.",
+      "Elige cuántos LED, el margen y la fuerza de la luz para ver al peatón sin deslumbrar al otro conductor.",
+      "Diagnostica por qué falla otro faro: cámara lenta, LED muy gruesos, luz débil o zona oscura sin margen.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Faros matriciales adaptativos: ver mucho sin deslumbrar",
+    "videoUrl": "",
+  },
+  "mecanica-162": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Automatización del vehículo",
+        "ejemplo": "Control del limpiaparabrisas con un sensor óptico.",
+      },
+      {
+        "area": "Diagnóstico",
+        "ejemplo": "Distinguir un problema de acoplamiento al vidrio de una pala gastada.",
+      },
+    ],
+    "bienvenida": "Ajusta el limpiaparabrisas para que responda a la lluvia sin activarse en seco.
+El sensor envía luz dentro del vidrio. Las gotas dejan escapar parte de ella y el receptor detecta el cambio.
+Explora el corte óptico, ajusta el ángulo y la sensibilidad, y comprueba tu decisión en cuatro situaciones. Después diagnostica por qué otro sistema falla.",
+    "codigo": "MEC-162",
+    "conceptos": [
+      {
+        "descripcion": "La reflexión total conserva la luz dentro del vidrio seco; el agua puede abrir una salida.",
+        "icono": "💡",
+        "nombre": "Luz que vuelve",
+      },
+      {
+        "descripcion": "La fracción mojada cambia la potencia que recibe el detector.",
+        "icono": "💧",
+        "nombre": "Señal de lluvia",
+      },
+      {
+        "descripcion": "Un umbral muy sensible confunde suciedad con lluvia; uno poco sensible no reacciona a tiempo.",
+        "icono": "⚙️",
+        "nombre": "Sensibilidad",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Relaciona las gotas y el cambio de luz recibida.",
+      "Ajusta ángulo y sensibilidad para distinguir cuatro situaciones.",
+      "Diagnostica un fallo por sus síntomas y responde la pregunta final.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Sensor de lluvia: luz y limpiaparabrisas automático",
+    "videoUrl": "",
+  },
+  "mecanica-163": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vehículos híbridos",
+        "ejemplo": "Almacenamiento de pulsos de energía y recuperación frecuente al frenar.",
+      },
+      {
+        "area": "Diagnóstico eléctrico",
+        "ejemplo": "Comparar el salto de tensión y su pendiente para distinguir resistencia de capacitancia.",
+      },
+    ],
+    "bienvenida": "Dimensiona un banco que ayude al acelerar y conserve espacio para recuperar energía al frenar.
+Los supercapacitores almacenan energía y pueden mover mucha corriente rápidamente. Pero una tensión alta deja menos capacidad libre para el siguiente frenado.
+Explora el banco y una celda en corte, decide cuántas ramas usar y con qué tensión iniciar. Comprueba tu diseño y diagnostica un fallo por sus síntomas.",
+    "codigo": "MEC-163",
+    "conceptos": [
+      {
+        "descripcion": "Crece con la capacitancia y con el cuadrado de la tensión.",
+        "icono": "⚡",
+        "nombre": "Energía almacenada",
+      },
+      {
+        "descripcion": "La serie permite más tensión; el paralelo reparte corriente y aumenta la capacitancia.",
+        "icono": "🔗",
+        "nombre": "Serie y paralelo",
+      },
+      {
+        "descripcion": "La resistencia interna convierte parte de la energía en calor.",
+        "icono": "🌡️",
+        "nombre": "Pérdidas",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Relaciona la tensión, la energía y la dirección del flujo.",
+      "Dimensiona el banco para cumplir cinco criterios a la vez.",
+      "Diagnostica una falla y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Supercapacitores: potencia al acelerar y energía al frenar",
+    "videoUrl": "",
+  },
+  "mecanica-164": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Fabricación automotriz",
+        "ejemplo": "Pulido, lijado y acabado de piezas con contacto controlado.",
+      },
+      {
+        "area": "Robótica de contacto",
+        "ejemplo": "Ajustar la respuesta del extremo frente a relieves y empujes externos.",
+      },
+    ],
+    "bienvenida": "Programa una garra para cargar una pieza, cambiar de herramienta, pulir y entregar el resultado.
+La superficie tiene pequeños relieves. Un brazo demasiado rígido aumenta la fuerza al encontrarlos; uno demasiado blando se aparta cuando lo empujan.
+Construye la secuencia con movimientos, garra, herramientas, condiciones y repeticiones. Comprueba el agarre, la rigidez y el freno al movimiento. Después diagnostica por qué otro ajuste falla.",
+    "codigo": "MEC-164",
+    "conceptos": [
+      {
+        "descripcion": "El extremo se comporta como un resorte con freno: una fuerza produce un desplazamiento controlado.",
+        "icono": "🤖",
+        "nombre": "Ceder al contacto",
+      },
+      {
+        "descripcion": "La herramienta acompaña la superficie para limitar la variación de fuerza.",
+        "icono": "🛠️",
+        "nombre": "Seguir el relieve",
+      },
+      {
+        "descripcion": "El amortiguamiento hace decaer una perturbación, pero también dificulta seguir movimientos rápidos.",
+        "icono": "📈",
+        "nombre": "Apagar oscilaciones",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Programa la carga, el cambio de herramienta, el pulido y la entrega.",
+      "Ajusta rigidez y amortiguamiento para cumplir tres criterios.",
+      "Diagnostica un ajuste defectuoso y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Celda robotizada: garra, bloques y pulido",
+    "videoUrl": "",
+  },
   "mecanica-17": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -21626,6 +21861,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-158": [],
   "mecanica-159": [],
   "mecanica-16": [],
+  "mecanica-160": [],
+  "mecanica-161": [],
+  "mecanica-162": [],
+  "mecanica-163": [],
+  "mecanica-164": [],
   "mecanica-17": [],
   "mecanica-18": [],
   "mecanica-19": [],
@@ -22020,6 +22260,11 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-158",
   "mecanica-159",
   "mecanica-16",
+  "mecanica-160",
+  "mecanica-161",
+  "mecanica-162",
+  "mecanica-163",
+  "mecanica-164",
   "mecanica-17",
   "mecanica-18",
   "mecanica-19",
