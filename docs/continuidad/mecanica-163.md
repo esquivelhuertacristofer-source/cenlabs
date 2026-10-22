@@ -2,7 +2,7 @@
 
 ## Estado al cierre
 Implementado y registrado como destacado. Código en `main`, commit `d59087d`.
-Despliegue de este lote en curso; consultar `README.md` para el resultado confirmado.
+Publicado en Cloudflare, versión `f2d4cb06-fb32-4030-99e5-9fa920268d0e`. Login real confirmado: iframe del slug correcto. Hub con 46 destacadas y consola sin errores. Código publicado: `d59087d`; los commits posteriores sólo documentan continuidad.
 
 ## Qué se hizo
 Laboratorio nuevo: banco de ramas en paralelo, carga/descarga a corriente constante y pérdidas ESR. Rediseñado tras rechazo visual del usuario: carcasa automotriz, barras, contactores, conectores HV, placa de control y celda bobinada en corte; 360 celdas en el caso de tres ramas.
@@ -22,4 +22,4 @@ Laboratorio nuevo: banco de ramas en paralelo, carga/descarga a corriente consta
 Datos de referencia de celda Eaton 3000 F / 2,7 V / ESR 0,23 mΩ. Caso de control de auditoría: tres ramas y 250 V. No revelar esa solución en la interfaz antes de validar.
 
 ## Pendiente y siguiente acción
-Confirmar la versión de Cloudflare y el login real del lote. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
+Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.

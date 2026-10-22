@@ -2,7 +2,7 @@
 
 ## Estado al cierre
 Implementado y registrado como destacado. Código en `main`, commit `d59087d`.
-Despliegue de este lote en curso; consultar `README.md` para el resultado confirmado.
+Publicado en Cloudflare, versión `f2d4cb06-fb32-4030-99e5-9fa920268d0e`. Login real confirmado: iframe del slug correcto. Hub con 46 destacadas y consola sin errores. Código publicado: `d59087d`; los commits posteriores sólo documentan continuidad.
 
 ## Qué se hizo
 Integrado el laboratorio heredado. Corregida una carrera al ajustar/validar: se recalcula inmediatamente el estado y se actualiza la máscara de luz para que el dato oculto no reaparezca. El verificador normaliza CRLF.
@@ -22,4 +22,4 @@ Integrado el laboratorio heredado. Corregida una carrera al ajustar/validar: se 
 No reintroducir el estado óptico anterior durante reiniciaCalculo: SIM.e, pintaDock, pintaOjoLx y opacidad de HALO se actualizan de forma síncrona.
 
 ## Pendiente y siguiente acción
-Confirmar la versión de Cloudflare y el login real del lote. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
+Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.

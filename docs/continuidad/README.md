@@ -23,8 +23,8 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 ## Estado confirmado y punto exacto de reanudación
 - Base anterior: commit `270e7d4`; 127–159 desplegados, 41 destacadas.
 - Lote actual: 160–164 terminado, registrado y empujado a main como `d59087d`.
-- Cloudflare: despliegue en curso, aún sin confirmar versión ni login real. Si se interrumpe aquí, comprobar la versión ANTES de volver a desplegar.
-- Después del lote debe haber 46 destacadas. No dar por comprobado el conteo hasta el login.
+- Cloudflare: **publicado y verificado**, versión `f2d4cb06-fb32-4030-99e5-9fa920268d0e`, salida del deploy 0. Código publicado `d59087d`; commits posteriores sólo cambian documentación y AGENTS.md, no requieren otro build.
+- Login real confirmado: **46 destacadas**, los cinco iframes 160–164 con slug exacto, editor de bloques del 164 presente y consola sin errores.
 - Siguiente ID libre: **mecanica-165**. Quedan seis IDs de la reserva hasta 170; NO están construidos. La reserva no obliga a inventar seis completados.
 - No hay PR pendiente. El relevo antiguo `docs/RELEVO-SPRINT-INSIGNIA.md` era un archivo local heredado; este índice lo actualiza y prevalece en estado actual.
 
@@ -48,9 +48,9 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 
 ## Cómo terminar/verificar el despliegue
 1. Ver `git log -3 --oneline` y diferencias en ambos worktrees. No borrar cambios ajenos. La suciedad antigua en cen-deploy era sólo CRLF: se comprobó diff vacío antes de limpiar.
-2. En cen-deploy, `npm run deploy:cf`. Ya se lanzó para d59087d. Sólo éxito y Current Version ID confirman publicación. Cloudflare KV error 10000 puede ser transitorio.
+2. En cen-deploy, `npm run deploy:cf`. Completado para d59087d. Sólo éxito y Current Version ID confirman publicación. Cloudflare KV error 10000 puede ser transitorio.
 3. Login real con `work/login-final/login-real.mjs`, argumentos: ruta del documento privado, URL de producción, carpeta de capturas y nombre de cuenta Sofía Martínez. El script lee la fila en privado; no mostrar el archivo de credenciales. Verifica 160–164 y muestra la lista completa de errores si hay.
-4. Comprobar que cada iframe es el slug correcto, que hay 46 destacadas y que no hay errores. Luego actualizar este índice y las fichas con versión y resultado REAL.
+4. Comprobar que cada iframe es el slug correcto, que hay 46 destacadas y que no hay errores. Este cierre ya se ejecutó; repetir únicamente después de un nuevo despliegue.
 
 ## Lecciones de implementación
 - `_insignia-auto.js/.css` es el shell común nuevo de 162–164; preserva ficha/puente al prepend de labRoot. Un único reloj, modos, tour, reto, diagnóstico y quiz barajado.

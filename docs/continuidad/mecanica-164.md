@@ -2,7 +2,7 @@
 
 ## Estado al cierre
 Implementado y registrado como destacado. Código en `main`, commit `d59087d`.
-Despliegue de este lote en curso; consultar `README.md` para el resultado confirmado.
+Publicado en Cloudflare, versión `f2d4cb06-fb32-4030-99e5-9fa920268d0e`. Login real confirmado: iframe del slug correcto. Hub con 46 destacadas y consola sin errores. Código publicado: `d59087d`; los commits posteriores sólo documentan continuidad.
 
 ## Qué se hizo
 Laboratorio nuevo y ampliado por petición expresa del usuario: garra paralela que recoge/coloca una pieza, entrada, soporte, salida, cambiador de herramienta y pulido. Editor por bloques con mover, garra, herramienta, pulir, esperar, repetir, condición si tiene pieza y fin de grupo. Arrastre, flechas, borrado y persistencia local. Ejecución real sobre el brazo con cinemática inversa.
@@ -24,4 +24,4 @@ Laboratorio nuevo y ampliado por petición expresa del usuario: garra paralela q
 El módulo _programa-celda.js amplía _insignia-auto.js. El reloj S.t gobierna tanto contacto como secuencia; tiempo de movimiento = S.t × 5 por la cámara lenta del contacto. Pieza de 2,5 kg, μ=0,45, capacidad 2 μ N (N por mordaza); se compara con m|a+g| en traslados quínticos. Una sujeción insuficiente detiene la simulación: no simula caída. Tool change idealizado en un punto de acoplamiento. No es un controlador de seis ejes ni certificación. Reto: programa completo hasta salida y los tres criterios de contacto. Mantener manual la validación final. Ventana interior usada sólo en QA: K=1100, B=80; no regalarla al alumno.
 
 ## Pendiente y siguiente acción
-Confirmar la versión de Cloudflare y el login real del lote. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
+Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
