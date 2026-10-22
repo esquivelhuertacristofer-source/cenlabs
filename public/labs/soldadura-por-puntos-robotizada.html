@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Soldadura por puntos robotizada — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E14;--panel:rgba(10,14,20,.90);--line:#303A4A;--ink:#EEF3F6;
+    --dim:#9BB8C4;--accent:#FF9F43;--accent2:#FFD2A6;--hv:#FF8A2A;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#FF9F43;--cR:#FFA445;--cE:#3DDC97;--cG:#C8D6D2;--cI:#C79BFF;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#04060a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14202f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#1f3248}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#2a1200;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#2a1200;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ffc58a}
+  .b.auto{border-color:rgba(255,138,42,.6);color:var(--hv);background:rgba(255,138,42,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,138,42,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  body:not(.m-tour) .hud{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2B3A52 transparent}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#2a1200}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#FF9F43;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#2a1200}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,138,42,.35);background:rgba(255,138,42,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffc58a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffc58a;background:rgba(255,170,90,.07);border:1px dashed rgba(255,170,90,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(40,56,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1220;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .clases{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+  .clases .b{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;padding:4px 8px;font-size:12px;line-height:1.2}
+  .clases .b small{font-size:9.5px;color:var(--dim);font-weight:400}
+  .clases .b.on small{color:#5a2a00}
+  .clases .b .pr{color:var(--hv);letter-spacing:.06em;font-size:10.5px}
+  .clases .b.on .pr{color:#5a2a00}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(40,56,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(40,56,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffc58a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(40,56,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,138,42,.08);color:#ffc58a;border:1px solid rgba(255,138,42,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14202f;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(255,159,67,.38);background:rgba(255,159,67,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(255,159,67,.55),0 0 24px 6px rgba(255,159,67,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(255,214,130,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(255,214,130,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-tour">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · soldadura por puntos</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Llega al punto</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Resistencia</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Calor de Joule</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Pepita</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Mínimo</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Hundimiento</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Cómo crece la pepita durante el pulso</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Corte <span id="t_tr"></span></div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Temperatura <span id="t_fr"></span></div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Mapa corriente–tiempo <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+LAB — SOLDADURA POR PUNTOS ROBOTIZADA: CALOR, FUERZA Y TAMAÑO DE LA PEPITA
+   (Autotrónica · mecanica-165)
+
+   Un robot de seis ejes sujeta una pinza con dos electrodos de cobre. Recorre una puerta de carrocería, aprieta las dos chapas con una
+   fuerza F y deja pasar una corriente I durante n ciclos de la red (60 Hz). El calor de Joule Q = I²·R·t funde un volumen de acero entre las
+   chapas —la pepita— y lo que importa es su diámetro: debe llegar a 4·√t (3,6 mm para chapas de 0,8 mm) sin que el metal fundido salga
+   despedido (salpicadura) ni se hunda el electrodo (indentación). La resistencia de contacto baja con la fuerza; la corriente puede derivarse por
+   el punto vecino; un electrodo desgastado reparte la corriente en más área. El calor, la pepita y la escena son UN modelo en un bloque puro
+   (FISICA) que un script de Node extrae TAL CUAL; la cinemática inversa (IKROBOT) es otro bloque, comprobado contra el modelo cargado.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO=' ';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const suave=t=>{ t=t<0?0:(t>1?1:t); return t*t*(3-2*t); };
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae estos dos bloques TAL CUAL —entre sus marcas— y los prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* Soldadura por puntos de chapa de acero 0,8 + 0,8 mm. Todo en SI salvo donde se indica. Un solo modelo de parámetros concentrados:
+   el calor de Joule se reparte entre calentar la zona bajo los electrodos, la fuga por conducción hacia el cobre refrigerado y la chapa fría,
+   y fundir la pepita. Las fórmulas son cerradas (exponenciales), así que el mismo cálculo sirve al motor, a la escena y a la verificación. */
+const DOSPI=2*Math.PI;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const HZ=60;                                  // red de 60 Hz: 1 ciclo = 1/60 s
+const T_CHAPA=0.8e-3;                         // espesor de cada chapa (m)
+const T_APILA=2*T_CHAPA;                      // dos chapas
+const D_MIN_MM=4*Math.sqrt(0.8);              // criterio de calidad: d ≥ 4·√t (t en mm) → 3,58 mm
+const D_ELEC_NUEVO=5*Math.sqrt(0.8)*1e-3;     // cara del electrodo nuevo: 5·√t = 4,47 mm
+const F_DESGASTE=1.45;                        // un electrodo desgastado ensancha su cara ~45 % (6,5 mm)
+const RHO_ACERO=7850, C_ACERO=700, L_FUSION=2.7e5, T_FUS=1500, T_AMB=20;   // kg/m³ · J/(kg·K) · J/kg · °C
+const DT_FUS=T_FUS-T_AMB;
+const H_PEPITA=0.8*T_APILA;                   // altura de la pepita: 80 % del espesor total (elipsoide achatado)
+const RHO_CALIENTE=1.1e-6;                    // resistividad del acero caliente (Ω·m)
+const RC0=70e-6, F_REF=3000, N_RC=0.7;        // contacto: 70 µΩ a 3 kN, baja como F^(−0,7) (correlación didáctica)
+const G0=2.6, BETA=3;                         // conducción hacia el cobre y la chapa (W/K) y su crecimiento con la pepita
+const KAPPA=4;                                // por cada J que funde la pepita se calienta además su anillo vecino: KAPPA veces la entalpía de fusión
+const P_POOL=100e6;                           // presión del baño fundido que tiende a abrir las chapas (Pa)
+const FRAC_EXP=0.85;                          // fracción del volumen que queda tras una expulsión
+const P_SHUNT_MM=4.5;                         // derivación: R_deriv/R_punto = paso/4,5 mm
+const I_IND0=0.04, K_IND=0.9;                 // indentación: 4 % + 0,9 por segundo fundido, por √(F/F_ref)
+const IND_MAX=0.25;                           // límite: 25 % del espesor total
+const H_PEP=RHO_ACERO*(C_ACERO*DT_FUS+L_FUSION);   // J/m³ para fundir un volumen de pepita (de ambiente a fundido)
+const dCara=(desg)=>D_ELEC_NUEVO*(desg?F_DESGASTE:1);
+const dMinCalidad=(tmm)=>4*Math.sqrt(tmm);
+const dExpulsion=(F)=>Math.sqrt(4*F/(Math.PI*P_POOL));            // m: la fuerza contiene un baño de hasta ese diámetro
+const rBulto=(dE)=>RHO_CALIENTE*T_APILA/(Math.PI/4*dE*dE);
+const rContacto=(F)=>RC0*Math.pow(F_REF/F,N_RC);
+const resistencia=(F,dE)=>{ const Rb=rBulto(dE), Rc=rContacto(F); return {Rb,Rc,R:Rb+Rc}; };
+const fracDeriv=(paso_mm)=>1/(1+paso_mm/P_SHUNT_MM);
+const corrienteEf=(I,paso_mm)=>I*(1-fracDeriv(paso_mm));
+const calorJoule=(I,R,t)=>I*I*R*t;
+const energiaPepita=(V)=>V*H_PEP;
+const dDeVol=(V)=>Math.sqrt(Math.max(0,6*V/(Math.PI*H_PEPITA)));
+const volDeD=(d)=>Math.PI/6*d*d*H_PEPITA;
+/** Preparación: todas las constantes del punto que sólo dependen de los mandos. par={I(A),n(ciclos),F(N),desg(bool),paso(mm)} */
+function prepara(par){
+  const dE=dCara(!!par.desg), Re=resistencia(par.F,dE), Ie=corrienteEf(par.I,par.paso===undefined?1e9:par.paso);
+  const P=Ie*Ie*Re.R, escala=Math.pow(dE/D_ELEC_NUEVO,2), G=G0*escala, Vz=Math.PI/4*dE*dE*T_APILA, C=RHO_ACERO*C_ACERO*Vz;
+  const tau=C/G, Tinf=T_AMB+P/G, hay=Tinf>T_FUS;
+  const tm=hay?-tau*Math.log((Tinf-T_FUS)/(Tinf-T_AMB)):Infinity;
+  const Vinf=hay?Vz*(P/(G*DT_FUS)-1)/BETA:0, taun=KAPPA*H_PEP*Vz/(G*DT_FUS*BETA);
+  const dexp=dExpulsion(par.F), Vexp=volDeD(dexp);
+  const texp=(hay&&Vinf>Vexp)?tm-taun*Math.log((Vinf-Vexp)/Vinf):Infinity;
+  return {par,dE,Re,Ie,P,G,Vz,C,tau,Tinf,hay,tm,Vinf,taun,dexp,Vexp,texp,tw:par.n/HZ};
+}
+/** El estado del punto en el instante t (s): temperatura de la zona, volumen y diámetro de la pepita, indentación, calor acumulado… */
+function estadoEn(S,t){
+  const tt=Math.max(0,Math.min(t,S.tw));   // la corriente sólo fluye hasta el final del pulso; después el punto se enfría (ver enfria)
+  let T,V,exp=false,Eloss;
+  if(!S.hay||tt<=S.tm){ T=S.Tinf-(S.Tinf-T_AMB)*Math.exp(-tt/S.tau); V=0; }
+  else { T=T_FUS; const dt=tt-S.tm; V=S.Vinf+(0-S.Vinf)*Math.exp(-dt/S.taun); }
+  if(tt>=S.texp){ exp=true; V=FRAC_EXP*S.Vexp; }
+  const Q=S.P*tt, Ealm=S.C*(T-T_AMB)+(KAPPA-1)*energiaPepita(V);
+  const tf=Math.max(0,tt-(S.hay?S.tm:tt));      // tiempo con metal fundido
+  return {t:tt,T,V,d:dDeVol(V),exp,Q,Ealm,En:energiaPepita(V),tf,ind:V>0||exp?I_IND0+K_IND*tf*Math.sqrt(S.par.F/F_REF):0};
+}
+const DEFECTOS={buena:'Soldadura buena',pegada:'Soldadura pegada (pepita pequeña)',salpica:'Salpicadura (expulsión de metal)',quemada:'Quemado e indentación excesiva'};
+/** Resultado final del punto: diámetro, defecto y la energía. */
+function resultado(par){
+  const S=prepara(par), e=estadoEn(S,S.tw), dmm=e.d*1e3;
+  const exp=e.exp, ind=Math.max(e.ind,exp?I_IND0+K_IND*(S.tw-S.tm)*Math.sqrt(par.F/F_REF):0);
+  let def='buena'; if(exp) def='salpica'; else if(ind>IND_MAX) def='quemada'; else if(dmm<D_MIN_MM) def='pegada';
+  return {S,e,dmm,exp,ind,def,ok:def==='buena',Q:e.Q,eta:e.Q>0?(e.Q-(e.Q-e.Ealm-e.En))/e.Q:0,etaPepita:e.Q>0?e.En/e.Q:0,tExp:S.texp<=S.tw?S.texp:null};
+}
+/** Curva del diámetro de la pepita en el tiempo (para la gráfica): n puntos desde 0 hasta nmax ciclos. */
+function curvaD(par,nmax,n){ const S=prepara(Object.assign({},par,{n:nmax})), out=[]; for(let i=0;i<=n;i++){ const t=i/n*nmax/HZ, e=estadoEn(S,t); out.push({t,d:e.d*1e3,T:e.T,exp:e.exp}); } return out; }
+/* FISICA:FIN */
+
+/* IKROBOT:INICIO */
+/* Cinemática inversa del robot del modelo (unidades del modelo; el robot se escala ×3 en la escena).
+   Plano del brazo: hombro S, codo E y muñeca P5; J5 compensa para que los electrodos queden a plomo. J1 gira el plano hacia el punto. */
+const IKM={S:[0.12,0.40],E:[0.00,0.79],P5:[0.60,0.71],TCP:[0.77,0.6125],eLat:-0.178};   // relativo al eje de J1
+const _a1=Math.atan2(IKM.E[1]-IKM.S[1],IKM.E[0]-IKM.S[0]), _a2=Math.atan2(IKM.P5[1]-IKM.E[1],IKM.P5[0]-IKM.E[0]);
+const _L1=Math.hypot(IKM.E[0]-IKM.S[0],IKM.E[1]-IKM.S[1]), _L2=Math.hypot(IKM.P5[0]-IKM.E[0],IKM.P5[1]-IKM.E[1]);
+/** Entrada en METROS de mundo (eje de J1 en el origen, el robot escalado ×esc). Devuelve ángulos en radianes o null si no llega. */
+function ikPunto(X,Y,Z,esc){
+  const x=X/esc, y=Y/esc, z=Z/esc, rho=Math.hypot(x,z), e=IKM.eLat;
+  if(rho<=Math.abs(e)+1e-6) return null;
+  const xp=Math.sqrt(rho*rho-e*e);
+  const psi=Math.atan2(e,xp)-Math.atan2(z,x);
+  const p5=[xp-(IKM.TCP[0]-IKM.P5[0]), y-(IKM.TCP[1]-IKM.P5[1])];
+  const dx=p5[0]-IKM.S[0], dy=p5[1]-IKM.S[1], d2=dx*dx+dy*dy;
+  const ca=(d2-_L1*_L1-_L2*_L2)/(2*_L1*_L2); if(ca<-1||ca>1) return null;
+  const al=-Math.acos(ca), th3=al-(_a2-_a1);
+  const be=Math.atan2(_L2*Math.sin(al),_L1+_L2*Math.cos(al));
+  const th2=Math.atan2(dy,dx)-be-_a1;
+  const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+  return {j1:wrap(psi),j2:wrap(th2),j3:wrap(th3),j5:wrap(-(th2+th3))};
+}
+/* IKROBOT:FIN */
+
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true,rep=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  if(rep) t.wrapS=t.wrapT=THREE.RepeatWrapping; else t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;
+  t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.55,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  return tex(c,{srgb:true,rep:false});
+}
+const scene=new THREE.Scene();
+scene.background=fondoDegradado('#10161f','#1a222d','#2a323c');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.fog=new THREE.Fog('#161d27',14,48);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,200);
+camera.position.set(3,2.4,7);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=0.6; controls.maxDistance=24; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(1.4,1.2,0);
+
+/* Nave: luz de techo fría y amplia (relleno), una luz principal que da la forma y proyecta sombra, y un contraluz cálido que recorta el robot. */
+const LUZ={};
+LUZ.hemi=new THREE.HemisphereLight('#cfe0f2','#2b2f36',0.35); scene.add(LUZ.hemi);
+LUZ.sol=new THREE.DirectionalLight('#fff1dc',1.35); LUZ.sol.position.set(2.2,7.5,4.5); LUZ.sol.target.position.set(1.6,0.9,0);
+LUZ.sol.castShadow=true; LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.02;
+Object.assign(LUZ.sol.shadow.camera,{left:-5,right:5,top:4.5,bottom:-3.5,near:1,far:20});
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.rim=new THREE.DirectionalLight('#8fb4ff',0.9); LUZ.rim.position.set(-4,4,-6); scene.add(LUZ.rim);
+LUZ.rel=new THREE.DirectionalLight('#ffd6a8',0.55); LUZ.rel.position.set(-5,2.5,5); scene.add(LUZ.rel);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: el punto al rojo, las chispas y las lámparas del techo.
+   En calidad media no hay resplandor ni sombras y la escena no depende de ellos para leerse. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.38,0.4,1.15); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino —se lee como lija sobre caras grandes—: variación lenta de tono, vetas de laminado muy tenues y marcas de taller
+   (líneas de seguridad) dibujadas como objetos, no como ruido. */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Suelo de la nave: resina gris claro, tono lento, con la zona de la celda marcada en amarillo (la textura abarca 12×12 m). */
+function texSuelo(){
+  const W=1024,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(11,4,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*4,j/W*4), v=Math.max(0,Math.min(255,(0.60+(n-0.5)*0.12)*255)), o=(j*W+i)*4;
+    im.data[o]=v*0.96; im.data[o+1]=v*0.99; im.data[o+2]=v*1.03; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  x.strokeStyle='rgba(20,24,30,0.28)'; x.lineWidth=2; for(let i=0;i<=6;i++){ const p=i*W/6; x.beginPath(); x.moveTo(p,0); x.lineTo(p,W); x.moveTo(0,p); x.lineTo(W,p); x.stroke(); }
+  // la celda: rectángulo amarillo de seguridad de 8 × 6 m centrado (en m: la textura da 12 m)
+  const m=W/12, X0=(6-4)*m, X1=(6+4)*m, Y0=(6-3)*m, Y1=(6+3)*m;
+  x.strokeStyle='#e6b422'; x.lineWidth=0.09*m; x.strokeRect(X0,Y0,X1-X0,Y1-Y0);
+  x.fillStyle='rgba(230,180,34,0.9)'; for(let k=0;k<9;k++){ x.save(); x.translate(X0+k*0.5*m,Y0-0.35*m); x.transform(1,0,-0.6,1,0,0); x.fillRect(0,0,0.22*m,0.26*m); x.restore(); }
+  return tex(c,{srgb:true});
+}
+/** Chapa galvanizada: tono casi uniforme con una variación muy lenta y vetas de laminado tenues (no hay grano). */
+function texChapa(){
+  const W=1024,H=1024,c=cv(W,H),x=c.getContext('2d'),im=x.createImageData(W,H),f=fbmP(23,3,3);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/H*3), vet=Math.sin(j*0.09+n*6)*0.012, v=Math.max(0,Math.min(255,(0.80+(n-0.5)*0.10+vet)*255)), o=(j*W+i)*4;
+    im.data[o]=v*0.97; im.data[o+1]=v*0.99; im.data[o+2]=v*1.02; im.data[o+3]=255; }
+  x.putImageData(im,0,0); return tex(c,{srgb:true});
+}
+function texPared(){
+  const W=512,H=256,c=cv(W,H),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'#2a3440'); g.addColorStop(1,'#1c242d'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  for(let i=0;i<32;i++){ x.fillStyle=i%2?'rgba(255,255,255,0.035)':'rgba(0,0,0,0.10)'; x.fillRect(i*W/32,0,W/32,H); }
+  x.fillStyle='rgba(255,159,67,0.55)'; x.fillRect(0,H*0.70,W,5); x.fillStyle='rgba(120,160,210,0.25)'; x.fillRect(0,H*0.70+9,W,2);
+  return tex(c,{srgb:true});
+}
+function texMalla(){
+  const W=64,c=cv(W),x=c.getContext('2d'); x.clearRect(0,0,W,W); x.strokeStyle='rgba(210,220,230,0.95)'; x.lineWidth=2.4;
+  for(let i=0;i<=W;i+=16){ x.beginPath(); x.moveTo(i,0); x.lineTo(i,W); x.moveTo(0,i); x.lineTo(W,i); x.stroke(); }
+  return tex(c,{srgb:true});
+}
+function texBrillo(c0,c1,c2){ const W=128,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(0.35,c1); g.addColorStop(1,c2); x.fillStyle=g; x.fillRect(0,0,W,W); return tex(c,{srgb:true,rep:false}); }
+/** La marca que deja un punto: hundimiento oscuro en el centro y un halo de tonos de revenido (paja → azul) que se apaga hacia afuera. */
+function texMarca(){
+  const W=128,c=cv(W),x=c.getContext('2d'); x.clearRect(0,0,W,W);
+  const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2);
+  g.addColorStop(0.00,'rgba(36,38,44,1)'); g.addColorStop(0.34,'rgba(52,56,66,1)'); g.addColorStop(0.42,'rgba(92,112,190,1)');
+  g.addColorStop(0.62,'rgba(190,150,70,0.85)'); g.addColorStop(0.82,'rgba(210,190,140,0.30)'); g.addColorStop(1.00,'rgba(210,190,140,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,W); return tex(c,{srgb:true,rep:false});
+}
+const TX_SUELO=texSuelo(), TX_CHAPA=texChapa(), TX_PARED=texPared(), TX_MALLA=texMalla();
+TX_SUELO.repeat.set(1,1);
+const ENV_I=0.9;
+const pbr=o=>new THREE.MeshStandardMaterial(Object.assign({envMapIntensity:ENV_I},o)), fis=o=>new THREE.MeshPhysicalMaterial(Object.assign({envMapIntensity:ENV_I},o));
+const M={
+  suelo: fis({color:'#ffffff',map:TX_SUELO,roughness:0.55,metalness:0.0,clearcoat:0.35,clearcoatRoughness:0.35,envMapIntensity:0.5}),
+  pared: pbr({color:'#ffffff',map:TX_PARED,roughness:0.8,metalness:0.2,envMapIntensity:0.3}),
+  chapa: fis({color:'#8f98a2',map:TX_CHAPA,metalness:0.85,roughness:0.42,clearcoat:0.0,side:THREE.DoubleSide}),
+  chapaInt: fis({color:'#8d959d',map:TX_CHAPA,metalness:0.85,roughness:0.5,side:THREE.DoubleSide}),
+  canto: pbr({color:'#9aa3ab',metalness:0.9,roughness:0.4}),
+  acero: pbr({color:'#4a525c',metalness:0.8,roughness:0.5}),
+  azul: pbr({color:'#1f4f8f',metalness:0.5,roughness:0.45}),
+  naranja: pbr({color:'#e8732a',metalness:0.3,roughness:0.5}),
+  amarillo: pbr({color:'#e6b422',metalness:0.2,roughness:0.55}),
+  goma: pbr({color:'#17191c',metalness:0.0,roughness:0.8}),
+  malla: new THREE.MeshBasicMaterial({map:TX_MALLA,transparent:true,alphaTest:0.4,side:THREE.DoubleSide,depthWrite:false,opacity:0.8}),
+  lampara: new THREE.MeshBasicMaterial({color:'#dff0ff',toneMapped:false}),
+  marca: pbr({color:'#ffffff',map:null,transparent:true,roughness:0.5,metalness:0.55,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),
+};
+M.marca.map=texMarca();
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+/** Une varias cajas/cilindros en UNA geometría (una llamada de dibujo): cada pieza lleva su matriz. Se clona antes de fusionar. */
+function fusionaPiezas(lista){
+  const gs=lista.map(([g,mat4])=>{ const c=g.index?g.clone():g.clone(); c.applyMatrix4(mat4); return c; });
+  const out=BufferGeometryUtils.mergeGeometries(gs,false); for(const g of gs) g.dispose(); return out;
+}
+const TR=(x,y,z,ry=0)=>{ const m=new THREE.Matrix4().makeRotationY(ry); m.setPosition(x,y,z); return m; };
+const caja=(w,h,d,x,y,z,ry)=>[new THREE.BoxGeometry(w,h,d),TR(x,y,z,ry)];
+const cilindro=(r,h,x,y,z,seg=14)=>[new THREE.CylinderGeometry(r,r,h,seg),TR(x,y,z)];
+
+
+/* ===================== 6. EL ROBOT (modelo real, articulado) =====================
+   El GLB trae 54 mallas (54 llamadas de dibujo). Tras cargarlo se fusionan las mallas de cada eslabón en una sola (clonando la geometría y
+   llevándola al sistema local del eslabón): 7 eslabones + las dos mitades de la pinza = 9 llamadas. Los pivotes de J1…J6 vienen en el modelo. */
+const ESC=3;                       // el modelo mide 0,93: ×3 ≈ 2,8 m
+const GLB_URL='/labs/assets/robot-soldadura.glb';
+const gltf=await new Promise((ok,ko)=>{ const l=new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder); l.load(GLB_URL,ok,undefined,ko); });
+const ROBOT=gltf.scene; ROBOT.name='robot';
+ROBOT.scale.setScalar(ESC); ROBOT.position.set(0.29*ESC,0,-0.05*ESC);   // el eje de J1 queda en el origen del mundo
+scene.add(ROBOT);
+const JN={}; for(const n of ['L0_base','J1','J2','J3','J4','J5','J6']) JN[n]=ROBOT.getObjectByName(n);
+ROBOT.updateMatrixWorld(true);
+/** Geometría en Float32 y en el sistema local del eslabón (el cuantizado del GLB no admite aplicar matrices sobre sus atributos). */
+function geoLocal(g,m4){
+  const p=g.attributes.position, n=g.attributes.normal, u=g.attributes.uv, N=p.count;
+  const pos=new Float32Array(N*3), nor=new Float32Array(N*3), uv=new Float32Array(N*2), v=new THREE.Vector3(), nm=new THREE.Matrix3().getNormalMatrix(m4);
+  for(let i=0;i<N;i++){
+    v.fromBufferAttribute(p,i).applyMatrix4(m4); pos[i*3]=v.x; pos[i*3+1]=v.y; pos[i*3+2]=v.z;
+    if(n){ v.fromBufferAttribute(n,i).applyMatrix3(nm).normalize(); nor[i*3]=v.x; nor[i*3+1]=v.y; nor[i*3+2]=v.z; } else { nor[i*3+1]=1; }
+    if(u){ uv[i*2]=u.getX(i); uv[i*2+1]=u.getY(i); }
+  }
+  const G=new THREE.BufferGeometry();
+  G.setAttribute('position',new THREE.BufferAttribute(pos,3)); G.setAttribute('normal',new THREE.BufferAttribute(nor,3)); G.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  if(g.index) G.setIndex(new THREE.BufferAttribute(new Uint32Array(g.index.array),1)); return G;
+}
+const MAT_ROBOT=(()=>{ let m=null; ROBOT.traverse(o=>{ if(o.isMesh&&!m) m=o.material; }); return m; })();
+MAT_ROBOT.envMapIntensity=0.55;
+/** Sustituye las mallas indicadas (hijas directas de `nodo`) por UNA malla fusionada; devuelve esa malla. */
+function fusionaEslabon(nodo,partes,nombre){
+  const ms=nodo.children.filter(o=>o.isMesh&&(partes?partes.includes(o.name):!/^(electrodo_|eslabon_)/.test(o.name)));
+  if(!ms.length) return null;
+  const gs=ms.map(m=>{ m.updateMatrix(); return geoLocal(m.geometry,m.matrix); });
+  const G=BufferGeometryUtils.mergeGeometries(gs,false); for(const g of gs) g.dispose();
+  for(const m of ms){ nodo.remove(m); m.geometry.dispose(); }
+  const me=new THREE.Mesh(G,MAT_ROBOT); me.name=nombre; me.castShadow=true; me.receiveShadow=true; nodo.add(me); return me;
+}
+const ESLABONES=[];
+for(const n of ['L0_base','J1','J2','J3','J4','J5']) ESLABONES.push(fusionaEslabon(JN[n],null,'eslabon_'+n));
+const ELEC_SUP=fusionaEslabon(JN.J6,['tripo_part_28','tripo_part_32'],'electrodo_superior');
+const ELEC_INF=fusionaEslabon(JN.J6,['tripo_part_16','tripo_part_22'],'electrodo_inferior');
+ESLABONES.push(fusionaEslabon(JN.J6,null,'eslabon_J6'));
+/** El punto de soldadura: punto medio entre las puntas de los electrodos (el GLB no trae el nodo TCP; se fija con la pose inicial). */
+const TCP=new THREE.Object3D(); TCP.name='TCP';
+TCP.position.copy(JN.J6.worldToLocal(ROBOT.localToWorld(new THREE.Vector3(0.48,0.6125,-0.128)))); JN.J6.add(TCP);
+const GAP0=0.0177, ESP_VIS=0.006/ESC;    // separación de las puntas en la pose del modelo y espesor de la pila dibujada (unidades del modelo)
+const ABRE_EXTRA=0.012;                  // cuánto más se retrae cada electrodo al abrir del todo para desplazarse
+/** abierta=1: pinza abierta para desplazarse · 0: electrodos tocando la pila de chapas. */
+function ponPinza(abierta){
+  const cierra=(GAP0-ESP_VIS)/2, y=-cierra+abierta*(cierra+ABRE_EXTRA);
+  ELEC_SUP.position.y=y; ELEC_INF.position.y=-y;
+}
+function ponAngulos(q){ JN.J1.rotation.y=q.j1; JN.J2.rotation.z=q.j2; JN.J3.rotation.z=q.j3; JN.J5.rotation.z=q.j5; }
+
+/* ===================== 7. LA PUERTA Y EL UTILLAJE =====================
+   Dos chapas estampadas (exterior arriba, interior debajo) unidas por una brida plana de 6 cm en todo el contorno (la brida real mide 1–2 cm:
+   aquí es mayor para que se vea). El robot suelda la brida del borde más cercano. La puerta descansa sobre un utillaje de bastidor con apoyos. */
+const Y0=1.05, XE=2.25, FLW=0.06, DL=1.10, DW=0.80;   // altura de la pila · borde cercano · ancho de brida · largo (Z) y ancho (X) de la puerta
+const XW=XE+0.03;                                       // la línea de soldadura, a 3 cm del borde
+const ZMIN=-0.50, ZMAX=0.50;
+function alturaExt(u,v){
+  const d=Math.min(u,DL-u,v,DW-v), bl=suave((d-FLW)/0.10);
+  const dome=0.07*Math.pow(Math.max(0,Math.sin(Math.PI*u/DL)),0.7)*Math.pow(Math.max(0,Math.sin(Math.PI*v/DW)),0.7);
+  const cres=0.014*Math.exp(-Math.pow((v-0.46*DW)/0.016,2))*Math.min(1,Math.max(0,Math.sin(Math.PI*u/DL))*1.6);
+  const ex=(u-0.78*DL)/0.10, ey=(v-0.52*DW)/0.04, asa=-0.022*Math.exp(-Math.pow(ex*ex+ey*ey,1.4));
+  return bl*(dome+cres+asa);
+}
+function alturaInt(u,v){
+  const d=Math.min(u,DL-u,v,DW-v), bl=suave((d-FLW)/0.08);
+  const cav=0.045*Math.pow(Math.max(0,Math.sin(Math.PI*u/DL)),0.6)*Math.pow(Math.max(0,Math.sin(Math.PI*v/DW)),0.6);
+  const nerv=0.012*Math.pow(Math.max(0,Math.sin(Math.PI*u/DL*5)),10);
+  return bl*(cav+nerv);
+}
+function geoPanel(fn,y0,signo,su=88,sv=64){
+  const pos=new Float32Array((su+1)*(sv+1)*3), uv=new Float32Array((su+1)*(sv+1)*2), idx=[];
+  for(let j=0;j<=sv;j++) for(let i=0;i<=su;i++){
+    const u=i/su*DL, v=j/sv*DW, k=j*(su+1)+i;
+    pos[k*3]=XE+v; pos[k*3+1]=y0+signo*fn(u,v); pos[k*3+2]=-DL/2+u; uv[k*2]=u/DL; uv[k*2+1]=v/DW;
+  }
+  for(let j=0;j<sv;j++) for(let i=0;i<su;i++){ const a=j*(su+1)+i, b=a+1, c=a+su+1, d=c+1; idx.push(a,b,c, b,d,c); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('uv',new THREE.BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals();
+  // las normales deben mirar hacia arriba en el exterior y hacia abajo en el interior: si salen al revés se invierten
+  const ny=g.attributes.normal.getY(Math.floor(g.attributes.normal.count/2)); if((signo>0&&ny<0)||(signo<0&&ny>0)){ for(let t=0;t<idx.length;t+=3){ const q=idx[t+1]; idx[t+1]=idx[t+2]; idx[t+2]=q; } g.setIndex(idx); g.computeVertexNormals(); }
+  return g;
+}
+const PUERTA=new THREE.Group(); PUERTA.name='puerta'; scene.add(PUERTA);
+{
+  const ext=malla(geoPanel(alturaExt,Y0+0.003,+1),M.chapa); ext.name='chapa_exterior'; ext.userData.clave='chapa'; PUERTA.add(ext);
+  const int=malla(geoPanel(alturaInt,Y0-0.003,-1),M.chapaInt); int.name='chapa_interior'; int.userData.clave='chapa'; PUERTA.add(int);
+  const cantos=fusionaPiezas([caja(0.004,0.006,DL,XE+0.002,Y0,0),caja(0.004,0.006,DL,XE+DW-0.002,Y0,0),caja(DW,0.006,0.004,XE+DW/2,Y0,-DL/2+0.002),caja(DW,0.006,0.004,XE+DW/2,Y0,DL/2-0.002)]);
+  const c=malla(cantos,M.canto,{sombra:false}); c.name='cantos'; c.userData.clave='chapa'; PUERTA.add(c);
+}
+const UTIL=new THREE.Group(); UTIL.name='utillaje'; scene.add(UTIL);
+{
+  const yT=0.93, piezas=[];
+  for(const [x,z] of [[XE+0.16,-0.64],[XE+0.16,0.64],[XE+DW+0.02,-0.64],[XE+DW+0.02,0.64]]) piezas.push(caja(0.07,yT,0.07,x,yT/2,z));
+  piezas.push(caja(DW-0.10,0.05,0.05,XE+DW/2+0.04,yT,-0.64),caja(DW-0.10,0.05,0.05,XE+DW/2+0.04,yT,0.64));
+  piezas.push(caja(0.05,0.05,1.33,XE+0.16,yT,0),caja(0.05,0.05,1.33,XE+DW+0.02,yT,0),caja(0.05,0.05,1.33,XE+DW/2+0.1,yT,0));
+  piezas.push(caja(DW+0.1,0.03,1.44,XE+DW/2+0.06,0.015,0));
+  UTIL.add(Object.assign(malla(fusionaPiezas(piezas),M.azul),{name:'bastidor'}));
+  const ap=[]; for(const z of [-0.45,0,0.45]) ap.push(caja(0.07,0.12,0.07,XE+0.16,yT+0.085,z),caja(0.07,0.12,0.07,XE+DW+0.02,yT+0.085,z));
+  for(const x of [XE+0.30,XE+0.50]) ap.push(caja(0.07,0.12,0.07,x,yT+0.085,-0.64),caja(0.07,0.12,0.07,x,yT+0.085,0.64));
+  UTIL.add(Object.assign(malla(fusionaPiezas(ap),M.naranja),{name:'apoyos'}));
+  const pr=[]; for(const [x,z] of [[XE+0.16,-0.40],[XE+0.16,0.40],[XE+DW+0.02,-0.40],[XE+DW+0.02,0.40]]){ pr.push(caja(0.06,0.04,0.10,x,Y0+0.045,z)); pr.push(cilindro(0.016,0.06,x,Y0+0.09,z)); }
+  UTIL.add(Object.assign(malla(fusionaPiezas(pr),M.acero),{name:'pinzas_de_sujecion'}));
+}
+for(const o of UTIL.children) o.userData.clave='utillaje';
+
+/* ===================== 8. LA NAVE: SUELO, PARED Y VALLA ===================== */
+const NAVE=new THREE.Group(); NAVE.name='nave'; scene.add(NAVE);
+{
+  const base=malla(new THREE.PlaneGeometry(120,120).rotateX(-Math.PI/2),pbr({color:'#6c737b',roughness:0.7,metalness:0,envMapIntensity:0.3}),{sombra:false}); base.position.set(1.6,-0.012,0); NAVE.add(base);
+  const sue=malla(new THREE.PlaneGeometry(12,12).rotateX(-Math.PI/2),M.suelo,{sombra:false}); sue.position.set(1.6,0,0); NAVE.add(sue);
+  const par=malla(new THREE.PlaneGeometry(40,7),M.pared,{sombra:false}); par.position.set(1.6,3.5,-4.6); TX_PARED.repeat.set(6,1); NAVE.add(par);
+  const postes=[], mallas=[];
+  for(let x=-2.4;x<=5.61;x+=1.0) postes.push(caja(0.07,2.0,0.07,x,1.0,-3.0));
+  for(const z of [-1.5,0,1.5]) { postes.push(caja(0.07,2.0,0.07,-2.4,1.0,z)); postes.push(caja(0.07,2.0,0.07,5.6,1.0,z)); }
+  postes.push(caja(8.07,0.05,0.05,1.6,2.0,-3.0),caja(8.07,0.05,0.05,1.6,0.32,-3.0),caja(0.05,0.05,6.07,-2.4,2.0,0),caja(0.05,0.05,6.07,5.6,2.0,0));
+  const vall=malla(fusionaPiezas(postes),M.amarillo); vall.name='valla_marco'; NAVE.add(vall);
+  for(let x=-2.4;x<5.6;x+=1.0){ const g=new THREE.PlaneGeometry(0.93,1.62); g.translate(x+0.5,1.15,-3.0); mallas.push(g); }
+  for(const sx of [-2.4,5.6]) for(let z=-3;z<3;z+=1.5){ const g=new THREE.PlaneGeometry(1.43,1.62); g.rotateY(Math.PI/2); g.translate(sx,1.15,z+0.75); mallas.push(g); }
+  const vm=malla(BufferGeometryUtils.mergeGeometries(mallas,false),M.malla,{sombra:false,recibe:false}); vm.name='valla_malla'; vm.renderOrder=2; NAVE.add(vm);
+}
+NAVE.traverse(o=>{ o.userData.fondo=true; });
+
+/* ===================== 9. CHISPAS, BRILLO Y MARCAS ===================== */
+const NSP=260;
+const SP={pos:new Float32Array(NSP*3),col:new Float32Array(NSP*3),vel:new Float32Array(NSP*3),vida:new Float32Array(NSP),max:new Float32Array(NSP),cal:new Float32Array(NSP),n:0};
+for(let i=0;i<NSP;i++){ SP.vida[i]=0; SP.pos[i*3+1]=-50; }
+const geoSp=new THREE.BufferGeometry(); geoSp.setAttribute('position',new THREE.BufferAttribute(SP.pos,3)); geoSp.setAttribute('color',new THREE.BufferAttribute(SP.col,3));
+const CHISPAS=new THREE.Points(geoSp,new THREE.PointsMaterial({size:0.065,map:texBrillo('#ffffff','#ffc070','rgba(255,120,20,0)'),vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true,toneMapped:false}));
+CHISPAS.frustumCulled=false; CHISPAS.name='chispas'; scene.add(CHISPAS);
+let spCur=0;
+/** Emite n chispas desde p con rapidez v y dispersión; cal 1 = incandescentes (blancas), 0 = rojizas. */
+function emiteChispas(p,n,v,disp,cal){
+  for(let k=0;k<n;k++){
+    const i=spCur; spCur=(spCur+1)%NSP;
+    const a=Math.random()*DOSPI, e=(Math.random()*0.75+0.05)*disp, s=v*(0.45+Math.random()*0.75);
+    SP.pos[i*3]=p.x; SP.pos[i*3+1]=p.y; SP.pos[i*3+2]=p.z;
+    SP.vel[i*3]=Math.cos(a)*Math.cos(e)*s; SP.vel[i*3+1]=Math.sin(e)*s+0.3; SP.vel[i*3+2]=Math.sin(a)*Math.cos(e)*s;
+    SP.max[i]=SP.vida[i]=0.35+Math.random()*0.55; SP.cal[i]=cal*(0.6+Math.random()*0.4);
+  }
+}
+function pasaChispas(dt){
+  for(let i=0;i<NSP;i++){
+    if(SP.vida[i]<=0){ SP.pos[i*3+1]=-50; SP.col[i*3]=SP.col[i*3+1]=SP.col[i*3+2]=0; continue; }
+    SP.vida[i]-=dt; SP.vel[i*3+1]-=9.8*dt; for(let c=0;c<3;c++) SP.pos[i*3+c]+=SP.vel[i*3+c]*dt;
+    if(SP.pos[i*3+1]<Y0+0.006&&SP.pos[i*3]>XE&&SP.pos[i*3]<XE+DW&&Math.abs(SP.pos[i*3+2])<DL/2){ SP.pos[i*3+1]=Y0+0.006; SP.vel[i*3+1]*=-0.3; SP.vel[i*3]*=0.6; SP.vel[i*3+2]*=0.6; }
+    else if(SP.pos[i*3+1]<0.01){ SP.pos[i*3+1]=0.01; SP.vel[i*3+1]*=-0.25; SP.vel[i*3]*=0.5; SP.vel[i*3+2]*=0.5; }
+    const f=Math.max(0,SP.vida[i]/SP.max[i]), c=SP.cal[i];
+    SP.col[i*3]=f*(1.0); SP.col[i*3+1]=f*(0.35+0.65*c*f); SP.col[i*3+2]=f*(0.08+0.8*c*f*f);
+  }
+  geoSp.attributes.position.needsUpdate=true; geoSp.attributes.color.needsUpdate=true;
+}
+const TX_HALO=texBrillo('#fff6e0','#ff9d3a','rgba(255,80,0,0)');
+const HALO=new THREE.Sprite(new THREE.SpriteMaterial({map:TX_HALO,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,toneMapped:false,opacity:0}));
+HALO.material.color.setRGB(1.5,0.95,0.55); HALO.name='brillo_punto'; HALO.visible=false; scene.add(HALO);
+const NUCLEO=new THREE.Sprite(new THREE.SpriteMaterial({map:texBrillo('#ffffff','#ffd9a0','rgba(255,160,60,0)'),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,depthTest:false,toneMapped:false,opacity:0}));
+NUCLEO.material.color.setRGB(1.6,1.3,1.0); NUCLEO.name='nucleo_punto'; NUCLEO.visible=false; NUCLEO.renderOrder=9; scene.add(NUCLEO);
+const LUZ_PUNTO=new THREE.PointLight('#ff9a4a',0,2.4,2); scene.add(LUZ_PUNTO);
+
+/* ===================== 9b. LA LUPA: CORTE AMPLIADO DEL PUNTO =====================
+   Flota sobre el punto de soldadura y muestra, ×30, la sección de las dos chapas con los electrodos de cobre, la zona calentada (azul), la pepita
+   (naranja si está fundida, acero si ya se enfrió), la raya verde del diámetro mínimo y la rendija de la salpicadura. Es geometría real (sin texto),
+   mira siempre a la cámara, y sus medidas salen del mismo estado que el dock. */
+const KL=30;
+const LUPA=new THREE.Group(); LUPA.name='lupa_corte'; scene.add(LUPA);
+const L_TS=T_CHAPA*KL, L_H=H_PEPITA*KL, L_W=0.42, L_D=0.14;
+const MAT_COBRE=pbr({color:'#d08048',metalness:0.92,roughness:0.32,envMapIntensity:1.1});
+const MAT_CORTE=pbr({color:'#aeb7c0',metalness:0.85,roughness:0.42});
+const lupaBasico=(col,op,extra)=>new THREE.MeshBasicMaterial(Object.assign({color:col,transparent:op<1,opacity:op,depthWrite:false,toneMapped:false,side:THREE.DoubleSide},extra||{}));
+function elipse(mat,z,orden){ const m=new THREE.Mesh(new THREE.CircleGeometry(1,48),mat); m.position.z=z; m.renderOrder=orden; m.frustumCulled=false; LUPA.add(m); return m; }
+const L_FONDO=new THREE.Mesh(new THREE.CircleGeometry(0.31,48),lupaBasico('#080c12',0.62)); L_FONDO.position.z=-0.17; L_FONDO.renderOrder=1; LUPA.add(L_FONDO);
+{ const g=fusionaPiezas([[new THREE.BoxGeometry(L_W,L_TS,L_D),TR(0,L_TS/2,-L_D/2)],[new THREE.BoxGeometry(L_W,L_TS,L_D),TR(0,-L_TS/2,-L_D/2)]]); const m=new THREE.Mesh(g,MAT_CORTE); m.name='lupa_chapas'; LUPA.add(m); }
+function geoElectrodo(){ const rf=D_ELEC_NUEVO/2*KL, sh=new THREE.Shape(); sh.moveTo(-rf,0); sh.lineTo(rf,0); sh.lineTo(rf+0.03,0.16); sh.lineTo(-rf-0.03,0.16); sh.closePath();
+  const g=new THREE.ExtrudeGeometry(sh,{depth:L_D,bevelEnabled:false,curveSegments:2}); g.translate(0,0,-L_D); return g; }
+const L_EUP=new THREE.Mesh(geoElectrodo(),MAT_COBRE); L_EUP.name='lupa_electrodo_superior'; LUPA.add(L_EUP);
+const L_EIN=new THREE.Mesh(geoElectrodo(),MAT_COBRE); L_EIN.name='lupa_electrodo_inferior'; L_EIN.scale.y=-1; LUPA.add(L_EIN);
+const L_HAZ=elipse(lupaBasico('#7c8cff',0.34),0.0010,2), L_PEP=elipse(lupaBasico('#ffb060',1),0.0022,3), L_MIN=(()=>{ const m=new THREE.Mesh(new THREE.RingGeometry(0.955,1,64),lupaBasico('#3DDC97',0.95)); m.position.z=0.0034; m.renderOrder=4; m.frustumCulled=false; LUPA.add(m); return m; })();
+const L_SAL=new THREE.Mesh(new THREE.BoxGeometry(1,1,0.01),lupaBasico('#ff8a2a',1)); L_SAL.position.z=0.003; L_SAL.renderOrder=4; L_SAL.visible=false; LUPA.add(L_SAL);
+const L_MARCO=new THREE.Mesh(new THREE.TorusGeometry(0.31,0.007,10,64),pbr({color:'#cfd6dd',metalness:0.9,roughness:0.3})); L_MARCO.position.z=-0.005; L_MARCO.name='lupa_marco'; LUPA.add(L_MARCO);
+const L_GUIA=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(0,0,0),V3(0,1,0)]),new THREE.LineBasicMaterial({color:'#ffd2a6',transparent:true,opacity:0.7,toneMapped:false})); L_GUIA.frustumCulled=false; scene.add(L_GUIA);
+LUPA.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.receiveShadow=false; } });
+L_MIN.scale.set(D_MIN_MM*1e-3/2*KL,L_H/2,1);
+/** Marcas de los puntos ya soldados: una sola malla instanciada. */
+const MAXM=96;
+const MARCAS=new THREE.InstancedMesh(new THREE.CircleGeometry(1,28).rotateX(-Math.PI/2),M.marca,MAXM); MARCAS.count=0; MARCAS.name='puntos_soldados'; MARCAS.frustumCulled=false; MARCAS.castShadow=false; MARCAS.receiveShadow=true; scene.add(MARCAS);
+MARCAS.setColorAt(0,new THREE.Color(1,1,1));
+const REG=[];   // {z, def, d}
+const COL_DEF={buena:[0.85,0.92,1.25],pegada:[1.2,1.15,1.0],salpica:[1.5,0.75,0.45],quemada:[0.35,0.32,0.30]};
+function pintaMarcas(){
+  const m=new THREE.Matrix4(), c=new THREE.Color();
+  REG.forEach((r,i)=>{ const rad=0.012+0.0012*(r.d||0), q=new THREE.Quaternion(), s=new THREE.Vector3(rad,1,rad);
+    m.compose(new THREE.Vector3(XW,Y0+0.0036,r.z),q,s); MARCAS.setMatrixAt(i,m); const k=COL_DEF[r.def]||COL_DEF.buena; c.setRGB(k[0],k[1],k[2]); MARCAS.setColorAt(i,c); });
+  MARCAS.count=REG.length; MARCAS.instanceMatrix.needsUpdate=true; if(MARCAS.instanceColor) MARCAS.instanceColor.needsUpdate=true;
+}
+
+
+/* ===================== 9. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) alimenta la escena, el dock y las cifras: se recalcula cuando cambia un mando. El reloj SIM.tc es el tiempo del CICLO
+   de un punto (s): el robot se desplaza (1,1 s), la pinza aprieta (0,55 s), pasa la corriente, mantiene la presión (0,5 s) y abre (0,45 s).
+   El pulso de corriente dura n/60 s de verdad (12 ciclos = 0,2 s) y se MUESTRA en cámara lenta ×1/8 (rotulada en la barra de abajo): con ese
+   mismo tiempo se calculan el calor, la pepita y el brillo del punto. Modos: «Recorrido» (paso a paso), «Probar» (mandos libres) y «Reto». */
+const EST={modo:'tour',I:9.0,n:12,F:3.0,desg:false,paso:40,vel:1,pausa:REDUCIDO,autoRunning:false,vista:'todo',rot:false,bucle:true};
+const SIM={tc:0,calc:null,ver:0};
+const SLOW=8;
+const CICLO={mueve:1.1,aprieta:0.55,mant:0.5,abre:0.45};
+const tiemposCiclo=n=>{ const a=CICLO.mueve, b=a+CICLO.aprieta, c=b+n/HZ*SLOW, d=c+CICLO.mant, e=d+CICLO.abre; return {a,b,c,d,e}; };
+let CALC=null;
+const W={activo:false,zPrev:null,zAct:null,registrado:false,rafaga:false,tFria:99,nCiclos:0,calFin:0};
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  return {I:EST.I*1000,n:EST.n,F:EST.F*1000,desg:EST.desg,paso:EST.paso};
+}
+function calcula(p){
+  const R=resultado(p), S=R.S;
+  return {p,S,R,tiempos:tiemposCiclo(p.n),curva:curvaD(p,32,160)};
+}
+function reiniciaCalculo(){
+  CALC=calcula(paramsActuales()); SIM.calc=CALC; SIM.ver++;
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+/** Siguiente punto de la brida: a un paso del anterior (la separación es un mando); al llegar al final de la brida entra una puerta nueva. */
+function iniciaCiclo(){
+  const paso=CALC.p.paso/1000; let z;
+  if(W.zAct===null) z=ZMIN;
+  else { z=W.zAct+paso; if(z>ZMAX+1e-9){ REG.length=0; pintaMarcas(); z=ZMIN; W.zAct=null; } }
+  W.zPrev=W.zAct; W.zAct=z; W.activo=true; W.registrado=false; W.rafaga=false; W.nCiclos++; SIM.tc=0; W.tFria=99;
+}
+/** Deja la celda en un estado dado (para el recorrido y las pruebas): `k` puntos ya hechos y el robot sobre el siguiente, en el instante tc del ciclo. */
+function fijaCelda(k,tc){
+  REG.length=0; const paso=CALC.p.paso/1000;
+  for(let i=0;i<k;i++) REG.push({z:ZMIN+i*paso,def:'buena',d:4.6});
+  pintaMarcas();
+  W.zAct=ZMIN+k*paso; W.zPrev=k>0?ZMIN+(k-1)*paso:null; W.activo=true; W.registrado=false; W.rafaga=false; SIM.tc=tc; W.tFria=99;
+  if(W.zAct>ZMAX) { W.zAct=ZMAX; }
+}
+const lerp=(a,b,t)=>a+(b-a)*t;
+/** Dónde está el punto de la pinza y cuánto abierta, en el instante tc del ciclo. */
+function posTCP(tc,T){
+  if(W.zAct===null) return {x:XW-0.30,y:Y0,z:ZMIN,abierta:1,fase:'reposo',s:0};
+  const z1=W.zAct;
+  if(!W.activo) return {x:XW,y:Y0,z:z1,abierta:1,fase:'reposo',s:0};
+  if(tc<T.a){ const s=ease(Math.min(1,tc/T.a)), z0=W.zPrev===null?z1:W.zPrev, x0=W.zPrev===null?XW-0.30:XW;
+    return {x:lerp(x0,XW,s),y:Y0+(W.zPrev===null?0.02:0.05)*Math.sin(Math.PI*s),z:lerp(z0,z1,s),abierta:1,fase:'mueve',s}; }
+  if(tc<T.b){ const s=(tc-T.a)/(T.b-T.a); return {x:XW,y:Y0,z:z1,abierta:1-ease(s),fase:'aprieta',s}; }
+  if(tc<T.c) return {x:XW,y:Y0,z:z1,abierta:0,fase:'suelda',s:(tc-T.b)/(T.c-T.b)};
+  if(tc<T.d) return {x:XW,y:Y0,z:z1,abierta:0,fase:'mantiene',s:(tc-T.c)/(T.d-T.c)};
+  const s=Math.min(1,(tc-T.d)/(T.e-T.d)); return {x:XW,y:Y0,z:z1,abierta:ease(s),fase:'abre',s};
+}
+/** La fracción del pulso ya transcurrida (0…1): sólo cuando se está soldando; en reposo se muestra el resultado (1). */
+function avancePulso(){
+  const T=CALC.tiempos, tc=SIM.tc;
+  if(!W.activo) return {u:1,vivo:false};
+  if(tc<T.b) return {u:0,vivo:true};
+  if(tc>=T.c) return {u:1,vivo:true};
+  return {u:(tc-T.b)/(T.c-T.b),vivo:true};
+}
+
+/* ===================== 10. LO QUE SE VE ===================== */
+const _p=new THREE.Vector3(), _q=new THREE.Vector3();
+let angPrev=null;
+const ocultoReto=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&!(GUIA.r2&&GUIA.r2.validado)&&!(W.activo&&W.zAct!==null&&SIM.tc>=CALC.tiempos.b);
+function pasaCiclo(dtSim){
+  if(!W.activo) return;
+  const T=CALC.tiempos; SIM.tc+=dtSim;
+  if(!W.registrado&&SIM.tc>=T.c){
+    W.registrado=true; REG.push({z:W.zAct,def:CALC.R.def,d:CALC.R.dmm}); if(REG.length>MAXM-1) REG.shift(); pintaMarcas();
+    W.tFria=0; W.calFin=Math.min(1,(CALC.S.hay?DT_FUS:0)/DT_FUS); if(typeof alTerminarSuelda==='function') alTerminarSuelda();
+  }
+  if(SIM.tc>=T.e){ if(quiereBucle()) iniciaCiclo(); else { W.activo=false; SIM.tc=T.e; } }
+}
+
+const _c1=new THREE.Color(), _c2=new THREE.Color();
+/** Pone la lupa sobre el punto de soldadura y la ajusta al estado del cálculo (el mismo que el dock). */
+function actualizaLupa(C,e,A,p){
+  LUPA.position.set(p.x+0.04,p.y+0.70,p.z);
+  LUPA.rotation.y=Math.atan2(camera.position.x-LUPA.position.x,camera.position.z-LUPA.position.z);
+  const g=L_GUIA.geometry.attributes.position; g.setXYZ(0,p.x,p.y+0.02,p.z); g.setXYZ(1,LUPA.position.x,LUPA.position.y-0.31,LUPA.position.z); g.needsUpdate=true;
+  const oc=ocultoReto(), d=oc?0:e.d, rx=Math.max(1e-4,d/2*KL), ry=L_H/2, ind=oc?0:Math.max(e.ind,SIM.A&&SIM.A.u>=1?C.R.ind:0), dep=Math.min(0.55,ind)*L_TS*0.9;
+  const esc=C.S.dE/D_ELEC_NUEVO; L_EUP.scale.x=esc; L_EIN.scale.x=esc; L_EUP.position.y=L_TS-dep; L_EIN.position.y=-L_TS+dep;
+  L_PEP.visible=d>1e-4; L_HAZ.visible=d>1e-4; L_PEP.scale.set(rx,ry,1); L_HAZ.scale.set(rx*1.45+0.012,ry*1.9+0.008,1);
+  const fundida=!oc&&SIM.A&&SIM.A.vivo&&SIM.A.u<1&&e.T>=T_FUS*0.98, fria=oc?0:Math.min(1,W.tFria/2.2);
+  if(fundida) L_PEP.material.color.setRGB(1.7,0.95,0.38); else { _c1.setRGB(1.5,0.85,0.35); _c2.setRGB(0.78,0.82,0.87); L_PEP.material.color.copy(W.tFria<5?_c1.lerp(_c2,fria):_c2); }
+  const ex=!oc&&e.exp; L_SAL.visible=ex; if(ex){ L_SAL.scale.set(0.16,0.012,1); L_SAL.position.set(rx+0.08+0.0,0.0,0.003); }
+  L_MIN.visible=!oc;
+  LUPA.visible=true; L_GUIA.visible=true;
+}
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;
+  const C=CALC; if(!C) return;
+  pasaCiclo(dtSim);
+  const T=C.tiempos;
+  if(SIM.tc>T.e) SIM.tc=T.e;
+  const P=posTCP(SIM.tc,T), q=ikPunto(P.x,P.y,P.z,ESC);
+  if(q){ ponAngulos(q); angPrev=q; } else if(angPrev) ponAngulos(angPrev);
+  ponPinza(P.abierta);
+  ROBOT.updateMatrixWorld(true); TCP.getWorldPosition(_p);
+  // el pulso: el calor, el brillo del punto y las chispas salen del mismo estado que el dock
+  const A=avancePulso(), e=estadoEn(C.S,A.u*C.S.tw), pulso=P.fase==='suelda';
+  let brillo=0, nucleo=0;
+  if(pulso){ brillo=clamp((e.T-T_AMB)/DT_FUS,0,1); nucleo=e.V>0?clamp(0.45+e.V/(C.S.Vz*0.7),0,1):0; }
+  else if(W.tFria<5){ W.tFria+=dtS; brillo=Math.exp(-W.tFria/0.55)*(C.S.hay?0.55:0.18); }
+  const flash=pulso?0.85+0.15*Math.sin(SIM.tc*55):1;
+  HALO.visible=brillo>0.02; HALO.position.set(_p.x,_p.y+0.004,_p.z); HALO.scale.setScalar(0.05+0.10*brillo); HALO.material.opacity=clamp(brillo*0.8,0,1)*flash;
+  NUCLEO.visible=nucleo>0.02; NUCLEO.position.copy(HALO.position); NUCLEO.scale.setScalar(0.025+0.035*nucleo); NUCLEO.material.opacity=nucleo*flash;
+  LUZ_PUNTO.position.set(_p.x,_p.y+0.12,_p.z); LUZ_PUNTO.intensity=(brillo*1.1+nucleo*0.9)*flash;
+  if(pulso&&dtS>0){
+    const pot=clamp(C.S.P/12000,0.2,1.6);
+    if(e.T>600) emiteChispas(_p,Math.round((0.6+pot*2.2)*(dtS*60)*0.6+(Math.random()<0.5?1:0)),1.2+pot,1.1,0.55);
+    if(e.exp&&!W.rafaga){ W.rafaga=true; emiteChispas(_p,95,3.4,1.35,1); }
+    else if(e.exp&&SIM.tc<T.c) emiteChispas(_p,2,2.4,1.2,0.9);
+  }
+  pasaChispas(Math.min(dtS,0.05));
+  SIM.e=e; SIM.fase=P.fase; SIM.A=A;
+  actualizaLupa(C,e,A,_p);
+}
+
+
+/* ===================== 11. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const FRASE='Ajustas el robot que suelda las piezas de un coche para que cada punto quede fuerte, sin quemar la lámina.';
+const txtI=I=>fN(I,1)+' kA', txtN=n=>n+' ciclos · '+fN(n/HZ*1000,0)+' ms', txtF=F=>fN(F,1)+' kN';
+const PASOS_MM=[15,22,30,40,60];
+const DEF_NOM={buena:'buena',pegada:'pegada',salpica:'salpica',quemada:'quemada'};
+/** Los mandos libres (Probar): corriente, tiempo, fuerza, electrodo y separación al punto vecino. */
+function mandosHTML(p){
+  const seg=(attr,vals,act,fmt)=>vals.map(v=>`<button class="b ${act===v?'on':''}" ${attr}="${v}">${fmt?fmt(v):v}</button>`).join('');
+  return `<div class="cg"><div class="cl"><div>Corriente</div><b id="vI">${txtI(p.I)}</b></div><input type="range" id="rI" min="40" max="180" step="1" value="${Math.round(p.I*10)}" aria-label="Corriente de soldadura, en kiloamperios"><div class="marcas"><span>4 kA</span><span>18 kA</span></div></div>
+  <div class="cg"><div class="cl"><div>Tiempo</div><b id="vN">${txtN(p.n)}</b></div><input type="range" id="rN" min="2" max="30" step="1" value="${p.n}" aria-label="Tiempo de paso de la corriente, en ciclos de 60 hercios"><div class="marcas"><span>2</span><span>30 ciclos</span></div></div>
+  <div class="cg"><div class="cl"><div>Fuerza de los electrodos</div><b id="vF">${txtF(p.F)}</b></div><input type="range" id="rF" min="10" max="50" step="1" value="${Math.round(p.F*10)}" aria-label="Fuerza con que aprietan los electrodos, en kilonewtons"><div class="marcas"><span>1 kN</span><span>5 kN</span></div></div>
+  <div class="cg"><div class="cl">Electrodo</div><div class="seg" id="segDesg"><button class="b ${!p.desg?'on':''}" data-desg="0">Nuevo</button><button class="b ${p.desg?'on':''}" data-desg="1">Desgastado</button></div></div>
+  <div class="cg"><div class="cl"><div>Separación al punto vecino</div><b id="vP">${p.paso} mm</b></div><div class="seg" id="segPaso">${seg('data-paso',PASOS_MM,p.paso)}</div></div>`;
+}
+/** Los mandos del reto: sólo corriente, tiempo y fuerza (el electrodo y la separación son del escenario). */
+function mandosReto(r){
+  return `<div class="cg"><div class="cl"><div>Corriente</div><b id="vr2I">${txtI(r.I)}</b></div><input type="range" id="r2I" min="40" max="180" step="1" value="${Math.round(r.I*10)}" aria-label="Corriente de soldadura, en kiloamperios"><div class="marcas"><span>4 kA</span><span>18 kA</span></div></div>
+  <div class="cg"><div class="cl"><div>Tiempo</div><b id="vr2N">${txtN(r.n)}</b></div><input type="range" id="r2N" min="2" max="30" step="1" value="${r.n}" aria-label="Tiempo, en ciclos de 60 hercios"><div class="marcas"><span>2</span><span>30 ciclos</span></div></div>
+  <div class="cg"><div class="cl"><div>Fuerza de los electrodos</div><b id="vr2F">${txtF(r.F)}</b></div><input type="range" id="r2F" min="10" max="50" step="1" value="${Math.round(r.F*10)}" aria-label="Fuerza de los electrodos, en kilonewtons"><div class="marcas"><span>1 kN</span><span>5 kN</span></div></div>`;
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · soldadura por puntos</div><h2>${FRASE}</h2>`;
+  if(EST.modo==='probar') h+=`<p class="intro">Tres mandos deciden la <b>pepita</b>, el puntito de acero fundido que une las chapas: <b>corriente</b>, <b>tiempo</b> y <b>fuerza</b>. Cambia uno y mira el punto que sale.</p></div>`;
+  else h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar'){
+    h+=`<div class="hmandos">${mandosHTML({I:EST.I,n:EST.n,F:EST.F,desg:EST.desg,paso:EST.paso})}
+    <div class="fila"><button class="b primary sm" id="btnSoldar">▶ Soldar un punto</button><button class="b sm ${EST.bucle?'on':''}" id="btnBucle" title="Que el robot siga soldando puntos solo">Sin parar: ${EST.bucle?'sí':'no'}</button></div>
+    <div class="fila"><button class="b auto sm" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  } else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">Q = I² · R · t   ·   R = R<sub>bulto</sub> + R<sub>contacto</sub>(F)</div>
+    <div class="fl">El calor de Joule (<b>Q</b>, en J) crece con el <b>cuadrado</b> de la corriente: al doble de corriente, 4 veces más calor. La resistencia (<b>R</b>) baja cuando se aprieta más: <b>R<sub>contacto</sub> ∝ F<sup>−0,7</sup></b>. El tiempo es de ciclos de 60 Hz: 12 ciclos = 0,2 s.</div>
+    <div class="formula">E<sub>pepita</sub> = V · ρ · (c·ΔT + L)</div>
+    <div class="fl">Fundir un volumen <b>V</b> de acero cuesta calentarlo de ${fN(T_AMB,0)} a ${fN(T_FUS,0)} °C (c·ΔT) y fundirlo (L). Sólo una parte pequeña del calor llega a ser pepita: el resto se va por el cobre refrigerado y la chapa fría.</div>
+    <div class="formula">d<sub>mín</sub> = 4·√t   ·   d<sub>salpica</sub> = √(4F / (π·p))</div>
+    <div class="fl">Para chapa de <b>t = 0,8 mm</b> la pepita debe medir al menos <b>${fN(D_MIN_MM,2)} mm</b>. Si el baño fundido crece más de lo que la fuerza puede contener (<b>p</b> = presión del baño), sale despedido.</div>
+    <div class="formula">I<sub>punto</sub> = I · (1 − 1/(1 + paso / 4,5 mm))</div>
+    <div class="fl">Con puntos muy juntos, parte de la corriente se va por el vecino ya hecho (derivación) y al punto nuevo le llega menos.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>El calor es de <b>parámetros concentrados</b>: una zona bajo los electrodos y una pepita, sin simulación de elementos finitos. Las constantes son de orden de magnitud para acero dulce de 0,8 + 0,8 mm, no de un material certificado.</li>
+    <li>La corriente se toma como <b>valor eficaz constante</b> y la resistencia fija durante el pulso (en la realidad cambia al calentarse y al crecer la pepita).</li>
+    <li>La <b>cámara lenta ×1/8</b> sólo afecta a lo que se ve: el cálculo usa el tiempo real. Las marcas de los puntos y la brida están <b>ampliadas</b>.</li>
+    <li>La pepita se dibuja como un elipsoide achatado; la cifra de <b>hundimiento</b> y la <b>presión del baño</b> son correlaciones didácticas, a verificar con ensayos.</li>
+  </ul><div class="src">AWS C1.1 y RWMA (criterio d ≥ 4·√t y fuerzas típicas, a verificar valores) · ISO 14327 (ensayos de soldadura por resistencia, a verificar).</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  const enReto=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&GUIA.r2;
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  const rI=el('rI'); if(rI) rI.oninput=()=>{ if(EST.autoRunning) return; EST.I=+rI.value/10; el('vI').textContent=txtI(EST.I); re(); };
+  const rN=el('rN'); if(rN) rN.oninput=()=>{ if(EST.autoRunning) return; EST.n=+rN.value; el('vN').textContent=txtN(EST.n); re(); };
+  const rF=el('rF'); if(rF) rF.oninput=()=>{ if(EST.autoRunning) return; EST.F=+rF.value/10; el('vF').textContent=txtF(EST.F); re(); };
+  H.querySelectorAll('#segDesg [data-desg]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.desg=b.dataset.desg==='1'; pintaHUD(); re(); });
+  H.querySelectorAll('#segPaso [data-paso]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.paso=+b.dataset.paso; pintaHUD(); re(); });
+  if(el('btnSoldar')) el('btnSoldar').onclick=()=>{ if(EST.autoRunning) return; sonido.init(); soldarUno(); };
+  if(el('btnBucle')) el('btnBucle').onclick=()=>{ EST.bucle=!EST.bucle; pintaHUD(); };
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+function soldarUno(){ reiniciaCalculo(); iniciaCiclo(); SIM.tc=0; }
+
+/* ===================== 12. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LFU=lienzo('gFu'), LSO=lienzo('gTr'), LCO=lienzo('gFr'), LVE=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#8a99ad',t?11:14,'center','500'); };
+const COL={d:'#FF9F43',min:'#3DDC97',exp:'#ff6b7a',cobre:'#c8783c',T:'#ffb36b',buena:'#3DDC97',pegada:'#6fb3ff',salpica:'#ff6b7a',quemada:'#b78cff',lim:'#ff6b7a'};
+const GRID='rgba(160,190,220,0.10)', EJE='#46607f', TXT='#93a8c2';
+const bonito=(v,c)=>{ for(const q of c) if(v<=q) return q; return c[c.length-1]; };
+const NMAX_PLOT=30;
+function ejeY(x,X0,X1,Y,vals,fmt){ x.__uy=undefined; for(const v of vals){ raya(x,X0,Y(v),X1,Y(v),GRID); if(Math.abs(Y(v)-(x.__uy===undefined?-99:x.__uy))>=11){ x.__uy=Y(v); txt(x,fmt?fmt(v):String(v),X0-4,Y(v)+3,TXT,8.5,'right','500'); } } }
+function ejeCiclos(x,X,Hd){ for(let n=0;n<=NMAX_PLOT;n+=10){ raya(x,X(n),Hd-14,X(n),Hd-11,EJE); txt(x,String(n),X(n),Hd-3,TXT,8.5,'center','500'); } }
+
+/** El instante que se muestra: durante el pulso, el del reloj; en reposo, el final del pulso (lo que dejó el punto). */
+function tMostrado(){ const A=SIM.A||{u:1}; return A.u*(CALC?CALC.S.tw:0); }
+/* ---- cómo crece la pepita: d(t) con el mínimo de calidad y el límite de salpicadura ---- */
+function pintaCrecimiento(){
+  const x=abre(LFU), Wd=LFU.w, Hd=LFU.h, C=CALC; if(!C) return;
+  const X0=26, X1=Wd-8, Y0=8, Y1=Hd-17, X=n=>X0+n/NMAX_PLOT*(X1-X0), top=8, Y=v=>Y1-v/top*(Y1-Y0), S=C.S, oc=ocultoReto();
+  ejeY(x,X0,X1,Y,[0,2,4,6,8],v=>fN(v,0)); ejeCiclos(x,X,Hd);
+  // el tramo con corriente y el resto (sólo se enfría)
+  x.fillStyle='rgba(255,159,67,0.07)'; x.fillRect(X(0),Y0,X(C.p.n)-X(0),Y1-Y0);
+  raya(x,X0,Y(D_MIN_MM),X1,Y(D_MIN_MM),COL.min,1.3,[4,3]); txt(x,'mínimo '+fN(D_MIN_MM,1),X1-2,Y(D_MIN_MM)-3,COL.min,8.5,'right','600');
+  const dx=S.dexp*1e3; if(dx<top){ raya(x,X0,Y(dx),X1,Y(dx),COL.exp,1.3,[2,3]); txt(x,'la fuerza contiene hasta '+fN(dx,1),X1-2,Y(dx)+10,'#ffb3bd',8.5,'right','600'); }
+  if(oc){ sinDatos(x,Wd,Hd,'se mide al soldar'); txt(x,'mm',X0+3,Y0+8,TXT,8.5,'left','600'); return; }
+  const tcur=tMostrado()*HZ, cur=SIM.A&&SIM.A.vivo?tcur:C.p.n;
+  x.beginPath(); let ini=true;
+  for(const q of C.curva){ const nn=q.t*HZ; if(nn>cur+1e-9) break; const px=X(nn), py=Y(Math.min(top,q.d)); ini?x.moveTo(px,py):x.lineTo(px,py); ini=false; }
+  x.strokeStyle=COL.d; x.lineWidth=1.9; x.stroke();
+  if(S.texp<=S.tw&&cur>=S.texp*HZ){ const px=X(S.texp*HZ), py=Y(S.dexp*1e3*0.995); x.fillStyle=COL.exp; x.beginPath(); x.arc(px,py,3.6,0,DOSPI); x.fill(); }
+  if(SIM.A&&SIM.A.vivo){ const px=X(Math.min(NMAX_PLOT,cur)); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+  txt(x,'mm',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'ciclos',X1-2,Y1-3,TXT,8.5,'right','600');
+  el('t_fu').textContent=S.hay?'se funde a los '+fN(S.tm*HZ,1)+' ciclos':'nunca llega a fundir';
+}
+/* ---- el corte de las dos chapas: electrodos, pepita, zona calentada, hundimiento y salpicadura ---- */
+function pintaCorte(){
+  const x=abre(LSO), Wd=LSO.w, Hd=LSO.h, C=CALC; if(!C) return;
+  const e=SIM.e, S=C.S, oc=ocultoReto(), vivo=SIM.A&&SIM.A.vivo&&SIM.A.u<1;
+  const k=(Wd-10)/11, ky=Math.min(k*2.1,(Hd-30)/6.2), cx=Wd/2, cy=Hd*0.50, tS=T_CHAPA*1e3*ky, mid=cy;
+  const yTop=cy-tS, yBot=cy+tS, dE=S.dE*1e3, rE=dE/2*k, ind=oc?0:(Math.max(e.ind,C.R.ind)), dep=Math.min(0.55,ind)*T_CHAPA*1e3*ky*0.9;
+  // chapas
+  const sheet=(y0,y1,col)=>{ x.fillStyle=col; x.beginPath(); x.rect(4,y0,Wd-8,y1-y0); x.fill(); };
+  sheet(yTop,mid,'#9aa6b2'); sheet(mid,yBot,'#8795a3'); raya(x,4,mid,Wd-4,mid,'rgba(20,30,40,0.55)',0.8);
+  // zona calentada alrededor de la pepita
+  const d=oc?0:e.d*1e3, rx=d/2*k, ry=H_PEPITA*1e3/2*ky;
+  if(!oc&&d>0.05){ const g=x.createRadialGradient(cx,mid,rx*0.5,cx,mid,rx*1.55+6); g.addColorStop(0,'rgba(120,140,255,0.55)'); g.addColorStop(1,'rgba(120,140,255,0)'); x.fillStyle=g; x.beginPath(); x.ellipse(cx,mid,rx*1.55+6,ry*1.9+4,0,0,DOSPI); x.fill(); }
+  // electrodos (cobre): cara de ancho dE, ensanchándose hacia afuera; se hunden `dep` en la chapa
+  const elec=(sg)=>{ const yf=sg<0?yTop+dep:yBot-dep, yo=sg<0?2:Hd-2; const w2=rE+ (Math.abs(yo-yf))*0.24;
+    const gr=x.createLinearGradient(cx-w2,0,cx+w2,0); gr.addColorStop(0,'#8e4d24'); gr.addColorStop(0.5,'#e0925a'); gr.addColorStop(1,'#8e4d24');
+    x.fillStyle=gr; x.beginPath(); x.moveTo(cx-rE,yf); x.lineTo(cx+rE,yf); x.lineTo(cx+w2,yo); x.lineTo(cx-w2,yo); x.closePath(); x.fill();
+    raya(x,cx,yf+(sg<0?6:-6),cx,yo,'rgba(30,60,90,0.45)',3); };
+  elec(-1); elec(1);
+  if(dep>0.4){ x.fillStyle='rgba(40,50,60,0.0)'; }
+  if(oc){ txt(x,'¿?',cx,mid+5,'#cfe0ee',16,'center','700'); }
+  else if(d>0.02){
+    const molten=vivo&&e.T>=T_FUS*0.98;
+    const g=x.createRadialGradient(cx,mid,0,cx,mid,Math.max(2,rx)); g.addColorStop(0,molten?'#fff3d0':'#f3f6f9'); g.addColorStop(1,molten?'#ff9a3c':'#cdd5dc');
+    x.fillStyle=g; x.beginPath(); x.ellipse(cx,mid,rx,ry,0,0,DOSPI); x.fill(); x.strokeStyle=molten?'#ffcf8a':'#58687a'; x.lineWidth=1.2; x.stroke();
+  }
+  // lo mínimo que se pide, a modo de referencia
+  const rm=D_MIN_MM/2*k; x.strokeStyle=COL.min; x.lineWidth=1.1; x.setLineDash([3,3]); x.beginPath(); x.ellipse(cx,mid,rm,ry,0,0,DOSPI); x.stroke(); x.setLineDash([]);
+  txt(x,'mínimo',cx+rm+2,mid-ry-2,COL.min,8.5,'left','600');
+  // salpicadura: se abre una rendija entre chapas y salen gotas
+  if(!oc&&e.exp){ x.fillStyle='rgba(255,140,40,0.95)'; const gx=cx+rx+4; x.fillRect(gx,mid-1.2,Wd-gx-4,2.4);
+    for(let i=0;i<6;i++){ const px=gx+6+i*(Wd-gx-14)/6, py=mid-(i%2?8:-6)-i*1.8; x.beginPath(); x.arc(px,py,1.8+((i*7)%3)*0.5,0,DOSPI); x.fill(); } }
+  // cota del diámetro
+  if(!oc&&d>0.02){ const yc=Hd-12; raya(x,cx-rx,yc,cx+rx,yc,'#ffd2a6',1); raya(x,cx-rx,yc-3,cx-rx,yc+3,'#ffd2a6',1); raya(x,cx+rx,yc-3,cx+rx,yc+3,'#ffd2a6',1); }
+  el('t_tr').textContent=oc?'':'d = '+fN(d,1)+' mm';
+}
+/* ---- la temperatura de la zona de soldadura frente al tiempo ---- */
+function pintaTemperatura(){
+  const x=abre(LCO), Wd=LCO.w, Hd=LCO.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-6, Y0=6, Y1=Hd-14, X=n=>X0+n/NMAX_PLOT*(X1-X0), top=1800, Y=v=>Y1-v/top*(Y1-Y0), S=C.S, oc=ocultoReto();
+  ejeY(x,X0,X1,Y,[0,600,1200,1800],v=>fN(v,0)); ejeCiclos(x,X,Hd);
+  raya(x,X0,Y(T_FUS),X1,Y(T_FUS),'#ff9aa8',1.2,[4,3]); txt(x,'se funde',X1-2,Y(T_FUS)-3,'#ffb3bd',8.5,'right','600');
+  if(oc){ sinDatos(x,Wd,Hd,'se mide al soldar'); return; }
+  const cur=SIM.A&&SIM.A.vivo?tMostrado()*HZ:C.p.n;
+  x.beginPath(); let ini=true; for(const q of C.curva){ const nn=q.t*HZ; if(nn>Math.min(cur,C.p.n)+1e-9) break; const px=X(nn), py=Y(q.T); ini?x.moveTo(px,py):x.lineTo(px,py); ini=false; }
+  x.strokeStyle=COL.T; x.lineWidth=1.8; x.stroke();
+  if(SIM.A&&SIM.A.vivo){ const px=X(Math.min(NMAX_PLOT,cur)); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2); }
+  txt(x,'°C',X0+3,Y0+8,TXT,8.5,'left','600');
+  el('t_fr').textContent=SIM.e?fN(SIM.e.T,0)+' °C':'';
+}
+/* ---- el mapa corriente–tiempo: qué combinaciones dan buena soldadura con la fuerza, el electrodo y la separación de ahora ---- */
+const MAPA={clave:'',celdas:null};
+const NI=28, NNc=15, I0=4, I1=18, N0=2, N1=30;
+function celdasMapa(p){
+  const clave=[p.F,p.desg,p.paso].join('|'); if(MAPA.clave===clave) return MAPA.celdas;
+  const a=[]; for(let j=0;j<NNc;j++){ const n=Math.round(N0+(N1-N0)*(j+0.5)/NNc); for(let i=0;i<NI;i++){ const I=I0+(I1-I0)*(i+0.5)/NI; a.push({i,j,def:resultado({I:I*1000,n,F:p.F,desg:p.desg,paso:p.paso}).def}); } }
+  MAPA.clave=clave; MAPA.celdas=a; return a;
+}
+const mapaVisible=()=>!(EST.modo==='reto'&&GUIA.paso==='ajusta');
+function pintaMapa(){
+  const x=abre(LVE), Wd=LVE.w, Hd=LVE.h, C=CALC; if(!C) return;
+  const X0=30, X1=Wd-8, Y0=5, Y1=Hd-14, cw=(X1-X0)/NI, ch=(Y1-Y0)/NNc, px=I=>X0+(I-I0)/(I1-I0)*(X1-X0), py=n=>Y1-(n-N0)/(N1-N0)*(Y1-Y0);
+  if(mapaVisible()){ for(const c of celdasMapa(C.p)){ x.fillStyle=COL[c.def]; x.globalAlpha=c.def==='buena'?0.95:0.32; x.fillRect(X0+c.i*cw,Y1-(c.j+1)*ch,cw+0.5,ch+0.5); } x.globalAlpha=1; }
+  else { x.fillStyle='rgba(0,0,0,0.18)'; x.fillRect(X0,Y0,X1-X0,Y1-Y0); }
+  for(const I of [5,10,15]){ raya(x,px(I),Y1,px(I),Y1+3,EJE); txt(x,String(I),px(I),Hd-3,TXT,8.5,'center','500'); }
+  for(const n of [10,20,30]){ raya(x,X0-3,py(n),X0,py(n),EJE); txt(x,String(n),X0-5,py(n)+3,TXT,8.5,'right','500'); }
+  x.strokeStyle=EJE; x.lineWidth=1; x.strokeRect(X0,Y0,X1-X0,Y1-Y0);
+  if(mapaVisible()){ x.beginPath(); x.arc(px(C.p.I/1000),py(C.p.n),4.2,0,DOSPI); x.fillStyle='#fff'; x.fill(); x.strokeStyle='#0a0e14'; x.lineWidth=1.2; x.stroke(); }
+  else { for(const h of (GUIA.r2?GUIA.r2.hist:[])){ x.beginPath(); x.arc(px(h.I),py(h.n),4,0,DOSPI); x.fillStyle=COL[h.def]; x.fill(); x.strokeStyle='#0a0e14'; x.lineWidth=1; x.stroke(); } }
+  txt(x,'ciclos',X0+3,Y0+8,TXT,8.5,'left','600'); txt(x,'kA',X1-2,Y1-3,TXT,8.5,'right','600');
+  el('t_sp').textContent=mapaVisible()?'a '+fN(C.p.F/1000,1)+' kN · '+(C.p.desg?'electrodo gastado':'electrodo nuevo'):'tus intentos';
+}
+function pintaLeyenda(){
+  el('leyFu').innerHTML=`<span class="lg"><i style="--c:${COL.d}"></i>diámetro de la pepita</span><span class="lg"><i class="dash" style="--c:${COL.min}"></i>mínimo</span><span class="lg"><i class="dash" style="--c:${COL.exp}"></i>límite antes de salpicar</span>`;
+}
+function pintaDockFijo(){
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?'Mandos libres':(enCalcula()?'Un solo cálculo':(enDiagnostico()?'Averigua la falla':'Ajusta y suelda')));
+  pintaLeyenda();
+}
+const _cl=(id,c)=>{ if(el(id).className!==c) el(id).className=c; };
+function pintaDock(){
+  const C=CALC, e=SIM.e; if(!C||!e) return; const set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,d)=>fN(v,d===undefined?1:d)+'<small> '+u+'</small>';
+  const Av=el('aviso'); let cl='',t=''; const oc=ocultoReto(), diag=enDiagnostico(), R=C.R, S=C.S;
+  const fase={reposo:'en espera',mueve:'se desplaza',aprieta:'aprieta',suelda:'pasa la corriente',mantiene:'mantiene la presión',abre:'abre la pinza'}[SIM.fase]||'';
+  el('p_sub').textContent=SIM.fase==='suelda'?'pulso: '+fN(tMostrado()*1000,0)+' ms':fase;
+  set('f_1',sm(S.Ie/1000,'kA',1)+(Math.abs(S.Ie-C.p.I)>50?'<small> de '+fN(C.p.I/1000,1)+'</small>':'')); _cl('f_1',S.Ie<C.p.I*0.93?'warn':'');
+  set('f_2',sm(S.Re.R*1e6,'µΩ',0)); _cl('f_2','');
+  set('f_3',sm(R.Q,'J',0)); _cl('f_3','');
+  if(oc){ set('f_4','¿?'); _cl('f_4','oculto'); set('f_6','¿?'); _cl('f_6','oculto'); }
+  else { const dmm=e.d*1e3; set('f_4',sm(dmm,'mm',1)); _cl('f_4',dmm>0&&dmm<D_MIN_MM&&(!SIM.A||!SIM.A.vivo||SIM.A.u>=1)?'bad':''); const ind=Math.max(e.ind,SIM.A&&SIM.A.u>=1?R.ind:0); set('f_6',sm(ind*100,'%',0)); _cl('f_6',ind>IND_MAX?'bad':''); }
+  set('f_5',sm(D_MIN_MM,'mm',2)); _cl('f_5','');
+  const fin=!(SIM.A&&SIM.A.vivo&&SIM.A.u<1);
+  if(diag||enCalcula()||oc||!fin){ cl=''; t=''; }
+  else if(R.def==='salpica'){ cl='mal'; t='El metal fundido salió despedido: salpicadura.'; }
+  else if(R.def==='quemada'){ cl='mal'; t='Demasiado tiempo: el electrodo se hunde y la chapa se quema.'; }
+  else if(R.def==='pegada'){ cl='ojo'; t=R.dmm<0.05?'No llegó a fundir: la chapa sólo quedó pegada.':'La pepita no llega al mínimo: soldadura pegada.'; }
+  else { cl='bien'; t='Pepita buena: '+fN(R.dmm,1)+' mm, sin salpicar.'; }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaCrecimiento(); pintaCorte(); pintaTemperatura(); pintaMapa(); }
+
+/* ===================== 13. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'×0,5'],[1,'×1'],[2,'×2'],[4,'×4']];
+const VISTAS_BARRA=[['todo','La celda'],['punto','El punto'],['robot','El robot'],['cenital','Desde arriba']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, e=SIM.e, est=el('tEst'); if(!C||!e) return;
+  el('tReloj').textContent=SIM.fase==='suelda'?'pulso = '+fN(tMostrado()*1000,0)+' ms':'';
+  el('tLento').textContent=SIM.fase==='suelda'?'cámara lenta ×1/'+fN(SLOW/EST.vel,EST.vel>=1?0:1):'';
+  const nom={reposo:'listo para soldar',mueve:'el robot se desplaza',aprieta:'la pinza aprieta',suelda:'pasa la corriente',mantiene:'mantiene la presión',abre:'abre la pinza'}[SIM.fase]||'';
+  const col={reposo:'#9BB8C4',mueve:'#9BB8C4',aprieta:'#FFD2A6',suelda:'#ff8a2a',mantiene:'#ffc58a',abre:'#9BB8C4'}[SIM.fase]||'#9BB8C4';
+  est.firstChild.style.background=col; if(est.lastChild.textContent!==nom) est.lastChild.textContent=nom;
+}
+
+/* ===================== 14. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const posTcp=()=>{ ROBOT.updateMatrixWorld(true); return TCP.getWorldPosition(new THREE.Vector3()); };
+const ANCLAS=[
+  ['Robot de 6 ejes',()=>V3(0.05,1.7,-0.15)],
+  ['Pinza con electrodos de cobre',()=>posTcp().add(V3(-0.2,0.18,0))],
+  ['Punto de soldadura',()=>posTcp()],
+  ['Puerta: dos chapas estampadas',()=>V3(XE+DW*0.6,Y0+0.06,0.1)],
+  ['Utillaje que sujeta la puerta',()=>V3(XE+DW,0.5,0.55)],
+  ['Valla de seguridad',()=>V3(-1.2,1.0,-3.0)],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(255,210,166,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ const pt=f(); if(!pt) return; ROT.els[i].d.textContent=t; q.copy(pt).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [col,lado] of [[izq,-1],[der,1]]){ col.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    col.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(col.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  robot:'El robot de seis ejes. La base gira hacia el punto, el hombro y el codo lo alcanzan y la muñeca inclina la pinza para que quede de frente a la chapa',
+  pinza:'La pinza: dos electrodos de cobre con agua por dentro. Aprietan las chapas y por ellos entra la corriente; el cobre conduce bien y se enfría bien',
+  chapa:'Las dos chapas de la puerta (exterior arriba, interior debajo). Se unen por la brida plana del borde, punto por punto',
+  utillaje:'El utillaje: un bastidor con apoyos y mordazas que sostienen la puerta en su sitio mientras el robot suelda',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+const OBJ_CLIC=[ROBOT,PUERTA,UTIL];
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObjects(OBJ_CLIC,true);
+  return hits.length?hits[0]:null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; if(o===ROBOT) return /electrodo/.test(h.object.name)?'pinza':'robot'; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<90) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ===================== 15. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+
+/* ===================== 16. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de siete pasos que explica, sin siglas sin definir, qué se ve: el robot y la puerta, cómo llega al punto,
+   cómo aprieta y pasa corriente, de dónde sale el calor, cómo nace la pepita, por qué salpica y tu turno. Cada paso lleva la cámara a su pieza y la
+   señala con un aro. Las cifras del texto salen del motor, no de la mano. */
+const TOUR={paso:0,auto:false,timer:null};
+const P=(I,n,F,desg,paso)=>({I:I*1000,n,F:F*1000,desg:!!desg,paso:paso||40});
+const nomJ=a=>fN(a*180/Math.PI,0)+'°';
+const fJ=x=>fN(x,x<10?1:0);
+const TOUR_PASOS=[
+  {t:'Un robot que suelda puntos',vista:'todo',foco:()=>posTcp(),par:P(9,12,3,false,40),k:3,t0:T=>T.a*0.55,
+   x:()=>'Este robot sostiene una pinza con dos <b>electrodos</b> de cobre. Aprieta las dos chapas de la puerta de un coche y deja pasar una corriente enorme: el calor funde un puntito de acero entre ellas. Eso es un <b>punto de soldadura</b>.'},
+  {t:'Cómo llega al punto',vista:'robot',foco:()=>V3(0.1,1.15,-0.15),par:P(9,12,3,false,40),k:5,t0:T=>T.a*0.45,
+   x:()=>{ const q=ikPunto(XW,Y0,W.zAct===null?ZMIN:W.zAct,ESC); return `Para llegar, la <b>base</b> gira hacia el punto (${q?nomJ(q.j1):'—'}), el <b>hombro</b> (${q?nomJ(q.j2):'—'}) y el <b>codo</b> (${q?nomJ(q.j3):'—'}) estiran el brazo, y la <b>muñeca</b> (${q?nomJ(q.j5):'—'}) inclina la pinza: los electrodos quedan siempre de frente a la chapa.`; }},
+  {t:'Aprieta y pasa corriente',vista:'punto',foco:()=>posTcp(),par:P(9,12,3,false,40),k:5,t0:T=>T.a+CICLO.aprieta*0.55,
+   x:()=>`Primero la pinza aprieta con <b>${fN(CALC.p.F/1000,1)} kN</b> (como ${fN(CALC.p.F/9.81,0)} kg encima). Luego pasa una corriente de <b>${fN(CALC.p.I/1000,1)} kA</b> durante <b>${CALC.p.n} ciclos</b> de la red (${fN(CALC.p.n/HZ,2)} s). Al punto le llegan ${fN(CALC.S.Ie/1000,1)} kA: algo se va por el punto vecino.`},
+  {t:'El calor sale de la resistencia',vista:'punto',foco:()=>posTcp(),par:P(9,12,3,false,40),k:5,t0:T=>T.b+(T.c-T.b)*0.55,
+   x:()=>`Como una estufa concentrada en un punto: <b>Q = I²·R·t</b>. Aquí R = ${fN(CALC.S.Re.R*1e6,0)} µΩ y salen <b>${fN(CALC.R.Q,0)} J</b>. A la pepita sólo llegan <b>${fN(CALC.R.etaPepita*100,0)} %</b>: lo demás se va por el cobre frío y la chapa.`},
+  {t:'Nace la pepita',vista:'punto',foco:()=>posTcp(),par:P(9,12,3,false,40),k:5,t0:T=>T.c+0.15,
+   x:()=>`Pasados los <b>${fN(T_FUS,0)} °C</b> el acero se funde, a los ${fN(CALC.S.tm*HZ,1)} ciclos. La pepita crece hasta <b>${fN(CALC.R.dmm,1)} mm</b>. Para aguantar, debe medir al menos <b>4·√t = ${fN(D_MIN_MM,1)} mm</b> (t = espesor de la chapa).`},
+  {t:'Si te pasas, salpica',vista:'punto',foco:()=>posTcp(),par:P(12,10,2.0,false,40),k:5,t0:T=>T.c-0.1,
+   x:()=>`Con <b>${fN(CALC.p.I/1000,0)} kA</b> y poca fuerza, el metal fundido crece más de lo que los electrodos pueden contener (hasta <b>${fN(CALC.S.dexp*1e3,1)} mm</b>) y sale despedido en chispas: <b>salpicadura</b>. Por eso la fuerza también cuenta.`},
+  {t:'Tu turno',vista:'todo',foco:null,par:P(9,12,3,false,40),k:3,t0:T=>T.a*0.3,
+   x:()=>'Tú eliges la <b>corriente</b>, el <b>tiempo</b> y la <b>fuerza</b>. Pulsa «Probar yo» y busca una pepita de al menos 3,6 mm que no salpique ni queme la chapa.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par:null; }
+function htmlTour(){
+  const Pp=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  const tx=typeof Pp.x==='function'?(CALC?Pp.x():''):Pp.x;
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${Pp.t}</h3><p class="intro tx">${tx}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const Pp=TOUR_PASOS[TOUR.paso];
+  reiniciaCalculo(); fijaCelda(Pp.k,Pp.t0(CALC.tiempos)); ponVista(Pp.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 17. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (a mano: el diámetro mínimo para una chapa o el calor de Joule de un pulso), 2 · Ajusta (corriente, tiempo y fuerza para una
+   pepita de al menos 4·√t sin salpicar ni quemar; lo que sale sólo aparece al soldar, y la ventana de corriente es INTERIOR: poca pega, mucha salpica)
+   y 3 · Diagnostica (¿por qué falla este punto?, sólo con los datos del dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+const ESC_RETO=[
+  {id:'nuevo',nombre:'Electrodos nuevos',desg:false,paso:40,txt:'electrodos nuevos y puntos separados 40 mm'},
+  {id:'gastado',nombre:'Electrodos desgastados',desg:true,paso:40,txt:'electrodos con miles de puntos hechos (cara más ancha) y separación de 40 mm'},
+  {id:'juntos',nombre:'Puntos muy juntos',desg:false,paso:22,txt:'electrodos nuevos y un punto vecino a sólo 22 mm'},
+];
+
+/* ---------- Fase 1 · Calcula: el diámetro mínimo o el calor de un pulso ---------- */
+const CASOS_1=[
+  {tipo:'dmin',t:0.6},{tipo:'dmin',t:1.0},{tipo:'dmin',t:1.2},{tipo:'dmin',t:1.5},{tipo:'dmin',t:2.0},
+  {tipo:'joule',I:8,R:150,n:10},{tipo:'joule',I:9,R:180,n:12},{tipo:'joule',I:10,R:160,n:8},{tipo:'joule',I:7,R:200,n:15},{tipo:'joule',I:11,R:140,n:6},
+];
+function resCaso1(c){ return c.tipo==='dmin'?dMinCalidad(c.t):calorJoule(c.I*1000,c.R*1e-6,c.n/HZ); }
+const claveC1=c=>c.tipo+'/'+(c.t||c.I+'/'+c.R+'/'+c.n);
+function sorteaCaso1(){ const p=GUIA.r1&&claveC1(GUIA.r1); let c; do{ c=pickOne(CASOS_1); }while(claveC1(c)===p); GUIA.r1=Object.assign({},c,{res:resCaso1(c)}); }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.res;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el resultado (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  const tol=r.tipo==='dmin'?Math.max(0.05,0.03*ok):Math.max(8,0.03*ok);
+  if(Math.abs(v-ok)<=tol){
+    RETOS.fallos1=0; sonido.bien();
+    if(r.tipo==='dmin') feedback('good','¡Correcto! ✓',`Para una chapa de ${fN(r.t,1)} mm, d<sub>mín</sub> = 4·√t = 4·√${fN(r.t,1)} = <b>${fN(ok,2)} mm</b>. Chapa más gruesa pide pepita más grande, pero no en proporción: crece con la raíz del espesor.`,true);
+    else feedback('good','¡Correcto! ✓',`Q = I²·R·t = (${fN(r.I*1000,0)} A)² · ${fN(r.R,0)} µΩ · (${r.n}/60 s) = <b>${fN(ok,0)} J</b>. Dobla la corriente y el calor se multiplica por 4; dobla el tiempo y sólo por 2.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal();
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos',r.tipo==='dmin'?'Cambia el caso. Recuerda: d<sub>mín</sub> = 4·√t, con t en milímetros.':'Cambia el caso. Recuerda: Q = I²·R·t, con I en amperios, R en ohmios y t en segundos (ciclos / 60).'); reiniciaCalculo(); pintaHUD(); }
+    else { let pista; if(r.tipo==='dmin'){ pista=Math.abs(v-4*r.t)<=Math.max(0.05,0.03*4*r.t)?'Te faltó la <b>raíz cuadrada</b>: d<sub>mín</sub> = 4·√t, no 4·t.':'La regla es d<sub>mín</sub> = 4·√t, con t en milímetros.'; }
+      else { const sinCuad=r.I*1000*r.R*1e-6*(r.n/HZ); pista=Math.abs(v-sinCuad)<=Math.max(1,0.03*sinCuad)?'Te faltó <b>elevar la corriente al cuadrado</b>: Q = I²·R·t.':(Math.abs(v-resCaso1(r)*HZ)<=Math.max(8,0.03*resCaso1(r)*HZ)?'Pasa los ciclos a segundos: <b>ciclos / 60</b>.':'Pasa los kA a A y los µΩ a Ω, y los ciclos a segundos (÷ 60).'); }
+      feedback('bad','Revisa el cálculo',pista+` (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta corriente, tiempo y fuerza ---------- */
+function nuevaPuerta(){ REG.length=0; pintaMarcas(); W.zAct=null; W.zPrev=null; W.activo=false; W.registrado=false; W.tFria=99; SIM.tc=0; }
+function prepararAjusta(){
+  let e; do{ e=pickOne(ESC_RETO); }while(GUIA.r2&&e.id===GUIA.r2.esc.id&&RETOS.resiembras>0);
+  GUIA.r2={esc:e,I:6.0,n:6,F:2.0,validado:false,pend:false,res:null,intentos:0,hist:[]};
+  nuevaPuerta(); reiniciaCalculo(); pintaHUD();
+}
+/** Rango de corriente (kA) que cumple todo con el tiempo y la fuerza elegidos: la ventana. */
+function rangoI(r){
+  let a=null,b=null;
+  for(let i=40;i<=180;i++){ const R=resultado({I:i*100,n:r.n,F:r.F*1000,desg:r.esc.desg,paso:r.esc.paso}); if(R.ok){ if(a===null) a=i/10; b=i/10; } }
+  return a===null?null:[a,b];
+}
+function validarAjusta(){
+  const r=GUIA.r2; if(!r||r.pend) return;
+  r.validado=false; r.pend=true; r.res=null; r.intentos++; RETOS.intentos++;
+  reiniciaCalculo(); iniciaCiclo(); SIM.tc=0; el('feedback').classList.remove('show'); pintaHUD();
+}
+/** La soldadura terminó (el pulso acabó): ahora se conoce y se muestra el resultado. */
+function alTerminarSuelda(){
+  const r=GUIA.r2; if(!(EST.modo==='reto'&&GUIA.paso==='ajusta'&&r&&r.pend)) return;
+  r.pend=false; r.validado=true; const R=CALC.R, S=CALC.S; r.res=R; r.hist.push({I:CALC.p.I/1000,n:CALC.p.n,def:R.def});
+  const cifras=`Salió una pepita de <b>${fN(R.dmm,1)} mm</b> (mínimo ${fN(D_MIN_MM,1)}) con un hundimiento del ${fN(R.ind*100,0)} %.`;
+  if(R.ok){
+    RETOS.fallos2=0; sonido.bien(); const rg=rangoI(r);
+    feedback('good','¡Lo conseguiste! ✓',`${cifras} ${rg?`Con ${r.n} ciclos y ${fN(r.F,1)} kN, cualquier corriente entre <b>${fN(rg[0],1)} kA</b> y <b>${fN(rg[1],1)} kA</b> habría servido: si es menor, la pepita queda pegada; si es mayor, salpica. La ventana está en el interior.`:''}`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal();
+    let msg=cifras+' ';
+    if(R.def==='salpica') msg+=`<b>Salpicó</b>: el baño fundido pasó de los ${fN(S.dexp*1e3,1)} mm que la fuerza puede contener. Baja la corriente o el tiempo, o sube la fuerza. `;
+    else if(R.def==='quemada') msg+='<b>Se quemó</b>: la corriente estuvo demasiado tiempo y el electrodo se hundió en la chapa. Acorta el tiempo. ';
+    else msg+=R.dmm<0.05?'<b>No llegó a fundir</b>: la chapa sólo quedó pegada. Hace falta más energía (más corriente o más tiempo). ':'<b>Quedó pegada</b>: la pepita no llegó al mínimo. Hace falta más energía, pero cuidado con pasarse. ';
+    if(RETOS.fallos2>=5){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cinco puntos sin lograrlo',msg+'Cambia la situación.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(puntos fallidos: ${RETOS.fallos2}/5)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'poca',I:6.0,n:10,F:3.0,desg:false,paso:40},
+  {k:'deriva',I:8.0,n:12,F:3.0,desg:false,paso:15},
+  {k:'gastado',I:9.0,n:12,F:3.0,desg:true,paso:40},
+  {k:'salpica',I:12.0,n:10,F:2.0,desg:false,paso:40},
+  {k:'quemada',I:9.0,n:26,F:3.0,desg:false,paso:40},
+];
+const NOMBRE_DX={poca:'Poca corriente: falta energía',deriva:'Puntos demasiado juntos: la corriente se va por el vecino',gastado:'Electrodo desgastado: cara demasiado ancha',salpica:'Poca fuerza o demasiada corriente: el metal sale despedido',quemada:'Demasiado tiempo: el electrodo se hunde'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k));
+  nuevaPuerta(); reiniciaCalculo(); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: compara la corriente que llega al punto con la que da el robot, el ancho de la cara del electrodo, el hundimiento y si la curva toca la línea roja del dock.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='poca') return 'La corriente es baja para esta chapa: el calor Q = I²·R·t no alcanza para fundir un volumen del tamaño pedido y la pepita queda por debajo del mínimo. Hay que subir la corriente o el tiempo.';
+  if(k==='deriva') return 'El robot da la corriente correcta, pero el punto vecino está tan cerca que parte de ella se va por él: al punto nuevo le llega bastante menos. Hay que separar los puntos o subir la corriente.';
+  if(k==='gastado') return 'La cara del electrodo se ensanchó con el uso: la misma corriente se reparte en más área, calienta menos por mm² y la pepita no llega. Se cambia o se afila el electrodo, o se sube la corriente poco a poco.';
+  if(k==='salpica') return 'La fuerza no alcanza a contener el baño fundido: cuando la pepita pasa del límite que marca la línea roja, el metal sale despedido. Se sube la fuerza o se baja la corriente.';
+  return 'La pepita sí es buena, pero la corriente estuvo demasiado tiempo: el cobre caliente se hunde en la chapa y la quema. Se acorta el tiempo: pasada la mayor parte del crecimiento, más ciclos sólo gastan energía y dañan la superficie.';
+}
+function noEs(k){
+  if(k==='poca') return 'Mira la corriente que llega al punto: aquí no es especialmente baja respecto a lo que da el robot.';
+  if(k==='deriva') return 'Compara la corriente que da el robot con la que llega al punto: aquí casi no se pierde nada.';
+  if(k==='gastado') return 'Mira la cara del electrodo en los datos: aquí no está ensanchada.';
+  if(k==='salpica') return 'Mira la gráfica de la pepita: aquí no toca la línea roja del límite de salpicadura.';
+  return 'Mira el hundimiento: aquí no pasa del 25 %.';
+}
+const QUIZ=[
+  {q:'Si duplicas la corriente de soldadura y todo lo demás queda igual, ¿cuánto calor de Joule se produce?',ok:'4 veces más: el calor crece con el cuadrado de la corriente',mal:['2 veces más','Lo mismo: sólo cuenta el tiempo','8 veces más']},
+  {q:'Aprietas más los electrodos. ¿Qué pasa con la resistencia de contacto entre las chapas?',ok:'Baja: hay más superficie en contacto y se genera menos calor en la interfaz',mal:['Sube: el metal se comprime y se calienta más','No cambia nunca','Se vuelve cero']},
+  {q:'¿Por qué dos puntos muy juntos se sueldan peor?',ok:'Parte de la corriente se va por el punto vecino y al nuevo le llega menos',mal:['Porque la chapa se pega a los electrodos','Porque el robot no llega a esa posición','Porque aumenta la fuerza de los electrodos']},
+];
+function iniciaQuiz(){ el('feedback').classList.remove('show'); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+/** ¿El robot sigue soldando solo? Sí en el recorrido, en «Probar» si el alumno lo deja y en todas las fases del reto salvo «Ajusta» (ahí sólo suelda al validar). */
+function quiereBucle(){
+  if(EST.modo==='tour') return true;
+  if(EST.modo==='probar') return EST.bucle;
+  return GUIA.paso!=='ajusta';
+}
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v': { const r=GUIA.r1;
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2',r&&r.tipo==='dmin'?'La regla de calidad es <b>d<sub>mín</sub> = 4·√t</b>, con el espesor t en milímetros.':'El calor de Joule es <b>Q = I²·R·t</b>.'); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2',r&&r.tipo==='dmin'?'Calcula la raíz cuadrada del espesor y multiplica por 4.':'Usa amperios, ohmios y segundos: 1 kA = 1000 A, 1 µΩ = 10<sup>−6</sup> Ω y 1 ciclo = 1/60 s.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break; }
+    case 'validar': validarAjusta(); break;
+    case 'dx-poca': diagnostica('poca'); break; case 'dx-deriva': diagnostica('deriva'); break; case 'dx-gastado': diagnostica('gastado'); break; case 'dx-salpica': diagnostica('salpica'); break; case 'dx-quemada': diagnostica('quemada'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function filaDato(k,v){ return `<div class="mini"><span>${k}</span><b>${v}</b></div>`; }
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1;
+      const teach=r.tipo==='dmin'
+        ?`Una pepita pequeña se rompe. El criterio de calidad pide un diámetro mínimo <b>d<sub>mín</sub> = 4·√t</b>, donde <b>t</b> es el espesor de cada chapa en milímetros.<div class="task">Para chapa de <b>${fN(r.t,1)} mm</b>, ¿cuántos mm debe medir la pepita? ${tri('d_try',RETOS.fallos1,3)}</div>`
+        :`Una soldadura de <b>${fN(r.I,0)} kA</b> con una resistencia de <b>${fN(r.R,0)} µΩ</b> dura <b>${r.n} ciclos</b> de 60 Hz. El calor es <b>Q = I²·R·t</b>.<div class="task">¿Cuántos julios se producen? ${tri('d_try',RETOS.fallos1,3)}</div>`;
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title:r.tipo==='dmin'?'¿Qué tamaño debe tener la pepita?':'¿Cuánto calor se produce?',teach,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? ${r.tipo==='dmin'?'milímetros':'julios'}" aria-label="Tu resultado"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando el escenario…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Suelda sin pegar, salpicar ni quemar',
+      teach:`Situación: <b>${r.esc.txt}</b>. Meta: una pepita de al menos <b>${fN(D_MIN_MM,1)} mm</b>, sin salpicar y con hundimiento menor del <b>25 %</b>.<div class="why"><b>Ojo:</b> el tamaño de la pepita sólo se ve al soldar. ${tri('d_try2',RETOS.fallos2,5)}</div>`,
+      acts:`${mandosReto(r)}<button class="b primary" data-act="validar" ${r.pend?'disabled':''}>${r.pend?'Soldando…':'▶ Soldar y medir'}</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k), C=CALC, S=C?C.S:null, c=GUIA.dx;
+      const datos=(C&&c)?`<div class="chips" style="margin-top:2px">${filaDato('Corriente que da el robot',fN(c.I,1)+' kA')}${filaDato('Corriente que llega al punto',fN(S.Ie/1000,1)+' kA')}${filaDato('Cara del electrodo',fN(S.dE*1e3,1)+' mm')}${filaDato('Punto vecino a',c.paso+' mm')}${filaDato('Tiempo · fuerza',c.n+' ciclos · '+fN(c.F,1)+' kN')}${filaDato('Pepita al final',fN(C.R.dmm,1)+' mm')}${filaDato('Hundimiento',fN(C.R.ind*100,0)+' %')}</div>`:'';
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla este punto',
+      teach:`Este punto no cumple. Mira los datos y las gráficas.${datos}<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, ajustaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, elige «Electrodo desgastado» y mira cuánta corriente más necesitas para la misma pepita.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en la celda en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula') return P(9,12,3,false,40);
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return {I:r.I*1000,n:r.n,F:r.F*1000,desg:r.esc.desg,paso:r.esc.paso}; }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return {I:c.I*1000,n:c.n,F:c.F*1000,desg:c.desg,paso:c.paso}; }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  reiniciaCalculo(); if(EST.modo==='reto'&&GUIA.paso==='ajusta') nuevaPuerta(); else if(!W.activo||W.zAct===null) fijaCelda(2,CICLO.mueve*0.5);
+  ponVista('todo',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta'||GUIA.r2.pend) return;
+  const r=GUIA.r2;
+  if(t.id==='r2I'){ r.I=+t.value/10; r.validado=false; el('vr2I').textContent=txtI(r.I); reiniciaCalculo(); }
+  else if(t.id==='r2N'){ r.n=+t.value; r.validado=false; el('vr2N').textContent=txtN(r.n); reiniciaCalculo(); }
+  else if(t.id==='r2F'){ r.F=+t.value/10; r.validado=false; el('vr2F').textContent=txtF(r.F); reiniciaCalculo(); } });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+
+/* ===================== 18. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en unidades) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 74 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const anclaPunto=()=>V3(XW-0.06,Y0,W.zAct===null?ZMIN:W.zAct);
+const VISTAS={
+  todo:{dir:V3(-0.10,0.26,1.0),anc:()=>V3(1.35,1.32,0),toff:V3(0,0,0),obj:()=>({w:4.1,h:2.95}),fov:34,tope:0.80},
+  punto:{dir:V3(0.45,0.38,0.80),anc:anclaPunto,toff:V3(0,0.20,0),obj:()=>({w:1.9,h:1.55}),fov:34,tope:0.72},
+  robot:{dir:V3(0.22,0.18,1.0),anc:()=>V3(0.95,1.28,-0.1),toff:V3(0,0,0),obj:()=>({w:3.0,h:2.95}),fov:34,tope:0.80},
+  cenital:{dir:V3(0.03,1,0.10),anc:()=>V3(2.2,Y0,0),toff:V3(0,0,0),obj:()=>({w:2.0,h:1.45}),fov:34,tope:0.74},
+};
+const CAM={off:V3(3,6,5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1,psi:0};
+const dirVista=v=>VISTAS[v].dir.clone();
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:dirVista(v).normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], Pa=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(Pa).add(CAM.off); controls.target.copy(Pa).add(CAM.toff);
+  } else if(CAM.previo){ const dP=Pa.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=Pa.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 19. SONIDO (sintetizado) =====================
+   El zumbido de la corriente alterna (120 Hz, el doble de la red) sólo mientras pasa corriente, un golpe sordo al apretar y un chisporroteo
+   cuando el metal sale despedido; avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=120; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zg.gain.setTargetAtTime(on&&q>0?0.012*q:0,t,0.03); },
+    golpe:()=>tono(70,0.12,0.09),
+    chisporroteo:()=>{ for(let i=0;i<5;i++) setTimeout(()=>tono(1800+Math.random()*2200,0.05,0.025,'square'),i*35); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 20. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  renderer.shadowMap.enabled=alta; LUZ.sol.castShadow=alta; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; });
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 21. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo del ciclo avanza dt·velocidad en cada cuadro, y con ESE tiempo se mueven el robot y la pinza, se calcula el calor y el tamaño
+   de la pepita, se encienden el brillo y las chispas y se dibujan las gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0, ultFase='';
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel;
+  const fasePrev=SIM.fase, expPrev=W.rafaga;
+  aplicaEscena(dtS,dtSim,dt);
+  if(SIM.fase==='aprieta'&&fasePrev==='mueve') sonido.golpe();
+  if(W.rafaga&&!expPrev) sonido.chisporroteo();
+  pasaCam(dt);
+  if(t-tSon>0.1){ tSon=t; sonido.zumbido(SIM.fase==='suelda'&&!EST.pausa?1:0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 22. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: el robot ya está soldando puntos en la puerta, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo();
+tourVa(0,0.001);
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('todo',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 25. GANCHOS DE PRUEBA ===================== */
+/** Mide el objeto en lo VISIBLE: se pinta sin nave, puerta, utillaje, chispas ni brillos sobre magenta puro y se toma la caja de los píxeles que no son magenta.
+ *  Modo por defecto: el robot (el protagonista) · modo 'celda': además la puerta y el utillaje. */
+function mideObjeto(modo){
+  const ocultos=[]; const oc=o=>{ if(o.visible){ o.visible=false; ocultos.push(o); } };
+  [NAVE,CHISPAS,HALO,NUCLEO,MARCAS,LUPA,L_GUIA].forEach(oc); if(modo!=='celda'){ oc(PUERTA); oc(UTIL); }
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, Wc=c.width, Hc=c.height, t=document.createElement('canvas'); t.width=Wc; t.height=Hc; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,Wc,Hc).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<Hc;y++) for(let x=0;x<Wc;x++){ const i=(y*Wc+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=Wc/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/Hc,fracAncho:(x1-x0)/Wc,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{tipo:GUIA.r1.tipo,t:GUIA.r1.t,I:GUIA.r1.I,R:GUIA.r1.R,n:GUIA.r1.n,ans:GUIA.r1.res}:null,
+    r2:GUIA.r2?{esc:GUIA.r2.esc.id,I:GUIA.r2.I,n:GUIA.r2.n,F:GUIA.r2.F,validado:GUIA.r2.validado,pend:GUIA.r2.pend,def:GUIA.r2.res?GUIA.r2.res.def:null,hist:GUIA.r2.hist.length}:null,
+    dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  get activo(){ return W.activo; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const R=C.R, S=C.S;
+    return {I:C.p.I,n:C.p.n,F:C.p.F,desg:C.p.desg,paso:C.p.paso,Ie:S.Ie,R:S.Re.R,Q:R.Q,dmm:R.dmm,def:R.def,ok:R.ok,exp:R.exp,ind:R.ind,dexp:S.dexp,tm:S.tm,etaPepita:R.etaPepita,fase:SIM.fase}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,tc:SIM.tc,fase:SIM.fase,puntos:REG.length,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  robot(){ const g=v=>+(v*180/Math.PI).toFixed(2); ROBOT.updateMatrixWorld(true); const t=TCP.getWorldPosition(new THREE.Vector3());
+    return {j1:g(JN.J1.rotation.y),j2:g(JN.J2.rotation.z),j3:g(JN.J3.rotation.z),j5:g(JN.J5.rotation.z),tcp:[t.x,t.y,t.z].map(v=>+v.toFixed(4)),meshes:ESLABONES.length+2}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>window.__labDebug.state(),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(); pintaBarras(); },
+  avanza:(s)=>{ let r=s; while(r>0){ const d=Math.min(r,0.05); aplicaEscena(d,d,Math.max(d,0.5)); r-=d; } },
+  salta:(tc)=>{ if(!W.activo&&W.zAct===null) fijaCelda(2,tc); SIM.tc=tc; W.activo=true; aplicaEscena(0.001,0.001,1.0); },
+  terminaCiclo:()=>{ SIM.tc=CALC.tiempos.c+0.02; W.activo=true; aplicaEscena(0.001,0.001,1.0); },
+  fijaCelda:(k,tc)=>{ fijaCelda(k,tc); aplicaEscena(0.001,0.001,1.0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(I,n,F)=>{ const r=GUIA.r2; if(r){ r.I=I; r.n=n; r.F=F; r.validado=false; reiniciaCalculo(); pintaHUD(); } },
+  escenario:(id)=>{ const r=GUIA.r2; if(r){ r.esc=ESC_RETO.find(e=>e.id===id); r.hist=[]; reiniciaCalculo(); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; nuevaPuerta(); reiniciaCalculo(); pintaHUD(); pintaDockFijo(); },
+});
+instalaDiag('soldadura-por-puntos-robotizada',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{robot:ROBOT,puerta:PUERTA,utillaje:UTIL,nave:NAVE,chispas:CHISPAS,lupa:LUPA}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-soldadura-por-puntos-robotizada.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>

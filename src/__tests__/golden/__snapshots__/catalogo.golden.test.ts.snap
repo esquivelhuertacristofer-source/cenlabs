@@ -1990,6 +1990,28 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un brazo colaborativo sigue el relieve de una pieza manteniendo una fuerza de referencia de 20 N. El contacto se modela como una masa aparente de 8 kg con rigidez y amortiguamiento ajustables frente a una superficie elástica. La solución armónica calcula fuerza, compresión y movimiento; la cinemática inversa sitúa la herramienta. El reto combina variación de fuerza, respuesta a una perturbación y cuánto cede al empujarlo. Modelo didáctico de un eje de contacto, sin certificación de seguridad ni dinámica completa de seis articulaciones.",
     "titulo": "Celda robotizada: garra, bloques y pulido",
   },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-165",
+    "modulo": "Autotrónica",
+    "orden": 165,
+    "simuladorHtml": "/labs/soldadura-por-puntos-robotizada.html",
+    "teoria": "Un robot de seis ejes lleva una pinza con dos electrodos de cobre a la brida de una puerta, aprieta dos chapas de 0,8 mm con una fuerza F y pasa una corriente I durante n ciclos de 60 Hz. El calor de Joule Q = I²·R·t (con 9 kA, 182 µΩ y 12 ciclos salen 2 383 J, de los que sólo el 6,5 % llega a la pepita) calienta la zona bajo los electrodos hasta 1 500 °C y funde un volumen de acero de unos 110 J para una pepita de 4 mm. La resistencia de contacto baja al apretar más. La pepita debe medir al menos 4·√t = 3,6 mm; la fuerza contiene el baño fundido hasta √(4F/πp) (6,2 mm a 3 kN) y, si se supera, salpica; un pulso demasiado largo hunde el electrodo; un electrodo desgastado o un punto vecino a 15 mm piden más corriente. El reto exige corriente, tiempo y fuerza dentro de una ventana interior, y después diagnosticar por síntomas. Modelo de parámetros concentrados con constantes de orden de magnitud, sin elementos finitos ni ensayo normalizado.",
+    "titulo": "Soldadura por puntos robotizada: calor, fuerza y tamaño de la pepita en una línea de carrocerías",
+  },
+  {
+    "destacada": true,
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-166",
+    "modulo": "Autotrónica",
+    "orden": 166,
+    "simuladorHtml": "/labs/robot-6-ejes-cinematica-alcance.html",
+    "teoria": "Un robot de seis ejes lleva la punta a un punto con la cinemática inversa: J1 apunta la base, J2 y J3 forman un brazo de dos eslabones que se resuelve con la ley de los cosenos (codo arriba o abajo) y J4, J5 y J6 orientan la herramienta. Con eslabones de 1,22 y 1,81 m el centro de la muñeca alcanza de 0,59 a 3,04 m. El jacobiano da el índice de manipulabilidad y las velocidades articulares q̇ = J⁻¹·v: con la muñeca recta o el brazo estirado casi pierde rango y J4, J6, J2 y J3 se disparan.",
+    "titulo": "Robot de 6 ejes: alcance, cinemática inversa y singularidades",
+  },
 ]
 `;
 
@@ -2198,6 +2220,8 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-162",
   "mecanica-163",
   "mecanica-164",
+  "mecanica-165",
+  "mecanica-166",
   "mecanica-17",
   "mecanica-18",
   "mecanica-19",

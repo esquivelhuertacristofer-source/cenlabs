@@ -1,0 +1,29 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-166",
+  titulo: "Robot de 6 ejes: alcance, cinemática inversa y singularidades",
+  subtitulo: "Autotrónica",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Mueves la punta del robot con el ratón y ves cómo cada articulación se acomoda para llegar, y dónde el robot se atora.
+Miras un robot de soldadura de seis ejes y una puerta que debe recorrer con una pasada recta; abajo, las gráficas muestran los ángulos y las velocidades de cada eje.
+Calculas el alcance a mano, ajustas la posición de la pieza, la altura de la base y la velocidad, y al final diagnosticas por qué se atora el robot.`,
+  conceptos: [
+    { icono: '∠', nombre: 'Brazo de dos eslabones', descripcion: 'J2 y J3 mueven dos barras de 1,22 y 1,81 m. La ley de los cosenos da el ángulo del codo según la distancia al punto: el centro de la muñeca llega de 0,59 a 3,04 m del hombro y puede hacerlo con el codo arriba o abajo.' },
+    { icono: '◎', nombre: 'Muñeca y herramienta', descripcion: 'J4, J5 y J6 orientan la pinza sin mover el punto. Cuando J5 queda recto, J4 y J6 se alinean y el robot pierde un grado de libertad: esos dos ejes giran muy rápido para casi nada.' },
+    { icono: '△', nombre: 'Jacobiano y singularidades', descripcion: 'El jacobiano traduce la velocidad de la punta a velocidades de los ejes. Cerca del brazo estirado o de la muñeca recta casi pierde rango, el índice de manipulabilidad cae y un ritmo normal de la punta exige velocidades que el eje no tiene.' },
+  ],
+  mision: [
+    'Calcula a mano el ángulo del codo, si el punto queda dentro del alcance y qué velocidad pide un eje.',
+    'Ajusta la distancia de la pieza, la altura de la base y la velocidad para que la pasada recta llegue, evite las zonas malas y no pase el límite de ningún eje.',
+    'Diagnostica por qué se atora el robot: muñeca alineada, brazo estirado, punto fuera de alcance o pasada demasiado rápida.',
+  ],
+  aplicaciones: [
+    { area: 'Soldadura y carrocería', ejemplo: 'Al planear una celda se coloca la pieza y la base para que todas las costuras caigan en la zona del volumen de trabajo donde el robot se mueve bien y alcanza con holgura.' },
+    { area: 'Programación de robots', ejemplo: 'Los controladores avisan de singularidades y de ejes al límite; saber de dónde vienen ayuda a cambiar la orientación de la herramienta o la trayectoria en lugar de bajar la velocidad a ciegas.' },
+  ],
+};
+
+export default briefing;

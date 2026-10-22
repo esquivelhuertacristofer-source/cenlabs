@@ -6413,6 +6413,93 @@ Construye la secuencia con movimientos, garra, herramientas, condiciones y repet
     "titulo": "Celda robotizada: garra, bloques y pulido",
     "videoUrl": "",
   },
+  "mecanica-165": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Líneas de carrocerías",
+        "ejemplo": "Cientos de puntos por puerta, soldados por robots que deben mantener cada uno dentro de su ventana de corriente.",
+      },
+      {
+        "area": "Mantenimiento de electrodos",
+        "ejemplo": "Afilar o cambiar la punta de cobre y subir la corriente por pasos a medida que se ensancha.",
+      },
+    ],
+    "bienvenida": "Ajustas el robot que suelda las piezas de un coche para que cada punto quede fuerte, sin quemar la lámina.
+El robot aprieta dos chapas de una puerta y deja pasar una corriente enorme unos instantes. El calor funde un puntito de acero entre ellas: la pepita.
+Tres mandos deciden su tamaño: la corriente, el tiempo y la fuerza. Si falta energía, la unión queda pegada; si sobra, el metal sale despedido o el electrodo se hunde.
+Calcula primero, ajusta después un punto en una situación que cambia (electrodos nuevos, gastados o puntos muy juntos) y diagnostica por qué otro punto falla.",
+    "codigo": "MEC-165",
+    "conceptos": [
+      {
+        "descripcion": "El calor crece con el cuadrado de la corriente y con el tiempo; la resistencia de contacto baja al apretar más.",
+        "icono": "🔥",
+        "nombre": "Calor de Joule",
+      },
+      {
+        "descripcion": "El acero fundido entre las chapas debe medir al menos 4 veces la raíz del espesor para que la unión aguante.",
+        "icono": "🔩",
+        "nombre": "La pepita y su mínimo",
+      },
+      {
+        "descripcion": "Poca fuerza o demasiada corriente expulsa metal; poca energía deja la unión pegada; demasiado tiempo hunde el electrodo.",
+        "icono": "⚡",
+        "nombre": "Salpicar, pegar o quemar",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula el diámetro mínimo de la pepita o el calor de un pulso.",
+      "Ajusta corriente, tiempo y fuerza para cumplir el mínimo sin salpicar ni quemar.",
+      "Diagnostica la causa de un punto defectuoso y responde el quiz de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Soldadura por puntos robotizada: calor, fuerza y tamaño de la pepita en una línea de carrocerías",
+    "videoUrl": "",
+  },
+  "mecanica-166": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Soldadura y carrocería",
+        "ejemplo": "Al planear una celda se coloca la pieza y la base para que todas las costuras caigan en la zona del volumen de trabajo donde el robot se mueve bien y alcanza con holgura.",
+      },
+      {
+        "area": "Programación de robots",
+        "ejemplo": "Los controladores avisan de singularidades y de ejes al límite; saber de dónde vienen ayuda a cambiar la orientación de la herramienta o la trayectoria en lugar de bajar la velocidad a ciegas.",
+      },
+    ],
+    "bienvenida": "Mueves la punta del robot con el ratón y ves cómo cada articulación se acomoda para llegar, y dónde el robot se atora.
+Miras un robot de soldadura de seis ejes y una puerta que debe recorrer con una pasada recta; abajo, las gráficas muestran los ángulos y las velocidades de cada eje.
+Calculas el alcance a mano, ajustas la posición de la pieza, la altura de la base y la velocidad, y al final diagnosticas por qué se atora el robot.",
+    "codigo": "MEC-166",
+    "conceptos": [
+      {
+        "descripcion": "J2 y J3 mueven dos barras de 1,22 y 1,81 m. La ley de los cosenos da el ángulo del codo según la distancia al punto: el centro de la muñeca llega de 0,59 a 3,04 m del hombro y puede hacerlo con el codo arriba o abajo.",
+        "icono": "∠",
+        "nombre": "Brazo de dos eslabones",
+      },
+      {
+        "descripcion": "J4, J5 y J6 orientan la pinza sin mover el punto. Cuando J5 queda recto, J4 y J6 se alinean y el robot pierde un grado de libertad: esos dos ejes giran muy rápido para casi nada.",
+        "icono": "◎",
+        "nombre": "Muñeca y herramienta",
+      },
+      {
+        "descripcion": "El jacobiano traduce la velocidad de la punta a velocidades de los ejes. Cerca del brazo estirado o de la muñeca recta casi pierde rango, el índice de manipulabilidad cae y un ritmo normal de la punta exige velocidades que el eje no tiene.",
+        "icono": "△",
+        "nombre": "Jacobiano y singularidades",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Calcula a mano el ángulo del codo, si el punto queda dentro del alcance y qué velocidad pide un eje.",
+      "Ajusta la distancia de la pieza, la altura de la base y la velocidad para que la pasada recta llegue, evite las zonas malas y no pase el límite de ningún eje.",
+      "Diagnostica por qué se atora el robot: muñeca alineada, brazo estirado, punto fuera de alcance o pasada demasiado rápida.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Robot de 6 ejes: alcance, cinemática inversa y singularidades",
+    "videoUrl": "",
+  },
   "mecanica-17": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -21866,6 +21953,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-162": [],
   "mecanica-163": [],
   "mecanica-164": [],
+  "mecanica-165": [],
+  "mecanica-166": [],
   "mecanica-17": [],
   "mecanica-18": [],
   "mecanica-19": [],
@@ -22265,6 +22354,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-162",
   "mecanica-163",
   "mecanica-164",
+  "mecanica-165",
+  "mecanica-166",
   "mecanica-17",
   "mecanica-18",
   "mecanica-19",

@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Robot de 6 ejes: alcance y singularidades — Laboratorio 3D</title>
+<link href="/labs/vendor/outfit/outfit.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1118;--panel:rgba(9,14,21,.90);--line:#2B3A52;--ink:#EAF4F8;
+    --dim:#9BB8C4;--accent:#FF9A3C;--accent2:#FFD0A0;--hv:#FFA94D;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --hudW:318px;--dockW:404px;
+    --cF:#FF9A3C;--cR:#4DD2FF;--cE:#3DDC97;--cG:#C8D6D2;--cI:#C79BFF;
+  }
+  @media (max-width:1699px){:root{--hudW:300px;--dockW:376px}}
+  @media (max-width:1439px){:root{--hudW:288px;--dockW:340px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#04060a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,10,12,.9),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+
+  .b{font-family:inherit;font-size:12.5px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#14202f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#1f3248}
+  .b:disabled{opacity:.42;cursor:not-allowed}
+  .b.on{background:var(--accent);color:#2a1500;border-color:var(--accent);font-weight:700}
+  .b.primary{background:var(--accent);color:#2a1500;border-color:var(--accent);font-weight:700}
+  .b.primary:hover{background:#ffd98a}
+  .b.auto{border-color:rgba(255,154,60,.6);color:var(--hv);background:rgba(255,154,60,.08);font-weight:600}
+  .b.auto:hover{background:rgba(255,154,60,.16)}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+  .b .ic{font-size:13px;margin-right:4px}
+
+  /* ---- guía (izquierda) ---- */
+  .hud{position:fixed;top:66px;left:18px;z-index:15;width:var(--hudW);max-height:calc(100vh - 80px);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:15px 16px 13px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  body:not(.m-tour) .hud{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2B3A52 transparent}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .hud h2{font-size:19px;line-height:1.18}
+  .hud .intro{font-size:12.8px;line-height:1.5;color:var(--dim)}
+  .hud .intro b{color:var(--ink);font-weight:600}
+  .modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .modebar .b{padding:7px 4px 6px;font-size:11.5px;border-radius:8px;line-height:1.15;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .modebar .b i{font-style:normal;font-size:13px;font-weight:700}
+  .fila{display:flex;gap:6px}.fila>*{flex:1}
+  .seg{display:flex;gap:3px;background:rgba(0,0,0,.22);border-radius:10px;padding:3px}
+  .seg .b{flex:1;border:0;background:transparent;padding:6px 2px;font-size:11.8px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .seg .b.on{background:var(--accent);color:#2a1500}
+  .cg .cl{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+  .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
+  .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .cg input[type=range]{width:100%;accent-color:#FF9A3C;height:18px}
+  .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
+  .marcas span.lim{color:#d8b36a}
+  .marcas.abs{position:relative;display:block;height:12px}
+  .marcas.abs span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+  .hcab,.hmandos,.hdet{display:flex;flex-direction:column;gap:8px}
+  .hcab{gap:6px}
+  .hud details{border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
+  .hud details>summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;color:var(--ink);display:flex;gap:7px;align-items:baseline}
+  .hud details>summary::-webkit-details-marker{display:none}
+  .hud details>summary:before{content:'▸';color:var(--accent2);font-size:11px;transition:transform .15s}
+  .hud details[open]>summary:before{transform:rotate(90deg)}
+  .hud details>.cuerpo{padding:2px 10px 10px;font-size:11.5px;line-height:1.5;color:#c4d0da;max-height:38vh;overflow:auto}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);font-size:11.3px;line-height:1.62;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .fl{margin:5px 0}.hud .fl b{color:var(--ink)}
+  .hud .src{font-size:10.5px;color:#7f90a8;font-style:italic;margin-top:6px}
+  .hud ul.no{padding-left:16px}.hud ul.no li{margin:3px 0}
+  /* el laboratorio guiado: tres fases */
+  .pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .pasos .ps{font-size:11px;letter-spacing:0;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+  .pasos .ps i{font-style:normal;width:16px;height:16px;border-radius:50%;background:var(--line);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .pasos .ps.on{border-color:var(--accent);color:var(--ink)} .pasos .ps.on i{background:var(--accent);color:#2a1500}
+  .pasos .ps.ok{color:var(--good);border-color:rgba(52,211,153,.4)} .pasos .ps.ok i{background:var(--good);color:#06201c}
+  .retoBox{border:1px solid rgba(255,154,60,.35);background:rgba(255,154,60,.05);border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+  .retoBox .rt{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hv);display:flex;justify-content:space-between;gap:10px}
+  .retoBox .rt span:last-child{text-transform:none;letter-spacing:.02em;font-size:10.5px;color:#c9a75a;text-align:right}
+  .retoBox h3{font-size:15px;line-height:1.25;color:var(--ink)}
+  .retoBox .rq{font-size:12.8px;line-height:1.5;color:var(--ink)}
+  .retoBox .rq b{color:#ffd88a}
+  .retoBox .why{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--accent2);padding-left:9px}
+  .retoBox .why b{color:var(--accent2)}
+  .task{font-size:12.3px;line-height:1.45;color:#ffd88a;background:rgba(255,209,102,.07);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:7px 9px}
+  .escs{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .esc{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;font-size:11.5px;line-height:1.35;padding:4px 7px;border-radius:8px;background:rgba(0,0,0,.20);border:1px solid rgba(40,56,80,.7);color:#c4d3e6}
+  .esc .rs{font-weight:700;font-size:11px}.esc .rs.ok{color:var(--good)}.esc .rs.mal{color:#ff9a9a}
+  .esc .pista{font-size:10.5px}
+  .tries{font-size:11px;color:var(--dim)}
+  .opt{display:flex;flex-direction:column;gap:6px}
+  .opt .b{text-align:left;display:flex;align-items:center;gap:6px}
+  .pista{font-size:11px;color:var(--accent2);text-decoration:underline;cursor:pointer;align-self:flex-start;background:none;border:0;font-family:inherit}
+  .calcrow{display:flex;gap:6px}
+  .calcrow input{flex:1;min-width:0;background:#0a1220;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .calcrow .b{flex:0 0 auto}
+  .clases{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+  .clases .b{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;padding:4px 8px;font-size:12px;line-height:1.2}
+  .clases .b small{font-size:9.5px;color:var(--dim);font-weight:400}
+  .clases .b.on small{color:#5a2d00}
+  .clases .b .pr{color:var(--hv);letter-spacing:.06em;font-size:10.5px}
+  .clases .b.on .pr{color:#5a2d00}
+  .mini{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);padding:3px 0;border-top:1px solid rgba(40,56,80,.7);font-variant-numeric:tabular-nums}
+  .mini b{color:var(--accent2);font-weight:600}
+
+  /* ---- dock de instrumentos (derecha) ---- */
+  .panel{position:fixed;top:66px;right:18px;bottom:14px;z-index:15;width:var(--dockW);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .dk-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dk-t #p_mode{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  .dk-t .sub{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .dk-fig{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .fg{background:rgba(0,0,0,.22);border:1px solid rgba(40,56,80,.9);border-radius:9px;padding:4px 7px;min-width:0}
+  .fg .fl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .fg b{display:block;font-size:16px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .fg b small{font-size:10.5px;color:var(--dim);font-weight:500}
+  .fg b.bad{color:#ff9a9a}.fg b.warn{color:#ffd88a}.fg b.oculto{color:#6f87a0}
+  .dk-tit{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:1px 2px -2px;display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+  .dk-tit span{letter-spacing:0;text-transform:none;font-size:11px;color:#a3bcd6;overflow:hidden;text-overflow:ellipsis}
+  .dk-tit sub{font-size:8px;text-transform:none;letter-spacing:0}
+  .dk-tit i{font-style:normal}
+  em.gr{font-style:normal;text-transform:none;letter-spacing:.02em}
+  .dk-row{display:grid;grid-template-columns:44% 1fr;gap:6px;flex:1.25 1 0;min-height:118px}
+  .dk-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+  .dk-g{position:relative;border-radius:10px;background:rgba(0,0,0,.20);border:1px solid rgba(40,56,80,.7);min-height:0}
+  .dk-col .dk-g{flex:1 1 0}
+  .dk-g.fu{flex:1.35 1 0;min-height:96px}
+  .dk-g.sp{flex:0.95 1 0;min-height:72px}
+  .dk-g canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+  .dk-ley{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10.5px;color:#b4c6da;margin:-2px 2px 0}
+  .dk-ley .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .dk-ley i{display:inline-block;width:14px;height:0;border-top:2px solid var(--c)}
+  .dk-ley i.dash{border-top:2px dashed var(--c)}
+  .dk-ley i.bl{width:11px;height:8px;border:0;border-radius:2px;background:var(--c)}
+  .dk-aviso{display:none;font-size:11.5px;line-height:1.45;border-radius:9px;padding:6px 9px}
+  .dk-aviso.on{display:block}.dk-aviso.mal{background:rgba(244,71,94,.12);color:#ffb3bd;border:1px solid rgba(244,71,94,.35)}
+  .dk-aviso.ojo{background:rgba(255,154,60,.08);color:#ffd88a;border:1px solid rgba(255,154,60,.30)}
+  .dk-aviso.bien{background:rgba(52,211,153,.08);color:#a7f3d0;border:1px solid rgba(52,211,153,.3)}
+
+  /* ---- barras: vistas (arriba) y reproducción (abajo), centradas en el hueco ---- */
+  .vbar,.tbar{position:fixed;z-index:16;display:flex;align-items:center;gap:5px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--dim);transform:translateX(-50%);left:50%;white-space:nowrap}
+  .vbar{top:62px;padding:4px 6px}
+  .vbar .sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .tbar{bottom:14px;padding:6px 10px;gap:8px}
+  .tbar select{background:#14202f;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font-size:11.5px;font-family:inherit}
+  .tbar .lento{color:var(--hv);font-size:11.5px}
+  .tbar .reloj{color:var(--ink);font-variant-numeric:tabular-nums;font-size:11.5px;min-width:76px}
+  .tbar .est{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#cfdcec;min-width:132px;font-variant-numeric:tabular-nums}
+  .tbar .est i{width:9px;height:9px;border-radius:50%;background:var(--cF);flex:none}
+  /* ---- el recorrido paso a paso y el aro que señala la pieza ---- */
+  .tour{border:1px solid rgba(255,154,60,.38);background:rgba(255,154,60,.06);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .tour .tn{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .tour .pts{display:flex;gap:5px}.tour .pts i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}.tour .pts i.on{background:var(--accent)}.tour .pts i.ok{background:var(--good)}
+  .tour h3{font-size:16px;line-height:1.2}
+  .tour .tx{font-size:13px;line-height:1.5;color:#d3e3ea}.tour .tx b{color:#fff}
+  .tour .tb{display:flex;gap:6px}.tour .tb .b{flex:1}
+  .tour .salta{align-self:flex-end;font-size:11px;color:var(--dim);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit}
+  .foco{position:fixed;z-index:14;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 3px rgba(255,154,60,.55),0 0 24px 6px rgba(255,154,60,.45);pointer-events:none;display:none;animation:pulso 1.5s ease-in-out infinite}
+  @keyframes pulso{0%,100%{transform:scale(.88);opacity:.95}50%{transform:scale(1.12);opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.foco{animation:none}}
+  .tbar .modo{font-size:10.5px;color:var(--dim)}
+  .toast{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(10,18,30,.95);border:1px solid var(--accent);padding:10px 18px;border-radius:16px;font-size:12.5px;line-height:1.5;opacity:0;transition:opacity .5s;pointer-events:none;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 80px));text-align:center}
+  .toast.show{opacity:1}
+  .feedback{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(16px);z-index:30;max-width:min(560px,calc(100vw - var(--hudW) - var(--dockW) - 70px));width:max-content;background:rgba(9,18,30,.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:13px 40px 13px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .feedback .fi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:700;font-size:13.5px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:12.5px;line-height:1.55;color:#c4d3e6}
+  .feedback .fx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px}
+  .tip3{position:fixed;z-index:30;pointer-events:none;font-family:var(--mono);font-size:11.5px;color:#e6f0f2;background:rgba(9,18,30,.92);border:1px solid rgba(255,214,130,.4);padding:4px 9px;border-radius:7px;max-width:340px;white-space:normal;line-height:1.4;display:none}
+  .rot3{position:fixed;z-index:13;pointer-events:none;font-family:var(--mono);font-size:11px;color:#e6f0f2;background:rgba(9,18,30,.84);border:1px solid rgba(255,214,130,.32);padding:3px 8px;border-radius:7px;white-space:nowrap}
+  .rot3svg{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:12;pointer-events:none;overflow:visible}
+  .chips{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .chip{font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:var(--dim)}
+  .chip b{color:var(--ink)} .chip small{font-size:10.5px;color:var(--dim)}
+  .chip.ok{border-color:rgba(52,211,153,.5)} .chip.ok b{color:var(--good)} .chip.mal{border-color:rgba(244,71,94,.5)} .chip.mal b{color:#ff9aa8}
+  .tabs{display:none}
+  @media (max-height:820px){ .hud{gap:6px;padding:12px 14px 10px}.hud h2{font-size:17px}.hud .intro{font-size:12.2px;line-height:1.42} .fg b{font-size:14.5px} .cg input[type=range]{height:15px} .dk-row{min-height:104px} }
+  @media (max-width:1439px){ .fg b{font-size:14px} .fg b small{font-size:9.5px} .fg{padding:3px 6px} .tbar .est{min-width:118px} }
+
+  /* ---- estrecho (marco de la plataforma, tableta, móvil): el 3D arriba y una hoja con pestañas ---- */
+  body.estrecho .hud,body.estrecho .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:var(--hojaH);max-height:none;display:none}
+  body.estrecho.t-hud .hud{display:flex} body.estrecho.t-panel .panel{display:flex}
+  body.estrecho .tabs{display:flex;position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 12px);z-index:17;gap:6px}
+  body.estrecho .tabs .b{flex:1;padding:7px 6px;font-size:12px}
+  body.estrecho .tbar{bottom:calc(var(--hojaH) + 52px);max-width:calc(100vw - 16px)}
+  body.estrecho .vbar{top:52px;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center}
+  body.estrecho .toast,body.estrecho .feedback{max-width:calc(100vw - 24px)}
+  body.estrecho .feedback{bottom:calc(var(--hojaH) + 12px)}
+  body.estrecho .rot3svg,body.estrecho .rot3{display:none} body.estrecho .lt{display:none}
+  body.estrecho.ancho .panel{display:none}
+  body.estrecho.ancho.t-panel .panel{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto 1fr;column-gap:10px;row-gap:5px}
+  body.estrecho.ancho.t-panel .panel>.dk-t{grid-column:1/3}
+  body.estrecho.ancho.t-panel .panel>.dk-fig{grid-column:1;grid-row:2}
+  body.estrecho.ancho.t-panel .panel>.dk-row{grid-column:1;grid-row:3/6;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.t-fu{grid-column:2;grid-row:2;align-self:start}
+  body.estrecho.ancho.t-panel .panel>.dk-g.fu{grid-column:2;grid-row:2/4;min-height:0;margin-top:18px}
+  body.estrecho.ancho.t-panel .panel>.dk-ley{display:none}
+  body.estrecho.ancho.t-panel .panel>.t-sp{grid-column:2;grid-row:4}
+  body.estrecho.ancho.t-panel .panel>.dk-g.sp{grid-column:2;grid-row:5;min-height:0}
+  body.estrecho.ancho.t-panel .panel>.dk-aviso{display:none}
+  body.estrecho .hud details>.cuerpo{max-height:24vh}
+  body.estrecho.ancho.t-hud .hud{display:grid;grid-template-columns:1fr 1.05fr;column-gap:14px;row-gap:7px;align-content:start;grid-auto-flow:row dense}
+  body.estrecho.ancho .hud>.hcab,body.estrecho.ancho .hud>.modebar,body.estrecho.ancho .hud>.hdet,body.estrecho.ancho .hud>.pasos{grid-column:1}
+  body.estrecho.ancho .hud>.hmandos,body.estrecho.ancho .hud>.retoBox{grid-column:2;grid-row:1/span 4}
+  body.estrecho .hdet{flex-direction:row}body.estrecho .hdet>details{flex:1;min-width:0}
+  body.estrecho .hdet details[open]{position:fixed;left:8px;right:8px;bottom:calc(var(--hojaH) + 54px);z-index:25;background:rgba(9,19,32,.97)}
+  body.movil .lt{display:none} body.movil .tbar .modo,body.movil .tbar .reloj{display:none}
+  body.movil .tbar{gap:6px;padding:5px 8px} body.movil .tbar .est{min-width:0}
+  body.movil .dk-ley{display:none} body.movil .fg b{font-size:13.5px} body.movil .fg .fl{font-size:9.5px}
+  body.movil .dk-g.fu{min-height:70px} body.movil .dk-g.sp{min-height:52px} body.movil .dk-row{min-height:150px}
+  body.movil .hud h2{font-size:15.5px} body.movil .hud .intro{font-size:11.8px;line-height:1.42}
+  body.estrecho .hud{overflow-y:auto}
+  body.estrecho .vbar [data-t="rot"],body.estrecho .vbar .sep.s1{display:none}
+  body.estrecho.ancho .vbar{top:60px}
+  body.movil .vbar{flex-wrap:nowrap;gap:3px;padding:3px 4px;top:54px} body.movil .vbar .sep{display:none} body.movil .vbar .b.sm{padding:5px 7px;font-size:11px}
+  body.movil .vbar .lg{display:none}
+  body.movil .tbar .lento{display:none}
+  body.movil .hud{gap:6px;padding:10px 12px 9px} body.movil .hud .eyebrow{display:none}
+  body.movil .modebar .b{padding:6px 4px 5px}
+  body.movil .hmandos{display:grid;grid-template-columns:1.3fr 1fr;gap:6px 8px}
+  body.movil .hmandos>:nth-child(1),body.movil .hmandos>:nth-child(2),body.movil .hmandos>.fila{grid-column:1/-1}
+  body.movil .seg .b{padding:5px 2px} body.movil .hud .fila .b{padding:7px 6px;font-size:12px}
+  body.movil .hud details>summary{padding:6px 10px}
+  body.movil .retoBox{padding:8px 10px;gap:6px} body.movil .retoBox h3{font-size:14px} body.movil .retoBox .rq{font-size:12px;line-height:1.42}
+  body.movil .retoBox .why{font-size:11.5px;line-height:1.42} body.movil .task{font-size:11.8px;padding:6px 8px} body.movil .calcrow input{padding:6px 9px}
+  body.movil .pasos .ps{padding:4px 3px} body.movil .opt{gap:5px} body.movil .opt .b{padding:7px 9px}
+  body.movil .toast{top:92px;width:calc(100vw - 24px);max-width:none;font-size:11px;line-height:1.35;padding:6px 10px}
+  body.movil .feedback{z-index:50} body.movil .hud.guia h2{font-size:13.5px;line-height:1.25}
+  body.movil .tabs{right:156px}
+  body.movil #fichaFab{top:auto;left:auto;right:8px;bottom:calc(var(--hojaH) + 12px);padding:7px 11px;transform:none}
+  body.movil .dk-fig{gap:4px} body.movil .fg{padding:2px 5px} body.movil .fg b{font-size:12.5px}
+  body.movil .dk-g.fu{min-height:96px;flex:1.7 1 0} body.movil .dk-row{min-height:92px;flex:1.1 1 0} body.movil .dk-g.sp{min-height:44px;flex:0.8 1 0}
+  body.movil .dk-aviso{display:none!important} body.movil .dk-tit{font-size:9px}
+  @media (prefers-reduced-motion:reduce){ .toast,.feedback{transition:none} }
+</style>
+</head>
+<body class="m-tour">
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn" title="Sonido">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · robot de 6 ejes</div>
+</div>
+<div class="tabs" id="tabs"><button class="b on" data-tab="hud">Guía</button><button class="b" data-tab="panel">Instrumentos</button></div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel">
+  <div class="dk-t"><span id="p_mode">Recorrido</span><span class="sub" id="p_sub"></span></div>
+  <div class="dk-fig">
+    <div class="fg"><div class="fl" id="l_f1">Distancia a la base</div><b id="f_1">—</b></div>
+    <div class="fg"><div class="fl" id="l_f2">Facilidad de mover</div><b id="f_2">—</b></div>
+    <div class="fg"><div class="fl" id="l_f3">Codo abierto</div><b id="f_3">—</b></div>
+    <div class="fg"><div class="fl" id="l_f4">Muñeca (J5)</div><b id="f_4">—</b></div>
+    <div class="fg"><div class="fl" id="l_f5">Giro más exigido</div><b id="f_5">—</b></div>
+    <div class="fg"><div class="fl" id="l_f6">Velocidad punta</div><b id="f_6">—</b></div>
+  </div>
+  <div class="dk-tit t-fu"><span id="t_fuT">Hasta dónde llega la punta (vista de lado)</span> <span id="t_fu"></span></div>
+  <div class="dk-g fu" id="gFu"><canvas></canvas></div>
+  <div class="dk-ley" id="leyFu"></div>
+  <div class="dk-row">
+    <div class="dk-col"><div class="dk-tit" id="t_trT">Ángulos (°) </div><div class="dk-g tr" id="gTr"><canvas></canvas></div></div>
+    <div class="dk-col"><div class="dk-tit" id="t_frT">Velocidad exigida (°/s) </div><div class="dk-g fr" id="gFr"><canvas></canvas></div></div>
+  </div>
+  <div class="dk-tit t-sp" id="t_spT">Durante la pasada <span id="t_sp"></span></div>
+  <div class="dk-g sp" id="gSp"><canvas></canvas></div>
+  <div class="dk-aviso" id="aviso"></div>
+</div>
+<div class="vbar" id="vbar"></div>
+<div class="foco" id="foco"></div>
+<div class="tbar" id="tbar"></div>
+<div class="toast" id="toast"></div>
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX" aria-label="Cerrar">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* ============================================================
+LAB — ROBOT DE 6 EJES: ALCANCE, CINEMÁTICA INVERSA Y SINGULARIDADES
+   (Autotrónica · mecanica-166)
+
+   Un robot de soldadura de seis articulaciones (el modelo 3D real, escalado a ≈ 2,8 m) lleva la pinza a un punto que tú mueves.
+   Para llegar, el robot resuelve la cinemática inversa en vivo: J1 gira la columna hacia el punto; J2 y J3 forman un brazo de DOS
+   eslabones cuyo codo se calcula con la ley de los cosenos; J4–J6 orientan la pinza. El jacobiano dice qué tan fácil es mover la punta
+   (índice de manipulabilidad) y qué velocidad articular exige: cuando el brazo se estira o la muñeca se alinea, J pierde rango y esa
+   velocidad tiende a infinito. Todo sale de un bloque puro (FISICA) que un script de Node extrae TAL CUAL y prueba.
+   ============================================================ */
+
+/* ===================== 0. UTILIDADES ===================== */
+const el=id=>document.getElementById(id);
+/* Cifras en castellano: coma decimal y espacio FINO (U+202F) entre millares. */
+const FINO='\u202F';
+function fN(x,d=0){
+  if(!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d).split('.');
+  s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,FINO);
+  return (x<0&&Number(s.join('.'))!==0?'−':'')+s.join(',');
+}
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const REDUCIDO=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+let toastT=null;
+function showToast(html,ms=3600){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+
+
+/* ===================== 1. FÍSICA (pura, sin three) =====================
+   El script de verificación extrae este bloque TAL CUAL —entre las dos marcas— y lo prueba:
+   lo que se prueba es lo que corre. */
+/* FISICA:INICIO */
+/* ---- Robot de 6 ejes: alcance, cinemática inversa y singularidades. Física pura (sin three). SI: metros y radianes (la interfaz muestra grados). ----
+   Cadena: el robot del modelo 3D (J1…J6) con sus pivotes y ejes REALES, a escala 3 (≈ 2,8 m de alto). La cinemática directa (FK) multiplica
+   rotaciones y traslaciones de la base a la punta; el jacobiano geométrico J (6×6: 3 filas de velocidad lineal, 3 de angular) sale de los
+   ejes y pivotes del mismo cálculo. La cinemática inversa (IK) se resuelve así: (1) J1 apunta el plano del brazo al punto (con el desvío
+   lateral de la muñeca), (2) J2 y J3 son un brazo de DOS ESLABONES en ese plano resuelto con la LEY DE LOS COSENOS (codo arriba o codo abajo),
+   (3) J4, J5 y J6 orientan la herramienta (descomposición exacta de la orientación pedida), y (4) unas iteraciones de Newton absorben el
+   pequeño desvío de los pivotes del modelo real. Con el jacobiano se obtienen el índice de manipulabilidad (|det J|, Yoshikawa) y las
+   velocidades articulares q̇ = J⁻¹·ξ que exige mover la punta a una velocidad dada. Un solo reloj: la pasada recta avanza con t. */
+const DOSPI=Math.PI*2, RAD=Math.PI/180;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const suave=t=>{ t=clamp(t,0,1); return t*t*(3-2*t); };
+
+/* ---- Álgebra mínima: matrices 3×3 por filas (arreglo de 9) y vectores [x,y,z] ---- */
+const I3=()=>[1,0,0, 0,1,0, 0,0,1];
+const mmul=(A,B)=>{ const C=new Array(9); for(let i=0;i<3;i++) for(let j=0;j<3;j++) C[i*3+j]=A[i*3]*B[j]+A[i*3+1]*B[3+j]+A[i*3+2]*B[6+j]; return C; };
+const mvec=(A,v)=>[A[0]*v[0]+A[1]*v[1]+A[2]*v[2], A[3]*v[0]+A[4]*v[1]+A[5]*v[2], A[6]*v[0]+A[7]*v[1]+A[8]*v[2]];
+const mT=A=>[A[0],A[3],A[6], A[1],A[4],A[7], A[2],A[5],A[8]];
+const vsum=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], vres=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], vesc=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
+const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const vcruz=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const vnorma=a=>Math.sqrt(vdot(a,a));
+const vunit=a=>{ const n=vnorma(a)||1; return [a[0]/n,a[1]/n,a[2]/n]; };
+const col=(A,j)=>[A[j],A[3+j],A[6+j]];
+const desdeCols=(c0,c1,c2)=>[c0[0],c1[0],c2[0], c0[1],c1[1],c2[1], c0[2],c1[2],c2[2]];
+/** Rotación de un ángulo θ alrededor de un eje unitario (Rodrigues). */
+function rotAx(a,th){ const c=Math.cos(th), s=Math.sin(th), t=1-c, [x,y,z]=a;
+  return [t*x*x+c, t*x*y-s*z, t*x*z+s*y,  t*x*y+s*z, t*y*y+c, t*y*z-s*x,  t*x*z-s*y, t*y*z+s*x, t*z*z+c]; }
+const Rx=th=>rotAx([1,0,0],th), Ry=th=>rotAx([0,1,0],th), Rz=th=>rotAx([0,0,1],th);
+
+/* ---- El robot: pivotes y ejes del modelo 3D (posición local de cada nodo respecto al anterior, en metros = 3 × unidades del modelo) ---- */
+const ESCALA=3;
+const OFF=[[0,0,0], [0.36,1.20,0], [-0.36,1.17,0], [1.38,-0.24,-0.48], [0.42,0,0], [0.06,-0.27,-0.06]];   // J1…J6
+const TCP_LOC=[0.45,-0.06,0];                                       // el punto medio entre los electrodos, en el marco de J6
+const A4=vunit([0.98,-0.19,0]);                                     // J4 gira a lo largo del antebrazo, inclinado ≈ 11° respecto de X
+const AX=[[0,1,0],[0,0,1],[0,0,1],A4,[0,0,1],[1,0,0]];
+const KAPPA=Math.atan2(-A4[1],A4[0]);                               // 11°: con J5 = −κ la herramienta queda alineada con J4
+/* Limites de carrera y de velocidad (didácticos, de un robot de soldadura de este tamaño; J5 se limita por θ5 = q5 + κ, la desviación de la muñeca) */
+const NOMBRES=['J1','J2','J3','J4','J5','J6'];
+const LIM_DEG=[[-170,170],[-105,45],[-40,125],[-200,200],[-120,120],[-360,360]];
+const VMAX_DEG=[75,70,75,110,110,150];                              // °/s (reducidos por la inercia de la pinza cargada: didáctico)
+const th5De=q=>q[4]+KAPPA;                                          // θ5: 0 = muñeca recta (J4 y J6 alineados)
+
+/* ---- Cinemática directa y jacobiano ---- */
+function fk(q){
+  let R=I3(), p=[0,0,0]; const P=[], Ax=[];
+  for(let i=0;i<6;i++){ p=vsum(p,mvec(R,OFF[i])); P.push(p); R=mmul(R,rotAx(AX[i],q[i])); Ax.push(mvec(R,AX[i])); }
+  const tcp=vsum(p,mvec(R,TCP_LOC));
+  return {P,Ax,R,tcp};
+}
+/** Jacobiano geométrico 6×6 (filas 0–2: velocidad lineal de la punta; 3–5: velocidad angular de la herramienta), por filas. */
+function jacobiano(f){
+  const J=[[],[],[],[],[],[]];
+  for(let i=0;i<6;i++){ const z=f.Ax[i], v=vcruz(z,vres(f.tcp,f.P[i]));
+    for(let r=0;r<3;r++){ J[r][i]=v[r]; J[3+r][i]=z[r]; } }
+  return J;
+}
+/** Resuelve A·x = b (A n×n) con pivote parcial; devuelve null si es singular a la precisión de la máquina. */
+function resuelve(A0,b0){
+  const n=b0.length, A=A0.map(r=>r.slice()), b=b0.slice();
+  for(let c=0;c<n;c++){ let m=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[m][c])) m=r;
+    if(Math.abs(A[m][c])<1e-14) return null; if(m!==c){ [A[m],A[c]]=[A[c],A[m]]; [b[m],b[c]]=[b[c],b[m]]; }
+    for(let r=c+1;r<n;r++){ const k=A[r][c]/A[c][c]; if(k===0) continue; for(let j=c;j<n;j++) A[r][j]-=k*A[c][j]; b[r]-=k*b[c]; } }
+  const x=new Array(n); for(let r=n-1;r>=0;r--){ let s=b[r]; for(let j=r+1;j<n;j++) s-=A[r][j]*x[j]; x[r]=s/A[r][r]; }
+  return x;
+}
+function det(A0){
+  const n=A0.length, A=A0.map(r=>r.slice()); let d=1;
+  for(let c=0;c<n;c++){ let m=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[m][c])) m=r;
+    if(Math.abs(A[m][c])<1e-300) return 0; if(m!==c){ [A[m],A[c]]=[A[c],A[m]]; d=-d; }
+    d*=A[c][c]; for(let r=c+1;r<n;r++){ const k=A[r][c]/A[c][c]; for(let j=c;j<n;j++) A[r][j]-=k*A[c][j]; } }
+  return d;
+}
+
+/* ---- El brazo de dos eslabones (J2, J3) y la ley de los cosenos ---- */
+const SOMBRO=[OFF[1][0],OFF[1][1]];                                  // J2 en el plano del brazo (u radial, v vertical) respecto del eje de J1
+const L2=Math.hypot(OFF[2][0],OFF[2][1]), A2=Math.atan2(OFF[2][1],OFF[2][0]);                   // eslabón 2: hombro → codo
+const WL=vsum(OFF[3],vesc(A4,vdot(A4,OFF[4])));                      // el «centro de la muñeca»: el punto del eje de J4 más cercano a J5
+const L3=Math.hypot(WL[0],WL[1]), A3=Math.atan2(WL[1],WL[0]), E_LAT=WL[2];                      // eslabón 3: codo → muñeca, y su desvío lateral (−0,48 m)
+const D_MAX=L2+L3, D_MIN=Math.abs(L3-L2);                           // alcance máximo y mínimo del centro de la muñeca desde el hombro
+/** Ángulo entre los dos eslabones por la ley de los cosenos: d² = L2² + L3² + 2·L2·L3·cos φ (φ = 0 con el brazo estirado). */
+const anguloCodo=d=>Math.acos(clamp((d*d-L2*L2-L3*L3)/(2*L2*L3),-1,1));
+/** Distancia hombro–muñeca que da un ángulo de codo φ (la inversa de la anterior). */
+const distanciaCodo=phi=>Math.sqrt(L2*L2+L3*L3+2*L2*L3*Math.cos(phi));
+/**
+ * J1, J2 y J3 para llevar el centro de la muñeca W (en el marco de la base) a su sitio. rama: 'arriba' (el codo por encima de la recta hombro–muñeca) o 'abajo'.
+ * Devuelve ok=false si W cae fuera del anillo de alcance (entonces ajusta al borde más cercano, para dibujar al robot «estirándose»).
+ */
+function brazoIK(W,rama){
+  const rho=Math.hypot(W[0],W[2]), uu2=rho*rho-E_LAT*E_LAT;
+  let ok=true; const u=uu2>0?Math.sqrt(uu2):0; if(uu2<0) ok=false;                    // dentro del cilindro de radio |e|: el brazo no llega
+  const q1=Math.atan2(-W[2],W[0])+Math.atan2(E_LAT,u);
+  const dx=u-SOMBRO[0], dy=W[1]-SOMBRO[1], dRaw=Math.hypot(dx,dy);
+  const d=clamp(dRaw,D_MIN+1e-9,D_MAX-1e-9); if(dRaw>D_MAX||dRaw<D_MIN) ok=false;
+  const cphi=(d*d-L2*L2-L3*L3)/(2*L2*L3), phi=Math.acos(clamp(cphi,-1,1));
+  const psi=Math.atan2(dy,dx), alfa=Math.atan2(L3*Math.sin(phi),L2+L3*Math.cos(phi));
+  const arriba=rama!=='abajo';
+  const thU=arriba?psi+alfa:psi-alfa, thF=arriba?thU-phi:thU+phi;
+  const q2=thU-A2, q3=thF-A3-q2;
+  return {ok,q1,q2,q3:Math.atan2(Math.sin(q3),Math.cos(q3)),phi,d:dRaw,dx,dy,u,thU,thF};
+}
+
+/* ---- La muñeca: R = Ra(q4)·Rz(q5)·Rx(q6) ---- */
+function descompMuneca(Rw,qprev){
+  const d=col(Rw,0), c5=clamp(vdot(A4,d),-1,1), t5=Math.acos(c5), cand=[];
+  for(const s of [1,-1]){
+    const q5=s*t5-KAPPA, v1=[Math.cos(q5),Math.sin(q5),0];
+    const v1p=vres(v1,vesc(A4,vdot(A4,v1))), dp=vres(d,vesc(A4,vdot(A4,d)));
+    let q4; if(vnorma(v1p)<1e-7||vnorma(dp)<1e-7) q4=qprev?qprev[3]:0;
+    else q4=Math.atan2(vdot(A4,vcruz(v1p,dp)),vdot(v1p,dp));
+    const M=mmul(mT(mmul(rotAx(A4,q4),Rz(q5))),Rw), q6=Math.atan2(M[7],M[4]);
+    for(const k4 of [-1,0,1]) for(const k6 of [-1,0,1]){            // las vueltas completas de J4 y J6 también son soluciones: se elige la que cabe en la carrera
+      const a4=q4+k4*DOSPI, a6=q6+k6*DOSPI, q=[a4,q5,a6];
+      const dentro=Math.abs(a4)/RAD<=LIM_DEG[3][1]&&Math.abs(th5De([0,0,0,0,q5]))/RAD<=LIM_DEG[4][1]&&Math.abs(a6)/RAD<=LIM_DEG[5][1];
+      const costo=(dentro?0:100)+(qprev?Math.abs(a4-qprev[3])+Math.abs(q5-qprev[4])+Math.abs(a6-qprev[5]):Math.abs(a4)+0.01*Math.abs(a6)+(s<0?1e-3:0));
+      cand.push({q,costo});
+    }
+  }
+  cand.sort((a,b)=>a.costo-b.costo); return cand[0].q;
+}
+
+/**
+ * Orientación pedida a la herramienta: el eje de aproximación d (por donde «avanza» la pinza, el eje de J6) y el eje de apriete (entre
+ * los electrodos), que se toma lo más vertical posible y se gira `giro` (rad) alrededor de d. Devuelve la matriz con las columnas [aproximación, apriete, tercero].
+ */
+function orientacion(d,giro){
+  d=vunit(d); let y0=vres([0,1,0],vesc(d,d[1])); if(vnorma(y0)<1e-6) y0=[1,0,0]; y0=vunit(y0);
+  const y=vsum(vesc(y0,Math.cos(giro||0)),vesc(vcruz(d,y0),Math.sin(giro||0)));
+  return desdeCols(d,y,vcruz(d,y));
+}
+/** Dirección de aproximación: inclinación `incl` sobre la horizontal y rumbo `rumbo` (ángulo en el suelo; 0 = hacia +X, positivo hacia −Z como el giro de J1). */
+const dirAprox=(incl,rumbo)=>[Math.cos(incl)*Math.cos(rumbo), Math.sin(incl), -Math.cos(incl)*Math.sin(rumbo)];
+
+/** Error de orientación (vector eje·ángulo pequeño) entre la matriz alcanzada Ra y la pedida Rt. */
+function errRot(Ra,Rt){ let e=[0,0,0]; for(let i=0;i<3;i++) e=vsum(e,vcruz(col(Ra,i),col(Rt,i))); return vesc(e,0.5); }
+/**
+ * Cinemática inversa completa: posición `p` de la punta (marco de la base) y orientación `Rt`. Primero el brazo (ley de los cosenos) y la muñeca
+ * (descomposición), con unas vueltas de punto fijo porque el desvío J5→J6→punta depende de J6; después Newton amortiguado con el jacobiano.
+ * Devuelve q, si la punta llega (llega), si respeta los límites (enLimites) y el error final.
+ */
+function ik(p,Rt,rama,qprev){
+  let mejor=null;
+  for(const q6i of [qprev?qprev[5]:0,0,Math.PI/2,-Math.PI/2,Math.PI]){
+    const r=ikIntento(p,Rt,rama,qprev,q6i); if(r.llega) return r;
+    if(!mejor||r.errPos+r.errOri<mejor.errPos+mejor.errOri) mejor=r;
+    if(!r.brazo.ok&&r.brazo.dx!==undefined&&(r.brazo.d>D_MAX+0.8||r.brazo.d<D_MIN-0.6)) break;      // muy lejos del anillo: no hay que insistir
+  }
+  return mejor;
+}
+function ikIntento(p,Rt,rama,qprev,q6i){
+  let q6g=q6i, br=null, qm=null;
+  for(let it=0;it<5;it++){
+    const c=vsum(mvec(Rx(-q6g),OFF[5]),TCP_LOC), W=vres(p,mvec(Rt,c));
+    br=brazoIK(W,rama);
+    const R3=mmul(Ry(br.q1),mmul(Rz(br.q2),Rz(br.q3))), Rw=mmul(mT(R3),Rt);
+    qm=descompMuneca(Rw,qprev); q6g=qm[2];
+  }
+  let q=[br.q1,br.q2,br.q3,qm[0],qm[1],qm[2]]; const qSemilla=q.slice();
+  if(qprev){ while(q[0]-qprev[0]>Math.PI) q[0]-=DOSPI; while(q[0]-qprev[0]<-Math.PI) q[0]+=DOSPI; }
+  let err=Infinity;
+  {
+    for(let it=0;it<40;it++){
+      const f=fk(q), ep=vres(p,f.tcp), ew=errRot(f.R,Rt); err=vnorma(ep)+vnorma(ew);
+      if(err<1e-12) break;
+      const J=jacobiano(f), e=[ep[0],ep[1],ep[2],ew[0],ew[1],ew[2]], lam2=1e-9;
+      const A=[]; for(let i=0;i<6;i++){ A.push([]); for(let j=0;j<6;j++){ let s=0; for(let k=0;k<6;k++) s+=J[k][i]*J[k][j]; A[i][j]=s+(i===j?lam2:0); } }
+      const b=[]; for(let i=0;i<6;i++){ let s=0; for(let k=0;k<6;k++) s+=J[k][i]*e[k]; b.push(s); }
+      const dq=resuelve(A,b); if(!dq) break;
+      const tope=Math.max(...dq.map(Math.abs)); const kk=tope>0.5?0.5/tope:1;
+      for(let i=0;i<6;i++) q[i]+=dq[i]*kk;
+    }
+  }
+  const f=fk(q), ep=vres(p,f.tcp), ew=errRot(f.R,Rt), eP=vnorma(ep), eO=vnorma(ew);
+  const sf=Math.sin(A3-A2+q[2]), rampa=rama==='abajo'?sf>=-1e-9:sf<=1e-9;              // la rama pedida: el signo de sen(θ_antebrazo − θ_brazo)
+  const llega=eP<1e-6&&eO<1e-6&&rampa&&(q[0]===q[0]), lim=revisaLimites(q);
+  return {q,qSemilla,llega,enLimites:lim.ok,limites:lim.mal,errPos:eP,errOri:eO,brazo:br,tcp:f.tcp};
+}
+/** ¿Cada articulación está dentro de su carrera? (J5 se mide con θ5.) */
+function revisaLimites(q){
+  const mal=[]; for(let i=0;i<6;i++){ const a=(i===4?th5De(q):q[i])/RAD; if(a<LIM_DEG[i][0]-1e-6||a>LIM_DEG[i][1]+1e-6) mal.push(i); }
+  return {ok:mal.length===0,mal};
+}
+
+/* ---- Manipulabilidad y velocidades articulares ---- */
+let DET_REF=6;                                                     // se fija abajo con el máximo muestreado del volumen de trabajo
+/** Índice de manipulabilidad de Yoshikawa w = √det(J·Jᵀ) = |det J| (J cuadrada), normalizado a 0–1 con el máximo del volumen de trabajo. */
+function manipulabilidad(q){ const J=jacobiano(fk(q)); return Math.abs(det(J)); }
+const indiceManip=q=>clamp(manipulabilidad(q)/DET_REF,0,1);
+/** q̇ (rad/s) para que la punta se mueva con velocidad v (m/s, vector) y la herramienta NO gire: q̇ = J⁻¹·[v; 0]. null si J es singular. */
+function velArticular(q,v){ return resuelve(jacobiano(fk(q)),[v[0],v[1],v[2],0,0,0]); }
+/** Peor caso por articulación: la mayor |q̇_i| (°/s) por cada m/s de la punta, en la peor dirección (la norma de la fila i de J⁻¹ restringida a la velocidad lineal). */
+function peorGanancia(q){
+  const J=jacobiano(fk(q)), out=[]; const cols=[];
+  for(let k=0;k<3;k++){ const b=[0,0,0,0,0,0]; b[k]=1; const x=resuelve(J,b); if(!x) return null; cols.push(x); }
+  for(let i=0;i<6;i++) out.push(Math.hypot(cols[0][i],cols[1][i],cols[2][i])/RAD);
+  return out;
+}
+
+/* ---- El volumen de trabajo: un corte vertical por el eje del robot, con la herramienta inclinada `incl` ---- */
+const R_COBERT=1.9;
+/** Estado de cada celda (ρ, h) del corte: 0 fuera de alcance, 1 alcanzable pero fuera de límites de articulación, 2 alcanzable (con su índice de manipulabilidad). */
+function mapaAlcance(o){
+  const nx=o.nx||48, ny=o.ny||40, r0=0, r1=o.rmax||4.4, h0=o.hmin===undefined?-0.2:o.hmin, h1=o.hmax||3.6, hb=o.hb||0, rama=o.rama||'arriba';
+  const Rt=orientacion(dirAprox(o.incl*RAD,(o.yaw||0)*RAD),(o.giro||0)*RAD), est=new Uint8Array(nx*ny), man=new Float32Array(nx*ny);
+  let q0=null;
+  for(let j=0;j<ny;j++){ q0=null; for(let i=0;i<nx;i++){
+    const rho=r0+(r1-r0)*(i+0.5)/nx, h=h0+(h1-h0)*(j+0.5)/ny, k=j*nx+i;
+    if(rho<0.30){ continue; }
+    const s=ik([rho,h-hb,0],Rt,rama,null);
+    if(!s.llega){ est[k]=0; continue; }
+    q0=s.q; if(!s.enLimites){ est[k]=1; continue; }
+    est[k]=2; man[k]=indiceManip(s.q);
+  } }
+  return {nx,ny,r0,r1,h0,h1,est,man};
+}
+
+/* ---- La pasada: una costura recta de soldadura que el robot recorre con la punta a velocidad constante ---- */
+const IM_MIN=0.20;                                                  // por debajo de este índice la zona se considera singular (didáctico)
+const ESCENARIOS=[
+  {id:'umbral',nombre:'Umbral de la puerta',corto:'Umbral',H:0.60,Lc:1.8,incl:-20,giro:0,vTakt:1.0,piezaAlto:0.62},
+  {id:'puerta',nombre:'Costura de la puerta',corto:'Puerta',H:1.10,Lc:1.4,incl:-10,giro:0,vTakt:1.2,piezaAlto:1.0},
+  {id:'techo',nombre:'Canal del techo',corto:'Techo',H:1.85,Lc:1.6,incl:10,giro:0,vTakt:1.1,piezaAlto:1.6},
+];
+const escPorId=id=>ESCENARIOS.find(e=>e.id===id)||ESCENARIOS[1];
+const D_RANGO=[1.0,4.2], HB_RANGO=[0,0.8], V_RANGO=[0.2,4.0];
+/** Extremos A y B (mundo) de la costura: a distancia D de la base, a la altura H, de lado a lado; la costura se recorre de −z a +z. */
+function extremos(esc,D){ const h=esc.Lc/2; return {A:[D,esc.H,-h],B:[D,esc.H,h]}; }
+/**
+ * Evalúa una pasada recta de A a B (mundo): n+1 puntos con la orientación FIJA de la herramienta (inclinación incl en grados y giro). Por punto: si llega,
+ * si respeta límites, el índice de manipulabilidad y las velocidades articulares (°/s) que exige mover la punta con velocidad v (m/s).
+ * hb es la altura de la base (el pedestal); vTakt, la velocidad mínima para cumplir el ciclo (opcional).
+ */
+function evaluaPasadaGen(A,B,incl,giro,hb,v,n,vTakt,yaw){
+  n=n||120; const L=vnorma(vres(B,A)), dir=vunit(vres(B,A));
+  const Rt=orientacion(dirAprox(incl*RAD,(yaw||0)*RAD),(giro||0)*RAD);
+  const pts=[]; let qprev=null, llegaTodo=true, limTodo=true, imMin=Infinity, imMax=0, ratioMax=0, dondeMax=-1, limMal={};
+  const peor=[0,0,0,0,0,0], qdMax=[0,0,0,0,0,0];
+  for(let k=0;k<=n;k++){
+    const s=k/n, p=vsum(A,vesc(vres(B,A),s)), pr=[p[0],p[1]-hb,p[2]], r=ik(pr,Rt,'arriba',qprev);
+    if(r.llega) qprev=r.q;
+    let im=0, qd=null, ratios=null, rmax=Infinity;
+    if(r.llega){ im=indiceManip(r.q); const w=velArticular(r.q,vesc(dir,v)); if(w){ qd=w.map(x=>Math.abs(x)/RAD); ratios=qd.map((x,i)=>x/VMAX_DEG[i]); rmax=Math.max(...ratios); for(let i=0;i<6;i++){ peor[i]=Math.max(peor[i],ratios[i]); qdMax[i]=Math.max(qdMax[i],qd[i]); } } else { qd=[1e9,1e9,1e9,1e9,1e9,1e9]; ratios=qd.map(()=>1e9); rmax=1e9; } }
+    if(!r.llega) llegaTodo=false; if(!r.enLimites){ limTodo=false; for(const i of r.limites) limMal[i]=true; }
+    imMin=Math.min(imMin,im); imMax=Math.max(imMax,im);
+    if(rmax!==Infinity&&rmax>ratioMax){ ratioMax=rmax; dondeMax=k; }
+    pts.push({s,p,q:r.q,llega:r.llega,enLimites:r.enLimites,im,qd,ratios,rmax});
+  }
+  const T=L/v, okAlcance=llegaTodo&&limTodo, okSing=imMin>=IM_MIN, okVel=ratioMax<=1, okCiclo=vTakt===undefined?true:v>=vTakt-1e-9;
+  const mal=[]; for(let i=0;i<6;i++) if(peor[i]>1) mal.push(i);
+  return {pts,L,T,v,A,B,hb,llegaTodo,limTodo,limMal:Object.keys(limMal).map(Number),imMin,imMax,ratioMax,dondeMax,peor,qdMax,velMal:mal,okAlcance,okSing,okVel,okCiclo,ok:okAlcance&&okSing&&okVel&&okCiclo};
+}
+function evaluaPasada(esc,D,hb,v,n){
+  const {A,B}=extremos(esc,D), r=evaluaPasadaGen(A,B,esc.incl,esc.giro||0,hb,v,n,esc.vTakt,0); r.D=D; r.esc=esc.id; return r;
+}
+/** Rango de D (distancia a la pieza) que cumple TODO con la altura de base y la velocidad dadas (la ventana INTERIOR). */
+function ventanaD(esc,hb,v,paso){
+  paso=paso||0.1; let a=null,b=null;
+  for(let D=D_RANGO[0];D<=D_RANGO[1]+1e-9;D+=paso){ if(evaluaPasada(esc,D,hb,v,40).ok){ if(a===null) a=D; b=D; } }
+  return a===null?null:[a,b];
+}
+/** Rango de v (m/s) que cumple TODO con la distancia y la altura de base dadas: del ritmo mínimo de la línea al máximo que aguantan las articulaciones. */
+function ventanaV(esc,D,hb,paso){
+  paso=paso||0.1; let a=null,b=null;
+  for(let v=V_RANGO[0];v<=V_RANGO[1]+1e-9;v+=paso){ if(evaluaPasada(esc,D,hb,v,40).ok){ if(a===null) a=v; b=v; } }
+  return a===null?null:[a,b];
+}
+/* FISICA:FIN */
+
+/* ===================== 2. ESCENA, CÁMARA, LUZ ===================== */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+el('stage').appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function tex(canvas,{srgb=false,flip=true}={}){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace; t.flipY=flip;
+  // Mipmaps sí: sin ellos cada píxel muestrea un texel suelto y el especular centellea al girar.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter; t.magFilter=THREE.LinearFilter; t.anisotropy=8;
+  return t;
+}
+function fondoDegradado(arriba,medio,abajo){
+  const c=cv(8,512),x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512); g.addColorStop(0,arriba); g.addColorStop(0.5,medio); g.addColorStop(1,abajo);
+  x.fillStyle=g; x.fillRect(0,0,8,512);
+  const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t;
+}
+const scene=new THREE.Scene();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.fog=new THREE.Fog('#0b121b',22,60);
+
+const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,260);
+camera.position.set(7,4,8);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.0; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.495;
+controls.target.set(1.4,1.3,0);
+
+/* Nave de soldadura: luz de estudio, un sol blanco-cálido con sombra suave sobre el robot, relleno frío y un contraluz que recorta el blanco del robot. */
+const LUZ={};
+LUZ.sol=new THREE.DirectionalLight('#fff1de',2.4); LUZ.sol.castShadow=true;
+LUZ.sol.position.set(-3.5,9,6); LUZ.sol.target.position.set(1.6,0.8,0);
+LUZ.sol.shadow.mapSize.set(2048,2048); LUZ.sol.shadow.bias=-0.0004; LUZ.sol.shadow.normalBias=0.02; LUZ.sol.shadow.radius=3;
+{ const c=LUZ.sol.shadow.camera; c.left=-5.5; c.right=5.5; c.top=5.5; c.bottom=-5.5; c.near=1; c.far=26; }
+scene.add(LUZ.sol,LUZ.sol.target);
+LUZ.relleno=new THREE.DirectionalLight('#8fb4ff',0.85); LUZ.relleno.position.set(7,3.5,5); scene.add(LUZ.relleno);
+LUZ.rim=new THREE.DirectionalLight('#ffb878',1.1); LUZ.rim.position.set(-4,4,-9); scene.add(LUZ.rim);
+LUZ.hemi=new THREE.HemisphereLight('#9db6d8','#1a222d',0.55); scene.add(LUZ.hemi);
+
+/* ===================== 3. CALIDAD ===================== */
+const CAL={nivel:'alta',motivo:''};
+(function(){
+  const q=(location.search.match(/[?&]calidad=(alta|media)\b/)||[])[1];
+  const movil=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), nucleos=navigator.hardwareConcurrency||8;
+  const flojo=movil||innerWidth<820||nucleos<=2;
+  CAL.nivel=q||(flojo?'media':'alta');
+  CAL.motivo=q?'elegida en la dirección':(flojo?(movil?'móvil':(innerWidth<820?'pantalla estrecha':'el equipo declara '+nucleos+' núcleos')):'');
+})();
+const calAlta=()=>CAL.nivel==='alta';
+
+/* Resplandor moderado SÓLO en lo que emite: la bola de la punta, los electrodos al tocar y las luces de aviso. En calidad media no hay resplandor ni sombras de mapa:
+   el robot proyecta una sombra de contacto y la escena se lee igual. */
+const rtComp=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+const composer=new EffectComposer(renderer,rtComp);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.45,0.5,0.88); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa=new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()); composer.addPass(smaa);
+
+/* ===================== 4. TEXTURAS Y MATERIALES =====================
+   Nada de grano fino: variación lenta de tono (suelo de resina de la nave) y marcas de un taller (retícula, rayas de seguridad) dibujadas como objetos. */
+function ruidoPeriodico(semilla,periodo){
+  const g=(x,y)=>{ x=((x%periodo)+periodo)%periodo; y=((y%periodo)+periodo)%periodo;
+    const s=Math.sin(x*127.1+y*311.7+semilla*13.13)*43758.5453; return s-Math.floor(s); };
+  return (x,y)=>{ const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+    const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+    return g(xi,yi)*(1-u)*(1-v)+g(xi+1,yi)*u*(1-v)+g(xi,yi+1)*(1-u)*v+g(xi+1,yi+1)*u*v; };
+}
+function fbmP(semilla,periodo,oct){ const ns=[]; for(let o=0;o<oct;o++) ns.push(ruidoPeriodico(semilla+o*7,periodo*(1<<o)));
+  return (x,y)=>{ let v=0,a=0.5; for(let o=0;o<oct;o++){ v+=ns[o](x*(1<<o),y*(1<<o))*a; a*=0.5; } return v; }; }
+/** Suelo de resina gris azulada: tono lento y juntas de losa cada 2 m (la escala se lee como «metros»). */
+function texSuelo(){
+  const W=512,c=cv(W),x=c.getContext('2d'),im=x.createImageData(W,W),f=fbmP(11,3,3);
+  for(let j=0;j<W;j++) for(let i=0;i<W;i++){ const n=f(i/W*3,j/W*3), v=clamp((0.50+(n-0.5)*0.16)*255,0,255), o=(j*W+i)*4;
+    im.data[o]=v*0.86; im.data[o+1]=v*0.93; im.data[o+2]=v; im.data[o+3]=255; }
+  x.putImageData(im,0,0);
+  x.strokeStyle='rgba(10,16,24,0.55)'; x.lineWidth=3; x.strokeRect(1.5,1.5,W-3,W-3);
+  x.strokeStyle='rgba(190,215,235,0.06)'; x.lineWidth=2; x.strokeRect(5,5,W-10,W-10);
+  return tex(c,{srgb:true});
+}
+function texRadial(c0,c1){ const W=256,c=cv(W),x=c.getContext('2d'); const g=x.createRadialGradient(W/2,W/2,0,W/2,W/2,W/2); g.addColorStop(0,c0); g.addColorStop(1,c1); x.fillStyle=g; x.fillRect(0,0,W,W); const t=tex(c,{srgb:true}); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+/** Rayas amarillas y negras de seguridad (se repiten a lo largo). */
+function texRayas(){
+  const c=cv(128,32),x=c.getContext('2d'); x.fillStyle='#f2c200'; x.fillRect(0,0,128,32); x.fillStyle='#15181c';
+  for(let i=-1;i<8;i++){ x.beginPath(); x.moveTo(i*32,32); x.lineTo(i*32+16,32); x.lineTo(i*32+32,0); x.lineTo(i*32+16,0); x.closePath(); x.fill(); }
+  return tex(c,{srgb:true});
+}
+/** Malla metálica de la valla: huecos transparentes, hilo fino. */
+function texMalla(){
+  const c=cv(128),x=c.getContext('2d'); x.clearRect(0,0,128,128); x.strokeStyle='rgba(235,205,60,0.9)'; x.lineWidth=3;
+  x.strokeRect(1.5,1.5,125,125); x.beginPath(); x.moveTo(64,0); x.lineTo(64,128); x.moveTo(0,64); x.lineTo(128,64); x.stroke();
+  return tex(c,{srgb:true});
+}
+const T_SUELO=texSuelo(); T_SUELO.repeat.set(12,12);
+const ENV_I=0.55;
+const pbr=o=>new THREE.MeshStandardMaterial(Object.assign({envMapIntensity:ENV_I},o)), fis=o=>new THREE.MeshPhysicalMaterial(Object.assign({envMapIntensity:ENV_I},o));
+const M={
+  suelo: fis({color:'#ffffff',map:T_SUELO,roughness:0.55,metalness:0.05,clearcoat:0.35,clearcoatRoughness:0.4,envMapIntensity:0.35}),
+  acero: pbr({color:'#a9b2bd',metalness:0.9,roughness:0.35}),
+  aceroOsc: pbr({color:'#69737f',metalness:0.75,roughness:0.45,envMapIntensity:0.9}),
+  pedestal: pbr({color:'#5a626d',metalness:0.7,roughness:0.5}),
+  rayas: pbr({color:'#ffffff',map:texRayas(),roughness:0.6,metalness:0.1}),
+  chapa: fis({color:'#d9dfe6',metalness:0.55,roughness:0.42,clearcoat:0.25,clearcoatRoughness:0.4,envMapIntensity:1.0}),
+  chapaOsc: pbr({color:'#aeb8c4',metalness:0.7,roughness:0.45,envMapIntensity:0.9}),
+  amarillo: pbr({color:'#e8b500',metalness:0.2,roughness:0.5}),
+  cobre: pbr({color:'#d98a5a',metalness:0.9,roughness:0.28}),
+  punto: new THREE.MeshBasicMaterial({color:'#ffd27a',toneMapped:false}),
+  malla: new THREE.MeshBasicMaterial({map:texMalla(),transparent:true,alphaTest:0.2,side:THREE.DoubleSide,fog:true}),
+};
+M.malla.map.wrapS=M.malla.map.wrapT=THREE.RepeatWrapping;
+
+/* ===================== 5. GEOMETRÍA ===================== */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mezcla=(a,b,t)=>a+(b-a)*t;
+const sana=g=>P3.sanaNormales(g);
+function malla(g,m,{sombra=true,recibe=true}={}){ const o=new THREE.Mesh(g,m); o.castShadow=sombra; o.receiveShadow=recibe; return o; }
+
+/* ===================== 6. LA CELDA DE SOLDADURA =====================
+   Escala 1:1 en metros (el robot mide ≈ 2,8 m). X hacia delante (hacia la pieza), Y arriba, Z al lado. El eje de J1 pasa por el origen y la base del
+   robot se sube con un pedestal de altura hb. Suelo, valla, utillaje y la pieza (una puerta con su brida) son procedurales; el robot es el GLB real. */
+const MUNDO=new THREE.Group(); scene.add(MUNDO);
+scene.background=fondoDegradado('#0d1622','#16212e','#222e3b'); scene.fog.color.set('#16212e');
+{ // suelo de la nave
+  const g=new THREE.CircleGeometry(60,64).rotateX(-Math.PI/2);
+  const o=malla(g,M.suelo,{sombra:false,recibe:true}); o.userData.fondo=true; o.userData.clave='suelo'; o.position.y=0; MUNDO.add(o);
+  T_SUELO.repeat.set(30,30);
+}
+/* sombra de contacto del robot (siempre, también en calidad media) */
+const texSombra=texRadial('rgba(0,0,0,0.55)','rgba(0,0,0,0)');
+{ const o=new THREE.Mesh(new THREE.PlaneGeometry(2.6,2.6).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:texSombra,transparent:true,depthWrite:false,toneMapped:false})); o.position.set(0.2,0.006,0); o.renderOrder=1; o.userData.fondo=true; o.raycast=()=>{}; MUNDO.add(o); }
+/* cinta de seguridad en el suelo: el recinto de la celda */
+{ const x0=-3.4,x1=5.6,z0=-4.8,z1=4.8, w=0.12;
+  for(const [cx,cz,sx,sz] of [[(x0+x1)/2,z0,x1-x0,w],[(x0+x1)/2,z1,x1-x0,w],[x0,(z0+z1)/2,w,z1-z0],[x1,(z0+z1)/2,w,z1-z0]]){
+    const g=new THREE.PlaneGeometry(sx,sz).rotateX(-Math.PI/2); const uv=g.attributes.uv, L=Math.max(sx,sz)/0.5, largoX=sx>=sz;
+    for(let i=0;i<uv.count;i++){ const u=uv.getX(i), v=uv.getY(i); if(largoX) uv.setXY(i,u*L,v); else uv.setXY(i,v*L,u); }
+    const o=new THREE.Mesh(g,M.rayas); o.position.set(cx,0.012,cz); o.userData.fondo=true; o.raycast=()=>{}; MUNDO.add(o); } }
+/* placa de anclaje y pedestal ajustable */
+{ const o=malla(new THREE.CylinderGeometry(0.95,1.0,0.05,48),M.aceroOsc); o.position.y=0.025; o.userData.clave='pedestal'; MUNDO.add(o); }
+const PEDESTAL=malla(new RoundedBoxGeometry(1,1,1,3,0.04),M.pedestal); PEDESTAL.userData.clave='pedestal'; MUNDO.add(PEDESTAL);
+const PEDESTAL_TAPA=malla(new THREE.CylinderGeometry(0.82,0.86,0.04,48),M.aceroOsc); PEDESTAL_TAPA.userData.clave='pedestal'; MUNDO.add(PEDESTAL_TAPA);
+/* valla de seguridad al fondo y al costado lejano (la cámara abre desde el otro lado) */
+{ const posts=[]; for(let x=-3.4;x<=5.6+1e-6;x+=1.5) posts.push([x,-4.8]); for(let z=-4.8+1.6;z<=4.8-1e-6;z+=1.6) posts.push([-3.4,z]);
+  const im=new THREE.InstancedMesh(new THREE.BoxGeometry(0.08,1.9,0.08),M.amarillo,posts.length), m4=new THREE.Matrix4();
+  posts.forEach((p,i)=>{ m4.makeTranslation(p[0],0.95,p[1]); im.setMatrixAt(i,m4); }); im.castShadow=true; im.userData.fondo=true; im.raycast=()=>{}; MUNDO.add(im);
+  const panel=(x,z,len,rotY)=>{ const g=new THREE.PlaneGeometry(len,1.6); const uv=g.attributes.uv; for(let i=0;i<uv.count;i++) uv.setXY(i,uv.getX(i)*len/0.4,uv.getY(i)*1.6/0.4);
+    const o=new THREE.Mesh(g,M.malla); o.position.set(x,1.05,z); o.rotation.y=rotY; o.userData.fondo=true; o.raycast=()=>{}; MUNDO.add(o); };
+  panel(1.1,-4.8,9.0,0); panel(-3.4,0,9.6,Math.PI/2); }
+
+/* ===================== 7. EL ROBOT (GLB real) =====================
+   54 mallas = 54 llamadas de dibujo: se fusionan por eslabón (clonando antes cada geometría y pasándola a Float32, porque la cuantización del
+   archivo es de enteros normalizados) y quedan 7 mallas: la base y J1…J6. La jerarquía de nodos (J1 → … → J6 → punta) se conserva. */
+let GLB;
+try{
+  const cargador=new GLTFLoader(); cargador.setMeshoptDecoder(MeshoptDecoder);
+  GLB=await cargador.loadAsync('/labs/assets/robot-soldadura.glb');
+}catch(err){ el('hud').innerHTML='<div class="intro">No se pudo cargar el modelo del robot. Recarga la página.</div>'; throw err; }
+function geomFloat(g,m){
+  const pos=g.attributes.position, nor=g.attributes.normal, uv=g.attributes.uv, n=pos.count, P=new Float32Array(n*3), N=new Float32Array(n*3), U=new Float32Array(n*2);
+  for(let i=0;i<n;i++){ P[3*i]=pos.getX(i); P[3*i+1]=pos.getY(i); P[3*i+2]=pos.getZ(i);
+    if(nor){ N[3*i]=nor.getX(i); N[3*i+1]=nor.getY(i); N[3*i+2]=nor.getZ(i); } if(uv){ U[2*i]=uv.getX(i); U[2*i+1]=uv.getY(i); } }
+  const o=new THREE.BufferGeometry(); o.setAttribute('position',new THREE.BufferAttribute(P,3)); o.setAttribute('normal',new THREE.BufferAttribute(N,3)); o.setAttribute('uv',new THREE.BufferAttribute(U,2));
+  if(g.index) o.setIndex(new THREE.BufferAttribute(Uint32Array.from(g.index.array),1)); o.applyMatrix4(m); return o;
+}
+const NODOS=['J1','J2','J3','J4','J5','J6'];
+let MAT_ROBOT=null;
+(function fusionaPorEslabon(){
+  for(const nombre of ['L0_base',...NODOS]){
+    const nodo=GLB.scene.getObjectByName(nombre), piezas=nodo.children.filter(o=>o.isMesh), geos=[];
+    for(const p of piezas){ p.updateMatrix(); geos.push(geomFloat(p.geometry,p.matrix)); if(!MAT_ROBOT) MAT_ROBOT=p.material; p.geometry.dispose(); }
+    for(const p of piezas) nodo.remove(p);
+    const G=BufferGeometryUtils.mergeGeometries(geos,false); for(const g of geos) g.dispose();
+    const mesh=new THREE.Mesh(G,MAT_ROBOT); mesh.name='malla_'+nombre; mesh.castShadow=true; mesh.receiveShadow=true; mesh.userData.clave='robot_'+nombre; nodo.add(mesh);
+  }
+  MAT_ROBOT.envMapIntensity=1.0; MAT_ROBOT.roughness=Math.min(1,MAT_ROBOT.roughness); MAT_ROBOT.needsUpdate=true;
+})();
+const ROBOT={grupo:new THREE.Group(),raiz:GLB.scene,nodos:NODOS.map(n=>GLB.scene.getObjectByName(n)),hb:0};
+ROBOT.raiz.scale.setScalar(ESCALA); ROBOT.raiz.position.set(0.29*ESCALA,0,-0.05*ESCALA);   // el pivote de J1 (−0,29; 0; 0,05) cae en el eje vertical del origen
+ROBOT.grupo.add(ROBOT.raiz); MUNDO.add(ROBOT.grupo);
+ROBOT.tcp=new THREE.Object3D(); ROBOT.tcp.name='TCP'; ROBOT.tcp.position.set(TCP_LOC[0]/ESCALA,TCP_LOC[1]/ESCALA,TCP_LOC[2]/ESCALA); ROBOT.nodos[5].add(ROBOT.tcp);
+const AXQ=new THREE.Vector3(A4[0],A4[1],A4[2]), AXZ=new THREE.Vector3(0,0,1), AXX=new THREE.Vector3(1,0,0);
+/** Gira cada nodo J del modelo con los ángulos q (rad): J1 sobre Y, J2/J3/J5 sobre Z, J4 sobre el eje del antebrazo, J6 sobre X. */
+function poseRobot(R,q){
+  R.nodos[0].quaternion.setFromAxisAngle(V3(0,1,0),q[0]); R.nodos[1].quaternion.setFromAxisAngle(AXZ,q[1]); R.nodos[2].quaternion.setFromAxisAngle(AXZ,q[2]);
+  R.nodos[3].quaternion.setFromAxisAngle(AXQ,q[3]); R.nodos[4].quaternion.setFromAxisAngle(AXZ,q[4]); R.nodos[5].quaternion.setFromAxisAngle(AXX,q[5]);
+}
+/* el fantasma: la OTRA solución (codo abajo), translúcido; comparte geometrías con el robot y suma 7 llamadas de dibujo cuando se muestra */
+const MAT_FANTASMA=new THREE.MeshBasicMaterial({color:'#4dd2ff',transparent:true,opacity:0.30,depthWrite:false,toneMapped:false});
+const FANTASMA={grupo:new THREE.Group()};
+{ const c=GLB.scene.clone(true); c.traverse(o=>{ if(o.isMesh){ o.material=MAT_FANTASMA; o.castShadow=false; o.receiveShadow=false; o.userData.clave=null; o.raycast=()=>{}; } });
+  FANTASMA.raiz=c; FANTASMA.nodos=NODOS.map(n=>c.getObjectByName(n)); FANTASMA.grupo.add(c); FANTASMA.grupo.visible=false; MUNDO.add(FANTASMA.grupo); }
+function ponBase(hb){
+  ROBOT.hb=hb; ROBOT.grupo.position.y=hb; FANTASMA.grupo.position.y=hb;
+  PEDESTAL.visible=PEDESTAL_TAPA.visible=hb>0.015; PEDESTAL.scale.set(1.5,Math.max(hb,0.001),1.5); PEDESTAL.position.y=hb/2; PEDESTAL_TAPA.position.y=hb+0.002;
+}
+
+/* ===================== 8. LA PIEZA: UNA PUERTA SOBRE SU UTILLAJE =====================
+   Una chapa de puerta (con su ventana) colgada de un utillaje, con una brida horizontal por la que corre la costura de puntos de soldadura. La punta del robot
+   va a lo largo de esa brida; los puntos ya soldados se encienden detrás de la pinza. */
+const PIEZA=new THREE.Group(); MUNDO.add(PIEZA);
+const NPUNTOS=15;
+const NUGGETS=new THREE.InstancedMesh(new THREE.SphereGeometry(0.022,10,8),M.punto,NPUNTOS); NUGGETS.frustumCulled=false; NUGGETS.userData.fondo=true; NUGGETS.raycast=()=>{}; NUGGETS.count=0; MUNDO.add(NUGGETS);
+let PIEZA_ID=null;
+function liberaGrupo(g){ for(let i=g.children.length-1;i>=0;i--){ const o=g.children[i]; g.remove(o); if(o.geometry) o.geometry.dispose(); } }
+function construyePieza(esc){
+  if(PIEZA_ID===esc.id) return; PIEZA_ID=esc.id; liberaGrupo(PIEZA);
+  const H=esc.H, Lc=esc.Lc, hp=Math.min(0.95,H-0.10), W=Lc+0.35, prof=0.13;
+  // chapa de la puerta: contorno redondeado con ventana, extruida y biselada, de pie bajo la brida
+  const sh=new THREE.Shape(); const r=0.10, w2=W/2;
+  sh.moveTo(-w2+r,0); sh.lineTo(w2-r,0); sh.quadraticCurveTo(w2,0,w2,r); sh.lineTo(w2,hp-r); sh.quadraticCurveTo(w2,hp,w2-r,hp); sh.lineTo(-w2+r,hp); sh.quadraticCurveTo(-w2,hp,-w2,hp-r); sh.lineTo(-w2,r); sh.quadraticCurveTo(-w2,0,-w2+r,0);
+  if(hp>0.5){ const h=new THREE.Path(), a=0.16, b0=hp*0.34, b1=hp-0.14; h.moveTo(-w2+a+0.25,b0); h.lineTo(w2-a-0.05,b0); h.lineTo(w2-a-0.30,b1); h.lineTo(-w2+a+0.25,b1); h.closePath(); sh.holes.push(h); }
+  const gc=new THREE.ExtrudeGeometry(sh,{depth:0.03,bevelEnabled:true,bevelThickness:0.01,bevelSize:0.01,bevelSegments:2,curveSegments:10}); gc.computeVertexNormals();
+  const chapa=malla(gc,M.chapa); chapa.rotation.y=-Math.PI/2; chapa.position.set(prof,H-hp,0); chapa.userData.clave='pieza'; PIEZA.add(chapa);
+  // la brida: una tira horizontal que sale hacia el robot a la altura H
+  const brida=malla(new RoundedBoxGeometry(prof+0.02,0.016,W-0.06,2,0.006),M.chapaOsc); brida.position.set(prof/2,H-0.008,0); brida.userData.clave='pieza'; PIEZA.add(brida);
+  // utillaje: dos montantes, zapatas y mordazas
+  for(const sz of [-1,1]){ const z=sz*(W/2+0.12);
+    const mont=malla(new RoundedBoxGeometry(0.10,H+0.05,0.10,2,0.012),M.aceroOsc); mont.position.set(prof+0.10,(H+0.05)/2,z); mont.userData.clave='utillaje'; PIEZA.add(mont);
+    const pie=malla(new RoundedBoxGeometry(0.62,0.05,0.34,2,0.012),M.aceroOsc); pie.position.set(prof+0.10,0.025,z); pie.userData.clave='utillaje'; PIEZA.add(pie);
+    const mor=malla(new RoundedBoxGeometry(0.16,0.10,0.14,2,0.015),M.amarillo); mor.position.set(prof+0.02,H-hp*0.35,sz*(W/2-0.04)); mor.userData.clave='utillaje'; PIEZA.add(mor); }
+  PIEZA.userData.esc=esc;
+}
+/** Coloca la pieza para la distancia D y enciende los puntos ya soldados hasta la fracción s (0–1) de la costura. */
+function ponPieza(esc,D,s){
+  construyePieza(esc); PIEZA.position.set(D,0,0);
+  const n=clamp(Math.floor(s*NPUNTOS+1e-9),0,NPUNTOS), m4=new THREE.Matrix4();
+  for(let i=0;i<NPUNTOS;i++){ m4.makeTranslation(D,esc.H+0.004,-esc.Lc/2+esc.Lc*(i+0.5)/NPUNTOS); NUGGETS.setMatrixAt(i,m4); }
+  NUGGETS.instanceMatrix.needsUpdate=true; NUGGETS.count=n;
+}
+
+/* ===================== 9. LO QUE MUESTRA EL MODELO SOBRE LA ESCENA =====================
+   La bola de la punta (el objetivo que arrastras), su caída al suelo, el eje de la pinza, la pasada, el corte vertical del volumen de trabajo,
+   los anillos de alcance a la altura de la punta, el triángulo de la ley de los cosenos y el fantasma de la otra solución. */
+const M_BOLA=new THREE.MeshBasicMaterial({color:'#ff9a3c',toneMapped:false}), M_ARO=new THREE.MeshBasicMaterial({color:'#ffd9a8',toneMapped:false,transparent:true,opacity:0.9,depthWrite:false});
+const OBJ=new THREE.Group(); MUNDO.add(OBJ);
+const OBJ_BOLA=new THREE.Mesh(new THREE.SphereGeometry(0.07,24,16),M_BOLA); OBJ_BOLA.userData.clave='objetivo'; OBJ.add(OBJ_BOLA);
+const OBJ_HIT=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,8),new THREE.MeshBasicMaterial({visible:false})); OBJ_HIT.userData.clave='objetivo'; OBJ.add(OBJ_HIT);
+const OBJ_ARO=new THREE.Mesh(new THREE.TorusGeometry(0.13,0.007,8,40),M_ARO); OBJ_ARO.userData.clave='objetivo'; OBJ.add(OBJ_ARO);
+const OBJ_CAIDA=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,1,6),new THREE.MeshBasicMaterial({color:'#ffb16a',transparent:true,opacity:0.55,toneMapped:false,depthWrite:false})); OBJ_CAIDA.raycast=()=>{}; OBJ.add(OBJ_CAIDA);
+const OBJ_SUELO=new THREE.Mesh(new THREE.RingGeometry(0.10,0.14,32).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#ffb16a',transparent:true,opacity:0.8,toneMapped:false,depthWrite:false})); OBJ_SUELO.raycast=()=>{}; OBJ.add(OBJ_SUELO);
+const OBJ_EJE=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,1,8),new THREE.MeshBasicMaterial({color:'#4dd2ff',toneMapped:false})); OBJ_EJE.raycast=()=>{}; OBJ.add(OBJ_EJE);
+const OBJ_PUNTA=new THREE.Mesh(new THREE.ConeGeometry(0.03,0.09,12),new THREE.MeshBasicMaterial({color:'#4dd2ff',toneMapped:false})); OBJ_PUNTA.raycast=()=>{}; OBJ.add(OBJ_PUNTA);
+/** Coloca el objetivo en p (mundo) y dibuja el eje de aproximación de la pinza d (vector unitario) saliendo de él hacia atrás, 0,5 m. */
+function ponObjetivo(p,d,limpio){
+  OBJ.position.set(p[0],p[1],p[2]); OBJ_ARO.rotation.x=Math.PI/2;
+  OBJ_CAIDA.scale.set(1,Math.max(0.001,p[1]),1); OBJ_CAIDA.position.set(0,-p[1]/2,0); OBJ_SUELO.position.set(0,-p[1]+0.012,0);
+  const L=0.55, dv=V3(d[0],d[1],d[2]);
+  OBJ_EJE.scale.set(1,L,1); OBJ_EJE.position.copy(dv).multiplyScalar(-L/2); OBJ_EJE.quaternion.setFromUnitVectors(V3(0,1,0),dv);
+  OBJ_PUNTA.position.copy(dv).multiplyScalar(-0.04); OBJ_PUNTA.quaternion.setFromUnitVectors(V3(0,1,0),dv);
+  OBJ_EJE.visible=OBJ_PUNTA.visible=!limpio;
+}
+/* la pasada (costura recta) */
+const PASADA_MESH=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,1,8),new THREE.MeshBasicMaterial({color:'#ffd27a',toneMapped:false,transparent:true,opacity:0.95})); PASADA_MESH.raycast=()=>{}; PASADA_MESH.visible=false; MUNDO.add(PASADA_MESH);
+function ponPasadaLinea(A,B){ const a=V3(...A), b=V3(...B), d=b.clone().sub(a), L=d.length(); PASADA_MESH.position.copy(a).addScaledVector(d,0.5); PASADA_MESH.scale.set(1,L,1); PASADA_MESH.quaternion.setFromUnitVectors(V3(0,1,0),d.normalize()); PASADA_MESH.visible=true; }
+/* el corte vertical del volumen de trabajo, sobre un plano que pasa por el eje de J1 y por el objetivo */
+const CORTE={cv:cv(52,42),tex:null,mesh:null,clave:'',w:4.4,h:3.8,r0:0,h0:-0.2,mapa:null};
+CORTE.tex=tex(CORTE.cv,{srgb:true}); CORTE.tex.wrapS=CORTE.tex.wrapT=THREE.ClampToEdgeWrapping; CORTE.tex.generateMipmaps=false; CORTE.tex.minFilter=THREE.LinearFilter;
+CORTE.mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:CORTE.tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,opacity:0.55})); CORTE.mesh.renderOrder=3; CORTE.mesh.raycast=()=>{}; CORTE.mesh.visible=false; MUNDO.add(CORTE.mesh);
+/** Pinta el mapa de alcance (las mismas celdas del dock): verde azulado = alcanza (más claro, más manipulable), rojizo rayado = alcanza pero un límite lo impide, morado = casi singular. */
+function pintaCorte(c,mapa,conManip){
+  if(c.width!==mapa.nx||c.height!==mapa.ny){ c.width=mapa.nx; c.height=mapa.ny; }
+  const W=c.width,H=c.height,x=c.getContext('2d'), im=x.createImageData(W,H), D=im.data;
+  for(let j=0;j<mapa.ny;j++) for(let i=0;i<mapa.nx;i++){ const k=j*mapa.nx+i, e=mapa.est[k], o=((mapa.ny-1-j)*W+i)*4;
+    let r=70,g=205,b=215,a=0;
+    if(e===1){ r=255; g=96; b=96; a=70; }
+    else if(e===2){ const m=conManip?mapa.man[k]:0.55; if(conManip&&m<IM_MIN){ r=214; g=92; b=255; a=150; } else { r=Math.round(40+80*m); g=Math.round(190+50*m); b=Math.round(190+40*m); a=Math.round(70+80*m); } }
+    D[o]=r; D[o+1]=g; D[o+2]=b; D[o+3]=a; }
+  x.putImageData(im,0,0);
+}
+/* anillos de alcance a la altura de la punta: el mayor y el menor radio al que llega (a esa altura y con esa inclinación) */
+const ANILLO_N=96;
+function nuevoAnillo(col){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(ANILLO_N*3),3)); const o=new THREE.LineLoop(g,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.85,toneMapped:false,depthWrite:false})); o.frustumCulled=false; o.raycast=()=>{}; o.visible=false; MUNDO.add(o); return o; }
+const ANILLO_EXT=nuevoAnillo('#4dd2ff'), ANILLO_INT=nuevoAnillo('#ff6b6b');
+function ponAnillo(a,r,y){ const p=a.geometry.attributes.position; for(let i=0;i<ANILLO_N;i++){ const t=i/ANILLO_N*DOSPI; p.setXYZ(i,r*Math.cos(t),y,-r*Math.sin(t)); } p.needsUpdate=true; a.geometry.computeBoundingSphere(); a.visible=r>0.01; }
+/* el triángulo de la ley de los cosenos: hombro → codo → muñeca y la recta hombro–muñeca (tres varillas) y tres puntos */
+const TRI={lados:[],puntos:[]};
+for(const col of ['#ffe08a','#ffe08a','#ffffff']){ const o=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,1,8),new THREE.MeshBasicMaterial({color:col,toneMapped:false,depthTest:false,transparent:true,opacity:0.95})); o.renderOrder=6; o.raycast=()=>{}; o.visible=false; MUNDO.add(o); TRI.lados.push(o); }
+TRI.puntos=[0,1,2].map(()=>{ const o=new THREE.Mesh(new THREE.SphereGeometry(0.06,14,10),new THREE.MeshBasicMaterial({color:'#ffe08a',toneMapped:false,depthTest:false})); o.renderOrder=7; o.raycast=()=>{}; o.visible=false; MUNDO.add(o); return o; });
+function ponTriangulo(P3a,on){
+  TRI.lados.forEach(o=>o.visible=on); TRI.puntos.forEach(o=>o.visible=on); if(!on) return;
+  const [a,b,c]=P3a.map(p=>V3(p[0],p[1],p[2]));
+  [[a,b],[b,c],[a,c]].forEach(([u,v],i)=>{ const d=v.clone().sub(u), L=d.length(), o=TRI.lados[i]; o.position.copy(u).addScaledVector(d,0.5); o.scale.set(1,Math.max(L,1e-3),1); o.quaternion.setFromUnitVectors(V3(0,1,0),d.normalize()); });
+  [a,b,c].forEach((p,i)=>TRI.puntos[i].position.copy(p));
+}
+
+/* ===================== 10. EL ESTADO Y EL RELOJ =====================
+   Un solo cálculo (CALC) y un solo estado vivo (LIVE) alimentan la escena, el dock y las cifras. El reloj SIM.t es el tiempo físico (s): la escena
+   va en CÁMARA LENTA ×1/4 (rotulada en la barra de abajo) porque a velocidad real una pasada dura menos de un segundo. En «Mover la punta» el robot
+   sigue la bola con una suavización de 0,1 s; en una pasada la punta avanza a la velocidad pedida v (m/s) por la costura, de ida y vuelta.
+   Modos: «Recorrido» (paso a paso), «Probar» (mandos libres) y «Reto». */
+const EST={modo:'tour',sub:'punta',tx:2.5,ty:1.25,tz:0.35,incl:0,yaw:0,rama:'arriba',hb:0,esc:'puerta',D:2.6,v:1.5,pausa:REDUCIDO,vel:1,autoRunning:false,vista:'celda',rot:false,
+  ver:{tri:false,corte:false,fantasma:false,anillos:true},arrastre:'suelo'};
+const SIM={t:0,s:0,dir:1,espera:0,cmd:null,q:[0,-0.45,0.5,0,0.2,0],qG:null,calc:null,ver:0,e:null};
+const LENTO=0.25, V_REF=1.0;                                        // V_REF: velocidad de la punta (m/s) con la que se mide el «peor caso» en «Mover la punta»
+let CALC=null;
+const LIVE={q:SIM.q.slice(),llega:true,enLimites:true,limites:[],tcp:[0,0,0],tcpMundo:[0,0,0],rho:0,th5:0,phi:0,im:0,gan:null,qd:null,ratios:null,rmax:0,s:0,wa:[0,0,0],objetivo:[0,0,0],aprox:[1,0,0],rama:'arriba'};
+
+/* ---- el corte del volumen de trabajo: un mapa por (inclinación, giro lateral, altura de la base, rama), calculado una sola vez ---- */
+const MAPAS=new Map(); let MAPA_ULT=null, MAPA_T=null;
+const claveMapa=o=>[Math.round(o.incl),Math.round(o.yaw||0),Math.round(o.hb*100),o.rama].join('|');
+function mapaPara(o,sync){
+  const k=claveMapa(o); if(MAPAS.has(k)){ MAPA_ULT=MAPAS.get(k); return MAPA_ULT; }
+  const calc=()=>{ const m=mapaAlcance({incl:Math.round(o.incl),yaw:Math.round(o.yaw||0),hb:Math.round(o.hb*100)/100,rama:o.rama,nx:52,ny:42,rmax:4.4,hmin:-0.2,hmax:3.6}); m.clave=k; if(MAPAS.size>14) MAPAS.delete(MAPAS.keys().next().value); MAPAS.set(k,m); MAPA_ULT=m; return m; };
+  if(sync||!MAPA_ULT) return calc();
+  clearTimeout(MAPA_T); MAPA_T=setTimeout(()=>{ calc(); if(typeof reiniciaCalculo==='function') reiniciaCalculo(); },110);
+  return MAPA_ULT;
+}
+/** Rango de radio al que llega la punta a la altura h (de la tabla del corte): [mínimo, máximo] sólo con celdas alcanzables y dentro de límites. */
+function rangoRadio(m,h){
+  const j=clamp(Math.floor((h-m.h0)/(m.h1-m.h0)*m.ny),0,m.ny-1); let a=-1,b=-1;
+  for(let i=0;i<m.nx;i++){ if(m.est[j*m.nx+i]===2){ if(a<0) a=i; b=i; } }
+  if(a<0) return null; const cw=(m.r1-m.r0)/m.nx; return [m.r0+a*cw,m.r0+(b+1)*cw];
+}
+
+/** Lo que corre ahora: en «Probar», lo que digan los mandos; en el recorrido y en el reto, lo que pida el paso. */
+function paramsActuales(){
+  if(EST.modo==='tour'){ const p=tourParams(); if(p) return p; }
+  if(EST.modo==='reto'){ const p=guiaParams(); if(p) return p; }
+  if(EST.sub==='costura') return descPasada(escPorId(EST.esc),EST.D,EST.hb,EST.v);
+  return {tipo:'punta',p:[EST.tx,EST.ty,EST.tz],incl:EST.incl,yaw:EST.yaw,rama:EST.rama,hb:EST.hb,ver:EST.ver,demo:null};
+}
+/** Descriptor de una pasada de costura del escenario `esc` a distancia D, base a altura hb y velocidad v. */
+function descPasada(esc,D,hb,v,extra){
+  const {A,B}=extremos(esc,D);
+  return Object.assign({tipo:'pasada',esc,pz:{esc,D},A,B,incl:esc.incl,yaw:0,giro:esc.giro||0,hb,v,vTakt:esc.vTakt,D,rama:'arriba',ver:{tri:false,corte:false,fantasma:false,anillos:false},oculto:false},extra||{});
+}
+const rumboDe=(x,z)=>Math.atan2(-z,x);
+const rtDe=(d,p)=>orientacion(dirAprox(d.incl*RAD,rumboDe(p[0],p[2])+(d.yaw||0)*RAD),(d.giro||0)*RAD);
+function calcula(d,sync){
+  const C={d,mapa:mapaPara({incl:d.incl,yaw:d.yaw||0,hb:d.hb,rama:d.tipo==='punta'?d.rama:'arriba'},sync)};
+  if(d.tipo==='pasada'){
+    C.PAS=evaluaPasadaGen(d.A,d.B,d.incl,d.giro||0,d.hb,d.v,120,d.vTakt,d.yaw||0);
+    C.Rt=orientacion(dirAprox(d.incl*RAD,(d.yaw||0)*RAD),(d.giro||0)*RAD); C.dirP=vunit(vres(d.B,d.A));
+  }
+  return C;
+}
+function reiniciaCalculo(sync){
+  const d=paramsActuales(); CALC=calcula(d,sync===true); SIM.calc=CALC; SIM.ver++;
+  ponBase(d.hb);
+  if(d.tipo==='pasada'){ ponPasadaLinea(d.A,d.B); SIM.s=clamp(SIM.s,0,1); if(d.pz) ponPieza(d.pz.esc,d.pz.D,0); }
+  else { PASADA_MESH.visible=false; }
+  const conPieza=d.tipo==='pasada'&&!!d.pz; PIEZA.visible=conPieza; NUGGETS.visible=conPieza; if(!conPieza) NUGGETS.count=0;
+  repintaCorte();
+  if(typeof pintaDockFijo==='function') pintaDockFijo();
+}
+let CORTE_VER=-1;
+function repintaCorte(){
+  const C=CALC; if(!C||!C.mapa) return; const d=C.d, m=C.mapa;
+  pintaCorte(CORTE.cv,m,!(d.oculto)); CORTE.tex.needsUpdate=true; CORTE.mapa=m;
+}
+
+/* ===================== 11. LO QUE SE VE ===================== */
+const FRAC_PASADA=()=>CALC&&CALC.d.tipo==='pasada'?SIM.s:0;
+/** El punto de «demostración» de los pasos del recorrido: una órbita suave de la punta (mundo). */
+function demoPunto(d,t){
+  const c=d.demo; if(!c) return d.p;
+  const w=DOSPI/c.T, a=w*t; return [d.p[0]+c.rx*Math.cos(a),d.p[1]+c.ry*Math.sin(a),d.p[2]+c.rz*Math.sin(a+(c.fase||0))];
+}
+const _q=new THREE.Quaternion();
+function aplicaEscena(dtS,dtSim,dtR){
+  if(dtR===undefined) dtR=dtS;
+  const C=CALC; if(!C) return; const d=C.d, hb=d.hb;
+  let p, Rt, dirV=null;
+  SIM.t+=dtSim;
+  if(d.tipo==='pasada'){
+    const Lp=C.PAS.L;
+    if(SIM.espera>0) SIM.espera=Math.max(0,SIM.espera-dtSim);
+    else { SIM.s+=SIM.dir*d.v*dtSim/Lp; if(SIM.s>=1){ SIM.s=1; SIM.dir=-1; SIM.espera=0.4; } else if(SIM.s<=0){ SIM.s=0; SIM.dir=1; SIM.espera=0.4; } }
+    p=vsum(d.A,vesc(vres(d.B,d.A),SIM.s)); Rt=C.Rt; dirV=vesc(C.dirP,SIM.dir>0?1:-1);
+    if(d.pz) ponPieza(d.pz.esc,d.pz.D,SIM.dir>0?SIM.s:1);
+  } else {
+    const tgt=demoPunto(d,SIM.t);
+    if(!SIM.cmd||EST.salto) SIM.cmd=tgt.slice(); const k=1-Math.exp(-dtR/(EST.arrastrando?0.03:0.10)); EST.salto=false;
+    for(let i=0;i<3;i++) SIM.cmd[i]+=(tgt[i]-SIM.cmd[i])*k;
+    p=SIM.cmd; Rt=rtDe(d,p);
+  }
+  // cinemática inversa en vivo (continuidad con la pose anterior)
+  const pr=[p[0],p[1]-hb,p[2]], r=ik(pr,Rt,d.rama||'arriba',SIM.q);
+  const q=r.llega?r.q:r.qSemilla; SIM.q=q.slice();
+  poseRobot(ROBOT,q);
+  const f=fk(q), tcpR=f.tcp;
+  LIVE.q=q; LIVE.llega=r.llega; LIVE.enLimites=r.enLimites; LIVE.limites=r.limites; LIVE.rama=d.rama||'arriba';
+  LIVE.tcp=tcpR; LIVE.tcpMundo=[tcpR[0],tcpR[1]+hb,tcpR[2]]; LIVE.objetivo=p.slice(); LIVE.aprox=col(Rt,0);
+  LIVE.rho=Math.hypot(tcpR[0],tcpR[2]); LIVE.th5=th5De(q); LIVE.phi=r.brazo.phi; LIVE.s=SIM.s;
+  LIVE.im=r.llega?indiceManip(q):0;
+  LIVE.wa=vsum(f.P[3],vesc(f.Ax[3],vdot(A4,OFF[4])));
+  if(d.tipo==='pasada'){
+    const w=r.llega?velArticular(q,vesc(dirV,d.v)):null; LIVE.qd=w?w.map(x=>Math.abs(x)/RAD):[1e9,1e9,1e9,1e9,1e9,1e9]; LIVE.ratios=LIVE.qd.map((x,i)=>x/VMAX_DEG[i]); LIVE.rmax=Math.max(...LIVE.ratios); LIVE.gan=null;
+  } else { const g=r.llega?peorGanancia(q):null; LIVE.gan=g?g.map(x=>x*V_REF):null; LIVE.qd=LIVE.gan; LIVE.ratios=LIVE.gan?LIVE.gan.map((x,i)=>x/VMAX_DEG[i]):null; LIVE.rmax=LIVE.ratios?Math.max(...LIVE.ratios):1e9; }
+  // el fantasma: la otra solución (la que el robot real no puede tomar)
+  const FV=(d.ver&&d.ver.fantasma)&&d.tipo==='punta';
+  if(FANTASMA.grupo.visible!==!!FV){ FANTASMA.grupo.visible=!!FV; ROBOT.raiz.traverse(o=>{ if(o.isMesh) o.castShadow=!FV&&calAlta(); }); }   // con el fantasma no se proyecta la sombra de mapa del robot: así los triángulos se quedan bajo el presupuesto
+  if(FV){ const otra=(d.rama||'arriba')==='abajo'?'arriba':'abajo', g=ik(pr,Rt,otra,SIM.qG); SIM.qG=(g.llega?g.q:g.qSemilla).slice(); poseRobot(FANTASMA,SIM.qG); LIVE.otra={llega:g.llega,limites:g.limites,q:SIM.qG.slice(),enLimites:g.enLimites}; } else { SIM.qG=null; LIVE.otra=null; }
+  // el objetivo, su eje de aproximación y los anillos de alcance
+  ponObjetivo(p,LIVE.aprox,false);
+  M_BOLA.color.set(r.llega&&r.enLimites?'#ff9a3c':'#ff4d5e');
+  const ver=d.ver||{};
+  CORTE.mesh.visible=!!ver.corte&&!!C.mapa;
+  if(CORTE.mesh.visible){ const m=C.mapa, az=rumboDe(p[0],p[2]); CORTE.mesh.scale.set(m.r1-m.r0,m.h1-m.h0,1); const cx=(m.r0+m.r1)/2, cy=(m.h0+m.h1)/2;
+    CORTE.mesh.position.set(cx*Math.cos(az),cy,-cx*Math.sin(az)); CORTE.mesh.rotation.set(0,az,0); }
+  if(ver.anillos&&C.mapa&&d.tipo==='punta'){ const rg=rangoRadio(C.mapa,p[1]); if(rg){ ponAnillo(ANILLO_EXT,rg[1],0.02); ponAnillo(ANILLO_INT,rg[0],0.02); } else { ANILLO_EXT.visible=ANILLO_INT.visible=false; } }
+  else { ANILLO_EXT.visible=ANILLO_INT.visible=false; }
+  ponTriangulo(ver.tri?[[f.P[1][0],f.P[1][1]+hb,f.P[1][2]],[f.P[2][0],f.P[2][1]+hb,f.P[2][2]],[LIVE.wa[0],LIVE.wa[1]+hb,LIVE.wa[2]]]:null,!!ver.tri);
+}
+
+/* ===================== 12. EL HUD (izquierda) ===================== */
+const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
+const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
+const FRASE='Mueves la punta del robot con el ratón y ves cómo cada articulación se acomoda para llegar, y dónde el robot se atora.';
+const gr=x=>fN(x/RAD,0)+'°', gr1=x=>fN(x/RAD,1)+' °';
+/** Un deslizador con su etiqueta y su cifra (el motor decide el formato). */
+function deslizador(id,etq,min,max,paso,val,fmt,marcas){
+  return `<div class="cg"><div class="cl"><div>${etq}</div><b id="v_${id}">${fmt(val)}</b></div><input type="range" id="${id}" min="${min}" max="${max}" step="${paso}" value="${val}" aria-label="${etq}">`
+    +(marcas?`<div class="marcas">${marcas.map(m=>`<span>${m}</span>`).join('')}</div>`:'')+`</div>`;
+}
+const seg=(attr,vals,act,fmt)=>vals.map(v=>`<button class="b ${act===v?'on':''}" ${attr}="${v}">${fmt?fmt(v):v}</button>`).join('');
+const FMT={x:v=>fN(+v,2)+' m',z:v=>fN(+v,2)+' m',y:v=>fN(+v,2)+' m',incl:v=>fN(+v,0)+' °',yaw:v=>fN(+v,0)+' °',hb:v=>fN(+v,2)+' m',D:v=>fN(+v,1)+' m',v:v=>fN(+v,1)+' m/s'};
+/** Los mandos libres de «Probar»: mover la punta, o recorrer una costura. */
+function mandosHTML(){
+  let h=`<div class="cg"><div class="seg" id="segSub"><button class="b ${EST.sub==='punta'?'on':''}" data-sub="punta">Mover la punta</button><button class="b ${EST.sub==='costura'?'on':''}" data-sub="costura">Recorrer una costura</button></div></div>`;
+  if(EST.sub==='punta'){
+    h+=deslizador('sX','Adelante (hacia la pieza)',0.4,4.3,0.05,EST.tx,FMT.x)+deslizador('sZ','Al lado',-2.6,2.6,0.05,EST.tz,FMT.z)+deslizador('sY','Altura',0,3.5,0.05,EST.ty,FMT.y)
+     +deslizador('sI','Inclinación de la pinza',-60,40,1,EST.incl,FMT.incl,['hacia abajo','recta','hacia arriba'])
+     +deslizador('sB','Altura de la base (pedestal)',0,0.8,0.05,EST.hb,FMT.hb)
+     +`<div class="cg"><div class="cl"><div>Codo</div></div><div class="seg" id="segRama">${seg('data-rama',['arriba','abajo'],EST.rama,v=>v==='arriba'?'Codo arriba':'Codo abajo')}</div></div>`
+     +`<div class="fila"><button class="b sm ${EST.ver.corte?'on':''}" data-ver="corte">Alcance</button><button class="b sm ${EST.ver.tri?'on':''}" data-ver="tri">Triángulo</button><button class="b sm ${EST.ver.fantasma?'on':''}" data-ver="fantasma">Otra solución</button></div>`;
+  } else {
+    h+=`<div class="cg"><div class="cl"><div>Costura</div></div><div class="seg" id="segEsc">${ESCENARIOS.map(e=>`<button class="b ${EST.esc===e.id?'on':''}" data-esc="${e.id}">${e.corto}</button>`).join('')}</div></div>`
+     +deslizador('sD','Distancia de la pieza',D_RANGO[0],D_RANGO[1],0.1,EST.D,FMT.D)+deslizador('sB','Altura de la base (pedestal)',HB_RANGO[0],HB_RANGO[1],0.05,EST.hb,FMT.hb)+deslizador('sV','Velocidad de la punta',V_RANGO[0],V_RANGO[1],0.1,EST.v,FMT.v);
+  }
+  return h;
+}
+/** Los dos mandos del reto: distancia de la pieza, altura de la base y velocidad de la punta. */
+function mandosReto(r){
+  return deslizador('r2D','Distancia de la pieza',D_RANGO[0],D_RANGO[1],0.1,r.D,FMT.D)+deslizador('r2B','Altura de la base (pedestal)',HB_RANGO[0],HB_RANGO[1],0.05,r.hb,FMT.hb)+deslizador('r2V','Velocidad de la punta',V_RANGO[0],V_RANGO[1],0.1,r.v,FMT.v);
+}
+function pintaHUD(){
+  const H=el('hud');
+  let h=`<div class="hcab"><div class="eyebrow">Autotrónica · robot de 6 ejes</div><h2>${FRASE}</h2>`;
+  h+=`</div>`;
+  h+=`<div class="modebar"><button class="b ${EST.modo==='tour'?'on':''}" data-mode="tour"><i>①</i>Recorrido</button><button class="b ${EST.modo==='probar'?'on':''}" data-mode="probar"><i>◎</i>Probar</button><button class="b ${EST.modo==='reto'?'on':''}" data-mode="reto"><i>✎</i>Reto</button></div>`;
+  if(EST.modo==='tour') h+=htmlTour();
+  else if(EST.modo==='probar') h+=`<div class="hmandos">${mandosHTML()}<div class="fila"><button class="b auto sm" id="btnAuto">Repetir el recorrido</button></div></div>`;
+  else h+=htmlGuia();
+  h+=`<div class="hdet"><details id="dEc"><summary>Ecuaciones</summary><div class="cuerpo">
+    <div class="formula">c = (d² − L₂² − L₃²) / (2·L₂·L₃)   ·   φ = arccos c</div>
+    <div class="fl">Los dos eslabones del brazo miden <b>L₂ = ${fN(L2,2)} m</b> y <b>L₃ = ${fN(L3,2)} m</b>. Si la muñeca está a una distancia <b>d</b> del hombro, la ley de los cosenos da el ángulo φ entre ellos: φ = 0 es el brazo estirado y d = ${fN(D_MAX,2)} m es lo más lejos que llega (lo más cerca: ${fN(D_MIN,2)} m).</div>
+    <div class="formula">q̇ = J⁻¹ · [v ; 0]   ·   w = |det J|</div>
+    <div class="fl">El <b>jacobiano J</b> relaciona las velocidades de las articulaciones con la de la punta. Su determinante, el <b>índice de manipulabilidad</b>, vale 0 en una singularidad: ahí J no se puede invertir y la velocidad articular que exige moverse tiende a infinito.</div>
+    <div class="formula">θ₅ = 0 ⇒ J4 ∥ J6   ·   φ = 0 ⇒ brazo estirado</div>
+    <div class="fl">Con la <b>muñeca recta</b> (θ₅ ≈ 0) los ejes de J4 y J6 coinciden y sólo importa su suma: se pierde un grado de libertad. Con el <b>codo estirado</b> la punta no puede avanzar más hacia fuera: se pierde otro.</div>
+  </div></details>
+  <details id="dSim"><summary>Simplificaciones</summary><div class="cuerpo"><ul class="no">
+    <li>El robot es el <b>modelo 3D real</b> a escala 3 (≈ 2,8 m); sus pivotes y ejes son los del archivo, pero las <b>carreras</b> y <b>velocidades máximas</b> de cada articulación son didácticas, no las de un fabricante.</li>
+    <li>Todo es <b>cinemática</b>: sin masas, inercia, par de los motores, deflexión ni colisiones del brazo con la pieza o con la valla.</li>
+    <li>La pieza, la valla y el utillaje son <b>ilustrativos</b>; la soldadura (corriente, fuerza de electrodos) no se simula.</li>
+    <li>El corte de alcance es de <b>un plano</b> con la pinza inclinada como indica el mando; en otros planos o con otra orientación el volumen cambia.</li>
+  </ul><div class="src">ISO 9787 (ejes de robots manipuladores) y Yoshikawa 1985 (manipulabilidad), a verificar.</div></div></details></div>`;
+  H.innerHTML=h; H.classList.toggle('guia',EST.modo!=='probar'); enlazaHUD(); ajustaHoja();
+}
+function enlazaHUD(){
+  const H=el('hud'), re=()=>{ reiniciaCalculo(); };
+  const enReto=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&GUIA.r2;
+  H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  H.querySelectorAll('#segSub [data-sub]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.sub=b.dataset.sub; SIM.s=0; SIM.dir=1; SIM.espera=0; pintaHUD(); re(); reiniciaCalculo(true); });
+  H.querySelectorAll('#segRama [data-rama]').forEach(b=>b.onclick=()=>{ EST.rama=b.dataset.rama; pintaHUD(); reiniciaCalculo(true); });
+  H.querySelectorAll('#segEsc [data-esc]').forEach(b=>b.onclick=()=>{ EST.esc=b.dataset.esc; SIM.s=0; SIM.dir=1; pintaHUD(); reiniciaCalculo(true); });
+  H.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ver; EST.ver[k]=!EST.ver[k]; b.classList.toggle('on',EST.ver[k]); re(); });
+  const lig=(id,fn,fm)=>{ const e=el(id); if(!e) return; e.oninput=()=>{ if(EST.autoRunning) return; fn(+e.value); const v=el('v_'+id); if(v) v.textContent=fm(+e.value); re(); }; };
+  lig('sX',v=>EST.tx=v,FMT.x); lig('sZ',v=>EST.tz=v,FMT.z); lig('sY',v=>EST.ty=v,FMT.y); lig('sI',v=>EST.incl=v,FMT.incl); lig('sB',v=>EST.hb=v,FMT.hb); lig('sD',v=>EST.D=v,FMT.D); lig('sV',v=>EST.v=v,FMT.v);
+  if(el('btnAuto')) el('btnAuto').onclick=runAuto;
+  H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
+  const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+}
+
+/* ===================== 13. EL DOCK (derecha): cifras y gráficas DOM ===================== */
+const FUENTE="'Outfit',system-ui,sans-serif";
+function lienzo(id){ const box=el(id), c=box.querySelector('canvas'); return {box,c,ctx:c.getContext('2d'),w:0,h:0,dpr:1}; }
+function abre(L){ const r=L.box.getBoundingClientRect(), dpr=Math.min(3,window.devicePixelRatio||1);
+  const w=Math.max(20,Math.round(r.width)), h=Math.max(20,Math.round(r.height));
+  if(L.w!==w||L.h!==h||L.dpr!==dpr){ L.c.width=Math.round(w*dpr); L.c.height=Math.round(h*dpr); L.w=w; L.h=h; L.dpr=dpr; }
+  const x=L.ctx; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); return x; }
+function txt(x,t,px,py,col,size,align,peso){ x.fillStyle=col; x.font=(peso||'600')+' '+(size||11)+'px '+FUENTE; x.textAlign=align||'left'; x.textBaseline='alphabetic'; x.fillText(t,px,py); }
+function raya(x,x1,y1,x2,y2,col,w,dash){ x.strokeStyle=col; x.lineWidth=w||1; x.setLineDash(dash||[]); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]); }
+const LMAPA=lienzo('gFu'), LANG=lienzo('gTr'), LVEL=lienzo('gFr'), LSER=lienzo('gSp');
+const sinDatos=(x,Wd,Hd,t)=>{ txt(x,t||'—',Wd/2,Hd/2+4,'#8a99ad',t?11:14,'center','500'); };
+const COL={ok:'#4dd2ff',pas:'#ffcf8a',lim:'#ff6b7a',obj:'#ff9a3c',ped:'#3DDC97',brazo:'#e9eef5',sing:'#d65cff'};
+const GRID='rgba(160,190,220,0.10)', EJE='#46607f', TXT='#93a8c2';
+const oculto=()=>CALC&&CALC.d.oculto;
+const NOM_J=['J1 columna','J2 hombro','J3 codo','J4 antebrazo','J5 muñeca','J6 pinza'];
+const CORTO_J=['J1','J2','J3','J4','J5','J6'];
+const ang=(q,i)=>(i===4?th5De(q):q[i]);
+
+/* ---- el corte vertical: dónde llega la punta, dónde no, y dónde es difícil moverla ---- */
+function pintaMapa(){
+  const x=abre(LMAPA), Wd=LMAPA.w, Hd=LMAPA.h, C=CALC; if(!C||!C.mapa) return;
+  const m=C.mapa, d=C.d, X0=26, X1=Wd-6, Y0=7, Y1=Hd-16, X=r=>X0+(r-m.r0)/(m.r1-m.r0)*(X1-X0), Y=h=>Y1-(h-m.h0)/(m.h1-m.h0)*(Y1-Y0);
+  const ocu=oculto(), cw=(X1-X0)/m.nx, ch=(Y1-Y0)/m.ny;
+  for(let j=0;j<m.ny;j++) for(let i=0;i<m.nx;i++){ const k=j*m.nx+i, e=m.est[k]; if(!e) continue; const px=X0+i*cw, py=Y1-(j+1)*ch;
+    if(e===1){ x.fillStyle='rgba(255,100,100,0.20)'; x.fillRect(px,py,cw+0.6,ch+0.6); }
+    else { const mm=ocu?0.5:m.man[k]; x.fillStyle=(!ocu&&mm<IM_MIN)?'rgba(214,92,255,0.60)':`rgba(${Math.round(40+80*mm)},${Math.round(180+60*mm)},${Math.round(200+30*mm)},${0.20+0.32*mm})`; x.fillRect(px,py,cw+0.6,ch+0.6); } }
+  // retícula y ejes
+  for(let r=0;r<=4;r++){ raya(x,X(r),Y0,X(r),Y1,GRID); txt(x,fN(r,0),X(r),Hd-4,TXT,8.5,'center','500'); }
+  for(let h=0;h<=3;h++){ raya(x,X0,Y(h),X1,Y(h),GRID); txt(x,fN(h,0),X0-4,Y(h)+3,TXT,8.5,'right','500'); }
+  txt(x,'m',X1-2,Hd-4,TXT,8.5,'right','600'); txt(x,'m',X0-4,Y0+8,TXT,8.5,'right','600');
+  // suelo y base
+  const hb=d.hb; raya(x,X0,Y(0),X1,Y(0),'#5b7189',1.4);
+  if(hb>0.01){ x.fillStyle='rgba(120,135,155,0.9)'; x.fillRect(X(-0.45),Y(hb),X(0.45)-X(-0.45),Y(0)-Y(hb)); } else { x.fillStyle='rgba(120,135,155,0.9)'; x.fillRect(X(0)-4,Y(0)-3,8,3); }
+  // el robot de lado: hombro, codo, muñeca y punta (distancia horizontal al eje)
+  const q=LIVE.q, f=fk(q), pts=[[0,0],...f.P.map(p=>[Math.hypot(p[0],p[2]),p[1]]),[LIVE.rho,LIVE.tcp[1]]];
+  x.strokeStyle='rgba(235,240,247,0.95)'; x.lineWidth=2.4; x.lineJoin='round'; x.beginPath(); pts.forEach((p,i)=>{ const px=X(p[0]), py=Y(p[1]+hb); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  for(const i of [2,3]){ const p=pts[i]; x.fillStyle='#fff'; x.beginPath(); x.arc(X(p[0]),Y(p[1]+hb),2.6,0,DOSPI); x.fill(); }
+  // la pasada
+  if(d.tipo==='pasada'){
+    const P=C.PAS.pts; x.lineWidth=2.2; for(let k=1;k<P.length;k++){ const a=P[k-1], b=P[k]; const bad=!(a.llega&&a.enLimites&&b.llega&&b.enLimites)||(!ocu&&b.im<IM_MIN)||(!ocu&&b.rmax>1);
+      x.strokeStyle=ocu?COL.pas:(bad?COL.lim:COL.pas); x.beginPath(); x.moveTo(X(Math.hypot(a.p[0],a.p[2])),Y(a.p[1])); x.lineTo(X(Math.hypot(b.p[0],b.p[2])),Y(b.p[1])); x.stroke(); }
+  } else {
+    const rg=rangoRadio(m,LIVE.objetivo[1]); if(rg){ raya(x,X(rg[0]),Y(LIVE.objetivo[1])-5,X(rg[0]),Y(LIVE.objetivo[1])+5,COL.lim,1.6); raya(x,X(rg[1]),Y(LIVE.objetivo[1])-5,X(rg[1]),Y(LIVE.objetivo[1])+5,COL.ok,1.6); }
+  }
+  // el objetivo y la punta
+  const ro=Math.hypot(LIVE.objetivo[0],LIVE.objetivo[2]), yo=LIVE.objetivo[1];
+  x.strokeStyle=LIVE.llega&&LIVE.enLimites?COL.obj:COL.lim; x.lineWidth=2; x.beginPath(); x.arc(X(ro),Y(yo),5.5,0,DOSPI); x.stroke();
+  x.fillStyle='#fff'; x.beginPath(); x.arc(X(LIVE.rho),Y(LIVE.tcp[1]+hb),2.4,0,DOSPI); x.fill();
+  txt(x,'robot de lado',X0+4,Y0+9,'#cfe0f0',9.5,'left','600');
+  el('t_fu').textContent=d.tipo==='pasada'?`a ${fN(d.D,1)} m de la base`:`pinza ${d.incl<=-1?'hacia abajo '+fN(-d.incl,0)+'°':(d.incl>=1?'hacia arriba '+fN(d.incl,0)+'°':'recta')}`;
+}
+function pintaLeyMapa(){
+  const ocu=oculto();
+  el('leyFu').innerHTML=`<span class="lg"><i class="bl" style="--c:rgba(90,200,225,.6)"></i>alcanza</span><span class="lg"><i class="bl" style="--c:rgba(255,100,100,.55)"></i>un límite lo impide</span>`+(ocu?'':`<span class="lg"><i class="bl" style="--c:rgba(214,92,255,.75)"></i>casi singular</span>`)+`<span class="lg"><i class="dash" style="--c:${COL.pas}"></i>costura</span>`;
+}
+/* ---- el ángulo de cada articulación dentro de su carrera ---- */
+function pintaAngulos(){
+  const x=abre(LANG), Wd=LANG.w, Hd=LANG.h; const q=LIVE.q, n=6, x0=26, x1=Wd-36, rh=(Hd-6)/n;
+  for(let i=0;i<n;i++){ const y=3+i*rh+rh/2, lo=LIM_DEG[i][0], hi=LIM_DEG[i][1], a=ang(q,i)/RAD, t=(a-lo)/(hi-lo), cero=(0-lo)/(hi-lo);
+    x.fillStyle='rgba(255,255,255,0.07)'; x.fillRect(x0,y-3.5,x1-x0,7); raya(x,x0+cero*(x1-x0),y-5,x0+cero*(x1-x0),y+5,'#587089',1);
+    const fuera=a<lo-1e-6||a>hi+1e-6, cerca=!fuera&&(t<0.08||t>0.92); const col=fuera?COL.lim:(cerca?COL.pas:COL.ok);
+    x.fillStyle=col; x.beginPath(); x.arc(x0+clamp(t,0,1)*(x1-x0),y,4.3,0,DOSPI); x.fill();
+    txt(x,CORTO_J[i],x0-4,y+3.4,'#c9d6e6',9.5,'right','700'); txt(x,fN(a,0)+'°',Wd-3,y+3.4,col===COL.ok?'#dfe9f5':col,9.5,'right','600'); }
+}
+/* ---- la velocidad que exige cada articulación frente a su límite ---- */
+function pintaVel(){
+  const x=abre(LVEL), Wd=LVEL.w, Hd=LVEL.h, n=6, x0=26, x1=Wd-40, rh=(Hd-6)/n, C=CALC; if(!C) return;
+  if(oculto()){ sinDatos(x,Wd,Hd,'se mide al validar'); return; }
+  const qd=LIVE.qd; if(!qd){ sinDatos(x,Wd,Hd,'—'); return; }
+  const lim=x0+(x1-x0)*0.5;
+  for(let i=0;i<n;i++){ const y=3+i*rh+rh/2, v=qd[i], r=v/VMAX_DEG[i], w=clamp(r*0.5,0,1)*(x1-x0), col=r>1?COL.lim:(r>0.8?COL.pas:COL.ok);
+    x.fillStyle='rgba(255,255,255,0.06)'; x.fillRect(x0,y-3.5,x1-x0,7); x.fillStyle=col; x.fillRect(x0,y-3.5,w,7);
+    raya(x,lim,y-6,lim,y+6,'#ffd8a0',1.2);
+    txt(x,CORTO_J[i],x0-4,y+3.4,'#c9d6e6',9.5,'right','700'); txt(x,v>9999?'∞':fN(v,0),Wd-3,y+3.4,col===COL.ok?'#dfe9f5':col,9.5,'right','600'); }
+  txt(x,'límite',lim,Hd-1,'#ffd8a0',8,'center','600');
+}
+/* ---- a lo largo de la pasada (o de la altura actual): facilidad de mover y carga de velocidad ---- */
+function pintaSerie(){
+  const x=abre(LSER), Wd=LSER.w, Hd=LSER.h, C=CALC, d=C&&C.d; if(!C) return;
+  const X0=26, X1=Wd-6, Y0=5, Y1=Hd-13, X=s=>X0+s*(X1-X0), Y=v=>Y1-clamp(v,0,1)*(Y1-Y0);
+  if(oculto()){ sinDatos(x,Wd,Hd,'se mide al validar'); return; }
+  for(const v of [0,0.5,1]){ raya(x,X0,Y(v),X1,Y(v),GRID); }
+  if(d.tipo==='pasada'){
+    const P=C.PAS.pts; raya(x,X0,Y(IM_MIN),X1,Y(IM_MIN),'rgba(214,92,255,0.8)',1.1,[3,3]); raya(x,X0,Y(0.5),X1,Y(0.5),'rgba(255,216,160,0.85)',1.1,[3,3]);
+    x.lineWidth=1.7; x.strokeStyle=COL.ok; x.beginPath(); P.forEach((p,k)=>{ const px=X(p.s), py=Y(p.im); k?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+    x.strokeStyle=COL.pas; x.beginPath(); P.forEach((p,k)=>{ const px=X(p.s), py=Y(Math.min(p.rmax,2)/2); k?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+    const px=X(SIM.s); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2);
+    txt(x,'facilidad',X0+3,Y0+8,COL.ok,8.5,'left','700'); txt(x,'carga de velocidad',X1-2,Y0+8,COL.pas,8.5,'right','700'); txt(x,'0',X0,Hd-3,TXT,8.5,'center','500'); txt(x,'1',X1,Hd-3,TXT,8.5,'center','500'); txt(x,'recorrido de la costura',(X0+X1)/2,Hd-3,TXT,8.5,'center','500');
+    el('t_sp').textContent=`ritmo ${fN(C.PAS.T,1)} s por pasada`;
+  } else {
+    const m=C.mapa, h=LIVE.objetivo[1], j=clamp(Math.floor((h-m.h0)/(m.h1-m.h0)*m.ny),0,m.ny-1);
+    raya(x,X0,Y(IM_MIN),X1,Y(IM_MIN),'rgba(214,92,255,0.8)',1.1,[3,3]);
+    x.fillStyle='rgba(77,210,255,0.16)'; x.strokeStyle=COL.ok; x.lineWidth=1.6; x.beginPath(); let ini=true;
+    for(let i=0;i<m.nx;i++){ const e=m.est[j*m.nx+i], r=m.r0+(i+0.5)*(m.r1-m.r0)/m.nx, px=X0+(r-m.r0)/(m.r1-m.r0)*(X1-X0); if(e!==2){ ini=true; continue; } const py=Y(m.man[j*m.nx+i]); if(ini){ x.moveTo(px,py); ini=false; } else x.lineTo(px,py); } x.stroke();
+    const px=X0+(LIVE.rho-m.r0)/(m.r1-m.r0)*(X1-X0); raya(x,px,Y0,px,Y1,'rgba(255,255,255,0.85)',1.2);
+    for(let r=0;r<=4;r++){ txt(x,fN(r,0),X0+(r-m.r0)/(m.r1-m.r0)*(X1-X0),Hd-3,TXT,8.5,'center','500'); }
+    txt(x,'facilidad de mover a esta altura, según la distancia (m)',X0+3,Y0+8,COL.ok,8.5,'left','700');
+    el('t_sp').textContent=`altura ${fN(h,2)} m`;
+  }
+}
+function pintaDockFijo(){
+  const d=CALC?CALC.d:null;
+  el('p_mode').textContent=EST.modo==='tour'?'Recorrido':(EST.modo==='probar'?(EST.sub==='costura'?'Recorrer una costura':'Mover la punta'):(enCalcula()?'Un solo cálculo':(enDiagnostico()?'Averigua la falla':(d&&d.tipo==='pasada'?(d.esc?d.esc.nombre:'Pasada de prueba'):'Reto'))));
+  pintaLeyMapa();
+  const pas=d&&d.tipo==='pasada';
+  el('t_trT').firstChild.textContent='Ángulos (°) ';
+  el('t_frT').firstChild.textContent=pas?'Velocidad exigida (°/s) ':'A 1 m/s, peor caso (°/s) ';
+  el('t_spT').firstChild.textContent=pas?'Durante la pasada ':'Facilidad de mover ';
+  el('t_fuT').textContent=pas?'Dónde queda la costura':'Hasta dónde llega la punta';
+}
+const _cl=(id,c)=>{ if(el(id).className!==c) el(id).className=c; };
+function pintaDock(){
+  const C=CALC; if(!C) return; const d=C.d, set=(id,h)=>{ const q=el(id); if(q.innerHTML!==h) q.innerHTML=h; };
+  const sm=(v,u,dd)=>fN(v,dd===undefined?1:dd)+'<small> '+u+'</small>', ocu=oculto(), Av=el('aviso'); let cl='',t='';
+  el('p_sub').textContent=d.tipo==='pasada'?'punto '+fN(SIM.s*100,0)+' % de la costura':'punta a '+fN(LIVE.rho,2)+' m del eje';
+  set('f_1',sm(LIVE.rho,'m',2)); _cl('f_1','');
+  if(ocu){ set('f_2','¿?'); _cl('f_2','oculto'); } else { set('f_2',sm(LIVE.im*100,'%',0)); _cl('f_2',LIVE.llega&&LIVE.im<IM_MIN?'bad':''); }
+  set('f_3',sm(LIVE.phi/RAD,'°',0)); _cl('f_3',LIVE.phi/RAD<12?'warn':'');
+  set('f_4',sm(LIVE.th5/RAD,'°',0)); _cl('f_4',Math.abs(LIVE.th5/RAD)<10?'warn':'');
+  if(ocu||!LIVE.ratios){ set('f_5',ocu?'¿?':'—'); _cl('f_5',ocu?'oculto':''); }
+  else { let k=0; for(let i=1;i<6;i++) if(LIVE.ratios[i]>LIVE.ratios[k]) k=i; const p=LIVE.ratios[k]*100; set('f_5',CORTO_J[k]+'<small> · '+(p>9999?'∞':fN(p,0))+' %</small>'); _cl('f_5',LIVE.ratios[k]>1?'bad':''); }
+  set('f_6',d.tipo==='pasada'?sm(d.v,'m/s',1):sm(V_REF,'m/s',1)+'<small> prueba</small>'); _cl('f_6','');
+  if(enCalcula()||enDiagnostico()&&false){ cl=''; t=''; }
+  else if(!LIVE.llega){ cl='ojo'; t='La punta no llega a ese punto: el brazo se estira todo lo que puede (o queda dentro de la zona muerta de la base).'; }
+  else if(!LIVE.enLimites){ cl='ojo'; t='Llega con las matemáticas, pero '+LIVE.limites.map(i=>CORTO_J[i]).join(' y ')+' pasaría de su límite de giro: el robot real no puede.'; }
+  else if(!ocu&&LIVE.im<IM_MIN){ cl='mal'; t=Math.abs(LIVE.th5/RAD)<12?'Muñeca casi recta: J4 y J6 se alinean y se pierde un grado de libertad.':(LIVE.phi/RAD<14?'Brazo casi estirado: J2 y J3 no pueden empujar más hacia fuera.':'Cerca de una singularidad: moverse exige velocidades articulares enormes.'); }
+  Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
+}
+function pintaGraficas(){ pintaMapa(); pintaAngulos(); pintaVel(); pintaSerie(); }
+
+/* ===================== 14. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
+const ROT={on:false,els:[]};
+const VEL=[[0.5,'×0,5'],[1,'×1'],[2,'×2'],[4,'×4']];
+const VISTAS_BARRA=[['celda','La celda'],['lado','De lado'],['arriba','Desde arriba'],['pinza','La pinza']];
+el('vbar').innerHTML=VISTAS_BARRA.map(([v,t])=>`<button class="b sm" data-v="${v}">${t}</button>`).join('')
+  +'<span class="sep s1"></span><button class="b sm" data-t="rot">Rótulos</button><span class="sep"></span><button class="b sm" data-t="cal" title="Calidad gráfica">Calidad</button>';
+el('tbar').innerHTML=`<button class="b sm" id="tPlay">⏸ Pausa</button><select id="tVel" aria-label="Velocidad de la escena">${VEL.map(([v,t])=>`<option value="${v}">escena ${t}</option>`).join('')}</select>
+  <span class="lento" id="tLento"></span><span class="reloj" id="tReloj"></span><span class="est" id="tEst"><i></i><span></span></span>`;
+el('vbar').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>ponVista(b.dataset.v));
+el('vbar').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const k=b.dataset.t;
+  if(k==='rot'){ ROT.on=!ROT.on; pintaRotulos(); }
+  else if(k==='cal'){ CAL.nivel=calAlta()?'media':'alta'; CAL.motivo='elegida a mano'; aplicaCalidad(); showToast('Calidad gráfica: <b>'+CAL.nivel+'</b>',2200); }
+  pintaBarras(); });
+el('tPlay').onclick=()=>{ sonido.init(); EST.pausa=!EST.pausa; pintaBarras(); };
+el('tVel').onchange=e=>{ EST.vel=+e.target.value; pintaBarras(); };
+function pintaBarras(){
+  el('vbar').querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',EST.vista===b.dataset.v));
+  el('vbar').querySelectorAll('[data-t]').forEach(b=>{ if(b.dataset.t==='cal') b.textContent='Calidad: '+CAL.nivel; else b.classList.toggle('on',ROT.on); });
+  el('tPlay').textContent=EST.pausa?'▶ Seguir':'⏸ Pausa';
+  const sel=el('tVel'); if(+sel.value!==EST.vel) sel.value=String(EST.vel);
+  colocaBarras();
+}
+function colocaBarras(){
+  const r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  if(esEstrecho()){ for(const id of ['vbar','tbar']) el(id).style.left=(innerWidth/2)+'px'; return; }
+  const hud=r('hud'), pan=r('panel'); const x0=hud?hud.right:0, x1=pan?pan.left:innerWidth;
+  for(const id of ['vbar','tbar']) el(id).style.left=((x0+x1)/2)+'px';
+}
+function pintaReloj(){
+  const C=CALC, est=el('tEst'); if(!C) return; const d=C.d;
+  el('tReloj').textContent=d.tipo==='pasada'?'punto '+fN(SIM.s*100,0)+' %':'t = '+fN(SIM.t,1)+' s';
+  el('tLento').textContent='cámara lenta ×1/'+fN(1/(LENTO*EST.vel),EST.vel>=1?0:1);
+  let tx,c;
+  if(!LIVE.llega){ tx='no llega'; c='#ff6b7a'; }
+  else if(!LIVE.enLimites){ tx='fuera de un límite'; c='#ffd88a'; }
+  else if(!oculto()&&LIVE.im<IM_MIN){ tx='cerca de una singularidad'; c='#d65cff'; }
+  else if(!oculto()&&LIVE.ratios&&LIVE.rmax>1){ tx='una articulación no da la velocidad'; c='#ffd88a'; }
+  else { tx='el robot llega bien'; c='#3DDC97'; }
+  est.firstChild.style.background=c; if(est.lastChild.textContent!==tx) est.lastChild.textContent=tx;
+}
+
+/* ===================== 15. RÓTULOS, ARO DE FOCO Y TOOLTIP ===================== */
+const mundoDe=p=>V3(p[0],p[1]+ROBOT.hb,p[2]);
+const ANCLAS=[
+  ['Base y columna (J1)',()=>V3(0,ROBOT.hb+0.55,0)],
+  ['Hombro (J2)',()=>mundoDe(fk(LIVE.q).P[1])],
+  ['Codo (J3)',()=>mundoDe(fk(LIVE.q).P[2])],
+  ['Muñeca (J4–J6)',()=>mundoDe(fk(LIVE.q).P[4])],
+  ['Pinza de soldadura',()=>mundoDe(LIVE.tcp)],
+  ['Punto que debe tocar',()=>V3(LIVE.objetivo[0],LIVE.objetivo[1]+0.16,LIVE.objetivo[2])],
+  ['Pieza (puerta)',()=>CALC&&CALC.d.tipo==='pasada'?V3(CALC.d.D,CALC.d.esc.H-0.3,0):null],
+];
+(function(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
+  for(let i=0;i<ANCLAS.length;i++){ const d=document.createElement('div'); d.className='rot3'; d.style.display='none'; document.body.appendChild(d);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','path'); ln.setAttribute('stroke','rgba(168,226,255,.6)'); ln.setAttribute('fill','none'); ln.setAttribute('stroke-width','1.2'); ln.style.display='none'; svg.appendChild(ln);
+    ROT.els.push({d,ln}); }
+})();
+function pintaRotulos(){ ROT.els.forEach(e=>{ e.d.style.display=ROT.on?'block':'none'; e.ln.style.display=ROT.on?'':'none'; }); }
+function colocaRotulos(){
+  if(!ROT.on||esEstrecho()) return;
+  const H=huecoLibre(), q=new THREE.Vector3(), cx=(H.x0+H.x1)/2, izq=[], der=[];
+  ROT.els.forEach(e=>{ e.d.style.display='none'; e.ln.style.display='none'; });
+  ANCLAS.forEach(([t,f],i)=>{ const pt=f(); if(!pt) return; ROT.els[i].d.textContent=t; q.copy(pt).project(camera); if(q.z>1) return;
+    const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight; if(x<H.x0||x>H.x1||y<H.y0||y>H.y1) return; (x<cx?izq:der).push({i,x,y}); });
+  for(const [colu,lado] of [[izq,-1],[der,1]]){ colu.sort((a,b)=>a.y-b.y); let yMin=H.y0+4;
+    colu.forEach((c,ix)=>{ const e=ROT.els[c.i]; e.d.style.display='block'; e.ln.style.display=''; const w=e.d.offsetWidth||120, h=e.d.offsetHeight||22;
+      const y=Math.max(yMin,Math.min(c.y-h/2,H.y1-h-4-(colu.length-1-ix)*(h+6))); yMin=y+h+6; const x=lado<0?H.x0+6:H.x1-6-w;
+      e.d.style.left=x+'px'; e.d.style.top=y+'px'; const xa=lado<0?x+w:x; e.ln.setAttribute('d','M'+xa+' '+(y+h/2)+' L'+c.x+' '+c.y); }); }
+}
+/** El aro que señala la pieza del paso del recorrido. */
+function colocaFoco(){
+  const f=el('foco'); const p=EST.modo==='tour'?TOUR_PASOS[TOUR.paso]:null;
+  if(!p||!p.foco){ f.style.display='none'; return; }
+  const q=p.foco().project(camera); if(q.z>1){ f.style.display='none'; return; }
+  const x=(q.x+1)/2*innerWidth, y=(1-q.y)/2*innerHeight, H=huecoLibre();
+  if(x<H.x0||x>H.x1||y<H.y0||y>H.y1){ f.style.display='none'; return; }
+  f.style.display='block'; f.style.left=x+'px'; f.style.top=y+'px';
+}
+const TIP=document.createElement('div'); TIP.className='tip3'; document.body.appendChild(TIP);
+const INFO={
+  robot_L0_base:'La base fija del robot, atornillada al piso. Aquí no hay movimiento',
+  robot_J1:'J1: la columna. Gira todo el robot alrededor del eje vertical para apuntar hacia el punto',
+  robot_J2:'J2: el hombro. Sube y baja el brazo largo (el primer eslabón de dos)',
+  robot_J3:'J3: el codo. Abre y cierra el antebrazo; junto con J2 decide hasta dónde llega la punta (ley de los cosenos)',
+  robot_J4:'J4: gira el antebrazo sobre su propio eje. Con J5 recto se confunde con J6',
+  robot_J5:'J5: la muñeca. La inclina; cuando queda recta (0°) J4 y J6 quedan en línea y se pierde un grado de libertad',
+  robot_J6:'J6: gira la pinza sobre su eje. Entre los dos electrodos de cobre está el punto de soldadura',
+  objetivo:'El punto que debe tocar la pinza. Arrástralo con el ratón (o el dedo) y el robot recalcula cada articulación',
+  pieza:'La puerta que se va a soldar. La costura de puntos corre por su brida horizontal',
+  utillaje:'El utillaje que sostiene la puerta en su sitio durante la soldadura',
+  pedestal:'El pedestal: subir la base cambia a qué altura queda el hombro respecto de la pieza',
+  suelo:'El piso de la nave. Está marcado cada 2 m',
+};
+const RAY=new THREE.Raycaster(), PUN=new THREE.Vector2();
+function hitBajo(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  const hits=RAY.intersectObject(MUNDO,true);
+  for(const h of hits){ let vis=true; for(let p=h.object;p;p=p.parent) if(!p.visible||(p.userData&&p.userData.fondo===true&&!p.userData.clave)) vis=false; if(!vis||!(h.object.userData&&h.object.userData.clave)) continue; return h; }
+  return null;
+}
+function claveDe(h){ if(!h) return null; let o=h.object;
+  while(o){ if(o.userData&&o.userData.clave) return o.userData.clave; o=o.parent; }
+  return null; }
+let hovT=0;
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){ TIP.style.display='none'; return; } const now=performance.now(); if(now-hovT<70) return; hovT=now;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k];
+  renderer.domElement.style.cursor=k==='objetivo'?'grab':'';
+  if(t){ TIP.textContent=t; TIP.style.display='block'; TIP.style.left=Math.min(innerWidth-TIP.offsetWidth-8,e.clientX+14)+'px'; TIP.style.top=(e.clientY+14)+'px'; }
+  else TIP.style.display='none';
+});
+renderer.domElement.addEventListener('pointerleave',()=>{ TIP.style.display='none'; });
+let toqueP=null, tipT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ toqueP=e.pointerType==='mouse'?null:[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!toqueP||Math.hypot(e.clientX-toqueP[0],e.clientY-toqueP[1])>8) return;
+  const k=claveDe(hitBajo(e.clientX,e.clientY)), t=k&&INFO[k]; if(!t) return;
+  TIP.textContent=t; TIP.style.display='block';
+  TIP.style.left=Math.max(8,Math.min(innerWidth-TIP.offsetWidth-8,e.clientX-TIP.offsetWidth/2))+'px'; TIP.style.top=Math.max(8,e.clientY-TIP.offsetHeight-18)+'px';
+  clearTimeout(tipT); tipT=setTimeout(()=>{ TIP.style.display='none'; },2600);
+});
+
+/* ---- arrastrar la bola del objetivo: sobre el plano horizontal a su altura (o, con «Mover en altura», sobre un plano vertical que mira a la cámara) ---- */
+const ARR={on:false,plano:new THREE.Plane(),pt:new THREE.Vector3()};
+const puedeArrastrar=()=>CALC&&CALC.d.tipo==='punta'&&!CALC.d.demo&&(EST.modo==='probar'||(EST.modo==='tour'&&TOUR_PASOS[TOUR.paso].libre));
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(e.button!==0||!puedeArrastrar()) return;
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  if(RAY.intersectObject(OBJ_HIT,false).length===0) return;
+  ARR.on=true; EST.arrastrando=true; controls.enabled=false; renderer.domElement.setPointerCapture(e.pointerId); renderer.domElement.style.cursor='grabbing';
+  const P=OBJ.position.clone();
+  if(EST.arrastre==='altura'){ const n=camera.position.clone().sub(P); n.y=0; if(n.lengthSq()<1e-6) n.set(0,0,1); n.normalize(); ARR.plano.setFromNormalAndCoplanarPoint(n,P); }
+  else ARR.plano.setFromNormalAndCoplanarPoint(V3(0,1,0),P);
+  e.stopPropagation();
+},true);
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(!ARR.on) return;
+  const r=renderer.domElement.getBoundingClientRect(); PUN.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
+  if(!RAY.ray.intersectPlane(ARR.plano,ARR.pt)) return;
+  if(EST.arrastre==='altura'){ EST.ty=clamp(ARR.pt.y,0,3.5); }
+  else { EST.tx=clamp(ARR.pt.x,0.4,4.3); EST.tz=clamp(ARR.pt.z,-2.6,2.6); }
+  sincronizaDeslizadores(); reiniciaCalculo();
+});
+const finArrastre=e=>{ if(!ARR.on) return; ARR.on=false; EST.arrastrando=false; controls.enabled=true; renderer.domElement.style.cursor=''; try{ renderer.domElement.releasePointerCapture(e.pointerId); }catch(_){} };
+renderer.domElement.addEventListener('pointerup',finArrastre); renderer.domElement.addEventListener('pointercancel',finArrastre);
+function sincronizaDeslizadores(){
+  for(const [id,v,fm] of [['sX',EST.tx,FMT.x],['sZ',EST.tz,FMT.z],['sY',EST.ty,FMT.y]]){ const e=el(id); if(e){ e.value=v; const t=el('v_'+id); if(t) t.textContent=fm(v); } }
+}
+
+/* ===================== 16. DISPOSICIÓN: ANCHO, ESTRECHO, MÓVIL =====================
+   Si no caben guía, escena y dock lado a lado (el marco de la plataforma, una tableta), la escena va arriba
+   y guía e instrumentos comparten una hoja con pestañas abajo. */
+function disposicion(){
+  const W=innerWidth, b=document.body;
+  const estrecho=W<1080, movil=W<640;
+  b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
+  if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
+  el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
+}
+function ajustaHoja(){
+  const b=document.body; if(!b.classList.contains('estrecho')) return;
+  const H=innerHeight, movil=b.classList.contains('movil'), base=Math.round(clamp(H*(movil?0.40:0.43),240,450));
+  let hh=base; const hud=el('hud');
+  if(movil&&b.classList.contains('t-panel')) hh=Math.round(clamp(H*0.55,240,540));
+  if(b.classList.contains('t-hud')&&seVe(hud)){
+    const prev=hud.style.height; hud.style.height='auto'; const pide=Math.ceil(hud.scrollHeight)+2; hud.style.height=prev;
+    hh=Math.round(clamp(pide,240,Math.max(base,H*(movil?0.45:0.56)))); }
+  const ant=parseFloat(b.style.getPropertyValue('--hojaH'))||0;
+  if(Math.abs(ant-hh)>1){ b.style.setProperty('--hojaH',hh+'px'); colocaBarras(); centraEnHueco(); }
+}
+el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{ const b=document.body; b.classList.remove('t-hud','t-panel'); b.classList.add('t-'+t.dataset.tab); disposicion(); centraEnHueco(); });
+
+/* ===================== 17. EL RECORRIDO PASO A PASO =====================
+   Al abrir el lab arranca solo un recorrido de ocho pasos que explica, sin siglas sin definir, qué se ve: el robot y su punto, cómo se mueve al
+   arrastrarlo, el triángulo de dos barras (ley de los cosenos), las dos formas de llegar (codo arriba y abajo), hasta dónde llega, el brazo
+   estirado, la muñeca que se alinea y tu turno. Cada paso lleva la cámara a su pieza y la señala con un aro. Las cifras salen del motor. */
+const TOUR={paso:0,auto:false,timer:null};
+const VER=(o)=>Object.assign({tri:false,corte:false,fantasma:false,anillos:false},o||{});
+const PU=(p,incl,yaw,rama,hb,ver,demo)=>({tipo:'punta',p,incl,yaw:yaw||0,rama:rama||'arriba',hb:hb||0,ver:VER(ver),demo:demo||null});
+/** Descriptor de una pasada «a medida» (sin escenario de la lista): extremos, inclinación de la pinza, giro, base y velocidad. */
+function descCustom(A,B,incl,yaw,hb,v,extra){
+  const lat=Math.abs(A[0]-B[0])<1e-9&&Math.abs(A[1]-B[1])<1e-9, Lc=Math.abs(B[2]-A[2]);
+  const pz=lat?{esc:{id:'c'+A[1].toFixed(2)+'_'+Lc.toFixed(2),H:A[1],Lc,incl},D:A[0]}:null;
+  return Object.assign({tipo:'pasada',esc:null,pz,A,B,incl,yaw,giro:0,hb,v,vTakt:undefined,D:A[0],rama:'arriba',ver:VER({corte:false}),oculto:false},extra||{});
+}
+const solPaso=par=>{ const d=par(), p=d.demo?demoPunto(d,0):d.p; return ik([p[0],p[1]-d.hb,p[2]],rtDe(d,p),d.rama||'arriba',null); };
+const fLx=x=>fN(x,x<10?1:0);
+/** La velocidad máxima que alcanzan J4 y J6 al mover la punta en un círculo pequeño con la herramienta fija (mismo cálculo que la demostración de la escena). */
+function picoMuneca(d){
+  const c=d.demo, N=240, T=c.T; let qp=null, mx=0, ult=null;
+  for(let k=0;k<=N;k++){ const t=k/N*T, p=demoPunto(d,t), r=ik([p[0],p[1]-d.hb,p[2]],rtDe(d,p),'arriba',qp); if(!r.llega) continue; qp=r.q; if(ult) mx=Math.max(mx,Math.abs(r.q[3]-ult[3])/(T/N)/RAD); ult=r.q; }
+  return mx;
+}
+const P_ESTIRADO=()=>descCustom([2.5,1.1,0],[3.85,1.1,0],0,0,0,0.35);
+const TOUR_PASOS=[
+  {t:'Un robot y un punto',vista:'celda',foco:()=>mundoDe(LIVE.tcp),
+   par:()=>PU([2.5,1.25,0.35],0,0,'arriba',0,{},{T:9,rx:0.30,ry:0.22,rz:0.40,fase:0}),
+   x:()=>'Este robot soldador tiene <b>6 articulaciones</b> (J1 a J6). La <b>bola naranja</b> es el punto que debe tocar la pinza: ahora se mueve sola y el robot gira cada articulación para seguirla.'},
+  {t:'Mueve la punta tú',vista:'celda',foco:()=>V3(EST.tx,EST.ty,EST.tz),libre:true,ini:{tx:2.4,ty:1.15,tz:0.4,incl:0,yaw:0,hb:0,rama:'arriba'},
+   par:()=>PU([EST.tx,EST.ty,EST.tz],0,0,'arriba',0,{}),
+   x:()=>'Arrastra la <b>bola</b> con el ratón o con el dedo. A cada punto le toca un juego de ángulos: calcularlo se llama <b>cinemática inversa</b>. Los seis ángulos están en el panel de la derecha.'},
+  {t:'Dos barras y un triángulo',vista:'lado',foco:()=>mundoDe(fk(LIVE.q).P[2]),libre:true,ini:{tx:2.6,ty:1.2,tz:0,incl:0,yaw:0,hb:0,rama:'arriba'},
+   par:()=>PU([EST.tx,EST.ty,EST.tz],0,0,'arriba',0,{tri:true}),
+   x:()=>{ const r=solPaso(()=>PU([2.6,1.2,0],0,0,'arriba',0,{})); return `Hombro, codo y muñeca forman un <b>triángulo</b> de dos barras: <b>${fN(L2,2)} m</b> y <b>${fN(L3,2)} m</b>. Con la muñeca a <b>${fN(r.brazo.d,2)} m</b> del hombro, la <b>ley de los cosenos</b> fija el ángulo entre las barras: <b>${fN(r.brazo.phi/RAD,0)}°</b>.`; }},
+  {t:'Codo arriba o codo abajo',vista:'celda',foco:()=>mundoDe(fk(LIVE.q).P[2]),
+   par:()=>PU([2.4,1.1,0],0,0,'arriba',0,{fantasma:true}),
+   x:()=>{ const g=solPaso(()=>PU([2.4,1.1,0],0,0,'abajo',0,{})); const k=g.limites.length?g.limites[0]:1, a=ang(g.q,k)/RAD; return `Hay <b>dos formas</b> de llegar al mismo punto. La <b>azul</b>, de codo abajo, pediría <b>${CORTO_J[k]} = ${fN(a,0)}°</b> y su carrera sólo llega a ${fN(LIM_DEG[k][a<0?0:1],0)}°. Por eso el robot real usa la de codo arriba.`; }},
+  {t:'Hasta dónde llega',vista:'lado',foco:()=>mundoDe(LIVE.tcp),libre:true,ini:{tx:2.6,ty:1.2,tz:0,incl:0,yaw:0,hb:0,rama:'arriba'},
+   par:()=>PU([EST.tx,EST.ty,EST.tz],0,0,'arriba',0,{corte:true,anillos:true}),
+   x:()=>{ const m=mapaPara({incl:0,yaw:0,hb:0,rama:'arriba'},true), rg=rangoRadio(m,1.2); return `El plano de colores muestra dónde llega la punta. A <b>1,2 m</b> de altura va de <b>${rg?fN(rg[0],1):'—'} m</b> a <b>${rg?fN(rg[1],1):'—'} m</b> de la base: más lejos el brazo ya está estirado; más cerca queda la <b>zona muerta</b> bajo el hombro y detrás de la base.`; }},
+  {t:'El brazo se estira',vista:'lado',foco:()=>mundoDe(fk(LIVE.q).P[2]),
+   par:()=>P_ESTIRADO(),
+   x:()=>{ const P=evaluaPasadaGen([2.5,1.1,0],[3.85,1.1,0],0,0,0,0.35,100); return `La punta avanza hacia fuera a <b>${fN(0.35,2)} m/s</b>. Cuando el brazo casi se estira, <b>J3 llega a pedir ${fN(P.qdMax[2],0)} °/s</b> (su límite es ${fN(VMAX_DEG[2],0)}): el jacobiano pierde rango y la velocidad necesaria se dispara.`; }},
+  {t:'La muñeca se alinea',vista:'pinza',foco:()=>mundoDe(LIVE.tcp),
+   par:()=>PU([2.6,1.2,0],-26,-8.5,'arriba',0,{},{T:8,rx:0,ry:0.04,rz:0.04,fase:1.5708}),
+   x:()=>{ const d=PU([2.6,1.2,0],-26,-8.5,'arriba',0,{},{T:8,rx:0,ry:0.04,rz:0.04,fase:1.5708}), r=solPaso(()=>d); return `Aquí la pinza apunta justo en la dirección del antebrazo: <b>J5 ≈ ${fN(Math.abs(th5De(r.q))/RAD,1)}°</b>. J4 y J6 quedan en línea y sólo importa su suma. Con la punta moviéndose 4 cm, <b>J4 llega a ${fN(picoMuneca(d),0)} °/s</b> (límite ${fN(VMAX_DEG[3],0)}).`; }},
+  {t:'Tu turno',vista:'celda',foco:null,
+   par:()=>PU([2.5,1.25,0.35],0,0,'arriba',0,{},{T:9,rx:0.30,ry:0.22,rz:0.40,fase:0}),
+   x:()=>'Ahora tú. En «Probar» mueves la punta y recorres una costura de soldadura; en «Reto» planeas una pasada sin salirte del alcance, sin singularidades y sin pedirle de más a las articulaciones.'},
+];
+function tourParams(){ const p=TOUR_PASOS[TOUR.paso]; return p?p.par():null; }
+function htmlTour(){
+  const Pp=TOUR_PASOS[TOUR.paso], n=TOUR_PASOS.length, ult=TOUR.paso===n-1;
+  const pts=TOUR_PASOS.map((_,i)=>`<i class="${i<TOUR.paso?'ok':(i===TOUR.paso?'on':'')}"></i>`).join('');
+  const tx=typeof Pp.x==='function'?Pp.x():Pp.x;
+  return `<div class="tour"><div class="tn"><span>Paso ${TOUR.paso+1} de ${n}</span><span class="pts">${pts}</span></div><h3>${Pp.t}</h3><p class="intro tx">${tx}</p>
+    <div class="tb">${TOUR.paso>0?'<button class="b" data-act="t-atras">← Atrás</button>':''}${ult?'<button class="b primary" data-act="t-fin">Probar yo →</button>':'<button class="b primary" data-act="t-sig">Siguiente →</button>'}</div>
+    ${ult?'':'<button class="salta" data-act="t-fin">Saltar el recorrido</button>'}</div>`;
+}
+function tourVa(n,ms){
+  TOUR.paso=clamp(n,0,TOUR_PASOS.length-1); const Pp=TOUR_PASOS[TOUR.paso];
+  if(Pp.ini){ EST.tx=Pp.ini.tx; EST.ty=Pp.ini.ty; EST.tz=Pp.ini.tz; }
+  SIM.s=0; SIM.dir=1; SIM.espera=0; SIM.t=0; SIM.qG=null;
+  reiniciaCalculo(true); ponVista(Pp.vista,ms===undefined?1.0:ms); pintaHUD(); pintaDockFijo();
+}
+function tourParaAuto(){ clearTimeout(TOUR.timer); TOUR.auto=false; EST.autoRunning=false; }
+
+/* ===================== 18. EL RETO: CALCULA, AJUSTA, DIAGNOSTICA =====================
+   Tres fases: 1 · Calcula (a mano: el ángulo del codo por la ley de los cosenos, el alcance máximo o mínimo, o la velocidad lineal de la punta),
+   2 · Ajusta (a qué distancia poner la pieza, a qué altura la base y a qué velocidad pasar la punta para que la costura NO se salga del alcance, NO
+   toque una singularidad y NO pida de más a ninguna articulación; el veredicto y las curvas de velocidad sólo aparecen al validar, y las ventanas son
+   INTERIORES: cerca no llega, lejos se estira; lento no rinde, rápido no se puede) y 3 · Diagnostica (¿qué le pasa a esta pasada?, sólo con lo que se ve
+   en el dock). Cierra con un quiz de tres preguntas. */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const barajar=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETOS={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallos3:0,pistas:0,hecho:false,quizAcierto:0};
+const GUIA={phase:0,paso:'calcula',iniciado:false,dxOk:false,r1:null,r2:null,dx:null,orden:null,quiz:null,quizResp:-1,quizCorrecta:-1,quizN:0};
+const ESC_RETO=['umbral','puerta','techo'];
+
+/* ---------- Fase 1 · Calcula ---------- */
+const CASOS_1=[
+  {tipo:'codo',d:1.6},{tipo:'codo',d:2.0},{tipo:'codo',d:2.4},{tipo:'codo',d:2.8},{tipo:'codo',d:2.95},
+  {tipo:'tope',cual:'max'},{tipo:'tope',cual:'min'},
+  {tipo:'vel',w:30,rho:2.0},{tipo:'vel',w:45,rho:2.5},{tipo:'vel',w:60,rho:1.5},
+];
+function resCaso1(c){
+  if(c.tipo==='codo') return anguloCodo(c.d)/RAD;
+  if(c.tipo==='tope') return c.cual==='max'?D_MAX:D_MIN;
+  return c.w*RAD*c.rho;
+}
+const claveC1=c=>c.tipo+'/'+(c.d||c.cual||'')+'/'+(c.w||'')+'/'+(c.rho||'');
+function sorteaCaso1(){ const p=GUIA.r1&&claveC1(GUIA.r1); let c; do{ c=pickOne(CASOS_1); }while(claveC1(c)===p); GUIA.r1=Object.assign({},c,{res:resCaso1(c)}); }
+function numeroDe(txt){ const raw=String(txt||'').trim().replace(/\s/g,'').replace(/ /g,'').replace(',','.'); return parseFloat(raw); }
+const unidad1=r=>r.tipo==='codo'?'grados':(r.tipo==='tope'?'metros':'m/s');
+function checkCalcula(){
+  const v=numeroDe((el('ansV')||{}).value), r=GUIA.r1, ok=r.res;
+  if(isNaN(v)){ feedback('bad','Escribe un número','Escribe el resultado (con coma o punto decimal).'); return; }
+  RETOS.intentos++;
+  const tol=r.tipo==='codo'?Math.max(0.6,0.012*ok):(r.tipo==='tope'?0.03:Math.max(0.03,0.03*ok));
+  if(Math.abs(v-ok)<=tol){
+    RETOS.fallos1=0; sonido.bien();
+    if(r.tipo==='codo') feedback('good','¡Correcto! ✓',`Con d = ${fN(r.d,2)} m: cos φ = (${fN(r.d,2)}² − ${fN(L2,2)}² − ${fN(L3,2)}²) / (2 · ${fN(L2,2)} · ${fN(L3,2)}) y φ = <b>${fN(ok,1)}°</b>. Con φ = 0 el brazo estaría estirado (d = ${fN(D_MAX,2)} m).`,true);
+    else if(r.tipo==='tope') feedback('good','¡Correcto! ✓',r.cual==='max'?`Estirado (φ = 0) las barras se suman: L₂ + L₃ = <b>${fN(ok,2)} m</b>. Allí el brazo está en una singularidad: ya no puede empujar más hacia fuera.`:`Plegado del todo (φ = 180°) las barras se restan: |L₃ − L₂| = <b>${fN(ok,2)} m</b>. Más cerca, la muñeca no llega.`,true);
+    else feedback('good','¡Correcto! ✓',`La velocidad lineal es v = ω · ρ con ω en rad/s: ${fN(r.w,0)}° /s = ${fN(r.w*RAD,3)} rad/s y v = ${fN(r.w*RAD,3)} · ${fN(r.rho,1)} = <b>${fN(ok,2)} m/s</b>. Por eso J1 se exige más cuando la costura pasa cerca del eje.`,true);
+    paso('ajusta'); prepararAjusta();
+  } else {
+    RETOS.fallos1++; sonido.mal();
+    if(RETOS.fallos1>=3){ RETOS.fallos1=0; RETOS.resiembras++; sorteaCaso1(); feedback('bad','Tres intentos fallidos',r.tipo==='codo'?'Cambia el caso. Recuerda: φ = arccos((d² − L₂² − L₃²) / (2·L₂·L₃)).':(r.tipo==='tope'?'Cambia el caso. Estirado: las barras se suman; plegado: se restan.':'Cambia el caso. Recuerda: v = ω · ρ, con ω en rad/s.'),true); reiniciaCalculo(); pintaHUD(); }
+    else { let pista;
+      if(r.tipo==='codo'){ pista=Math.abs(v-(180-ok))<=Math.max(0.6,0.012*(180-ok))?'Ese es el ángulo <b>interior</b> del triángulo; φ es el que falta para 180°. Revisa el signo en la ley de los cosenos.':'Despeja con la ley de los cosenos: d² = L₂² + L₃² + 2·L₂·L₃·cos φ; luego φ = arccos(…) y en grados.'; }
+      else if(r.tipo==='tope') pista='Piensa las dos barras en línea recta: ¿se suman o se restan? Y la otra posición, plegadas una sobre otra.';
+      else { const en_grados=Math.abs(v-r.w*r.rho)<=Math.max(0.5,0.03*r.w*r.rho); pista=en_grados?'Te faltó pasar ω a <b>rad/s</b> (1° = 0,01745 rad).':'v = ω · ρ, con ω en rad/s y ρ en metros.'; }
+      feedback('bad','Revisa el cálculo',pista+` (intentos fallidos: ${RETOS.fallos1}/3)`); const t=el('d_try'); if(t) t.textContent=RETOS.fallos1; }
+  }
+}
+
+/* ---------- Fase 2 · Ajusta la distancia de la pieza, la altura de la base y la velocidad ---------- */
+function prepararAjusta(){
+  let e; do{ e=escPorId(pickOne(ESC_RETO)); }while(GUIA.r2&&e.id===GUIA.r2.esc.id&&RETOS.resiembras>0);
+  GUIA.r2={esc:e,D:1.8,hb:0,v:0.6,validado:false,res:null,intentos:0};
+  SIM.s=0; SIM.dir=1; SIM.espera=0; reiniciaCalculo(true); pintaHUD();
+}
+const pidoDe=(PAS)=>{ for(let k=0;k<PAS.pts.length;k++) if(!PAS.pts[k].llega||!PAS.pts[k].enLimites) return k; return -1; };
+function validarAjusta(){
+  const r=GUIA.r2; if(!r) return;
+  const E=r.esc, PAS=CALC.PAS; r.res=PAS; r.validado=true; r.intentos++; RETOS.intentos++;
+  const ok=PAS.ok; reiniciaCalculo(true);
+  if(ok){
+    RETOS.fallos2=0; sonido.bien(); const wD=ventanaD(E,r.hb,r.v), wV=ventanaV(E,r.D,r.hb);
+    feedback('good','¡La costura sale! ✓',`Alcanza todo el recorrido, el índice de manipulabilidad no baja de <b>${fN(PAS.imMin*100,0)} %</b> y ninguna articulación pasa del <b>${fN(PAS.ratioMax*100,0)} %</b> de su velocidad máxima (${fN(PAS.T,1)} s por pasada). Con esa base y esa velocidad, cualquier distancia entre <b>${wD?fN(wD[0],1):'—'}</b> y <b>${wD?fN(wD[1],1):'—'} m</b> habría servido; con esa distancia y esa base, cualquier velocidad entre <b>${wV?fN(wV[0],1):'—'}</b> y <b>${wV?fN(wV[1],1):'—'} m/s</b>. Más cerca no llega; más lejos se estira el brazo; más lento no rinde; más rápido una articulación no da.`,true);
+    pintaHUD(); paso('diag'); iniciaDiag();
+  } else {
+    RETOS.fallos2++; sonido.mal(); const fil=[];
+    if(!PAS.okAlcance){ const k=pidoDe(PAS); fil.push(!PAS.llegaTodo?`En el <b>${fN((k<0?0:k)/(PAS.pts.length-1)*100,0)} %</b> de la costura la punta <b>no llega</b>.`:`${PAS.limMal.map(i=>CORTO_J[i]).join(' y ')} <b>se pasa de su límite de giro</b> en la costura.`); }
+    if(PAS.okAlcance&&!PAS.okSing){ let k=0; for(let i=1;i<PAS.pts.length;i++) if(PAS.pts[i].im<PAS.pts[k].im) k=i; const q=PAS.pts[k].q, causa=Math.abs(th5De(q))/RAD<12?'la muñeca casi recta (J5 ≈ '+fN(Math.abs(th5De(q))/RAD,0)+'°)':'el brazo casi estirado'; fil.push(`En el <b>${fN(k/(PAS.pts.length-1)*100,0)} %</b> de la costura el índice de manipulabilidad baja a <b>${fN(PAS.imMin*100,0)} %</b> (se pide al menos ${fN(IM_MIN*100,0)} %): cerca de una <b>singularidad</b>, por ${causa}.`); }
+    if(PAS.okAlcance&&!PAS.okVel) fil.push(`${PAS.velMal.map(i=>CORTO_J[i]).join(' y ')} <b>no da la velocidad</b>: pide hasta ${fN(PAS.ratioMax*100,0)} % de su máximo.`);
+    if(!PAS.okCiclo) fil.push(`A ${fN(r.v,1)} m/s la pasada tarda ${fN(PAS.T,1)} s y la línea necesita <b>al menos ${fN(E.vTakt,1)} m/s</b> para cumplir su ritmo.`);
+    const msg=fil.join(' ')+' ';
+    if(RETOS.fallos2>=4){ RETOS.fallos2=0; RETOS.resiembras++; feedback('bad','Cuatro validaciones sin lograrlo',msg+'Cambia la costura.',true); prepararAjusta(); }
+    else { feedback('bad','Todavía no',msg+`(validaciones fallidas: ${RETOS.fallos2}/4)`,true); pintaHUD(); }
+  }
+}
+
+/* ---------- Fase 3 · Diagnóstico y quiz ---------- */
+const CASOS_DX=[
+  {k:'muneca',A:[2.6,1.1,-0.3],B:[2.6,1.3,0.3],incl:-26,yaw:-8.5,hb:0,v:0.8,sint:'Cerca del centro de la zona de trabajo la muñeca se sacude: J4 y J6 giran sin parar en sentidos contrarios mientras la pinza casi no se mueve.'},
+  {k:'codo',A:[2.9,1.1,0],B:[3.88,1.1,0],incl:0,yaw:0,hb:0,v:0.5,sint:'Al llegar al fondo de la costura, J2 y J3 se disparan y el brazo casi no avanza.'},
+  {k:'alcance',A:[3.4,1.1,-0.7],B:[4.3,1.1,0.7],incl:0,yaw:0,hb:0,v:0.8,sint:'El brazo se estira todo lo que puede, pero la pinza se queda corta: el robot no termina la costura.'},
+  {k:'rapida',A:[2.8,1.1,-0.7],B:[2.8,1.1,0.7],incl:-10,yaw:0,hb:0.3,v:3.8,sint:'El robot llega a todas partes y no hay ningún tirón, pero varias articulaciones no dan la velocidad pedida y la pinza se retrasa.'},
+];
+const NOMBRE_DX={muneca:'La muñeca está recta (J5 ≈ 0)',codo:'El brazo está casi estirado',alcance:'La pieza está fuera del alcance',rapida:'La velocidad de la punta es demasiado alta'};
+function iniciaDiag(){
+  const p=GUIA.dx&&GUIA.dx.k; let c; do{ c=pickOne(CASOS_DX); }while(c.k===p);
+  GUIA.dx=c; GUIA.dxOk=false; GUIA.orden=barajar(CASOS_DX.map(x=>x.k)); SIM.s=0; SIM.dir=1; SIM.espera=0;
+  reiniciaCalculo(true); pintaHUD(); pintaDockFijo();
+}
+function diagnostica(k){
+  if(!GUIA.dx||GUIA.dxOk) return; RETOS.intentos++;
+  if(k===GUIA.dx.k){
+    GUIA.dxOk=true; RETOS.fallos3=0; sonido.bien();
+    feedback('good','Diagnóstico correcto ✓',explicaDx(GUIA.dx.k),true);
+    reiniciaCalculo(); pintaDockFijo(); paso('quiz'); iniciaQuiz();
+  } else {
+    RETOS.fallos3++; sonido.mal();
+    if(RETOS.fallos3>=3){ RETOS.fallos3=0; RETOS.resiembras++; feedback('bad','Tres intentos fallidos','Es otro caso: mira en el corte de lado dónde queda la costura y en las curvas del dock dónde cae la facilidad de mover y qué articulaciones pasan de su raya de límite.',true); iniciaDiag(); }
+    else { feedback('bad','No es ese',noEs(k)+` (intentos fallidos: ${RETOS.fallos3}/3)`,true); pintaHUD(); }
+  }
+}
+function explicaDx(k){
+  if(k==='muneca') return 'La pinza apunta casi en la dirección del antebrazo: J5 ≈ 0 y los ejes de J4 y J6 coinciden. Sólo cuenta la suma de sus giros; un pequeño cambio de la punta obliga a repartirla de golpe, y J4 y J6 giran enormes en sentidos opuestos. Se evita inclinando la pinza.';
+  if(k==='codo') return 'Con el brazo casi estirado el jacobiano casi pierde rango: para ganar unos centímetros hacia fuera, J2 y J3 deben girar cada vez más rápido. Se evita acercando la pieza o subiendo la base.';
+  if(k==='alcance') return 'La costura sale del anillo de alcance: el brazo ya está estirado del todo (d = L₂ + L₃) y la punta se queda corta. No es un problema de velocidad ni de singularidad: es de geometría.';
+  return 'La forma de la pasada es buena (el índice de manipulabilidad se mantiene alto), pero a esa velocidad varias articulaciones pasan de su límite. Se resuelve bajando la velocidad de la punta, sin olvidar el ritmo mínimo de la línea.';
+}
+function noEs(k){
+  if(k==='muneca') return 'Mira el ángulo de J5 en el dock: aquí la muñeca no queda recta.';
+  if(k==='codo') return 'Mira el codo abierto: aquí el brazo no llega a estirarse del todo.';
+  if(k==='alcance') return 'Mira el corte de lado: aquí la costura sí queda dentro del color de alcance.';
+  return 'Mira la curva de facilidad: aquí cae a cero en algún punto, no es sólo cuestión de velocidad.';
+}
+const QUIZ=[
+  {q:'Con el brazo totalmente estirado, ¿qué pasa con la velocidad que debe tener J2 o J3 para seguir moviendo la punta hacia fuera?',ok:'Se dispara: el jacobiano casi pierde rango y la velocidad articular crece muy rápido al acercarse al brazo recto',mal:['Se vuelve cero: el brazo se detiene solo','Se queda igual: sólo depende de la velocidad de la punta','Baja a la mitad, porque el codo está recto']},
+  {q:'Si J5 ≈ 0 (la muñeca queda recta), ¿qué se pierde?',ok:'Un grado de libertad: J4 y J6 giran sobre el mismo eje y sólo importa su suma',mal:['El alcance máximo del robot','La fuerza de los electrodos de cobre','La capacidad de girar la columna (J1)']},
+  {q:'¿Para qué sirve la ley de los cosenos en este robot?',ok:'Da el ángulo del codo a partir de la distancia hombro–muñeca y los largos de los dos eslabones',mal:['Calcula la corriente de la soldadura','Mide cuánto pesa la pinza','Decide cuántos puntos de soldadura caben en la costura']},
+];
+function iniciaQuiz(){ el("feedback").classList.remove("show"); GUIA.quizN=0; cargaPregunta(); }
+function cargaPregunta(){ const Q=QUIZ[GUIA.quizN], opts=barajar([Q.ok,...Q.mal]); GUIA.quiz={q:Q.q,opts,ok:opts.indexOf(Q.ok)}; GUIA.quizResp=-1; GUIA.quizCorrecta=GUIA.quiz.ok; pintaHUD(); }
+function respondeQuiz(i){
+  if(GUIA.quizResp>=0) return; GUIA.quizResp=i; const ac=i===GUIA.quiz.ok; if(ac) RETOS.quizAcierto++;
+  if(ac) sonido.bien(); else sonido.mal();
+  const ult=GUIA.quizN>=QUIZ.length-1;
+  feedback(ac?'good':'bad',ac?'Correcto ✓':'No es esa',(ac?'':'La respuesta era: <b>'+GUIA.quiz.opts[GUIA.quiz.ok]+'</b>. ')+(ult?'Terminaste el laboratorio.':'Sigue con la siguiente.'),true);
+  pintaHUD();
+  if(ult){ RETOS.hecho=true; paso('completo'); }
+}
+function siguientePregunta(){ if(GUIA.quizN<QUIZ.length-1){ GUIA.quizN++; cargaPregunta(); } }
+
+/* ---------- el enrutador de acciones ---------- */
+function paso(p){ GUIA.paso=p; GUIA.phase=({calcula:0,ajusta:1,diag:2,quiz:2,completo:2})[p]; if(EST.modo==='reto'){ reiniciaCalculo(true); pintaHUD(); } }
+function handleAction(act,btn){
+  switch(act){
+    case 't-sig': tourParaAuto(); tourVa(TOUR.paso+1); break;
+    case 't-atras': tourParaAuto(); tourVa(TOUR.paso-1); break;
+    case 't-fin': tourParaAuto(); setMode('probar'); break;
+    case 'check-v': checkCalcula(); break;
+    case 'hint-v': { const r=GUIA.r1;
+      const T=r.tipo;
+      if(RETOS.pistas===0){ RETOS.pistas=1; feedback('good','Pista 1 de 2',T==='codo'?'La ley de los cosenos: <b>d² = L₂² + L₃² + 2·L₂·L₃·cos φ</b>.':(T==='tope'?'Dibuja las dos barras en línea recta y luego una sobre otra.':'La punta gira en un círculo de radio ρ: <b>v = ω · ρ</b>.')); }
+      else if(RETOS.pistas===1){ RETOS.pistas=2; feedback('good','Pista 2 de 2',T==='codo'?'Despeja: <b>φ = arccos((d² − L₂² − L₃²) / (2·L₂·L₃))</b>, en grados.':(T==='tope'?'Estirado: <b>L₂ + L₃</b>. Plegado: <b>|L₃ − L₂|</b>.':'Pasa ω a rad/s: <b>1° = 0,01745 rad</b>.')); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break; }
+    case 'validar': validarAjusta(); break;
+    case 'dx-muneca': diagnostica('muneca'); break; case 'dx-codo': diagnostica('codo'); break; case 'dx-alcance': diagnostica('alcance'); break; case 'dx-rapida': diagnostica('rapida'); break;
+    case 'quiz-0': respondeQuiz(0); break; case 'quiz-1': respondeQuiz(1); break; case 'quiz-2': respondeQuiz(2); break; case 'quiz-3': respondeQuiz(3); break;
+    case 'quiz-sig': siguientePregunta(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+
+/* ---------- lo que la guía enseña en cada paso ---------- */
+function contenidoGuia(){
+  const tri=(n,v,m)=>`<span class="tries">intentos fallidos: <b id="${n}">${v}</b>/${m}</span>`;
+  switch(GUIA.paso){
+    case 'calcula': { const r=GUIA.r1; let teach, title;
+      if(r.tipo==='codo'){ title='¿Cuánto se abre el codo?'; teach=`Las dos barras del brazo miden <b>L₂ = ${fN(L2,2)} m</b> y <b>L₃ = ${fN(L3,2)} m</b>. La muñeca debe quedar a <b>d = ${fN(r.d,2)} m</b> del hombro.<div class="task">¿Qué ángulo φ (grados) separa las dos barras? (φ = 0: estiradas) ${tri('d_try',RETOS.fallos1,3)}</div>`; }
+      else if(r.tipo==='tope'){ title=r.cual==='max'?'¿Hasta dónde llega la muñeca?':'¿Qué tan cerca puede llegar la muñeca?'; teach=`Las dos barras miden <b>L₂ = ${fN(L2,2)} m</b> y <b>L₃ = ${fN(L3,2)} m</b>.<div class="task">${r.cual==='max'?'Con el brazo totalmente estirado':'Con el brazo plegado del todo'}, ¿a qué distancia (m) del hombro queda la muñeca? ${tri('d_try',RETOS.fallos1,3)}</div>`; }
+      else { title='¿Qué tan rápido va la punta?'; teach=`J1 gira la columna a <b>${fN(r.w,0)} °/s</b> y la punta está a <b>${fN(r.rho,1)} m</b> del eje.<div class="task">¿Qué velocidad lineal (m/s) lleva la punta? ${tri('d_try',RETOS.fallos1,3)}</div>`; }
+      return {no:'Fase 1 · Reto 1',head:'Tu cálculo',title,teach,
+      acts:`<div class="calcrow"><input id="ansV" type="text" inputmode="decimal" autocomplete="off" placeholder="¿? ${unidad1(r)}" aria-label="Tu resultado"><button class="b primary" data-act="check-v">✓ Comprobar</button></div><button class="pista" id="btnHint">¿Necesitas una pista? (máx. 2)</button>`}; }
+    case 'ajusta': { const r=GUIA.r2; if(!r) return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Preparando la celda…',teach:'',acts:''};
+      return {no:'Fase 2 · Reto 2',head:'Tu ajuste',title:'Planea la costura',
+      teach:`Soldar <b>${r.esc.nombre.toLowerCase()}</b> (${fN(r.esc.Lc,1)} m de largo), con la pinza fija. Pide que el robot <b>llegue a todo el recorrido</b>, que <b>no pase cerca de una singularidad</b>, que <b>ninguna articulación pase de su velocidad máxima</b> y que la línea no se atrase.<div class="why"><b>Ojo:</b> el veredicto y las curvas de velocidad aparecen al validar. ${tri('d_try2',RETOS.fallos2,4)}</div>`,
+      acts:`${mandosReto(r)}<button class="b primary" data-act="validar">▶ Validar</button>`}; }
+    case 'diag': { const ord=GUIA.orden||CASOS_DX.map(x=>x.k);
+      return {no:'Fase 3 · Diagnóstico',head:'¿Qué le pasa?',title:'Averigua por qué falla esta pasada',
+      teach:`Síntoma: «${GUIA.dx?GUIA.dx.sint:'…'}»<div class="task">¿Cuál es la causa? ${tri('d_try3',RETOS.fallos3,3)}</div>`,
+      acts:ord.map(k=>`<button class="b" data-act="dx-${k}">${NOMBRE_DX[k]}</button>`).join('')}; }
+    case 'quiz': { const Q=GUIA.quiz; if(!Q) return {no:'',head:'',title:'',teach:'',acts:''}; const ya=GUIA.quizResp>=0;
+      return {no:'Cierre · Pregunta '+(GUIA.quizN+1)+' de '+QUIZ.length,head:'Quiz',title:Q.q,teach:'',
+      acts:Q.opts.map((o,i)=>`<button class="b ${ya?(i===Q.ok?'good':(i===GUIA.quizResp?'bad':'')):''}" data-act="quiz-${i}" ${ya?'disabled':''}>${o}</button>`).join('')+(ya&&GUIA.quizN<QUIZ.length-1?'<button class="b primary" data-act="quiz-sig">Siguiente →</button>':'')}; }
+    case 'completo': return {no:'Laboratorio completado',head:'✓',title:'Calculaste, planeaste y diagnosticaste',
+      teach:`Acertaste ${RETOS.quizAcierto} de ${QUIZ.length} en el quiz. Vuelve a <b>Probar</b>, activa «Otra solución» y arrastra la bola cerca del borde del alcance: mira cómo cambia el codo y qué pasa con las velocidades.`,
+      acts:`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`};
+  }
+  return {no:'',head:'',title:'',teach:'',acts:''};
+}
+function htmlGuia(){
+  const ps=['Calcula','Ajusta','Diagnostica'], C=contenidoGuia();
+  const ok=i=>i<GUIA.phase||(i===2&&RETOS.hecho);
+  return `<div class="pasos">${ps.map((t,i)=>`<span class="ps ${ok(i)?'ok':(i===GUIA.phase?'on':'')}"><i>${ok(i)?'✓':i+1}</i>${t}</span>`).join('')}</div>
+  <div class="retoBox"><div class="rt"><span>${C.no}</span><span>${C.head}</span></div><h3>${C.title}</h3><div class="rq">${C.teach}</div><div class="opt" id="actOpt">${C.acts}</div></div>`;
+}
+/** Lo que corre en la celda en cada paso del reto (null: lo que digan los mandos). */
+function guiaParams(){
+  if(GUIA.paso==='calcula') return PU([2.5,1.25,0.35],0,0,'arriba',0,{},{T:9,rx:0.30,ry:0.22,rz:0.40,fase:0});
+  if(GUIA.paso==='ajusta'&&GUIA.r2){ const r=GUIA.r2; return descPasada(r.esc,r.D,r.hb,r.v,{oculto:!r.validado}); }
+  if((GUIA.paso==='diag'||GUIA.paso==='quiz'||GUIA.paso==='completo')&&GUIA.dx){ const c=GUIA.dx; return descCustom(c.A,c.B,c.incl,c.yaw,c.hb,c.v); }
+  return null;
+}
+/* ---------- los modos ---------- */
+function setMode(m,forzar){
+  if(!forzar&&(m===EST.modo||EST.autoRunning)) return;
+  tourParaAuto();
+  if(m==='reto'){ EST.modo='reto'; if(!GUIA.iniciado){ GUIA.iniciado=true; sorteaCaso1(); paso('calcula'); } }
+  else if(m==='probar') EST.modo='probar';
+  else { EST.modo='tour'; TOUR.paso=0; }
+  document.body.classList.toggle('m-tour',EST.modo==='tour'); document.body.classList.toggle('m-probar',EST.modo==='probar'); document.body.classList.toggle('m-reto',EST.modo==='reto');
+  el('feedback').classList.remove('show');
+  SIM.s=0; SIM.dir=1; SIM.espera=0;
+  if(EST.modo==='tour'){ tourVa(0,0.6); pintaBarras(); return; }
+  reiniciaCalculo(true); ponVista('celda',0.6); pintaHUD(); pintaDockFijo(); pintaBarras();
+}
+let fbTimer=null;
+function feedback(type,title,text,sticky=false){ const f=el('feedback'); f.className='feedback show '+type; el('fbIcon').textContent=type==='good'?'✓':'✕'; el('fbTitle').textContent=title; el('fbText').innerHTML=text; clearTimeout(fbTimer); if(!sticky) fbTimer=setTimeout(()=>f.classList.remove('show'),7000); }
+el('fbX').onclick=()=>el('feedback').classList.remove('show');
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!GUIA.r2||GUIA.paso!=='ajusta'||EST.modo!=='reto') return;
+  const lig=(k,fm)=>{ GUIA.r2[k]=+t.value; GUIA.r2.validado=false; el('v_'+t.id).textContent=fm(+t.value); reiniciaCalculo(); };
+  if(t.id==='r2D') lig('D',FMT.D); else if(t.id==='r2B') lig('hb',FMT.hb); else if(t.id==='r2V') lig('v',FMT.v); });
+
+/* ---------- «Repetir el recorrido»: el mismo recorrido, pero avanza solo cada pocos segundos ---------- */
+async function runAuto(){
+  if(EST.autoRunning) return; EST.autoRunning=true; sonido.init(); TOUR.auto=true;
+  EST.modo='tour'; document.body.classList.remove('m-probar','m-reto'); document.body.classList.add('m-tour'); tourVa(0,0.6); pintaBarras();
+  const avanza=()=>{ if(!TOUR.auto) return; if(TOUR.paso>=TOUR_PASOS.length-1){ tourParaAuto(); return; } tourVa(TOUR.paso+1); TOUR.timer=setTimeout(avanza,9000); };
+  TOUR.timer=setTimeout(avanza,9000);
+}
+
+/* ===================== 19. CÁMARAS =====================
+   La escena se encuadra con el hueco que dejan la guía y el dock: la cámara se aleja lo justo para que la caja del
+   «objeto» (ancho × alto en metros) quepa entera en ese hueco, y la proyección se desplaza para centrarla en él.
+   Además el objeto nunca pasa del 80 % del alto del lienzo. */
+function seVe(e){ if(!e) return false; const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&getComputedStyle(e).display!=='none'; }
+const esEstrecho=()=>document.body.classList.contains('estrecho');
+function huecoLibre(){
+  const W=innerWidth, H=innerHeight, r=id=>{ const e=el(id); return seVe(e)?e.getBoundingClientRect():null; };
+  const vb=r('vbar'), tb=r('tbar');
+  if(esEstrecho()){ const tabs=r('tabs'); return {x0:8,x1:W-8,y0:(vb?vb.bottom:56)+6,y1:(tb?tb.top:(tabs?tabs.top:H))-6}; }
+  const hud=r('hud'), pan=r('panel'); let x0=8,x1=W-8,y0=60,y1=H-12;
+  if(hud) x0=hud.right+12; if(pan) x1=pan.left-12; if(vb) y0=Math.max(y0,vb.bottom+8); if(tb) y1=Math.min(y1,tb.top-8);
+  return {x0,x1,y0,y1};
+}
+function centraEnHueco(){
+  const H=huecoLibre(), W=innerWidth, Hh=innerHeight, dx=(H.x0+H.x1)/2-W/2, dy=(H.y0+H.y1)/2-Hh/2;
+  camera.setViewOffset(W,Hh,-dx,-dy,W,Hh); camera.updateProjectionMatrix();
+}
+const anclaCelda=()=>V3(1.65,1.35+ROBOT.hb*0.5,0);
+const anclaLado=()=>V3(1.7,1.4+ROBOT.hb*0.5,0);
+const anclaArriba=()=>V3(1.7,0,0);
+const anclaPinza=()=>mundoDe(LIVE.tcp);
+const VISTAS={
+  celda:{dir:V3(0.66,0.30,0.69),anc:anclaCelda,toff:V3(0,0,0),obj:()=>({w:3.6,h:2.55}),fov:34,tope:0.80},
+  lado:{dir:V3(0.03,0.07,1),anc:anclaLado,toff:V3(0,0,0),obj:()=>({w:4.0,h:2.8}),fov:34,tope:0.80},
+  arriba:{dir:V3(0.001,1,0.10),anc:anclaArriba,toff:V3(0,0,0),obj:()=>({w:5.4,h:5.0}),fov:34,tope:0.9},
+  pinza:{dir:V3(0.50,0.26,0.82),anc:anclaPinza,toff:V3(0,0,0),obj:()=>({w:1.9,h:1.5}),fov:34,tope:0.74},
+};
+const CAM={off:V3(3,6,5),toff:V3(0,0,0),auto:true,previo:null,k:1,dur:1,psi:0};
+const dirVista=v=>VISTAS[v].dir.clone();
+function fovVista(v){ return innerWidth<innerHeight*0.9?46:VISTAS[v].fov; }
+function distanciaFit(w,h,fov,tope){
+  const Hu=huecoLibre(), W=innerWidth, Hh=innerHeight, tv=Math.tan(fov*Math.PI/360), th=tv*(W/Hh);
+  const wF=Math.max(80,Hu.x1-Hu.x0)/W, hF=Math.max(80,Hu.y1-Hu.y0)/Hh;
+  const D=1.06*Math.max(w/(2*th*wF),h/(2*tv*hF));
+  return Math.max(D,h/(2*tv*(tope||0.66)));
+}
+function ofsDeseado(v){
+  const V=VISTAS[v], o=V.obj(), fov=fovVista(v), D=distanciaFit(o.w,o.h,fov,V.tope);
+  return {off:dirVista(v).normalize().multiplyScalar(D),toff:V.toff.clone(),fov};
+}
+function ponVista(v,dur){
+  EST.vista=v; CAM.auto=true; CAM.dur=dur===undefined?1.0:dur;
+  if(typeof pintaBarras==='function') pintaBarras();
+  if(CAM.dur<=0.01){ const A=VISTAS[v].anc(), d=ofsDeseado(v); CAM.off.copy(d.off); CAM.toff.copy(d.toff); camera.fov=d.fov; camera.updateProjectionMatrix();
+    camera.position.copy(A).add(CAM.off); controls.target.copy(A).add(CAM.toff); CAM.previo=A.clone(); }
+}
+function pasaCam(dt){
+  const V=VISTAS[EST.vista], P=V.anc();
+  if(CAM.auto){
+    const d=ofsDeseado(EST.vista), k=1-Math.exp(-dt/Math.max(0.05,(CAM.dur||1)*0.30));
+    CAM.off.lerp(d.off,k); CAM.toff.lerp(d.toff,k);
+    if(Math.abs(camera.fov-d.fov)>0.05){ camera.fov+=(d.fov-camera.fov)*k; camera.updateProjectionMatrix(); }
+    camera.position.copy(P).add(CAM.off); controls.target.copy(P).add(CAM.toff);
+  } else if(CAM.previo){ const dP=P.clone().sub(CAM.previo); camera.position.add(dP); controls.target.add(dP); }
+  CAM.previo=P.clone();
+}
+controls.addEventListener('start',()=>{ CAM.auto=false; });
+
+/* ===================== 20. SONIDO (sintetizado) =====================
+   Un zumbido de servomotores cuyo tono sube con la velocidad articular que exige la pasada (muy atenuado) y los avisos de acierto y fallo. */
+const sonido=(function(){
+  let ctx=null,on=true,master=null,ult=0,zum=null,zg=null;
+  function init(){ if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+      zum=ctx.createOscillator(); zg=ctx.createGain(); zum.type='sawtooth'; zum.frequency.value=90; zg.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=420; zum.connect(lp); lp.connect(zg); zg.connect(master); zum.start();
+    }catch(e){ ctx=null; } }
+  function tono(f,dur,vol,tipo){ if(!ctx||!on) return; const o=ctx.createOscillator(), g=ctx.createGain(), t=ctx.currentTime; o.type=tipo||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); ult=f; }
+  return {init,
+    zumbido:(q)=>{ if(!ctx||!zum) return; const t=ctx.currentTime; zum.frequency.setTargetAtTime(80+clamp(q,0,2)*160,t,0.15); zg.gain.setTargetAtTime(on&&q>0.02?0.006:0,t,0.15); },
+    bien:()=>{ tono(660,0.1,0.05); setTimeout(()=>tono(990,0.14,0.05),110); },
+    mal:()=>tono(190,0.18,0.05,'sawtooth'),
+    toggle(){ on=!on; return on; }, get on(){ return on; }, get ctx(){ return ctx; }, get freq(){ return ult; }};
+})();
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ sonido.init(); const on=sonido.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+window.addEventListener('keydown',()=>sonido.init(),{once:true});
+
+/* ===================== 21. CALIDAD Y TAMAÑO ===================== */
+function aplicaCalidad(){
+  const alta=calAlta();
+  renderer.setPixelRatio(Math.max(Math.min(devicePixelRatio,alta?2:1.5),Math.min(devicePixelRatio,1.5)>1?1.25:1));
+  renderer.shadowMap.enabled=alta; LUZ.sol.castShadow=alta;
+  scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; });
+  const sm=alta?4:0; for(const rt of [composer.renderTarget1,composer.renderTarget2]) if(rt.samples!==sm){ rt.samples=sm; rt.dispose(); }
+  bloom.enabled=alta;
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth,innerHeight);
+  pintaBarras();
+}
+function alCambiarTamano(){
+  disposicion();
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  colocaBarras(); if(typeof ponVista==='function'&&CALC) ponVista(EST.vista,0.001); centraEnHueco();
+}
+window.addEventListener('resize',alCambiarTamano);
+
+/* ===================== 22. EL LAZO: UN SOLO RELOJ =====================
+   El tiempo avanza dt·velocidad·(cámara lenta) en cada cuadro, y con ESE tiempo se mueven la punta, el robot, las lecturas y el cursor de las
+   gráficas del dock. */
+const reloj=new THREE.Clock();
+renderer.info.autoReset=false;
+let tDock=0, tLienzo=0, tSon=0;
+const FPS={n:0,t0:0,v:0};
+function cuadro(){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min(reloj.getDelta(),0.1), t=reloj.elapsedTime;
+  FPS.n++; if(t-FPS.t0>=1){ FPS.v=Math.round(FPS.n/(t-FPS.t0)); FPS.n=0; FPS.t0=t; }
+  const dtS=EST.pausa?0:dt, dtSim=dtS*EST.vel*LENTO;
+  aplicaEscena(dtS,dtSim,dt);
+  pasaCam(dt);
+  if(t-tSon>0.4){ tSon=t; sonido.zumbido(!EST.pausa&&LIVE.ratios&&CALC&&CALC.d.tipo==='pasada'?clamp(LIVE.rmax,0,2):0); }
+  if(t-tDock>0.066){ tDock=t; pintaDock(); pintaReloj(); }
+  if(t-tLienzo>0.033&&seVe(el('panel'))){ tLienzo=t; pintaGraficas(); }
+  controls.update();
+  renderer.info.reset(); composer.render();
+  colocaRotulos(); colocaFoco();
+}
+
+/* ===================== 23. ARRANQUE =====================
+   Abre funcionando y con el recorrido en el paso 1: el robot ya sigue la bola naranja por su órbita, antes de que el alumno toque nada. */
+disposicion();
+reiniciaCalculo(true);
+SIM.t=0;
+aplicaCalidad();
+pintaHUD();
+aplicaEscena(0.02,0.02);
+pintaBarras();
+ponVista('celda',0.001);
+centraEnHueco();
+pintaDockFijo();
+cuadro();
+
+/* ===================== 24. GANCHOS DE PRUEBA ===================== */
+/** Mide el robot en lo VISIBLE: se pinta sólo el robot sobre magenta puro y se toma la caja de los píxeles que no son magenta. */
+function mideObjeto(modo){
+  const ocultos=[]; MUNDO.children.forEach(o=>{ if(o!==ROBOT.grupo&&o.visible){ o.visible=false; ocultos.push(o); } });
+  if(modo==='escena'){ ocultos.forEach(o=>o.visible=true); ocultos.length=0; }
+  const bg=scene.background, fog=scene.fog; scene.background=null; scene.fog=null; renderer.setClearColor(0xff00ff,1);
+  renderer.render(scene,camera);
+  const c=renderer.domElement, W=c.width, H=c.height, t=document.createElement('canvas'); t.width=W; t.height=H; const g=t.getContext('2d',{willReadFrequently:true}); g.drawImage(c,0,0);
+  const d=g.getImageData(0,0,W,H).data; let x0=1e9,x1=-1,y0=1e9,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(!(d[i]>235&&d[i+1]<30&&d[i+2]>235)){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  for(const o of ocultos) o.visible=true; scene.background=bg; scene.fog=fog; renderer.setClearColor(0x000000,1);
+  const k=W/innerWidth; return {x0:x0/k,x1:x1/k,y0:y0/k,y1:y1/k,altoPx:(y1-y0)/k,anchoPx:(x1-x0)/k,fracAlto:(y1-y0)/H,fracAncho:(x1-x0)/W,hueco:huecoLibre(),W:innerWidth,H:innerHeight};
+}
+window.__labDebug={
+  get mode(){ return EST.modo==='reto'?GUIA.paso:EST.modo; },
+  get solved(){ return RETOS.hecho; },
+  get intentos(){ return RETOS.intentos; },
+  quizAnswer:()=>GUIA.quizResp,
+  quizCorrectIndex:()=>GUIA.quizCorrecta,
+  state(){ return {modo:EST.modo,sub:EST.sub,tour:TOUR.paso,fase:GUIA.phase,paso:GUIA.paso,intentos:RETOS.intentos,resiembras:RETOS.resiembras,fallos:{p:RETOS.fallos1,d:RETOS.fallos2,x:RETOS.fallos3},pistas:RETOS.pistas,
+    r1:GUIA.r1?{tipo:GUIA.r1.tipo,d:GUIA.r1.d,cual:GUIA.r1.cual,w:GUIA.r1.w,rho:GUIA.r1.rho,ans:GUIA.r1.res}:null,r2:GUIA.r2?{esc:GUIA.r2.esc.id,D:GUIA.r2.D,hb:GUIA.r2.hb,v:GUIA.r2.v,validado:GUIA.r2.validado}:null,dx:GUIA.dx?GUIA.dx.k:null,quizN:GUIA.quizN,quizAcierto:RETOS.quizAcierto,resuelto:RETOS.hecho}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position; if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return EST.autoRunning; },
+  modelo(){ const C=CALC; if(!C) return {activo:false}; const d=C.d;
+    return {tipo:d.tipo,hb:d.hb,incl:d.incl,llega:LIVE.llega,enLimites:LIVE.enLimites,im:LIVE.im,th5:LIVE.th5/RAD,phi:LIVE.phi/RAD,q:LIVE.q.map(x=>x/RAD),rho:LIVE.rho,rmax:LIVE.rmax,
+      pasada:C.PAS?{ok:C.PAS.ok,okAlcance:C.PAS.okAlcance,okSing:C.PAS.okSing,okVel:C.PAS.okVel,okCiclo:C.PAS.okCiclo,imMin:C.PAS.imMin,ratioMax:C.PAS.ratioMax,T:C.PAS.T}:null}; },
+  escena(){ return {vista:EST.vista,calidad:CAL.nivel,pixel:renderer.getPixelRatio(),rotulos:ROT.on,pausa:EST.pausa,vel:EST.vel,t:SIM.t,
+    tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,fps:FPS.v}; },
+  cam(){ const r=v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]; return {pos:r(camera.position),target:r(controls.target),hueco:huecoLibre(),fps:FPS.v,fov:camera.fov}; },
+  mideObjeto, objeto:mideObjeto,
+};
+window.__test=Object.assign(window.__test||{},{
+  start:()=>{ setMode('reto'); },
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{ const e=el(id); if(e) e.value=v; },
+  state:()=>({modo:EST.modo,paso:GUIA.paso,phase:GUIA.phase,r1:GUIA.r1,r2:GUIA.r2&&{esc:GUIA.r2.esc.id,D:GUIA.r2.D,hb:GUIA.r2.hb,v:GUIA.r2.v,validado:GUIA.r2.validado,res:GUIA.r2.res&&{ok:GUIA.r2.res.ok,imMin:GUIA.r2.res.imMin,ratioMax:GUIA.r2.res.ratioMax}},dx:GUIA.dx&&GUIA.dx.k}),
+  audioState:()=>({ctxState:sonido.ctx?sonido.ctx.state:'none',soundOn:sonido.on,freq:sonido.freq}),
+  setMode:(m)=>setMode(m,true),
+  pon:(o)=>{ Object.assign(EST,o); pintaHUD(); reiniciaCalculo(true); pintaBarras(); },
+  avanza:(s)=>{ aplicaEscena(s,s,Math.max(s,0.5)); },
+  salta:(s)=>{ SIM.s=clamp(s,0,1); SIM.espera=0; aplicaEscena(0.001,0.001,1.0); },
+  vista:(v)=>ponVista(v,0.001),
+  pausa:(on)=>{ EST.pausa=!!on; pintaBarras(); },
+  rotulos:(on)=>{ ROT.on=!!on; pintaRotulos(); pintaBarras(); },
+  calidad:(n)=>{ CAL.nivel=n; aplicaCalidad(); },
+  tour:(n)=>{ if(EST.modo!=='tour') setMode('tour',true); tourVa(n,0.001); },
+  paso:(p)=>{ if(EST.modo!=='reto') setMode('reto',true); paso(p); if(p==='ajusta') prepararAjusta(); if(p==='diag') iniciaDiag(); if(p==='quiz'){ iniciaDiag(); paso('quiz'); iniciaQuiz(); } },
+  setAjusta:(D,hb,v)=>{ const r=GUIA.r2; if(r){ r.D=D; r.hb=hb; r.v=v; r.validado=false; reiniciaCalculo(true); pintaHUD(); } },
+  escenario:(id)=>{ const r=GUIA.r2; if(r){ r.esc=escPorId(id); reiniciaCalculo(true); pintaHUD(); } },
+  dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(true); pintaHUD(); pintaDockFijo(); },
+  /** El TCP real del modelo 3D (mundo) frente al de la cinemática directa: deben coincidir. */
+  tcpMundo:()=>{ ROBOT.raiz.updateMatrixWorld(true); const w=V3(0,0,0); ROBOT.tcp.getWorldPosition(w); return {tcp3d:[w.x,w.y,w.z],tcpFk:LIVE.tcpMundo,dif:Math.hypot(w.x-LIVE.tcpMundo[0],w.y-LIVE.tcpMundo[1],w.z-LIVE.tcpMundo[2])}; },
+  proyecta:()=>{ const v=V3(0,0,0); OBJ.getWorldPosition(v); v.project(camera); const r=renderer.domElement.getBoundingClientRect(); return {x:r.left+(v.x+1)/2*r.width,y:r.top+(1-v.y)/2*r.height}; },
+  arrastra:(x,y,z)=>{ EST.tx=x; EST.ty=y; EST.tz=z; sincronizaDeslizadores(); reiniciaCalculo(true); },
+});
+instalaDiag('robot-6-ejes-cinematica-alcance',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{robot:ROBOT.grupo,objetivo:OBJ,pieza:PIEZA}});
+
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-robot-6-ejes-cinematica-alcance.js"></script>
+  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <script src="_puente.js"></script>
+</body>
+</html>
