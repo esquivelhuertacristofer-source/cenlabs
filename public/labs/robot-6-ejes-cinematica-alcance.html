@@ -777,12 +777,32 @@ function geomFloat(g,m){
 }
 const NODOS=['J1','J2','J3','J4','J5','J6'];
 let MAT_ROBOT=null;
+const CABLE={rango:null,geo:null,pos0:null,nor0:null,w:null,q2:null};
+/** El mazo de cables del brazo (pieza 0 de J2) es rígido con el brazo: al subir o bajar J2 su extremo inferior se despegaba de los cables de la columna.
+    Se dobla en el código: cada vértice del cable gira con J2 sólo en proporción a w (0 = sigue a la columna, 1 = sigue al brazo), sin tocar el archivo. */
+function preparaCable(G){
+  const [i0,i1]=CABLE.rango, P=G.attributes.position, N=G.attributes.normal; CABLE.geo=G; CABLE.pos0=P.array.slice(); CABLE.nor0=N.array.slice(); CABLE.w=new Float32Array(i1-i0);
+  const ax=[-0.12,0.39], L2a=ax[0]*ax[0]+ax[1]*ax[1];
+  for(let i=i0;i<i1;i++){ const x=CABLE.pos0[3*i], y=CABLE.pos0[3*i+1], t=(x*ax[0]+y*ax[1])/L2a;
+    const u=clamp((t-CABLE_T0)/(CABLE_T1-CABLE_T0),0,1); CABLE.w[i-i0]=u*u*(3-2*u); }
+}
+const CABLE_T0=0.00, CABLE_T1=0.50;
+function pliegaCable(q2){
+  if(!CABLE.geo||CABLE.q2!==null&&Math.abs(CABLE.q2-q2)<1e-5) return; CABLE.q2=q2;
+  const [i0,i1]=CABLE.rango, P=CABLE.geo.attributes.position, N=CABLE.geo.attributes.normal, p0=CABLE.pos0, n0=CABLE.nor0;
+  for(let i=i0;i<i1;i++){ const a=-(1-CABLE.w[i-i0])*q2, c=Math.cos(a), s=Math.sin(a), k=3*i;
+    P.array[k]=p0[k]*c-p0[k+1]*s; P.array[k+1]=p0[k]*s+p0[k+1]*c; P.array[k+2]=p0[k+2];
+    N.array[k]=n0[k]*c-n0[k+1]*s; N.array[k+1]=n0[k]*s+n0[k+1]*c; N.array[k+2]=n0[k+2]; }
+  P.needsUpdate=true; N.needsUpdate=true;
+}
 (function fusionaPorEslabon(){
   for(const nombre of ['L0_base',...NODOS]){
     const nodo=GLB.scene.getObjectByName(nombre), piezas=nodo.children.filter(o=>o.isMesh), geos=[];
-    for(const p of piezas){ p.updateMatrix(); geos.push(geomFloat(p.geometry,p.matrix)); if(!MAT_ROBOT) MAT_ROBOT=p.material; p.geometry.dispose(); }
+    let cuenta=0;
+    for(const p of piezas){ p.updateMatrix(); const gg=geomFloat(p.geometry,p.matrix); if(nombre==='J2'&&p.name==='tripo_part_0') CABLE.rango=[cuenta,cuenta+gg.attributes.position.count]; cuenta+=gg.attributes.position.count; geos.push(gg); if(!MAT_ROBOT) MAT_ROBOT=p.material; p.geometry.dispose(); }
     for(const p of piezas) nodo.remove(p);
     const G=BufferGeometryUtils.mergeGeometries(geos,false); for(const g of geos) g.dispose();
+    if(nombre==='J2'&&CABLE.rango) preparaCable(G);
     const mesh=new THREE.Mesh(G,MAT_ROBOT); mesh.name='malla_'+nombre; mesh.castShadow=true; mesh.receiveShadow=true; mesh.userData.clave='robot_'+nombre; nodo.add(mesh);
   }
   MAT_ROBOT.envMapIntensity=1.0; MAT_ROBOT.roughness=Math.min(1,MAT_ROBOT.roughness); MAT_ROBOT.needsUpdate=true;
@@ -794,6 +814,7 @@ ROBOT.tcp=new THREE.Object3D(); ROBOT.tcp.name='TCP'; ROBOT.tcp.position.set(TCP
 const AXQ=new THREE.Vector3(A4[0],A4[1],A4[2]), AXZ=new THREE.Vector3(0,0,1), AXX=new THREE.Vector3(1,0,0);
 /** Gira cada nodo J del modelo con los ángulos q (rad): J1 sobre Y, J2/J3/J5 sobre Z, J4 sobre el eje del antebrazo, J6 sobre X. */
 function poseRobot(R,q){
+  if(R===ROBOT) pliegaCable(q[1]);
   R.nodos[0].quaternion.setFromAxisAngle(V3(0,1,0),q[0]); R.nodos[1].quaternion.setFromAxisAngle(AXZ,q[1]); R.nodos[2].quaternion.setFromAxisAngle(AXZ,q[2]);
   R.nodos[3].quaternion.setFromAxisAngle(AXQ,q[3]); R.nodos[4].quaternion.setFromAxisAngle(AXZ,q[4]); R.nodos[5].quaternion.setFromAxisAngle(AXX,q[5]);
 }
@@ -989,7 +1010,7 @@ function aplicaEscena(dtS,dtSim,dtR){
   }
   // cinemática inversa en vivo (continuidad con la pose anterior)
   const pr=[p[0],p[1]-hb,p[2]], r=ik(pr,Rt,d.rama||'arriba',SIM.q);
-  const q=r.llega?r.q:r.qSemilla; SIM.q=q.slice();
+  const q=window.__qForzada?window.__qForzada.slice():(r.llega?r.q:r.qSemilla); SIM.q=q.slice();
   poseRobot(ROBOT,q);
   const f=fk(q), tcpR=f.tcp;
   LIVE.q=q; LIVE.llega=r.llega; LIVE.enLimites=r.enLimites; LIVE.limites=r.limites; LIVE.rama=d.rama||'arriba';
@@ -1860,6 +1881,7 @@ window.__test=Object.assign(window.__test||{},{
   dx:(k)=>{ GUIA.dx=CASOS_DX.find(c=>c.k===k); GUIA.dxOk=false; reiniciaCalculo(true); pintaHUD(); pintaDockFijo(); },
   /** El TCP real del modelo 3D (mundo) frente al de la cinemática directa: deben coincidir. */
   tcpMundo:()=>{ ROBOT.raiz.updateMatrixWorld(true); const w=V3(0,0,0); ROBOT.tcp.getWorldPosition(w); return {tcp3d:[w.x,w.y,w.z],tcpFk:LIVE.tcpMundo,dif:Math.hypot(w.x-LIVE.tcpMundo[0],w.y-LIVE.tcpMundo[1],w.z-LIVE.tcpMundo[2])}; },
+  ponCamara:(pos,tgt)=>{ CAM.auto=false; CAM.previo=null; camera.position.set(...pos); controls.target.set(...tgt); controls.update(); },
   proyecta:()=>{ const v=V3(0,0,0); OBJ.getWorldPosition(v); v.project(camera); const r=renderer.domElement.getBoundingClientRect(); return {x:r.left+(v.x+1)/2*r.width,y:r.top+(1-v.y)/2*r.height}; },
   arrastra:(x,y,z)=>{ EST.tx=x; EST.ty=y; EST.tz=z; sincronizaDeslizadores(); reiniciaCalculo(true); },
 });

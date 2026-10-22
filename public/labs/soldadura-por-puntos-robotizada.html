@@ -612,13 +612,32 @@ function geoLocal(g,m4){
 }
 const MAT_ROBOT=(()=>{ let m=null; ROBOT.traverse(o=>{ if(o.isMesh&&!m) m=o.material; }); return m; })();
 MAT_ROBOT.envMapIntensity=0.55;
+/** El mazo de cables del brazo (pieza 0 de J2) es rígido con el brazo: al subir o bajar J2 su extremo inferior se despegaba de los cables de la columna.
+    Se dobla en el código: cada vértice del cable gira con J2 sólo en proporción a w (0 = sigue a la columna, 1 = sigue al brazo), sin tocar el archivo. */
+const CABLE={rango:null,geo:null,pos0:null,nor0:null,w:null,q2:null}, CABLE_T0=0.00, CABLE_T1=0.50;
+function preparaCable(G){
+  const [i0,i1]=CABLE.rango, P=G.attributes.position, N=G.attributes.normal; CABLE.geo=G; CABLE.pos0=P.array.slice(); CABLE.nor0=N.array.slice(); CABLE.w=new Float32Array(i1-i0);
+  const ax=[-0.12,0.39], L2a=ax[0]*ax[0]+ax[1]*ax[1];
+  for(let i=i0;i<i1;i++){ const x=CABLE.pos0[3*i], y=CABLE.pos0[3*i+1], t=(x*ax[0]+y*ax[1])/L2a;
+    const u=Math.min(1,Math.max(0,(t-CABLE_T0)/(CABLE_T1-CABLE_T0))); CABLE.w[i-i0]=u*u*(3-2*u); }
+}
+function pliegaCable(q2){
+  if(!CABLE.geo||(CABLE.q2!==null&&Math.abs(CABLE.q2-q2)<1e-5)) return; CABLE.q2=q2;
+  const [i0,i1]=CABLE.rango, P=CABLE.geo.attributes.position, N=CABLE.geo.attributes.normal, p0=CABLE.pos0, n0=CABLE.nor0;
+  for(let i=i0;i<i1;i++){ const a=-(1-CABLE.w[i-i0])*q2, c=Math.cos(a), s=Math.sin(a), k=3*i;
+    P.array[k]=p0[k]*c-p0[k+1]*s; P.array[k+1]=p0[k]*s+p0[k+1]*c; P.array[k+2]=p0[k+2];
+    N.array[k]=n0[k]*c-n0[k+1]*s; N.array[k+1]=n0[k]*s+n0[k+1]*c; N.array[k+2]=n0[k+2]; }
+  P.needsUpdate=true; N.needsUpdate=true;
+}
 /** Sustituye las mallas indicadas (hijas directas de `nodo`) por UNA malla fusionada; devuelve esa malla. */
 function fusionaEslabon(nodo,partes,nombre){
   const ms=nodo.children.filter(o=>o.isMesh&&(partes?partes.includes(o.name):!/^(electrodo_|eslabon_)/.test(o.name)));
   if(!ms.length) return null;
-  const gs=ms.map(m=>{ m.updateMatrix(); return geoLocal(m.geometry,m.matrix); });
+  let cuenta=0, rango=null;
+  const gs=ms.map(m=>{ m.updateMatrix(); const gg=geoLocal(m.geometry,m.matrix); if(nodo.name==='J2'&&m.name==='tripo_part_0') rango=[cuenta,cuenta+gg.attributes.position.count]; cuenta+=gg.attributes.position.count; return gg; });
   const G=BufferGeometryUtils.mergeGeometries(gs,false); for(const g of gs) g.dispose();
   for(const m of ms){ nodo.remove(m); m.geometry.dispose(); }
+  if(rango){ CABLE.rango=rango; preparaCable(G); }
   const me=new THREE.Mesh(G,MAT_ROBOT); me.name=nombre; me.castShadow=true; me.receiveShadow=true; nodo.add(me); return me;
 }
 const ESLABONES=[];
@@ -636,7 +655,7 @@ function ponPinza(abierta){
   const cierra=(GAP0-ESP_VIS)/2, y=-cierra+abierta*(cierra+ABRE_EXTRA);
   ELEC_SUP.position.y=y; ELEC_INF.position.y=-y;
 }
-function ponAngulos(q){ JN.J1.rotation.y=q.j1; JN.J2.rotation.z=q.j2; JN.J3.rotation.z=q.j3; JN.J5.rotation.z=q.j5; }
+function ponAngulos(q){ pliegaCable(q.j2); JN.J1.rotation.y=q.j1; JN.J2.rotation.z=q.j2; JN.J3.rotation.z=q.j3; JN.J5.rotation.z=q.j5; }
 
 /* ===================== 7. LA PUERTA Y EL UTILLAJE =====================
    Dos chapas estampadas (exterior arriba, interior debajo) unidas por una brida plana de 6 cm en todo el contorno (la brida real mide 1–2 cm:
