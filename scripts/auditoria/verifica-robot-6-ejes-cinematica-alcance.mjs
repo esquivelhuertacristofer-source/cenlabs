@@ -145,9 +145,9 @@ console.log('— Volumen de trabajo —');
   ok(malas2 === 0, 'cada celda del mapa de alcance coincide con una cinemática inversa directa', `${malas2} discrepancias; celdas ${nEst.join('/')}`);
   // radio máximo a h = 1,1 m: bisección con la IK
   const j = Math.floor((1.1 - mapa.h0) / (mapa.h1 - mapa.h0) * mapa.ny); let rmax = 0; for (let i = 0; i < mapa.nx; i++) if (mapa.est[j * mapa.nx + i] === 2) rmax = mapa.r0 + (mapa.r1 - mapa.r0) * (i + 1) / mapa.nx;
-  let a = 3, b = 4.4; for (let it = 0; it < 40; it++) { const m = (a + b) / 2; if (F.ik([m, 1.1, 0], Rt, 'arriba', null).llega) a = m; else b = m; }
+  let a = 3, b = 4.4; for (let it = 0; it < 40; it++) { const m = (a + b) / 2; { const rr = F.ik([m, 1.1, 0], Rt, 'arriba', null); if (rr.llega && rr.enLimites) a = m; else b = m; } }
   ok(Math.abs(rmax - a) < 0.1, 'el radio máximo del mapa coincide con la bisección de la IK a la misma altura (±1 celda)', `mapa ${rmax.toFixed(2)} m, bisección ${a.toFixed(3)} m`);
-  ok(a > F.D_MAX && a < F.D_MAX + 1.2, 'el alcance de la punta (≈ 3,9 m) es mayor que el de la muñeca (L₂+L₃) por la herramienta, y menor que L₂+L₃+1,2 m', a.toFixed(3));
+  ok(a > 3.0 && a < F.D_MAX + 1.2, 'el alcance de la punta dentro de límites y sin choques (≈ 3,5 m a 1,1 m de altura) cabe entre 3,0 m y L₂+L₃+1,2 m', a.toFixed(3));
   ok(nEst[1] > 0 && nEst[0] > 0 && nEst[2] > 0, 'el mapa tiene las tres zonas: no llega, llega pero un límite lo impide, llega'); }
 { const m0 = F.mapaAlcance({ incl: 0, nx: 30, ny: 24 }), m1 = F.mapaAlcance({ incl: 0, hb: 0.5, nx: 30, ny: 24 }); let d = 0; const dj = Math.round(0.5 / ((m0.h1 - m0.h0) / m0.ny)); void dj;
   ok(m1.est.some((e, k) => e !== m0.est[k]), 'subir la base 0,5 m cambia el volumen de trabajo respecto de la pieza'); }
@@ -155,7 +155,7 @@ console.log('— Volumen de trabajo —');
 console.log('— La pasada y el reto —');
 for (const e of F.ESCENARIOS) {
   const r = F.evaluaPasada(e, 1.8, 0, 0.6, 60); ok(!r.ok, `«${e.id}»: el ajuste inicial (D = 1,8 m, base 0, 0,6 m/s) NO cumple nada de fábrica`, JSON.stringify([r.okAlcance, r.okSing, r.okVel, r.okCiclo]));
-  for (const hb of [0.2, 0.4]) {
+  for (const hb of (e.id === 'umbral' ? [0, 0.2] : [0.2, 0.4])) {
     const wD = F.ventanaD(e, hb, 1.6), wV = wD ? F.ventanaV(e, (wD[0] + wD[1]) / 2, hb) : null;
     ok(!!wD && wD[0] > F.D_RANGO[0] + 0.3 && wD[1] < F.D_RANGO[1] - 0.2, `«${e.id}» hb ${hb}: la ventana de la distancia es INTERIOR`, JSON.stringify(wD));
     ok(!!wV && wV[0] > F.V_RANGO[0] + 0.3 && wV[1] < F.V_RANGO[1] - 0.2, `«${e.id}» hb ${hb}: la ventana de la velocidad es INTERIOR`, JSON.stringify(wV));
@@ -163,10 +163,10 @@ for (const e of F.ESCENARIOS) {
     if (wV) { ok(!F.evaluaPasada(e, (wD[0] + wD[1]) / 2, hb, wV[0] - 0.1, 60).ok, `«${e.id}» hb ${hb}: más lento que la ventana no rinde`); ok(!F.evaluaPasada(e, (wD[0] + wD[1]) / 2, hb, wV[1] + 0.1, 60).ok, `«${e.id}» hb ${hb}: más rápido que la ventana excede una articulación`); }
   }
   // tolerancia a la resolución: 40 puntos y 120 puntos dan el mismo veredicto en el centro de la ventana
-  const wD = F.ventanaD(e, 0.3, 1.6), Dm = (wD[0] + wD[1]) / 2; ok(F.evaluaPasada(e, Dm, 0.3, 1.6, 40).ok === F.evaluaPasada(e, Dm, 0.3, 1.6, 120).ok, `«${e.id}»: el veredicto no depende de la resolución de la pasada`);
+  const wD = F.ventanaD(e, 0.2, 1.6), Dm = (wD[0] + wD[1]) / 2; ok(F.evaluaPasada(e, Dm, 0.2, 1.6, 40).ok === F.evaluaPasada(e, Dm, 0.2, 1.6, 120).ok, `«${e.id}»: el veredicto no depende de la resolución de la pasada`);
 }
 { // la altura de la base cambia la ventana (es un mando útil, no decorativo)
-  const e = F.escPorId('puerta'); const a = F.ventanaD(e, 0.0, 1.6), b = F.ventanaD(e, 0.8, 1.6); ok(a && b && (Math.abs(a[0] - b[0]) > 0.05 || Math.abs(a[1] - b[1]) > 0.05), 'la altura de la base mueve la ventana de la distancia', JSON.stringify([a, b])); }
+  const e = F.escPorId('puerta'); const a = F.ventanaD(e, 0.0, 1.6), b = F.ventanaD(e, 0.6, 1.6); ok(a && b && (Math.abs(a[0] - b[0]) > 0.05 || Math.abs(a[1] - b[1]) > 0.05), 'la altura de la base mueve la ventana de la distancia', JSON.stringify([a, b])); }
 { // ritmo de la línea: por debajo de vTakt falla sólo por el ciclo
   const e = F.escPorId('puerta'), r = F.evaluaPasada(e, 2.8, 0.3, e.vTakt - 0.2, 60); ok(r.okAlcance && r.okSing && r.okVel && !r.okCiclo, 'con v < ritmo de la línea sólo falla el ciclo'); }
 console.log('— Diagnósticos con firma propia —');

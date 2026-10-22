@@ -376,7 +376,7 @@ const AX=[[0,1,0],[0,0,1],[0,0,1],A4,[0,0,1],[1,0,0]];
 const KAPPA=Math.atan2(-A4[1],A4[0]);                               // 11°: con J5 = −κ la herramienta queda alineada con J4
 /* Limites de carrera y de velocidad (didácticos, de un robot de soldadura de este tamaño; J5 se limita por θ5 = q5 + κ, la desviación de la muñeca) */
 const NOMBRES=['J1','J2','J3','J4','J5','J6'];
-const LIM_DEG=[[-170,170],[-105,45],[-40,125],[-200,200],[-120,120],[-360,360]];
+const LIM_DEG=[[-170,170],[-100,45],[-40,125],[-200,200],[-120,120],[-360,360]];
 const VMAX_DEG=[75,70,75,110,110,150];                              // °/s (reducidos por la inercia de la pinza cargada: didáctico)
 const th5De=q=>q[4]+KAPPA;                                          // θ5: 0 = muñeca recta (J4 y J6 alineados)
 
@@ -478,13 +478,14 @@ function errRot(Ra,Rt){ let e=[0,0,0]; for(let i=0;i<3;i++) e=vsum(e,vcruz(col(R
  * Devuelve q, si la punta llega (llega), si respeta los límites (enLimites) y el error final.
  */
 function ik(p,Rt,rama,qprev){
-  let mejor=null;
+  let mejor=null, llegaFuera=null;
   for(const q6i of [qprev?qprev[5]:0,0,Math.PI/2,-Math.PI/2,Math.PI]){
-    const r=ikIntento(p,Rt,rama,qprev,q6i); if(r.llega) return r;
+    const r=ikIntento(p,Rt,rama,qprev,q6i); if(r.llega&&r.enLimites) return r;
+    if(r.llega&&(!llegaFuera)) llegaFuera=r;
     if(!mejor||r.errPos+r.errOri<mejor.errPos+mejor.errOri) mejor=r;
     if(!r.brazo.ok&&r.brazo.dx!==undefined&&(r.brazo.d>D_MAX+0.8||r.brazo.d<D_MIN-0.6)) break;      // muy lejos del anillo: no hay que insistir
   }
-  return mejor;
+  return llegaFuera||mejor;
 }
 function ikIntento(p,Rt,rama,qprev,q6i){
   let q6g=q6i, br=null, qm=null;
@@ -512,13 +513,25 @@ function ikIntento(p,Rt,rama,qprev,q6i){
   const f=fk(q), ep=vres(p,f.tcp), ew=errRot(f.R,Rt), eP=vnorma(ep), eO=vnorma(ew);
   const sf=Math.sin(A3-A2+q[2]), rampa=rama==='abajo'?sf>=-1e-9:sf<=1e-9;              // la rama pedida: el signo de sen(θ_antebrazo − θ_brazo)
   const llega=eP<1e-6&&eO<1e-6&&rampa&&(q[0]===q[0]), lim=revisaLimites(q);
-  return {q,qSemilla,llega,enLimites:lim.ok,limites:lim.mal,errPos:eP,errOri:eO,brazo:br,tcp:f.tcp};
+  return {q,qSemilla,llega,enLimites:lim.ok,limites:lim.mal,choca:lim.choca,errPos:eP,errOri:eO,brazo:br,tcp:f.tcp};
 }
-/** ¿Cada articulación está dentro de su carrera? (J5 se mide con θ5.) */
+/** Colisión propia: el brazo, el antebrazo, la muñeca o la pinza contra la columna de la base o contra el suelo (con el pedestal puesto a hb = 0: es lo más estricto).
+ *  Se muestrea cada eslabón con puntos y un radio de grosor; la columna es un cilindro de 0,62 m de radio y 1,35 m de alto. Devuelve null o 'suelo' / 'base'. */
+function colision(q){
+  const f=fk(q), P=f.P, pts=[]; const seg=(a,b,rad,n,desde)=>{ for(let i=0;i<=n;i++){ const t=desde+(1-desde)*i/n; pts.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,rad]); } };
+  seg(P[1],P[2],0.28,10,0.45); seg(P[2],P[3],0.24,8,0); seg(P[3],P[5],0.22,4,0); seg(P[5],f.tcp,0.20,4,0);
+  for(const sy of [-1,1]) for(const dx of [-0.45,-0.2,0]){ const o=vsum(f.tcp,mvec(f.R,[dx,sy*0.3,0])); pts.push([o[0],o[1],o[2],0.10]); }
+  for(const m of pts){ const r=Math.hypot(m[0],m[2]); if(m[1]<m[3]*0.7) return 'suelo'; if(r<0.62&&m[1]<1.35) return 'base'; }
+  return null;
+}
+/** ¿Cada articulación está dentro de su carrera (J5 se mide con θ5) y sin chocar? `mal` lista las articulaciones pasadas; `choca` el choque propio. */
 function revisaLimites(q){
   const mal=[]; for(let i=0;i<6;i++){ const a=(i===4?th5De(q):q[i])/RAD; if(a<LIM_DEG[i][0]-1e-6||a>LIM_DEG[i][1]+1e-6) mal.push(i); }
-  return {ok:mal.length===0,mal};
+  const choca=colision(q);
+  return {ok:mal.length===0&&!choca,mal,choca};
 }
+/** Ajusta q a las carreras (para dibujar siempre una postura posible). */
+function limitaQ(q){ return q.map((v,i)=>{ if(i===4){ const t=clamp(th5De(q),LIM_DEG[4][0]*RAD,LIM_DEG[4][1]*RAD); return t-KAPPA; } return clamp(v,LIM_DEG[i][0]*RAD,LIM_DEG[i][1]*RAD); }); }
 
 /* ---- Manipulabilidad y velocidades articulares ---- */
 let DET_REF=6;                                                     // se fija abajo con el máximo muestreado del volumen de trabajo
@@ -579,7 +592,7 @@ function evaluaPasadaGen(A,B,incl,giro,hb,v,n,vTakt,yaw){
     if(r.llega) qprev=r.q;
     let im=0, qd=null, ratios=null, rmax=Infinity;
     if(r.llega){ im=indiceManip(r.q); const w=velArticular(r.q,vesc(dir,v)); if(w){ qd=w.map(x=>Math.abs(x)/RAD); ratios=qd.map((x,i)=>x/VMAX_DEG[i]); rmax=Math.max(...ratios); for(let i=0;i<6;i++){ peor[i]=Math.max(peor[i],ratios[i]); qdMax[i]=Math.max(qdMax[i],qd[i]); } } else { qd=[1e9,1e9,1e9,1e9,1e9,1e9]; ratios=qd.map(()=>1e9); rmax=1e9; } }
-    if(!r.llega) llegaTodo=false; if(!r.enLimites){ limTodo=false; for(const i of r.limites) limMal[i]=true; }
+    if(!r.llega) llegaTodo=false; if(!r.enLimites){ limTodo=false; for(const i of r.limites) limMal[i]=true; if(r.choca) limMal[6]=true; }
     imMin=Math.min(imMin,im); imMax=Math.max(imMax,im);
     if(rmax!==Infinity&&rmax>ratioMax){ ratioMax=rmax; dondeMax=k; }
     pts.push({s,p,q:r.q,llega:r.llega,enLimites:r.enLimites,im,qd,ratios,rmax});
@@ -1010,10 +1023,13 @@ function aplicaEscena(dtS,dtSim,dtR){
   }
   // cinemática inversa en vivo (continuidad con la pose anterior)
   const pr=[p[0],p[1]-hb,p[2]], r=ik(pr,Rt,d.rama||'arriba',SIM.q);
-  const q=window.__qForzada?window.__qForzada.slice():(r.llega?r.q:r.qSemilla); SIM.q=q.slice();
+  let q=window.__qForzada?window.__qForzada.slice():(r.llega?r.q:r.qSemilla);
+  /* Siempre se dibuja una postura POSIBLE: si la solución pasa de una carrera se ajusta al tope; si aun así el brazo chocaría con la base o el suelo, se queda en la última postura segura. */
+  if(!revisaLimites(q).ok){ const ql=limitaQ(q); q=revisaLimites(ql).ok?ql:(SIM.qOk||[0,-0.45,0.5,0,0.2,0]).slice(); } else SIM.qOk=q.slice();
+  SIM.q=q.slice();
   poseRobot(ROBOT,q);
   const f=fk(q), tcpR=f.tcp;
-  LIVE.q=q; LIVE.llega=r.llega; LIVE.enLimites=r.enLimites; LIVE.limites=r.limites; LIVE.rama=d.rama||'arriba';
+  LIVE.q=q; LIVE.llega=r.llega; LIVE.enLimites=r.enLimites; LIVE.limites=r.limites; LIVE.choca=r.choca||null; LIVE.rama=d.rama||'arriba';
   LIVE.tcp=tcpR; LIVE.tcpMundo=[tcpR[0],tcpR[1]+hb,tcpR[2]]; LIVE.objetivo=p.slice(); LIVE.aprox=col(Rt,0);
   LIVE.rho=Math.hypot(tcpR[0],tcpR[2]); LIVE.th5=th5De(q); LIVE.phi=r.brazo.phi; LIVE.s=SIM.s;
   LIVE.im=r.llega?indiceManip(q):0;
@@ -1024,7 +1040,7 @@ function aplicaEscena(dtS,dtSim,dtR){
   // el fantasma: la otra solución (la que el robot real no puede tomar)
   const FV=(d.ver&&d.ver.fantasma)&&d.tipo==='punta';
   if(FANTASMA.grupo.visible!==!!FV){ FANTASMA.grupo.visible=!!FV; ROBOT.raiz.traverse(o=>{ if(o.isMesh) o.castShadow=!FV&&calAlta(); }); }   // con el fantasma no se proyecta la sombra de mapa del robot: así los triángulos se quedan bajo el presupuesto
-  if(FV){ const otra=(d.rama||'arriba')==='abajo'?'arriba':'abajo', g=ik(pr,Rt,otra,SIM.qG); SIM.qG=(g.llega?g.q:g.qSemilla).slice(); poseRobot(FANTASMA,SIM.qG); LIVE.otra={llega:g.llega,limites:g.limites,q:SIM.qG.slice(),enLimites:g.enLimites}; } else { SIM.qG=null; LIVE.otra=null; }
+  if(FV){ const otra=(d.rama||'arriba')==='abajo'?'arriba':'abajo', g=ik(pr,Rt,otra,SIM.qG); { let qg=(g.llega?g.q:g.qSemilla).slice(); if(!revisaLimites(qg).ok){ const ql=limitaQ(qg); qg=revisaLimites(ql).ok?ql:(SIM.qOkG||qg); } else SIM.qOkG=qg.slice(); SIM.qG=qg.slice(); } poseRobot(FANTASMA,SIM.qG); LIVE.otra={llega:g.llega,limites:g.limites,q:SIM.qG.slice(),enLimites:g.enLimites}; } else { SIM.qG=null; LIVE.otra=null; }
   // el objetivo, su eje de aproximación y los anillos de alcance
   ponObjetivo(p,LIVE.aprox,false);
   M_BOLA.color.set(r.llega&&r.enLimites?'#ff9a3c':'#ff4d5e');
@@ -1231,10 +1247,13 @@ function pintaDock(){
   set('f_6',d.tipo==='pasada'?sm(d.v,'m/s',1):sm(V_REF,'m/s',1)+'<small> prueba</small>'); _cl('f_6','');
   if(enCalcula()||enDiagnostico()&&false){ cl=''; t=''; }
   else if(!LIVE.llega){ cl='ojo'; t='La punta no llega a ese punto: el brazo se estira todo lo que puede (o queda dentro de la zona muerta de la base).'; }
-  else if(!LIVE.enLimites){ cl='ojo'; t='Llega con las matemáticas, pero '+LIVE.limites.map(i=>CORTO_J[i]).join(' y ')+' pasaría de su límite de giro: el robot real no puede.'; }
+  else if(!LIVE.enLimites){ cl='ojo'; t=LIVE.limites.length?'Llega con las matemáticas, pero '+LIVE.limites.map(i=>CORTO_J[i]).join(' y ')+' pasaría de su tope de giro: el robot real no puede.':'Llega con las matemáticas, pero el brazo chocaría con la base o con el suelo: el robot real no puede.'; }
+  else if(topesActivos().length){ cl='ojo'; t=topesActivos().join(' y ')+(topesActivos().length>1?' están':' está')+' en su tope.'; }
   else if(!ocu&&LIVE.im<IM_MIN){ cl='mal'; t=Math.abs(LIVE.th5/RAD)<12?'Muñeca casi recta: J4 y J6 se alinean y se pierde un grado de libertad.':(LIVE.phi/RAD<14?'Brazo casi estirado: J2 y J3 no pueden empujar más hacia fuera.':'Cerca de una singularidad: moverse exige velocidades articulares enormes.'); }
   Av.className='dk-aviso'+(t?' on '+cl:''); if(Av.textContent!==t) Av.textContent=t;
 }
+/** Articulaciones a menos de 1,5° de su tope de giro (J5 se mide con θ5). */
+function topesActivos(){ const o=[]; for(let i=0;i<6;i++){ const a=(i===4?th5De(LIVE.q):LIVE.q[i])/RAD; if(a<=LIM_DEG[i][0]+1.5||a>=LIM_DEG[i][1]-1.5) o.push(CORTO_J[i]); } return o; }
 function pintaGraficas(){ pintaMapa(); pintaAngulos(); pintaVel(); pintaSerie(); }
 
 /* ===================== 14. BARRAS: VISTAS Y REPRODUCCIÓN ===================== */
@@ -1541,7 +1560,7 @@ function validarAjusta(){
     pintaHUD(); paso('diag'); iniciaDiag();
   } else {
     RETOS.fallos2++; sonido.mal(); const fil=[];
-    if(!PAS.okAlcance){ const k=pidoDe(PAS); fil.push(!PAS.llegaTodo?`En el <b>${fN((k<0?0:k)/(PAS.pts.length-1)*100,0)} %</b> de la costura la punta <b>no llega</b>.`:`${PAS.limMal.map(i=>CORTO_J[i]).join(' y ')} <b>se pasa de su límite de giro</b> en la costura.`); }
+    if(!PAS.okAlcance){ const k=pidoDe(PAS); fil.push(!PAS.llegaTodo?`En el <b>${fN((k<0?0:k)/(PAS.pts.length-1)*100,0)} %</b> de la costura la punta <b>no llega</b>.`:(PAS.limMal.filter(i=>i<6).length?`${PAS.limMal.filter(i=>i<6).map(i=>CORTO_J[i]).join(' y ')} <b>se pasa de su límite de giro</b> en la costura.`:'')+(PAS.limMal.includes(6)?' El brazo <b>chocaría con la base o con el suelo</b> en la costura.':'')); }
     if(PAS.okAlcance&&!PAS.okSing){ let k=0; for(let i=1;i<PAS.pts.length;i++) if(PAS.pts[i].im<PAS.pts[k].im) k=i; const q=PAS.pts[k].q, causa=Math.abs(th5De(q))/RAD<12?'la muñeca casi recta (J5 ≈ '+fN(Math.abs(th5De(q))/RAD,0)+'°)':'el brazo casi estirado'; fil.push(`En el <b>${fN(k/(PAS.pts.length-1)*100,0)} %</b> de la costura el índice de manipulabilidad baja a <b>${fN(PAS.imMin*100,0)} %</b> (se pide al menos ${fN(IM_MIN*100,0)} %): cerca de una <b>singularidad</b>, por ${causa}.`); }
     if(PAS.okAlcance&&!PAS.okVel) fil.push(`${PAS.velMal.map(i=>CORTO_J[i]).join(' y ')} <b>no da la velocidad</b>: pide hasta ${fN(PAS.ratioMax*100,0)} % de su máximo.`);
     if(!PAS.okCiclo) fil.push(`A ${fN(r.v,1)} m/s la pasada tarda ${fN(PAS.T,1)} s y la línea necesita <b>al menos ${fN(E.vTakt,1)} m/s</b> para cumplir su ritmo.`);
