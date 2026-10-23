@@ -18,6 +18,8 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:#04060a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
   body{overflow:hidden}
+  body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}   /* un doble clic o un arrastre torpe no debe pintar de azul toda la interfaz */
+  input,textarea,#fichaOv{-webkit-user-select:text;user-select:text}
   #stage{position:fixed;inset:0}
   canvas{display:block;touch-action:none}
 
@@ -1276,7 +1278,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
    y guía e instrumentos comparten una hoja con pestañas abajo. */
 function disposicion(){
   const W=innerWidth, b=document.body;
-  const estrecho=W<1080, movil=W<640;
+  const estrecho=W<1180, movil=W<640;
   b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
   if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
   el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));

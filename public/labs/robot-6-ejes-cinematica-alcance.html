@@ -18,6 +18,8 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:#04060a;color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
   body{overflow:hidden}
+  body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}   /* un doble clic o un arrastre torpe no debe pintar de azul toda la interfaz */
+  input,textarea,#fichaOv{-webkit-user-select:text;user-select:text}
   #stage{position:fixed;inset:0}
   canvas{display:block;touch-action:none}
 
@@ -650,7 +652,7 @@ const camera=new THREE.PerspectiveCamera(34,innerWidth/innerHeight,0.1,260);
 camera.position.set(7,4,8);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true; controls.dampingFactor=0.08;
-controls.minDistance=1.0; controls.maxDistance=40; controls.maxPolarAngle=Math.PI*0.495;
+controls.minDistance=1.0; controls.maxDistance=20; controls.maxPolarAngle=Math.PI*0.495;
 controls.target.set(1.4,1.3,0);
 
 /* Nave de soldadura: luz de estudio, un sol blanco-cálido con sombra suave sobre el robot, relleno frío y un contraluz que recorta el blanco del robot. */
@@ -1040,7 +1042,7 @@ function aplicaEscena(dtS,dtSim,dtR){
   // el fantasma: la otra solución (la que el robot real no puede tomar)
   const FV=(d.ver&&d.ver.fantasma)&&d.tipo==='punta';
   if(FANTASMA.grupo.visible!==!!FV){ FANTASMA.grupo.visible=!!FV; ROBOT.raiz.traverse(o=>{ if(o.isMesh) o.castShadow=!FV&&calAlta(); }); }   // con el fantasma no se proyecta la sombra de mapa del robot: así los triángulos se quedan bajo el presupuesto
-  if(FV){ const otra=(d.rama||'arriba')==='abajo'?'arriba':'abajo', g=ik(pr,Rt,otra,SIM.qG); { let qg=(g.llega?g.q:g.qSemilla).slice(); if(!revisaLimites(qg).ok){ const ql=limitaQ(qg); qg=revisaLimites(ql).ok?ql:(SIM.qOkG||qg); } else SIM.qOkG=qg.slice(); SIM.qG=qg.slice(); } poseRobot(FANTASMA,SIM.qG); LIVE.otra={llega:g.llega,limites:g.limites,q:SIM.qG.slice(),enLimites:g.enLimites}; } else { SIM.qG=null; LIVE.otra=null; }
+  if(FV){ const otra=(d.rama||'arriba')==='abajo'?'arriba':'abajo', g=ik(pr,Rt,otra,SIM.qG); { let qg=(g.llega?g.q:g.qSemilla).slice(); if(!revisaLimites(qg).ok){ const ql=limitaQ(qg); qg=revisaLimites(ql).ok?ql:(SIM.qOkG||[0,-0.45,0.5,0,0.2,0]); } else SIM.qOkG=qg.slice(); SIM.qG=qg.slice(); } poseRobot(FANTASMA,SIM.qG); LIVE.otra={llega:g.llega,limites:g.limites,q:SIM.qG.slice(),enLimites:g.enLimites}; } else { SIM.qG=null; LIVE.otra=null; }
   // el objetivo, su eje de aproximación y los anillos de alcance
   ponObjetivo(p,LIVE.aprox,false);
   M_BOLA.color.set(r.llega&&r.enLimites?'#ff9a3c':'#ff4d5e');
@@ -1306,7 +1308,7 @@ const ANCLAS=[
   ['Muñeca (J4–J6)',()=>mundoDe(fk(LIVE.q).P[4])],
   ['Pinza de soldadura',()=>mundoDe(LIVE.tcp)],
   ['Punto que debe tocar',()=>V3(LIVE.objetivo[0],LIVE.objetivo[1]+0.16,LIVE.objetivo[2])],
-  ['Pieza (puerta)',()=>CALC&&CALC.d.tipo==='pasada'?V3(CALC.d.D,CALC.d.esc.H-0.3,0):null],
+  ['Pieza (puerta)',()=>{ const e=CALC&&CALC.d.tipo==='pasada'?(CALC.d.esc||(CALC.d.pz&&CALC.d.pz.esc)):null; return e?V3(CALC.d.D,e.H-0.3,0):null; }],
 ];
 (function(){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','rot3svg'); svg.id='rotSvg'; document.body.appendChild(svg);
@@ -1411,7 +1413,7 @@ function sincronizaDeslizadores(){
    y guía e instrumentos comparten una hoja con pestañas abajo. */
 function disposicion(){
   const W=innerWidth, b=document.body;
-  const estrecho=W<1080, movil=W<640;
+  const estrecho=W<1180, movil=W<640;
   b.classList.toggle('estrecho',estrecho); b.classList.toggle('movil',movil); b.classList.toggle('ancho',estrecho&&!movil);
   if(estrecho){ if(!b.classList.contains('t-hud')&&!b.classList.contains('t-panel')) b.classList.add('t-hud'); ajustaHoja(); }
   el('tabs').querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('on',b.classList.contains('t-'+t.dataset.tab)));
