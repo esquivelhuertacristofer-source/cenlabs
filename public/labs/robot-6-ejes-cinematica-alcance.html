@@ -60,6 +60,8 @@
   .cg .cl b{letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums}
   .cg .cl em{font-style:normal;text-transform:none;letter-spacing:.02em}
   .cg input[type=range]{width:100%;accent-color:#FF9A3C;height:18px}
+  .cg .riel{height:4px;margin:1px 2px 0;border-radius:3px;background:#2a3544;opacity:.9}
+  .cg .tope{font-size:10.5px;line-height:1.3;color:#ffd88a;margin-top:2px}.cg .tope:empty{display:none}
   .marcas{display:flex;justify-content:space-between;font-size:9.5px;color:#6f87a0;margin-top:-2px;font-variant-numeric:tabular-nums}
   .marcas span.lim{color:#d8b36a}
   .marcas.abs{position:relative;display:block;height:12px}
@@ -1060,16 +1062,66 @@ const enDiagnostico=()=>EST.modo==='reto'&&GUIA.paso==='diag'&&!GUIA.dxOk;
 const enCalcula=()=>EST.modo==='reto'&&GUIA.paso==='calcula';
 const FRASE='Mueves la punta del robot con el ratón y ves cómo cada articulación se acomoda para llegar, y dónde el robot se atora.';
 const gr=x=>fN(x/RAD,0)+'°', gr1=x=>fN(x/RAD,1)+' °';
+/* ---- Los mandos de posición NUNCA dejan un estado ambiguo: el control se detiene en el último valor ALCANZABLE y SEGURO (llega, dentro de los topes y sin choques),
+   avisa en el propio control y marca en su riel la zona alcanzable (por barrido con la misma cinemática inversa). La bola y el robot siempre coinciden con la cifra. ---- */
+let RIEL_ON=false;
+const PUN_SL={
+  sX:{k:'tx',min:0.4,max:4.3,paso:0.05,men:['la punta no puede acercarse más','la punta no llega más lejos']},
+  sZ:{k:'tz',min:-2.6,max:2.6,paso:0.05,men:['la punta no puede ir más a ese lado','la punta no puede ir más a ese lado']},
+  sY:{k:'ty',min:0,max:3.5,paso:0.05,men:['la pinza no puede bajar más','la pinza no puede subir más']},
+  sI:{k:'incl',min:-60,max:40,paso:1,men:['la pinza no puede inclinarse más hacia abajo','la pinza no puede inclinarse más hacia arriba']},
+  sB:{k:'hb',min:0,max:0.8,paso:0.05,men:['el pedestal no puede bajar más','con un pedestal más alto el brazo no llega']},
+};
+const otraRama=r=>r==='abajo'?'arriba':'abajo';
+function puntoOk(e,rama){ const p=[e.tx,e.ty,e.tz]; const r=ik([p[0],p[1]-e.hb,p[2]],rtDe({incl:e.incl,yaw:e.yaw||0,giro:0},p),rama,null); return !!(r.llega&&r.enLimites); }
+const estTrial=(o)=>Object.assign({tx:EST.tx,ty:EST.ty,tz:EST.tz,incl:EST.incl,yaw:EST.yaw,hb:EST.hb},o);
+/** Entre el estado actual (válido) y el pedido, el valor más lejano que todavía es válido (bisección sobre la recta que los une). */
+function hastaValido(cand,rama){
+  const base=estTrial({}), keys=Object.keys(cand); if(!puntoOk(base,rama)) return null;
+  const mezcla=t=>estTrial(Object.fromEntries(keys.map(k=>[k,base[k]+(cand[k]-base[k])*t])));
+  if(puntoOk(mezcla(1),rama)) return Object.fromEntries(keys.map(k=>[k,cand[k]]));
+  let lo=0, hi=1; for(let i=0;i<16;i++){ const m=(lo+hi)/2; if(puntoOk(mezcla(m),rama)) lo=m; else hi=m; }
+  const e=mezcla(lo); return Object.fromEntries(keys.map(k=>[k,e[k]]));
+}
+function ponTope(id,txt){ const t=el('tp_'+id); if(t) t.textContent=txt||''; }
+const fmtTope=(id,v)=>({sX:FMT.x,sZ:FMT.z,sY:FMT.y,sI:FMT.incl,sB:FMT.hb}[id])(v);
+/** Pinta en el riel de cada mando los tramos alcanzables (verde azulado) y los que no (rojo), dados los demás mandos. */
+function pintaRieles(){
+  if(EST.sub!=='punta'||!el('rl_sX')) return;
+  for(const id in PUN_SL){ const c=PUN_SL[id], r=el('rl_'+id); if(!r) continue; const N=60, ok=[];
+    for(let i=0;i<=N;i++){ ok.push(puntoOk(estTrial({[c.k]:c.min+(c.max-c.min)*i/N}),EST.rama)); }
+    const stops=[]; for(let i=0;i<=N;i++){ const x0=(i-0.5)/N*100, x1=(i+0.5)/N*100, col=ok[i]?'rgba(46,196,182,.75)':'rgba(255,77,94,.55)'; stops.push(`${col} ${Math.max(0,x0).toFixed(2)}% ${Math.min(100,x1).toFixed(2)}%`); }
+    r.style.background='linear-gradient(90deg,'+stops.join(',')+')'; }
+}
+let _rielT=null; const pintaRielesPronto=()=>{ clearTimeout(_rielT); _rielT=setTimeout(pintaRieles,60); };
+/** Un mando de posición se movió a `v`: lo acepta si es válido; si no, lo deja en el último valor alcanzable y avisa (con la otra rama como sugerencia si ésa sí llega). */
+function mandoPosicion(id,v){
+  const c=PUN_SL[id], antes=EST[c.k], rama=EST.rama; let res=hastaValido({[c.k]:v},rama);
+  if(res===null){   // el estado actual ya no es válido (cambiaron otros mandos): se busca el valor válido más cercano de este mando
+    let mejor=null; for(let d=0;d<=Math.round((c.max-c.min)/c.paso);d++) for(const sg of [1,-1]){ const x=clamp(v+sg*d*c.paso,c.min,c.max); if(mejor===null&&puntoOk(estTrial({[c.k]:x}),rama)) mejor=x; }
+    res=mejor===null?{[c.k]:antes}:{[c.k]:mejor}; }
+  let x=res[c.k];
+  if(Math.abs(x-v)>1e-9){   // se queda en el paso de la rejilla del mando que todavía es válido (hacia el lado del que viene)
+    const n=(x-c.min)/c.paso, xs=c.min+(v>antes?Math.floor(n+1e-9):Math.ceil(n-1e-9))*c.paso;
+    x=puntoOk(estTrial({[c.k]:xs}),rama)?Math.round(xs*1e6)/1e6:x; }
+  EST[c.k]=x; const e=el(id); if(e) e.value=x; const lab=el('v_'+id); if(lab) lab.textContent=fmtTope(id,x);
+  const parado=Math.abs(x-v)>c.paso*0.51;
+  if(parado){ const otra=puntoOk(estTrial({[c.k]:v}),otraRama(rama)); ponTope(id,'tope: '+c.men[v<x?0:1]+(otra?' · con el codo '+otraRama(rama)+' sí llega: pruébalo':' · el otro codo tampoco llega')); } else ponTope(id,'');
+  pintaRielesPronto();
+}
 /** Un deslizador con su etiqueta y su cifra (el motor decide el formato). */
 function deslizador(id,etq,min,max,paso,val,fmt,marcas){
   return `<div class="cg"><div class="cl"><div>${etq}</div><b id="v_${id}">${fmt(val)}</b></div><input type="range" id="${id}" min="${min}" max="${max}" step="${paso}" value="${val}" aria-label="${etq}">`
-    +(marcas?`<div class="marcas">${marcas.map(m=>`<span>${m}</span>`).join('')}</div>`:'')+`</div>`;
+    +(RIEL_ON&&PUN_SL[id]?`<div class="riel" id="rl_${id}"></div>`:'')
+    +(marcas?`<div class="marcas">${marcas.map(m=>`<span>${m}</span>`).join('')}</div>`:'')
+    +(RIEL_ON&&PUN_SL[id]?`<div class="tope" id="tp_${id}"></div>`:'')+`</div>`;
 }
 const seg=(attr,vals,act,fmt)=>vals.map(v=>`<button class="b ${act===v?'on':''}" ${attr}="${v}">${fmt?fmt(v):v}</button>`).join('');
 const FMT={x:v=>fN(+v,2)+' m',z:v=>fN(+v,2)+' m',y:v=>fN(+v,2)+' m',incl:v=>fN(+v,0)+' °',yaw:v=>fN(+v,0)+' °',hb:v=>fN(+v,2)+' m',D:v=>fN(+v,1)+' m',v:v=>fN(+v,1)+' m/s'};
 /** Los mandos libres de «Probar»: mover la punta, o recorrer una costura. */
 function mandosHTML(){
   let h=`<div class="cg"><div class="seg" id="segSub"><button class="b ${EST.sub==='punta'?'on':''}" data-sub="punta">Mover la punta</button><button class="b ${EST.sub==='costura'?'on':''}" data-sub="costura">Recorrer una costura</button></div></div>`;
+  RIEL_ON=EST.sub==='punta';
   if(EST.sub==='punta'){
     h+=deslizador('sX','Adelante (hacia la pieza)',0.4,4.3,0.05,EST.tx,FMT.x)+deslizador('sZ','Al lado',-2.6,2.6,0.05,EST.tz,FMT.z)+deslizador('sY','Altura',0,3.5,0.05,EST.ty,FMT.y)
      +deslizador('sI','Inclinación de la pinza',-60,40,1,EST.incl,FMT.incl,['hacia abajo','recta','hacia arriba'])
@@ -1115,14 +1167,15 @@ function enlazaHUD(){
   const enReto=()=>EST.modo==='reto'&&GUIA.paso==='ajusta'&&GUIA.r2;
   H.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
   H.querySelectorAll('#segSub [data-sub]').forEach(b=>b.onclick=()=>{ if(EST.autoRunning) return; EST.sub=b.dataset.sub; SIM.s=0; SIM.dir=1; SIM.espera=0; pintaHUD(); re(); reiniciaCalculo(true); });
-  H.querySelectorAll('#segRama [data-rama]').forEach(b=>b.onclick=()=>{ EST.rama=b.dataset.rama; pintaHUD(); reiniciaCalculo(true); });
+  H.querySelectorAll('#segRama [data-rama]').forEach(b=>b.onclick=()=>{ const nueva=b.dataset.rama; if(nueva!==EST.rama&&!puntoOk(estTrial({}),nueva)){ ponTope('sX','el codo '+nueva+' no llega a este punto: sigues con el codo '+EST.rama); return; } EST.rama=nueva; pintaHUD(); reiniciaCalculo(true); });
   H.querySelectorAll('#segEsc [data-esc]').forEach(b=>b.onclick=()=>{ EST.esc=b.dataset.esc; SIM.s=0; SIM.dir=1; pintaHUD(); reiniciaCalculo(true); });
   H.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ver; EST.ver[k]=!EST.ver[k]; b.classList.toggle('on',EST.ver[k]); re(); });
-  const lig=(id,fn,fm)=>{ const e=el(id); if(!e) return; e.oninput=()=>{ if(EST.autoRunning) return; fn(+e.value); const v=el('v_'+id); if(v) v.textContent=fm(+e.value); re(); }; };
+  const lig=(id,fn,fm)=>{ const e=el(id); if(!e) return; e.oninput=()=>{ if(EST.autoRunning) return; if(PUN_SL[id]&&EST.sub==='punta'){ mandoPosicion(id,+e.value); re(); return; } fn(+e.value); const v=el('v_'+id); if(v) v.textContent=fm(+e.value); re(); }; };
   lig('sX',v=>EST.tx=v,FMT.x); lig('sZ',v=>EST.tz=v,FMT.z); lig('sY',v=>EST.ty=v,FMT.y); lig('sI',v=>EST.incl=v,FMT.incl); lig('sB',v=>EST.hb=v,FMT.hb); lig('sD',v=>EST.D=v,FMT.D); lig('sV',v=>EST.v=v,FMT.v);
   if(el('btnAuto')) el('btnAuto').onclick=runAuto;
   H.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));
   const hint=el('btnHint'); if(hint) hint.onclick=()=>handleAction('hint-v',null);
+  pintaRielesPronto();
 }
 
 /* ===================== 13. EL DOCK (derecha): cifras y gráficas DOM ===================== */
@@ -1398,9 +1451,9 @@ renderer.domElement.addEventListener('pointermove',e=>{
   if(!ARR.on) return;
   const r=renderer.domElement.getBoundingClientRect(); PUN.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1); RAY.setFromCamera(PUN,camera);
   if(!RAY.ray.intersectPlane(ARR.plano,ARR.pt)) return;
-  if(EST.arrastre==='altura'){ EST.ty=clamp(ARR.pt.y,0,3.5); }
-  else { EST.tx=clamp(ARR.pt.x,0.4,4.3); EST.tz=clamp(ARR.pt.z,-2.6,2.6); }
-  sincronizaDeslizadores(); reiniciaCalculo();
+  const cand=EST.arrastre==='altura'?{ty:clamp(ARR.pt.y,0,3.5)}:{tx:clamp(ARR.pt.x,0.4,4.3),tz:clamp(ARR.pt.z,-2.6,2.6)};
+  const ok=hastaValido(cand,EST.rama); if(ok){ Object.assign(EST,ok); const par=Object.keys(cand).some(k=>Math.abs(ok[k]-cand[k])>0.02); const id=EST.arrastre==='altura'?'sY':'sX'; ponTope(id,par?'tope: la bola no puede ir más allá (fuera de alcance, de un tope o con choque)':''); }
+  sincronizaDeslizadores(); reiniciaCalculo(); pintaRielesPronto();
 });
 const finArrastre=e=>{ if(!ARR.on) return; ARR.on=false; EST.arrastrando=false; controls.enabled=true; renderer.domElement.style.cursor=''; try{ renderer.domElement.releasePointerCapture(e.pointerId); }catch(_){} };
 renderer.domElement.addEventListener('pointerup',finArrastre); renderer.domElement.addEventListener('pointercancel',finArrastre);
