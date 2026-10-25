@@ -1,6 +1,6 @@
 # mecanica-190 · Ensayo virtual de aislamiento de motor
 
-Estado al25-10-2026: terminado y verificado localmente; pendiente publicación confirmada.
+Estado al25-10-2026: PUBLICADO y verificado con login real.
 
 ## Orden profesional y competencia practicada
 OT-190 · Simula450–500 V; lee con error≤5 % antes de25 s y energía≤0,3 J.
@@ -54,3 +54,6 @@ Portada propia de la escena y barrido sin red sanos. Revisión inicial y de insp
 Autocrítica: la prosa inicial queda muy por debajo de120 palabras; la escena presenta el equipo desde la entrada, con materiales PBR, formas torneadas y fijaciones. Los números y gráficas están en DOM, con ecuaciones e informe en paneles cerrados. Se corrigieron apoyos y referencias, proporciones de elementos y detalles de inspección; el falso color se identifica como tal. Es un banco didáctico con límites explícitos, no un controlador o certificado de un fabricante.
 
 Retomar: _taller-definiciones/modelos/escenas/runtime/instrumentos.js e _inspeccion-mecanismos.js. Construir: node scripts/build-lab.mjs ensayo-aislamiento-motor. QA: flujo-taller-187-200.mjs --solo 190. El flag --reanudar conserva los recorridos acumulados; sin él, usar QA_REPORT para una salida separada. Calibraciones: calibraciones-taller.mjs. Portada: capturar-taller.mjs --solo 190. No ejecutar generadores históricos que sustituyan fuentes mejoradas. Falta confirmar deploy y login antes de declarar publicado.
+
+## Publicación confirmada25-10-2026
+Código 0ea5b0c empujado a main. Deploy exit0; versión Cloudflare 8607aed5-43d6-4f2f-9be6-bbf11a425a30. Login real:82 destacadas,16 iframes exactos (177/181 y187–200), portadas HTTP200, normales cero=0 y consola limpia. El encargo hasta200 queda completo. Los commits posteriores que sólo documenten este cierre no cambian el código publicado.

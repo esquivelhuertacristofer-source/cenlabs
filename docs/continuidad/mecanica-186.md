@@ -45,3 +45,6 @@ Retomar: módulos _automatismos-*.js e _inspeccion-mecanismos.js; QA reproducibl
 
 ## Publicación confirmada
 Código cbf27e8 empujado a main. Deploy exit0; Cloudflare 461e43b5-cf37-4bd5-82a6-8a436cde3779. Acceso real con login:68 destacadas, iframes165/166 y177–186 correctos, portadas HTTP200, normales cero=0 y consola limpia. La tarea continúa hasta200.
+
+## Regresión del compartido25-10-2026
+_inspeccion-mecanismos.js sincroniza también las referencias de geometría y material de las piezas. Código0ea5b0c. Inicio e inspección comprobados a1366×768: normales cero=0 y consola sin errores. Se repitieron las6003 comprobaciones numéricas del lote. Los40 flujos completos anteriores permanecen preservados aparte; esta regresión adicional es visual inicial.

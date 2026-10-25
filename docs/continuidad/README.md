@@ -1,25 +1,25 @@
 # Continuidad del proyecto CEN Labs
 
 ## Estado vigente25-10-2026
-177–186 publicados.187–200 terminados y verificados localmente; pendiente publicación confirmada. El [informe de pausa](PAUSA-HASTA-200.md) es histórico; el usuario reanudó expresamente.
+Encargo hasta200 CUMPLIDO.187–200 publicados y verificados con login real. Código 0ea5b0c; Cloudflare 8607aed5-43d6-4f2f-9be6-bbf11a425a30; deploy exit0;82 destacadas y16 iframes exactos.177–186 siguen verificados. El [informe de pausa](PAUSA-HASTA-200.md) es histórico; el usuario reanudó expresamente.
 
-Cierre local:7730 comprobaciones numéricas,56 flujos en cuatro tamaños,8 comprobaciones de protección de calibración,14 revisiones visuales finales,14 portadas y14/14 sin red.44 suites,3146 pruebas,12 snapshots; TypeScript y ESLint correctos. No declarar producción hasta verificar deploy y login82 destacadas.
+Cierre local:7730 comprobaciones numéricas,56 flujos en cuatro tamaños,8 comprobaciones de protección de calibración,14 revisiones visuales finales,14 portadas y14/14 sin red.44 suites,3146 pruebas,12 snapshots; TypeScript y ESLint correctos. Deploy y login82 destacadas ya confirmados. No iniciar201 sin nuevo encargo.
 
 
 
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
 
 ## Encargo actual · avanzar hasta mecanica-200
-- Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. 187–200 implementados en módulos nuevos_taller-*.js, todavía en QA; NO publicados.7730 comprobaciones numéricas en verde. El siguiente paso es terminar los flujos y la revisión visual antes de publicar.
+- Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. 187–200 terminados, publicados y verificados el25-10. Módulos_taller-*.js;7730 comprobaciones en verde; cierre de la serie en200.
 
 ### Tanda profesional177–186
 - Nuevo pedido: otros diez laboratorios. El usuario precisó que deben dar a estudiantes técnicos de autotrónica, mecatrónica y automovilidad herramientas y entornos transferibles a la vida profesional.
 - Priorizar orden de trabajo, instrumentos, medición, ensayo y evidencia verificable. Cada práctica nueva exige un registro vigente del ajuste antes de aceptar el resultado; permite guardar informe. El analizador FFT sólo muestra el espectro después de adquirirlo.
-- 177–186 publicados y verificados: código cbf27e8, Cloudflare 461e43b5-cf37-4bd5-82a6-8a436cde3779, deploy exit0, login real68 destacadas,12 iframes exactos y portadas200.187–200 en desarrollo; ningún otro publicado todavía.
+- 177–186 publicados y verificados: código cbf27e8, Cloudflare 461e43b5-cf37-4bd5-82a6-8a436cde3779, deploy exit0, login real68 destacadas,12 iframes exactos y portadas200.187–200 también publicados y verificados el25-10; ver el estado vigente de arriba.
 - Temas: indexador, leva, pinza, dobleCardán, analizador de vibración de rodamientos, motorreductor sinfín, reductor cicloidal, embrague centrífugo, dosificadora peristáltica y fresadoCNC.
 - Cierre local177–186:6003 comprobaciones;40 flujos, cuatro tamaños;44 suites/3048 pruebas/12 snapshots; TypeScript/ESLint correctos;10 portadas propias y10/10 sin red. Inspección cercana adicional en escritorio y móvil. Publicado cbf27e8, login confirmado.
 - Fuentes nuevas: _automatismos-definiciones/modelos/escenas/runtime.js. Shell _mecanismos-runtime.js ahora admite un bundle opcional; las entradas167–176 siguen usando sus valores originales. Comprobar regresión de ese shell.
-- Se preservan los archivos heredados sin seguimiento. La publicación anterior375bca2 sigue siendo la última confirmada hasta cerrar este lote.
+- Se preservan los archivos heredados sin seguimiento. 375bca2 y cbf27e8 son versiones anteriores; el código vigente del cierre hasta200 es 0ea5b0c.
 
 ## Estado previo · tanda167–176
 - Nuevo encargo del usuario: elaborar otros **diez** laboratorios nuevos, con claridad educativa e impacto visual; documentar cada cierre.
@@ -215,22 +215,31 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 
 
 
-## Serie187–200 · cierre local
+## Serie187–200 · cierre publicado
 | ID | Laboratorio | Estado |
 |---|---|---|
-| 187 | [Calibración del TCP de un robot](mecanica-187.md) | Terminado local; pendiente publicación |
-| 188 | [Selección óptica de visión industrial](mecanica-188.md) | Terminado local; pendiente publicación |
-| 189 | [Sintonía de un servoeje PD](mecanica-189.md) | Terminado local; pendiente publicación |
-| 190 | [Ensayo virtual de aislamiento de motor](mecanica-190.md) | Terminado local; pendiente publicación |
-| 191 | [Puesta en servicio de precarga HV](mecanica-191.md) | Terminado local; pendiente publicación |
-| 192 | [Calibración de resolver de tracción](mecanica-192.md) | Terminado local; pendiente publicación |
-| 193 | [Ultrasonido para espesor y corrosión](mecanica-193.md) | Terminado local; pendiente publicación |
-| 194 | [Inspección por corrientes inducidas](mecanica-194.md) | Terminado local; pendiente publicación |
-| 195 | [Apriete controlado por par y ángulo](mecanica-195.md) | Terminado local; pendiente publicación |
-| 196 | [Ajuste de un sensor láser de triangulación](mecanica-196.md) | Terminado local; pendiente publicación |
-| 197 | [Ensayo de estanqueidad por caída de presión](mecanica-197.md) | Terminado local; pendiente publicación |
-| 198 | [Alineación láser de maquinaria](mecanica-198.md) | Terminado local; pendiente publicación |
-| 199 | [Termografía de un cuadro eléctrico](mecanica-199.md) | Terminado local; pendiente publicación |
-| 200 | [Robot AMR: calibración y regreso al muelle](mecanica-200.md) | Terminado local; pendiente publicación |
+| 187 | [Calibración del TCP de un robot](mecanica-187.md) | Publicado y verificado |
+| 188 | [Selección óptica de visión industrial](mecanica-188.md) | Publicado y verificado |
+| 189 | [Sintonía de un servoeje PD](mecanica-189.md) | Publicado y verificado |
+| 190 | [Ensayo virtual de aislamiento de motor](mecanica-190.md) | Publicado y verificado |
+| 191 | [Puesta en servicio de precarga HV](mecanica-191.md) | Publicado y verificado |
+| 192 | [Calibración de resolver de tracción](mecanica-192.md) | Publicado y verificado |
+| 193 | [Ultrasonido para espesor y corrosión](mecanica-193.md) | Publicado y verificado |
+| 194 | [Inspección por corrientes inducidas](mecanica-194.md) | Publicado y verificado |
+| 195 | [Apriete controlado por par y ángulo](mecanica-195.md) | Publicado y verificado |
+| 196 | [Ajuste de un sensor láser de triangulación](mecanica-196.md) | Publicado y verificado |
+| 197 | [Ensayo de estanqueidad por caída de presión](mecanica-197.md) | Publicado y verificado |
+| 198 | [Alineación láser de maquinaria](mecanica-198.md) | Publicado y verificado |
+| 199 | [Termografía de un cuadro eléctrico](mecanica-199.md) | Publicado y verificado |
+| 200 | [Robot AMR: calibración y regreso al muelle](mecanica-200.md) | Publicado y verificado |
 
 Después de publicar, cerrar el encargo en200. No empezar201 sin un nuevo pedido. Preservar archivos heredados y credenciales privadas.
+
+## Resultado final y receta reproducible
+- Último código publicado: 0ea5b0c; Cloudflare 8607aed5-43d6-4f2f-9be6-bbf11a425a30. Deploy0 y login82 confirmados.14 prácticas nuevas187–200 completas; no hay trabajo pendiente del encargo.
+- Física: node scripts/auditoria/verifica-taller-187-200.mjs. Flujos: flujo-taller-187-200.mjs --inspeccion; usar --reanudar para conservar informe.json o QA_REPORT para una salida aparte.
+- Protección de calibraciones: calibraciones-taller.mjs (8 casos). Portadas: capturar-taller.mjs.56 flujos y14 revisiones finales en .salida/taller-187-200; regresión177–186 preservada aparte del informe completo original.
+-44 suites/3146 pruebas/12 snapshots; TypeScript/ESLint, generados,14 builds y14/14 sin red correctos.14 portadas de escenas propias.
+- Las constantes de calibración187/193/199/200 se ocultan en Modelo/Ficha hasta validar; no reintroducirlas en las ecuaciones públicas previas. Después se revelan y al cambiar ajuste se ocultan.
+- Conservar las voces existentes al desplegar. No se añadió narración nueva. Respetar límites físicos de cada ficha: son bancos didácticos y no controladores comerciales.
+- Cierre documentado en cada ficha y en outputs/CIERRE-LABS-HASTA-200.md del chat. No reejecutar generadores históricos sobre fuentes mejoradas.
