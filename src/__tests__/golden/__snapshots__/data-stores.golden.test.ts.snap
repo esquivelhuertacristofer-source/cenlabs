@@ -6942,6 +6942,126 @@ El disco en movimiento induce corrientes que se oponen al giro. Al bajar la velo
     "titulo": "Corrientes parásitas: frenar un disco sin tocarlo",
     "videoUrl": "",
   },
+  "mecanica-177": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Puesta en marcha de un indexador de Ginebra: ciclo, reposo y aceleración",
+      },
+    ],
+    "bienvenida": "Pon en marcha una estación que debe detener cada pieza el tiempo suficiente para que trabaje una herramienta.
+OT-177 · La estación de marcado necesita seis posiciones como mínimo y800 ms de pieza detenida. Debes entregar un ajuste que conserve al menos40 piezas/min sin exceder la aceleración del útil.
+Tacómetro, señal de ventana de avance y registro temporal virtuales.",
+    "codigo": "MEC-177",
+    "conceptos": [
+      {
+        "descripcion": "Pon en marcha una estación que debe detener cada pieza el tiempo suficiente para que trabaje una herramienta.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Configura ≥6 estaciones y ≥40 índices/min, con reposo ≥0,8 s y aceleración ≤50 rad/s².",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Lee la orden y relaciona el reposo con el tiempo de proceso.",
+      "Configura estaciones y velocidad; ensaya un ciclo completo.",
+      "Valida los límites y guarda el informe con el ajuste probado.",
+      "Configura ≥6 estaciones y ≥40 índices/min, con reposo ≥0,8 s y aceleración ≤50 rad/s².",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Puesta en marcha de un indexador de Ginebra: ciclo, reposo y aceleración",
+    "videoUrl": "",
+  },
+  "mecanica-178": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ajuste de una leva: carrera, contacto y ángulo de presión",
+      },
+    ],
+    "bienvenida": "Ajusta una leva de alimentación para que el seguidor complete su carrera sin perder contacto a la velocidad de producción.
+OT-178 · Una alimentadora debe trabajar a450 ciclos/min o más. En el banco comprobarás si su ley de movimiento evita aceleraciones excesivas y separación del seguidor.
+Indicador de desplazamiento, traza de aceleración y fuerza axial virtuales.",
+    "codigo": "MEC-178",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta una leva de alimentación para que el seguidor complete su carrera sin perder contacto a la velocidad de producción.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue ≥450 ciclos/min, aceleración ≤80 m/s², presión ≤25° y contacto positivo en toda la vuelta.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica la carrera y la duración de subida.",
+      "Ajusta el régimen y el perfil; ejecuta el ensayo de una vuelta.",
+      "Documenta el mínimo de contacto y los máximos de aceleración y ángulo.",
+      "Consigue ≥450 ciclos/min, aceleración ≤80 m/s², presión ≤25° y contacto positivo en toda la vuelta.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ajuste de una leva: carrera, contacto y ángulo de presión",
+    "videoUrl": "",
+  },
+  "mecanica-179": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Selección de pinza paralela: fuerza, presión de contacto y margen de agarre",
+      },
+    ],
+    "bienvenida": "Selecciona la geometría y el par de una pinza que sujete una pieza sin deslizar ni dañar sus superficies.
+OT-179 · Debes elegir una pinza compacta para una pieza de2 kg con caras delicadas. Presenta capacidad de agarre, presión y dimensión del mecanismo.
+Medición virtual de abertura, fuerza y presión; útil de apoyo para la prueba.",
+    "codigo": "MEC-179",
+    "conceptos": [
+      {
+        "descripcion": "Selecciona la geometría y el par de una pinza que sujete una pieza sin deslizar ni dañar sus superficies.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Sujeta2 kg con margen ≥1,3, presión ≤0,4 MPa y barras de ≤85 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Lee masa, fricción y presión admisible de la pieza de ensayo.",
+      "Configura palancas y par; realiza el ciclo con la pieza apoyada.",
+      "Justifica el margen y exporta el ajuste que cumple.",
+      "Sujeta2 kg con margen ≥1,3, presión ≤0,4 MPa y barras de ≤85 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Selección de pinza paralela: fuerza, presión de contacto y margen de agarre",
+    "videoUrl": "",
+  },
   "mecanica-18": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -7000,6 +7120,286 @@ Ambas topologías se resuelven en este simulador por bisección numérica exacta
     ],
     "subtitulo": "Electrónica · Comparación de diodos de conducción y protección contra transitorios",
     "titulo": "LED, Schottky y TVS: Selección de Dispositivo y Protección",
+    "videoUrl": "",
+  },
+  "mecanica-180": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Alineación de una transmisión de doble Cardán: fase y ondulación de velocidad",
+      },
+    ],
+    "bienvenida": "Alinea las horquillas de una transmisión para que el giro llegue uniforme a pesar del desvío entre ejes.
+OT-180 · Un eje transmite5 kW a300 rpm y necesita superar un obstáculo con al menos25° de desvío. Verifica fase y par pulsante antes de aceptar la transmisión.
+Dos tacómetros virtuales, traza de relación instantánea y registro de par.",
+    "codigo": "MEC-180",
+    "conceptos": [
+      {
+        "descripcion": "Alinea las horquillas de una transmisión para que el giro llegue uniforme a pesar del desvío entre ejes.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Conserva un desvío ≥25°, ondulación de velocidad ≤1 % y par de salida ≤190 N·m.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa la ondulación con horquillas fuera de fase.",
+      "Ajusta fase sin eliminar el desvío requerido; ensaya una vuelta.",
+      "Registra la ondulación y comprueba el par máximo.",
+      "Conserva un desvío ≥25°, ondulación de velocidad ≤1 % y par de salida ≤190 N·m.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Alineación de una transmisión de doble Cardán: fase y ondulación de velocidad",
+    "videoUrl": "",
+  },
+  "mecanica-181": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Diagnóstico de rodamientos: muestreo, FFT y frecuencias de defecto",
+      },
+    ],
+    "bienvenida": "Configura un analizador de vibraciones y registra un espectro que permita investigar un ruido de rodamiento.
+OT-181 · Investiga una vibración en un motor de1800 rpm. Ajusta el analizador, registra la señal y compara el pico con la cinemática del rodamiento.
+Acelerómetro, tacómetro y analizador FFT virtuales; ventana Hann y registro ajustable.",
+    "codigo": "MEC-181",
+    "conceptos": [
+      {
+        "descripcion": "Configura un analizador de vibraciones y registra un espectro que permita investigar un ruido de rodamiento.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Registra sin alias los componentes de hasta900 Hz, con resolución ≤1 Hz y pico principal bien localizado.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Comprueba las unidades, el giro del eje y el rango de frecuencia requerido.",
+      "Configura muestreo y duración; adquiere un registro completo.",
+      "Compara los picos con las frecuencias del rodamiento y conserva el informe.",
+      "Registra sin alias los componentes de hasta900 Hz, con resolución ≤1 Hz y pico principal bien localizado.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Diagnóstico de rodamientos: muestreo, FFT y frecuencias de defecto",
+    "videoUrl": "",
+  },
+  "mecanica-182": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Motorreductor de tornillo sin fin: par útil, pérdidas y reversibilidad",
+      },
+    ],
+    "bienvenida": "Verifica un motorreductor que debe entregar par suficiente y comprueba cómo el rozamiento afecta su reversibilidad.
+OT-182 · Verifica un accionamiento de posicionamiento que necesita100 N·m de salida. Debes documentar rendimiento y reversibilidad sin confundirla con un freno de seguridad.
+Tacómetro, cálculo de par y balance de potencia virtuales.",
+    "codigo": "MEC-182",
+    "conceptos": [
+      {
+        "descripcion": "Verifica un motorreductor que debe entregar par suficiente y comprueba cómo el rozamiento afecta su reversibilidad.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén ≥100 N·m, pérdidas ≤25 W y condición ideal de autobloqueo.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Revisa relación, condiciones de rozamiento y requisito de par.",
+      "Prueba un ajuste y observa el balance de potencia.",
+      "Registra la condición de retroceso y sus límites de aplicación.",
+      "Obtén ≥100 N·m, pérdidas ≤25 W y condición ideal de autobloqueo.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Motorreductor de tornillo sin fin: par útil, pérdidas y reversibilidad",
+    "videoUrl": "",
+  },
+  "mecanica-183": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Dimensionado de un reductor cicloidal: excentricidad, carga y velocidad",
+      },
+    ],
+    "bienvenida": "Dimensiona un reductor de una articulación comprobando velocidad de salida y exigencia sobre el apoyo excéntrico.
+OT-183 · Un eje de robot necesita entre8 y12 rpm. Debes elegir entrada y excentricidad sin rebasar las exigencias equivalentes del apoyo.
+Tacómetros de entrada/salida y registro de fuerza y aceleración equivalentes.",
+    "codigo": "MEC-183",
+    "conceptos": [
+      {
+        "descripcion": "Dimensiona un reductor de una articulación comprobando velocidad de salida y exigencia sobre el apoyo excéntrico.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén8–12 rpm de salida, fuerza excéntrica ≤6000 N y aceleración orbital ≤0,35 m/s².",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica el movimiento orbital y el giro reducido.",
+      "Prueba combinaciones de giro y excentricidad.",
+      "Registra el ajuste y explica qué datos de catálogo faltarían para seleccionar el apoyo real.",
+      "Obtén8–12 rpm de salida, fuerza excéntrica ≤6000 N y aceleración orbital ≤0,35 m/s².",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Dimensionado de un reductor cicloidal: excentricidad, carga y velocidad",
+    "videoUrl": "",
+  },
+  "mecanica-184": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ensayo de un embrague centrífugo: ralentí, acoplamiento y calor",
+      },
+    ],
+    "bienvenida": "Ajusta un embrague para que no arrastre al ralentí y pueda acelerar una carga sin calentarse demasiado.
+OT-184 · Revisa un accionamiento de máquina ligera que arrastra al ralentí. Debes ajustar la retención y comprobar el arranque contra la carga de prueba.
+Tacómetros, traza de deslizamiento y balance térmico virtuales.",
+    "codigo": "MEC-184",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta un embrague para que no arrastre al ralentí y pueda acelerar una carga sin calentarse demasiado.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Trabaja a≥2800 rpm, acopla en≤2 s, calor≤6500 J y arrastre al ralentí≤0,5 N·m.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Mide el arrastre previsto a1200 rpm.",
+      "Ajusta retención y régimen; ejecuta un arranque de prueba.",
+      "Documenta tiempo, calor y condición de ralentí antes de aceptar el ajuste.",
+      "Trabaja a≥2800 rpm, acopla en≤2 s, calor≤6500 J y arrastre al ralentí≤0,5 N·m.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Ensayo de un embrague centrífugo: ralentí, acoplamiento y calor",
+    "videoUrl": "",
+  },
+  "mecanica-185": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Calibración de una bomba peristáltica: caudal, presión y esfuerzo del fluido",
+      },
+    ],
+    "bienvenida": "Ajusta una dosificadora para entregar el caudal pedido sin exigir demasiada presión ni esfuerzo de pared.
+OT-185 · Una dosificadora debe entregar entre40 y60 mL/min a un circuito viscoso. Selecciona tubo y giro, comprueba el punto de operación y registra el ajuste.
+Caudalímetro, manómetro y registro virtual de dosificación.",
+    "codigo": "MEC-185",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta una dosificadora para entregar el caudal pedido sin exigir demasiada presión ni esfuerzo de pared.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Dosifica40–60 mL/min con presión≤60 kPa y esfuerzo de pared≤25 Pa.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Lee viscosidad, longitud y caudal requeridos.",
+      "Ajusta tubo y giro; ejecuta una vuelta de prueba.",
+      "Registra el caudal y los límites; explica por qué un equipo real requiere aforo.",
+      "Dosifica40–60 mL/min con presión≤60 kPa y esfuerzo de pared≤25 Pa.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Calibración de una bomba peristáltica: caudal, presión y esfuerzo del fluido",
+    "videoUrl": "",
+  },
+  "mecanica-186": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Preparación de fresado CNC: avance por diente, potencia y arranque de material",
+      },
+    ],
+    "bienvenida": "Prepara una pasada de fresado eligiendo avance y giro que produzcan viruta útil dentro de los límites de la máquina.
+OT-186 · Prepara una pasada circular de2 mm con una fresa de4 dientes. La máquina admite250 W netos y0,45 N·m; justifica avance, viruta y producción.
+Panel de avance/husillo, registro de potencia y verificación de trayectoria virtuales.",
+    "codigo": "MEC-186",
+    "conceptos": [
+      {
+        "descripcion": "Prepara una pasada de fresado eligiendo avance y giro que produzcan viruta útil dentro de los límites de la máquina.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Retira≥6000 mm³/min, con0,02–0,05 mm/diente, potencia≤250 W y par≤0,45 N·m.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Lee dimensiones, filos y límites del equipo de ensayo.",
+      "Ajusta avance y giro; ejecuta una vuelta de la pasada.",
+      "Verifica arranque, avance por diente y par; entrega el informe del ajuste.",
+      "Retira≥6000 mm³/min, con0,02–0,05 mm/diente, potencia≤250 W y par≤0,45 N·m.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Preparación de fresado CNC: avance por diente, potencia y arranque de material",
     "videoUrl": "",
   },
   "mecanica-19": {
@@ -22346,7 +22746,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-174": [],
   "mecanica-175": [],
   "mecanica-176": [],
+  "mecanica-177": [],
+  "mecanica-178": [],
+  "mecanica-179": [],
   "mecanica-18": [],
+  "mecanica-180": [],
+  "mecanica-181": [],
+  "mecanica-182": [],
+  "mecanica-183": [],
+  "mecanica-184": [],
+  "mecanica-185": [],
+  "mecanica-186": [],
   "mecanica-19": [],
   "mecanica-2": [],
   "mecanica-20": [],
@@ -22757,7 +23167,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-174",
   "mecanica-175",
   "mecanica-176",
+  "mecanica-177",
+  "mecanica-178",
+  "mecanica-179",
   "mecanica-18",
+  "mecanica-180",
+  "mecanica-181",
+  "mecanica-182",
+  "mecanica-183",
+  "mecanica-184",
+  "mecanica-185",
+  "mecanica-186",
   "mecanica-19",
   "mecanica-2",
   "mecanica-20",

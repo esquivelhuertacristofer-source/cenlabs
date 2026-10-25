@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-186",
+  "titulo": "Preparación de fresado CNC: avance por diente, potencia y arranque de material",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Prepara una pasada de fresado eligiendo avance y giro que produzcan viruta útil dentro de los límites de la máquina.\nOT-186 · Prepara una pasada circular de2 mm con una fresa de4 dientes. La máquina admite250 W netos y0,45 N·m; justifica avance, viruta y producción.\nPanel de avance/husillo, registro de potencia y verificación de trayectoria virtuales.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Prepara una pasada de fresado eligiendo avance y giro que produzcan viruta útil dentro de los límites de la máquina."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Retira≥6000 mm³/min, con0,02–0,05 mm/diente, potencia≤250 W y par≤0,45 N·m."
+    }
+  ],
+  "mision": [
+    "Lee dimensiones, filos y límites del equipo de ensayo.",
+    "Ajusta avance y giro; ejecuta una vuelta de la pasada.",
+    "Verifica arranque, avance por diente y par; entrega el informe del ajuste.",
+    "Retira≥6000 mm³/min, con0,02–0,05 mm/diente, potencia≤250 W y par≤0,45 N·m."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Preparación de fresado CNC: avance por diente, potencia y arranque de material"
+    }
+  ]
+};
+export default briefing;

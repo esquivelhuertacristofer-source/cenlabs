@@ -2,7 +2,19 @@
 
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
 
-## Estado actual · 24-10-2026
+## Encargo actual · avanzar hasta mecanica-200
+- Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. Siguientes14 pendientes de implementar.
+
+### Tanda profesional177–186
+- Nuevo pedido: otros diez laboratorios. El usuario precisó que deben dar a estudiantes técnicos de autotrónica, mecatrónica y automovilidad herramientas y entornos transferibles a la vida profesional.
+- Priorizar orden de trabajo, instrumentos, medición, ensayo y evidencia verificable. Cada práctica nueva exige un registro vigente del ajuste antes de aceptar el resultado; permite guardar informe. El analizador FFT sólo muestra el espectro después de adquirirlo.
+- IDs177–186 asignados e implementados, todavía en revisión, NO publicados. El siguiente ID no asignado es187.
+- Temas: indexador, leva, pinza, dobleCardán, analizador de vibración de rodamientos, motorreductor sinfín, reductor cicloidal, embrague centrífugo, dosificadora peristáltica y fresadoCNC.
+- Cierre local177–186:6003 comprobaciones;40 flujos, cuatro tamaños;44 suites/3048 pruebas/12 snapshots; TypeScript/ESLint correctos;10 portadas propias y10/10 sin red. Inspección cercana adicional en escritorio y móvil. Pendiente commit y publicación confirmada.
+- Fuentes nuevas: _automatismos-definiciones/modelos/escenas/runtime.js. Shell _mecanismos-runtime.js ahora admite un bundle opcional; las entradas167–176 siguen usando sus valores originales. Comprobar regresión de ese shell.
+- Se preservan los archivos heredados sin seguimiento. La publicación anterior375bca2 sigue siendo la última confirmada hasta cerrar este lote.
+
+## Estado previo · tanda167–176
 - Nuevo encargo del usuario: elaborar otros **diez** laboratorios nuevos, con claridad educativa e impacto visual; documentar cada cierre.
 - Al iniciar, repositorio y origin/main revisados tras fetch: ambos en **860b2e5**. Ahora código publicado **375bca2**, funcional468be95. Archivos heredados sin seguimiento: `docs/RELEVO-SPRINT-INSIGNIA.md` y `scripts/_col.mjs`; preservar.
 - Añadidos desde el relevo anterior: [165, soldadura](mecanica-165.md), y [166, robot6ejes](mecanica-166.md), con GLB real, choques, cableado y límites. Auditorías reejecutadas:201/201 y128/128.
@@ -100,4 +112,4 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 - El flujo de login debe ignorar iframes transitorios con URL vacía antes de construir new URL; el error era del verificador, no del simulador. Se corrigió y se repitió el acceso real completo.
 - Las métricas móviles tienen columnas minmax(0,1fr) y ancho suficiente; la guía se muestra sobre el panel, no sobre el actor. No reintroducir el desbordamiento del valor largo del husillo.
 - El anillo luminoso del freno es un indicador didáctico del campo aplicado, no un mapa de líneas de campo; el modelo no es electromagnetismo FEM.
-- El encargo de diez está completo. **No iniciar177 sin nuevo encargo del usuario.** Leer este índice antes de asignar IDs. Quedaron sin seguimiento sólo dos archivos heredados, no propios.
+- El encargo de diez está completo. **El usuario ya pidió la tanda177–186; no iniciar187 sin un nuevo encargo.** Leer este índice antes de asignar IDs. Quedaron sin seguimiento sólo dos archivos heredados, no propios.

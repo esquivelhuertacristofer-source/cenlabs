@@ -55,16 +55,19 @@ const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
 // Sus contratos y modelos viven en módulos compartidos; este descriptor permite
 // reconstruir la página con la misma entrada estándar que los otros estáticos.
 if (cfg.mode === 'mecanismo') {
-  const { definitions } = await import('../public/labs/_mecanismos-definiciones.js');
+  const modern = cfg.set === 'automatismos';
+  if (cfg.set && !modern) fail('Conjunto de mecanismos desconocido');
+  const prefix = modern ? '_automatismos' : '_mecanismos';
+  const { definitions } = await import(modern ? '../public/labs/_automatismos-definiciones.js' : '../public/labs/_mecanismos-definiciones.js');
   const def = definitions.find((entry) => entry.id === cfg.id);
   if (!def || cfg.out !== `${def.slug}.html` || id !== def.slug) fail('Descriptor de mecanismo inconsistente');
-  for (const source of ['_mecanismos-runtime.js', '_mecanismos-modelos.js', '_mecanismos-escenas.js', `_ficha-${def.slug}.js`]) {
+  for (const source of [`${prefix}-runtime.js`, `${prefix}-modelos.js`, `${prefix}-escenas.js`, `_ficha-${def.slug}.js`]) {
     if (!existsSync(join(LABS_PUB, source))) fail(`Falta módulo ${source}`);
   }
   const safeTitle = def.longTitle.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CEN · ${safeTitle}</title><link rel="stylesheet" href="/labs/vendor/outfit/outfit.css"><link rel="stylesheet" href="/labs/_insignia-auto.css"></head><body>
 <script type="importmap">{"imports":{"three":"/labs/vendor/three@0.160.0/build/three.module.min.js","three/addons/":"/labs/vendor/three@0.160.0/examples/jsm/"}}</script>
-<script type="module">import {launch} from './_mecanismos-runtime.js';launch(${def.id});</script>
+<script type="module">import {launch} from './${prefix}-runtime.js';launch(${def.id});</script>
 <script src="_ficha-tecnica.js"></script><script src="_ficha-${def.slug}.js"></script><script src="_puente.js"></script></body></html>`;
   writeFileSync(join(LABS_PUB, cfg.out), html, 'utf8');
   console.log(`✓ ${cfg.out} · módulos locales · práctica ${cfg.id}`);

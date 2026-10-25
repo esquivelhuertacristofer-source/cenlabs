@@ -44,3 +44,5 @@ export function updateMechanism(v,m,p){const id=v.id;
  if(id===175){v.rotor.rotation.y=-m.phase/500;v.rotor.scale.set(m.r/.2,1,m.r/.2);}
  if(id===176){v.rotor.rotation.y=-m.phase/50;v.disc.scale.y=p.thickness/6;v.field.position.y=.8+.03*p.thickness/6+.012;v.field.material.emissiveIntensity=.1+p.field/800;}
 }
+
+export {cylinder,ring,cutRing,sphere,fasteners,rodMesh,setRod,bench,bearing,motor};
