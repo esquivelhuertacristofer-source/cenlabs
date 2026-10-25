@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-210",
+  "titulo": "Banco de cuadricóptero: mezcla de motores",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Distribuye el empuje entre cuatro motores para sostener una carga y producir guiñada sin saturar ningún actuador.\nOT-210 · Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W.\nCuatro motores, hélices, banco con anillos, matriz de mezcla y fuente.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Distribuye el empuje entre cuatro motores para sostener una carga y producir guiñada sin saturar ningún actuador."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W."
+    }
+  ],
+  "mision": [
+    "Reconoce el banco, sus referencias y los límites de la orden.",
+    "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+    "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+    "Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Banco de cuadricóptero: mezcla de motores"
+    }
+  ]
+};
+export default briefing;

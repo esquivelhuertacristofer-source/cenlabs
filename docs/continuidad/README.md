@@ -1,6 +1,9 @@
 # Continuidad del proyecto CEN Labs
 
-## Estado vigente25-10-2026
+## Encargo vigente: continuar hasta210
+El usuario autorizó expresamente201–210 el25-10-2026. Diez temas nuevos profesionales y visuales, sin agentes; documentar cada cierre. 201–210 terminados localmente: 7127 comprobaciones, 40 flujos, 10 revisiones visuales finales, dos protecciones de calibración, ocho regresiones del reloj y dos del indicio MCSA. Diez portadas y 10/10 sin red. 44 suites/3216 pruebas/12 snapshots; TypeScript y ESLint correctos. Publicación pendiente de deploy y login92 destacadas. Mantener200 como último publicado hasta confirmar el lote.
+
+## Estado previo confirmado25-10-2026
 Encargo hasta200 CUMPLIDO.187–200 publicados y verificados con login real. Código 0ea5b0c; Cloudflare 8607aed5-43d6-4f2f-9be6-bbf11a425a30; deploy exit0;82 destacadas y16 iframes exactos.177–186 siguen verificados. El [informe de pausa](PAUSA-HASTA-200.md) es histórico; el usuario reanudó expresamente.
 
 Cierre local:7730 comprobaciones numéricas,56 flujos en cuatro tamaños,8 comprobaciones de protección de calibración,14 revisiones visuales finales,14 portadas y14/14 sin red.44 suites,3146 pruebas,12 snapshots; TypeScript y ESLint correctos. Deploy y login82 destacadas ya confirmados. No iniciar201 sin nuevo encargo.
@@ -9,7 +12,7 @@ Cierre local:7730 comprobaciones numéricas,56 flujos en cuatro tamaños,8 compr
 
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
 
-## Encargo actual · avanzar hasta mecanica-200
+## Histórico del encargo anterior · hasta mecanica-200
 - Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. 187–200 terminados, publicados y verificados el25-10. Módulos_taller-*.js;7730 comprobaciones en verde; cierre de la serie en200.
 
 ### Tanda profesional177–186
@@ -243,3 +246,90 @@ Después de publicar, cerrar el encargo en200. No empezar201 sin un nuevo pedido
 - Las constantes de calibración187/193/199/200 se ocultan en Modelo/Ficha hasta validar; no reintroducirlas en las ecuaciones públicas previas. Después se revelan y al cambiar ajuste se ocultan.
 - Conservar las voces existentes al desplegar. No se añadió narración nueva. Respetar límites físicos de cada ficha: son bancos didácticos y no controladores comerciales.
 - Cierre documentado en cada ficha y en outputs/CIERRE-LABS-HASTA-200.md del chat. No reejecutar generadores históricos sobre fuentes mejoradas.
+
+
+## Corrección de arranque201–210
+En el primerRAF, su timestamp puede preceder al performance.now del final de la construcción de una escena pesada. Se corrigió _insignia-auto.js para limitar dt a[0;0,1], conservando un reloj común sin retrocesos. La reflectometría reveló el problema al recibir posiciones negativas. Repetir inicio/inspección de familias anteriores antes de publicar.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Serie 201–210 · cierre local
+| ID | Laboratorio | Estado |
+|---|---|---|
+| 201 | [Ensayo modal con martillo instrumentado](mecanica-201.md) | Terminado local; publicación pendiente |
+| 202 | [Reflectometría TDR de un cable](mecanica-202.md) | Terminado local; publicación pendiente |
+| 203 | [Montaje robotizado con compensación RCC](mecanica-203.md) | Terminado local; publicación pendiente |
+| 204 | [CMM: palpador y compensación térmica](mecanica-204.md) | Terminado local; publicación pendiente |
+| 205 | [Cortina óptica y parada de una prensa](mecanica-205.md) | Terminado local; publicación pendiente |
+| 206 | [Calidad eléctrica: armónicos y filtrado](mecanica-206.md) | Terminado local; publicación pendiente |
+| 207 | [Separación centrífuga: ajuste del proceso](mecanica-207.md) | Terminado local; publicación pendiente |
+| 208 | [Tensión de correa con medidor sónico](mecanica-208.md) | Terminado local; publicación pendiente |
+| 209 | [Firma eléctrica de un motor bajo carga](mecanica-209.md) | Terminado local; publicación pendiente |
+| 210 | [Banco de cuadricóptero: mezcla de motores](mecanica-210.md) | Terminado local; publicación pendiente |
+
+Retomar en _servicio-*.js. Evidencias en scripts/auditoria/.salida/servicio-201-210 y protecciones-servicio. El siguiente paso es publicar desde cen-deploy, conservando voces, y verificar login real:92 destacadas y los diez iframes201–210, además de187/200 como regresión. Detenerse en210: no existe autorización para211.

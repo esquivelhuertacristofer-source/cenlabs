@@ -8141,6 +8141,366 @@ AMR, encoders, muelle, plano de almacén y escáner de distancias.",
     "titulo": "Robot AMR: calibración y regreso al muelle",
     "videoUrl": "",
   },
+  "mecanica-201": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ensayo modal con martillo instrumentado",
+      },
+    ],
+    "bienvenida": "Ajusta un útil flexible para alejar su resonancia del régimen de servicio y amortiguar el golpe de una herramienta.
+OT-201 · Configura frecuencia natural ≤22 Hz, respuesta a 30 Hz ≤0,4 mm, caída de envolvente al 5 % ≤0,6 s y amortiguamiento 0,08–0,20.
+Martillo, acelerómetro, traza de caída y función de respuesta en frecuencia.",
+    "codigo": "MEC-201",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta un útil flexible para alejar su resonancia del régimen de servicio y amortiguar el golpe de una herramienta.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Configura frecuencia natural ≤22 Hz, respuesta a 30 Hz ≤0,4 mm, caída de envolvente al 5 % ≤0,6 s y amortiguamiento 0,08–0,20.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Configura frecuencia natural ≤22 Hz, respuesta a 30 Hz ≤0,4 mm, caída de envolvente al 5 % ≤0,6 s y amortiguamiento 0,08–0,20.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ensayo modal con martillo instrumentado",
+    "videoUrl": "",
+  },
+  "mecanica-202": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Reflectometría TDR de un cable",
+      },
+    ],
+    "bienvenida": "Configura un reflectómetro para separar dos discontinuidades próximas y reducir la reflexión del extremo del cable.
+OT-202 · Resuelve ≤0,6 m, requiere ≤80 MHz y deja el valor absoluto de la reflexión final ≤0,05.
+Reflectómetro, generador gaussiano, terminador y cable seccionado.",
+    "codigo": "MEC-202",
+    "conceptos": [
+      {
+        "descripcion": "Configura un reflectómetro para separar dos discontinuidades próximas y reducir la reflexión del extremo del cable.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Resuelve ≤0,6 m, requiere ≤80 MHz y deja el valor absoluto de la reflexión final ≤0,05.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Resuelve ≤0,6 m, requiere ≤80 MHz y deja el valor absoluto de la reflexión final ≤0,05.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Reflectometría TDR de un cable",
+    "videoUrl": "",
+  },
+  "mecanica-203": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Montaje robotizado con compensación RCC",
+      },
+    ],
+    "bienvenida": "Prepara una inserción robotizada para que la herramienta compense el error lateral sin exigir una fuerza excesiva.
+OT-203 · Inserta con residual ≤0,11 mm, fuerza axial ≤60 N, flecha por carga ≤0,1 mm y reserva lateral suficiente.
+Muñeca complaciente, chaflán, sensor de fuerza y útil de inserción.",
+    "codigo": "MEC-203",
+    "conceptos": [
+      {
+        "descripcion": "Prepara una inserción robotizada para que la herramienta compense el error lateral sin exigir una fuerza excesiva.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Inserta con residual ≤0,11 mm, fuerza axial ≤60 N, flecha por carga ≤0,1 mm y reserva lateral suficiente.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Inserta con residual ≤0,11 mm, fuerza axial ≤60 N, flecha por carga ≤0,1 mm y reserva lateral suficiente.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Montaje robotizado con compensación RCC",
+    "videoUrl": "",
+  },
+  "mecanica-204": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "CMM: palpador y compensación térmica",
+      },
+    ],
+    "bienvenida": "Prepara una medición por coordenadas con dos patrones antes de inspeccionar una pieza de aluminio.
+OT-204 · Deja los patrones de 100 y 200 mm dentro de±0,005 mm. La sonda térmica del banco indica 30 °C.
+CMM, bola de rubí, patrones y referencia de temperatura.",
+    "codigo": "MEC-204",
+    "conceptos": [
+      {
+        "descripcion": "Prepara una medición por coordenadas con dos patrones antes de inspeccionar una pieza de aluminio.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Deja los patrones de 100 y 200 mm dentro de±0,005 mm. La sonda térmica del banco indica 30 °C.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Deja los patrones de 100 y 200 mm dentro de±0,005 mm. La sonda térmica del banco indica 30 °C.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "CMM: palpador y compensación térmica",
+    "videoUrl": "",
+  },
+  "mecanica-205": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Cortina óptica y parada de una prensa",
+      },
+    ],
+    "bienvenida": "Relaciona la distancia de una barrera óptica con el tiempo de parada de una máquina virtual.
+OT-205 · Obtén reserva ≥100 mm, ocupación ≤800 mm, deceleración ≤80 rad/s² y respuesta total ≤0,25 s.
+Barrera óptica, registro de respuesta, freno y cuerpo de prueba.",
+    "codigo": "MEC-205",
+    "conceptos": [
+      {
+        "descripcion": "Relaciona la distancia de una barrera óptica con el tiempo de parada de una máquina virtual.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén reserva ≥100 mm, ocupación ≤800 mm, deceleración ≤80 rad/s² y respuesta total ≤0,25 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Obtén reserva ≥100 mm, ocupación ≤800 mm, deceleración ≤80 rad/s² y respuesta total ≤0,25 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Cortina óptica y parada de una prensa",
+    "videoUrl": "",
+  },
+  "mecanica-206": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Calidad eléctrica: armónicos y filtrado",
+      },
+    ],
+    "bienvenida": "Dimensiona un filtrado virtual para mejorar una corriente distorsionada sin sobrecargar el filtro ni perder demasiada tensión.
+OT-206 · Consigue THD ≤15 %, factor de potencia ≥0,93, corriente del filtro ≤4 A y caída fundamental ≤15 V.
+Analizador trifásico, pinzas, reactor y filtro activo virtuales.",
+    "codigo": "MEC-206",
+    "conceptos": [
+      {
+        "descripcion": "Dimensiona un filtrado virtual para mejorar una corriente distorsionada sin sobrecargar el filtro ni perder demasiada tensión.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue THD ≤15 %, factor de potencia ≥0,93, corriente del filtro ≤4 A y caída fundamental ≤15 V.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Consigue THD ≤15 %, factor de potencia ≥0,93, corriente del filtro ≤4 A y caída fundamental ≤15 V.",
+    ],
+    "subtitulo": "Máquinas Eléctricas",
+    "titulo": "Calidad eléctrica: armónicos y filtrado",
+    "videoUrl": "",
+  },
+  "mecanica-207": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Separación centrífuga: ajuste del proceso",
+      },
+    ],
+    "bienvenida": "Ajusta una separadora para que partículas pequeñas alcancen la pared antes de salir con el caudal.
+OT-207 · Entrega ≥3 L/min, separa en≤90 % de la residencia, con esfuerzo de aro ≤15 MPa y velocidad periférica ≤35 m/s.
+Tazón en corte, caudalímetro y trayectorias de partículas.",
+    "codigo": "MEC-207",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta una separadora para que partículas pequeñas alcancen la pared antes de salir con el caudal.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Entrega ≥3 L/min, separa en≤90 % de la residencia, con esfuerzo de aro ≤15 MPa y velocidad periférica ≤35 m/s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Entrega ≥3 L/min, separa en≤90 % de la residencia, con esfuerzo de aro ≤15 MPa y velocidad periférica ≤35 m/s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Separación centrífuga: ajuste del proceso",
+    "videoUrl": "",
+  },
+  "mecanica-208": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Tensión de correa con medidor sónico",
+      },
+    ],
+    "bienvenida": "Comprueba la pretensión de una correa por su frecuencia y verifica después la capacidad de transmitir potencia.
+OT-208 · Ajusta 45–60 Hz, adherencia suficiente, carga radial ≤1000 N y potencia útil ≥1,8 kW.
+Sensor sónico, poleas, apoyos y comprobación de carga.",
+    "codigo": "MEC-208",
+    "conceptos": [
+      {
+        "descripcion": "Comprueba la pretensión de una correa por su frecuencia y verifica después la capacidad de transmitir potencia.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta 45–60 Hz, adherencia suficiente, carga radial ≤1000 N y potencia útil ≥1,8 kW.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Ajusta 45–60 Hz, adherencia suficiente, carga radial ≤1000 N y potencia útil ≥1,8 kW.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Tensión de correa con medidor sónico",
+    "videoUrl": "",
+  },
+  "mecanica-209": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Firma eléctrica de un motor bajo carga",
+      },
+    ],
+    "bienvenida": "Prepara un registro de corriente que permita distinguir bandas próximas a la fundamental sin sobrecargar el motor.
+OT-209 · Resuelve un tercio de la separación, registra señal lateral ≥0,4 A, corriente fundamental ≤11 A y carga ≥50 %.
+Pinza de corriente, banco de carga y analizador FFT.",
+    "codigo": "MEC-209",
+    "conceptos": [
+      {
+        "descripcion": "Prepara un registro de corriente que permita distinguir bandas próximas a la fundamental sin sobrecargar el motor.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Resuelve un tercio de la separación, registra señal lateral ≥0,4 A, corriente fundamental ≤11 A y carga ≥50 %.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Resuelve un tercio de la separación, registra señal lateral ≥0,4 A, corriente fundamental ≤11 A y carga ≥50 %.",
+    ],
+    "subtitulo": "Máquinas Eléctricas",
+    "titulo": "Firma eléctrica de un motor bajo carga",
+    "videoUrl": "",
+  },
   "mecanica-21": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -8199,6 +8559,46 @@ También vas a chocar contra un límite físico real: la señal de salida no pue
     ],
     "subtitulo": "Electrónica analógica · Polarización DC, modelo hybrid-π y recorte por recta de carga AC",
     "titulo": "Amplificador BJT en Emisor Común: Ganancia de Pequeña Señal",
+    "videoUrl": "",
+  },
+  "mecanica-210": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Banco de cuadricóptero: mezcla de motores",
+      },
+    ],
+    "bienvenida": "Distribuye el empuje entre cuatro motores para sostener una carga y producir guiñada sin saturar ningún actuador.
+OT-210 · Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W.
+Cuatro motores, hélices, banco con anillos, matriz de mezcla y fuente.",
+    "codigo": "MEC-210",
+    "conceptos": [
+      {
+        "descripcion": "Distribuye el empuje entre cuatro motores para sostener una carga y producir guiñada sin saturar ningún actuador.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Reconoce el banco, sus referencias y los límites de la orden.",
+      "Ajusta el equipo, prepara el ensayo y registra un ciclo completo.",
+      "Contrasta todos los criterios, valida manualmente y conserva el informe.",
+      "Obtén 17–20 N, manda al menos 0,08 N·m de guiñada, mantén cada solicitud entre 0,5 y 8 N y potencia≤250 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Banco de cuadricóptero: mezcla de motores",
     "videoUrl": "",
   },
   "mecanica-22": {
@@ -23334,7 +23734,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-2": [],
   "mecanica-20": [],
   "mecanica-200": [],
+  "mecanica-201": [],
+  "mecanica-202": [],
+  "mecanica-203": [],
+  "mecanica-204": [],
+  "mecanica-205": [],
+  "mecanica-206": [],
+  "mecanica-207": [],
+  "mecanica-208": [],
+  "mecanica-209": [],
   "mecanica-21": [],
+  "mecanica-210": [],
   "mecanica-22": [],
   "mecanica-23": [],
   "mecanica-24": [],
@@ -23769,7 +24179,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-2",
   "mecanica-20",
   "mecanica-200",
+  "mecanica-201",
+  "mecanica-202",
+  "mecanica-203",
+  "mecanica-204",
+  "mecanica-205",
+  "mecanica-206",
+  "mecanica-207",
+  "mecanica-208",
+  "mecanica-209",
   "mecanica-21",
+  "mecanica-210",
   "mecanica-22",
   "mecanica-23",
   "mecanica-24",
