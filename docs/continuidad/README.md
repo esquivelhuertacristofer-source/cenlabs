@@ -1,7 +1,10 @@
 # Continuidad del proyecto CEN Labs
 
-## PAUSA VIGENTE ·24-10-2026
-El usuario pidió detenerse por límite de uso. NO continuar hasta que lo solicite. Leer [PAUSA-HASTA-200.md](PAUSA-HASTA-200.md):177–186 publicados;187–200 implementados localmente,14/56 flujos, cierre pendiente.
+## Estado vigente25-10-2026
+177–186 publicados.187–200 terminados y verificados localmente; pendiente publicación confirmada. El [informe de pausa](PAUSA-HASTA-200.md) es histórico; el usuario reanudó expresamente.
+
+Cierre local:7730 comprobaciones numéricas,56 flujos en cuatro tamaños,8 comprobaciones de protección de calibración,14 revisiones visuales finales,14 portadas y14/14 sin red.44 suites,3146 pruebas,12 snapshots; TypeScript y ESLint correctos. No declarar producción hasta verificar deploy y login82 destacadas.
+
 
 
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
@@ -132,27 +135,16 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 
 
 
-- Avance QA laboratorio187: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio188: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio189: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio190: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio191: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio192: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio193: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio194: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio195: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio196: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio197: 1366×768 verificado; cierre y publicación pendientes.
 
 ## Taller187–200 · cómo continuar
 - Módulos públicos _taller-modelos/definiciones/escenas/runtime/instrumentos.js.14 órdenes y temas distintos; registros, instrumentos e inspección.
@@ -160,8 +152,85 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 - Sólo177–186 publicados en cbf27e8, Cloudflare461e43b5-cf37-4bd5-82a6-8a436cde3779, login68 destacadas confirmado.187–200 todavía NO publicados.
 - Próximos pasos: terminar56 flujos; revisión visual, portadas propias, barrido sin red, globalJest; revisar goldens sólo14 altas y publicar hasta200 con login82 destacadas.
 
-- Avance QA laboratorio198: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio199: 1366×768 verificado; cierre y publicación pendientes.
 
-- Avance QA laboratorio200: 1366×768 verificado; cierre y publicación pendientes.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Serie187–200 · cierre local
+| ID | Laboratorio | Estado |
+|---|---|---|
+| 187 | [Calibración del TCP de un robot](mecanica-187.md) | Terminado local; pendiente publicación |
+| 188 | [Selección óptica de visión industrial](mecanica-188.md) | Terminado local; pendiente publicación |
+| 189 | [Sintonía de un servoeje PD](mecanica-189.md) | Terminado local; pendiente publicación |
+| 190 | [Ensayo virtual de aislamiento de motor](mecanica-190.md) | Terminado local; pendiente publicación |
+| 191 | [Puesta en servicio de precarga HV](mecanica-191.md) | Terminado local; pendiente publicación |
+| 192 | [Calibración de resolver de tracción](mecanica-192.md) | Terminado local; pendiente publicación |
+| 193 | [Ultrasonido para espesor y corrosión](mecanica-193.md) | Terminado local; pendiente publicación |
+| 194 | [Inspección por corrientes inducidas](mecanica-194.md) | Terminado local; pendiente publicación |
+| 195 | [Apriete controlado por par y ángulo](mecanica-195.md) | Terminado local; pendiente publicación |
+| 196 | [Ajuste de un sensor láser de triangulación](mecanica-196.md) | Terminado local; pendiente publicación |
+| 197 | [Ensayo de estanqueidad por caída de presión](mecanica-197.md) | Terminado local; pendiente publicación |
+| 198 | [Alineación láser de maquinaria](mecanica-198.md) | Terminado local; pendiente publicación |
+| 199 | [Termografía de un cuadro eléctrico](mecanica-199.md) | Terminado local; pendiente publicación |
+| 200 | [Robot AMR: calibración y regreso al muelle](mecanica-200.md) | Terminado local; pendiente publicación |
+
+Después de publicar, cerrar el encargo en200. No empezar201 sin un nuevo pedido. Preservar archivos heredados y credenciales privadas.

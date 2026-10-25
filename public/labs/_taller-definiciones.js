@@ -57,7 +57,7 @@ export const definitions=[
       }
     ],
     "task": "Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm.",
-    "equations": "TCP real t=(12,180) mm en el planoXZ. La posición de brida es pF=P−Ry(φ)tdeclarado; punta real=P+Ry(φ)(treal−tdeclarado). φ=0,65 sin(0,8t). Dos eslabones de700 y650 mm sitúan la brida por cinemática inversa plana. Error=norma de la diferencia; dispersión extrema=2 error sin(0,65).",
+    "equations": "El vector real del TCP se determina frente a la punta patrón; sus componentes se revelan después de validar. La posición de brida es pF=P−Ry(φ)tdeclarado; punta real=P+Ry(φ)(treal−tdeclarado). φ=0,65 sin(0,8t). Dos eslabones de700 y650 mm sitúan la brida por cinemática inversa plana. Error=norma de la diferencia; dispersión extrema=2 error sin(0,65).",
     "limits": "Calibración sintética plana de dos componentes; no estima seis parámetros por mínimos cuadrados, no compensa flexión ni holgura. Un robot articulado planar con muñeca representa el banco, sin modelo de fabricante ni seguridad funcional.",
     "source": "https://www.universal-robots.com/manuals/EN/HTML/SW5_19/Content/prod-usr-man/software/PolyScope/content/installation_g5/installation_TCP_configuration_en.htm",
     "sourceName": "Documentación técnica del principio",
@@ -96,7 +96,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 8,
     "signals": "residualX / residualZ enmm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Base · hombro · codo · muñeca · herramienta · punta patrón",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -116,7 +116,8 @@ export const definitions=[
         "text": "Abre la orden, prepara el equipo y ejecuta el ensayo. Valida el resultado y guarda el informe.",
         "view": "assembly"
       }
-    ]
+    ],
+    "referenceAfterValidation": "Modelo de referencia validado: TCP real (12,180) mm en el plano XZ."
   },
   {
     "id": 188,
@@ -215,7 +216,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 4,
     "signals": "campo/200 mm / profundidad/8 mm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Columna · cámara · lente · patrón · campo visual",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -330,11 +331,11 @@ export const definitions=[
         "Amortiguar demasiado también perjudica el tiempo."
       ]
     ],
-    "caption": "Tiempo real · equipo virtual con parámetros sintéticos",
+    "caption": "Tiempo real · PD ideal · desplazamiento visual×10",
     "timeScale": 1,
     "testSeconds": 3,
     "signals": "posición/100 mm / consigna",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Motor · guías · carro · rodamientos · consigna",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -453,7 +454,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 6,
     "signals": "Vc/Vfuente / corriente normalizada",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Estátor · devanados · rotor · megóhmetro · cables",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Autotrónica",
     "area": "AUTOMOVILIDAD",
@@ -572,7 +573,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 3,
     "signals": "Vc/400 V / corriente/10 A",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Batería · contactor · resistencia · condensadores · contacto",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Autotrónica",
     "area": "AUTOMOVILIDAD",
@@ -691,7 +692,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 7,
     "signals": "canal seno / canal coseno",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Núcleo · devanados · rotor · referencia angular · canales",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Autotrónica",
     "area": "AUTOMOVILIDAD",
@@ -771,7 +772,7 @@ export const definitions=[
       }
     ],
     "task": "Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm.",
-    "equations": "Material sintético con c=5900 m/s y retardo0,6 µs. τ=2d/c+τ0; dmed=cconfig(τ−τ0config)/2. Placa d(x)=10−4 exp(−((x−0,55)/0,14)²) mm. El eco recorre ida y vuelta.",
+    "equations": "La velocidad c y el retardo τ0 se determinan con dos patrones del mismo material. El instrumento aporta sus tiempos de vuelo. τ=2d/c+τ0; dmed=cconfig(τ−τ0config)/2. Placa d(x)=10−4 exp(−((x−0,55)/0,14)²) mm. El eco recorre ida y vuelta.",
     "limits": "Incidencia normal, un solo eco y velocidad constante. Sin dispersión, acoplamiento variable, rugosidad, tamaño del haz ni interpretación de grietas. La animación del pulso se ralentiza×100000 para hacerlo visible. La sección de espesor está ampliada respecto del ancho para hacer visible la corrosión.",
     "source": "https://ims.evidentscientific.com/en/learn/ndt-tutorials/flaw-detection/calibration-concepts",
     "sourceName": "Documentación técnica del principio",
@@ -810,7 +811,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 5,
     "signals": "espesor leído/10 mm / espesor patrón/10 mm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Placa · palpador · pulso · patrones escalonados · medidor",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -830,7 +831,8 @@ export const definitions=[
         "text": "Abre la orden, prepara el equipo y ejecuta el ensayo. Valida el resultado y guarda el informe.",
         "view": "assembly"
       }
-    ]
+    ],
+    "referenceAfterValidation": "Modelo de referencia validado: velocidad5900 m/s y retardo del palpador0,6 µs."
   },
   {
     "id": 194,
@@ -929,7 +931,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 5,
     "signals": "canal real / cuadratura",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Sonda · bobina · cupón · ranura · instrumento",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1048,7 +1050,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 4,
     "signals": "precarga/16 kN / par/20 N·m",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Atornillador · portapuntas · tornillo · arandela · unión",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1167,7 +1169,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 4,
     "signals": "posición/512 px / incertidumbre enmm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Emisor · lente · receptor · detector · blanco",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1286,7 +1288,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 6,
     "signals": "caída normalizada / tiempo de la ventana",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Recipiente · válvula · tubería · manómetro · partículas",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1405,7 +1407,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 4,
     "signals": "señales de dos posiciones del eje enmm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Motor · bomba · acople · láser · receptor · apoyos",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1485,7 +1487,7 @@ export const definitions=[
       }
     ],
     "task": "Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C.",
-    "equations": "Balance gris de banda total: L/σ=εreal Th⁴+(1−εreal)Tr⁴, εreal=0,6, Th=353,15 K yTr=298,15 K. Tmed=[(L/σ−(1−εset)Trset⁴)/εset]^(1/4). Mapa térmico sintético con puntos de calor prescritos.",
+    "equations": "Balance gris de banda total: L/σ=εreal Th⁴+(1−εreal)Tr⁴, εreal se determina por comparación con el patrón, Th=353,15 K yTr=298,15 K. Tmed=[(L/σ−(1−εset)Trset⁴)/εset]^(1/4). Mapa térmico sintético con puntos de calor prescritos.",
     "limits": "Modelo de radiación total gris, no respuesta espectral real de una cámara8–14 µm. El mapa no resuelve transferencia térmica ni diagnostica contactos reales. No existe conexión eléctrica real.",
     "source": "https://support.flir.com/DSDownload/Assets/T810442-en-US_A4.pdf",
     "sourceName": "Documentación técnica del principio",
@@ -1520,11 +1522,11 @@ export const definitions=[
         "El color depende de la escala y no sustituye la medida."
       ]
     ],
-    "caption": "Tiempo real · equipo virtual con parámetros sintéticos",
+    "caption": "Indicador térmico en falso color · balance gris de radiación total",
     "timeScale": 1,
     "testSeconds": 4,
     "signals": "temperatura inferida/100 °C / referencia80 °C",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Cuadro · interruptores · bornes · cableado · indicador IR",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1544,7 +1546,8 @@ export const definitions=[
         "text": "Abre la orden, prepara el equipo y ejecuta el ensayo. Valida el resultado y guarda el informe.",
         "view": "assembly"
       }
-    ]
+    ],
+    "referenceAfterValidation": "Modelo de referencia validado: emisividad real0,60; patrón80 °C y reflejo25 °C."
   },
   {
     "id": 200,
@@ -1604,7 +1607,7 @@ export const definitions=[
       }
     ],
     "task": "Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %.",
-    "equations": "Robot diferencial: v=r(ωR+ωL)/2, Ω=r(ωR−ωL)/b. Radio real100 mm y vía real500 mm. Órdenes calculadas con geometría declarada: cuatro rectas nominales2 m y cuatro giros de90°. Rectas3 s, giros1 s; integración exacta por segmento. LiDAR visual usa intersección geométrica con estantes.",
+    "equations": "Robot diferencial: v=r(ωR+ωL)/2, Ω=r(ωR−ωL)/b. Radio y vía reales constantes, desconocidos hasta validar la calibración. Órdenes calculadas con geometría declarada: cuatro rectas nominales2 m y cuatro giros de90°. Rectas3 s, giros1 s; integración exacta por segmento. LiDAR visual usa intersección geométrica con estantes.",
     "limits": "Sin deslizamiento, ruido de encoder, obstáculos dinámicos, SLAM, planificación ni control de seguridad. Trayectoria abierta para calibración, no navegación autónoma de un fabricante. El ciclo se reinicia después de18 s; no es una maniobra física instantánea.",
     "source": "https://www.roboticsbook.org/S52_diffdrive_actions.html",
     "sourceName": "Documentación técnica del principio",
@@ -1643,7 +1646,7 @@ export const definitions=[
     "timeScale": 1,
     "testSeconds": 16,
     "signals": "posiciónX / posiciónZ enm",
-    "labels": "Componentes del banco · abre Inspección para acercarte",
+    "labels": "Chasis · ruedas · carga · escáner · muelle · estantes",
     "eyebrow": "Orden de trabajo · taller profesional",
     "module": "Mecatrónica",
     "area": "MECATRÓNICA",
@@ -1663,6 +1666,7 @@ export const definitions=[
         "text": "Abre la orden, prepara el equipo y ejecuta el ensayo. Valida el resultado y guarda el informe.",
         "view": "assembly"
       }
-    ]
+    ],
+    "referenceAfterValidation": "Modelo de referencia validado: radio real100 mm y vía real500 mm."
   }
 ];

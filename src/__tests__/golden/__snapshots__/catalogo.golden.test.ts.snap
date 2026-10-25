@@ -2240,7 +2240,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "modulo": "Mecatrónica",
     "orden": 187,
     "simuladorHtml": "/labs/calibracion-tcp-robot.html",
-    "teoria": "OT-187 · Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm. Punta patrón, referencia fija y comprobación de orientaciones. TCP real t=(12,180) mm en el planoXZ. La posición de brida es pF=P−Ry(φ)tdeclarado; punta real=P+Ry(φ)(treal−tdeclarado). φ=0,65 sin(0,8t). Dos eslabones de700 y650 mm sitúan la brida por cinemática inversa plana. Error=norma de la diferencia; dispersión extrema=2 error sin(0,65). Calibración sintética plana de dos componentes; no estima seis parámetros por mínimos cuadrados, no compensa flexión ni holgura. Un robot articulado planar con muñeca representa el banco, sin modelo de fabricante ni seguridad funcional.",
+    "teoria": "OT-187 · Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm. Punta patrón, referencia fija y comprobación de orientaciones. El vector real del TCP se determina frente a la punta patrón; sus componentes se revelan después de validar. La posición de brida es pF=P−Ry(φ)tdeclarado; punta real=P+Ry(φ)(treal−tdeclarado). φ=0,65 sin(0,8t). Dos eslabones de700 y650 mm sitúan la brida por cinemática inversa plana. Error=norma de la diferencia; dispersión extrema=2 error sin(0,65). Calibración sintética plana de dos componentes; no estima seis parámetros por mínimos cuadrados, no compensa flexión ni holgura. Un robot articulado planar con muñeca representa el banco, sin modelo de fabricante ni seguridad funcional.",
     "titulo": "Calibración del TCP de un robot",
   },
   {
@@ -2306,7 +2306,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "modulo": "Mecatrónica",
     "orden": 193,
     "simuladorHtml": "/labs/ultrasonido-espesor-corrosion.html",
-    "teoria": "OT-193 · Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm. Palpador, patrones escalonados y trazaA-scan virtual. Material sintético con c=5900 m/s y retardo0,6 µs. τ=2d/c+τ0; dmed=cconfig(τ−τ0config)/2. Placa d(x)=10−4 exp(−((x−0,55)/0,14)²) mm. El eco recorre ida y vuelta. Incidencia normal, un solo eco y velocidad constante. Sin dispersión, acoplamiento variable, rugosidad, tamaño del haz ni interpretación de grietas. La animación del pulso se ralentiza×100000 para hacerlo visible.",
+    "teoria": "OT-193 · Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm. Palpador, patrones escalonados y trazaA-scan virtual. La velocidad c y el retardo τ0 se determinan con dos patrones del mismo material. El instrumento aporta sus tiempos de vuelo. τ=2d/c+τ0; dmed=cconfig(τ−τ0config)/2. Placa d(x)=10−4 exp(−((x−0,55)/0,14)²) mm. El eco recorre ida y vuelta. Incidencia normal, un solo eco y velocidad constante. Sin dispersión, acoplamiento variable, rugosidad, tamaño del haz ni interpretación de grietas. La animación del pulso se ralentiza×100000 para hacerlo visible. La sección de espesor está ampliada respecto del ancho para hacer visible la corrosión.",
     "titulo": "Ultrasonido para espesor y corrosión",
   },
   {
@@ -2372,7 +2372,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "modulo": "Mecatrónica",
     "orden": 199,
     "simuladorHtml": "/labs/termografia-cuadro-electrico.html",
-    "teoria": "OT-199 · Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C. CámaraIR virtual, referencia térmica y cuadro con conexiones visibles. Balance gris de banda total: L/σ=εreal Th⁴+(1−εreal)Tr⁴, εreal=0,6, Th=353,15 K yTr=298,15 K. Tmed=[(L/σ−(1−εset)Trset⁴)/εset]^(1/4). Mapa térmico sintético con puntos de calor prescritos. Modelo de radiación total gris, no respuesta espectral real de una cámara8–14 µm. El mapa no resuelve transferencia térmica ni diagnostica contactos reales. No existe conexión eléctrica real.",
+    "teoria": "OT-199 · Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C. CámaraIR virtual, referencia térmica y cuadro con conexiones visibles. Balance gris de banda total: L/σ=εreal Th⁴+(1−εreal)Tr⁴, εreal se determina por comparación con el patrón, Th=353,15 K yTr=298,15 K. Tmed=[(L/σ−(1−εset)Trset⁴)/εset]^(1/4). Mapa térmico sintético con puntos de calor prescritos. Modelo de radiación total gris, no respuesta espectral real de una cámara8–14 µm. El mapa no resuelve transferencia térmica ni diagnostica contactos reales. No existe conexión eléctrica real.",
     "titulo": "Termografía de un cuadro eléctrico",
   },
   {
@@ -2383,7 +2383,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "modulo": "Mecatrónica",
     "orden": 200,
     "simuladorHtml": "/labs/robot-amr-calibracion-odometria.html",
-    "teoria": "OT-200 · Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %. AMR, encoders, muelle, plano de almacén y escáner de distancias. Robot diferencial: v=r(ωR+ωL)/2, Ω=r(ωR−ωL)/b. Radio real100 mm y vía real500 mm. Órdenes calculadas con geometría declarada: cuatro rectas nominales2 m y cuatro giros de90°. Rectas3 s, giros1 s; integración exacta por segmento. LiDAR visual usa intersección geométrica con estantes. Sin deslizamiento, ruido de encoder, obstáculos dinámicos, SLAM, planificación ni control de seguridad. Trayectoria abierta para calibración, no navegación autónoma de un fabricante. El ciclo se reinicia después de18 s; no es una maniobra física instantánea.",
+    "teoria": "OT-200 · Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %. AMR, encoders, muelle, plano de almacén y escáner de distancias. Robot diferencial: v=r(ωR+ωL)/2, Ω=r(ωR−ωL)/b. Radio y vía reales constantes, desconocidos hasta validar la calibración. Órdenes calculadas con geometría declarada: cuatro rectas nominales2 m y cuatro giros de90°. Rectas3 s, giros1 s; integración exacta por segmento. LiDAR visual usa intersección geométrica con estantes. Sin deslizamiento, ruido de encoder, obstáculos dinámicos, SLAM, planificación ni control de seguridad. Trayectoria abierta para calibración, no navegación autónoma de un fabricante. El ciclo se reinicia después de18 s; no es una maniobra física instantánea.",
     "titulo": "Robot AMR: calibración y regreso al muelle",
   },
 ]

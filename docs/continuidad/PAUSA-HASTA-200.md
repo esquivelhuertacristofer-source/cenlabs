@@ -1,6 +1,6 @@
 # Pausa solicitada por el usuario ·24-10-2026
 
-**TRABAJO DETENIDO por petición expresa. No continuar automáticamente.**
+**Histórico: pausa del24-10-2026. El usuario reanudó expresamente el25-10-2026. Ver README.md para estado vigente.**
 El encargo de llegar a200 sigue vigente para cuando el usuario lo retome. Responder siempre en español, trabajar sin agentes. Priorizar escenas visuales y competencias profesionales para autotrónica, mecatrónica y automovilidad. Documentar cada cierre antes del siguiente.
 
 ## Publicado y confirmado
@@ -57,3 +57,6 @@ El encargo de llegar a200 sigue vigente para cuando el usuario lo retome. Respon
 - 198 · Alineación láser de maquinaria — alineacion-laser-maquinaria
 - 199 · Termografía de un cuadro eléctrico — termografia-cuadro-electrico
 - 200 · Robot AMR: calibración y regreso al muelle — robot-amr-calibracion-odometria
+
+## Respaldo al detenerse
+Checkpoint local del código:7f7c5f1. No se empujó ni desplegó187–200. Los procesos propios de QA y Jest ya no figuran en ejecución.
