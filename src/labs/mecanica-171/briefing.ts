@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-171",
+  "titulo": "Clasificación por visión: sincronizar cámara, cinta y expulsor",
+  "subtitulo": "Autotrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Sincroniza una cámara con el expulsor para apartar la pieza señalada sin frenar la producción.\nLa cámara identifica una pieza y el expulsor actúa después de un retardo. Si cambia la velocidad de cinta, el mismo retardo deja de servir.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Sincroniza una cámara con el expulsor para apartar la pieza señalada sin frenar la producción."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Ajusta el disparo con error ≤45 mm y producción teórica ≥78 piezas/min."
+    }
+  ],
+  "mision": [
+    "Observa el mecanismo y cambia un parámetro cada vez.",
+    "Ajusta el disparo con error ≤45 mm y producción teórica ≥78 piezas/min.",
+    "Valida, diagnostica un caso distinto y responde la pregunta de cierre."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Clasificación por visión: sincronizar cámara, cinta y expulsor"
+    }
+  ]
+};
+export default briefing;

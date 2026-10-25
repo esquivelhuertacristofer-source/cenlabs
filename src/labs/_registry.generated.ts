@@ -198,6 +198,16 @@ import mecanica_163 from './mecanica-163';
 import mecanica_164 from './mecanica-164';
 import mecanica_165 from './mecanica-165';
 import mecanica_166 from './mecanica-166';
+import mecanica_167 from './mecanica-167';
+import mecanica_168 from './mecanica-168';
+import mecanica_169 from './mecanica-169';
+import mecanica_170 from './mecanica-170';
+import mecanica_171 from './mecanica-171';
+import mecanica_172 from './mecanica-172';
+import mecanica_173 from './mecanica-173';
+import mecanica_174 from './mecanica-174';
+import mecanica_175 from './mecanica-175';
+import mecanica_176 from './mecanica-176';
 import quimica_1 from './quimica-1';
 import quimica_2 from './quimica-2';
 import quimica_3 from './quimica-3';
@@ -406,6 +416,16 @@ export const LABS: Record<string, LabModule> = {
   'mecanica-164': mecanica_164,
   'mecanica-165': mecanica_165,
   'mecanica-166': mecanica_166,
+  'mecanica-167': mecanica_167,
+  'mecanica-168': mecanica_168,
+  'mecanica-169': mecanica_169,
+  'mecanica-170': mecanica_170,
+  'mecanica-171': mecanica_171,
+  'mecanica-172': mecanica_172,
+  'mecanica-173': mecanica_173,
+  'mecanica-174': mecanica_174,
+  'mecanica-175': mecanica_175,
+  'mecanica-176': mecanica_176,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

@@ -6500,6 +6500,120 @@ Calculas el alcance a mano, ajustas la posición de la pieza, la altura de la ba
     "titulo": "Robot de 6 ejes: alcance, cinemática inversa y singularidades",
     "videoUrl": "",
   },
+  "mecanica-167": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Reductor armónico: deformar una corona para multiplicar el par",
+      },
+    ],
+    "bienvenida": "Descubre cómo una pieza flexible convierte muchas vueltas del motor en un movimiento lento y potente.
+El generador de onda deforma la copa dentada. Su diferencia de dos dientes con la corona hace retroceder lentamente la salida.",
+    "codigo": "MEC-167",
+    "conceptos": [
+      {
+        "descripcion": "Descubre cómo una pieza flexible convierte muchas vueltas del motor en un movimiento lento y potente.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén 0,8–1,2 rpm de salida y al menos 180 N·m sin superar 10 W de pérdidas.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Obtén 0,8–1,2 rpm de salida y al menos 180 N·m sin superar 10 W de pérdidas.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Reductor armónico: deformar una corona para multiplicar el par",
+    "videoUrl": "",
+  },
+  "mecanica-168": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Husillo de bolas: avance, par y velocidad crítica de un eje",
+      },
+    ],
+    "bienvenida": "Convierte el giro de un motor en avance y elige un paso que mueva la carga sin forzar el eje.
+Un paso mayor avanza más por vuelta, pero necesita más par para empujar la misma carga. Un eje largo limita el giro admisible.",
+    "codigo": "MEC-168",
+    "conceptos": [
+      {
+        "descripcion": "Convierte el giro de un motor en avance y elige un paso que mueva la carga sin forzar el eje.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue 0,12–0,18 m/s de avance máximo, par ≤5,5 N·m y giro ≤80 % del crítico.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Consigue 0,12–0,18 m/s de avance máximo, par ≤5,5 N·m y giro ≤80 % del crítico.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Husillo de bolas: avance, par y velocidad crítica de un eje",
+    "videoUrl": "",
+  },
+  "mecanica-169": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot delta: tres brazos que cooperan para mover una herramienta",
+      },
+    ],
+    "bienvenida": "Haz que tres brazos lleven una pieza por una trayectoria común sin perder alcance ni exigir giros excesivos.
+Cada brazo debe llegar al mismo efector. Alejar la trayectoria o acercarla demasiado a la base cambia mucho las articulaciones.",
+    "codigo": "MEC-169",
+    "conceptos": [
+      {
+        "descripcion": "Haz que tres brazos lleven una pieza por una trayectoria común sin perder alcance ni exigir giros excesivos.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Traza un círculo de radio ≥250 mm, alcanzable entero, sin superar 2 rad/s en ningún motor.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Traza un círculo de radio ≥250 mm, alcanzable entero, sin superar 2 rad/s en ningún motor.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Robot delta: tres brazos que cooperan para mover una herramienta",
+    "videoUrl": "",
+  },
   "mecanica-17": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -6560,6 +6674,272 @@ El otro eje de la práctica es térmico. El regulador disipa potencia — la cal
     ],
     "subtitulo": "Electrónica · Transformador + puente + filtro + regulador de 3 terminales",
     "titulo": "Fuente de Alimentación Lineal Regulada",
+    "videoUrl": "",
+  },
+  "mecanica-170": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Plataforma Stewart: movimiento y reparto de carga entre seis actuadores",
+      },
+    ],
+    "bienvenida": "Inclina una plataforma coordinando seis actuadores y comprueba que ninguno se queda sin recorrido ni fuerza.
+Las seis patas cambian de longitud a la vez. La altura y la inclinación modifican tanto el recorrido como el reparto del peso.",
+    "codigo": "MEC-170",
+    "conceptos": [
+      {
+        "descripcion": "Inclina una plataforma coordinando seis actuadores y comprueba que ninguno se queda sin recorrido ni fuerza.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Logra ≥8° de balanceo; durante todo el ciclo conserva patas entre 0,65–1,35 m y fuerzas ≤2200 N.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Logra ≥8° de balanceo; durante todo el ciclo conserva patas entre 0,65–1,35 m y fuerzas ≤2200 N.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Plataforma Stewart: movimiento y reparto de carga entre seis actuadores",
+    "videoUrl": "",
+  },
+  "mecanica-171": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Clasificación por visión: sincronizar cámara, cinta y expulsor",
+      },
+    ],
+    "bienvenida": "Sincroniza una cámara con el expulsor para apartar la pieza señalada sin frenar la producción.
+La cámara identifica una pieza y el expulsor actúa después de un retardo. Si cambia la velocidad de cinta, el mismo retardo deja de servir.",
+    "codigo": "MEC-171",
+    "conceptos": [
+      {
+        "descripcion": "Sincroniza una cámara con el expulsor para apartar la pieza señalada sin frenar la producción.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta el disparo con error ≤45 mm y producción teórica ≥78 piezas/min.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Ajusta el disparo con error ≤45 mm y producción teórica ≥78 piezas/min.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Clasificación por visión: sincronizar cámara, cinta y expulsor",
+    "videoUrl": "",
+  },
+  "mecanica-172": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Balanceo dinámico: corregir un par de desequilibrio en dos planos",
+      },
+    ],
+    "bienvenida": "Corrige una rueda que parece equilibrada en reposo, pero hace vibrar los apoyos cuando gira.
+Dos desequilibrios opuestos no dejan una fuerza neta, pero sí un par oscilante. La corrección necesita dos pesos, uno en cada plano.",
+    "codigo": "MEC-172",
+    "conceptos": [
+      {
+        "descripcion": "Corrige una rueda que parece equilibrada en reposo, pero hace vibrar los apoyos cuando gira.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Reduce la fuerza en cada apoyo a ≤0,7 N usando como máximo 45 g por plano.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Reduce la fuerza en cada apoyo a ≤0,7 N usando como máximo 45 g por plano.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Balanceo dinámico: corregir un par de desequilibrio en dos planos",
+    "videoUrl": "",
+  },
+  "mecanica-173": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Volante bimasa: aislar las vibraciones de torsión del motor",
+      },
+    ],
+    "bienvenida": "Separa dos masas giratorias con resortes y freno para que los pulsos del motor lleguen menos a la transmisión.
+El giro medio sigue pasando, pero las pequeñas oscilaciones se filtran. La rigidez y el amortiguamiento determinan qué parte del pulso atraviesa el volante.",
+    "codigo": "MEC-173",
+    "conceptos": [
+      {
+        "descripcion": "Separa dos masas giratorias con resortes y freno para que los pulsos del motor lleguen menos a la transmisión.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Transmite ≤22 % del pulso, con torsión ≤0,06 rad y calor medio ≤30 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Transmite ≤22 % del pulso, con torsión ≤0,06 rad y calor medio ≤30 W.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Volante bimasa: aislar las vibraciones de torsión del motor",
+    "videoUrl": "",
+  },
+  "mecanica-174": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Limpiaparabrisas de cuatro barras: de giro continuo a barrido",
+      },
+    ],
+    "bienvenida": "Transforma el giro continuo de un motor en un barrido amplio que no se atasque durante la vuelta.
+La manivela da vueltas completas; la biela empuja un balancín. Las longitudes determinan cuánto barre y si aparece una mala postura de transmisión.",
+    "codigo": "MEC-174",
+    "conceptos": [
+      {
+        "descripcion": "Transforma el giro continuo de un motor en un barrido amplio que no se atasque durante la vuelta.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Logra un barrido de 75–95°, con vuelta completa de motor y ángulo de transmisión ≥35°.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Logra un barrido de 75–95°, con vuelta completa de motor y ángulo de transmisión ≥35°.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Limpiaparabrisas de cuatro barras: de giro continuo a barrido",
+    "videoUrl": "",
+  },
+  "mecanica-175": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Volante de inercia: almacenar energía sin exceder el esfuerzo del aro",
+      },
+    ],
+    "bienvenida": "Almacena energía haciendo girar un aro y equilibra capacidad, velocidad y esfuerzo del material.
+Un radio o giro mayor guarda más energía, pero también aumenta la tensión que tiende a abrir el aro. El motor-generador entrega un pulso y recupera la energía.",
+    "codigo": "MEC-175",
+    "conceptos": [
+      {
+        "descripcion": "Almacena energía haciendo girar un aro y equilibra capacidad, velocidad y esfuerzo del material.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Reserva ≥250 kJ útiles, tensión del aro ≤350 MPa y energía total inicial ≤650 kJ.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Reserva ≥250 kJ útiles, tensión del aro ≤350 MPa y energía total inicial ≤650 kJ.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Volante de inercia: almacenar energía sin exceder el esfuerzo del aro",
+    "videoUrl": "",
+  },
+  "mecanica-176": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Corrientes parásitas: frenar un disco sin tocarlo",
+      },
+    ],
+    "bienvenida": "Frena un disco conductor con un campo magnético y observa cómo su energía termina en calor.
+El disco en movimiento induce corrientes que se oponen al giro. Al bajar la velocidad, el par se reduce: este freno no mantiene inmóvil una carga.",
+    "codigo": "MEC-176",
+    "conceptos": [
+      {
+        "descripcion": "Frena un disco conductor con un campo magnético y observa cómo su energía termina en calor.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Baja al 10 % del giro en ≤6 s físicos, sin superar 32 N·m de par inicial.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el mecanismo y cambia un parámetro cada vez.",
+      "Baja al 10 % del giro en ≤6 s físicos, sin superar 32 N·m de par inicial.",
+      "Valida, diagnostica un caso distinto y responde la pregunta de cierre.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Corrientes parásitas: frenar un disco sin tocarlo",
     "videoUrl": "",
   },
   "mecanica-18": {
@@ -21955,7 +22335,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-164": [],
   "mecanica-165": [],
   "mecanica-166": [],
+  "mecanica-167": [],
+  "mecanica-168": [],
+  "mecanica-169": [],
   "mecanica-17": [],
+  "mecanica-170": [],
+  "mecanica-171": [],
+  "mecanica-172": [],
+  "mecanica-173": [],
+  "mecanica-174": [],
+  "mecanica-175": [],
+  "mecanica-176": [],
   "mecanica-18": [],
   "mecanica-19": [],
   "mecanica-2": [],
@@ -22356,7 +22746,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-164",
   "mecanica-165",
   "mecanica-166",
+  "mecanica-167",
+  "mecanica-168",
+  "mecanica-169",
   "mecanica-17",
+  "mecanica-170",
+  "mecanica-171",
+  "mecanica-172",
+  "mecanica-173",
+  "mecanica-174",
+  "mecanica-175",
+  "mecanica-176",
   "mecanica-18",
   "mecanica-19",
   "mecanica-2",

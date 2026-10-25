@@ -2,6 +2,28 @@
 
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
 
+## Estado actual · 24-10-2026
+- Nuevo encargo del usuario: elaborar otros **diez** laboratorios nuevos, con claridad educativa e impacto visual; documentar cada cierre.
+- Repositorio y origin/main revisados tras fetch: ambos en **860b2e5**. Archivos heredados sin seguimiento: `docs/RELEVO-SPRINT-INSIGNIA.md` y `scripts/_col.mjs`; preservar.
+- Añadidos desde el relevo anterior: [165, soldadura](mecanica-165.md), y [166, robot6ejes](mecanica-166.md), con GLB real, choques, cableado y límites. Auditorías reejecutadas:201/201 y128/128.
+- La documentación antigua no se había actualizado con165/166. Ya se corrigió. No duplicar esos temas.
+- Nueva tanda **167–176**, terminada y verificada localmente; pendiente commit y publicación confirmada. **177** es el siguiente ID no asignado.
+- Modelos nuevos:6675 comprobaciones numéricas en verde.40 flujos completos (1366×768,1600×900,2020×1055 DPR1,25 y390×844).52–63 palabras de prosa, normales cero=0, menos de150 drawcalls y sin desbordamientos.44 suites/2978 pruebas/12 snapshots correctos; tsc,ESLint,generados y build correctos.10 portadas propias y barrido sin red10/10. Falta publicar y verificar login.
+- Cada ficha167–176 ya registra su cierre local y límites. Un cierre local no implica despliegue; añadir versión y login confirmado al publicar.
+
+| ID | Tema | Estado |
+|---|---|---|
+| 167 | [Reductor armónico: deformar una corona para multiplicar el par](mecanica-167.md) | Terminado local; pendiente publicación |
+| 168 | [Husillo de bolas: avance, par y velocidad crítica de un eje](mecanica-168.md) | Terminado local; pendiente publicación |
+| 169 | [Robot delta: tres brazos que cooperan para mover una herramienta](mecanica-169.md) | Terminado local; pendiente publicación |
+| 170 | [Plataforma Stewart: movimiento y reparto de carga entre seis actuadores](mecanica-170.md) | Terminado local; pendiente publicación |
+| 171 | [Clasificación por visión: sincronizar cámara, cinta y expulsor](mecanica-171.md) | Terminado local; pendiente publicación |
+| 172 | [Balanceo dinámico: corregir un par de desequilibrio en dos planos](mecanica-172.md) | Terminado local; pendiente publicación |
+| 173 | [Volante bimasa: aislar las vibraciones de torsión del motor](mecanica-173.md) | Terminado local; pendiente publicación |
+| 174 | [Limpiaparabrisas de cuatro barras: de giro continuo a barrido](mecanica-174.md) | Terminado local; pendiente publicación |
+| 175 | [Volante de inercia: almacenar energía sin exceder el esfuerzo del aro](mecanica-175.md) | Terminado local; pendiente publicación |
+| 176 | [Corrientes parásitas: frenar un disco sin tocarlo](mecanica-176.md) | Terminado local; pendiente publicación |
+
 ## Mandato vigente del usuario
 - Responder siempre en español.
 - Prioridad: laboratorios NUEVOS, educativos, entendibles e impresionantes visualmente. El usuario rechazó una primera versión básica del 163. No basta con pulir la estética de temas repetidos.
@@ -11,7 +33,7 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 - Se autorizó trabajar con el modelo actual de Codex sin agentes en esta sesión. No lanzar agentes por el mandato histórico de Sonnet; no hay agentes activos.
 - Push a main y despliegue del sprint autorizados. Un solo navegador Playwright a la vez; cerrar en finally. No matar procesos de otros proyectos.
 - Nunca imprimir contraseñas. `docs/CREDENCIALES-PILOTO-001.md` sólo puede leerlo el script de login; no tocar `ENTREGA_CREDENTIALS.md`.
-- Presentación viernes 23-10-2026; congelación jueves 22 por la noche.
+- La presentación y congelación del23/22 de octubre pertenecen al encargo anterior. El24-10-2026 el usuario autorizó una tanda NUEVA de diez laboratorios; continuar ese encargo.
 
 ## Dónde está el proyecto
 - Repo: `C:\Users\crist\.gemini\antigravity\scratch\Proyecto LABS\cen-dashboard`.
@@ -20,12 +42,12 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 - Regla de calidad: `docs/ESTANDAR-LABS-CLASE-MUNDIAL.md`.
 - Scripts y capturas QA de esta sesión: `C:\Users\crist\Documents\Codex\2026-10-21\files-pasted-by-the-user-texto\work`.
 
-## Estado confirmado y punto exacto de reanudación
+## Estado anterior confirmado · 21-10-2026 (histórico)
 - Base anterior: commit `270e7d4`; 127–159 desplegados, 41 destacadas.
 - Lote actual: 160–164 terminado, registrado y empujado a main como `d59087d`.
 - Cloudflare: **publicado y verificado**, versión `f2d4cb06-fb32-4030-99e5-9fa920268d0e`, salida del deploy 0. Código publicado `d59087d`; commits posteriores sólo cambian documentación y AGENTS.md, no requieren otro build.
 - Login real confirmado: **46 destacadas**, los cinco iframes 160–164 con slug exacto, editor de bloques del 164 presente y consola sin errores.
-- Siguiente ID libre: **mecanica-165**. Quedan seis IDs de la reserva hasta 170; NO están construidos. La reserva no obliga a inventar seis completados.
+- En ese corte el siguiente era165. ACTUALIZACIÓN24-10:165 y166 ya existen; ver el estado actual de arriba.
 - No hay PR pendiente. El relevo antiguo `docs/RELEVO-SPRINT-INSIGNIA.md` era un archivo local heredado; este índice lo actualiza y prevalece en estado actual.
 
 ## Laboratorios cerrados en este lote
@@ -46,7 +68,7 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 - 164: programa completo de 15 bloques construido mediante UI, con condición y repetición; ciclo y quiz correctos en 1366×768 y 390×844. También vistas en 1600×900 y 2020×1055 DPR 1,25. Sin errores de consola propios, desbordamientos ni normales cero. Garra visible en vista propia.
 - Scripts locales: `qa-celda-final.mjs`, `qa-celda-vista.mjs`, `qa-celda-garra.mjs`, `qa-existentes.mjs`, `qa-lluvia*.mjs`, `qa-supercap*.mjs`. No confundir `qa-cobot.mjs` antiguo: su reto ya cambió y esperaba resolver sólo con sliders.
 
-## Cómo terminar/verificar el despliegue
+## Receta del lote160–164 (histórica)
 1. Ver `git log -3 --oneline` y diferencias en ambos worktrees. No borrar cambios ajenos. La suciedad antigua en cen-deploy era sólo CRLF: se comprobó diff vacío antes de limpiar.
 2. En cen-deploy, `npm run deploy:cf`. Completado para d59087d. Sólo éxito y Current Version ID confirman publicación. Cloudflare KV error 10000 puede ser transitorio.
 3. Login real con `work/login-final/login-real.mjs`, argumentos: ruta del documento privado, URL de producción, carpeta de capturas y nombre de cuenta Sofía Martínez. El script lee la fila en privado; no mostrar el archivo de credenciales. Verifica 160–164 y muestra la lista completa de errores si hay.
@@ -62,3 +84,12 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 
 ## Plantilla obligatoria para el siguiente cierre
 Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y novedad; archivos exactos; modelo y límites; implementación; pruebas con resultado y tamaños; commit y versión publicada si aplica; pendientes y próxima acción. Actualizar este índice, registrar en git y actualizar memoria externa. Si aún no se publica, escribirlo explícitamente y volver a actualizar al publicar.
+
+## Comandos y verificación de la tanda167–176
+- `node scripts/auditoria/verifica-mecanismos-167-176.mjs`:6675 comprobaciones.
+- `node scripts/auditoria/flujo-mecanismos-167-176.mjs`:cuatro tamaños; opcional `--solo N`. El flujo portable se comprobó además en168móvil tras corregir Unicode y rutas con espacios.
+- `node scripts/portadas/capturar-mecanismos.mjs`:diez portadas de sus escenas, opcional `--solo N`.
+- Los diez descriptores en scripts/lab-src permiten `node scripts/build-lab.mjs <slug>`. No copian el framework legado; delegan en módulos locales.
+- Golden actualizado intencionalmente:10 entradas añadidas (120+400 líneas de snapshots). Se retiró la excepción127..170 del test de continuidad: ahora todas las categorías exigen IDs contiguos.
+- Antes de publicar: revisar status, conservar docs/RELEVO-SPRINT-INSIGNIA.md y scripts/_col.mjs heredados; commit sólo de los archivos propios. Deploy desde cen-deploy conservando voces. Verificar exit0, versión, login real,58 destacadas e iframes167–176 exactos.
+- Los tests globales tienen avisos históricos; el resultado fue44 suites,2978 pruebas,12 snapshots correctos. No atribuir una corrección de esos avisos al lote.

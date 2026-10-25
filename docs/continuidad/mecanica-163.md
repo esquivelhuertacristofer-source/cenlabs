@@ -22,4 +22,4 @@ Laboratorio nuevo: banco de ramas en paralelo, carga/descarga a corriente consta
 Datos de referencia de celda Eaton 3000 F / 2,7 V / ESR 0,23 mΩ. Caso de control de auditoría: tres ramas y 250 V. No revelar esa solución en la interfaz antes de validar.
 
 ## Pendiente y siguiente acción
-Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
+Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Actualización24-10:165 y166 están ocupados;167–176 es la nueva tanda. Consultar README.md antes de asignar otro ID.

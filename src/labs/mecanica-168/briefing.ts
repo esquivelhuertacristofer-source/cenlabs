@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-168",
+  "titulo": "Husillo de bolas: avance, par y velocidad crítica de un eje",
+  "subtitulo": "Autotrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Convierte el giro de un motor en avance y elige un paso que mueva la carga sin forzar el eje.\nUn paso mayor avanza más por vuelta, pero necesita más par para empujar la misma carga. Un eje largo limita el giro admisible.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Convierte el giro de un motor en avance y elige un paso que mueva la carga sin forzar el eje."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Consigue 0,12–0,18 m/s de avance máximo, par ≤5,5 N·m y giro ≤80 % del crítico."
+    }
+  ],
+  "mision": [
+    "Observa el mecanismo y cambia un parámetro cada vez.",
+    "Consigue 0,12–0,18 m/s de avance máximo, par ≤5,5 N·m y giro ≤80 % del crítico.",
+    "Valida, diagnostica un caso distinto y responde la pregunta de cierre."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Husillo de bolas: avance, par y velocidad crítica de un eje"
+    }
+  ]
+};
+export default briefing;

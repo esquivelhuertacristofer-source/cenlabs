@@ -22,4 +22,4 @@ Laboratorio nuevo: reflexión interna, Snell/Fresnel, cobertura de gotas y acumu
 Fuente del principio: Hella Techworld. Conservar el balance óptico y la acumulación exacta; no sustituirlos por números decorativos.
 
 ## Pendiente y siguiente acción
-Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Después, continuar con temas nuevos desde mecanica-165, buscando duplicados primero.
+Despliegue y login real cerrados. Sin narración nueva ni portada generada en este sprint. No considerar pendientes esas funciones como implementadas. Actualización24-10:165 y166 están ocupados;167–176 es la nueva tanda. Consultar README.md antes de asignar otro ID.
