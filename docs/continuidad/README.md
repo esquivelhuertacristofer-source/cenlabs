@@ -4,25 +4,25 @@ Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevo
 
 ## Estado actual · 24-10-2026
 - Nuevo encargo del usuario: elaborar otros **diez** laboratorios nuevos, con claridad educativa e impacto visual; documentar cada cierre.
-- Repositorio y origin/main revisados tras fetch: ambos en **860b2e5**. Archivos heredados sin seguimiento: `docs/RELEVO-SPRINT-INSIGNIA.md` y `scripts/_col.mjs`; preservar.
+- Al iniciar, repositorio y origin/main revisados tras fetch: ambos en **860b2e5**. Ahora código publicado **375bca2**, funcional468be95. Archivos heredados sin seguimiento: `docs/RELEVO-SPRINT-INSIGNIA.md` y `scripts/_col.mjs`; preservar.
 - Añadidos desde el relevo anterior: [165, soldadura](mecanica-165.md), y [166, robot6ejes](mecanica-166.md), con GLB real, choques, cableado y límites. Auditorías reejecutadas:201/201 y128/128.
 - La documentación antigua no se había actualizado con165/166. Ya se corrigió. No duplicar esos temas.
-- Nueva tanda **167–176**, terminada y verificada localmente; pendiente commit y publicación confirmada. **177** es el siguiente ID no asignado.
-- Modelos nuevos:6675 comprobaciones numéricas en verde.40 flujos completos (1366×768,1600×900,2020×1055 DPR1,25 y390×844).52–63 palabras de prosa, normales cero=0, menos de150 drawcalls y sin desbordamientos.44 suites/2978 pruebas/12 snapshots correctos; tsc,ESLint,generados y build correctos.10 portadas propias y barrido sin red10/10. Falta publicar y verificar login.
-- Cada ficha167–176 ya registra su cierre local y límites. Un cierre local no implica despliegue; añadir versión y login confirmado al publicar.
+- Nueva tanda **167–176**, **publicada y verificada**: código375bca2, versión Cloudflare `9ed4dadb-f6c5-4322-9c42-e058b45641cb`, deploy exit0. Los commits posteriores sólo documentan el cierre. **177** es el siguiente ID no asignado.
+- Modelos nuevos:6675 comprobaciones numéricas en verde.40 flujos completos (1366×768,1600×900,2020×1055 DPR1,25 y390×844).52–63 palabras de prosa, normales cero=0, menos de150 drawcalls y sin desbordamientos.44 suites/2978 pruebas/12 snapshots correctos; tsc,ESLint,generados y build correctos.10 portadas propias y barrido sin red10/10. Login real confirmado:58 destacadas, los12 iframes165–176 exactos, portadas nuevas HTTP200 y consola sin errores.
+- Cada ficha167–176 ya registra su cierre local y límites. Versión y login real ya están registrados en cada ficha. Los cierres futuros también deben distinguirse de un simple commit.
 
 | ID | Tema | Estado |
 |---|---|---|
-| 167 | [Reductor armónico: deformar una corona para multiplicar el par](mecanica-167.md) | Terminado local; pendiente publicación |
-| 168 | [Husillo de bolas: avance, par y velocidad crítica de un eje](mecanica-168.md) | Terminado local; pendiente publicación |
-| 169 | [Robot delta: tres brazos que cooperan para mover una herramienta](mecanica-169.md) | Terminado local; pendiente publicación |
-| 170 | [Plataforma Stewart: movimiento y reparto de carga entre seis actuadores](mecanica-170.md) | Terminado local; pendiente publicación |
-| 171 | [Clasificación por visión: sincronizar cámara, cinta y expulsor](mecanica-171.md) | Terminado local; pendiente publicación |
-| 172 | [Balanceo dinámico: corregir un par de desequilibrio en dos planos](mecanica-172.md) | Terminado local; pendiente publicación |
-| 173 | [Volante bimasa: aislar las vibraciones de torsión del motor](mecanica-173.md) | Terminado local; pendiente publicación |
-| 174 | [Limpiaparabrisas de cuatro barras: de giro continuo a barrido](mecanica-174.md) | Terminado local; pendiente publicación |
-| 175 | [Volante de inercia: almacenar energía sin exceder el esfuerzo del aro](mecanica-175.md) | Terminado local; pendiente publicación |
-| 176 | [Corrientes parásitas: frenar un disco sin tocarlo](mecanica-176.md) | Terminado local; pendiente publicación |
+| 167 | [Reductor armónico: deformar una corona para multiplicar el par](mecanica-167.md) | Publicado y verificado |
+| 168 | [Husillo de bolas: avance, par y velocidad crítica de un eje](mecanica-168.md) | Publicado y verificado |
+| 169 | [Robot delta: tres brazos que cooperan para mover una herramienta](mecanica-169.md) | Publicado y verificado |
+| 170 | [Plataforma Stewart: movimiento y reparto de carga entre seis actuadores](mecanica-170.md) | Publicado y verificado |
+| 171 | [Clasificación por visión: sincronizar cámara, cinta y expulsor](mecanica-171.md) | Publicado y verificado |
+| 172 | [Balanceo dinámico: corregir un par de desequilibrio en dos planos](mecanica-172.md) | Publicado y verificado |
+| 173 | [Volante bimasa: aislar las vibraciones de torsión del motor](mecanica-173.md) | Publicado y verificado |
+| 174 | [Limpiaparabrisas de cuatro barras: de giro continuo a barrido](mecanica-174.md) | Publicado y verificado |
+| 175 | [Volante de inercia: almacenar energía sin exceder el esfuerzo del aro](mecanica-175.md) | Publicado y verificado |
+| 176 | [Corrientes parásitas: frenar un disco sin tocarlo](mecanica-176.md) | Publicado y verificado |
 
 ## Mandato vigente del usuario
 - Responder siempre en español.
@@ -91,5 +91,13 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 - `node scripts/portadas/capturar-mecanismos.mjs`:diez portadas de sus escenas, opcional `--solo N`.
 - Los diez descriptores en scripts/lab-src permiten `node scripts/build-lab.mjs <slug>`. No copian el framework legado; delegan en módulos locales.
 - Golden actualizado intencionalmente:10 entradas añadidas (120+400 líneas de snapshots). Se retiró la excepción127..170 del test de continuidad: ahora todas las categorías exigen IDs contiguos.
-- Antes de publicar: revisar status, conservar docs/RELEVO-SPRINT-INSIGNIA.md y scripts/_col.mjs heredados; commit sólo de los archivos propios. Deploy desde cen-deploy conservando voces. Verificar exit0, versión, login real,58 destacadas e iframes167–176 exactos.
+- Publicación cerrada: se conservaron docs/RELEVO-SPRINT-INSIGNIA.md y scripts/_col.mjs heredados; sólo se commiteó trabajo propio. Deploy desde cen-deploy conservando voces. Exit0, versión y login real confirmados:58 destacadas, iframes165–176 exactos y nuevas portadas HTTP200.
 - Los tests globales tienen avisos históricos; el resultado fue44 suites,2978 pruebas,12 snapshots correctos. No atribuir una corrección de esos avisos al lote.
+
+## Lecciones del cierre24-10 y siguiente punto
+- Usar `fileURLToPath(new URL(...))` al guardar capturas en Windows: `URL.pathname` conserva `%20` y puede crear otra carpeta en vez de usar «Proyecto LABS».
+- No reescribir UTF-8 sin BOM mediante Get-Content/Set-Content de PowerShell5 sin declarar encoding; produjo texto «â‰¤» en criterios. Se corrigió y se comprobó texto legible. Preferir Python read_text/write_text con UTF-8 o apply_patch.
+- El flujo de login debe ignorar iframes transitorios con URL vacía antes de construir new URL; el error era del verificador, no del simulador. Se corrigió y se repitió el acceso real completo.
+- Las métricas móviles tienen columnas minmax(0,1fr) y ancho suficiente; la guía se muestra sobre el panel, no sobre el actor. No reintroducir el desbordamiento del valor largo del husillo.
+- El anillo luminoso del freno es un indicador didáctico del campo aplicado, no un mapa de líneas de campo; el modelo no es electromagnetismo FEM.
+- El encargo de diez está completo. **No iniciar177 sin nuevo encargo del usuario.** Leer este índice antes de asignar IDs. Quedaron sin seguimiento sólo dos archivos heredados, no propios.
