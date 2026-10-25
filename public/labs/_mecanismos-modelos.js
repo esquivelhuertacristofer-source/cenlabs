@@ -37,4 +37,3 @@ export function criteria(id,p){const m=model(id,0,p);let checks;
  if(id===176)checks=[check('Bajar al 10 % en ≤6 s',m.stopTime,m.stopTime<=6,'s'),check('Par inicial ≤32 N·m',m.initialTorque,m.initialTorque<=32,'N·m')];
  return {ok:checks.every(c=>c.ok),checks};
 }
-

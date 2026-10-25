@@ -24,4 +24,3 @@ try{
   const bytes=Buffer.from(result.url.split(',')[1],'base64');await writeFile(join(root,`images/mecanica/prac_${d.id}.webp`),bytes);console.log(`${d.id}: ${bytes.length} bytes · ${result.colors} colores · escena propia`);
  }finally{await page.close();}}
 }finally{await browser?.close();await new Promise(ok=>server.close(ok));}
-

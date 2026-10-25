@@ -1,6 +1,6 @@
 # mecanica-176 · Corrientes parásitas: frenar un disco sin tocarlo
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Frena un disco conductor con un campo magnético y observa cómo su energía termina en calor. El disco en movimiento induce corrientes que se oponen al giro. Al bajar la velocidad, el par se reduce: este freno no mantiene inmóvil una carga.

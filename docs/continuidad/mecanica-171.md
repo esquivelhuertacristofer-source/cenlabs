@@ -1,6 +1,6 @@
 # mecanica-171 · Clasificación por visión: sincronizar cámara, cinta y expulsor
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Sincroniza una cámara con el expulsor para apartar la pieza señalada sin frenar la producción. La cámara identifica una pieza y el expulsor actúa después de un retardo. Si cambia la velocidad de cinta, el mismo retardo deja de servir.

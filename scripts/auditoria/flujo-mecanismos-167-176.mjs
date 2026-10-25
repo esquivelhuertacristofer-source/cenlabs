@@ -30,4 +30,3 @@ try{browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader'
   }catch(e){console.log('FALLO',d.id,size[0],e.message,'CONSOLE',errors);throw e;}finally{await context.close();}
  }
 }finally{await browser?.close();await new Promise(ok=>server.close(ok));}
-

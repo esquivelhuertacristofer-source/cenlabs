@@ -1,6 +1,6 @@
 # mecanica-175 · Volante de inercia: almacenar energía sin exceder el esfuerzo del aro
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Almacena energía haciendo girar un aro y equilibra capacidad, velocidad y esfuerzo del material. Un radio o giro mayor guarda más energía, pero también aumenta la tensión que tiende a abrir el aro. El motor-generador entrega un pulso y recupera la energía.

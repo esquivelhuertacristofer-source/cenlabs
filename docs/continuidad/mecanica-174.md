@@ -1,6 +1,6 @@
 # mecanica-174 · Limpiaparabrisas de cuatro barras: de giro continuo a barrido
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Transforma el giro continuo de un motor en un barrido amplio que no se atasque durante la vuelta. La manivela da vueltas completas; la biela empuja un balancín. Las longitudes determinan cuánto barre y si aparece una mala postura de transmisión.

@@ -1,6 +1,6 @@
 # mecanica-167 · Reductor armónico: deformar una corona para multiplicar el par
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Descubre cómo una pieza flexible convierte muchas vueltas del motor en un movimiento lento y potente. El generador de onda deforma la copa dentada. Su diferencia de dos dientes con la corona hace retroceder lentamente la salida.

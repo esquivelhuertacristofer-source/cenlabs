@@ -1,4 +1,4 @@
-﻿import {THREE,P3,box,lathe,tube,mergeByMaterial} from './_insignia-auto.js';
+import {THREE,P3,box,lathe,tube,mergeByMaterial} from './_insignia-auto.js';
 const V=a=>new THREE.Vector3(...a),Y=new THREE.Vector3(0,1,0),TAU=Math.PI*2;
 function cylinder(parent,r,h,mat,x=0,y=0,z=0){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,48),mat);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;parent.add(o);return o;}
 function ring(parent,ri,ro,h,mat,y=0,cut=false){return lathe(parent,[[ri,-h/2],[ro,-h/2],[ro,h/2],[ri,h/2],[ri,-h/2]],mat,[0,y,0],cut?{inicio:1.7,angulo:4.1}:{});}
@@ -44,4 +44,3 @@ export function updateMechanism(v,m,p){const id=v.id;
  if(id===175){v.rotor.rotation.y=-m.phase/500;v.rotor.scale.set(m.r/.2,1,m.r/.2);}
  if(id===176){v.rotor.rotation.y=-m.phase/50;v.disc.scale.y=p.thickness/6;v.field.position.y=.8+.03*p.thickness/6+.012;v.field.material.emissiveIntensity=.1+p.field/800;}
 }
-

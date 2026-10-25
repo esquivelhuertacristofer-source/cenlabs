@@ -1,6 +1,6 @@
 # mecanica-173 · Volante bimasa: aislar las vibraciones de torsión del motor
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Separa dos masas giratorias con resortes y freno para que los pulsos del motor lleguen menos a la transmisión. El giro medio sigue pasando, pero las pequeñas oscilaciones se filtran. La rigidez y el amortiguamiento determinan qué parte del pulso atraviesa el volante.

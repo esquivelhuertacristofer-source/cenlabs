@@ -1,6 +1,6 @@
 # mecanica-170 · Plataforma Stewart: movimiento y reparto de carga entre seis actuadores
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Inclina una plataforma coordinando seis actuadores y comprueba que ninguno se queda sin recorrido ni fuerza. Las seis patas cambian de longitud a la vez. La altura y la inclinación modifican tanto el recorrido como el reparto del peso.

@@ -1,6 +1,6 @@
 # mecanica-172 · Balanceo dinámico: corregir un par de desequilibrio en dos planos
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Corrige una rueda que parece equilibrada en reposo, pero hace vibrar los apoyos cuando gira. Dos desequilibrios opuestos no dejan una fuerza neta, pero sí un par oscilante. La corrección necesita dos pesos, uno en cada plano.

@@ -1,6 +1,6 @@
 # mecanica-169 · Robot delta: tres brazos que cooperan para mover una herramienta
 
-Estado al24-10-2026: **terminado y verificado localmente**; pendiente commit y publicación confirmada. No confundir con producción.
+Estado al24-10-2026: **terminado y verificado localmente**; código integrado en468be95, pendiente publicación confirmada. No confundir con producción.
 
 ## Qué cambia y por qué es nuevo
 Haz que tres brazos lleven una pieza por una trayectoria común sin perder alcance ni exigir giros excesivos. Cada brazo debe llegar al mismo efector. Alejar la trayectoria o acercarla demasiado a la base cambia mucho las articulaciones.
