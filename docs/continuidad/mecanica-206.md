@@ -1,6 +1,6 @@
 # mecanica-206 · Calidad eléctrica: armónicos y filtrado
 
-Estado al 25-10-2026: TERMINADO y verificado localmente; publicación pendiente de confirmación.
+Estado al 25-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden profesional
 Dimensiona un filtrado virtual para mejorar una corriente distorsionada sin sobrecargar el filtro ni perder demasiada tensión.
@@ -43,4 +43,4 @@ La caducidad del registro se ejecuta en el evento de entrada: incluso cambiar y 
 
 ## Motor común y publicación
 Se impide que el primer fotograma reste tiempo cuando su marca RAF es anterior al arranque. Regresión con primer timestamp 1000 ms anterior en 164, 167, 176, 177, 181, 187, 193 y 200: tiempo no negativo y monótono, geometría sana y sin excepciones.
-Commit, push, deploy y login real aún pendientes. No declarar publicado por tener sólo un commit.
+Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f empujado a main. Deploy exit0; Cloudflare f9d34540-3d08-4ca3-a491-a870303f70c3. Login real:92 destacadas, doce iframes exactos (201–210 y regresión187/200), portadas HTTP200 y consola limpia. Los commits posteriores de documentación no cambian el código publicado.

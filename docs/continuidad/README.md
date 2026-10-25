@@ -1,7 +1,7 @@
 # Continuidad del proyecto CEN Labs
 
 ## Encargo vigente: continuar hasta210
-El usuario autorizó expresamente201–210 el25-10-2026. Diez temas nuevos profesionales y visuales, sin agentes; documentar cada cierre. 201–210 terminados localmente: 7127 comprobaciones, 40 flujos, 10 revisiones visuales finales, dos protecciones de calibración, ocho regresiones del reloj y dos del indicio MCSA. Diez portadas y 10/10 sin red. 44 suites/3216 pruebas/12 snapshots; TypeScript y ESLint correctos. Publicación pendiente de deploy y login92 destacadas. Mantener200 como último publicado hasta confirmar el lote.
+El usuario autorizó expresamente201–210 el25-10-2026. Diez temas nuevos profesionales y visuales, sin agentes; documentar cada cierre. 201–210 PUBLICADOS y verificados: 7127 comprobaciones, 40 flujos, 10 revisiones visuales finales, dos protecciones de calibración, ocho regresiones del reloj y dos del indicio MCSA. Diez portadas y 10/10 sin red. 44 suites/3216 pruebas/12 snapshots; TypeScript y ESLint correctos. Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f; Cloudflare f9d34540-3d08-4ca3-a491-a870303f70c3; deploy0, login92 destacadas, doce iframes exactos, portadas200 y consola limpia confirmados. El último laboratorio publicado confirmado es210.
 
 ## Estado previo confirmado25-10-2026
 Encargo hasta200 CUMPLIDO.187–200 publicados y verificados con login real. Código 0ea5b0c; Cloudflare 8607aed5-43d6-4f2f-9be6-bbf11a425a30; deploy exit0;82 destacadas y16 iframes exactos.177–186 siguen verificados. El [informe de pausa](PAUSA-HASTA-200.md) es histórico; el usuario reanudó expresamente.
@@ -318,18 +318,23 @@ En el primerRAF, su timestamp puede preceder al performance.now del final de la 
 
 
 
-## Serie 201–210 · cierre local
+## Serie 201–210 · publicada
 | ID | Laboratorio | Estado |
 |---|---|---|
-| 201 | [Ensayo modal con martillo instrumentado](mecanica-201.md) | Terminado local; publicación pendiente |
-| 202 | [Reflectometría TDR de un cable](mecanica-202.md) | Terminado local; publicación pendiente |
-| 203 | [Montaje robotizado con compensación RCC](mecanica-203.md) | Terminado local; publicación pendiente |
-| 204 | [CMM: palpador y compensación térmica](mecanica-204.md) | Terminado local; publicación pendiente |
-| 205 | [Cortina óptica y parada de una prensa](mecanica-205.md) | Terminado local; publicación pendiente |
-| 206 | [Calidad eléctrica: armónicos y filtrado](mecanica-206.md) | Terminado local; publicación pendiente |
-| 207 | [Separación centrífuga: ajuste del proceso](mecanica-207.md) | Terminado local; publicación pendiente |
-| 208 | [Tensión de correa con medidor sónico](mecanica-208.md) | Terminado local; publicación pendiente |
-| 209 | [Firma eléctrica de un motor bajo carga](mecanica-209.md) | Terminado local; publicación pendiente |
-| 210 | [Banco de cuadricóptero: mezcla de motores](mecanica-210.md) | Terminado local; publicación pendiente |
+| 201 | [Ensayo modal con martillo instrumentado](mecanica-201.md) | Publicado y verificado |
+| 202 | [Reflectometría TDR de un cable](mecanica-202.md) | Publicado y verificado |
+| 203 | [Montaje robotizado con compensación RCC](mecanica-203.md) | Publicado y verificado |
+| 204 | [CMM: palpador y compensación térmica](mecanica-204.md) | Publicado y verificado |
+| 205 | [Cortina óptica y parada de una prensa](mecanica-205.md) | Publicado y verificado |
+| 206 | [Calidad eléctrica: armónicos y filtrado](mecanica-206.md) | Publicado y verificado |
+| 207 | [Separación centrífuga: ajuste del proceso](mecanica-207.md) | Publicado y verificado |
+| 208 | [Tensión de correa con medidor sónico](mecanica-208.md) | Publicado y verificado |
+| 209 | [Firma eléctrica de un motor bajo carga](mecanica-209.md) | Publicado y verificado |
+| 210 | [Banco de cuadricóptero: mezcla de motores](mecanica-210.md) | Publicado y verificado |
 
-Retomar en _servicio-*.js. Evidencias en scripts/auditoria/.salida/servicio-201-210 y protecciones-servicio. El siguiente paso es publicar desde cen-deploy, conservando voces, y verificar login real:92 destacadas y los diez iframes201–210, además de187/200 como regresión. Detenerse en210: no existe autorización para211.
+Retomar en _servicio-*.js. Evidencias en scripts/auditoria/.salida/servicio-201-210 y protecciones-servicio. Deploy desde cen-deploy confirmado, voces anteriores conservadas. Login real confirmado:92 destacadas, los diez iframes201–210 y187/200 como regresión. Detenerse en210: no existe autorización para211.
+
+## Cierre confirmado hasta210
+Encargo cumplido. Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f; versión f9d34540-3d08-4ca3-a491-a870303f70c3. No hay trabajo pendiente para201–210. Las fuentes canónicas están en _servicio-*.js y cada ficha documenta archivos, modelo, pruebas, simplificaciones y publicación. No se añadió narración nueva. No iniciar211 sin nuevo encargo. Los apartados anteriores de200/186/176 son históricos.
+
+[Evaluación comparativa y aportes de201–210](EVALUACION-LABS-201-210.md). Revisar esta comparación antes de proponer otra tanda para conservar la diversidad de herramientas y competencias.
