@@ -1,0 +1,51 @@
+// Bancos profesionales187–200. SI en las ecuaciones; mandos con unidad explícita.
+export const TAU=2*Math.PI;
+const rad=x=>x*Math.PI/180,deg=x=>x*180/Math.PI,wrap=x=>Math.atan2(Math.sin(x),Math.cos(x));
+export const defaults={187:{x:8,z:165},188:{focal:8,distance:500},189:{kp:500,kd:20},190:{voltage:250,hold:3},191:{resistance:30,close:200},192:{offset:4,gain:.85},193:{velocity:5500,zero:.1},194:{frequency:80,lift:1.5},195:{angle:110,friction:.20},196:{baseline:40,angle:45},197:{warmup:5,measure:10},198:{front:0,rear:0},199:{emissivity:.95,reflected:45},200:{radius:94,track:540}};
+export const solutions={187:{x:12,z:180},188:{focal:20,distance:450},189:{kp:1200,kd:140},190:{voltage:480,hold:22},191:{resistance:100,close:700},192:{offset:0,gain:1},193:{velocity:5900,zero:.6},194:{frequency:20,lift:.2},195:{angle:65,friction:.12},196:{baseline:80,angle:20},197:{warmup:90,measure:30},198:{front:-.47,rear:-.71},199:{emissivity:.6,reflected:25},200:{radius:100,track:500}};
+export function servo(t,kp,kd){const M=5,B=10,a=(B+kd)/(2*M),wn=Math.sqrt(kp/M),D=a*a-wn*wn;let e,de;
+ if(Math.abs(D)<1e-10){e=(1+a*t)*Math.exp(-a*t);de=-a*a*t*Math.exp(-a*t);}
+ else if(D<0){const w=Math.sqrt(-D);e=Math.exp(-a*t)*(Math.cos(w*t)+a/w*Math.sin(w*t));de=-wn*wn/w*Math.exp(-a*t)*Math.sin(w*t);}
+ else{const d=Math.sqrt(D),r1=-a+d,r2=-a-d,c1=-r2/(r1-r2),c2=r1/(r1-r2);e=c1*Math.exp(r1*t)+c2*Math.exp(r2*t);de=c1*r1*Math.exp(r1*t)+c2*r2*Math.exp(r2*t);}
+ const x=.1*(1-e),v=-.1*de,force=kp*(.1-x)-kd*v;return {x,v,force,acc:(force-B*v)/M,zeta:a/wn,wn};}
+export function servoStats(p){let peak=0,settle=0,force=0;for(let i=0;i<=1600;i++){const t=i*.005,s=servo(t,p.kp,p.kd);peak=Math.max(peak,s.x);force=Math.max(force,Math.abs(s.force));if(Math.abs(s.x-.1)>.002)settle=t;}return {overshoot:Math.max(0,(peak/.1-1)*100),settle:settle+.005,forceMax:force};}
+export function ultrasonic(d,p){return p.velocity*(2*d/5.9+.6-p.zero)/2000;}// d en mm, tiempo en µs; c en m/s.
+export function robotPath(t,p){const r=.1,b=.5,rc=p.radius/1000,bc=p.track/1000,ratio=r/rc;let x=-1,z=-1,a=0,left=0,right=0;const times=[3,1];let remaining=Math.min(Math.max(t,0),16);
+ for(let j=0;j<8&&remaining>0;j++){const turn=j%2===1,duration=times[turn?1:0],u=Math.min(remaining/duration,1);if(turn){const q=(Math.PI/2)*bc/(2*rc)*u;left-=q;right+=q;a+=2*r*q/b;}else{const distance=2*ratio*u;x+=distance*Math.cos(a);z+=distance*Math.sin(a);left+=distance/r;right+=distance/r;}remaining-=duration;}
+ return {x,z,a,left,right,error:Math.hypot(x+1,z+1),heading:deg(wrap(a)),ratio};}
+const stats=new Map();
+export function model(id,t,p){let m={phase:t};
+ if(id===187){const phi=.65*Math.sin(t*.8),dx=(12-p.x)/1000,dz=(180-p.z)/1000,rx=Math.cos(phi)*dx+Math.sin(phi)*dz,rz=-Math.sin(phi)*dx+Math.cos(phi)*dz;m={...m,phi,rx,rz,error:Math.hypot(dx,dz)*1000,spread:2*Math.hypot(dx,dz)*Math.sin(.65)*1000,toolX:p.x/1000,toolZ:p.z/1000,signal:rx*1000,reference:rz*1000};}
+ if(id===188){const f=p.focal,s=p.distance,sen=8.8,c=.01,N=8,image=f*s/(s-f),magnification=image/s,field=sen/magnification,hyper=f*f/(N*c)+f,near=hyper*s/(hyper+s-f),far=hyper>s-f?hyper*s/(hyper-s+f):Infinity,depth=far-near;m={...m,image,magnification,field,pixel:field/2448,depth,near,far,footprint:field/1000,scan:Math.sin(t)*.06,signal:field/200,reference:depth/8};}
+ if(id===189){const key=p.kp+':'+p.kd;if(!stats.has(key)){stats.clear();stats.set(key,servoStats(p));}m={...m,...servo(t%3,p.kp,p.kd),...stats.get(key),signal:servo(t%3,p.kp,p.kd).x/.1,reference:1};}
+ if(id===190){const Rs=1e6,R=180e6,C=2e-6,tau=Rs*R/(Rs+R)*C,age=Math.min(t*5,p.hold),vinf=p.voltage*R/(R+Rs),v=vinf*(1-Math.exp(-age/tau)),current=(p.voltage-v)/Rs,finalV=vinf*(1-Math.exp(-p.hold/tau)),finalI=(p.voltage-finalV)/Rs,apparent=finalV/finalI/1e6;m={...m,tau,v,current,apparent,error:Math.abs(apparent-180)/180*100,energy:.5*C*finalV*finalV,progress:v/p.voltage,signal:v/p.voltage,reference:current/(p.voltage/Rs)};}
+ if(id===191){const C=.002,V=400,R=p.resistance,close=p.close/1000,age=t%1.6,tc=Math.min(age,close),vc=V*(1-Math.exp(-tc/(R*C))),residual=V*Math.exp(-close/(R*C)),energy=.5*C*V*V*(1-Math.exp(-2*close/(R*C)));m={...m,vc,residual,peak:V/R,surge:residual/.2,energy,power:V*V/R,closing:age>=close,current:V/R*Math.exp(-tc/(R*C)),signal:vc/V,reference:V/R*Math.exp(-tc/(R*C))/10};}
+ if(id===192){const theta=t*.9,s=p.gain*Math.sin(theta+rad(p.offset)),c=Math.cos(theta+rad(p.offset)),measured=Math.atan2(s,c),error=deg(wrap(measured-theta));let maxError=0;for(let i=0;i<361;i++){const q=i*TAU/360,err=wrap(Math.atan2(p.gain*Math.sin(q+rad(p.offset)),Math.cos(q+rad(p.offset)))-q);maxError=Math.max(maxError,Math.abs(deg(err)));}m={...m,theta,s,c,measured,error,maxError,amplitude:Math.hypot(s,c),signal:s,reference:c};}
+ if(id===193){const scan=(Math.sin(t*.6)+1)/2,thickness=10-4*Math.exp(-(((scan-.55)/.14)**2)),reading=ultrasonic(thickness,p),error5=ultrasonic(5,p)-5,error15=ultrasonic(15,p)-15;m={...m,scan,thickness,reading,error5,error15,tof:2*thickness/5.9+.6,signal:reading/10,reference:thickness/10};}
+ if(id===194){const f=p.frequency*1000,mu=4e-7*Math.PI,sigma=35e6,delta=Math.sqrt(2/(TAU*f*mu*sigma))*1000,depth=.5,sensitivity=depth/delta*Math.exp(-(depth+2*p.lift)/delta),scan=(Math.sin(t*.8)+1)/2,defect=Math.exp(-(((scan-.55)/.07)**2)),liftSignal=.3*(1-Math.exp(-p.lift/delta)),re=liftSignal+sensitivity*defect*Math.cos(depth/delta),im=sensitivity*defect*Math.sin(depth/delta);m={...m,delta,sensitivity,scan,re,im,depth,signal:re,reference:im};}
+ if(id===195){const theta=rad(p.angle),pitch=.0015,K=50e6,elongation=pitch*theta/TAU,force=K*elongation,torque=force*(pitch/TAU+p.friction*.006),stress=force/58e-6/1e6,age=t%4,u=Math.min(age/2,1);m={...m,theta:theta*u,force,torque,stress,elongation,liveForce:force*u,signal:force*u/16000,reference:torque*u/20};}
+ if(id===196){const z=.35+.15*Math.sin(t*.7),b=p.baseline/1000,f=800,u=f*(b/z-Math.tan(rad(p.angle))),sigma=z*z*.2/(f*b)*1000,edge=Math.max(...[.2,.5].map(z=>Math.abs(f*(b/z-Math.tan(rad(p.angle)))))),worst=.5*.5*.2/(f*b)*1000;m={...m,z,b,u,sigma,edge,worst,signal:u/512,reference:sigma};}
+ if(id===197){const V=.001,P=300000,Pa=101325,T=298.15,Q=.8e-6/60,rate=Pa*Q/V,warm=p.warmup,hold=p.measure,thermal=s=>P*.5/T*Math.exp(-s/15),drop=rate*hold+thermal(warm)-thermal(warm+hold),estimate=drop/hold*V/Pa*60e6,age=Math.min(t%6/6*hold,hold),pressure=P-rate*age+thermal(warm+age);m={...m,rate,drop,estimate,error:Math.abs(estimate-.8)/.8*100,total:warm+hold,pressure,age,signal:(P+thermal(warm)-pressure)/Math.max(drop,1),reference:age/hold};}
+ if(id===198){const angular=.6+(p.rear-p.front)/.4,offset=.35+p.front-.2*(p.rear-p.front)/.4,far=offset+angular*.3;m={...m,angular,offset,far,support:400,spin:t*2,signal:offset+angular*.1*Math.cos(t*2),reference:offset-angular*.1*Math.cos(t*2)};}
+ if(id===199){const hot=353.15,background=298.15,radiance=.6*hot**4+.4*background**4,value=(radiance-(1-p.emissivity)*(p.reflected+273.15)**4)/p.emissivity,apparent=value>0?value**.25-273.15:NaN;m={...m,apparent,error:Math.abs(apparent-80),contrast:apparent-25,backgroundError:Math.abs(p.reflected-25),hot:80,scan:(Math.sin(t*.7)+1)/2,signal:apparent/100,reference:.8};}
+ if(id===200){const end=robotPath(16,p),pose=robotPath(t%18,p);m={...m,...pose,finalError:end.error*1000,finalHeading:Math.abs(end.heading),distance:8*pose.ratio,signal:pose.x,reference:pose.z};}
+ if(!('signal'in m))throw Error('Banco desconocido '+id);return m;
+}
+const C=(name,value,limit,unit='')=>({name,value,ok:limit,unit});
+export function criteria(id,p){const m=model(id,0,p);let checks;
+ if(id===187)checks=[C('Error del TCP ≤0,5 mm',m.error,m.error<=.5,'mm'),C('Dispersión entre orientaciones ≤0,7 mm',m.spread,m.spread<=.7,'mm')];
+ if(id===188)checks=[C('Campo160–220 mm',m.field,m.field>=160&&m.field<=220,'mm'),C('Muestreo ≤0,09 mm/píxel',m.pixel,m.pixel<=.09,'mm/px'),C('Profundidad de campo ≥8 mm',m.depth,m.depth>=8,'mm')];
+ if(id===189)checks=[C('Sobreimpulso ≤5 %',m.overshoot,m.overshoot<=5,'%'),C('Estable en ≤0,8 s',m.settle,m.settle<=.8,'s'),C('Fuerza ≤150 N',m.forceMax,m.forceMax<=150,'N')];
+ if(id===190)checks=[C('Tensión de la orden450–500 V',p.voltage,p.voltage>=450&&p.voltage<=500,'V'),C('Error de lectura ≤5 %',m.error,m.error<=5,'%'),C('Duración ≤25 s',p.hold,p.hold<=25,'s'),C('Energía almacenada ≤0,3 J',m.energy,m.energy<=.3,'J')];
+ if(id===191)checks=[C('Pico inicial ≤8 A',m.peak,m.peak<=8,'A'),C('Salto al cerrar ≤20 V',m.residual,m.residual<=20,'V'),C('Cierre ≤900 ms',p.close,p.close<=900,'ms'),C('Potencia inicial ≤2500 W',m.power,m.power<=2500,'W')];
+ if(id===192)checks=[C('Error máximo ≤0,3°',m.maxError,m.maxError<=.3,'°'),C('Ganancia residual0,99–1,01',p.gain,p.gain>=.99&&p.gain<=1.01)];
+ if(id===193)checks=[C('Patrón5 mm: error ≤0,05 mm',Math.abs(m.error5),Math.abs(m.error5)<=.05,'mm'),C('Patrón15 mm: error ≤0,05 mm',Math.abs(m.error15),Math.abs(m.error15)<=.05,'mm')];
+ if(id===194)checks=[C('Señal normalizada ≥0,15',m.sensitivity,m.sensitivity>=.15),C('Separación ≤0,4 mm',p.lift,p.lift<=.4,'mm'),C('Piel0,4–1,2 mm',m.delta,m.delta>=.4&&m.delta<=1.2,'mm')];
+ if(id===195)checks=[C('Precarga12–16 kN',m.force/1000,m.force>=12000&&m.force<=16000,'kN'),C('Esfuerzo ≤300 MPa',m.stress,m.stress<=300,'MPa'),C('Par10–20 N·m',m.torque,m.torque>=10&&m.torque<=20,'N·m')];
+ if(id===196)checks=[C('Píxel dentro de±512',m.edge,m.edge<=512,'px'),C('Incertidumbre ≤0,8 mm',m.worst,m.worst<=.8,'mm'),C('Base ≤90 mm',p.baseline,p.baseline<=90,'mm')];
+ if(id===197)checks=[C('Error de caudal ≤5 %',m.error,m.error<=5,'%'),C('Caída ≥20 Pa',m.drop,m.drop>=20,'Pa'),C('Ciclo total ≤130 s',m.total,m.total<=130,'s')];
+ if(id===198)checks=[C('Desplazamiento ≤0,03 mm',Math.abs(m.offset),Math.abs(m.offset)<=.03,'mm'),C('Ángulo ≤0,1 mrad',Math.abs(m.angular),Math.abs(m.angular)<=.1,'mrad')];
+ if(id===199)checks=[C('Error de temperatura ≤2 °C',m.error,m.error<=2,'°C'),C('Reflejo: error ≤2 °C',m.backgroundError,m.backgroundError<=2,'°C'),C('Contraste ≥45 °C',m.contrast,m.contrast>=45,'°C')];
+ if(id===200)checks=[C('Error al volver ≤50 mm',m.finalError,m.finalError<=50,'mm'),C('Orientación final ≤2°',m.finalHeading,m.finalHeading<=2,'°'),C('Escala de distancia: error ≤1 %',Math.abs(m.ratio-1)*100,Math.abs(m.ratio-1)<=.01,'%')];
+ return {ok:checks.every(c=>c.ok),checks};
+}

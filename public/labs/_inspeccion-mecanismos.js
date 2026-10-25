@@ -5,5 +5,5 @@ export function syncInspection(v,p){const ins=v.inspection,signature=JSON.string
  function copy(o,isRoot=false){if(o.userData.skipInspection)return null;const c=o.clone(false);ins.pairs.push({source:o,copy:c,isRoot});for(const child of o.children){const cc=copy(child);if(cc)c.add(cc);}return c;}
  const clone=copy(source,true);if(clone)ins.group.add(clone);
  }ins.signature=signature;}
- v.hero.updateMatrixWorld(true);for(const pair of ins.pairs){const {source:o,copy:c,isRoot}=pair;if(isRoot)o.matrixWorld.decompose(c.position,c.quaternion,c.scale);else{c.position.copy(o.position);c.quaternion.copy(o.quaternion);c.scale.copy(o.scale);}c.visible=o.visible;}
+ v.hero.updateMatrixWorld(true);for(const pair of ins.pairs){const {source:o,copy:c,isRoot}=pair;if(isRoot)o.matrixWorld.decompose(c.position,c.quaternion,c.scale);else{c.position.copy(o.position);c.quaternion.copy(o.quaternion);c.scale.copy(o.scale);}if(o.isMesh){c.geometry=o.geometry;c.material=o.material;}c.visible=o.visible;}
 }

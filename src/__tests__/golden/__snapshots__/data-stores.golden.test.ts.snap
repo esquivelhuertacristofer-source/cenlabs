@@ -7402,6 +7402,126 @@ Panel de avance/husillo, registro de potencia y verificación de trayectoria vir
     "titulo": "Preparación de fresado CNC: avance por diente, potencia y arranque de material",
     "videoUrl": "",
   },
+  "mecanica-187": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Calibración del TCP de un robot",
+      },
+    ],
+    "bienvenida": "Enseña el extremo de una herramienta para que el robot conserve el punto al cambiar de orientación.
+OT-187 · Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm.
+Punta patrón, referencia fija y comprobación de orientaciones.",
+    "codigo": "MEC-187",
+    "conceptos": [
+      {
+        "descripcion": "Enseña el extremo de una herramienta para que el robot conserve el punto al cambiar de orientación.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Calibra la herramienta con error≤0,5 mm y dispersión entre orientaciones≤0,7 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Calibración del TCP de un robot",
+    "videoUrl": "",
+  },
+  "mecanica-188": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Selección óptica de visión industrial",
+      },
+    ],
+    "bienvenida": "Configura la óptica de una cámara para inspeccionar una pieza completa conservando detalle y profundidad útil.
+OT-188 · Encuadra160–220 mm con≤0,09 mm/píxel y profundidad de campo≥8 mm.
+Lente, sensor2448 px, patrón y calculadora óptica.",
+    "codigo": "MEC-188",
+    "conceptos": [
+      {
+        "descripcion": "Configura la óptica de una cámara para inspeccionar una pieza completa conservando detalle y profundidad útil.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Encuadra160–220 mm con≤0,09 mm/píxel y profundidad de campo≥8 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Encuadra160–220 mm con≤0,09 mm/píxel y profundidad de campo≥8 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Selección óptica de visión industrial",
+    "videoUrl": "",
+  },
+  "mecanica-189": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Sintonía de un servoeje PD",
+      },
+    ],
+    "bienvenida": "Ajusta un eje de posicionamiento para alcanzar100 mm con rapidez, poco rebote y fuerza admisible.
+OT-189 · Sigue el escalón con sobreimpulso≤5 %, establecimiento≤0,8 s y fuerza≤150 N.
+Servo lineal, encoder y respuesta a escalón.",
+    "codigo": "MEC-189",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta un eje de posicionamiento para alcanzar100 mm con rapidez, poco rebote y fuerza admisible.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Sigue el escalón con sobreimpulso≤5 %, establecimiento≤0,8 s y fuerza≤150 N.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Sigue el escalón con sobreimpulso≤5 %, establecimiento≤0,8 s y fuerza≤150 N.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Sintonía de un servoeje PD",
+    "videoUrl": "",
+  },
   "mecanica-19": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -7460,6 +7580,406 @@ Este simulador resuelve el punto de operación con un modelo de VBE constante (0
     ],
     "subtitulo": "Electrónica · Polarización fija vs. divisor de voltaje en un transistor NPN",
     "titulo": "Polarización de BJT: Punto de Operación Q",
+    "videoUrl": "",
+  },
+  "mecanica-190": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ensayo virtual de aislamiento de motor",
+      },
+    ],
+    "bienvenida": "Interpreta un ensayo de aislamiento distinguiendo la carga capacitiva de la fuga permanente.
+OT-190 · Simula450–500 V; lee con error≤5 % antes de25 s y energía≤0,3 J.
+Megóhmetro virtual, devanado en corte y registro de corriente.",
+    "codigo": "MEC-190",
+    "conceptos": [
+      {
+        "descripcion": "Interpreta un ensayo de aislamiento distinguiendo la carga capacitiva de la fuga permanente.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Simula450–500 V; lee con error≤5 % antes de25 s y energía≤0,3 J.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Simula450–500 V; lee con error≤5 % antes de25 s y energía≤0,3 J.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Ensayo virtual de aislamiento de motor",
+    "videoUrl": "",
+  },
+  "mecanica-191": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Puesta en servicio de precarga HV",
+      },
+    ],
+    "bienvenida": "Dimensiona una precarga virtual para que el enlace de continua alcance tensión antes de cerrar el contactor principal.
+OT-191 · Limita el pico a8 A y2500 W; cierra en≤900 ms con diferencia≤20 V.
+Resistencia, condensadores, contactores en corte y registroV/I.",
+    "codigo": "MEC-191",
+    "conceptos": [
+      {
+        "descripcion": "Dimensiona una precarga virtual para que el enlace de continua alcance tensión antes de cerrar el contactor principal.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Limita el pico a8 A y2500 W; cierra en≤900 ms con diferencia≤20 V.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Limita el pico a8 A y2500 W; cierra en≤900 ms con diferencia≤20 V.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Puesta en servicio de precarga HV",
+    "videoUrl": "",
+  },
+  "mecanica-192": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Calibración de resolver de tracción",
+      },
+    ],
+    "bienvenida": "Contrasta la posición de un resolver contra un encoder patrón y elimina error angular periódico.
+OT-192 · Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01.
+Resolver seccionado, encoder patrón y canales seno/coseno.",
+    "codigo": "MEC-192",
+    "conceptos": [
+      {
+        "descripcion": "Contrasta la posición de un resolver contra un encoder patrón y elimina error angular periódico.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01.",
+    ],
+    "subtitulo": "Autotrónica",
+    "titulo": "Calibración de resolver de tracción",
+    "videoUrl": "",
+  },
+  "mecanica-193": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ultrasonido para espesor y corrosión",
+      },
+    ],
+    "bienvenida": "Calibra un medidor ultrasónico con dos patrones antes de inspeccionar una placa con pérdida de espesor.
+OT-193 · Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm.
+Palpador, patrones escalonados y trazaA-scan virtual.",
+    "codigo": "MEC-193",
+    "conceptos": [
+      {
+        "descripcion": "Calibra un medidor ultrasónico con dos patrones antes de inspeccionar una placa con pérdida de espesor.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Ajusta velocidad y cero: los patrones de5 y15 mm deben quedar dentro de±0,05 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ultrasonido para espesor y corrosión",
+    "videoUrl": "",
+  },
+  "mecanica-194": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Inspección por corrientes inducidas",
+      },
+    ],
+    "bienvenida": "Selecciona frecuencia y separación de una sonda para revelar una discontinuidad superficial en aluminio.
+OT-194 · Obtén sensibilidad≥0,15 con separación≤0,4 mm y profundidad de piel0,4–1,2 mm.
+Sonda, cupón con ranura y plano de impedancia.",
+    "codigo": "MEC-194",
+    "conceptos": [
+      {
+        "descripcion": "Selecciona frecuencia y separación de una sonda para revelar una discontinuidad superficial en aluminio.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén sensibilidad≥0,15 con separación≤0,4 mm y profundidad de piel0,4–1,2 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Obtén sensibilidad≥0,15 con separación≤0,4 mm y profundidad de piel0,4–1,2 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Inspección por corrientes inducidas",
+    "videoUrl": "",
+  },
+  "mecanica-195": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Apriete controlado por par y ángulo",
+      },
+    ],
+    "bienvenida": "Prepara una unión atornillada y comprueba cómo el giro posterior al asiento genera precarga.
+OT-195 · Consigue12–16 kN con esfuerzo≤300 MPa y par entre10 y20 N·m.
+Atornillador, transductor de par y unión seccionada.",
+    "codigo": "MEC-195",
+    "conceptos": [
+      {
+        "descripcion": "Prepara una unión atornillada y comprueba cómo el giro posterior al asiento genera precarga.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue12–16 kN con esfuerzo≤300 MPa y par entre10 y20 N·m.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Consigue12–16 kN con esfuerzo≤300 MPa y par entre10 y20 N·m.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Apriete controlado por par y ángulo",
+    "videoUrl": "",
+  },
+  "mecanica-196": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ajuste de un sensor láser de triangulación",
+      },
+    ],
+    "bienvenida": "Diseña la geometría de un sensor que mida piezas entre200 y500 mm sin sacar el punto del detector.
+OT-196 · Mantén el punto dentro de±512 px y la incertidumbre≤0,8 mm con base≤90 mm.
+Emisor láser, receptor óptico y blanco móvil.",
+    "codigo": "MEC-196",
+    "conceptos": [
+      {
+        "descripcion": "Diseña la geometría de un sensor que mida piezas entre200 y500 mm sin sacar el punto del detector.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Mantén el punto dentro de±512 px y la incertidumbre≤0,8 mm con base≤90 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Mantén el punto dentro de±512 px y la incertidumbre≤0,8 mm con base≤90 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ajuste de un sensor láser de triangulación",
+    "videoUrl": "",
+  },
+  "mecanica-197": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ensayo de estanqueidad por caída de presión",
+      },
+    ],
+    "bienvenida": "Programa un ensayo de estanqueidad sin confundir enfriamiento del aire con una fuga.
+OT-197 · Mide con error≤5 %, caída≥20 Pa y ciclo total≤130 s.
+Recipiente, válvulas, presión diferencial y fuga patrón.",
+    "codigo": "MEC-197",
+    "conceptos": [
+      {
+        "descripcion": "Programa un ensayo de estanqueidad sin confundir enfriamiento del aire con una fuga.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Mide con error≤5 %, caída≥20 Pa y ciclo total≤130 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Mide con error≤5 %, caída≥20 Pa y ciclo total≤130 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ensayo de estanqueidad por caída de presión",
+    "videoUrl": "",
+  },
+  "mecanica-198": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Alineación láser de maquinaria",
+      },
+    ],
+    "bienvenida": "Corrige dos apoyos de un motor para eliminar desplazamiento y ángulo respecto de una bomba.
+OT-198 · Deja desplazamiento≤0,03 mm y ángulo≤0,1 mrad ajustando ambos apoyos.
+Cabezal láser, receptor, apoyos y registro de alineación.",
+    "codigo": "MEC-198",
+    "conceptos": [
+      {
+        "descripcion": "Corrige dos apoyos de un motor para eliminar desplazamiento y ángulo respecto de una bomba.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Deja desplazamiento≤0,03 mm y ángulo≤0,1 mrad ajustando ambos apoyos.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Deja desplazamiento≤0,03 mm y ángulo≤0,1 mrad ajustando ambos apoyos.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Alineación láser de maquinaria",
+    "videoUrl": "",
+  },
+  "mecanica-199": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Termografía de un cuadro eléctrico",
+      },
+    ],
+    "bienvenida": "Ajusta una lectura infrarroja para distinguir un contacto caliente de un reflejo sobre metal.
+OT-199 · Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C.
+CámaraIR virtual, referencia térmica y cuadro con conexiones visibles.",
+    "codigo": "MEC-199",
+    "conceptos": [
+      {
+        "descripcion": "Ajusta una lectura infrarroja para distinguir un contacto caliente de un reflejo sobre metal.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Termografía de un cuadro eléctrico",
     "videoUrl": "",
   },
   "mecanica-2": {
@@ -7579,6 +8099,46 @@ El transitorio real dura microsegundos o pocos milisegundos — demasiado rápid
     ],
     "subtitulo": "Electrónica de potencia · Protección de un switch frente al colapso de una bobina",
     "titulo": "Conmutación de Carga Inductiva y Diodo de Marcha Libre",
+    "videoUrl": "",
+  },
+  "mecanica-200": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot AMR: calibración y regreso al muelle",
+      },
+    ],
+    "bienvenida": "Calibra un robot móvil de almacén para completar una ruta y regresar al muelle con posición y orientación correctas.
+OT-200 · Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %.
+AMR, encoders, muelle, plano de almacén y escáner de distancias.",
+    "codigo": "MEC-200",
+    "conceptos": [
+      {
+        "descripcion": "Calibra un robot móvil de almacén para completar una ruta y regresar al muelle con posición y orientación correctas.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica las referencias, el instrumento y el objetivo de la orden.",
+      "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+      "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+      "Vuelve tras un cuadrado con error≤50 mm, orientación≤2° y escala de distancia dentro de1 %.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot AMR: calibración y regreso al muelle",
     "videoUrl": "",
   },
   "mecanica-21": {
@@ -22757,9 +23317,23 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-184": [],
   "mecanica-185": [],
   "mecanica-186": [],
+  "mecanica-187": [],
+  "mecanica-188": [],
+  "mecanica-189": [],
   "mecanica-19": [],
+  "mecanica-190": [],
+  "mecanica-191": [],
+  "mecanica-192": [],
+  "mecanica-193": [],
+  "mecanica-194": [],
+  "mecanica-195": [],
+  "mecanica-196": [],
+  "mecanica-197": [],
+  "mecanica-198": [],
+  "mecanica-199": [],
   "mecanica-2": [],
   "mecanica-20": [],
+  "mecanica-200": [],
   "mecanica-21": [],
   "mecanica-22": [],
   "mecanica-23": [],
@@ -23178,9 +23752,23 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-184",
   "mecanica-185",
   "mecanica-186",
+  "mecanica-187",
+  "mecanica-188",
+  "mecanica-189",
   "mecanica-19",
+  "mecanica-190",
+  "mecanica-191",
+  "mecanica-192",
+  "mecanica-193",
+  "mecanica-194",
+  "mecanica-195",
+  "mecanica-196",
+  "mecanica-197",
+  "mecanica-198",
+  "mecanica-199",
   "mecanica-2",
   "mecanica-20",
+  "mecanica-200",
   "mecanica-21",
   "mecanica-22",
   "mecanica-23",

@@ -55,10 +55,9 @@ const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
 // Sus contratos y modelos viven en módulos compartidos; este descriptor permite
 // reconstruir la página con la misma entrada estándar que los otros estáticos.
 if (cfg.mode === 'mecanismo') {
-  const modern = cfg.set === 'automatismos';
-  if (cfg.set && !modern) fail('Conjunto de mecanismos desconocido');
-  const prefix = modern ? '_automatismos' : '_mecanismos';
-  const { definitions } = await import(modern ? '../public/labs/_automatismos-definiciones.js' : '../public/labs/_mecanismos-definiciones.js');
+  const prefix = cfg.set === 'automatismos' ? '_automatismos' : cfg.set === 'taller' ? '_taller' : !cfg.set ? '_mecanismos' : null;
+  if (!prefix) fail('Conjunto de mecanismos desconocido');
+  const { definitions } = await import(`../public/labs/${prefix}-definiciones.js`);
   const def = definitions.find((entry) => entry.id === cfg.id);
   if (!def || cfg.out !== `${def.slug}.html` || id !== def.slug) fail('Descriptor de mecanismo inconsistente');
   for (const source of [`${prefix}-runtime.js`, `${prefix}-modelos.js`, `${prefix}-escenas.js`, `_ficha-${def.slug}.js`]) {

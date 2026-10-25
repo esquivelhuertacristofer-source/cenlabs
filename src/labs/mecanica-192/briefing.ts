@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-192",
+  "titulo": "Calibración de resolver de tracción",
+  "subtitulo": "Autotrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Contrasta la posición de un resolver contra un encoder patrón y elimina error angular periódico.\nOT-192 · Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01.\nResolver seccionado, encoder patrón y canales seno/coseno.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Contrasta la posición de un resolver contra un encoder patrón y elimina error angular periódico."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01."
+    }
+  ],
+  "mision": [
+    "Identifica las referencias, el instrumento y el objetivo de la orden.",
+    "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+    "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+    "Reduce el error máximo a0,3° y deja la ganancia entre0,99 y1,01."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Calibración de resolver de tracción"
+    }
+  ]
+};
+export default briefing;

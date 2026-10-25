@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-199",
+  "titulo": "Termografía de un cuadro eléctrico",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Ajusta una lectura infrarroja para distinguir un contacto caliente de un reflejo sobre metal.\nOT-199 · Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C.\nCámaraIR virtual, referencia térmica y cuadro con conexiones visibles.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Ajusta una lectura infrarroja para distinguir un contacto caliente de un reflejo sobre metal."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C."
+    }
+  ],
+  "mision": [
+    "Identifica las referencias, el instrumento y el objetivo de la orden.",
+    "Ajusta los parámetros y ejecuta la prueba; compara los criterios simultáneos.",
+    "Valida manualmente y descarga la evidencia con la configuración ensayada.",
+    "Contrasta con patrón80 °C: error≤2 °C, reflejo25±2 °C y contraste≥45 °C."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Termografía de un cuadro eléctrico"
+    }
+  ]
+};
+export default briefing;

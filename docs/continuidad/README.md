@@ -1,16 +1,20 @@
 # Continuidad del proyecto CEN Labs
 
+## PAUSA VIGENTE ·24-10-2026
+El usuario pidió detenerse por límite de uso. NO continuar hasta que lo solicite. Leer [PAUSA-HASTA-200.md](PAUSA-HASTA-200.md):177–186 publicados;187–200 implementados localmente,14/56 flujos, cierre pendiente.
+
+
 Este es el punto de entrada para otra IA. Leer este archivo antes de usar relevos antiguos.
 
 ## Encargo actual · avanzar hasta mecanica-200
-- Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. Siguientes14 pendientes de implementar.
+- Ampliación expresa del usuario el24-10-2026: terminar177–186 y continuar hasta200, con impacto visual alto y utilidad profesional. No detenerse en186. 187–200 implementados en módulos nuevos_taller-*.js, todavía en QA; NO publicados.7730 comprobaciones numéricas en verde. El siguiente paso es terminar los flujos y la revisión visual antes de publicar.
 
 ### Tanda profesional177–186
 - Nuevo pedido: otros diez laboratorios. El usuario precisó que deben dar a estudiantes técnicos de autotrónica, mecatrónica y automovilidad herramientas y entornos transferibles a la vida profesional.
 - Priorizar orden de trabajo, instrumentos, medición, ensayo y evidencia verificable. Cada práctica nueva exige un registro vigente del ajuste antes de aceptar el resultado; permite guardar informe. El analizador FFT sólo muestra el espectro después de adquirirlo.
-- IDs177–186 asignados e implementados, todavía en revisión, NO publicados. El siguiente ID no asignado es187.
+- 177–186 publicados y verificados: código cbf27e8, Cloudflare 461e43b5-cf37-4bd5-82a6-8a436cde3779, deploy exit0, login real68 destacadas,12 iframes exactos y portadas200.187–200 en desarrollo; ningún otro publicado todavía.
 - Temas: indexador, leva, pinza, dobleCardán, analizador de vibración de rodamientos, motorreductor sinfín, reductor cicloidal, embrague centrífugo, dosificadora peristáltica y fresadoCNC.
-- Cierre local177–186:6003 comprobaciones;40 flujos, cuatro tamaños;44 suites/3048 pruebas/12 snapshots; TypeScript/ESLint correctos;10 portadas propias y10/10 sin red. Inspección cercana adicional en escritorio y móvil. Pendiente commit y publicación confirmada.
+- Cierre local177–186:6003 comprobaciones;40 flujos, cuatro tamaños;44 suites/3048 pruebas/12 snapshots; TypeScript/ESLint correctos;10 portadas propias y10/10 sin red. Inspección cercana adicional en escritorio y móvil. Publicado cbf27e8, login confirmado.
 - Fuentes nuevas: _automatismos-definiciones/modelos/escenas/runtime.js. Shell _mecanismos-runtime.js ahora admite un bundle opcional; las entradas167–176 siguen usando sus valores originales. Comprobar regresión de ese shell.
 - Se preservan los archivos heredados sin seguimiento. La publicación anterior375bca2 sigue siendo la última confirmada hasta cerrar este lote.
 
@@ -113,3 +117,51 @@ Crear `docs/continuidad/mecanica-N.md` con: estado real y fecha; objetivo y nove
 - Las métricas móviles tienen columnas minmax(0,1fr) y ancho suficiente; la guía se muestra sobre el panel, no sobre el actor. No reintroducir el desbordamiento del valor largo del husillo.
 - El anillo luminoso del freno es un indicador didáctico del campo aplicado, no un mapa de líneas de campo; el modelo no es electromagnetismo FEM.
 - El encargo de diez está completo. **El usuario ya pidió la tanda177–186; no iniciar187 sin un nuevo encargo.** Leer este índice antes de asignar IDs. Quedaron sin seguimiento sólo dos archivos heredados, no propios.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Avance QA laboratorio187: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio188: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio189: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio190: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio191: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio192: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio193: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio194: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio195: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio196: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio197: 1366×768 verificado; cierre y publicación pendientes.
+
+## Taller187–200 · cómo continuar
+- Módulos públicos _taller-modelos/definiciones/escenas/runtime/instrumentos.js.14 órdenes y temas distintos; registros, instrumentos e inspección.
+-7730 comprobaciones correctas. Flujos completos en curso: scripts/auditoria/flujo-taller-187-200.mjs --inspeccion; salida .salida/taller-187-200. Cada recorrido actualiza la ficha ANTES de ir al siguiente.
+- Sólo177–186 publicados en cbf27e8, Cloudflare461e43b5-cf37-4bd5-82a6-8a436cde3779, login68 destacadas confirmado.187–200 todavía NO publicados.
+- Próximos pasos: terminar56 flujos; revisión visual, portadas propias, barrido sin red, globalJest; revisar goldens sólo14 altas y publicar hasta200 con login82 destacadas.
+
+- Avance QA laboratorio198: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio199: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio200: 1366×768 verificado; cierre y publicación pendientes.
