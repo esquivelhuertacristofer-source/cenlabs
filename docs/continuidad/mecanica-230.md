@@ -45,3 +45,16 @@ Interbloqueo caliente comprobado en la pose de la escena; no implica certificaci
 
 ## Publicación
 Código, push, deploy y login real pendientes. Último publicado confirmado:220.
+
+## Ajuste final del tornillo
+Se corrigió el avance hacia el molde a fracción·V/Atornillo, con escala geométrica6,8 unidades/m correspondiente al diámetro exterior de las hélices. Se acortó la longitud visible para alojar toda la carrera dentro del barril y se inicia la dosificación giratoria después de los2 s de mantenimiento. El informe de sincronía comprueba carrera y extremo dentro del barril. Se repitió correctamente el flujo completo en los cuatro tamaños después de este ajuste; el modelo numérico y los criterios no cambian.
+
+QA 1366×768 DPR1: orden, ensayo, validación, quiz, diagnóstico, instrumento e informe correctos; normales cero=0, sin errores ni desbordamiento.
+
+QA 1600×900 DPR1: orden, ensayo, validación, quiz, diagnóstico, instrumento e informe correctos; normales cero=0, sin errores ni desbordamiento.
+
+QA 2020×1055 DPR1.25: orden, ensayo, validación, quiz, diagnóstico, instrumento e informe correctos; normales cero=0, sin errores ni desbordamiento.
+
+QA 390×844 DPR1: orden, ensayo, validación, quiz, diagnóstico, instrumento e informe correctos; normales cero=0, sin errores ni desbordamiento.
+
+Comprobación final adicional: cuatro recorridos completos, carrera/extremo dentro del barril, sincronía, portada y barrido sin CDN correctos. Pruebas en .salida/proceso-221-230/repeticion-230.json, sincronia-230-final.json y barrido-230-final.json.

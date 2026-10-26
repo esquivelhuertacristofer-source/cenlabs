@@ -387,3 +387,10 @@ Encargo cumplido. Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f; versión f9d
 Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b; versión 2462ce45-d045-40a6-996e-7e2c82f97c77. No queda trabajo pendiente del encargo211–220. Modelo numérico6229;40 flujos; seis protecciones de calibración; siete comprobaciones de sincronía y dos de movimiento/envolvente;44 suites/3286 pruebas/12 snapshots. Diez portadas y10/10 sin CDN. Login real102/12 confirmado. Las voces anteriores se conservaron; no se añadió narración nueva. No iniciar221 sin nuevo pedido.
 
 [Guía de los diez laboratorios](GUIA-LABS-211-220.md). Para retomar, leer este índice y la ficha del laboratorio antes de editar _fab-N.js o _fabricacion-*.js; no regenerar fuentes históricas sobre escenas mejoradas.
+
+- Ajuste final230: avance del tornillo vinculado al volumen; ver ficha individual. Código768cb52 desplegado y login112/12 confirmado, pero la corrección final aún requiere repetir QA y publicar. No dar la entrega por cerrada todavía.
+
+
+
+
+- Avance QA laboratorio230: 390×844 verificado; cierre y publicación pendientes.
