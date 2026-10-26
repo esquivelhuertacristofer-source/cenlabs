@@ -1,6 +1,6 @@
 # mecanica-223 · Cadena de rodillos: efecto poligonal
 
-Estado al26-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Una cadena real avanza eslabón a eslabón sobre dos ruedas dentadas y su velocidad oscila.
@@ -44,4 +44,4 @@ Cadena de80 eslabones con placas redondeadas, rodillos, dientes y apoyos. La geo
 La prueba geométrica adicional verifica los80 pasos directamente sobre las matrices de rodillos renderizados.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:220.
+Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35 empujado a main. Deploy exit0; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. Login real:112 destacadas, doce iframes exactos (221–230 más211/220), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:230. Los commits posteriores de documentación no cambian el código publicado.

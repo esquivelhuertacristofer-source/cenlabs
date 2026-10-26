@@ -1,6 +1,6 @@
 # mecanica-225 · Robot de orugas: giro y esfuerzo de tracción
 
-Estado al26-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Controla dos orugas independientes y observa cómo su diferencia de velocidad hace girar el robot.
@@ -42,4 +42,4 @@ Robot con dos lazos de oruga, zapatas, rodillos, reductores, cuerpo, antena y c�
 37–53 palabras iniciales, datos en DOM y contrato en paneles cerrados. Equipo visible y fenómeno activo desde la entrada; materiales PBR con entorno e iluminación compartidos. No se afirma eficacia educativa medida sin una prueba con docentes y estudiantes.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:220.
+Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35 empujado a main. Deploy exit0; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. Login real:112 destacadas, doce iframes exactos (221–230 más211/220), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:230. Los commits posteriores de documentación no cambian el código publicado.

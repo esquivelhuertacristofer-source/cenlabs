@@ -1,6 +1,6 @@
 # mecanica-226 · Soplador Roots: lóbulos y compresión externa
 
-Estado al26-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Dos rotores transportan bolsas de aire hacia una salida presurizada, sin comprimirlas internamente.
@@ -44,4 +44,4 @@ Soplador abierto con lóbulos, ejes, engranes de sincronización posteriores, fi
 Perfil ilustrativo separado durante una vuelta completa; prueba geométrica de holgura y revisión visual final después de añadir engranes posteriores.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:220.
+Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35 empujado a main. Deploy exit0; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. Login real:112 destacadas, doce iframes exactos (221–230 más211/220), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:230. Los commits posteriores de documentación no cambian el código publicado.

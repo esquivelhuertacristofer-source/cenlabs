@@ -1,24 +1,24 @@
 # Continuidad del proyecto CEN Labs
 
 ## Estado vigente ·26-10-2026 · hasta230
-221–230 terminados y verificados localmente.40634 comprobaciones numéricas;40 flujos en cuatro tamaños, cuatro protecciones de calibración, diez comparaciones de sincronía y cuatro pruebas geométricas/interbloqueos.44 suites/3356 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Falta publicar y verificar login real:112 destacadas y12 iframes (221–230 más211/220).
+221–230 PUBLICADOS y verificados.40634 comprobaciones numéricas;40 flujos en cuatro tamaños, cuatro protecciones de calibración, diez comparaciones de sincronía y cuatro pruebas geométricas/interbloqueos.44 suites/3356 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Deploy y login real confirmados:112 destacadas,12 iframes (221–230 más211/220), portadas200 y consola limpia.
 
-Último código publicado confirmado: c5d5e93 (hasta220); Cloudflare2462ce45-d045-40a6-996e-7e2c82f97c77. No confundir implementación con publicación. No iniciar231 sin nuevo pedido.
+Último código publicado: aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3; deploy exit0. Encargo hasta230 cumplido. No iniciar231 sin nuevo pedido.
 
 Fuentes nuevas: _proceso-*.js y _proc-221...230.js; reutiliza utilidades geométricas existentes. Motor común sin cambios. Preservar voces al desplegar desde cen-deploy.
 
 | ID | Tema | Estado |
 |---|---|---|
-| 221 | [Ultrasonido phased array: enfoque electrónico](mecanica-221.md) | Terminado local; publicación pendiente |
-| 222 | [Sensor de fuerza y par: calibración de seis ejes](mecanica-222.md) | Terminado local; publicación pendiente |
-| 223 | [Cadena de rodillos: efecto poligonal](mecanica-223.md) | Terminado local; publicación pendiente |
-| 224 | [Caudalímetro Venturi: presión y continuidad](mecanica-224.md) | Terminado local; publicación pendiente |
-| 225 | [Robot de orugas: giro y esfuerzo de tracción](mecanica-225.md) | Terminado local; publicación pendiente |
-| 226 | [Soplador Roots: lóbulos y compresión externa](mecanica-226.md) | Terminado local; publicación pendiente |
-| 227 | [Interferómetro láser: ambiente y error de coseno](mecanica-227.md) | Terminado local; publicación pendiente |
-| 228 | [Rugosímetro: perfil, filtro y muestreo](mecanica-228.md) | Terminado local; publicación pendiente |
-| 229 | [Bobinado de banda: tensión y rodillo bailarín](mecanica-229.md) | Terminado local; publicación pendiente |
-| 230 | [Inyección de plástico: llenado, cierre y enfriamiento](mecanica-230.md) | Terminado local; publicación pendiente |
+| 221 | [Ultrasonido phased array: enfoque electrónico](mecanica-221.md) | Publicado y verificado |
+| 222 | [Sensor de fuerza y par: calibración de seis ejes](mecanica-222.md) | Publicado y verificado |
+| 223 | [Cadena de rodillos: efecto poligonal](mecanica-223.md) | Publicado y verificado |
+| 224 | [Caudalímetro Venturi: presión y continuidad](mecanica-224.md) | Publicado y verificado |
+| 225 | [Robot de orugas: giro y esfuerzo de tracción](mecanica-225.md) | Publicado y verificado |
+| 226 | [Soplador Roots: lóbulos y compresión externa](mecanica-226.md) | Publicado y verificado |
+| 227 | [Interferómetro láser: ambiente y error de coseno](mecanica-227.md) | Publicado y verificado |
+| 228 | [Rugosímetro: perfil, filtro y muestreo](mecanica-228.md) | Publicado y verificado |
+| 229 | [Bobinado de banda: tensión y rodillo bailarín](mecanica-229.md) | Publicado y verificado |
+| 230 | [Inyección de plástico: llenado, cierre y enfriamiento](mecanica-230.md) | Publicado y verificado |
 
 ## Historial anterior
 
@@ -388,9 +388,14 @@ Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b; versión 2462ce45-d045-40a6-99
 
 [Guía de los diez laboratorios](GUIA-LABS-211-220.md). Para retomar, leer este índice y la ficha del laboratorio antes de editar _fab-N.js o _fabricacion-*.js; no regenerar fuentes históricas sobre escenas mejoradas.
 
-- Ajuste final230: avance del tornillo vinculado al volumen; ver ficha individual. Código768cb52 desplegado y login112/12 confirmado, pero la corrección final aún requiere repetir QA y publicar. No dar la entrega por cerrada todavía.
 
 
 
 
-- Avance QA laboratorio230: 390×844 verificado; cierre y publicación pendientes.
+
+La corrección final del tornillo230 añade cuatro recorridos completos repetidos, comprobación de carrera volumétrica dentro del barril, sincronía y barrido sin CDN. La carrera correcta también se comprobó en producción con login real.
+
+## Cierre de publicación ·26-10-2026
+Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. 221–230 publicados y comprobados.40634 comprobaciones,40 flujos, cuatro protecciones de calibración con descarga de datos, diez comparaciones de sincronía y cuatro pruebas de geometría/encuadre/interbloqueo;44 suites/3356 pruebas/12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN;112 destacadas y12 iframes con login real. Se preservaron las voces anteriores; no se añadió narración nueva.
+
+[Guía de los diez laboratorios](GUIA-LABS-221-230.md). Retomar leyendo este índice y la ficha individual. No ejecutar los generadores históricos sobre escenas refinadas.
