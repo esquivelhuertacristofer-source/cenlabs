@@ -1,6 +1,6 @@
 # mecanica-211 · Calibración cámara–robot: correspondencias planares
 
-Estado al26-10-2026: TERMINADO y verificado localmente; pendiente publicación confirmada.
+Estado al 26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Relaciona las medidas de una cámara con el marco de la herramienta y comprueba el error sobre varios puntos.
@@ -44,4 +44,4 @@ La escena y el fenómeno se ven desde la entrada;39–54 palabras iniciales, dat
 Constantes de referencia comprobadas en escritorio y móvil: ocultas antes del ensayo y de validar, visibles después de validar y ocultas de nuevo al modificar el ajuste.
 
 ## Publicación
-Commit, push, deploy y login real pendientes. El último publicado sigue siendo210 hasta confirmar la entrega.
+Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b empujado a main. Deploy exit0; Cloudflare 2462ce45-d045-40a6-996e-7e2c82f97c77. Login real:102 destacadas, doce iframes exactos (211–220 y regresión201/210), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:220. Los commits posteriores de documentación no cambian el código publicado.

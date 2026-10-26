@@ -1,6 +1,6 @@
 # mecanica-215 · Montaje de rodamiento: calentamiento por inducción
 
-Estado al26-10-2026: TERMINADO y verificado localmente; pendiente publicación confirmada.
+Estado al 26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Calienta un rodamiento, observa su expansión y comprueba la holgura disponible cuando llega al eje.
@@ -46,4 +46,4 @@ Prueba de movimiento: durante el traslado el yugo está retirado y el rodamiento
 Inspección y entorno comparten la misma geometría y pose. La prueba adicional comprueba transformaciones y, donde existen, matrices/colores de instancias para evitar que la inspección se congele.
 
 ## Publicación
-Commit, push, deploy y login real pendientes. El último publicado sigue siendo210 hasta confirmar la entrega.
+Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b empujado a main. Deploy exit0; Cloudflare 2462ce45-d045-40a6-996e-7e2c82f97c77. Login real:102 destacadas, doce iframes exactos (211–220 y regresión201/210), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:220. Los commits posteriores de documentación no cambian el código publicado.

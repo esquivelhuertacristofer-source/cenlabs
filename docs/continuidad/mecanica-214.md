@@ -1,6 +1,6 @@
 # mecanica-214 · Tomografía industrial: proyecciones y poros
 
-Estado al26-10-2026: TERMINADO y verificado localmente; pendiente publicación confirmada.
+Estado al 26-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Observa un fantoma por dentro y elige una adquisición que equilibre muestreo, ruido y exposición relativa.
@@ -42,4 +42,4 @@ Gantry, emisor, detector, fantoma, poros y plano de corte. Las medidas del instr
 La escena y el fenómeno se ven desde la entrada;39–54 palabras iniciales, datos en DOM y ecuaciones en paneles cerrados. La vista inicial se acerca al equipo en los casos donde el banco completo lo hacía pequeño. La complejidad visual varía con el instrumento: no se afirma eficacia educativa demostrada sin probar con estudiantes y docentes.
 
 ## Publicación
-Commit, push, deploy y login real pendientes. El último publicado sigue siendo210 hasta confirmar la entrega.
+Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b empujado a main. Deploy exit0; Cloudflare 2462ce45-d045-40a6-996e-7e2c82f97c77. Login real:102 destacadas, doce iframes exactos (211–220 y regresión201/210), portadas HTTP200, geometría sana y consola limpia. Último laboratorio publicado:220. Los commits posteriores de documentación no cambian el código publicado.

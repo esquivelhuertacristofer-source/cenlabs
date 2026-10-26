@@ -1,24 +1,24 @@
 # Continuidad del proyecto CEN Labs
 
 ## Estado vigente ·26-10-2026 · hasta220
-211–220 terminados localmente;6229 comprobaciones numéricas,40 flujos en cuatro tamaños, seis protecciones de calibración, siete comprobaciones de sincronía y dos comprobaciones de movimiento/envolvente.44 suites,3286 pruebas,12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin red. Falta publicar y verificar login real:102 destacadas, diez iframes nuevos más201/210 de regresión.
+211–220 PUBLICADOS y verificados;6229 comprobaciones numéricas,40 flujos en cuatro tamaños, seis protecciones de calibración, siete comprobaciones de sincronía y dos comprobaciones de movimiento/envolvente.44 suites,3286 pruebas,12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin red. Deploy y login real confirmados:102 destacadas, diez iframes nuevos más201/210 de regresión, portadas200 y consola limpia.
 
-Último código publicado confirmado todavía: a7b219b (hasta210), Cloudflare f9d34540-3d08-4ca3-a491-a870303f70c3. No confundir implementación con publicación.
+Último código publicado: c5d5e93d2adb73f41e07576d03cfc5a097d46d4b; Cloudflare 2462ce45-d045-40a6-996e-7e2c82f97c77; deploy exit0. Encargo hasta220 cumplido.
 
 Fuentes nuevas: _fabricacion-*.js y diez escenas _fab-211...220.js. No se cambió el motor común de las tandas anteriores. Cada ficha detalla límites y pruebas. Conservar voces al desplegar desde cen-deploy. El nuevo pedido superó los antiguos límites200/210; detenerse en220 y no iniciar221 sin nuevo encargo.
 
 | ID | Tema | Estado |
 |---|---|---|
-| 211 | [Calibración cámara–robot: correspondencias planares](mecanica-211.md) | Terminado local; publicación pendiente |
-| 212 | [Soldadura MIG robotizada: formación del cordón](mecanica-212.md) | Terminado local; publicación pendiente |
-| 213 | [Fabricación FDM: capas y límite de extrusión](mecanica-213.md) | Terminado local; publicación pendiente |
-| 214 | [Tomografía industrial: proyecciones y poros](mecanica-214.md) | Terminado local; publicación pendiente |
-| 215 | [Montaje de rodamiento: calentamiento por inducción](mecanica-215.md) | Terminado local; publicación pendiente |
-| 216 | [Inspección de engranajes: juego y contacto](mecanica-216.md) | Terminado local; publicación pendiente |
-| 217 | [Impedancia de batería: ajuste de un circuito equivalente](mecanica-217.md) | Terminado local; publicación pendiente |
-| 218 | [Diagnóstico CNC con ballbar](mecanica-218.md) | Terminado local; publicación pendiente |
-| 219 | [Cambiador de herramientas: secuencia por bloques](mecanica-219.md) | Terminado local; publicación pendiente |
-| 220 | [Cavitación: aspiración de una bomba centrífuga](mecanica-220.md) | Terminado local; publicación pendiente |
+| 211 | [Calibración cámara–robot: correspondencias planares](mecanica-211.md) | Publicado y verificado |
+| 212 | [Soldadura MIG robotizada: formación del cordón](mecanica-212.md) | Publicado y verificado |
+| 213 | [Fabricación FDM: capas y límite de extrusión](mecanica-213.md) | Publicado y verificado |
+| 214 | [Tomografía industrial: proyecciones y poros](mecanica-214.md) | Publicado y verificado |
+| 215 | [Montaje de rodamiento: calentamiento por inducción](mecanica-215.md) | Publicado y verificado |
+| 216 | [Inspección de engranajes: juego y contacto](mecanica-216.md) | Publicado y verificado |
+| 217 | [Impedancia de batería: ajuste de un circuito equivalente](mecanica-217.md) | Publicado y verificado |
+| 218 | [Diagnóstico CNC con ballbar](mecanica-218.md) | Publicado y verificado |
+| 219 | [Cambiador de herramientas: secuencia por bloques](mecanica-219.md) | Publicado y verificado |
+| 220 | [Cavitación: aspiración de una bomba centrífuga](mecanica-220.md) | Publicado y verificado |
 
 ## Historial anterior
 
@@ -360,3 +360,8 @@ Retomar en _servicio-*.js. Evidencias en scripts/auditoria/.salida/servicio-201-
 Encargo cumplido. Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f; versión f9d34540-3d08-4ca3-a491-a870303f70c3. No hay trabajo pendiente para201–210. Las fuentes canónicas están en _servicio-*.js y cada ficha documenta archivos, modelo, pruebas, simplificaciones y publicación. No se añadió narración nueva. No iniciar211 sin nuevo encargo. Los apartados anteriores de200/186/176 son históricos.
 
 [Evaluación comparativa y aportes de201–210](EVALUACION-LABS-201-210.md). Revisar esta comparación antes de proponer otra tanda para conservar la diversidad de herramientas y competencias.
+
+## Publicación confirmada ·26-10-2026
+Código c5d5e93d2adb73f41e07576d03cfc5a097d46d4b; versión 2462ce45-d045-40a6-996e-7e2c82f97c77. No queda trabajo pendiente del encargo211–220. Modelo numérico6229;40 flujos; seis protecciones de calibración; siete comprobaciones de sincronía y dos de movimiento/envolvente;44 suites/3286 pruebas/12 snapshots. Diez portadas y10/10 sin CDN. Login real102/12 confirmado. Las voces anteriores se conservaron; no se añadió narración nueva. No iniciar221 sin nuevo pedido.
+
+[Guía de los diez laboratorios](GUIA-LABS-211-220.md). Para retomar, leer este índice y la ficha del laboratorio antes de editar _fab-N.js o _fabricacion-*.js; no regenerar fuentes históricas sobre escenas mejoradas.
