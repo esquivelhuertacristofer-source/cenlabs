@@ -1,0 +1,20 @@
+import {THREE,P3,box,lathe,tube,mergeByMaterial} from './_insignia-auto.js';
+import {cylinder,ring,sphere,fasteners,rodMesh,setRod,bearing,motor} from './_mecanismos-escenas.js';
+export {THREE,P3,box,lathe,tube,mergeByMaterial,cylinder,ring,sphere,fasteners,rodMesh,setRod,bearing,motor};
+export const TAU=2*Math.PI,V=a=>new THREE.Vector3(...a);
+export function group(g,x=0,y=0,z=0){const q=new THREE.Group();q.position.set(x,y,z);g.add(q);return q;}
+export function mat(color,metalness=.5,roughness=.3){return new THREE.MeshStandardMaterial({color,metalness,roughness});}
+export function rod(g,m,a,b,r=.025){const q=rodMesh(g,r,m);setRod(q,a,b);return q;}
+export function disk(g,r,h,m,x=0,y=0,z=0){const q=cylinder(g,r,h,m,x,y,z);q.rotation.x=Math.PI/2;return q;}
+export function coil(g,m,r,h,n=12){const pts=Array.from({length:n*20+1},(_,i)=>{const u=i/(n*20),a=u*n*TAU;return V([r*Math.cos(a),h*u,r*Math.sin(a)]);});const q=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),n*24,.013,8,false),m);g.add(q);q.castShadow=true;return q;}
+export function foot(g,m,w=2.6,d=1.8){box(g,w,.12,d,m.dark,0,-.10,0);for(const x of [-w*.39,w*.39])for(const z of [-d*.35,d*.35]){cylinder(g,.09,.10,m.rubber,x,-.21,z);cylinder(g,.045,.08,m.steel,x,-.15,z);}for(let i=0;i<7;i++)box(g,w*.78,.004,.012,m.steel,0,-.037,(i-3)*d*.09);}
+export function column(g,m,x,h,z,w=.2,d=.25){box(g,w,h,d,m.paint,x,h/2,z);box(g,w+.13,.05,d+.13,m.aluminum,x,.015,z);}
+export function flange(g,m,r=.16,h=.08){lathe(g,[[0,0],[r*.75,0],[r,.025],[r,h-.015],[r*.90,h],[0,h]],m.steel);fasteners(g,r*.77,h+.005,m,8);}
+export function cable(g,m,a,b,r=.014){return tube(g,[a,[(a[0]+b[0])/2,Math.max(a[1],b[1])+.25,(a[2]+b[2])/2+.15],b],r,m);}
+export function panel(g,m,x=0,y=.1,z=.6){const q=group(g,x,y,z);box(q,.40,.14,.34,m.dark);box(q,.27,.012,.16,m.paint,0,.08,-.02);for(let i=0;i<3;i++)cylinder(q,.017,.015,m.orange,-.10+i*.10,.08,.11);return q;}
+export function rail(g,m,a,b){rod(g,m.steel,a,b,.025);for(const p of [a,b]){const q=group(g,...p);box(q,.12,.13,.12,m.paint);}}
+export function frameAxes(g,m,length=.20){for(const [dir,col]of [[[1,0,0],0xe79953],[[0,1,0],0x78cbd1],[[0,0,1],0xc4b7f1]]){const material=mat(col,.2,.4);rod(g,material,[0,0,0],dir.map(x=>x*length),.006);const tip=new THREE.Mesh(new THREE.ConeGeometry(.018,.06,12),material);tip.position.copy(V(dir).multiplyScalar(length));tip.quaternion.setFromUnitVectors(V([0,1,0]),V(dir));g.add(tip);}}
+export function shell(g,profile,m,start=1.6,arc=4.1){const q=group(g);lathe(q,profile,m,[0,0,0],{fase:start,arco:arc});const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d');ctx.fillStyle='#76878d';ctx.fillRect(0,0,64,64);ctx.strokeStyle='#68787f';ctx.lineWidth=1;for(let k=-64;k<128;k+=12){ctx.beginPath();ctx.moveTo(k,0);ctx.lineTo(k+64,64);ctx.stroke();}const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,3);const capMat=new THREE.MeshStandardMaterial({map:tex,color:0xb5c6cb,metalness:.65,roughness:.38,side:THREE.DoubleSide});const shape=new THREE.Shape(profile.map(p=>new THREE.Vector2(...p)));for(const a of [start,start+arc]){const cap=new THREE.Mesh(new THREE.ShapeGeometry(shape),capMat);cap.rotation.y=a-Math.PI/2;q.add(cap);}return q;}
+export function base(id,scene,m,S){const colors={211:0x288b90,212:0xc58e35,213:0xd2682e,214:0x4768ad,215:0x387f85,216:0x427b73,217:0x3f84a7,218:0x6786a3,219:0xae753e,220:0x248eaa};m.paint.color.setHex(colors[id]);const hero=group(scene),fixed=group(hero);hero.name=`equipo-${id}`;return {id,hero,fixed,m,S,detail:[],views:{assembly:hero},floorY:-.29,floorYs:{assembly:-.29,inspection:({211:0,212:.21,213:.28,215:0,216:.01,217:.04,218:.30,219:0,220:0})[id]}};}
+export function finish(v){mergeByMaterial(v.fixed);return v;}
+export function mergeRigid(g,keep=[]){const staticGroup=group(g);for(const q of [...g.children])if(q!==staticGroup&&!keep.includes(q))staticGroup.add(q);mergeByMaterial(staticGroup);}

@@ -8601,6 +8601,366 @@ Cuatro motores, hélices, banco con anillos, matriz de mezcla y fuente.",
     "titulo": "Banco de cuadricóptero: mezcla de motores",
     "videoUrl": "",
   },
+  "mecanica-211": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Calibración cámara–robot: correspondencias planares",
+      },
+    ],
+    "bienvenida": "Relaciona las medidas de una cámara con el marco de la herramienta y comprueba el error sobre varios puntos.
+OT-211 · Ajusta la transformación para obtener RMS ≤0,5 mm, error máximo ≤0,7 mm y reproyección equivalente ≤0,7 px.
+SCARA, cámara, patrón, correspondencias y visor de residuos.",
+    "codigo": "MEC-211",
+    "conceptos": [
+      {
+        "descripcion": "Relaciona las medidas de una cámara con el marco de la herramienta y comprueba el error sobre varios puntos.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta la transformación para obtener RMS ≤0,5 mm, error máximo ≤0,7 mm y reproyección equivalente ≤0,7 px.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el patrón y las correspondencias normalizadas.",
+      "Ajusta rotación y traslación comparando los seis residuos.",
+      "Adquiere un ciclo de poses y valida todos los criterios.",
+      "Ajusta la transformación para obtener RMS ≤0,5 mm, error máximo ≤0,7 mm y reproyección equivalente ≤0,7 px.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Calibración cámara–robot: correspondencias planares",
+    "videoUrl": "",
+  },
+  "mecanica-212": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Soldadura MIG robotizada: formación del cordón",
+      },
+    ],
+    "bienvenida": "Observa cómo el avance de la antorcha forma un cordón y equilibra energía y material por unidad de longitud.
+OT-212 · Prepara 100 mm de cordón con aporte 400–650 J/mm, sección depositada 10–15 mm² y duración ≤20 s.
+Robot cartesiano, antorcha MIG, hilo y registro de energía y depósito.",
+    "codigo": "MEC-212",
+    "conceptos": [
+      {
+        "descripcion": "Observa cómo el avance de la antorcha forma un cordón y equilibra energía y material por unidad de longitud.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Prepara 100 mm de cordón con aporte 400–650 J/mm, sección depositada 10–15 mm² y duración ≤20 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa la unión y el hilo alimentado a velocidad fija.",
+      "Ajusta corriente y avance comparando energía y sección.",
+      "Registra el recorrido y conserva el informe de la orden.",
+      "Prepara 100 mm de cordón con aporte 400–650 J/mm, sección depositada 10–15 mm² y duración ≤20 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Soldadura MIG robotizada: formación del cordón",
+    "videoUrl": "",
+  },
+  "mecanica-213": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Fabricación FDM: capas y límite de extrusión",
+      },
+    ],
+    "bienvenida": "Construye una pared por capas y comprueba si el extrusor puede entregar el material que pide la trayectoria.
+OT-213 · Imprime capas ≤0,24 mm, demanda ≤8 mm³/s, entrega ≥99 % y tiempo físico ≤220 s.
+Impresora cartesiana, extrusor, pared por capas y balance volumétrico.",
+    "codigo": "MEC-213",
+    "conceptos": [
+      {
+        "descripcion": "Construye una pared por capas y comprueba si el extrusor puede entregar el material que pide la trayectoria.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Imprime capas ≤0,24 mm, demanda ≤8 mm³/s, entrega ≥99 % y tiempo físico ≤220 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Relaciona ancho, altura y avance con el caudal pedido.",
+      "Comprueba la entrega real y la textura de las capas.",
+      "Registra una ventana de construcción y valida el tiempo físico completo.",
+      "Imprime capas ≤0,24 mm, demanda ≤8 mm³/s, entrega ≥99 % y tiempo físico ≤220 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Fabricación FDM: capas y límite de extrusión",
+    "videoUrl": "",
+  },
+  "mecanica-214": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Tomografía industrial: proyecciones y poros",
+      },
+    ],
+    "bienvenida": "Observa un fantoma por dentro y elige una adquisición que equilibre muestreo, ruido y exposición relativa.
+OT-214 · Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades.
+Gantry, fantoma, detector y reconstrucción por retroproyección filtrada.",
+    "codigo": "MEC-214",
+    "conceptos": [
+      {
+        "descripcion": "Observa un fantoma por dentro y elige una adquisición que equilibre muestreo, ruido y exposición relativa.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa las proyecciones del fantoma y sus cortes.",
+      "Ajusta vistas y conteo y compara la reconstrucción del instrumento.",
+      "Registra el barrido y valida muestreo, ruido y exposición.",
+      "Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Tomografía industrial: proyecciones y poros",
+    "videoUrl": "",
+  },
+  "mecanica-215": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Montaje de rodamiento: calentamiento por inducción",
+      },
+    ],
+    "bienvenida": "Calienta un rodamiento, observa su expansión y comprueba la holgura disponible cuando llega al eje.
+OT-215 · Consigue holgura de llegada ≥15 µm, temperatura máxima ≤110 °C y calentamiento ≤100 s.
+Calentador, pinza de traslado, rodamiento y eje con interferencia.",
+    "codigo": "MEC-215",
+    "conceptos": [
+      {
+        "descripcion": "Calienta un rodamiento, observa su expansión y comprueba la holgura disponible cuando llega al eje.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue holgura de llegada ≥15 µm, temperatura máxima ≤110 °C y calentamiento ≤100 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el diámetro interior y la interferencia fría.",
+      "Ajusta potencia y tiempo incluyendo el enfriamiento de traslado.",
+      "Registra calentamiento y llegada y verifica holgura y temperatura.",
+      "Consigue holgura de llegada ≥15 µm, temperatura máxima ≤110 °C y calentamiento ≤100 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Montaje de rodamiento: calentamiento por inducción",
+    "videoUrl": "",
+  },
+  "mecanica-216": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Inspección de engranajes: juego y contacto",
+      },
+    ],
+    "bienvenida": "Invierte el giro y relaciona el juego libre con la distribución de carga a lo ancho del diente.
+OT-216 · Ajusta juego 0,10–0,20 mm, contacto ≥90 % y carga lineal máxima ≤1,6 veces la media.
+Par de engranes, comparador de inversión y visor de contacto.",
+    "codigo": "MEC-216",
+    "conceptos": [
+      {
+        "descripcion": "Invierte el giro y relaciona el juego libre con la distribución de carga a lo ancho del diente.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta juego 0,10–0,20 mm, contacto ≥90 % y carga lineal máxima ≤1,6 veces la media.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Invierte el giro y observa el recorrido libre.",
+      "Ajusta entrecentros e inclinación y compara juego y carga.",
+      "Adquiere una inversión completa antes de validar el montaje.",
+      "Ajusta juego 0,10–0,20 mm, contacto ≥90 % y carga lineal máxima ≤1,6 veces la media.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Inspección de engranajes: juego y contacto",
+    "videoUrl": "",
+  },
+  "mecanica-217": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Impedancia de batería: ajuste de un circuito equivalente",
+      },
+    ],
+    "bienvenida": "Compara medidas complejas en frecuencia y ajusta un modelo eléctrico de una celda.
+OT-217 · Ajusta el espectro medido hasta obtener residuo complejo RMS ≤0,6 mΩ y coherencia de la constante dinámica.
+Celda virtual en corte, conexión Kelvin y analizador Nyquist/Bode.",
+    "codigo": "MEC-217",
+    "conceptos": [
+      {
+        "descripcion": "Compara medidas complejas en frecuencia y ajusta un modelo eléctrico de una celda.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Ajusta el espectro medido hasta obtener residuo complejo RMS ≤0,6 mΩ y coherencia de la constante dinámica.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa los datos del barrido y la conexión de cuatro terminales.",
+      "Ajusta el modelo contrastando partes real e imaginaria.",
+      "Registra la respuesta y valida el ajuste sin inferir salud absoluta.",
+      "Ajusta el espectro medido hasta obtener residuo complejo RMS ≤0,6 mΩ y coherencia de la constante dinámica.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Impedancia de batería: ajuste de un circuito equivalente",
+    "videoUrl": "",
+  },
+  "mecanica-218": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Diagnóstico CNC con ballbar",
+      },
+    ],
+    "bienvenida": "Recorre un círculo con una barra de medida y ajusta dos compensaciones geométricas observando el error radial.
+OT-218 · Obtén desviación circular ≤3 µm y error radial máximo ≤2 µm ajustando escala y escuadra.
+Centro CNC, barra extensible y registro de desviación circular.",
+    "codigo": "MEC-218",
+    "conceptos": [
+      {
+        "descripcion": "Recorre un círculo con una barra de medida y ajusta dos compensaciones geométricas observando el error radial.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén desviación circular ≤3 µm y error radial máximo ≤2 µm ajustando escala y escuadra.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa la barra y la trayectoria circular de referencia.",
+      "Ajusta las compensaciones comparando la firma radial.",
+      "Registra un recorrido y valida los dos límites.",
+      "Obtén desviación circular ≤3 µm y error radial máximo ≤2 µm ajustando escala y escuadra.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Diagnóstico CNC con ballbar",
+    "videoUrl": "",
+  },
+  "mecanica-219": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Cambiador de herramientas: secuencia por bloques",
+      },
+    ],
+    "bienvenida": "Programa el intercambio de dos herramientas y observa cómo las confirmaciones permiten cada movimiento.
+OT-219 · Verifica el programa de nueve bloques; usa cota ≥150 mm, velocidad ≤0,7 m/s, par ≤0,7 N·m y ciclo ≤8,5 s.
+Brazo doble, husillo, herramientas y editor de secuencia por bloques.",
+    "codigo": "MEC-219",
+    "conceptos": [
+      {
+        "descripcion": "Programa el intercambio de dos herramientas y observa cómo las confirmaciones permiten cada movimiento.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Verifica el programa de nueve bloques; usa cota ≥150 mm, velocidad ≤0,7 m/s, par ≤0,7 N·m y ciclo ≤8,5 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Abre Programa y comprueba las dependencias entre bloques.",
+      "Ajusta altura y tiempo del giro sin exceder velocidad o par.",
+      "Ensaya el intercambio y descarga también la secuencia ejecutada.",
+      "Verifica el programa de nueve bloques; usa cota ≥150 mm, velocidad ≤0,7 m/s, par ≤0,7 N·m y ciclo ≤8,5 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Cambiador de herramientas: secuencia por bloques",
+    "videoUrl": "",
+  },
   "mecanica-22": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -8659,6 +9019,46 @@ También vas a enfrentar un problema muy real de electrónica de potencia: un MO
     ],
     "subtitulo": "Electrónica analógica y de potencia · Ley cuadrática, dispersión de fábrica de Vth y dimensionamiento del driver",
     "titulo": "MOSFET de Canal N en Fuente Común: Regiones de Operación y Driver de Compuerta",
+    "videoUrl": "",
+  },
+  "mecanica-220": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Cavitación: aspiración de una bomba centrífuga",
+      },
+    ],
+    "bienvenida": "Observa el impulsor y ajusta la aspiración para mantener margen frente a la vaporización del líquido.
+OT-220 · Mantén margen NPSH ≥1 m, caudal ≥2,5 L/s, potencia ≤1200 W y una hipótesis compatible con líquido continuo.
+Depósito, línea de aspiración, bomba seccionada y balance NPSH.",
+    "codigo": "MEC-220",
+    "conceptos": [
+      {
+        "descripcion": "Observa el impulsor y ajusta la aspiración para mantener margen frente a la vaporización del líquido.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Mantén margen NPSH ≥1 m, caudal ≥2,5 L/s, potencia ≤1200 W y una hipótesis compatible con líquido continuo.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el ojo del impulsor y el recorrido del líquido.",
+      "Relaciona nivel y caudal con las pérdidas de aspiración.",
+      "Registra el funcionamiento y valida margen, entrega y potencia.",
+      "Mantén margen NPSH ≥1 m, caudal ≥2,5 L/s, potencia ≤1200 W y una hipótesis compatible con líquido continuo.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Cavitación: aspiración de una bomba centrífuga",
     "videoUrl": "",
   },
   "mecanica-23": {
@@ -23745,7 +24145,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-209": [],
   "mecanica-21": [],
   "mecanica-210": [],
+  "mecanica-211": [],
+  "mecanica-212": [],
+  "mecanica-213": [],
+  "mecanica-214": [],
+  "mecanica-215": [],
+  "mecanica-216": [],
+  "mecanica-217": [],
+  "mecanica-218": [],
+  "mecanica-219": [],
   "mecanica-22": [],
+  "mecanica-220": [],
   "mecanica-23": [],
   "mecanica-24": [],
   "mecanica-25": [],
@@ -24190,7 +24600,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-209",
   "mecanica-21",
   "mecanica-210",
+  "mecanica-211",
+  "mecanica-212",
+  "mecanica-213",
+  "mecanica-214",
+  "mecanica-215",
+  "mecanica-216",
+  "mecanica-217",
+  "mecanica-218",
+  "mecanica-219",
   "mecanica-22",
+  "mecanica-220",
   "mecanica-23",
   "mecanica-24",
   "mecanica-25",

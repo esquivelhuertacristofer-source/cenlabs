@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-214",
+  "titulo": "Tomografía industrial: proyecciones y poros",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Observa un fantoma por dentro y elige una adquisición que equilibre muestreo, ruido y exposición relativa.\nOT-214 · Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades.\nGantry, fantoma, detector y reconstrucción por retroproyección filtrada.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Observa un fantoma por dentro y elige una adquisición que equilibre muestreo, ruido y exposición relativa."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades."
+    }
+  ],
+  "mision": [
+    "Observa las proyecciones del fantoma y sus cortes.",
+    "Ajusta vistas y conteo y compara la reconstrucción del instrumento.",
+    "Registra el barrido y valida muestreo, ruido y exposición.",
+    "Obtén paso periférico ≤0,4 mm, ruido relativo central ≤6 % y exposición relativa ≤1,5 M unidades."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Tomografía industrial: proyecciones y poros"
+    }
+  ]
+};
+export default briefing;

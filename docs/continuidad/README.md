@@ -1,6 +1,28 @@
 # Continuidad del proyecto CEN Labs
 
-## Encargo vigente: continuar hasta210
+## Estado vigente ·26-10-2026 · hasta220
+211–220 terminados localmente;6229 comprobaciones numéricas,40 flujos en cuatro tamaños, seis protecciones de calibración, siete comprobaciones de sincronía y dos comprobaciones de movimiento/envolvente.44 suites,3286 pruebas,12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin red. Falta publicar y verificar login real:102 destacadas, diez iframes nuevos más201/210 de regresión.
+
+Último código publicado confirmado todavía: a7b219b (hasta210), Cloudflare f9d34540-3d08-4ca3-a491-a870303f70c3. No confundir implementación con publicación.
+
+Fuentes nuevas: _fabricacion-*.js y diez escenas _fab-211...220.js. No se cambió el motor común de las tandas anteriores. Cada ficha detalla límites y pruebas. Conservar voces al desplegar desde cen-deploy. El nuevo pedido superó los antiguos límites200/210; detenerse en220 y no iniciar221 sin nuevo encargo.
+
+| ID | Tema | Estado |
+|---|---|---|
+| 211 | [Calibración cámara–robot: correspondencias planares](mecanica-211.md) | Terminado local; publicación pendiente |
+| 212 | [Soldadura MIG robotizada: formación del cordón](mecanica-212.md) | Terminado local; publicación pendiente |
+| 213 | [Fabricación FDM: capas y límite de extrusión](mecanica-213.md) | Terminado local; publicación pendiente |
+| 214 | [Tomografía industrial: proyecciones y poros](mecanica-214.md) | Terminado local; publicación pendiente |
+| 215 | [Montaje de rodamiento: calentamiento por inducción](mecanica-215.md) | Terminado local; publicación pendiente |
+| 216 | [Inspección de engranajes: juego y contacto](mecanica-216.md) | Terminado local; publicación pendiente |
+| 217 | [Impedancia de batería: ajuste de un circuito equivalente](mecanica-217.md) | Terminado local; publicación pendiente |
+| 218 | [Diagnóstico CNC con ballbar](mecanica-218.md) | Terminado local; publicación pendiente |
+| 219 | [Cambiador de herramientas: secuencia por bloques](mecanica-219.md) | Terminado local; publicación pendiente |
+| 220 | [Cavitación: aspiración de una bomba centrífuga](mecanica-220.md) | Terminado local; publicación pendiente |
+
+## Historial anterior
+
+## Histórico confirmado: hasta210
 El usuario autorizó expresamente201–210 el25-10-2026. Diez temas nuevos profesionales y visuales, sin agentes; documentar cada cierre. 201–210 PUBLICADOS y verificados: 7127 comprobaciones, 40 flujos, 10 revisiones visuales finales, dos protecciones de calibración, ocho regresiones del reloj y dos del indicio MCSA. Diez portadas y 10/10 sin red. 44 suites/3216 pruebas/12 snapshots; TypeScript y ESLint correctos. Código a7b219b2e3d58897bde264d6d6482ba96a5ebe0f; Cloudflare f9d34540-3d08-4ca3-a491-a870303f70c3; deploy0, login92 destacadas, doce iframes exactos, portadas200 y consola limpia confirmados. El último laboratorio publicado confirmado es210.
 
 ## Estado previo confirmado25-10-2026
