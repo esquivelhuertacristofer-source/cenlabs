@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-229",
+  "titulo": "Bobinado de banda: tensión y rodillo bailarín",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Observa dos bobinas cambiar de diámetro mientras un rodillo con peso fija la geometría de la banda.\nOT-229 · Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm.\nDos bobinas, banda continua, bailarín por gravedad y balance de par.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Observa dos bobinas cambiar de diámetro mientras un rodillo con peso fija la geometría de la banda."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Bobinado de banda: tensión y rodillo bailarín"
+    }
+  ]
+};
+export default briefing;

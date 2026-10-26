@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-230",
+  "titulo": "Inyección de plástico: llenado, cierre y enfriamiento",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Mira el tornillo dosificador y el plástico avanzar por una cavidad con taladros hasta formar una pieza.\nOT-230 · Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s.\nInyectora seccionada, molde móvil, circuito frío y pieza con taladros.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Mira el tornillo dosificador y el plástico avanzar por una cavidad con taladros hasta formar una pieza."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Inyección de plástico: llenado, cierre y enfriamiento"
+    }
+  ]
+};
+export default briefing;

@@ -252,6 +252,16 @@ import mecanica_217 from './mecanica-217/catalogo';
 import mecanica_218 from './mecanica-218/catalogo';
 import mecanica_219 from './mecanica-219/catalogo';
 import mecanica_220 from './mecanica-220/catalogo';
+import mecanica_221 from './mecanica-221/catalogo';
+import mecanica_222 from './mecanica-222/catalogo';
+import mecanica_223 from './mecanica-223/catalogo';
+import mecanica_224 from './mecanica-224/catalogo';
+import mecanica_225 from './mecanica-225/catalogo';
+import mecanica_226 from './mecanica-226/catalogo';
+import mecanica_227 from './mecanica-227/catalogo';
+import mecanica_228 from './mecanica-228/catalogo';
+import mecanica_229 from './mecanica-229/catalogo';
+import mecanica_230 from './mecanica-230/catalogo';
 import quimica_1 from './quimica-1/catalogo';
 import quimica_2 from './quimica-2/catalogo';
 import quimica_3 from './quimica-3/catalogo';
@@ -514,6 +524,16 @@ export const CATALOGO: Record<string, CatalogoEntry> = {
   'mecanica-218': mecanica_218,
   'mecanica-219': mecanica_219,
   'mecanica-220': mecanica_220,
+  'mecanica-221': mecanica_221,
+  'mecanica-222': mecanica_222,
+  'mecanica-223': mecanica_223,
+  'mecanica-224': mecanica_224,
+  'mecanica-225': mecanica_225,
+  'mecanica-226': mecanica_226,
+  'mecanica-227': mecanica_227,
+  'mecanica-228': mecanica_228,
+  'mecanica-229': mecanica_229,
+  'mecanica-230': mecanica_230,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

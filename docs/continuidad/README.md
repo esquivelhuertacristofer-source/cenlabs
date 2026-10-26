@@ -1,5 +1,27 @@
 # Continuidad del proyecto CEN Labs
 
+## Estado vigente ·26-10-2026 · hasta230
+221–230 terminados y verificados localmente.40634 comprobaciones numéricas;40 flujos en cuatro tamaños, cuatro protecciones de calibración, diez comparaciones de sincronía y cuatro pruebas geométricas/interbloqueos.44 suites/3356 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Falta publicar y verificar login real:112 destacadas y12 iframes (221–230 más211/220).
+
+Último código publicado confirmado: c5d5e93 (hasta220); Cloudflare2462ce45-d045-40a6-996e-7e2c82f97c77. No confundir implementación con publicación. No iniciar231 sin nuevo pedido.
+
+Fuentes nuevas: _proceso-*.js y _proc-221...230.js; reutiliza utilidades geométricas existentes. Motor común sin cambios. Preservar voces al desplegar desde cen-deploy.
+
+| ID | Tema | Estado |
+|---|---|---|
+| 221 | [Ultrasonido phased array: enfoque electrónico](mecanica-221.md) | Terminado local; publicación pendiente |
+| 222 | [Sensor de fuerza y par: calibración de seis ejes](mecanica-222.md) | Terminado local; publicación pendiente |
+| 223 | [Cadena de rodillos: efecto poligonal](mecanica-223.md) | Terminado local; publicación pendiente |
+| 224 | [Caudalímetro Venturi: presión y continuidad](mecanica-224.md) | Terminado local; publicación pendiente |
+| 225 | [Robot de orugas: giro y esfuerzo de tracción](mecanica-225.md) | Terminado local; publicación pendiente |
+| 226 | [Soplador Roots: lóbulos y compresión externa](mecanica-226.md) | Terminado local; publicación pendiente |
+| 227 | [Interferómetro láser: ambiente y error de coseno](mecanica-227.md) | Terminado local; publicación pendiente |
+| 228 | [Rugosímetro: perfil, filtro y muestreo](mecanica-228.md) | Terminado local; publicación pendiente |
+| 229 | [Bobinado de banda: tensión y rodillo bailarín](mecanica-229.md) | Terminado local; publicación pendiente |
+| 230 | [Inyección de plástico: llenado, cierre y enfriamiento](mecanica-230.md) | Terminado local; publicación pendiente |
+
+## Historial anterior
+
 ## Estado vigente ·26-10-2026 · hasta220
 211–220 PUBLICADOS y verificados;6229 comprobaciones numéricas,40 flujos en cuatro tamaños, seis protecciones de calibración, siete comprobaciones de sincronía y dos comprobaciones de movimiento/envolvente.44 suites,3286 pruebas,12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin red. Deploy y login real confirmados:102 destacadas, diez iframes nuevos más201/210 de regresión, portadas200 y consola limpia.
 

@@ -9061,6 +9061,366 @@ Depósito, línea de aspiración, bomba seccionada y balance NPSH.",
     "titulo": "Cavitación: aspiración de una bomba centrífuga",
     "videoUrl": "",
   },
+  "mecanica-221": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Ultrasonido phased array: enfoque electrónico",
+      },
+    ],
+    "bienvenida": "Dieciséis elementos emiten con retardos distintos y concentran el frente acústico dentro de una pieza.
+OT-221 · Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %.
+Sonda lineal, bloque patrón y visor de leyes focales.",
+    "codigo": "MEC-221",
+    "conceptos": [
+      {
+        "descripcion": "Dieciséis elementos emiten con retardos distintos y concentran el frente acústico dentro de una pieza.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Ultrasonido phased array: enfoque electrónico",
+    "videoUrl": "",
+  },
+  "mecanica-222": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Sensor de fuerza y par: calibración de seis ejes",
+      },
+    ],
+    "bienvenida": "Abre el sensor, observa sus flexuras y corrige el acoplamiento entre seis canales.
+OT-222 · Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %.
+Sensor seccionado, patrones de fuerza/par e inversa matricial.",
+    "codigo": "MEC-222",
+    "conceptos": [
+      {
+        "descripcion": "Abre el sensor, observa sus flexuras y corrige el acoplamiento entre seis canales.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Sensor de fuerza y par: calibración de seis ejes",
+    "videoUrl": "",
+  },
+  "mecanica-223": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Cadena de rodillos: efecto poligonal",
+      },
+    ],
+    "bienvenida": "Una cadena real avanza eslabón a eslabón sobre dos ruedas dentadas y su velocidad oscila.
+OT-223 · Transporta a 0,8–1,2 m/s, ondulación ≤1 % y carga en apoyos ≤300 N.
+Cadena de 80 pasos, dos ruedas y balance de tracción.",
+    "codigo": "MEC-223",
+    "conceptos": [
+      {
+        "descripcion": "Una cadena real avanza eslabón a eslabón sobre dos ruedas dentadas y su velocidad oscila.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Transporta a 0,8–1,2 m/s, ondulación ≤1 % y carga en apoyos ≤300 N.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Transporta a 0,8–1,2 m/s, ondulación ≤1 % y carga en apoyos ≤300 N.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Cadena de rodillos: efecto poligonal",
+    "videoUrl": "",
+  },
+  "mecanica-224": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Caudalímetro Venturi: presión y continuidad",
+      },
+    ],
+    "bienvenida": "Sigue el agua a través de una garganta y relaciona su aceleración con la presión diferencial.
+OT-224 · Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000.
+Venturi seccionado, tomas de impulso y transmisor diferencial.",
+    "codigo": "MEC-224",
+    "conceptos": [
+      {
+        "descripcion": "Sigue el agua a través de una garganta y relaciona su aceleración con la presión diferencial.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Caudalímetro Venturi: presión y continuidad",
+    "videoUrl": "",
+  },
+  "mecanica-225": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot de orugas: giro y esfuerzo de tracción",
+      },
+    ],
+    "bienvenida": "Controla dos orugas independientes y observa cómo su diferencia de velocidad hace girar el robot.
+OT-225 · Avanza ≥0,5 m/s en un radio de 1–1,6 m, con par ≤20 N·m y potencia ≤250 W.
+Robot de orugas, transmisión independiente y trayectoria del centro.",
+    "codigo": "MEC-225",
+    "conceptos": [
+      {
+        "descripcion": "Controla dos orugas independientes y observa cómo su diferencia de velocidad hace girar el robot.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Avanza ≥0,5 m/s en un radio de 1–1,6 m, con par ≤20 N·m y potencia ≤250 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Avanza ≥0,5 m/s en un radio de 1–1,6 m, con par ≤20 N·m y potencia ≤250 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot de orugas: giro y esfuerzo de tracción",
+    "videoUrl": "",
+  },
+  "mecanica-226": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Soplador Roots: lóbulos y compresión externa",
+      },
+    ],
+    "bienvenida": "Dos rotores transportan bolsas de aire hacia una salida presurizada, sin comprimirlas internamente.
+OT-226 · Entrega ≥12 L/s con potencia ≤650 W, salida ≤50 °C y régimen ≤2100 rpm.
+Soplador abierto, rotores sincronizados y balance de aire.",
+    "codigo": "MEC-226",
+    "conceptos": [
+      {
+        "descripcion": "Dos rotores transportan bolsas de aire hacia una salida presurizada, sin comprimirlas internamente.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Entrega ≥12 L/s con potencia ≤650 W, salida ≤50 °C y régimen ≤2100 rpm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Entrega ≥12 L/s con potencia ≤650 W, salida ≤50 °C y régimen ≤2100 rpm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Soplador Roots: lóbulos y compresión externa",
+    "videoUrl": "",
+  },
+  "mecanica-227": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Interferómetro láser: ambiente y error de coseno",
+      },
+    ],
+    "bienvenida": "Un reflector móvil cambia el camino óptico; compensa el aire y alinea el haz para medir desplazamiento.
+OT-227 · Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia.
+Banco óptico, reflector móvil y referencias de longitud.",
+    "codigo": "MEC-227",
+    "conceptos": [
+      {
+        "descripcion": "Un reflector móvil cambia el camino óptico; compensa el aire y alinea el haz para medir desplazamiento.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Interferómetro láser: ambiente y error de coseno",
+    "videoUrl": "",
+  },
+  "mecanica-228": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Rugosímetro: perfil, filtro y muestreo",
+      },
+    ],
+    "bienvenida": "Una punta recorre una superficie mecanizada y separa ondulación de rugosidad mediante un filtro.
+OT-228 · Separa ondulación con fuga ≤0,1 µm y conserva ≥95 % de la rugosidad; toma ≥20 muestras por onda corta en ≤20 s.
+Rugosímetro, perfil mecanizado y separación gaussiana.",
+    "codigo": "MEC-228",
+    "conceptos": [
+      {
+        "descripcion": "Una punta recorre una superficie mecanizada y separa ondulación de rugosidad mediante un filtro.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Separa ondulación con fuga ≤0,1 µm y conserva ≥95 % de la rugosidad; toma ≥20 muestras por onda corta en ≤20 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Separa ondulación con fuga ≤0,1 µm y conserva ≥95 % de la rugosidad; toma ≥20 muestras por onda corta en ≤20 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Rugosímetro: perfil, filtro y muestreo",
+    "videoUrl": "",
+  },
+  "mecanica-229": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Bobinado de banda: tensión y rodillo bailarín",
+      },
+    ],
+    "bienvenida": "Observa dos bobinas cambiar de diámetro mientras un rodillo con peso fija la geometría de la banda.
+OT-229 · Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm.
+Dos bobinas, banda continua, bailarín por gravedad y balance de par.",
+    "codigo": "MEC-229",
+    "conceptos": [
+      {
+        "descripcion": "Observa dos bobinas cambiar de diámetro mientras un rodillo con peso fija la geometría de la banda.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Produce ≥0,5 m/s con tensión ≥12 N, esfuerzo ≤3,5 MPa, par ≤2,5 N·m, potencia ≤30 W y descenso del bailarín 50–180 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Bobinado de banda: tensión y rodillo bailarín",
+    "videoUrl": "",
+  },
   "mecanica-23": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -9119,6 +9479,46 @@ En esta práctica vas a repartir la disipación total entre esos dos mecanismos,
     ],
     "subtitulo": "Electrónica de potencia · Pcond=D·I²·RDS(on), Psw=½·V·I·fsw·(tr+tf) y el cruce entre ambas",
     "titulo": "Pérdidas de un MOSFET de Potencia en PWM: Conducción, Conmutación y Frecuencia de Cruce",
+    "videoUrl": "",
+  },
+  "mecanica-230": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Inyección de plástico: llenado, cierre y enfriamiento",
+      },
+    ],
+    "bienvenida": "Mira el tornillo dosificador y el plástico avanzar por una cavidad con taladros hasta formar una pieza.
+OT-230 · Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s.
+Inyectora seccionada, molde móvil, circuito frío y pieza con taladros.",
+    "codigo": "MEC-230",
+    "conceptos": [
+      {
+        "descripcion": "Mira el tornillo dosificador y el plástico avanzar por una cavidad con taladros hasta formar una pieza.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Llena en ≤4 s sin superar 400 kN de apertura ni1600 W; expulsa a ≤70 °C y completa el ciclo en ≤28 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Inyección de plástico: llenado, cierre y enfriamiento",
     "videoUrl": "",
   },
   "mecanica-24": {
@@ -24156,7 +24556,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-219": [],
   "mecanica-22": [],
   "mecanica-220": [],
+  "mecanica-221": [],
+  "mecanica-222": [],
+  "mecanica-223": [],
+  "mecanica-224": [],
+  "mecanica-225": [],
+  "mecanica-226": [],
+  "mecanica-227": [],
+  "mecanica-228": [],
+  "mecanica-229": [],
   "mecanica-23": [],
+  "mecanica-230": [],
   "mecanica-24": [],
   "mecanica-25": [],
   "mecanica-26": [],
@@ -24611,7 +25021,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-219",
   "mecanica-22",
   "mecanica-220",
+  "mecanica-221",
+  "mecanica-222",
+  "mecanica-223",
+  "mecanica-224",
+  "mecanica-225",
+  "mecanica-226",
+  "mecanica-227",
+  "mecanica-228",
+  "mecanica-229",
   "mecanica-23",
+  "mecanica-230",
   "mecanica-24",
   "mecanica-25",
   "mecanica-26",

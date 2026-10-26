@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-224",
+  "titulo": "Caudalímetro Venturi: presión y continuidad",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Sigue el agua a través de una garganta y relaciona su aceleración con la presión diferencial.\nOT-224 · Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000.\nVenturi seccionado, tomas de impulso y transmisor diferencial.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Sigue el agua a través de una garganta y relaciona su aceleración con la presión diferencial."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Entrega ≥3 L/s con diferencial 5–18 kPa, pérdida ≤2 kPa, presión absoluta ≥40 kPa y Re≥40000."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Caudalímetro Venturi: presión y continuidad"
+    }
+  ]
+};
+export default briefing;

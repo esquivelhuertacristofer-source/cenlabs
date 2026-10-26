@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-221",
+  "titulo": "Ultrasonido phased array: enfoque electrónico",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Dieciséis elementos emiten con retardos distintos y concentran el frente acústico dentro de una pieza.\nOT-221 · Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %.\nSonda lineal, bloque patrón y visor de leyes focales.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Dieciséis elementos emiten con retardos distintos y concentran el frente acústico dentro de una pieza."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Enfoca el reflector patrón (x=18 mm, z=40 mm) con error ≤0,8 mm y suma coherente ≥90 %."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Ultrasonido phased array: enfoque electrónico"
+    }
+  ]
+};
+export default briefing;

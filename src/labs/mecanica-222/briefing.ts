@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-222",
+  "titulo": "Sensor de fuerza y par: calibración de seis ejes",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Abre el sensor, observa sus flexuras y corrige el acoplamiento entre seis canales.\nOT-222 · Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %.\nSensor seccionado, patrones de fuerza/par e inversa matricial.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Abre el sensor, observa sus flexuras y corrige el acoplamiento entre seis canales."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Calibra doce cargas patrón: RMS normalizado ≤0,3 % y error máximo ≤0,5 %."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Sensor de fuerza y par: calibración de seis ejes"
+    }
+  ]
+};
+export default briefing;

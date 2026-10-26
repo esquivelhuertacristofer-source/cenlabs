@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-227",
+  "titulo": "Interferómetro láser: ambiente y error de coseno",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un reflector móvil cambia el camino óptico; compensa el aire y alinea el haz para medir desplazamiento.\nOT-227 · Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia.\nBanco óptico, reflector móvil y referencias de longitud.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Un reflector móvil cambia el camino óptico; compensa el aire y alinea el haz para medir desplazamiento."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Obtén error ≤0,3 µm en patrones 50/100/150 mm, desalineación ≤0,1° y compensación ambiental dentro de 1 °C de la referencia."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Interferómetro láser: ambiente y error de coseno"
+    }
+  ]
+};
+export default briefing;
