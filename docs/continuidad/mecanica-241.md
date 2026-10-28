@@ -1,6 +1,6 @@
 # mecanica-241 · Robot de centro remoto: orientar sin desplazar el pivote
 
-Estado al28-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al28-10-2026: PUBLICADO y verificado con login real.
 
 ## Orden y competencia profesional
 OT-241 · Sigue el anillo patrón con error ≤3 mm, inserción ≥100 mm y par gravitatorio ≤2,5 N·m.
@@ -43,4 +43,4 @@ Guías circulares, carro, pedestal y herramienta con punta coincidente con el pu
 La prosa inicial queda en47 palabras como máximo. Los instrumentos están en DOM y los contratos cerrados; la escena muestra el fenómeno desde la entrada. Se corrigieron ocultaciones y apoyos antes del cierre. No se afirma eficacia educativa medida sin evaluación con docentes y estudiantes.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:240.
+Código 0bb42a6f3eed2bb571f3e147198427dd7a390b0b empujado a main. Deploy exit0; Cloudflare e5306733-c84e-4c5d-953c-39ff27b3a0cc. Login real:132 destacadas,12 iframes exactos (241–250 más236/240), portadas HTTP200, geometría sana y consola limpia. Comprobadas además la fase magnética236, el volumen de chapa240 y las articulaciones del hexápodo250 en producción. Último laboratorio publicado:250. Los commits posteriores de documentación no cambian el código publicado.

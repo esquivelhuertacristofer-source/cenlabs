@@ -1,6 +1,6 @@
 # mecanica-245 · Fricción-agitación: unir sin fundir
 
-Estado al28-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al28-10-2026: PUBLICADO y verificado con login real.
 
 ## Orden y competencia profesional
 OT-245 · Mantén500–800 J/mm, temperatura equivalente350–500 °C y potencia ≤1100 W.
@@ -43,4 +43,4 @@ Pórtico, husillo enlazado al carro, hombro y pin sobre dos placas con mordazas.
 La prosa inicial queda en47 palabras como máximo. Los instrumentos están en DOM y los contratos cerrados; la escena muestra el fenómeno desde la entrada. Se corrigieron ocultaciones y apoyos antes del cierre. No se afirma eficacia educativa medida sin evaluación con docentes y estudiantes.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:240.
+Código 0bb42a6f3eed2bb571f3e147198427dd7a390b0b empujado a main. Deploy exit0; Cloudflare e5306733-c84e-4c5d-953c-39ff27b3a0cc. Login real:132 destacadas,12 iframes exactos (241–250 más236/240), portadas HTTP200, geometría sana y consola limpia. Comprobadas además la fase magnética236, el volumen de chapa240 y las articulaciones del hexápodo250 en producción. Último laboratorio publicado:250. Los commits posteriores de documentación no cambian el código publicado.
