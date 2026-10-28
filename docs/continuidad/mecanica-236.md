@@ -1,6 +1,6 @@
 # mecanica-236 · Engranaje magnético: transmisión sin contacto
 
-Estado al28-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+Estado al28-10-2026: PUBLICADO y verificado con login real.
 
 ## Competencia y orden
 Dos coronas de imanes y un modulador fijo transmiten par con velocidades opuestas.
@@ -44,4 +44,4 @@ Rotores coaxiales de8 y22 imanes alternos, modulador fijo de15 polos, retorno de
 Como máximo50 palabras iniciales, datos en DOM y contrato en paneles cerrados. Equipo visible y fenómeno activo desde la entrada; materiales PBR con entorno e iluminación de estudio. No se afirma eficacia educativa medida sin una prueba con docentes y estudiantes.
 
 ## Publicación
-Código, push, deploy y login real pendientes. Último publicado confirmado:230.
+Código 77215fec415c24b8bf058342d9d32e64eb25240d empujado a main. Deploy exit0; Cloudflare 5df7b048-a686-46a2-9567-4b9ae5e83d65. Login real:122 destacadas, doce iframes exactos (231–240 más221/230), portadas HTTP200, geometría sana y consola limpia. También se comprobó el desfase de los rotores magnéticos en producción. Último laboratorio publicado:240. Los commits posteriores de documentación no cambian el código publicado.

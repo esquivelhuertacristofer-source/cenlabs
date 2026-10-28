@@ -1,24 +1,24 @@
 # Continuidad del proyecto CEN Labs
 
 ## Estado vigente ·28-10-2026 · hasta240
-231–240 terminados y verificados localmente.9513 comprobaciones numéricas;40 flujos en cuatro tamaños, veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas.44 suites/3426 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Falta publicar y verificar login real:122 destacadas y12 iframes (231–240 más221/230).
+231–240 PUBLICADOS y verificados.9513 comprobaciones numéricas;40 flujos en cuatro tamaños, veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas.44 suites/3426 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Deploy y login real confirmados:122 destacadas,12 iframes (231–240 más221/230), portadas200 y consola limpia.
 
-Último código publicado confirmado: aae1fdb (hasta230); Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. No confundir implementación con publicación. Nuevo encargo autorizado: continuar hasta250.
+Último código publicado: 77215fec415c24b8bf058342d9d32e64eb25240d; Cloudflare 5df7b048-a686-46a2-9567-4b9ae5e83d65; deploy exit0. Encargo hasta240 cumplido. Nuevo encargo autorizado: continuar hasta250.
 
 Fuentes nuevas: _maquinas-*.js y _maq-231...240.js; reutiliza utilidades geométricas existentes. Motor común sin cambios. Preservar voces al desplegar desde cen-deploy.
 
 | ID | Tema | Estado |
 |---|---|---|
-| 231 | [Robot suspendido: cables, tensiones y cabrestantes](mecanica-231.md) | Terminado local; publicación pendiente |
-| 232 | [Partículas magnéticas: orientación del campo](mecanica-232.md) | Terminado local; publicación pendiente |
-| 233 | [Electroerosión por hilo: energía y avance](mecanica-233.md) | Terminado local; publicación pendiente |
-| 234 | [Soldadura ultrasónica: sonotrodo y energía](mecanica-234.md) | Terminado local; publicación pendiente |
-| 235 | [Motor neumático de paletas: par y consumo](mecanica-235.md) | Terminado local; publicación pendiente |
-| 236 | [Engranaje magnético: transmisión sin contacto](mecanica-236.md) | Terminado local; publicación pendiente |
-| 237 | [Regulador centrífugo: realimentación mecánica](mecanica-237.md) | Terminado local; publicación pendiente |
-| 238 | [Cojinete aerostático: película y restrictor](mecanica-238.md) | Terminado local; publicación pendiente |
-| 239 | [Robot flexible: curvatura y tendones](mecanica-239.md) | Terminado local; publicación pendiente |
-| 240 | [Plegado de chapa: fuerza y recuperación elástica](mecanica-240.md) | Terminado local; publicación pendiente |
+| 231 | [Robot suspendido: cables, tensiones y cabrestantes](mecanica-231.md) | Publicado y verificado |
+| 232 | [Partículas magnéticas: orientación del campo](mecanica-232.md) | Publicado y verificado |
+| 233 | [Electroerosión por hilo: energía y avance](mecanica-233.md) | Publicado y verificado |
+| 234 | [Soldadura ultrasónica: sonotrodo y energía](mecanica-234.md) | Publicado y verificado |
+| 235 | [Motor neumático de paletas: par y consumo](mecanica-235.md) | Publicado y verificado |
+| 236 | [Engranaje magnético: transmisión sin contacto](mecanica-236.md) | Publicado y verificado |
+| 237 | [Regulador centrífugo: realimentación mecánica](mecanica-237.md) | Publicado y verificado |
+| 238 | [Cojinete aerostático: película y restrictor](mecanica-238.md) | Publicado y verificado |
+| 239 | [Robot flexible: curvatura y tendones](mecanica-239.md) | Publicado y verificado |
+| 240 | [Plegado de chapa: fuerza y recuperación elástica](mecanica-240.md) | Publicado y verificado |
 
 ## Historial anterior
 
@@ -421,3 +421,28 @@ La corrección final del tornillo230 añade cuatro recorridos completos repetido
 Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35; Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. 221–230 publicados y comprobados.40634 comprobaciones,40 flujos, cuatro protecciones de calibración con descarga de datos, diez comparaciones de sincronía y cuatro pruebas de geometría/encuadre/interbloqueo;44 suites/3356 pruebas/12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN;112 destacadas y12 iframes con login real. Se preservaron las voces anteriores; no se añadió narración nueva.
 
 [Guía de los diez laboratorios](GUIA-LABS-221-230.md). Retomar leyendo este índice y la ficha individual. No ejecutar los generadores históricos sobre escenas refinadas.
+
+- Implementación241: escena propia y contrato; pendiente QA.
+
+- Implementación242: escena propia y contrato; pendiente QA.
+
+- Implementación243: escena propia y contrato; pendiente QA.
+
+- Implementación244: escena propia y contrato; pendiente QA.
+
+- Implementación245: escena propia y contrato; pendiente QA.
+
+- Implementación246: escena propia y contrato; pendiente QA.
+
+- Implementación247: escena propia y contrato; pendiente QA.
+
+- Implementación248: escena propia y contrato; pendiente QA.
+
+- Implementación249: escena propia y contrato; pendiente QA.
+
+- Implementación250: escena propia y contrato; pendiente QA.
+
+## Cierre de publicación ·28-10-2026
+Código 77215fec415c24b8bf058342d9d32e64eb25240d; Cloudflare 5df7b048-a686-46a2-9567-4b9ae5e83d65. 231–240 publicados y comprobados.9513 comprobaciones numéricas;40 flujos; veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas;44 suites/3426 pruebas/12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin CDN. Login real:122 destacadas,12 iframes, portadas200, desfase magnético correcto y consola limpia. Se preservaron las voces anteriores; no se añadió narración nueva.
+
+[Guía de los diez laboratorios](GUIA-LABS-231-240.md). Retomar leyendo este índice y cada ficha. No ejecutar generadores históricos sobre escenas refinadas.
