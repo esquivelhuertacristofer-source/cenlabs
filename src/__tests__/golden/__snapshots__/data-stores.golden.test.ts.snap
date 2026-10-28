@@ -9981,6 +9981,366 @@ Plegadora abierta, punzón, matriz y chapa con recuperación elástica.",
     "titulo": "Plegado de chapa: fuerza y recuperación elástica",
     "videoUrl": "",
   },
+  "mecanica-241": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot de centro remoto: orientar sin desplazar el pivote",
+      },
+    ],
+    "bienvenida": "Una herramienta atraviesa un centro fijo mientras dos arcos concéntricos cambian su orientación.
+OT-241 · Sigue el anillo patrón con error ≤3 mm, inserción ≥100 mm y par gravitatorio ≤2,5 N·m.
+Robot de guías circulares, pivote fijo y comparador de trayectoria.",
+    "codigo": "MEC-241",
+    "conceptos": [
+      {
+        "descripcion": "Una herramienta atraviesa un centro fijo mientras dos arcos concéntricos cambian su orientación.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Sigue el anillo patrón con error ≤3 mm, inserción ≥100 mm y par gravitatorio ≤2,5 N·m.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Sigue el anillo patrón con error ≤3 mm, inserción ≥100 mm y par gravitatorio ≤2,5 N·m.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot de centro remoto: orientar sin desplazar el pivote",
+    "videoUrl": "",
+  },
+  "mecanica-242": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot por impedancia: tocar sin golpear",
+      },
+    ],
+    "bienvenida": "Un brazo acerca una herramienta a un palpador elástico y registra la fuerza de contacto.
+OT-242 · Obtén fuerza final14–18 N, pico ≤22 N y establecimiento a2 % ≤1 s.
+Brazo articulado, palpador elástico y adquisición de fuerza.",
+    "codigo": "MEC-242",
+    "conceptos": [
+      {
+        "descripcion": "Un brazo acerca una herramienta a un palpador elástico y registra la fuerza de contacto.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén fuerza final14–18 N, pico ≤22 N y establecimiento a2 % ≤1 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén fuerza final14–18 N, pico ≤22 N y establecimiento a2 % ≤1 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot por impedancia: tocar sin golpear",
+    "videoUrl": "",
+  },
+  "mecanica-243": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Compresor scroll: orbitar para comprimir",
+      },
+    ],
+    "bienvenida": "Una espiral permanece fija y otra describe una órbita sin girar sobre sí misma.
+OT-243 · Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W.
+Compresor abierto, dos involutas y analizador de compresión.",
+    "codigo": "MEC-243",
+    "conceptos": [
+      {
+        "descripcion": "Una espiral permanece fija y otra describe una órbita sin girar sobre sí misma.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Compresor scroll: orbitar para comprimir",
+    "videoUrl": "",
+  },
+  "mecanica-244": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Sincronizador de caja: igualar antes de engranar",
+      },
+    ],
+    "bienvenida": "Un cono de fricción iguala dos velocidades antes de que el manguito acople los dientes.
+OT-244 · Sincroniza en ≤1,2 s con par ≤4 N·m, fuerza axial ≤140 N y coeficiente ≥0,065.
+Sincronizador abierto, horquilla y registro de régimen relativo.",
+    "codigo": "MEC-244",
+    "conceptos": [
+      {
+        "descripcion": "Un cono de fricción iguala dos velocidades antes de que el manguito acople los dientes.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Sincroniza en ≤1,2 s con par ≤4 N·m, fuerza axial ≤140 N y coeficiente ≥0,065.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Sincroniza en ≤1,2 s con par ≤4 N·m, fuerza axial ≤140 N y coeficiente ≥0,065.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Sincronizador de caja: igualar antes de engranar",
+    "videoUrl": "",
+  },
+  "mecanica-245": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Fricción-agitación: unir sin fundir",
+      },
+    ],
+    "bienvenida": "Una herramienta rotativa atraviesa la junta y deja un cordón continuo entre dos placas sujetas.
+OT-245 · Mantén500–800 J/mm, temperatura equivalente350–500 °C y potencia ≤1100 W.
+Banco FSW con sujeción, herramienta no consumible y balance energético.",
+    "codigo": "MEC-245",
+    "conceptos": [
+      {
+        "descripcion": "Una herramienta rotativa atraviesa la junta y deja un cordón continuo entre dos placas sujetas.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Mantén500–800 J/mm, temperatura equivalente350–500 °C y potencia ≤1100 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Mantén500–800 J/mm, temperatura equivalente350–500 °C y potencia ≤1100 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Fricción-agitación: unir sin fundir",
+    "videoUrl": "",
+  },
+  "mecanica-246": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Corte por agua: presión, orificio y potencia",
+      },
+    ],
+    "bienvenida": "Un cabezal convierte presión hidráulica en un chorro que recorre una placa sobre el tanque.
+OT-246 · Obtén velocidad ≥700 m/s, agua ≤2 L/min, potencia hidráulica ≤12 kW y avance equivalente ≥0,3 mm/s.
+Cabezal de corte, placa sobre apoyos y balance de caudal y potencia.",
+    "codigo": "MEC-246",
+    "conceptos": [
+      {
+        "descripcion": "Un cabezal convierte presión hidráulica en un chorro que recorre una placa sobre el tanque.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén velocidad ≥700 m/s, agua ≤2 L/min, potencia hidráulica ≤12 kW y avance equivalente ≥0,3 mm/s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén velocidad ≥700 m/s, agua ≤2 L/min, potencia hidráulica ≤12 kW y avance equivalente ≥0,3 mm/s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Corte por agua: presión, orificio y potencia",
+    "videoUrl": "",
+  },
+  "mecanica-247": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Hidroformado de tubo: presión y alimentación axial",
+      },
+    ],
+    "bienvenida": "Un tubo se expande dentro de una matriz seccionada mientras dos punzones alimentan material desde los extremos.
+OT-247 · Llena la matriz hasta radio ≥25,8 mm con adelgazamiento ≤18 %, presión ≤16 MPa y cierre ≤160 kN.
+Celda de hidroformado seccionada con punzones axiales y espesor medido.",
+    "codigo": "MEC-247",
+    "conceptos": [
+      {
+        "descripcion": "Un tubo se expande dentro de una matriz seccionada mientras dos punzones alimentan material desde los extremos.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Llena la matriz hasta radio ≥25,8 mm con adelgazamiento ≤18 %, presión ≤16 MPa y cierre ≤160 kN.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Llena la matriz hasta radio ≥25,8 mm con adelgazamiento ≤18 %, presión ≤16 MPa y cierre ≤160 kN.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Hidroformado de tubo: presión y alimentación axial",
+    "videoUrl": "",
+  },
+  "mecanica-248": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Pintura en polvo: transporte y captura electrostática",
+      },
+    ],
+    "bienvenida": "Una pistola envía partículas cargadas hacia una placa conectada a tierra y forma una capa de polvo.
+OT-248 · Consigue captura80–95 %, espesor60–90 µm y corriente de polvo capturado ≤2 µA.
+Cabina seccionada, nube de partículas y balance de masa y carga.",
+    "codigo": "MEC-248",
+    "conceptos": [
+      {
+        "descripcion": "Una pistola envía partículas cargadas hacia una placa conectada a tierra y forma una capa de polvo.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Consigue captura80–95 %, espesor60–90 µm y corriente de polvo capturado ≤2 µA.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Consigue captura80–95 %, espesor60–90 µm y corriente de polvo capturado ≤2 µA.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Pintura en polvo: transporte y captura electrostática",
+    "videoUrl": "",
+  },
+  "mecanica-249": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Amortiguador magnetorreológico: regular la disipación",
+      },
+    ],
+    "bienvenida": "Un pistón oscila dentro de un fluido cuya resistencia cambia con la corriente de una bobina.
+OT-249 · Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A.
+Amortiguador en corte, bobina y lazo fuerza–velocidad.",
+    "codigo": "MEC-249",
+    "conceptos": [
+      {
+        "descripcion": "Un pistón oscila dentro de un fluido cuya resistencia cambia con la corriente de una bobina.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Amortiguador magnetorreológico: regular la disipación",
+    "videoUrl": "",
+  },
   "mecanica-25": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -10039,6 +10399,46 @@ Al final habrás resuelto la pregunta que separa a quien "ve una onda" de quien 
     ],
     "subtitulo": "Instrumentación · Lectura correcta de señales en el tiempo",
     "titulo": "Osciloscopio digital: base de tiempo, acoplamiento y disparo",
+    "videoUrl": "",
+  },
+  "mecanica-250": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot hexápodo: marcha y polígono de apoyo",
+      },
+    ],
+    "bienvenida": "Seis patas articuladas alternan dos trípodes mientras el cuerpo avanza sobre una pista de ensayo.
+OT-250 · Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables.
+Robot hexápodo articulado, pista y evaluación del triángulo de apoyo.",
+    "codigo": "MEC-250",
+    "conceptos": [
+      {
+        "descripcion": "Seis patas articuladas alternan dos trípodes mientras el cuerpo avanza sobre una pista de ensayo.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot hexápodo: marcha y polígono de apoyo",
     "videoUrl": "",
   },
   "mecanica-26": {
@@ -24978,7 +25378,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-239": [],
   "mecanica-24": [],
   "mecanica-240": [],
+  "mecanica-241": [],
+  "mecanica-242": [],
+  "mecanica-243": [],
+  "mecanica-244": [],
+  "mecanica-245": [],
+  "mecanica-246": [],
+  "mecanica-247": [],
+  "mecanica-248": [],
+  "mecanica-249": [],
   "mecanica-25": [],
+  "mecanica-250": [],
   "mecanica-26": [],
   "mecanica-27": [],
   "mecanica-28": [],
@@ -25453,7 +25863,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-239",
   "mecanica-24",
   "mecanica-240",
+  "mecanica-241",
+  "mecanica-242",
+  "mecanica-243",
+  "mecanica-244",
+  "mecanica-245",
+  "mecanica-246",
+  "mecanica-247",
+  "mecanica-248",
+  "mecanica-249",
   "mecanica-25",
+  "mecanica-250",
   "mecanica-26",
   "mecanica-27",
   "mecanica-28",

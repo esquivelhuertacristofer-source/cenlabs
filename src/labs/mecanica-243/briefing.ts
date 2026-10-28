@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-243",
+  "titulo": "Compresor scroll: orbitar para comprimir",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Una espiral permanece fija y otra describe una órbita sin girar sobre sí misma.\nOT-243 · Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W.\nCompresor abierto, dos involutas y analizador de compresión.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Una espiral permanece fija y otra describe una órbita sin girar sobre sí misma."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Entrega40–65 L/min con relación ≥2,5, salida ≤120 °C y potencia de eje ≤400 W."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Compresor scroll: orbitar para comprimir"
+    }
+  ]
+};
+export default briefing;

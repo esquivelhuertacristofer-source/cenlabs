@@ -1,5 +1,34 @@
 # Continuidad del proyecto CEN Labs
 
+## Estado vigente ·28-10-2026 · hasta250
+241–250 terminados y verificados localmente.14738 comprobaciones numéricas;40 flujos completos en cuatro tamaños;20 protecciones de curvas; diez comparaciones de sincronía y diez pruebas geométricas.44 suites/3496 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin CDN. Falta publicar y verificar login real:132 destacadas y12 iframes (241–250 más236/240).
+
+Último código publicado confirmado:77215fe (hasta240); Cloudflare5df7b048-a686-46a2-9567-4b9ae5e83d65. No confundir implementación con publicación. Encargo autorizado hasta250; no iniciar251.
+
+Fuentes nuevas: _industria-*.js y _ind-241...250.js. Motor común sin cambios. Preservar voces al desplegar desde cen-deploy.
+
+| ID | Tema | Estado |
+|---|---|---|
+| 241 | [Robot de centro remoto: orientar sin desplazar el pivote](mecanica-241.md) | Terminado local; publicación pendiente |
+| 242 | [Robot por impedancia: tocar sin golpear](mecanica-242.md) | Terminado local; publicación pendiente |
+| 243 | [Compresor scroll: orbitar para comprimir](mecanica-243.md) | Terminado local; publicación pendiente |
+| 244 | [Sincronizador de caja: igualar antes de engranar](mecanica-244.md) | Terminado local; publicación pendiente |
+| 245 | [Fricción-agitación: unir sin fundir](mecanica-245.md) | Terminado local; publicación pendiente |
+| 246 | [Corte por agua: presión, orificio y potencia](mecanica-246.md) | Terminado local; publicación pendiente |
+| 247 | [Hidroformado de tubo: presión y alimentación axial](mecanica-247.md) | Terminado local; publicación pendiente |
+| 248 | [Pintura en polvo: transporte y captura electrostática](mecanica-248.md) | Terminado local; publicación pendiente |
+| 249 | [Amortiguador magnetorreológico: regular la disipación](mecanica-249.md) | Terminado local; publicación pendiente |
+| 250 | [Robot hexápodo: marcha y polígono de apoyo](mecanica-250.md) | Terminado local; publicación pendiente |
+
+## Historial anterior
+
+# Encargo vigente ·28-10-2026 · hasta250
+El usuario reanudó expresamente: «Continua a los250».231–240 ya publicados y verificados: código77215fe, Cloudflare5df7b048-a686-46a2-9567-4b9ae5e83d65,122 destacadas y12 iframes correctos.241–250 implementados; auditorías en curso, SIN publicar todavía. No iniciar251.
+
+Fuentes nuevas: _industria-*.js y _ind-241...250.js. Contratos y scripts de trabajo en la carpeta work/ del chat.14738 comprobaciones numéricas y20 protecciones de curvas correctas. El informe reproducible de interfaz se guarda después de cada caso en scripts/auditoria/.salida/industria-241-250/informe.json. Leer cada ficha antes de regenerar: las escenas tienen refinamientos posteriores a los generadores.
+
+# Continuidad del proyecto CEN Labs
+
 ## Estado vigente ·28-10-2026 · hasta240
 231–240 PUBLICADOS y verificados.9513 comprobaciones numéricas;40 flujos en cuatro tamaños, veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas.44 suites/3426 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Deploy y login real confirmados:122 destacadas,12 iframes (231–240 más221/230), portadas200 y consola limpia.
 
@@ -422,25 +451,15 @@ Código aae1fdb064a568c64ee6fcc04bfcc2d0fd643a35; Cloudflare df771c75-c957-4014-
 
 [Guía de los diez laboratorios](GUIA-LABS-221-230.md). Retomar leyendo este índice y la ficha individual. No ejecutar los generadores históricos sobre escenas refinadas.
 
-- Implementación241: escena propia y contrato; pendiente QA.
 
-- Implementación242: escena propia y contrato; pendiente QA.
 
-- Implementación243: escena propia y contrato; pendiente QA.
 
-- Implementación244: escena propia y contrato; pendiente QA.
 
-- Implementación245: escena propia y contrato; pendiente QA.
 
-- Implementación246: escena propia y contrato; pendiente QA.
 
-- Implementación247: escena propia y contrato; pendiente QA.
 
-- Implementación248: escena propia y contrato; pendiente QA.
 
-- Implementación249: escena propia y contrato; pendiente QA.
 
-- Implementación250: escena propia y contrato; pendiente QA.
 
 ## Cierre de publicación ·28-10-2026
 Código 77215fec415c24b8bf058342d9d32e64eb25240d; Cloudflare 5df7b048-a686-46a2-9567-4b9ae5e83d65. 231–240 publicados y comprobados.9513 comprobaciones numéricas;40 flujos; veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas;44 suites/3426 pruebas/12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas y10/10 sin CDN. Login real:122 destacadas,12 iframes, portadas200, desfase magnético correcto y consola limpia. Se preservaron las voces anteriores; no se añadió narración nueva.

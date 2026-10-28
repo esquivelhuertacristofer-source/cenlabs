@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-249",
+  "titulo": "Amortiguador magnetorreológico: regular la disipación",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un pistón oscila dentro de un fluido cuya resistencia cambia con la corriente de una bobina.\nOT-249 · Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A.\nAmortiguador en corte, bobina y lazo fuerza–velocidad.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Un pistón oscila dentro de un fluido cuya resistencia cambia con la corriente de una bobina."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Amortiguador magnetorreológico: regular la disipación"
+    }
+  ]
+};
+export default briefing;

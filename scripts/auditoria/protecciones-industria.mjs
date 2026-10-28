@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';import {mkdir,writeFile} from 'node:fs/promises';
+import {drawInstrument} from '../../public/labs/_industria-instrumentos.js';import {model,solutions} from '../../public/labs/_industria-modelos.js';
+const out=new URL('./.salida/industria-241-250/',import.meta.url);await mkdir(out,{recursive:true});const results=[];
+for(let id=241;id<=250;id++){const p=solutions[id],m=model(id,2,p);for(const validated of [false,true]){let segments=0;const texts=[],ctx={fillText:(t)=>texts.push(String(t)),lineTo:()=>segments++};for(const method of ['clearRect','beginPath','moveTo','stroke','save','rect','clip','restore','arc','fill'])ctx[method]=()=>{};drawInstrument(ctx,640,200,id,m,p,true,'full',validated);if(validated){assert(segments>20);assert(!texts.some(s=>s.includes('valida para comparar')));}else{assert.equal(segments,4);assert(texts.some(s=>s.includes('valida para comparar')));}results.push({id,validado:validated,segmentos:segments,curvaDiseno:validated});}}
+await writeFile(new URL('protecciones-instrumento.json',out),JSON.stringify(results,null,2));console.log('20 comprobaciones de revelado de curvas correctas.');

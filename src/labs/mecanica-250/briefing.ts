@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-250",
+  "titulo": "Robot hexápodo: marcha y polígono de apoyo",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Seis patas articuladas alternan dos trípodes mientras el cuerpo avanza sobre una pista de ensayo.\nOT-250 · Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables.\nRobot hexápodo articulado, pista y evaluación del triángulo de apoyo.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Seis patas articuladas alternan dos trípodes mientras el cuerpo avanza sobre una pista de ensayo."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Camina a ≥0,096 m/s con margen mínimo ≥25 mm, par equivalente ≤6 N·m y todas las patas alcanzables."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Robot hexápodo: marcha y polígono de apoyo"
+    }
+  ]
+};
+export default briefing;

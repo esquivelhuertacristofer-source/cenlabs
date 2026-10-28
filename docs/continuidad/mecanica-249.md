@@ -1,0 +1,46 @@
+# mecanica-249 · Amortiguador magnetorreológico: regular la disipación
+
+Estado al28-10-2026: TERMINADO y verificado localmente; publicación pendiente.
+
+## Orden y competencia profesional
+OT-249 · Disipa50–100 W con fuerza ≤1000 N, semicarrera10–20 mm y corriente ≤1,5 A.
+
+Equipo e instrumentos: Amortiguador en corte, bobina y lazo fuerza–velocidad.
+
+Un pistón oscila dentro de un fluido cuya resistencia cambia con la corriente de una bobina. Relaciona corriente, fuerza y energía del ciclo sin confundir un elemento disipativo con un actuador.
+
+## Modelo y límites
+Bingham concentrado ideal: Fy=100+350I N,c=800 N·s/m. x=A sin(ωt),ω=2π·2 rad/s. Fuerza sobre el vástago F=−cẋ−Fy sign(ẋ). Energía por ciclo E=πcA²ω+4FyA; potencia media=2E. Fmax=cAω+Fy. Sin elasticidad o fuerza activa; −Fẋ≥0.
+
+Ley sintética de fuerza umbral, no calcula el campo magnético, reología real, histéresis preflujo, cavitación o temperatura. El signo se idealiza discontinuo en velocidad cero. Las cadenas de partículas son un indicador de corriente, no microestructura simulada. Movimiento físico a2 Hz y desplazamiento visual×15; no dimensiona una suspensión real.
+
+Escalas: Movimiento2 Hz · desplazamiento×15 · Bingham ideal
+
+Principio consultado: https://www.sciencedirect.com/science/article/pii/S0022460X07008851 . Geometría y constantes de escenario propias, no datos comerciales.
+
+## Archivos y receta para retomar
+- public/labs/amortiguador-magnetorreologico.html, _ficha-amortiguador-magnetorreologico.js y escena _ind-249.js.
+- _industria-modelos.js: funciones puras; _industria-definiciones.js: contrato; _industria-runtime.js: orden, ensayo e informe; _industria-instrumentos.js: lecturas y curvas DOM; _industria-escenas.js y _industria-piezas.js. Se reutilizan utilidades geométricas anteriores.
+- src/labs/mecanica-249/, briefing JSON, portada prac_249.webp y descriptor scripts/lab-src/amortiguador-magnetorreologico.json.
+- Build: node scripts/build-lab.mjs amortiguador-magnetorreologico.
+- Física: node scripts/auditoria/verifica-industria-241-250.mjs --solo 249.
+- Flujo: node scripts/auditoria/flujo-industria-241-250.mjs --solo 249 --inspeccion. --reanudar conserva informe.json; QA_REPORT cambia salida.
+- Sincronía y geometría: sincronia-industria.mjs; admite --solo 249. Revelado: protecciones-industria.mjs. Portada: scripts/portadas/capturar-industria.mjs --solo 249.
+- Evidencia: scripts/auditoria/.salida/industria-241-250/. No ejecutar los generadores históricos de work/ sobre escenas refinadas.
+
+## Pruebas
+727 comprobaciones numéricas;14738 en la tanda. Valores iniciales rechazados y solución interior sobre la rejilla de controles aceptada. Ensayo completo obligatorio, validación manual, quiz barajado, tres diagnósticos, instrumento, descarga de informe y caducidad del registro al modificar/restaurar un control.
+- 1366×768, DPR1: 47 palabras iniciales; 20 llamadas; encuadre65.0 %; sin errores ni desbordamiento.
+- 1600×900, DPR1: 47 palabras iniciales; 20 llamadas; encuadre65.0 %; sin errores ni desbordamiento.
+- 2020×1055, DPR1.25: 47 palabras iniciales; 20 llamadas; encuadre65.0 %; sin errores ni desbordamiento.
+- 390×844, DPR1: 47 palabras iniciales; 20 llamadas; encuadre65.0 %; sin errores ni desbordamiento.
+
+Revisión final1366: 17 llamadas y19666 triángulos, 47 palabras. Diez comparaciones de sincronía de pose/geometría/instancias y diez pruebas geométricas específicas. Altura real de mallas visibles comprobada en244/249;20 protecciones de curvas. Diez portadas propias y10/10 sin CDN.44 suites,3496 pruebas y12 snapshots; TypeScript,ESLint y generados correctos. Goldens: diez altas intencionales,120 líneas de catálogo y420 de datos; entradas anteriores sin cambios semánticos.
+
+## Autocrítica y originalidad
+Amortiguador en corte, bobina, pistón, fluido y accionamiento de ensayo enlazado al bastidor. La bancada de inspección comparte la geometría fusionada vigente. Se amplió la cámara para alojar la carrera y se añadieron apoyos inferior y superior. La ley Bingham siempre disipa; las cadenas son un indicador de corriente. Distinto de suspensión129: caracterización del amortiguador regulable, no confort del cuarto de vehículo.
+
+La prosa inicial queda en47 palabras como máximo. Los instrumentos están en DOM y los contratos cerrados; la escena muestra el fenómeno desde la entrada. Se corrigieron ocultaciones y apoyos antes del cierre. No se afirma eficacia educativa medida sin evaluación con docentes y estudiantes.
+
+## Publicación
+Código, push, deploy y login real pendientes. Último publicado confirmado:240.
