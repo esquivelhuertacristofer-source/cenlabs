@@ -1,5 +1,27 @@
 # Continuidad del proyecto CEN Labs
 
+## Estado vigente ·28-10-2026 · hasta240
+231–240 terminados y verificados localmente.9513 comprobaciones numéricas;40 flujos en cuatro tamaños, veinte comprobaciones de revelado de curvas, diez comparaciones de sincronía y diez pruebas geométricas.44 suites/3426 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Falta publicar y verificar login real:122 destacadas y12 iframes (231–240 más221/230).
+
+Último código publicado confirmado: aae1fdb (hasta230); Cloudflare df771c75-c957-4014-b1d2-8a99f0c330d3. No confundir implementación con publicación. Nuevo encargo autorizado: continuar hasta250.
+
+Fuentes nuevas: _maquinas-*.js y _maq-231...240.js; reutiliza utilidades geométricas existentes. Motor común sin cambios. Preservar voces al desplegar desde cen-deploy.
+
+| ID | Tema | Estado |
+|---|---|---|
+| 231 | [Robot suspendido: cables, tensiones y cabrestantes](mecanica-231.md) | Terminado local; publicación pendiente |
+| 232 | [Partículas magnéticas: orientación del campo](mecanica-232.md) | Terminado local; publicación pendiente |
+| 233 | [Electroerosión por hilo: energía y avance](mecanica-233.md) | Terminado local; publicación pendiente |
+| 234 | [Soldadura ultrasónica: sonotrodo y energía](mecanica-234.md) | Terminado local; publicación pendiente |
+| 235 | [Motor neumático de paletas: par y consumo](mecanica-235.md) | Terminado local; publicación pendiente |
+| 236 | [Engranaje magnético: transmisión sin contacto](mecanica-236.md) | Terminado local; publicación pendiente |
+| 237 | [Regulador centrífugo: realimentación mecánica](mecanica-237.md) | Terminado local; publicación pendiente |
+| 238 | [Cojinete aerostático: película y restrictor](mecanica-238.md) | Terminado local; publicación pendiente |
+| 239 | [Robot flexible: curvatura y tendones](mecanica-239.md) | Terminado local; publicación pendiente |
+| 240 | [Plegado de chapa: fuerza y recuperación elástica](mecanica-240.md) | Terminado local; publicación pendiente |
+
+## Historial anterior
+
 ## Estado vigente ·26-10-2026 · hasta230
 221–230 PUBLICADOS y verificados.40634 comprobaciones numéricas;40 flujos en cuatro tamaños, cuatro protecciones de calibración, diez comparaciones de sincronía y cuatro pruebas geométricas/interbloqueos.44 suites/3356 pruebas/12 snapshots; TypeScript,ESLint y generados correctos. Diez portadas,10/10 sin CDN. Deploy y login real confirmados:112 destacadas,12 iframes (221–230 más211/220), portadas200 y consola limpia.
 

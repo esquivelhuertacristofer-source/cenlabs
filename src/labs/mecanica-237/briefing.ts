@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-237",
+  "titulo": "Regulador centrífugo: realimentación mecánica",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Dos masas giratorias levantan una corredera que corrige la entrada de energía al motor.\nOT-237 · Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s.\nRegulador de Watt, válvula enlazada y registro de respuesta a carga.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Dos masas giratorias levantan una corredera que corrige la entrada de energía al motor."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Regulador centrífugo: realimentación mecánica"
+    }
+  ]
+};
+export default briefing;

@@ -9521,6 +9521,366 @@ Inyectora seccionada, molde móvil, circuito frío y pieza con taladros.",
     "titulo": "Inyección de plástico: llenado, cierre y enfriamiento",
     "videoUrl": "",
   },
+  "mecanica-231": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot suspendido: cables, tensiones y cabrestantes",
+      },
+    ],
+    "bienvenida": "Cuatro cabrestantes trasladan una carga suspendida manteniendo todos los cables en tracción.
+OT-231 · Traslada ≥12 kg en la trayectoria prescrita con tensiones 12–110 N y potencia máxima de izado ≤80 W.
+Robot por cables, cuatro cabrestantes y registro de longitudes y tensiones.",
+    "codigo": "MEC-231",
+    "conceptos": [
+      {
+        "descripcion": "Cuatro cabrestantes trasladan una carga suspendida manteniendo todos los cables en tracción.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Traslada ≥12 kg en la trayectoria prescrita con tensiones 12–110 N y potencia máxima de izado ≤80 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Traslada ≥12 kg en la trayectoria prescrita con tensiones 12–110 N y potencia máxima de izado ≤80 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot suspendido: cables, tensiones y cabrestantes",
+    "videoUrl": "",
+  },
+  "mecanica-232": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Partículas magnéticas: orientación del campo",
+      },
+    ],
+    "bienvenida": "Un eje ferromagnético revela dos discontinuidades patrón cuando el campo corta sus direcciones.
+OT-232 · Obtén campo perpendicular ≥2500 A/m para ambas orientaciones, campo combinado ≤10000 A/m y potencia ≤600 W.
+Banco magnético, solenoide, conductor central y dos discontinuidades patrón.",
+    "codigo": "MEC-232",
+    "conceptos": [
+      {
+        "descripcion": "Un eje ferromagnético revela dos discontinuidades patrón cuando el campo corta sus direcciones.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén campo perpendicular ≥2500 A/m para ambas orientaciones, campo combinado ≤10000 A/m y potencia ≤600 W.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén campo perpendicular ≥2500 A/m para ambas orientaciones, campo combinado ≤10000 A/m y potencia ≤600 W.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Partículas magnéticas: orientación del campo",
+    "videoUrl": "",
+  },
+  "mecanica-233": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Electroerosión por hilo: energía y avance",
+      },
+    ],
+    "bienvenida": "Un hilo corta un contorno circular mediante descargas en un baño dieléctrico.
+OT-233 · Corta a ≥0,18 mm/s con energía por pulso ≤0,30 J, hilo ≤240 °C y duración física ≤700 s.
+Electroerosionadora de hilo, contorno circular y balance energético.",
+    "codigo": "MEC-233",
+    "conceptos": [
+      {
+        "descripcion": "Un hilo corta un contorno circular mediante descargas en un baño dieléctrico.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Corta a ≥0,18 mm/s con energía por pulso ≤0,30 J, hilo ≤240 °C y duración física ≤700 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Corta a ≥0,18 mm/s con energía por pulso ≤0,30 J, hilo ≤240 °C y duración física ≤700 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Electroerosión por hilo: energía y avance",
+    "videoUrl": "",
+  },
+  "mecanica-234": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Soldadura ultrasónica: sonotrodo y energía",
+      },
+    ],
+    "bienvenida": "Un sonotrodo vibra sobre dos piezas plásticas y concentra calor en la unión.
+OT-234 · Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s.
+Prensa ultrasónica, conjunto vibratorio y dos piezas termoplásticas.",
+    "codigo": "MEC-234",
+    "conceptos": [
+      {
+        "descripcion": "Un sonotrodo vibra sobre dos piezas plásticas y concentra calor en la unión.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Soldadura ultrasónica: sonotrodo y energía",
+    "videoUrl": "",
+  },
+  "mecanica-235": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Motor neumático de paletas: par y consumo",
+      },
+    ],
+    "bienvenida": "Las paletas se extienden sobre una cámara excéntrica y convierten aire comprimido en giro.
+OT-235 · Trabaja a900–1800 rpm con potencia ≥80 W, consumo ≤220 L/min y rendimiento respecto al máximo isotérmico ≥18 %.
+Motor de paletas abierto, freno de carga y analizador de consumo.",
+    "codigo": "MEC-235",
+    "conceptos": [
+      {
+        "descripcion": "Las paletas se extienden sobre una cámara excéntrica y convierten aire comprimido en giro.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Trabaja a900–1800 rpm con potencia ≥80 W, consumo ≤220 L/min y rendimiento respecto al máximo isotérmico ≥18 %.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Trabaja a900–1800 rpm con potencia ≥80 W, consumo ≤220 L/min y rendimiento respecto al máximo isotérmico ≥18 %.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Motor neumático de paletas: par y consumo",
+    "videoUrl": "",
+  },
+  "mecanica-236": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Engranaje magnético: transmisión sin contacto",
+      },
+    ],
+    "bienvenida": "Dos coronas de imanes y un modulador fijo transmiten par con velocidades opuestas.
+OT-236 · Entrega ≥120 W con margen ≥2 N·m, par de entrada ≤3,5 N·m y entrehierro ≥1,5 mm.
+Acoplamiento magnético coaxial abierto, imanes alternos y freno de banco.",
+    "codigo": "MEC-236",
+    "conceptos": [
+      {
+        "descripcion": "Dos coronas de imanes y un modulador fijo transmiten par con velocidades opuestas.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Entrega ≥120 W con margen ≥2 N·m, par de entrada ≤3,5 N·m y entrehierro ≥1,5 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Entrega ≥120 W con margen ≥2 N·m, par de entrada ≤3,5 N·m y entrehierro ≥1,5 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Engranaje magnético: transmisión sin contacto",
+    "videoUrl": "",
+  },
+  "mecanica-237": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Regulador centrífugo: realimentación mecánica",
+      },
+    ],
+    "bienvenida": "Dos masas giratorias levantan una corredera que corrige la entrada de energía al motor.
+OT-237 · Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s.
+Regulador de Watt, válvula enlazada y registro de respuesta a carga.",
+    "codigo": "MEC-237",
+    "conceptos": [
+      {
+        "descripcion": "Dos masas giratorias levantan una corredera que corrige la entrada de energía al motor.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Mantén190–215 rpm finales, caída por escalón ≤12 rpm y establecimiento ≤3 s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Regulador centrífugo: realimentación mecánica",
+    "videoUrl": "",
+  },
+  "mecanica-238": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Cojinete aerostático: película y restrictor",
+      },
+    ],
+    "bienvenida": "Un disco gira sin contacto sobre una película de aire presurizada.
+OT-238 · Soporta ≥400 N con película8–16 µm, consumo ≤2 L/min y rigidez ≥70 N/µm.
+Cojinete de aire seccionado, disco flotante y red de restricción.",
+    "codigo": "MEC-238",
+    "conceptos": [
+      {
+        "descripcion": "Un disco gira sin contacto sobre una película de aire presurizada.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Soporta ≥400 N con película8–16 µm, consumo ≤2 L/min y rigidez ≥70 N/µm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Soporta ≥400 N con película8–16 µm, consumo ≤2 L/min y rigidez ≥70 N/µm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Cojinete aerostático: película y restrictor",
+    "videoUrl": "",
+  },
+  "mecanica-239": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Robot flexible: curvatura y tendones",
+      },
+    ],
+    "bienvenida": "Una columna flexible curva su cuerpo con tendones y aproxima una herramienta a un objetivo.
+OT-239 · Alcanza el objetivo patrón con error ≤5 mm, fuerza diferencial ≤7 N y flexión máxima ≤90°. Objetivo cartesiano: (71.78,247.84,124.32) mm.
+Robot continuo de tendones, guías, herramienta y objetivo espacial.",
+    "codigo": "MEC-239",
+    "conceptos": [
+      {
+        "descripcion": "Una columna flexible curva su cuerpo con tendones y aproxima una herramienta a un objetivo.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Alcanza el objetivo patrón con error ≤5 mm, fuerza diferencial ≤7 N y flexión máxima ≤90°.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Alcanza el objetivo patrón con error ≤5 mm, fuerza diferencial ≤7 N y flexión máxima ≤90°.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Robot flexible: curvatura y tendones",
+    "videoUrl": "",
+  },
   "mecanica-24": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -9579,6 +9939,46 @@ Al final compararás dos filosofías de medición: la pinza (Hall o transformado
     ],
     "subtitulo": "Instrumentación · Medición de corriente y efecto de carga",
     "titulo": "Pinza y shunt: mide corriente con y sin alterar el circuito",
+    "videoUrl": "",
+  },
+  "mecanica-240": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Autotrónica y automatización",
+        "ejemplo": "Plegado de chapa: fuerza y recuperación elástica",
+      },
+    ],
+    "bienvenida": "Un punzón forma una chapa sobre una matriz en V y la pieza se abre ligeramente al descargar.
+OT-240 · Obtén ángulo descargado89–91°, fuerza ≤5,5 kN, material ≥280 MPa y carrera ≤10 mm.
+Plegadora abierta, punzón, matriz y chapa con recuperación elástica.",
+    "codigo": "MEC-240",
+    "conceptos": [
+      {
+        "descripcion": "Un punzón forma una chapa sobre una matriz en V y la pieza se abre ligeramente al descargar.",
+        "icono": "⚙️",
+        "nombre": "Mecanismo",
+      },
+      {
+        "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj.",
+        "icono": "📊",
+        "nombre": "Modelo medible",
+      },
+      {
+        "descripcion": "Obtén ángulo descargado89–91°, fuerza ≤5,5 kN, material ≥280 MPa y carrera ≤10 mm.",
+        "icono": "🔎",
+        "nombre": "Diseño y diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los componentes y consulta las condiciones de la orden.",
+      "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+      "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+      "Obtén ángulo descargado89–91°, fuerza ≤5,5 kN, material ≥280 MPa y carrera ≤10 mm.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Plegado de chapa: fuerza y recuperación elástica",
     "videoUrl": "",
   },
   "mecanica-25": {
@@ -24567,7 +24967,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-229": [],
   "mecanica-23": [],
   "mecanica-230": [],
+  "mecanica-231": [],
+  "mecanica-232": [],
+  "mecanica-233": [],
+  "mecanica-234": [],
+  "mecanica-235": [],
+  "mecanica-236": [],
+  "mecanica-237": [],
+  "mecanica-238": [],
+  "mecanica-239": [],
   "mecanica-24": [],
+  "mecanica-240": [],
   "mecanica-25": [],
   "mecanica-26": [],
   "mecanica-27": [],
@@ -25032,7 +25442,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-229",
   "mecanica-23",
   "mecanica-230",
+  "mecanica-231",
+  "mecanica-232",
+  "mecanica-233",
+  "mecanica-234",
+  "mecanica-235",
+  "mecanica-236",
+  "mecanica-237",
+  "mecanica-238",
+  "mecanica-239",
   "mecanica-24",
+  "mecanica-240",
   "mecanica-25",
   "mecanica-26",
   "mecanica-27",

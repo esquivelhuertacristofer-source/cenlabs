@@ -1,0 +1,40 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-234",
+  "titulo": "Soldadura ultrasónica: sonotrodo y energía",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un sonotrodo vibra sobre dos piezas plásticas y concentra calor en la unión.\nOT-234 · Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s.\nPrensa ultrasónica, conjunto vibratorio y dos piezas termoplásticas.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Mecanismo",
+      "descripcion": "Un sonotrodo vibra sobre dos piezas plásticas y concentra calor en la unión."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo medible",
+      "descripcion": "Relaciona los instrumentos con la geometría y el mismo reloj."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Diseño y diagnóstico",
+      "descripcion": "Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s."
+    }
+  ],
+  "mision": [
+    "Identifica los componentes y consulta las condiciones de la orden.",
+    "Ajusta ambos parámetros y compara las mediciones con los criterios.",
+    "Prepara y ejecuta el ensayo completo; valida y guarda la evidencia.",
+    "Obtén interfaz150–200 °C, energía útil100–170 J, potencia ≤450 W y tiempo de vibración ≤0,9 s."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Autotrónica y automatización",
+      "ejemplo": "Soldadura ultrasónica: sonotrodo y energía"
+    }
+  ]
+};
+export default briefing;
