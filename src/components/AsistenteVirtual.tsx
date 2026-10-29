@@ -60,6 +60,8 @@ export default function AsistenteVirtual({
                    src={mascotPath} 
                    alt={mascot} 
                    fill 
+                   sizes="96px"
+                   loading="eager"
                    className="object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" 
                    onError={() => setImgError(true)}
                  />

@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "QMI-19",
+  "titulo": "Difracción de rayos X: reconocer una estructura cristalina",
+  "subtitulo": "Análisis Instrumental",
+  "acento": "#219EBC",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Una red cristalina interactúa con el haz; interpretar distancias y patrones de difracción.\n\nIdentifica el primer pico111 del patrón FCC y calcula el parámetro de red cúbica en ångströms.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Planos cristalinos",
+      "descripcion": "Cada familia tiene una separación geométrica característica."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Bragg",
+      "descripcion": "El detector registra2θ mientras la condición usaθ."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Resolución",
+      "descripcion": "El muestreo y el ancho del pico limitan la lectura."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Brazo detector» y «Cristal FCC» con Explorar en 3D.",
+    "Ajusta «Longitud de onda de rayos X», «Tamaño coherente de cristalito» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Caracterización de sólidos",
+      "ejemplo": "Inferir un parámetro de red a partir de un patrón angular y declarar su resolución."
+    }
+  ],
+  "imagen": "/images/ciencias/quimica-19.webp?v=e28a1b46e689"
+};
+export default briefing;

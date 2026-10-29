@@ -1,0 +1,80 @@
+# biologia-12 · Mitocondria y ATP sintasa
+
+Estado: implementación local en verificación; NO se declara publicado ni terminado.
+
+## Implementación
+Gradiente de protones y motor molecular; relacionar transporte, energía y producción de ATP.
+
+Reto: Calcula la fuerza protón-motriz mínima necesaria para sintetizar tres ATP por vuelta en un rotor mitocondrialc8 ideal.
+
+Modelo: Por vuelta se translocan8 H⁺ y se sintetizan3 ATP. Balance ideal:8FΔp=3ΔGATP, F=96485,33212 C/mol. Umbral Δpmin=3ΔGATP/(8F). Flujo cinético de banco JH=120·[1−exp(−(8FΔp−3ΔGATP)/(RT))] si la diferencia es positiva; si no, cero. T=310 K,ATP/s=3JH/8. Giro visual derivado de JH con tiempo×1/100.
+
+Límites: Balance reversible y cinética sintética; sin fugas, elasticidad torsional, transporte ADP/ATP, entrada de fosfato o síntesis inversa. Por tanto8/3 H⁺/ATP corresponde al rotor, no al costo total de ATP exportado al citoplasma. Subcomplejo estructural bovino 2XND con envolventes Cα; el estator periférico y las rutas de protones faltantes son esquemáticos.
+
+Escala: PDB 2XND · rotor c8 · giro×1/100 · protones ilustrativos
+
+Formato: MissionBriefing inicial, Piloto/Bitácora React nativos, adquisición de 6 s, validación con registro vigente, quiz oficial y descarga. Cambiar ajustes borra evidencia y aceptación; restaurarlos no recupera el ensayo.
+
+## Archivos
+src/labs/biologia-12/; src/components/ciencias/definiciones/biologia-12.ts; src/components/ciencias/escenas/; modelo puro en src/domain/ciencias/. Infraestructura común en PilotoCiencia, EscenaCiencia, BitacoraCiencia y RegistroGrafico.
+
+## Evidencia actual
+6500 comprobaciones de dominio/lecturas más referencias analíticas y balances de scripts/auditoria/verifica-ciencias50.mjs. Informe global: 371780 comprobaciones; incluye D2Q9 con momentos de equilibrio y estabilidad de 3000 pasos en Re 10/40/80/120.
+
+1/4 recorridos finales de revisión 206: 1366px / DPR1. Prosa inicial medida: 60 palabras como máximo en estos tamaños. Los informes antiguos se conservan como historial y no se cuentan para el cierre actual.
+
+## Retomar
+Completar cuatro tamaños (1366×768,1600×900,2020×1055 DPR1,25,390×844), revisión visual escrita contra el estándar, portada propia, regresiones de labs anteriores, Jest/TypeScript/ESLint y generados. Publicar desde cen-deploy con voces, confirmar despliegue y guardado con cuenta real antes de marcar terminado. Sin commit ni despliegue de esta tanda por ahora.
+
+QA 2026-10-28T22:11:55.936Z: 1366×768 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-1366-dpr1-informe.json.
+
+QA 2026-10-28T22:50:08.662Z: 1600×900 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-1600-dpr1-informe.json.
+
+
+QA 2026-10-29T03:39:58.677Z: 1366×768 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-1366-dpr1-informe.json.
+
+QA 2026-10-29T03:48:51.571Z: 1366×768 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-1366-dpr1-informe.json.
+
+
+
+
+
+QA 2026-10-29T04:32:15.299Z: 1600×900 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-1600-dpr1-informe.json.
+
+
+
+
+
+QA 2026-10-29T05:43:19.224Z: 2020×1055 DPR1.25; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-2020-dpr1.25-informe.json.
+
+QA 2026-10-29T07:14:08.696Z: 390×844 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-12-390-dpr1-informe.json.
+
+<!-- remodelacion50 -->
+## Remodelación global de 3D e interacción ·28-10-2026
+
+Estado: implementación local; exploración1600 de revisión6 correcta. No publicada ni declarada terminada. Los recorridos nativos anteriores a la revisión requerida en ciencias50-versiones.mjs son históricos y no verifican esta remodelación.
+
+4/4 recorridos finales de revisión 206: 1366px / DPR1; 1600px / DPR1; 2020px / DPR1.25; 390px / DPR1. Prosa inicial medida: 75 palabras como máximo en estos tamaños.
+
+Cambio geométrico: Continuidad visual de las dos hojas de la membrana; rotor, cabeza y membrana separables.
+
+Componentes semánticos: Rotor c8; Cabeza catalítica F1; Bicapa lipídica. Los controles manipulables se vinculan al mismo estado del experimento; emisor/detector pasivos se inspeccionan sin mandos ficticios. La selección, aislamiento, corte visual y mando3D están en ExploradorEscena, PanelExploracion y EscenaCiencia. El inspector ocupa el dock nativo y no tapa el lienzo. Revisar movimiento permite pausar, buscar un instante y reproducir a×0,5/×0,25; la adquisición vuelve a×1.
+
+Archivos: src/components/ciencias/escenas/refinamientos.ts, caso biologia-12; etiquetas de componentes en el constructor original; registro en escenas/registro.ts; preservación de componentes en escenas/kit.ts; auditorías verifica-piezas-ciencias50.mjs y exploracion-ciencias50.mjs.
+
+Evidencia estructural:50 escenas/108 componentes en total, sin NaN ni normales nulas y por debajo de400000 triángulos. Esta práctica: 281608 triángulos de geometría. Interacción registrada el 2026-10-29T02:25:11.746Z: 3 componentes, 46 llamadas, 281616 triángulos renderizados, sin errores.
+
+Retomar: completar exploración y recorrido nativo de sus revisiones vigentes en los cuatro tamaños; inspeccionar capturas y corregir debilidades reales; comprobar rendimiento, accesibilidad, reducción de movimiento, dos ensayos y reset; después catálogo/portadas, Jest completo, publicación y login real. Sin commit, push ni despliegue de esta tanda.
+
+<!-- /remodelacion50 -->
+
+<!-- autocritica50 -->
+## Autocrítica de la vista inicial
+
+Prosa inicial medida: máximo75 palabras en los cuatro tamaños, por debajo de120. Los datos, ecuaciones e informes quedan en DOM o desplegables; la escena no usa tableros con cifras.
+
+La estructura molecular es la más densa de la tanda; membrana, rotor y cabeza se pueden aislar para leerla. El soporte añadido se declara esquemático.
+
+Se revisaron las capturas iniciales de las50 a1366 y las láminas por área a1600. Materiales de estudio y equipos esquemáticos; la valoración visual no equivale a certificar un instrumento comercial. Referencias de captura: scripts/auditoria/.salida/ciencias50/biologia-12-*-inicial.png. Estado de publicación en la cabecera de esta ficha.
+
+<!-- /autocritica50 -->

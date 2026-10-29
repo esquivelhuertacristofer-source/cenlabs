@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "FIS-23",
+  "titulo": "Efecto fotoeléctrico: frecuencia, umbral y potencial de frenado",
+  "subtitulo": "Física Moderna y Campos",
+  "acento": "#3b82f6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Fotones y electrones en un banco óptico; distinguir energía individual e intensidad.\n\nCalcula el potencial de frenado que anula la fotocorriente para la luz elegida y una función de trabajo2,15 eV.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Fotón",
+      "descripcion": "Su energía depende de la frecuencia."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Función de trabajo",
+      "descripcion": "Energía necesaria para liberar el electrón del material."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Frenado",
+      "descripcion": "El potencial detiene incluso los electrones de energía máxima."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Fotocátodo» y «Electrodo colector» con Explorar en 3D.",
+    "Ajusta «Longitud de onda», «Potencial de frenado» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Fotodetección",
+      "ejemplo": "Determinar potencial de frenado y distinguir intensidad de energía del fotón."
+    }
+  ],
+  "imagen": "/images/ciencias/fisica-23.webp?v=beaeb9c4b2e5"
+};
+export default briefing;

@@ -1,0 +1,16 @@
+{
+  "method": "D2Q9-BGK",
+  "width": 128,
+  "height": 64,
+  "diameter": 12,
+  "U": 0.045,
+  "reynolds": [
+    10,
+    40,
+    80,
+    120
+  ],
+  "steps": 30000,
+  "format": "Float64 little-endian, direction-major, nine populations",
+  "purpose": "Condición inicial para un solver vivo; tras cambiar Re se integran las nuevas condiciones, no se reproduce una animación."
+}

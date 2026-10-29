@@ -26,6 +26,26 @@ interface Props {
   onClose: () => void;
 }
 
+// Identidad estable: el temporizador no debe desmontar el certificado ni su foco.
+const Wrapper = ({ children, border = 'border-emerald-500/30', glow = 'bg-emerald-500/10', bg = 'from-[#020617] to-[#0f172a]' }: {children:React.ReactNode;border?:string;glow?:string;bg?:string}) => (
+  <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
+    <motion.div
+      initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
+      className={`bg-gradient-to-br ${bg} rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center ${border} overflow-hidden relative border`}
+    >
+      <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 ${glow} blur-[80px] rounded-full`} />
+      {children}
+    </motion.div>
+  </div>
+);
+
+const NavButtons = ({ onFinish,onClose }: { onFinish: () => void;onClose:()=>void }) => (
+  <div className="flex gap-3 relative z-10">
+    <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10">Seguir</button>
+    <button onClick={onFinish} className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-emerald-500/20 transition-all">Finalizar</button>
+  </div>
+);
+
 export default function SuccessModal({ normalizedId, data, hubPath, resetPractica, onClose }: Props) {
   const router = useRouter();
   const { particulas } = useSimuladorStore();
@@ -34,24 +54,9 @@ export default function SuccessModal({ normalizedId, data, hubPath, resetPractic
   const { resetF1, resetF2, resetF3, resetF4, resetF5, resetF6, resetF7, resetF8, resetF9, resetF10 } = useSimuladorStore();
   const { resetParticulas, resetGases, resetBalanceo, resetP4, resetP5, resetP6, resetP7, resetP8, resetP9, resetP10 } = useSimuladorStore();
 
-  const Wrapper = ({ children, border = 'border-emerald-500/30', glow = 'bg-emerald-500/10', bg = 'from-[#020617] to-[#0f172a]' }: any) => (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-      <motion.div
-        initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-        className={`bg-gradient-to-br ${bg} rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center ${border} overflow-hidden relative border`}
-      >
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 ${glow} blur-[80px] rounded-full`} />
-        {children}
-      </motion.div>
-    </div>
-  );
 
-  const NavButtons = ({ onFinish }: { onFinish: () => void }) => (
-    <div className="flex gap-3 relative z-10">
-      <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10">Seguir</button>
-      <button onClick={onFinish} className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-emerald-500/20 transition-all">Finalizar</button>
-    </div>
-  );
+
+
 
   if (normalizedId === 'biologia-2') {
     const { volumen, concExt, tipoCelula } = useSimuladorStore.getState().transporte;
@@ -179,7 +184,7 @@ export default function SuccessModal({ normalizedId, data, hubPath, resetPractic
           <div><span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Terna Pitagórica</span><span className="text-xl font-black">{catetoA}² + {catetoB}² = {Math.round(hipotenusa**2)}</span></div>
           <div><span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Hipotenusa (c)</span><span className="text-xl font-black font-mono">{hipotenusa.toFixed(2)}</span></div>
         </div>
-        <NavButtons onFinish={() => { resetM4(); router.push(hubPath); }} />
+        <NavButtons onClose={onClose} onFinish={() => { resetM4(); router.push(hubPath); }} />
       </Wrapper>
     );
   }

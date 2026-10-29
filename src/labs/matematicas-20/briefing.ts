@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "MAT-20",
+  "titulo": "Integrales dobles: volumen y centroide de una pieza",
+  "subtitulo": "Cálculo y Métodos Numéricos",
+  "acento": "#8b5cf6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Una pieza irregular se divide en elementos; contrastar aproximaciones y referencia analítica.\n\nCalcula el centroide X de una placa rectangular con un barreno excéntrico mediante integrales de área y momentos.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Dominio perforado",
+      "descripcion": "El círculo se excluye de la región de integración."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Momento de área",
+      "descripcion": "El vacío se resta con su propia posición de centroide."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Volumen",
+      "descripcion": "El espesor constante permite integrar e sobre el área neta."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Placa perforada» y «Partición del dominio» con Explorar en 3D.",
+    "Ajusta «Centro X del barreno», «Radio del barreno» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Geometría de piezas",
+      "ejemplo": "Obtener un centroide mediante momentos de área y límites de integración."
+    }
+  ],
+  "imagen": "/images/ciencias/matematicas-20.webp?v=aa82ddc6bdf7"
+};
+export default briefing;

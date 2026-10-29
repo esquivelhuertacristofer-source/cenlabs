@@ -1,0 +1,3 @@
+import type {Parametros,Resultado} from './tipos';
+export function enzimas(p:Parametros,t:number):Resultado{const vmax=80,km=2.4,ki=2,apparent=km*(1+p.inhibitor/ki),rate=vmax*p.substrate/(apparent+p.substrate),product=rate*t/60;return {answer:rate,values:{rate,vmax,km,ki,apparent,product,minutes:t/60,occupancy:rate/vmax,phase:t}};}
+export function atp(p:Parametros,t:number):Resultado{const F=96485.33212,R=8.314462618,T=310,available=8*F*p.gradient/1e6,required=3*p.energy,excess=available-required,flux=excess>0?120*(1-Math.exp(-excess*1000/(R*T))):0,rate=3*flux/8,angle=2*Math.PI*flux/8*t/100,threshold=3*p.energy*1e6/(8*F);return {answer:threshold,values:{available,required,excess,flux,rate,angle,threshold,efficiency:available>required?required/available:0,phase:t}};}

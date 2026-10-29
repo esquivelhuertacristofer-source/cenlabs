@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "BIO-17",
+  "titulo": "Hemodinámica y válvulas cardíacas",
+  "subtitulo": "Biomecánica",
+  "acento": "#10b981",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Válvulas y flujo pulsátil; relacionar diferencias de presión, caudal y trabajo mecánico.\n\nCalcula el caudal máximo a través de la válvula ideal usando el gradiente registrado y su resistencia.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Gradiente",
+      "descripcion": "La diferencia de presión impulsa el flujo."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Válvula",
+      "descripcion": "Impide flujo inverso en el modelo."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Resistencia",
+      "descripcion": "A igual gradiente, R mayor reduce Q."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Valva aórtica» y «Flujo sanguíneo» con Explorar en 3D.",
+    "Ajusta «Frecuencia de ciclos», «Amplitud ventricular», «Resistencia valvular del banco» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Instrumentación de flujo",
+      "ejemplo": "Relacionar gradiente de presión, resistencia y apertura valvular en un banco ideal."
+    }
+  ],
+  "imagen": "/images/ciencias/biologia-17.webp?v=45ab258a350b"
+};
+export default briefing;

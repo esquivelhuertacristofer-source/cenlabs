@@ -1,5 +1,6 @@
-﻿
+
 "use client";
+import {esCienciaNueva} from '@/domain/ciencias/sesion';
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -372,7 +373,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
               <div className="bg-gradient-to-br from-[#219EBC] to-[#023047] p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group border border-white/10">
                 <div className="relative z-10">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#8ECAE6]">
-                    {normalizedId.startsWith('matematicas') ? 'Certificación Matemática'
+                    {esCienciaNueva(normalizedId) ? briefing?.subtitulo : normalizedId.startsWith('matematicas') ? 'Certificación Matemática'
                     : normalizedId.startsWith('fisica') ? 'Protocolo de Física Teórica'
                     : normalizedId.startsWith('biologia') ? 'Bio-Simulación Avanzada'
                     : normalizedId.startsWith('quimica') ? 'Protocolo de Síntesis Molecular'
@@ -506,7 +507,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
               'matematicas-1', 'fisica-1', 'fisica-2', 'fisica-4', 'fisica-5', 'fisica-6', 
               'biologia-1', 'biologia-2', 'quimica-1', 'quimica-2', 'quimica-3', 'quimica-4', 'quimica-5', 'quimica-6'
             ].includes(normalizedId) && (
-            <div className="p-4 mt-auto border-t border-white/5 bg-black/20">
+            <div className="p-4 mt-auto border-t border-white/5 bg-black/20" data-tutor-comentario="">
                 <AsistenteVirtual
                   isVisible={isSidebarOpen}
                   onClose={() => {}}
@@ -676,6 +677,8 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                   });
                 }
                 if (!user) {
+                  // La ruta de sonda es deliberadamente anónima y nunca escribe intentos.
+                  if(process.env.NODE_ENV==='development' && location.pathname.startsWith('/dev/lab/')) return;
                   console.error('[onComplete] user es null — el upsert NO se ejecutará. Verificar getCurrentProfile() y setUser().');
                   return;
                 }

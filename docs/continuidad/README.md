@@ -1,3 +1,16 @@
+<!-- ciencias50-evidencia -->
+## Evidencia local de ciencias50
+
+Implementadas y en verificación; todavía sin publicar. La tabla de remodelación al final contiene los conteos de la revisión vigente. Las entradas anteriores son historial.
+<!-- /ciencias50-evidencia -->
+
+
+
+# Encargo vigente · ciencias50 ·28-10-2026
+El usuario autorizó las50 de PROPUESTA-50-LABS-CIENCIAS.md y exigió un3D mejor y adaptación al formato nativo de estas áreas, incluida ficha inicial. Se construirán14 de Física,14 de Química,12 de Matemáticas y10 de Biología. Usar MissionBriefing + SimuladorClient + Piloto/Bitácora nativos, validación y quiz oficiales. No trasladar el shell iframe de Mecánica a estas áreas.
+
+Estado local: 50 modelos/descriptores y 50 escenas escritos, integración nativa y QA en curso; NO terminados ni publicados. Primeros 10 con prueba geométrica 1366 sin normales nulas ni errores después de corregir pesos D2Q9; falta cierre global y demás tamaños. Catálogo publicado sigue en290 entradas:250 de Mecánica más40 de ciencias. Último publicado0bb42a6; Cloudflare e5306733-c84e-4c5d-953c-39ff27b3a0cc. Cada cierre debe documentarse en docs/continuidad/<id>.md y este índice. El encargo abarca las50; no detenerse al terminar la primera tanda.
+
 # Continuidad del proyecto CEN Labs
 
 ## Estado vigente ·28-10-2026 · hasta250
@@ -472,3 +485,67 @@ Código 0bb42a6f3eed2bb571f3e147198427dd7a390b0b empujado a main. Deploy exit0; 
 14738 comprobaciones numéricas;40 flujos en cuatro tamaños;20 protecciones de curvas; diez comparaciones de sincronía y diez pruebas geométricas;44 suites/3496 pruebas/12 snapshots, TypeScript,ESLint y generados correctos. Diez portadas propias y10/10 sin CDN. Se preservaron las voces existentes; no se añadió narración nueva.
 
 [Guía de los diez laboratorios](GUIA-LABS-241-250.md). Leer este índice y cada ficha al retomar. No ejecutar generadores históricos sobre escenas refinadas. Siguiente ID libre:251; requiere nuevo encargo.
+
+- Ciencias50/quimica-11:1002 comprobaciones y primer flujo nativo1366 correctos. Refinamiento óptico y QA en curso; no publicado.
+
+- fisica-18: revisión local de interacción (capas, vectores, tinta, sonda y cámara); ver ficha. Auditoría global interrumpida para esta iteración; todavía no publicada.
+
+- fisica-18: corregido bloqueo de calentamiento y picking; perfil CPU y revisión de interacción1600 correctos. QA global requiere versión4 para este lab. Detalles en su ficha; sin publicación.
+
+<!-- remodelacion50-indice -->
+## Remodelación de las50 ciencias · estado local
+
+El alcance confirmado por el usuario comprende las50 prácticas.108 componentes y refinamiento geométrico específico implementados; verificación en curso, nada publicado. Las 50 exploraciones de escritorio están verificadas con la revisión específica por práctica; los recorridos finales sólo cuentan si cumplen revisión nativa vigente y prosa v2.
+
+|Lab|Componentes|Prueba actual|
+|---|---|---|
+|[biologia-11](biologia-11.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-12](biologia-12.md)|3|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-13](biologia-13.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-14](biologia-14.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-15](biologia-15.md)|3|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[biologia-16](biologia-16.md)|3|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-17](biologia-17.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-18](biologia-18.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[biologia-19](biologia-19.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[biologia-20](biologia-20.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-11](fisica-11.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-12](fisica-12.md)|2|exploración 8/1600 correcta · 4/4 recorridos finales|
+|[fisica-13](fisica-13.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-14](fisica-14.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-15](fisica-15.md)|2|exploración 10/1600 correcta · 4/4 recorridos finales|
+|[fisica-16](fisica-16.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-17](fisica-17.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[fisica-18](fisica-18.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[fisica-19](fisica-19.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-20](fisica-20.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[fisica-21](fisica-21.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[fisica-22](fisica-22.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[fisica-23](fisica-23.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[fisica-24](fisica-24.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-11](matematicas-11.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[matematicas-12](matematicas-12.md)|3|exploración 9/1600 correcta · 4/4 recorridos finales|
+|[matematicas-13](matematicas-13.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-14](matematicas-14.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-15](matematicas-15.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-16](matematicas-16.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-17](matematicas-17.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[matematicas-18](matematicas-18.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-19](matematicas-19.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[matematicas-20](matematicas-20.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-21](matematicas-21.md)|3|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[matematicas-22](matematicas-22.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-11](quimica-11.md)|4|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-12](quimica-12.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[quimica-13](quimica-13.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-14](quimica-14.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-15](quimica-15.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-16](quimica-16.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-17](quimica-17.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-18](quimica-18.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-19](quimica-19.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+|[quimica-20](quimica-20.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-21](quimica-21.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-22](quimica-22.md)|3|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-23](quimica-23.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
+|[quimica-24](quimica-24.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|

@@ -1,0 +1,7 @@
+import type {Parametros,Resultado} from './tipos';
+export const H=6.62607015e-34,E=1.602176634e-19,C=299792458,ME=9.1093837139e-31;
+/** Kirsch en coordenadas polares: placa infinita, tracción remota en x. */
+export function kirsch(x:number,y:number,a:number,sigma:number){const r=Math.max(a,Math.hypot(x,y)),theta=Math.atan2(y,x),q=(a/r)**2,c=Math.cos(2*theta),s=Math.sin(2*theta),rr=sigma/2*(1-q)+sigma/2*(1-4*q+3*q*q)*c,tt=sigma/2*(1+q)-sigma/2*(1+3*q*q)*c,rt=-sigma/2*(1+2*q-3*q*q)*s;return {rr,tt,rt,difference:Math.sqrt((rr-tt)**2+4*rt*rt)};}
+export function fotoelasticidad(p:Parametros,t:number):Resultado{const force=p.force*1000,thickness=p.thickness/1000,stress=force/(.06*thickness),maximum=3*stress,order=7.5e-11*thickness*maximum/550e-9;return {answer:maximum/1e6,values:{stress,maximum,order,force,thickness,phase:t}};}
+export function fotoelectrico(p:Parametros,t:number):Resultado{const photon=H*C/(p.wavelength*1e-9)/E,kinetic=Math.max(0,photon-2.15),current=18*Math.max(0,1-p.voltage/Math.max(kinetic,1e-12)),frequency=C/(p.wavelength*1e-9),vmax=Math.sqrt(2*kinetic*E/ME);return {answer:kinetic,values:{photon,kinetic,current,frequency,vmax,voltage:p.voltage,phase:t}};}
+export function reynolds(p:Parametros,t:number):Resultado{const diameter=p.diameter/1000,Re=p.velocity*diameter/1e-6,dtPhysical=.045/p.velocity*diameter/12;return {answer:Re,valid:Re>=10-1e-9&&Re<=120+1e-9,warning:'El banco LBM se limita a10≤Re≤120 y flujo2D de bajo Mach.',values:{velocity:p.velocity,diameter,Re,dtPhysical,physicalTime:t*160*dtPhysical,phase:t}};}

@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "QMI-16",
+  "titulo": "Electrólisis del agua: materia y energía",
+  "subtitulo": "Electroquímica Aplicada",
+  "acento": "#219EBC",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Burbujas y membrana de una celda; relacionar carga, producción y consumo energético.\n\nCalcula el consumo eléctrico específico de la celda ideal por kilogramo de hidrógeno producido.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Estequiometría",
+      "descripcion": "Dos electrones forman una molécula de H2."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Energía",
+      "descripcion": "VIt permite contrastar producción y consumo."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Separación",
+      "descripcion": "La membrana mantiene los gases separados en el esquema."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Colector de hidrógeno» y «Colector de oxígeno» con Explorar en 3D.",
+    "Ajusta «Corriente de celda», «Tensión de celda» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Tecnologías de hidrógeno",
+      "ejemplo": "Relacionar carga, estequiometría y consumo eléctrico específico de celda."
+    }
+  ],
+  "imagen": "/images/ciencias/quimica-16.webp?v=d93b66db9c5c"
+};
+export default briefing;

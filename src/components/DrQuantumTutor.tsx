@@ -83,7 +83,7 @@ export default function DrQuantumTutor({
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className="flex flex-col gap-4 w-full" data-dr-quantum-tutor="">
       
       {/* ── BOTÓN DE AUDIO ── */}
       <button
@@ -117,6 +117,8 @@ export default function DrQuantumTutor({
                 src="/assets/art/mascotas/dr_quantum_neutral.webp"
                 alt="Dr. Quantum"
                 fill
+                sizes="112px"
+                loading="eager"
                 className="object-contain drop-shadow-[0_10px_40px_rgba(33,158,188,0.5)]"
                 onError={() => setImgError(true)}
               />

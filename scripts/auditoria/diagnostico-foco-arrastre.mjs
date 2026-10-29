@@ -1,0 +1,12 @@
+// Reproduce el fallo anterior con la cámara congelada: no ejecuta el nuevo
+// disparador al soltar. El comportamiento actual se prueba en ciencias50-especiales.
+import {createScene} from '../../src/components/ciencias/escenas/registro.ts';
+import {THREE,liberar} from '../../src/components/ciencias/escenas/kit.ts';
+import {piezasDe,valorArrastrado} from '../../src/components/ciencias/escenas/inspeccion.ts';
+import d from '../../src/components/ciencias/definiciones/matematicas-12.ts';
+import {readFile,writeFile} from 'node:fs/promises';
+const object=createScene(d.id),p=Object.fromEntries(d.controls.map(c=>[c.key,c.initial])),part=piezasDe(object.root).find(p=>p.nombre==='Punto de control P1');object.update(d.model(p,.8).values,p,.8);object.root.updateMatrixWorld(true);
+const r=JSON.parse(await readFile('scripts/auditoria/.salida/ciencias50/matematicas-12-1366-dpr1-informe.json','utf8')),camera=new THREE.PerspectiveCamera(30,r.health.canvas.width/r.health.canvas.height,.05,200),b=new THREE.Box3().setFromObject(part.objeto);b.expandByPoint(b.getCenter(new THREE.Vector3()).add(new THREE.Vector3(0,b.getSize(new THREE.Vector3()).y/2+.30,0)));
+const center=b.getCenter(new THREE.Vector3()),dir=new THREE.Vector3(...object.direction).normalize();let distance=b.getSize(new THREE.Vector3()).length()*1.5;
+for(let i=0;i<14;i++){camera.position.copy(center).addScaledVector(dir,distance);camera.lookAt(center);camera.updateMatrixWorld(true);const pts=[];for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])pts.push(new THREE.Vector3(x,y,z).project(camera));distance*=Math.max((Math.max(...pts.map(p=>p.x))-Math.min(...pts.map(p=>p.x)))/1.78,(Math.max(...pts.map(p=>p.y))-Math.min(...pts.map(p=>p.y)))/1.32);}
+const before=part.objeto.getWorldPosition(new THREE.Vector3()).project(camera).toArray();p.h1=valorArrastrado(p.h1,140,d.controls[0]);object.update(d.model(p,.8).values,p,.8);object.root.updateMatrixWorld(true);const after=part.objeto.getWorldPosition(new THREE.Vector3()).project(camera).toArray(),report={id:d.id,parameter:p.h1,part:part.nombre,before,after,leavesFrame:Math.abs(after[0])>1||Math.abs(after[1])>1,method:'Proyección geométrica de la pieza usando el mismo ajuste de cámara y delta de arrastre; sin GPU.'};console.log(JSON.stringify(report));await writeFile('scripts/auditoria/.salida/ciencias50/foco-arrastre-antes.json',JSON.stringify(report,null,2));liberar(object.root);

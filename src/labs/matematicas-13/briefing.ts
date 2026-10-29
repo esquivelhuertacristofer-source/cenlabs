@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "MAT-13",
+  "titulo": "Programación lineal: optimizar una mezcla de producción",
+  "subtitulo": "Optimización",
+  "acento": "#8b5cf6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Tanques y restricciones de suministro; identificar región factible y solución económica.\n\nCalcula la ganancia máxima factible de dos productos bajo las restricciones de recursos.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Restricción",
+      "descripcion": "Sólo los puntos factibles son admisibles."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Objetivo",
+      "descripcion": "La ganancia define rectas de nivel."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Vértice",
+      "descripcion": "Un óptimo lineal existe en un vértice si es acotado."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Producto A» y «Producto B» con Explorar en 3D.",
+    "Ajusta «Disponibilidad de cada recurso», «Ganancia por producto X» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Planeación de producción",
+      "ejemplo": "Encontrar un óptimo factible y reconocer cuándo la divisibilidad exige programación entera."
+    }
+  ],
+  "imagen": "/images/ciencias/matematicas-13.webp?v=380e129ccb06"
+};
+export default briefing;

@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "FIS-24",
+  "titulo": "Giroscopio: momento angular y precesión",
+  "subtitulo": "Mecánica Rotacional",
+  "acento": "#3b82f6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un rotor responde a un par; medir precesión y reconocer los límites del régimen estacionario.\n\nCalcula la velocidad angular de precesión lenta del giroscopio sostenido por un extremo.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Momento angular",
+      "descripcion": "El rotor almacena Iω."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Torque",
+      "descripcion": "La gravedad cambia la dirección del momento angular."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Precesión",
+      "descripcion": "Su rapidez es inversa al giro en el límite lento."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Brazo de carga» y «Volante de inercia» con Explorar en 3D.",
+    "Ajusta «Régimen del rotor», «Brazo del centro de masa» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Dinámica de rotores",
+      "ejemplo": "Explicar el efecto de régimen e inercia sobre la precesión lenta."
+    }
+  ],
+  "imagen": "/images/ciencias/fisica-24.webp?v=6864d1e78e5f"
+};
+export default briefing;

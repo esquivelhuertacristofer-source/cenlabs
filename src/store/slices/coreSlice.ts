@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, CoreSlice } from '../types';
 import { Profile } from '../../lib/supabase-helpers';
+import {esCienciaNueva,reiniciarJuezCiencia,reiniciarExperimentosCiencia,validarCiencia} from '../../domain/ciencias/sesion';
 
 export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = (set, get) => ({
   timer: 0,
@@ -74,6 +75,7 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = 
   language: 'es',
   setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
   entrarLab: (id: string) => {
+    if(esCienciaNueva(id)) reiniciarJuezCiencia(id);
     const [materia, num] = id.split('-');
     const n = Number(num);
     const st = get();
@@ -96,6 +98,7 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = 
     });
   },
   validarLab: (id: string) => {
+    if(esCienciaNueva(id)) return validarCiencia(id);
     const [materia, num] = id.split('-');
     const n = Number(num);
     const st = get();
@@ -106,6 +109,7 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = 
     return { ok: false, mensaje: `Lab "${id}" no tiene validador registrado. Reportar al equipo técnico.` };
   },
   resetPractica: () => {
+    reiniciarExperimentosCiencia();
     set({
       timer: 0,
       isRunning: false,

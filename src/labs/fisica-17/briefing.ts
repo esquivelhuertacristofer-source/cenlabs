@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "FIS-17",
+  "titulo": "Radiación térmica: horno solar y equilibrio energético",
+  "subtitulo": "Transferencia de Calor",
+  "acento": "#3b82f6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un concentrador ilumina un receptor; relacionar absorción, emisión y temperatura de equilibrio.\n\nObtén la temperatura de equilibrio radiativo de una placa expuesta a irradiancia solar.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Absorción",
+      "descripcion": "Sólo una fracción de G calienta la placa."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Radiación",
+      "descripcion": "La emisión depende de T a la cuarta."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Balance",
+      "descripcion": "El equilibrio iguala potencia absorbida y emitida."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Fuente de irradiación» y «Placa absorbente» con Explorar en 3D.",
+    "Ajusta «Irradiancia», «Emisividad térmica» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Diseño térmico",
+      "ejemplo": "Contrastar estado transitorio y equilibrio radiativo sin confundirlos con conversión fotovoltaica."
+    }
+  ],
+  "imagen": "/images/ciencias/fisica-17.webp?v=ba60476742b1"
+};
+export default briefing;

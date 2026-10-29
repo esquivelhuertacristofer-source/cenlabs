@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "FIS-20",
+  "titulo": "Capilaridad y mojabilidad en microcanales",
+  "subtitulo": "Fluidos Aplicados",
+  "acento": "#3b82f6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Meniscos, gotas y frentes de llenado; medir ángulo de contacto y ascenso capilar.\n\nDetermina la altura de ascenso de equilibrio en un tubo capilar con agua.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Mojado",
+      "descripcion": "El ángulo de contacto modifica cosθ."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Equilibrio",
+      "descripcion": "La presión capilar equilibra la hidrostática."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Viscosidad",
+      "descripcion": "Modifica el tiempo de ascenso, no la altura final."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Microcanal» y «Menisco» con Explorar en 3D.",
+    "Ajusta «Radio interior», «Ángulo de contacto» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Microfluidos y mojado",
+      "ejemplo": "Separar altura capilar de equilibrio y rapidez de ascenso viscoso."
+    }
+  ],
+  "imagen": "/images/ciencias/fisica-20.webp?v=2e3237e75f9a"
+};
+export default briefing;

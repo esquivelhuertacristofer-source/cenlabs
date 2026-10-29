@@ -47,6 +47,8 @@ export interface BriefingConfig {
   acento?: string;
   /** URL opcional de video (YouTube o MP4 directo) */
   videoUrl?: string;
+  /** Vista real del laboratorio, opcional; conserva la ficha de las prácticas anteriores. */
+  imagen?: string;
 }
 
 interface MissionBriefingProps {
@@ -234,6 +236,12 @@ export default function MissionBriefing({ config, onStart, labId }: MissionBrief
                   </motion.p>
                 </div>
               </div>
+
+              {config.imagen && (
+                <div className="relative h-56 sm:h-64 overflow-hidden rounded-3xl border border-white/10 bg-[#081522]">
+                  <Image src={config.imagen} alt={`Vista del laboratorio: ${config.titulo}`} fill sizes="(max-width: 640px) 90vw, 850px" className="object-contain" />
+                </div>
+              )}
 
               {/* ── VIDEO INTRODUCTORIO (CINEMATIC PLAYER) ── */}
               {config.videoUrl && (

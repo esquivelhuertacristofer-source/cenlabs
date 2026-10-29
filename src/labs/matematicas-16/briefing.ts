@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "MAT-16",
+  "titulo": "Muestreo de aceptación de lotes",
+  "subtitulo": "Estadística Aplicada",
+  "acento": "#8b5cf6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Se inspecciona una muestra de piezas; calcular riesgos de aceptación y rechazo.\n\nCalcula la probabilidad de aceptar un lote con el plan n,c=2 y tasa de defectos indicada.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Plan",
+      "descripcion": "n y c definen la regla de decisión."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Riesgo",
+      "descripcion": "Un lote malo puede aceptarse por azar."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo",
+      "descripcion": "La independencia permite la binomial."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Estación de inspección» y «Lote y muestra» con Explorar en 3D.",
+    "Ajusta «Tamaño de muestra», «Tasa de defectos del lote» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Recepción de lotes",
+      "ejemplo": "Calcular riesgo de aceptación e interpretar lo que un muestreo sí permite decidir."
+    }
+  ],
+  "imagen": "/images/ciencias/matematicas-16.webp?v=f3678cecc3e7"
+};
+export default briefing;

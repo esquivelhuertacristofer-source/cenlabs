@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "QMI-18",
+  "titulo": "Calorimetría de reacción",
+  "subtitulo": "Cinética y Reactores",
+  "acento": "#219EBC",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un recipiente intercambia calor; estimar energía de reacción y separar pérdidas del calor medido.\n\nRecupera la entalpía molar de la reacción usando el salto térmico y la pérdida declarada.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Signo",
+      "descripcion": "Una reacción exotérmica tiene ΔH negativa."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Balance",
+      "descripcion": "El calor de la solución tiene signo opuesto al de reacción."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Corrección",
+      "descripcion": "Las pérdidas hacen subestimar el calor liberado."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Calorímetro en sección» y «Sonda térmica» con Explorar en 3D.",
+    "Ajusta «Concentración de cada solución», «Volumen de cada solución», «Pérdida térmica declarada» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Balance de energía experimental",
+      "ejemplo": "Corregir pérdidas y justificar el signo y las unidades de una entalpía molar."
+    }
+  ],
+  "imagen": "/images/ciencias/quimica-18.webp?v=fc3a5e813a98"
+};
+export default briefing;

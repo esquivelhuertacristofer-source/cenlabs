@@ -11,8 +11,8 @@
 import { MASTER_DATA } from '@/data/simuladoresData';
 
 const SUBJECTS = ['quimica', 'fisica', 'biologia', 'matematicas'] as const;
-const SIMULATORS_PER_SUBJECT = 10;
-const TOTAL_SIMULATORS = SUBJECTS.length * SIMULATORS_PER_SUBJECT;
+const SIMULATORS_PER_SUBJECT = {quimica:24,fisica:24,biologia:20,matematicas:22} as const;
+const TOTAL_SIMULATORS = Object.values(SIMULATORS_PER_SUBJECT).reduce((sum,n)=>sum+n,0);
 
 describe('Simuladores routing — MASTER_DATA integrity', () => {
   it(`has exactly ${TOTAL_SIMULATORS} simulators`, () => {
@@ -20,14 +20,14 @@ describe('Simuladores routing — MASTER_DATA integrity', () => {
     expect(keys.length).toBe(TOTAL_SIMULATORS);
   });
 
-  it.each(SUBJECTS)('%s has exactly %d simulators', (subject) => {
+  it.each(SUBJECTS)('%s tiene su inventario completo', (subject) => {
     const keys = Object.keys(MASTER_DATA).filter((k) => k.startsWith(subject + '-'));
-    expect(keys.length).toBe(SIMULATORS_PER_SUBJECT);
+    expect(keys.length).toBe(SIMULATORS_PER_SUBJECT[subject]);
   });
 
   it.each(
     SUBJECTS.flatMap((subject) =>
-      Array.from({ length: SIMULATORS_PER_SUBJECT }, (_, i) => `${subject}-${i + 1}`)
+      Array.from({ length: SIMULATORS_PER_SUBJECT[subject] }, (_, i) => `${subject}-${i + 1}`)
     )
   )('simulator "%s" exists and has required fields', (id) => {
     const sim = MASTER_DATA[id as keyof typeof MASTER_DATA];
@@ -39,7 +39,7 @@ describe('Simuladores routing — MASTER_DATA integrity', () => {
   });
 
   it('all simulator IDs match the expected format', () => {
-    const validFormat = /^(quimica|fisica|biologia|matematicas)-([1-9]|10)$/;
+    const validFormat = /^(quimica|fisica|biologia|matematicas)-([1-9][0-9]*)$/;
     Object.keys(MASTER_DATA).forEach((id) => {
       expect(id).toMatch(validFormat);
     });

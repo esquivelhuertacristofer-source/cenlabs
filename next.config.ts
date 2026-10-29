@@ -34,6 +34,8 @@ const nextConfig: NextConfig = {
   // Con DSN: passthrough — se usa el SDK real (y withSentryConfig lo instrumenta abajo).
   // En servidor: aliasa 'jspdf' al stub no-op (es solo-cliente) para no inflar el worker.
   webpack: (config, { isServer }) => {
+    // Opt-in for long local visual audits on machines with little disk space.
+    if (process.env.LABS_QA_NO_CACHE === '1') config.cache = false;
     config.resolve = config.resolve || {};
     config.resolve.alias = config.resolve.alias || {};
     if (!sentryEnabled) {

@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "BIO-20",
+  "titulo": "Asepsia y contaminación cruzada",
+  "subtitulo": "Técnicas de Laboratorio",
+  "acento": "#10b981",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Una estación virtual de pipeteo y trazadores; reconocer transferencias y evaluar controles de contaminación.\n\nCalcula el trazador que llega al segundo recipiente después de una limpieza entre transferencias.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Transferencia",
+      "descripcion": "Un contacto transporta una fracción del origen."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Reducción logarítmica",
+      "descripcion": "Cada log10 divide por diez."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Control",
+      "descripcion": "El blanco permite observar arrastre residual."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Pipeta de transferencia» y «Trazadores de contaminación» con Explorar en 3D.",
+    "Ajusta «Fracción transferida por contacto», «Reducciones log10 de limpieza» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Control de contaminación",
+      "ejemplo": "Cuantificar arrastre de un trazador y justificar blancos y reducciones logarítmicas."
+    }
+  ],
+  "imagen": "/images/ciencias/biologia-20.webp?v=8e1eb9950878"
+};
+export default briefing;

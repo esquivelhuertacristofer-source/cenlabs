@@ -12,6 +12,16 @@ import biologia_7 from './biologia-7';
 import biologia_8 from './biologia-8';
 import biologia_9 from './biologia-9';
 import biologia_10 from './biologia-10';
+import biologia_11 from './biologia-11';
+import biologia_12 from './biologia-12';
+import biologia_13 from './biologia-13';
+import biologia_14 from './biologia-14';
+import biologia_15 from './biologia-15';
+import biologia_16 from './biologia-16';
+import biologia_17 from './biologia-17';
+import biologia_18 from './biologia-18';
+import biologia_19 from './biologia-19';
+import biologia_20 from './biologia-20';
 import fisica_1 from './fisica-1';
 import fisica_2 from './fisica-2';
 import fisica_3 from './fisica-3';
@@ -22,6 +32,20 @@ import fisica_7 from './fisica-7';
 import fisica_8 from './fisica-8';
 import fisica_9 from './fisica-9';
 import fisica_10 from './fisica-10';
+import fisica_11 from './fisica-11';
+import fisica_12 from './fisica-12';
+import fisica_13 from './fisica-13';
+import fisica_14 from './fisica-14';
+import fisica_15 from './fisica-15';
+import fisica_16 from './fisica-16';
+import fisica_17 from './fisica-17';
+import fisica_18 from './fisica-18';
+import fisica_19 from './fisica-19';
+import fisica_20 from './fisica-20';
+import fisica_21 from './fisica-21';
+import fisica_22 from './fisica-22';
+import fisica_23 from './fisica-23';
+import fisica_24 from './fisica-24';
 import matematicas_1 from './matematicas-1';
 import matematicas_2 from './matematicas-2';
 import matematicas_3 from './matematicas-3';
@@ -32,6 +56,18 @@ import matematicas_7 from './matematicas-7';
 import matematicas_8 from './matematicas-8';
 import matematicas_9 from './matematicas-9';
 import matematicas_10 from './matematicas-10';
+import matematicas_11 from './matematicas-11';
+import matematicas_12 from './matematicas-12';
+import matematicas_13 from './matematicas-13';
+import matematicas_14 from './matematicas-14';
+import matematicas_15 from './matematicas-15';
+import matematicas_16 from './matematicas-16';
+import matematicas_17 from './matematicas-17';
+import matematicas_18 from './matematicas-18';
+import matematicas_19 from './matematicas-19';
+import matematicas_20 from './matematicas-20';
+import matematicas_21 from './matematicas-21';
+import matematicas_22 from './matematicas-22';
 import mecanica_1 from './mecanica-1';
 import mecanica_2 from './mecanica-2';
 import mecanica_3 from './mecanica-3';
@@ -292,6 +328,20 @@ import quimica_7 from './quimica-7';
 import quimica_8 from './quimica-8';
 import quimica_9 from './quimica-9';
 import quimica_10 from './quimica-10';
+import quimica_11 from './quimica-11';
+import quimica_12 from './quimica-12';
+import quimica_13 from './quimica-13';
+import quimica_14 from './quimica-14';
+import quimica_15 from './quimica-15';
+import quimica_16 from './quimica-16';
+import quimica_17 from './quimica-17';
+import quimica_18 from './quimica-18';
+import quimica_19 from './quimica-19';
+import quimica_20 from './quimica-20';
+import quimica_21 from './quimica-21';
+import quimica_22 from './quimica-22';
+import quimica_23 from './quimica-23';
+import quimica_24 from './quimica-24';
 
 export const LABS: Record<string, LabModule> = {
   'biologia-1': biologia_1,
@@ -304,6 +354,16 @@ export const LABS: Record<string, LabModule> = {
   'biologia-8': biologia_8,
   'biologia-9': biologia_9,
   'biologia-10': biologia_10,
+  'biologia-11': biologia_11,
+  'biologia-12': biologia_12,
+  'biologia-13': biologia_13,
+  'biologia-14': biologia_14,
+  'biologia-15': biologia_15,
+  'biologia-16': biologia_16,
+  'biologia-17': biologia_17,
+  'biologia-18': biologia_18,
+  'biologia-19': biologia_19,
+  'biologia-20': biologia_20,
   'fisica-1': fisica_1,
   'fisica-2': fisica_2,
   'fisica-3': fisica_3,
@@ -314,6 +374,20 @@ export const LABS: Record<string, LabModule> = {
   'fisica-8': fisica_8,
   'fisica-9': fisica_9,
   'fisica-10': fisica_10,
+  'fisica-11': fisica_11,
+  'fisica-12': fisica_12,
+  'fisica-13': fisica_13,
+  'fisica-14': fisica_14,
+  'fisica-15': fisica_15,
+  'fisica-16': fisica_16,
+  'fisica-17': fisica_17,
+  'fisica-18': fisica_18,
+  'fisica-19': fisica_19,
+  'fisica-20': fisica_20,
+  'fisica-21': fisica_21,
+  'fisica-22': fisica_22,
+  'fisica-23': fisica_23,
+  'fisica-24': fisica_24,
   'matematicas-1': matematicas_1,
   'matematicas-2': matematicas_2,
   'matematicas-3': matematicas_3,
@@ -324,6 +398,18 @@ export const LABS: Record<string, LabModule> = {
   'matematicas-8': matematicas_8,
   'matematicas-9': matematicas_9,
   'matematicas-10': matematicas_10,
+  'matematicas-11': matematicas_11,
+  'matematicas-12': matematicas_12,
+  'matematicas-13': matematicas_13,
+  'matematicas-14': matematicas_14,
+  'matematicas-15': matematicas_15,
+  'matematicas-16': matematicas_16,
+  'matematicas-17': matematicas_17,
+  'matematicas-18': matematicas_18,
+  'matematicas-19': matematicas_19,
+  'matematicas-20': matematicas_20,
+  'matematicas-21': matematicas_21,
+  'matematicas-22': matematicas_22,
   'mecanica-1': mecanica_1,
   'mecanica-2': mecanica_2,
   'mecanica-3': mecanica_3,
@@ -584,4 +670,18 @@ export const LABS: Record<string, LabModule> = {
   'quimica-8': quimica_8,
   'quimica-9': quimica_9,
   'quimica-10': quimica_10,
+  'quimica-11': quimica_11,
+  'quimica-12': quimica_12,
+  'quimica-13': quimica_13,
+  'quimica-14': quimica_14,
+  'quimica-15': quimica_15,
+  'quimica-16': quimica_16,
+  'quimica-17': quimica_17,
+  'quimica-18': quimica_18,
+  'quimica-19': quimica_19,
+  'quimica-20': quimica_20,
+  'quimica-21': quimica_21,
+  'quimica-22': quimica_22,
+  'quimica-23': quimica_23,
+  'quimica-24': quimica_24,
 };

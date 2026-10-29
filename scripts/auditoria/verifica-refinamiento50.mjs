@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {createScene} from '../../src/components/ciencias/escenas/registro.ts';
+import {piezasDe} from '../../src/components/ciencias/escenas/inspeccion.ts';
+import {THREE,liberar} from '../../src/components/ciencias/escenas/kit.ts';
+import {colorLongitudDeOnda} from '../../src/domain/ciencias/color.ts';
+import {espectrometro,capilaridad,interferencia,acustica} from '../../src/domain/ciencias/ondas.ts';
+import {landscape} from '../../src/domain/ciencias/decisiones.ts';
+let checks=0;
+for(const [nm,rgb]of [[420,[1/3,0,1]],[490,[0,1,1]],[510,[0,1,0]],[580,[1,1,0]],[645,[1,0,0]],[680,[1,0,0]]]){const result=colorLongitudDeOnda(nm);result.forEach((v,i)=>{assert(Math.abs(v-rgb[i])<1e-12);checks++;});}
+for(let nm=350;nm<=780;nm++){assert(colorLongitudDeOnda(nm).every(v=>v>=0&&v<=1));checks++;}
+const ms=createScene('fisica-21'),ions=piezasDe(ms.root).find(p=>p.nombre==='Paquete de iones').objeto,matrix=new THREE.Matrix4(),angles=[];
+for(const voltage of [500,1200,2500])for(const field of [.1,.2,.35]){const p={voltage,field},v=espectrometro(p,.4).values;ms.update(v,p,.4);ions.getMatrixAt(0,matrix);const r=v.radius*9,theta=Math.atan2((matrix.elements[12]+.7)/r,(matrix.elements[14]-(.65-r))/r),expected=1.602176634e-19*field/(40*1.66053906892e-27)*.4e-6;assert(Math.abs(theta-expected)<1e-5,'Velocidad angular de ion');angles.push({voltage,field,theta,expected});checks++;}liberar(ms.root);
+const cap=createScene('fisica-20'),meniscus=piezasDe(cap.root).find(p=>p.nombre==='Menisco').objeto;
+for(const radius of [.15,.4,1])for(const angle of [10,30,75]){const p={radius,angle};cap.update(capilaridad(p,1).values,p,1);const normal=meniscus.geometry.attributes.normal,position=meniscus.geometry.attributes.position;const recovered=Math.asin(normal.getY(normal.count-48))*180/Math.PI;assert(Math.abs(recovered-angle)<1e-5,'Ángulo de contacto del menisco');assert.equal(meniscus.scale.y,radius/.4);for(let i=0;i<normal.count;i++){assert(Math.abs(Math.hypot(normal.getX(i),normal.getY(i),normal.getZ(i))-1)<1e-6);assert(Number.isFinite(position.getY(i)));checks+=2;}checks+=2;}liberar(cap.root);
+const slit=createScene('fisica-12'),panel=piezasDe(slit.root).find(p=>p.nombre==='Doble rendija').objeto.children[0];
+for(const slits of [.15,.3,.6]){const p={slits,wavelength:550};slit.update(interferencia(p,1).values,p,1);slit.root.updateMatrixWorld(true);for(const side of [-1,1]){const ray=new THREE.Raycaster(new THREE.Vector3(-2,1,side*.065*slits/.3),new THREE.Vector3(1,0,0));assert.equal(ray.intersectObject(panel,false).length,0,'Abertura real de rendija');checks++;}const blocked=new THREE.Raycaster(new THREE.Vector3(-2,1,0),new THREE.Vector3(1,0,0));assert(blocked.intersectObject(panel,false).length>0,'Material opaco entre las aberturas');checks++;}liberar(slit.root);
+const cost=createScene('matematicas-19'),contours=cost.root.getObjectByName('curvas-nivel-costo').geometry.attributes.position;let maxContourError=0;for(let i=0;i<contours.count;i++){const level=(contours.getY(i)-.007)/.35,error=Math.abs(landscape(contours.getX(i),contours.getZ(i))-level);maxContourError=Math.max(maxContourError,error);assert(error<.02,'Interpolación de curvas de nivel');checks++;}liberar(cost.root);
+const room=createScene('fisica-15'),energy=room.root.getObjectByName('campo-difuso-representativo');let previous=Infinity;for(let t=0;t<=6;t+=.1){const p={absorption:.2};room.update(acustica(p,t).values,p,t);assert(energy.material.opacity<=previous+1e-12&&energy.material.opacity>=0);previous=energy.material.opacity;checks++;}liberar(room.root);
+const report={checks,angles,maxContourError,meniscus:'normal y curvatura coherentes con el ángulo',slits:'aberturas reales y pared central comprobadas',color:'paleta aproximada; no colorimetría calibrada'};const out=new URL('./.salida/ciencias50/',import.meta.url);await mkdir(out,{recursive:true});await writeFile(new URL('referencias-visuales.json',out),JSON.stringify(report,null,2));console.log(JSON.stringify({checks,maxContourError}));

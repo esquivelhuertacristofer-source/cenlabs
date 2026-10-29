@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "QMI-13",
+  "titulo": "Espectroscopía FTIR: identificar grupos funcionales",
+  "subtitulo": "Análisis Instrumental",
+  "acento": "#219EBC",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Enlaces vibran al absorber radiación; relacionar estructura y bandas espectrales.\n\nCalcula el número de onda de estiramiento del enlace C–O idealizado y localiza su banda.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Masa reducida",
+      "descripcion": "Ambos átomos participan en la vibración."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Rigidez",
+      "descripcion": "Una fuerza de enlace mayor eleva la frecuencia."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Isótopos",
+      "descripcion": "Una masa mayor desplaza la banda a menor frecuencia."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Enlace molecular» y «Isótopo del oxígeno» con Explorar en 3D.",
+    "Ajusta «Constante de fuerza», «Masa isotópica del oxígeno» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Espectroscopía vibracional",
+      "ejemplo": "Interpretar desplazamientos isotópicos sin atribuir identificación completa a un único modo."
+    }
+  ],
+  "imagen": "/images/ciencias/quimica-13.webp?v=f35746f7012d"
+};
+export default briefing;

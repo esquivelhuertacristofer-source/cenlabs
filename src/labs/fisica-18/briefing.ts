@@ -1,0 +1,41 @@
+import type {BriefingConfig} from '@/components/MissionBriefing';
+const briefing:BriefingConfig={
+  "codigo": "FIS-18",
+  "titulo": "Túnel de agua: Reynolds y desprendimiento de vórtices",
+  "subtitulo": "Fluidos Aplicados",
+  "acento": "#3b82f6",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Flujo alrededor de un obstáculo; medir velocidades y frecuencia con un modelo de flujo validado.\n\nDetermina el número de Reynolds del agua y relaciona su valor con el campo de flujo calculado alrededor del cilindro.",
+  "conceptos": [
+    {
+      "icono": "🔬",
+      "nombre": "Reynolds",
+      "descripcion": "Compara transporte inercial y difusión viscosa."
+    },
+    {
+      "icono": "📐",
+      "nombre": "No-slip",
+      "descripcion": "La velocidad del fluido se anula en la superficie del obstáculo."
+    },
+    {
+      "icono": "📊",
+      "nombre": "Modelo2D",
+      "descripcion": "Las estructuras observadas pertenecen a un dominio y unas fronteras específicos."
+    }
+  ],
+  "mision": [
+    "Inspecciona «Cilindro no-slip» y «Plano de medición» con Explorar en 3D.",
+    "Ajusta «Velocidad media de entrada», «Diámetro del obstáculo» y usa Revisar movimiento para comparar el fenómeno.",
+    "Adquiere un registro completo de 6 s y calcula el resultado solicitado.",
+    "Valida tu respuesta y contrasta la interpretación en el quiz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Ensayos en túneles de agua",
+      "ejemplo": "Relacionar Reynolds con un campo resuelto y reconocer límites de una red bidimensional."
+    }
+  ],
+  "imagen": "/images/ciencias/fisica-18.webp?v=02f13279c37f"
+};
+export default briefing;

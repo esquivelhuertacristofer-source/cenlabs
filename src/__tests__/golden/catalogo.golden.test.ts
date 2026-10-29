@@ -52,10 +52,10 @@ describe('golden master — catálogo por categoría (invariante ante extracció
   // Tercera tanda (2026-10-18): quimica-7/10, fisica-1/3, matematicas-6/9, biologia-2/6, mecanica-1/4.
   it('las destacadas de cada categoría son los labs de clase mundial', () => {
     const esperado: Record<Categoria, string[]> = {
-      quimica: ['quimica-1', 'quimica-2', 'quimica-7', 'quimica-9', 'quimica-10'],
-      fisica: ['fisica-1', 'fisica-3', 'fisica-6', 'fisica-9', 'fisica-10'],
-      matematicas: ['matematicas-5', 'matematicas-6', 'matematicas-7', 'matematicas-8', 'matematicas-9', 'matematicas-10'],
-      biologia: ['biologia-2', 'biologia-3', 'biologia-4', 'biologia-6', 'biologia-7', 'biologia-8'],
+      quimica: ['quimica-1', 'quimica-2', 'quimica-7', 'quimica-9', 'quimica-10', 'quimica-11', 'quimica-12', 'quimica-13', 'quimica-14', 'quimica-15', 'quimica-16', 'quimica-17', 'quimica-18', 'quimica-19', 'quimica-20', 'quimica-21', 'quimica-22', 'quimica-23', 'quimica-24'],
+      fisica: ['fisica-1', 'fisica-3', 'fisica-6', 'fisica-9', 'fisica-10', 'fisica-11', 'fisica-12', 'fisica-13', 'fisica-14', 'fisica-15', 'fisica-16', 'fisica-17', 'fisica-18', 'fisica-19', 'fisica-20', 'fisica-21', 'fisica-22', 'fisica-23', 'fisica-24'],
+      matematicas: ['matematicas-5', 'matematicas-6', 'matematicas-7', 'matematicas-8', 'matematicas-9', 'matematicas-10', 'matematicas-11', 'matematicas-12', 'matematicas-13', 'matematicas-14', 'matematicas-15', 'matematicas-16', 'matematicas-17', 'matematicas-18', 'matematicas-19', 'matematicas-20', 'matematicas-21', 'matematicas-22'],
+      biologia: ['biologia-2', 'biologia-3', 'biologia-4', 'biologia-6', 'biologia-7', 'biologia-8', 'biologia-11', 'biologia-12', 'biologia-13', 'biologia-14', 'biologia-15', 'biologia-16', 'biologia-17', 'biologia-18', 'biologia-19', 'biologia-20'],
       mecanica: ['mecanica-1', 'mecanica-3', 'mecanica-4', 'mecanica-7', 'mecanica-127', 'mecanica-128', 'mecanica-129', 'mecanica-130', 'mecanica-131', 'mecanica-132', 'mecanica-133', 'mecanica-134', 'mecanica-135', 'mecanica-136', 'mecanica-137', 'mecanica-138', 'mecanica-139', 'mecanica-140', 'mecanica-141', 'mecanica-142', 'mecanica-143', 'mecanica-144', 'mecanica-148', 'mecanica-149', 'mecanica-150', 'mecanica-151', 'mecanica-152', 'mecanica-153', 'mecanica-154', 'mecanica-155', 'mecanica-156', 'mecanica-157', 'mecanica-158', 'mecanica-159', 'mecanica-160', 'mecanica-161', 'mecanica-162', 'mecanica-163', 'mecanica-164', 'mecanica-165', 'mecanica-166', 'mecanica-167', 'mecanica-168', 'mecanica-169', 'mecanica-170', 'mecanica-171', 'mecanica-172', 'mecanica-173', 'mecanica-174', 'mecanica-175', 'mecanica-176', 'mecanica-177', 'mecanica-178', 'mecanica-179', 'mecanica-180', 'mecanica-181', 'mecanica-182', 'mecanica-183', 'mecanica-184', 'mecanica-185', 'mecanica-186', 'mecanica-187', 'mecanica-188', 'mecanica-189', 'mecanica-190', 'mecanica-191', 'mecanica-192', 'mecanica-193', 'mecanica-194', 'mecanica-195', 'mecanica-196', 'mecanica-197', 'mecanica-198', 'mecanica-199', 'mecanica-200', 'mecanica-201', 'mecanica-202', 'mecanica-203', 'mecanica-204', 'mecanica-205', 'mecanica-206', 'mecanica-207', 'mecanica-208', 'mecanica-209', 'mecanica-210', 'mecanica-211', 'mecanica-212', 'mecanica-213', 'mecanica-214', 'mecanica-215', 'mecanica-216', 'mecanica-217', 'mecanica-218', 'mecanica-219', 'mecanica-220', 'mecanica-221', 'mecanica-222', 'mecanica-223', 'mecanica-224', 'mecanica-225', 'mecanica-226', 'mecanica-227', 'mecanica-228', 'mecanica-229', 'mecanica-230', 'mecanica-231', 'mecanica-232', 'mecanica-233', 'mecanica-234', 'mecanica-235', 'mecanica-236', 'mecanica-237', 'mecanica-238', 'mecanica-239', 'mecanica-240', 'mecanica-241', 'mecanica-242', 'mecanica-243', 'mecanica-244', 'mecanica-245', 'mecanica-246', 'mecanica-247', 'mecanica-248', 'mecanica-249', 'mecanica-250', 'mecanica-145', 'mecanica-146', 'mecanica-147', 'mecanica-49', 'mecanica-111', 'mecanica-112', 'mecanica-123'],
     };
     for (const cat of CATEGORIAS) {
@@ -70,17 +70,31 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     const modulosDe = (cat: Categoria) => [
       ...new Set(catalogoDeCategoria(cat).map((i) => i.modulo)),
     ];
-    expect(modulosDe('quimica')).toEqual(['Fundamentos', 'Estequiometría', 'Fisicoquímica']);
-    expect(modulosDe('fisica')).toEqual(['Mecánica', 'Fluidos y Calor', 'Electromagnetismo']);
+    // Ampliación intencional: 50 prácticas nuevas de ciencias con módulos propios.
+    expect(modulosDe('quimica')).toEqual(['Fundamentos', 'Estequiometría', 'Fisicoquímica',
+      'Análisis Instrumental', 'Electroquímica Aplicada', 'Cinética y Reactores',
+      'Química Ambiental', 'Materiales y Fases']);
+    expect(modulosDe('fisica')).toEqual(['Mecánica', 'Fluidos y Calor', 'Electromagnetismo',
+      'Ondas y Óptica', 'Mecánica de Materiales', 'Transferencia de Calor',
+      'Fluidos Aplicados', 'Física Moderna y Campos', 'Mecánica Rotacional']);
     expect(modulosDe('matematicas')).toEqual([
       'Álgebra y Funciones',
       'Geometría y Trigonometría',
       'Cálculo y Probabilidad',
+      'Diseño y Geometría',
+      'Optimización',
+      'Estadística Aplicada',
+      'Cálculo y Métodos Numéricos',
     ]);
     expect(modulosDe('biologia')).toEqual([
       'Biología Celular y Molecular',
       'Genética y Evolución',
       'Anatomía y Ecología',
+      'Bioquímica y Energía',
+      'Técnicas de Laboratorio',
+      'Bioprocesos',
+      'Biomecánica',
+      'Biología Ambiental',
     ]);
     // Mecánica ya no cabía en el hardcode original: las 16 prácticas de máquinas
     // eléctricas (mecanica-44..59) colgaban de 'Instrumentación' y el motor de
