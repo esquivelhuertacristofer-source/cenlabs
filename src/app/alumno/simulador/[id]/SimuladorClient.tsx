@@ -1,6 +1,7 @@
 
 "use client";
 import {esCienciaNueva} from '@/domain/ciencias/sesion';
+import {calificacionGuardada} from '@/domain/ciencias/calificacion';
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -689,7 +690,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                       id_alumno: user.id,
                       sim_id: simuladorId,
                       status: 'completed',
-                      score: quizScore,
+                      score: calificacionGuardada(normalizedId,quizScore,quizQuestions.length),
                       total_time_seconds: st.timer,
                       completed_at: new Date().toISOString(),
                       last_step: st.pasoActual,
