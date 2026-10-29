@@ -1,3 +1,65 @@
+# Ciencias50 · publicación confirmada
+
+Cierre: 29 de octubre de 2026, 9:01 a.m., Ciudad de México. Catálogo: 340 prácticas; 250 de Mecánica, 24 de Física, 24 de Química, 22 de Matemáticas y 20 de Biología. Las 50 nuevas están destacadas;204 destacadas en total. Código **297f91fa54515c4ffb600b7394b4d06f1d0d6e02**; Cloudflare **3cfad647-fa74-4034-8409-94cefbeba58a**; [plataforma](https://www.cenlaboratorios.com.mx).
+
+200/200 recorridos nativos, 8 pruebas específicas, 4 del túnel, 40 aperturas anteriores y 6 bitácoras de referencia correctos. Jest final 50 suites/4219 pruebas; TypeScript limpio; lint sin errores. Se comprobaron 50 entradas con login real y 4 completados guardados y leídos de vuelta con 10/10.
+
+[Autocrítica individual](ciencias50-autocritica.md) · [Evidencia portable](ciencias50-evidencia.json). Cada ficha incluye estado final y el historial de modelo/archivos/pruebas. Los estados locales conservados más abajo son históricos.
+
+- [biologia-11](biologia-11.md)
+- [biologia-12](biologia-12.md)
+- [biologia-13](biologia-13.md)
+- [biologia-14](biologia-14.md)
+- [biologia-15](biologia-15.md)
+- [biologia-16](biologia-16.md)
+- [biologia-17](biologia-17.md)
+- [biologia-18](biologia-18.md)
+- [biologia-19](biologia-19.md)
+- [biologia-20](biologia-20.md)
+- [fisica-11](fisica-11.md)
+- [fisica-12](fisica-12.md)
+- [fisica-13](fisica-13.md)
+- [fisica-14](fisica-14.md)
+- [fisica-15](fisica-15.md)
+- [fisica-16](fisica-16.md)
+- [fisica-17](fisica-17.md)
+- [fisica-18](fisica-18.md)
+- [fisica-19](fisica-19.md)
+- [fisica-20](fisica-20.md)
+- [fisica-21](fisica-21.md)
+- [fisica-22](fisica-22.md)
+- [fisica-23](fisica-23.md)
+- [fisica-24](fisica-24.md)
+- [matematicas-11](matematicas-11.md)
+- [matematicas-12](matematicas-12.md)
+- [matematicas-13](matematicas-13.md)
+- [matematicas-14](matematicas-14.md)
+- [matematicas-15](matematicas-15.md)
+- [matematicas-16](matematicas-16.md)
+- [matematicas-17](matematicas-17.md)
+- [matematicas-18](matematicas-18.md)
+- [matematicas-19](matematicas-19.md)
+- [matematicas-20](matematicas-20.md)
+- [matematicas-21](matematicas-21.md)
+- [matematicas-22](matematicas-22.md)
+- [quimica-11](quimica-11.md)
+- [quimica-12](quimica-12.md)
+- [quimica-13](quimica-13.md)
+- [quimica-14](quimica-14.md)
+- [quimica-15](quimica-15.md)
+- [quimica-16](quimica-16.md)
+- [quimica-17](quimica-17.md)
+- [quimica-18](quimica-18.md)
+- [quimica-19](quimica-19.md)
+- [quimica-20](quimica-20.md)
+- [quimica-21](quimica-21.md)
+- [quimica-22](quimica-22.md)
+- [quimica-23](quimica-23.md)
+- [quimica-24](quimica-24.md)
+
+---
+## Historial previo conservado
+
 <!-- ciencias50-evidencia -->
 ## Evidencia local de ciencias50
 

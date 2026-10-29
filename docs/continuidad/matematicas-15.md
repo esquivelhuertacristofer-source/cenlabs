@@ -1,5 +1,28 @@
 # matematicas-15 · Control estadístico y capacidad de proceso
 
+Estado: **publicado y comprobado** el 29 de octubre de 2026, 9:01 a.m. (Ciudad de México). Código 297f91fa54515c4ffb600b7394b4d06f1d0d6e02; Cloudflare 3cfad647-fa74-4034-8409-94cefbeba58a.
+
+## Resultado y evidencia
+
+Exploración de componentes, aislamiento, corte, mando 3D y revisión temporal en el formato nativo con ficha inicial. Modelo, límites, archivos y cambios propios de esta práctica se conservan en el historial inferior.
+
+Cuatro recorridos completos vigentes: 1366×768, 1600×900, 2020×1055 a DPR 1,25 y 390×844. Incluyen adquisición de 6 s, rechazos, cálculo correcto, quiz, descarga, invalidación y controles 3D. Máximo 80 palabras iniciales; sin errores registrados. Catálogo destacado y portada real final.
+
+Batería final: 50 suites/4219 pruebas correctas. Login real: 50 entradas y 4 completados representativos con lectura de vuelta 10/10 (100%). Evidencia portable: [ciencias50-evidencia.json](ciencias50-evidencia.json).
+
+## Retomar
+
+Mantener las simplificaciones declaradas y la incógnita oculta antes de validar. Editar definición en src/components/ciencias/definiciones/matematicas-15.ts, modelo puro en src/domain/ciencias y constructor en escenas. Si cambia comportamiento, elevar la revisión afectada en ciencias50-versiones.mjs y repetir sus pruebas; regenerar guías sólo después de verifica-piezas. No ejecutar el documentador histórico que sobreescribe fichas. Publicar desde cen-deploy conservando voces y confirmar login/guardado.
+
+## Historial de implementación y revisión
+
+Los estados locales o pendientes siguientes describen fases anteriores al cierre confirmado de esta cabecera.
+
+<details><summary>Modelo, archivos, autocrítica y pruebas por laboratorio</summary>
+
+<!-- ciencias50-historial -->
+# matematicas-15 · Control estadístico y capacidad de proceso
+
 Estado: implementación local en verificación; NO se declara publicado ni terminado.
 
 ## Implementación
@@ -76,3 +99,7 @@ Rodillos, piezas y sensor identifican una estación dimensional; se distingue es
 Se revisaron las capturas iniciales de las50 a1366 y las láminas por área a1600. Materiales de estudio y equipos esquemáticos; la valoración visual no equivale a certificar un instrumento comercial. Referencias de captura: scripts/auditoria/.salida/ciencias50/matematicas-15-*-inicial.png. Estado de publicación en la cabecera de esta ficha.
 
 <!-- /autocritica50 -->
+
+<!-- /ciencias50-historial -->
+
+</details>

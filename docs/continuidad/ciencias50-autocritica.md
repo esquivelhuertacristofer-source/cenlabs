@@ -1,6 +1,6 @@
 # Autocrítica visual de las50 ciencias
 
-Revisión contra el estándar: prosa inicial medida≤120, datos fuera del3D y una composición técnica reconocible desde la apertura. Se revisaron50 vistas1366 y cuatro láminas de área1600; el pulso acústico y el reenfoque Bézier recibieron correcciones verificadas. El conjunto es una representación técnica esquemática, con simplificaciones declaradas en cada ficha. Los recorridos de cuatro tamaños están vigentes; falta confirmar publicación antes de cerrar el proyecto.
+Revisión contra el estándar: prosa inicial medida≤120, datos fuera del3D y una composición técnica reconocible desde la apertura. Se revisaron50 vistas1366 y cuatro láminas de área1600; el pulso acústico y el reenfoque Bézier recibieron correcciones verificadas. El conjunto es una representación técnica esquemática, con simplificaciones declaradas en cada ficha. Los recorridos de cuatro tamaños están vigentes; publicación y login real confirmados en la evidencia de cierre.
 
 |Lab|Máximo de palabras|Valoración específica|
 |---|---:|---|

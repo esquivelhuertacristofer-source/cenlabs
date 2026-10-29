@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29T13:59:36.062Z",
-  "status": "Validación local; publicación pendiente",
+  "status": "Publicado y comprobado con cuenta piloto",
   "labs": 50,
   "flows": 200,
   "proseMax": 84,
@@ -3059,15 +3059,66 @@
       "errors": []
     }
   ],
-  "release": null,
+  "release": {
+    "code": "297f91fa54515c4ffb600b7394b4d06f1d0d6e02",
+    "cloudflare": "3cfad647-fa74-4034-8409-94cefbeba58a",
+    "date": "2026-10-29T15:01:13.081Z",
+    "host": "https://www.cenlaboratorios.com.mx",
+    "productionOpenings": 50,
+    "saved": [
+      {
+        "sim_id": "biologia-20",
+        "status": "completed",
+        "score": 10,
+        "maxScore": 10,
+        "percentage": 100,
+        "writeStatus": 200,
+        "readStatus": 200
+      },
+      {
+        "sim_id": "fisica-24",
+        "status": "completed",
+        "score": 10,
+        "maxScore": 10,
+        "percentage": 100,
+        "writeStatus": 201,
+        "readStatus": 200
+      },
+      {
+        "sim_id": "matematicas-22",
+        "status": "completed",
+        "score": 10,
+        "maxScore": 10,
+        "percentage": 100,
+        "writeStatus": 201,
+        "readStatus": 200
+      },
+      {
+        "sim_id": "quimica-24",
+        "status": "completed",
+        "score": 10,
+        "maxScore": 10,
+        "percentage": 100,
+        "writeStatus": 201,
+        "readStatus": 200
+      }
+    ]
+  },
   "tests": {
-    "suites": 49,
-    "passed": 4212,
+    "suites": 50,
+    "passed": 4219,
     "failed": 0,
     "snapshots": 12
   },
   "lint": {
     "errors": 0,
     "warnings": 88
+  },
+  "academicScoring": {
+    "scale": 10,
+    "integer": true,
+    "rounding": "nearest",
+    "scope": "50 nuevas ciencias",
+    "previousContractsPreserved": true
   }
 }
