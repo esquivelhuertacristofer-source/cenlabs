@@ -1,4 +1,5 @@
 import {colorLongitudDeOnda} from '@/domain/ciencias/color';
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {THREE,grupo,caja,cilindro,torno,varilla,tubo,mesh,fusionar,paleta,material,type EscenaConstruida} from './kit';
 import {piezasDe} from './inspeccion';
 import {gradiente,landscape} from '@/domain/ciencias/decisiones';
@@ -29,7 +30,7 @@ export function refinarEscena(id:string,scene:EscenaConstruida):Actualizar{
  case 'fisica-23':{const beam=root.getObjectByName('luz-fotoelectrica') as THREE.Mesh;update=(_v,p)=>{const material=beam.material as THREE.MeshBasicMaterial;material.color.setRGB(...colorLongitudDeOnda(p.wavelength),THREE.SRGBColorSpace);};for(const x of [-.8,.8]){const seal=grupo(extra,x,1,0);seal.rotation.z=Math.PI/2;brida(seal,.58,.08);}sensor(1.3,.2,.55,.085);break;}
  case 'fisica-24':{const wheel=part('Volante de inercia'),ring=mesh(wheel,new THREE.TorusGeometry(.46,.008,5,80),m.aluminio);ring.rotation.y=Math.PI/2;const dot=cilindro(wheel,.035,.012,m.negro,.085,.43,0,12);dot.rotation.z=Math.PI/2;for(const y of [.40,.75,1.10])brida(extra,.10,y);break;}
  case 'quimica-11':{const cell=part('Cubeta y muestra');for(const z of [-.205,.205]){caja(cell,.43,.025,.06,m.acero,0,.77,z);caja(cell,.43,.025,.06,m.acero,0,.025,z);}for(const x of [-.55,1.35]){const g=grupo(extra,x,.95,0);g.rotation.z=Math.PI/2;brida(g,.27,-.10);}break;}
- case 'quimica-12':{const packing=part('Fase estacionaria') as THREE.InstancedMesh;const matrix=new THREE.Object3D(),packed=new THREE.InstancedMesh(packing.geometry,packing.material,900);function radical(index:number,base:number){let value=0,f=1/base;while(index>0){value+=(index%base)*f;index=Math.floor(index/base);f/=base;}return value;}for(let i=0;i<900;i++){const a=radical(i+1,5)*Math.PI*2,r=.085*Math.sqrt(radical(i+1,3));matrix.position.set(-.8+radical(i+1,2)*2.1,.85+r*Math.cos(a),r*Math.sin(a));matrix.updateMatrix();packed.setMatrixAt(i,matrix.matrix);}packing.add(packed);packing.count=0;for(const x of [-.9,1.4]){const g=grupo(extra,x,.85,0);g.rotation.z=Math.PI/2;brida(g,.19,0);}sensor(1.75,.65,.55,.09);break;}
+ case 'quimica-12':{const packing=part('Fase estacionaria') as THREE.InstancedMesh;const silica=packing.material as THREE.MeshStandardMaterial;silica.color.setHex(0x6d99a6);silica.transparent=true;silica.opacity=.35;silica.depthWrite=false;const matrix=new THREE.Object3D(),packed=new THREE.InstancedMesh(packing.geometry,packing.material,900);function radical(index:number,base:number){let value=0,f=1/base;while(index>0){value+=(index%base)*f;index=Math.floor(index/base);f/=base;}return value;}for(let i=0;i<900;i++){const a=radical(i+1,5)*Math.PI*2,r=.085*Math.sqrt(radical(i+1,3));matrix.position.set(-.8+radical(i+1,2)*2.1,.85+r*Math.cos(a),r*Math.sin(a));matrix.updateMatrix();packed.setMatrixAt(i,matrix.matrix);}packing.add(packed);packing.count=0;for(const x of [-.9,1.4]){const g=grupo(extra,x,.85,0);g.rotation.z=Math.PI/2;brida(g,.19,0);}sensor(1.75,.65,.55,.09);break;}
  case 'quimica-13':{for(const z of [-.95,.95]){const mount=grupo(extra,0,.65,z);mount.rotation.x=Math.PI/2;brida(mount,.30,0);for(const x of [-.18,.18]){const knob=cilindro(mount,.035,.10,m.cobre,x,.13,0);knob.rotation.z=.2;}}sensor(1.2,.75,0,.09);break;}
  case 'quimica-14':{for(const x of [-.45,.45]){const g=grupo(extra,x,1.42,0);brida(g,.07,0);cilindro(g,.033,.16,m.negro,0,.10,0);}sensor(.62,1.35,.15,.045);break;}
  case 'quimica-15':{for(const x of [-.32,.32]){const hanger=grupo(extra,x,1.38,0);caja(hanger,.20,.06,.14,m.acero);for(const z of [-.06,.06])cilindro(hanger,.025,.045,m.cobre,0,.045,z);}rejilla(0,.24,0,1.1,.65);break;}
@@ -65,6 +66,21 @@ export function refinarEscena(id:string,scene:EscenaConstruida):Actualizar{
  case 'biologia-19':{const bodies=part('Bioindicadores virtuales') as THREE.InstancedMesh,finGeometry=new THREE.BufferGeometry();finGeometry.setAttribute('position',new THREE.Float32BufferAttribute([.015,.03,0,-.04,.03,0,-.02,.085,0,.015,-.03,0,-.04,-.03,0,-.02,-.065,0],3));finGeometry.computeVertexNormals();const fins=new THREE.InstancedMesh(finGeometry,new THREE.MeshStandardMaterial({color:0x68a89c,roughness:.5,side:THREE.DoubleSide}),40);bodies.add(fins);update=()=>{fins.instanceMatrix.array.set(bodies.instanceMatrix.array);fins.instanceMatrix.needsUpdate=true;};break;}
  case 'biologia-20':{caja(extra,1.5,.10,.42,m.pintura,0,.2,.95);for(let i=0;i<12;i++){const tip=torno(extra,[[0,0],[.013,.02],[.032,.18],[.045,.22],[.032,.23],[0,.23]],m.vidrio,-.64+i*.116,.25,.95);tip.rotation.z=.05;}const pipette=part('Pipeta de transferencia');for(let i=0;i<7;i++)brida(pipette,.063,.54+i*.025);break;}
  default:throw Error('Falta refinamiento específico: '+id);
+ }
+ if(id==='biologia-15'){
+  const cells=part('Biomasa') as THREE.InstancedMesh,body=new THREE.SphereGeometry(.035,12,8),bud=new THREE.SphereGeometry(.019,10,6).translate(.025,.026,0),geometry=mergeGeometries([body,bud]);if(geometry){cells.geometry.dispose();cells.geometry=geometry;}body.dispose();bud.dispose();
+  tubo(extra,[[1.3,2.3,0],[1.3,2.3,-.55],[1.08,1.45,-.55],[1.08,1.05,-.55]],.025,m.acero);
+  tubo(extra,[[-1.2,.3,0],[-1.3,.3,0],[-1.3,.29,-.14],[-1.2,.29,-.14]],.025,m.goma);
+  for(const x of [-.30,.30]){const fitting=grupo(extra,x,1.93,.22);brida(fitting,.065,0);cilindro(fitting,.028,.20,m.acero,0,-.07,0);}
+  const broth=torno(extra,[[0,0],[.30,.02],[.57,.16],[.58,1.0],[0,1.0]],new THREE.MeshPhysicalMaterial({color:0x9aad76,roughness:.28,transparent:true,opacity:.06,depthWrite:false}),0,.40,0);broth.castShadow=false;
+ }
+ if(id==='biologia-16'){
+  const left=part('Pulmón y distensibilidad'),right=root.children.find(o=>o!==left&&o.type==='Group'&&o.position.x>.6);
+  for(const lung of [left,right]){if(!lung)continue;const tree=grupo(lung),tips:THREE.Vector3[]=[];
+   function branch(a:THREE.Vector3,b:THREE.Vector3,depth:number){varilla(tree,a.toArray() as [number,number,number],b.toArray() as [number,number,number],.012+depth*.004,m.cobre);if(depth===0){tips.push(b);return;}for(const sign of [-1,1]){const c=b.clone().add(new THREE.Vector3(sign*(.10+depth*.025),-.16,.07*Math.sin(depth*2+sign)));branch(b,c,depth-1);}}
+   branch(new THREE.Vector3(0,.65,0),new THREE.Vector3(0,.30,0),3);fusionar(tree);
+   const acini=new THREE.InstancedMesh(new THREE.SphereGeometry(.036,10,6),material(0xdab2b6,.02,.62),tips.length*5),o=new THREE.Object3D();tips.forEach((p,i)=>{for(let j=0;j<5;j++){const a=j*Math.PI*2/5;o.position.copy(p).add(new THREE.Vector3(.045*Math.cos(a),.04*Math.sin(a),.03));o.updateMatrix();acini.setMatrixAt(i*5+j,o.matrix);}});lung.add(acini);
+  }
  }
  fusionar(extra);extra.name='detalle-funcional-'+id;return update;
 }

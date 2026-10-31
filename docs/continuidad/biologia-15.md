@@ -1,3 +1,21 @@
+## Ampliación 3D · 29 de octubre de 2026 · EN REVISIÓN LOCAL
+
+La petición del usuario es reforzar las 50 escenas: considera insuficiente el detalle del 3D publicado. Se añaden **Circuito de esterilización y muestreo** y **Manifold de gases**, inspeccionables y desmontables. Autoría específica en `src/components/ciencias/escenas/montajes.ts`; integración en `registro.ts`. El desmontaje separa capas o conjuntos del equipo y se restaura al cerrar el inspector; no modifica parámetros, muestras ni resultados científicos. Las piezas pasivas no tienen un control científico ficticio. Ahora también se puede arrastrar directamente el volumen de la pieza científica seleccionada. El inspector reemplaza temporalmente los ajustes del ensayo.
+
+Comprobación geométrica local: 119328 triángulos, 5 piezas semánticas; sin normales nulas ni valores no finitos (auditor `verifica-piezas-ciencias50.mjs`). TypeScript limpio. La validación visual, el rendimiento en navegador y el recorrido completo de esta nueva ampliación están pendientes; **no se considera terminada ni publicada**. La publicación 297f91f/Cloudflare 3cfad647 pertenece a la versión anterior.
+
+Retomar: ejecutar `montajes-ciencias50.mjs biologia-15` en escritorio/móvil, revisar capturas, corregir oclusiones y pruebas; actualizar la ficha con evidencia real antes del commit/despliegue.
+
+
+
+
+
+
+### Evidencia de la ampliación (actualización automática)
+
+Desmontaje/restauración correctos en 2/4 tamaños: 1600 px, 390 px. Recorridos completos vigentes: 1/4. La evidencia previa a esta ampliación no se cuenta como prueba nueva. Máximo observado: 81 llamadas de dibujo; 224102 triángulos. Archivos reproducibles: `scripts/auditoria/.salida/montajes50/` y `ciencias50/`. Falta cerrar revisión visual y publicación de esta versión.
+
+
 # biologia-15 · Levadura en un biorreactor
 
 Estado: **publicado y comprobado** el 29 de octubre de 2026, 9:01 a.m. (Ciudad de México). Código 297f91fa54515c4ffb600b7394b4d06f1d0d6e02; Cloudflare 3cfad647-fa74-4034-8409-94cefbeba58a.
@@ -103,3 +121,7 @@ Se revisaron las capturas iniciales de las50 a1366 y las láminas por área a160
 <!-- /ciencias50-historial -->
 
 </details>
+
+QA 2026-10-29T20:04:51.857Z: 1600×900 DPR1; geometría inicial; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-15-1600-dpr1-informe.json.
+
+QA 2026-10-29T20:46:16.694Z: 1366×768 DPR1; recorrido nativo completo, quiz y descarga; calidad alterna y extremos de controles sin NaN ni normales nulas. Fuente: biologia-15-1366-dpr1-informe.json.

@@ -2,6 +2,7 @@ import type {PracticaCiencia} from '@/domain/ciencias/tipos';
 import {hplc} from '@/domain/ciencias/procesos';
 const definition:PracticaCiencia={...{
   "id": "quimica-12",
+  "previewPaused": true,
   "title": "Cromatografía HPLC: separar una mezcla",
   "intro": "Bandas avanzan por una columna; interpretar retención, resolución y cuantificación.",
   "mission": "Calcula la resolución entre los dos picos y juzga si la separación es suficiente.",

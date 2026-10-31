@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Cog, Play, ArrowLeft, Clock, Target, User, Lock, Sparkles, Search } from 'lucide-react';
+import { Cog, Play, ArrowLeft, Clock, User, Lock, Sparkles, Search } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import LabsDestacados from '@/components/LabsDestacados';
 import { catalogoDeCategoria, type CatalogoItem } from '@/labs/_catalogo';
@@ -54,66 +54,16 @@ const ConcentricRings = ({ progress, colorClass }: { progress: number, colorClas
 
 // Spotlight Card para labs ACTIVOS (resplandor que sigue al ratón)
 const SpotlightCard = ({ practica }: { practica: CatalogoItem }) => {
-  const divRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [opacity, setOpacity] = useState(0);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!divRef.current) return;
-    const rect = divRef.current.getBoundingClientRect();
-    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
+  // Ficha compacta: con 250 labs, una ficha por fila de ancho completo hacía
+  // listas interminables. Rejilla de 2–3 columnas, portada arriba y todo el
+  // resto en poco alto; la tarjeta entera lleva al simulador.
   return (
     <div
         id={practica.id}
-        ref={divRef}
-        onMouseMove={handleMouseMove}
-        onMouseEnter={() => setOpacity(1)}
-        onMouseLeave={() => setOpacity(0)}
-        className="md:col-span-2 relative bg-white dark:bg-[#0A1121] border border-slate-200 dark:border-slate-800 rounded-[32px] flex flex-col md:flex-row justify-between group overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_60px_-15px_rgba(42,157,143,0.3)] dark:hover:shadow-[0_20px_60px_-15px_rgba(42,157,143,0.5)] border-l-8 border-l-[#2A9D8F]"
+        className="relative bg-white dark:bg-[#0A1121] border border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col group overflow-hidden shadow-[0_6px_24px_rgb(0,0,0,0.04)] dark:shadow-[0_6px_24px_rgb(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_-12px_rgba(42,157,143,0.35)] border-t-4 border-t-[#2A9D8F]"
     >
-        <div
-            className="pointer-events-none absolute -inset-px transition-opacity duration-300 z-30 mix-blend-overlay hidden md:block"
-            style={{
-                opacity,
-                background: `radial-gradient(800px circle at ${position.x}px ${position.y}px, rgba(42,157,143,0.12), transparent 40%)`,
-            }}
-        />
-
-        <div className="relative z-20 w-full p-4 sm:p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:pr-[35%] lg:pr-[30%] pointer-events-none">
-           <div className="w-full">
-               <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#effaf7] dark:bg-[#2A9D8F]/20 text-[#2A9D8F] dark:text-[#4FD1C5] rounded-lg text-xs font-black uppercase tracking-widest mb-4 border border-[#2A9D8F]/20">
-                 <div className="w-2 h-2 rounded-full bg-[#2A9D8F] animate-pulse"></div>
-                 {practica.modulo} • ID: {practica.id.toUpperCase()}
-               </span>
-               <h3 className="text-3xl font-black text-[#023047] dark:text-white leading-tight mb-4 group-hover:text-[#2A9D8F] transition-colors">{practica.titulo}</h3>
-               <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-base leading-relaxed">{practica.teoria}</p>
-
-               <div className="flex flex-wrap items-center gap-4 pointer-events-auto">
-                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-bold bg-slate-50 dark:bg-slate-800/50 px-5 py-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                    <Clock size={18} className="text-[#2A9D8F]" />
-                    <span>{practica.duracion}</span>
-                 </div>
-                 <div className="flex items-center gap-2 text-[#023047] dark:text-[#4FD1C5] font-bold bg-[#effaf7] dark:bg-[#2A9D8F]/10 px-5 py-2.5 rounded-xl border border-[#2A9D8F]/20">
-                    <Target size={18} />
-                    <span>Simulador 3D Interactivo</span>
-                 </div>
-               </div>
-           </div>
-
-           <div className="relative z-20 w-full md:w-auto mt-4 md:mt-0 flex md:block justify-start md:justify-end pointer-events-auto">
-              <Link href={`/alumno/simulador/${practica.id}`} className="px-6 py-4 md:w-16 md:h-16 md:px-0 md:py-0 md:rounded-full rounded-xl bg-[#2A9D8F] hover:bg-[#023047] text-white flex items-center justify-center shadow-xl transition-transform hover:scale-110 active:scale-95 gap-2 font-bold">
-                 <span className="md:hidden">Iniciar Simulación</span>
-                 <Play fill="currentColor" size={24} className="md:ml-1 hidden md:block" />
-              </Link>
-           </div>
-        </div>
-
         {/* PORTADA: fotograma del propio simulador 3D de la práctica */}
-        <div className="absolute inset-y-0 right-0 w-[45%] md:w-[40%] lg:w-[35%] pointer-events-none hidden sm:block z-10">
-            {/* Gradiente degradado tipo máscara para fusionar el borde izquierdo de la imagen con el fondo de la ficha */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#0A1121] via-transparent to-transparent z-10 w-full h-full"></div>
+        <div className="relative h-36 bg-[#effaf7] dark:bg-[#08201C] overflow-hidden hidden sm:block">
             {/* Si un día falta la portada, mejor la ficha sin imagen que el icono de imagen rota */}
             <img
                 src={`/images/mecanica/prac_${practica.orden}.webp`}
@@ -123,14 +73,31 @@ const SpotlightCard = ({ practica }: { practica: CatalogoItem }) => {
                 loading="lazy"
                 decoding="async"
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                className="w-full h-full object-cover object-left md:object-center opacity-85 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100"
+                className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100"
             />
+        </div>
+
+        <div className="flex flex-col flex-grow p-5 gap-3">
+           <span className="text-[11px] font-black uppercase tracking-widest text-[#2A9D8F] dark:text-[#4FD1C5]">
+             {practica.modulo} • ID: {practica.id.toUpperCase()}
+           </span>
+           <h3 className="text-lg font-black text-[#023047] dark:text-white leading-snug group-hover:text-[#2A9D8F] transition-colors">{practica.titulo}</h3>
+           <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed line-clamp-3">{practica.teoria}</p>
+           <div className="mt-auto pt-2 flex items-center justify-between gap-3">
+             <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-sm font-bold">
+               <Clock size={16} className="text-[#2A9D8F]" />
+               {practica.duracion}
+             </span>
+             <Link href={`/alumno/simulador/${practica.id}`} className="px-4 py-2 rounded-xl bg-[#2A9D8F] hover:bg-[#023047] text-white text-sm font-black flex items-center gap-2 shadow-md transition-colors">
+               <Play fill="currentColor" size={14} />
+               Iniciar
+             </Link>
+           </div>
         </div>
     </div>
   );
 };
 
-// Tarjeta para labs PROPUESTOS (bloqueada)
 const PropuestoCard = ({ practica }: { practica: CatalogoItem }) => {
   const Icon = Cog;
   return (
@@ -287,7 +254,7 @@ export default function MecanicaCatalogPage() {
         </div>
 
         {/* 2. DESTACADAS (todas las marcadas en el catálogo) */}
-        <LabsDestacados acento="#2A9D8F" items={destacadas.map((p) => ({ href: `/alumno/simulador/${p.id}`, titulo: p.titulo, modulo: p.modulo }))} />
+        <LabsDestacados categoria="mecanica" acento="#2A9D8F" items={destacadas.map((p) => ({ href: `/alumno/simulador/${p.id}`, titulo: p.titulo, modulo: p.modulo }))} />
 
         {/* 3. TÍTULO + BÚSQUEDA */}
         <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -344,7 +311,7 @@ export default function MecanicaCatalogPage() {
         </div>
 
         {activasFiltradas.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
              {activasFiltradas.map((practica) => (
                 <SpotlightCard key={practica.id} practica={practica} />
              ))}

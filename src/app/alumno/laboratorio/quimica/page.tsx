@@ -290,7 +290,7 @@ export default function QuimicaCatalogPage() {
         </div>
 
         {/* 2. DESTACADAS (todas las marcadas en el catálogo) */}
-        <LabsDestacados acento="#FB8500" items={destacadas.map((p) => ({ href: `/alumno/simulador/quimica-${p.id}`, titulo: p.titulo, modulo: p.modulo }))} />
+        <LabsDestacados categoria="quimica" acento="#FB8500" items={destacadas.map((p) => ({ href: `/alumno/simulador/quimica-${p.id}`, titulo: p.titulo, modulo: p.modulo }))} />
 
         {/* 3. TABS NAVIGATION & SEARCH ROW */}
         <div className="w-full flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">

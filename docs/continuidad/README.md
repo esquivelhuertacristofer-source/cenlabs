@@ -1,3 +1,21 @@
+# Relevo vigente · 30 de octubre de 2026
+
+El usuario pidió entregar el proyecto a otra IA. Leer primero el **[informe de relevo actualizado](RELEVO-AMPLIACION3D-2026-10-30.md)**.
+
+Las 50 escenas tienen ampliaciones locales, todavía sin commit ni publicación. Evidencia confirmada: 100 desmontajes, 8 arrastres directos y 10 de los 200 recorridos nativos pendientes de cierre. Dos baterías anteriores pasaron 4.219 pruebas; la ejecución posterior al último ajuste de Q12 falló por lectura del entorno y debe repetirse de forma aislada.
+
+Hoy las consultas cortas respondieron y no se encontraron procesos Node con los nombres de los auditores. El PID 30692 y el estado «recorridos-200» conservado en el archivo de cola son históricos: no prueban actividad actual ni justifican terminar un PID antiguo. Retomar en grupos pequeños y sin Jest simultáneo al navegador.
+
+El informe contiene archivos cambiados, evidencia, revisiones, problemas observados, helpers, exclusiones de Git y secuencia de publicación. No confundir la publicación anterior 297f91f / Cloudflare 3cfad647 con esta ampliación local.
+
+<details><summary>Historial del índice anterior: estados y procesos del 29 de octubre</summary>
+
+# Ampliación 3D en curso · nueva petición del usuario
+
+**Atender antes de reanudar:** el barrido largo encontró `ERR_INSUFFICIENT_RESOURCES` y errores de lectura del entorno. Se intentó cerrar el árbol Node que ejecuta `work/cierre-ampliacion3d.mjs` (PID comprobado30692), sin confirmación de cierre por las herramientas. Verificar que esté detenido y recuperar recursos antes de nuevas pruebas. Se conservan100 desmontajes y8 arrastres directos correctos; los200 recorridos completos siguen pendientes de terminar. Reanudar en grupos de cinco IDs por navegador y ejecutar Jest por separado. La ampliación sigue local, sin commit ni publicación. El relevo detallado está en `outputs/RELEVO-AMPLIACION3D-EN-CURSO.md` del workspace del chat.
+
+Se están reforzando las **50 escenas** con equipos completos, desmontaje e interacción directa. [Estado por laboratorio y punto para retomar](ciencias50-ampliacion3d.md). Cambios locales en revisión; la publicación confirmada que se describe a continuación corresponde a la versión previa.
+
 # Ciencias50 · publicación confirmada
 
 Cierre: 29 de octubre de 2026, 9:01 a.m., Ciudad de México. Catálogo: 340 prácticas; 250 de Mecánica, 24 de Física, 24 de Química, 22 de Matemáticas y 20 de Biología. Las 50 nuevas están destacadas;204 destacadas en total. Código **297f91fa54515c4ffb600b7394b4d06f1d0d6e02**; Cloudflare **3cfad647-fa74-4034-8409-94cefbeba58a**; [plataforma](https://www.cenlaboratorios.com.mx).
@@ -611,3 +629,5 @@ El alcance confirmado por el usuario comprende las50 prácticas.108 componentes 
 |[quimica-22](quimica-22.md)|3|exploración 6/1600 correcta · 4/4 recorridos finales|
 |[quimica-23](quimica-23.md)|2|exploración 6/1600 correcta · 4/4 recorridos finales|
 |[quimica-24](quimica-24.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
+
+</details>

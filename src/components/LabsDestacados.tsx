@@ -9,12 +9,27 @@ export interface LabDestacado {
 
 /**
  * Franja de prácticas destacadas de una categoría (las marcadas con
- * `destacada: true` en su catalogo.ts). Desde 2026-10-13 son los labs de
+ * `destacada: true` en su catalogo.ts); se muestran sólo las 4 mejores. Desde 2026-10-13 son los labs de
  * «clase mundial»: una categoría puede tener varias, así que se pintan todas
  * en rejilla y no sólo la primera. El color de acento llega como hex para no
  * depender de clases de Tailwind generadas en tiempo de compilación.
  */
-export default function LabsDestacados({ items, acento }: { items: LabDestacado[]; acento: string }) {
+export const MAX_DESTACADAS = 4;
+
+/** Las 4 mejores de cada pilar (por href), en el orden en que se muestran. */
+export const MEJORES_POR_CATEGORIA: Record<string, string[]> = {
+  fisica: ['fisica-10', 'fisica-6', 'fisica-9', 'fisica-1'],
+  quimica: ['quimica-1', 'quimica-9', 'quimica-10', 'quimica-7'],
+  biologia: ['biologia-4', 'biologia-3', 'biologia-8', 'biologia-7'],
+  matematicas: ['matematicas-5', 'matematicas-8', 'matematicas-9', 'matematicas-10'],
+  mecanica: ['mecanica-166', 'mecanica-165', 'mecanica-169', 'mecanica-127'],
+};
+
+export default function LabsDestacados({ items: todas, acento, categoria }: { items: LabDestacado[]; acento: string; categoria?: string }) {
+  const orden = (categoria && MEJORES_POR_CATEGORIA[categoria]) || [];
+  const clave = (h: string) => h.split('/').pop() ?? h;
+  const elegidas = orden.map((id) => todas.find((it) => clave(it.href) === id)).filter((x): x is LabDestacado => !!x);
+  const items = [...elegidas, ...todas.filter((it) => !elegidas.includes(it))].slice(0, MAX_DESTACADAS);
   if (items.length === 0) return null;
   const varias = items.length > 1;
   return (
