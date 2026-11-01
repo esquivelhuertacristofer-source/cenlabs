@@ -1,9 +1,20 @@
 # mecanica-259 · Cercha: reacciones y fuerzas en las barras
 
+<!-- publicacion-solidos -->
+## Publicación confirmada · 1 de noviembre de2026
+
+Código **0b9ddf8**, push a main y despliegue autorizados por el usuario. Cloudflare **8028185d-32c1-494e-aad7-d5446876346a**, [CENLABS](https://www.cenlaboratorios.com.mx/alumno/simulador/mecanica-259). Compilación y despliegue correctos; audios anteriores preservados.
+
+Prueba de producción con login real: ficha, portada HTTP200, iframe exacto, reto y quiz correctos; cero errores de consola. Intento guardado y leído de vuelta: **86/100**; escritura HTTP201, lectura HTTP200. La nota corresponde a una prueba breve con el tiempo real de la rúbrica, no a una sesión artificial de8 minutos. Regresión de ciencias:50 accesos y4 notas10/10 guardadas/leídas correctamente.
+
+[Evidencia de producción](evidencia-solidos/produccion.json). Implementación/publicación del bloqueA cerradas. Siguiente trabajo: bloqueB261–270; no mezclar sus borradores locales con este código publicado.
+<!-- /publicacion-solidos -->
+
+
 <!-- estado-solidos -->
 ## Revisión vigente · 31-10-2026
 
-**Implementación y revisión local completas. Sin push ni publicación.** Commit del lote: consultar el historial de Git de esta ficha. Publicación pendiente de la primera autorización exigida por el usuario.
+Implementación y revisión local cerradas; la publicación confirmada se documenta arriba. Commit del lote0b9ddf8.
 
 Orden: OT-259 · Sostén ≥24 kN con esfuerzo ≤100 MPa, flecha ≤2 mm y altura ≤800 mm.
 

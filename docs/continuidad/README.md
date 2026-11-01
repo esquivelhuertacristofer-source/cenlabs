@@ -1,8 +1,13 @@
-# Encargo vigente · Mecánica 251–300 · 31-10-2026
+# Encargo vigente · Mecánica251–300 · 1 de noviembre de2026
 
-Leer [estado actual de la tanda](mecanica-251-300-estado.md). Bloque **251–260 implementado y revisado localmente**: 40 recorridos completos, 5.388 comprobaciones numéricas, Jest 50 suites / 4.289 pruebas, 150 clips de voz y diez portadas revisadas. [Autocrítica y capturas](evidencia-solidos/autocritica.json). Sin push ni publicación; requieren la primera confirmación del usuario. Commit: consultar el historial de estas fichas. El encargo total es de 50; siguiente bloque **261–270, Elementos de Máquina**, después 291–300, 271–280 y 281–290. El relevo del 30 de octubre que sigue es historial de ciencias, ya integrado en bd61e63.
+Bloque **251–260 publicado y verificado**, código **0b9ddf8**, Cloudflare **8028185d**. Diez prácticas,40 recorridos locales,150 clips,portadas revisadas; en producción diez accesos/retos/quizzes y diez notas guardadas/leídas sin errores. Regresión50 ciencias y4 notas10/10 correctas. [Evidencia de publicación](evidencia-solidos/produccion.json) · [estado de la tanda](mecanica-251-300-estado.md). BloqueB:261 y262 revisados individualmente,263 en revisión;264–300 pendientes. Total encargado:50, orden A/B/E/C/D. No confundir borradoresB con producción.
 
 # Relevo vigente · 30 de octubre de 2026
+
+### Avance individual del bloque B
+
+- [mecanica-261](mecanica-261.md): unión atornillada, revisión individual completa (4 tamaños, 7.845 comprobaciones, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-262.
+- [mecanica-262](mecanica-262.md): soldadura/remaches excéntricos, revisión individual completa (4 tamaños, 153 comprobaciones propias, vectores3D contrastados, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-263.
 
 El usuario pidió entregar el proyecto a otra IA. Leer primero el **[informe de relevo actualizado](RELEVO-AMPLIACION3D-2026-10-30.md)**.
 
@@ -747,3 +752,16 @@ El alcance confirmado por el usuario comprende las50 prácticas.108 componentes 
 - Avance QA laboratorio254: 2020×1055 verificado; cierre y publicación pendientes.
 
 - Avance QA laboratorio255: 2020×1055 verificado; cierre y publicación pendientes.
+
+
+
+
+
+- Avance QA laboratorio261: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+
+- Avance QA laboratorio262: 390×844 verificado; cierre y publicación pendientes.

@@ -1,0 +1,809 @@
+{
+  "documentado": "2026-11-01",
+  "codigo": "0b9ddf8",
+  "cloudflare": "8028185d-32c1-494e-aad7-d5446876346a",
+  "url": "https://www.cenlaboratorios.com.mx",
+  "autorizacion": "Respuesta explícita del usuario: Sí, publicar el bloque251–260.",
+  "mecanica": {
+    "date": "2026-11-01T01:51:02.517Z",
+    "base": "https://www.cenlaboratorios.com.mx",
+    "labs": [
+      {
+        "id": "mecanica-251",
+        "slug": "viga-flexion-estatica",
+        "health": {
+          "mallas": 14,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 14290,
+          "llamadas": 12
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-252",
+        "slug": "traccion-curva-material",
+        "health": {
+          "mallas": 35,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 15794,
+          "llamadas": 21
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-253",
+        "slug": "columna-pandeo-euler",
+        "health": {
+          "mallas": 25,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 15234,
+          "llamadas": 16
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-254",
+        "slug": "mohr-plano-critico",
+        "health": {
+          "mallas": 33,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 17894,
+          "llamadas": 38
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-255",
+        "slug": "fatiga-goodman-eje",
+        "health": {
+          "mallas": 37,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 26314,
+          "llamadas": 33
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-256",
+        "slug": "concentracion-agujero-entalla",
+        "health": {
+          "mallas": 19,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 15850,
+          "llamadas": 13
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-257",
+        "slug": "torsion-eje-dimensionado",
+        "health": {
+          "mallas": 36,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 18994,
+          "llamadas": 29
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-258",
+        "slug": "recipiente-aro-espesor",
+        "health": {
+          "mallas": 60,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 14166,
+          "llamadas": 33
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-259",
+        "slug": "cercha-equilibrio-barras",
+        "health": {
+          "mallas": 40,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 10950,
+          "llamadas": 23
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      },
+      {
+        "id": "mecanica-260",
+        "slug": "fractura-grieta-critica",
+        "health": {
+          "mallas": 11,
+          "normalesCero": 0,
+          "esferasRotas": [],
+          "sinNormal": [],
+          "posicionesNaN": 0,
+          "tri": 13310,
+          "llamadas": 10
+        },
+        "coverHTTP": 200,
+        "iframe": true,
+        "solved": true,
+        "quiz": true,
+        "persisted": {
+          "status": "completed",
+          "score": 86,
+          "maxScore": 100,
+          "writeStatus": 201,
+          "readStatus": 200
+        },
+        "errors": []
+      }
+    ],
+    "errors": [],
+    "complete": true
+  },
+  "ciencias": {
+    "date": "2026-11-01T15:28:56.337Z",
+    "base": "https://www.cenlaboratorios.com.mx",
+    "labs": [
+      {
+        "id": "biologia-11",
+        "health": {
+          "id": "biologia-11",
+          "calls": 18,
+          "tri": 24884,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-12",
+        "health": {
+          "id": "biologia-12",
+          "calls": 65,
+          "tri": 374576,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-13",
+        "health": {
+          "id": "biologia-13",
+          "calls": 56,
+          "tri": 91438,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-14",
+        "health": {
+          "id": "biologia-14",
+          "calls": 53,
+          "tri": 32178,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-15",
+        "health": {
+          "id": "biologia-15",
+          "calls": 81,
+          "tri": 224102,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-16",
+        "health": {
+          "id": "biologia-16",
+          "calls": 50,
+          "tri": 144134,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-17",
+        "health": {
+          "id": "biologia-17",
+          "calls": 51,
+          "tri": 100654,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-18",
+        "health": {
+          "id": "biologia-18",
+          "calls": 113,
+          "tri": 92544,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-19",
+        "health": {
+          "id": "biologia-19",
+          "calls": 47,
+          "tri": 67242,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "biologia-20",
+        "health": {
+          "id": "biologia-20",
+          "calls": 79,
+          "tri": 82590,
+          "overflow": false
+        },
+        "coverHTTP": 200,
+        "persisted": {
+          "sim_id": "biologia-20",
+          "status": "completed",
+          "score": 10,
+          "maxScore": 10,
+          "percentage": 100,
+          "writeStatus": 200,
+          "readStatus": 200
+        }
+      },
+      {
+        "id": "fisica-11",
+        "health": {
+          "id": "fisica-11",
+          "calls": 30,
+          "tri": 42268,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-12",
+        "health": {
+          "id": "fisica-12",
+          "calls": 67,
+          "tri": 73270,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-13",
+        "health": {
+          "id": "fisica-13",
+          "calls": 88,
+          "tri": 69184,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-14",
+        "health": {
+          "id": "fisica-14",
+          "calls": 53,
+          "tri": 57486,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-15",
+        "health": {
+          "id": "fisica-15",
+          "calls": 17,
+          "tri": 39256,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-16",
+        "health": {
+          "id": "fisica-16",
+          "calls": 25,
+          "tri": 32896,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-17",
+        "health": {
+          "id": "fisica-17",
+          "calls": 28,
+          "tri": 22344,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-18",
+        "health": {
+          "id": "fisica-18",
+          "calls": 63,
+          "tri": 96258,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-19",
+        "health": {
+          "id": "fisica-19",
+          "calls": 54,
+          "tri": 49798,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-20",
+        "health": {
+          "id": "fisica-20",
+          "calls": 42,
+          "tri": 42910,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-21",
+        "health": {
+          "id": "fisica-21",
+          "calls": 67,
+          "tri": 71798,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-22",
+        "health": {
+          "id": "fisica-22",
+          "calls": 33,
+          "tri": 39544,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-23",
+        "health": {
+          "id": "fisica-23",
+          "calls": 62,
+          "tri": 69958,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "fisica-24",
+        "health": {
+          "id": "fisica-24",
+          "calls": 38,
+          "tri": 26484,
+          "overflow": false
+        },
+        "coverHTTP": 200,
+        "persisted": {
+          "sim_id": "fisica-24",
+          "status": "completed",
+          "score": 10,
+          "maxScore": 10,
+          "percentage": 100,
+          "writeStatus": 200,
+          "readStatus": 200
+        }
+      },
+      {
+        "id": "matematicas-11",
+        "health": {
+          "id": "matematicas-11",
+          "calls": 30,
+          "tri": 17170,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-12",
+        "health": {
+          "id": "matematicas-12",
+          "calls": 47,
+          "tri": 45440,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-13",
+        "health": {
+          "id": "matematicas-13",
+          "calls": 49,
+          "tri": 78630,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-14",
+        "health": {
+          "id": "matematicas-14",
+          "calls": 51,
+          "tri": 32772,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-15",
+        "health": {
+          "id": "matematicas-15",
+          "calls": 43,
+          "tri": 34520,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-16",
+        "health": {
+          "id": "matematicas-16",
+          "calls": 25,
+          "tri": 28292,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-17",
+        "health": {
+          "id": "matematicas-17",
+          "calls": 91,
+          "tri": 53384,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-18",
+        "health": {
+          "id": "matematicas-18",
+          "calls": 27,
+          "tri": 25952,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-19",
+        "health": {
+          "id": "matematicas-19",
+          "calls": 11,
+          "tri": 46624,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-20",
+        "health": {
+          "id": "matematicas-20",
+          "calls": 25,
+          "tri": 31588,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-21",
+        "health": {
+          "id": "matematicas-21",
+          "calls": 28,
+          "tri": 44876,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "matematicas-22",
+        "health": {
+          "id": "matematicas-22",
+          "calls": 54,
+          "tri": 66318,
+          "overflow": false
+        },
+        "coverHTTP": 200,
+        "persisted": {
+          "sim_id": "matematicas-22",
+          "status": "completed",
+          "score": 10,
+          "maxScore": 10,
+          "percentage": 100,
+          "writeStatus": 200,
+          "readStatus": 200
+        }
+      },
+      {
+        "id": "quimica-11",
+        "health": {
+          "id": "quimica-11",
+          "calls": 91,
+          "tri": 80850,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-12",
+        "health": {
+          "id": "quimica-12",
+          "calls": 67,
+          "tri": 137206,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-13",
+        "health": {
+          "id": "quimica-13",
+          "calls": 71,
+          "tri": 86162,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-14",
+        "health": {
+          "id": "quimica-14",
+          "calls": 61,
+          "tri": 51766,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-15",
+        "health": {
+          "id": "quimica-15",
+          "calls": 51,
+          "tri": 49054,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-16",
+        "health": {
+          "id": "quimica-16",
+          "calls": 57,
+          "tri": 55602,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-17",
+        "health": {
+          "id": "quimica-17",
+          "calls": 67,
+          "tri": 93342,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-18",
+        "health": {
+          "id": "quimica-18",
+          "calls": 45,
+          "tri": 23246,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-19",
+        "health": {
+          "id": "quimica-19",
+          "calls": 34,
+          "tri": 34784,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-20",
+        "health": {
+          "id": "quimica-20",
+          "calls": 52,
+          "tri": 66890,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-21",
+        "health": {
+          "id": "quimica-21",
+          "calls": 49,
+          "tri": 79190,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-22",
+        "health": {
+          "id": "quimica-22",
+          "calls": 92,
+          "tri": 123470,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-23",
+        "health": {
+          "id": "quimica-23",
+          "calls": 48,
+          "tri": 93902,
+          "overflow": false
+        },
+        "coverHTTP": 200
+      },
+      {
+        "id": "quimica-24",
+        "health": {
+          "id": "quimica-24",
+          "calls": 23,
+          "tri": 22132,
+          "overflow": false
+        },
+        "coverHTTP": 200,
+        "persisted": {
+          "sim_id": "quimica-24",
+          "status": "completed",
+          "score": 10,
+          "maxScore": 10,
+          "percentage": 100,
+          "writeStatus": 200,
+          "readStatus": 200
+        }
+      }
+    ],
+    "errors": [],
+    "devRoute": 404
+  }
+}

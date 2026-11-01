@@ -1,12 +1,20 @@
 # Encargo vigente: Mecánica 251–300
 
+## Publicación A cerrada · 1 de noviembre de2026
+
+Código0b9ddf8 publicado en Cloudflare8028185d-32c1-494e-aad7-d5446876346a con autorización explícita. Producción comprobada:10 accesos/portadas/iframes,10 retos y quizzes,10 guardados y lecturas86/100; regresión50 ciencias y4 resultados10/10, cero errores. Evidencia portable `evidencia-solidos/produccion.json`. Los procesos de QA citados abajo terminaron; no reutilizar sus IDs. BloqueB local:261/262 revisados individualmente;263 integrado en revisión con geometría de involuta helicoidal.264–300 aún pendientes. Catálogo local353, producción350.
+
 ## Cierre local del bloque A · actualización prioritaria
 
 251–260 completos y revisados localmente. Firma `951a7a6f10f71813d826a31da4450b98f7089e515f5ed39ddfda07f791feec86`: 40/40 recorridos completos en cuatro tamaños, 5.388 comprobaciones físicas nuevas, regresión física anterior 14.738, regresión del runtime 250, diez barridos oficiales sanos. TypeScript/ESLint correctos; Jest completo 50 suites/4.289 pruebas/12 snapshots, comprobación posterior de voz/briefing 2 suites/34 pruebas. Diez portadas revisadas, 150 clips verificados; 7.555 audios previos preservados. Cierre estricto correcto el 1 de noviembre UTC (31 de octubre local).
 
 Las diez fichas individuales incluyen el estado vigente, límites, pruebas y autocrítica. Evidencia portable en `evidencia-solidos/`. Los procesos de QA anteriores ya terminaron; sus IDs son históricos. No reanudar esas colas por el texto antiguo más abajo.
 
-**Sin push ni despliegue.** Primer permiso aún por solicitar con el lote concreto; construcción de los siguientes 40 autorizada. Siguiente: 261–270, módulo nuevo Elementos de Máquina. Plan interno del workspace: `work/PLAN-ELEMENTOS-261-270.md`. No se han creado todavía esos diez labs. No ejecutar limpieza global del worktree ni tocar las exclusiones previas. El historial posterior de esta ficha identifica el commit del lote.
+**Bloque A publicado; verificación real en curso.** El usuario respondió «Sí, publicar el bloque 251–260» a la primera confirmación. Push a main correcto, commit **0b9ddf8**. `npm run cf:build` terminó correctamente en cen-deploy con ese commit y 7.705 MP3; se desplegó después el artefacto ya compilado con `npx opennextjs-cloudflare deploy`. Versión Cloudflare **8028185d-32c1-494e-aad7-d5446876346a**, dominio `https://www.cenlaboratorios.com.mx`. Los cambios de generadores en ese worktree son sólo CRLF (diff numstat vacío); no limpiarlos globalmente.
+
+Prueba con login real: `scripts/auditoria/solidos-produccion.mjs` (sólo el script lee el documento privado). Verifica hub, diez briefings/iframes/portadas, reto/quiz y diez escrituras/lecturas de vuelta de nota con tiempo real, sin falsificar una sesión de8 minutos. El primer251 ya pasó con86/100, correspondiente a la rúbrica de una sesión breve; no llamarlo10/10. Después corre el script de regresión ciencias50 con su resolvedorTS. Un solo navegador, cola actual sesión56929; consultar el proceso antes de lanzar otra QA de navegador.
+
+Construcción de los siguientes40 autorizada. BloqueB, módulo nuevo Elementos de Máquina: **261 y262 revisados individualmente** (cuatro recorridos por lab, 7.998 comprobaciones acumuladas,30 clips y dos portadas; ver fichas). 263–300 aún no implementados. Catálogo local352; voz178 prácticas, 7.735 MP3. Plan interno del workspace: `work/PLAN-ELEMENTOS-261-270.md`. No ejecutar limpieza global del worktree ni tocar las exclusiones previas. Las firmas individuales serán históricas al crecer el módulo; repetir el bloque estable antes de cerrarlo. Siguiente:263.
 
 Fecha: 31-10-2026. El usuario adjuntó un encargo nuevo de 50 prácticas. Sustituye la tarea de ampliar las ciencias: esa ampliación ya está en el historial del repositorio.
 
