@@ -318,6 +318,16 @@ import mecanica_247 from './mecanica-247';
 import mecanica_248 from './mecanica-248';
 import mecanica_249 from './mecanica-249';
 import mecanica_250 from './mecanica-250';
+import mecanica_251 from './mecanica-251';
+import mecanica_252 from './mecanica-252';
+import mecanica_253 from './mecanica-253';
+import mecanica_254 from './mecanica-254';
+import mecanica_255 from './mecanica-255';
+import mecanica_256 from './mecanica-256';
+import mecanica_257 from './mecanica-257';
+import mecanica_258 from './mecanica-258';
+import mecanica_259 from './mecanica-259';
+import mecanica_260 from './mecanica-260';
 import quimica_1 from './quimica-1';
 import quimica_2 from './quimica-2';
 import quimica_3 from './quimica-3';
@@ -660,6 +670,16 @@ export const LABS: Record<string, LabModule> = {
   'mecanica-248': mecanica_248,
   'mecanica-249': mecanica_249,
   'mecanica-250': mecanica_250,
+  'mecanica-251': mecanica_251,
+  'mecanica-252': mecanica_252,
+  'mecanica-253': mecanica_253,
+  'mecanica-254': mecanica_254,
+  'mecanica-255': mecanica_255,
+  'mecanica-256': mecanica_256,
+  'mecanica-257': mecanica_257,
+  'mecanica-258': mecanica_258,
+  'mecanica-259': mecanica_259,
+  'mecanica-260': mecanica_260,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

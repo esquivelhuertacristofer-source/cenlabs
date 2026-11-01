@@ -1,0 +1,82 @@
+{
+  "date": "2026-11-01T01:10:34.184Z",
+  "revision": "951a7a6f10f71813d826a31da4450b98f7089e515f5ed39ddfda07f791feec86",
+  "success": true,
+  "results": [
+    {
+      "name": "TypeScript",
+      "args": [
+        "--max-old-space-size=1536",
+        "node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "-p",
+        "."
+      ],
+      "exitCode": 0,
+      "elapsedMs": 16204
+    },
+    {
+      "name": "ESLint",
+      "args": [
+        "--max-old-space-size=1024",
+        "node_modules/eslint/bin/eslint.js",
+        "src",
+        "--quiet"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 29995
+    },
+    {
+      "name": "Voz y briefing",
+      "args": [
+        "--max-old-space-size=1536",
+        "node_modules/jest/bin/jest.js",
+        "src/__tests__/voz.test.ts",
+        "src/__tests__/briefing-carga.test.tsx",
+        "--runInBand",
+        "--silent",
+        "--json",
+        "--outputFile",
+        "scripts/auditoria/.salida/solidos-251-260/jest-postvoz.json"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 14591
+    },
+    {
+      "name": "Registro",
+      "args": [
+        "scripts/gen-lab-registry.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 188
+    },
+    {
+      "name": "Briefings",
+      "args": [
+        "scripts/gen-lab-briefings.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 1257
+    },
+    {
+      "name": "Física",
+      "args": [
+        "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+        "scripts/auditoria/verifica-solidos-251-260.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 81
+    },
+    {
+      "name": "Regresión física",
+      "args": [
+        "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+        "scripts/auditoria/verifica-industria-241-250.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 106
+    }
+  ]
+}

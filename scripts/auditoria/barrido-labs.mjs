@@ -66,7 +66,7 @@ if (SOLO) labs = labs.filter((n) => SOLO.some((s) => n.includes(s)));
 
 console.log(`${labs.length} labs · ${BASE}${SIN_RED ? ' · SIN RED (CDN bloqueado)' : ''}\n`);
 
-const navegador = await chromium.launch({ args: ['--use-angle=swiftshader', '--disable-gpu-sandbox'] });
+const navegador = await chromium.launch({ args: ['--use-angle=swiftshader', '--disable-gpu-sandbox', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-watchdog', '--mute-audio'] });
 const informe = [];
 
 /* CUATRO A LA VEZ. Un lab de estos monta una escena de three.js entera y aqui

@@ -1,0 +1,72 @@
+{
+  "revision": "951a7a6f10f71813d826a31da4450b98f7089e515f5ed39ddfda07f791feec86",
+  "fecha": "2026-11-01T01:23:52.533Z",
+  "metodo": "Inspección visual de las diez portadas, diez vistas iniciales y contacto de estados de inspección, reto y calidad media; instrumentos y móvil examinados además en capturas individuales. Las pruebas funcionales se conservan por separado.",
+  "criterios": {
+    "texto": "47–51 palabras de prosa inicial; sin pizarrones 3D ni paneles propios con scroll inicial.",
+    "materiales": "Metales de estudio, bastidores mecanizados y cortes; sin normales nulas.",
+    "atractivoInicial": "Fenómeno y objeto visibles antes de la actividad. Los bancos comparten lenguaje de diseño; las piezas y ecuaciones cambian por práctica."
+  },
+  "labs": [
+    {
+      "id": 251,
+      "aprobado": true,
+      "observacion": "El pórtico, apoyos y penetrador explican la carga central; la viga deformada se distingue del banco. Calidad media nítida. La flecha ampliada se declara; el ensayo no es una máquina comercial.",
+      "palabras": 51
+    },
+    {
+      "id": 252,
+      "aprobado": true,
+      "observacion": "La inspección aísla probeta, mordazas y extensómetro; se reconoce el estiramiento desde el inicio. El pórtico contextualiza sin añadir paneles dentro del 3D. La sección real es pequeña frente al bastidor, por ello existe la vista de inspección.",
+      "palabras": 48
+    },
+    {
+      "id": 253,
+      "aprobado": true,
+      "observacion": "La columna esbelta y la deformada lateral contrastan con el bastidor; el reto queda en el lateral. El trazo inicial es sutil por tratarse de carga subcrítica, no se representa colapso plástico.",
+      "palabras": 47
+    },
+    {
+      "id": 254,
+      "aprobado": true,
+      "observacion": "Corte orientable translúcido y flechas hacen visible el plano; el círculo se lee en el instrumento y conserva escala circular. Es una abstracción de esfuerzos, deliberadamente más simple que las máquinas.",
+      "palabras": 51
+    },
+    {
+      "id": 255,
+      "aprobado": true,
+      "observacion": "Motor, casquillos, eje y carga central forman un banco reconocible; la inspección acerca el eje. Material metálico continuo, sin ruido. La vida sintética se declara; no se dibujan grietas falsas.",
+      "palabras": 49
+    },
+    {
+      "id": 256,
+      "aprobado": true,
+      "observacion": "Agujero y hombro con filete permiten comparar dos concentradores en el mismo banco; los cambios de radio se ven en la pieza. El mapa es ilustrativo y los picos proceden de relaciones analíticas, no de un FEM.",
+      "palabras": 51
+    },
+    {
+      "id": 257,
+      "aprobado": true,
+      "observacion": "Acoplamientos y eje transmiten el giro; el diámetro responde al ajuste y el giro ampliado queda rotulado. La escena en calidad media conserva bordes limpios.",
+      "palabras": 51
+    },
+    {
+      "id": 258,
+      "aprobado": true,
+      "observacion": "El acero refleja luz de estudio; la vista de inspección abre el recipiente y permite ver pared y tapas. El objeto llena la escena sin cifras flotantes. La expansión ampliada no pretende reproducir una deformación visible a escala real.",
+      "palabras": 49
+    },
+    {
+      "id": 259,
+      "aprobado": true,
+      "observacion": "Barras, uniones y apoyos se distinguen por forma y acabado; la altura cambia la geometría triangular. El reto validado sigue legible sin cubrir la estructura. Modelo reducido de tres barras, no una armadura espacial compleja.",
+      "palabras": 47
+    },
+    {
+      "id": 260,
+      "aprobado": true,
+      "observacion": "La placa agrietada se examina en el bastidor; el localizador luminoso ayuda a encontrar la grieta sin atribuirle esa abertura física. La calidad media es limpia. No hay animación de propagación inventada.",
+      "palabras": 47
+    }
+  ]
+}

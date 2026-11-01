@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {definitions} from '../../public/labs/_solidos-definiciones.js';
+import {defaults,solutions,criteria,beam,tensile,tensileCycle,column,mohr,fatigue,fiberStress,concentration,torsion,vessel,truss,fracture,shoulderKt} from '../../public/labs/_solidos-modelos.js';
+export {solutions};
+export function verify(only=0){let count=0;const near=(a,b,tol=1e-8)=>{assert(Number.isFinite(a)&&Math.abs(a-b)<=tol*Math.max(1,Math.abs(b)),`${a} ≠ ${b}`);count++;},ok=x=>{assert(x);count++;};
+ if(!only||only===252){const p={stress:400,E:200};near(tensileCycle(p,0).strain,0);near(tensileCycle(p,4).strain,.052);near(tensileCycle(p,8).strain,.05);near(tensileCycle(p,80).strain,.05);near(tensileCycle(p,80).stress,0);}
+ if(!only||only===256)near(shoulderKt(1,.2),1.85592);
+ if(!only||only===255){const q=fatigue(solutions[255]);near(fiberStress(q,0,0),q.mean-q.alternating);near(fiberStress(q,0,Math.PI),q.mean+q.alternating);near(fiberStress(q,-1,.4),q.mean);near(fiberStress(q,1,.4),q.mean);for(let i=0;i<=120;i++){const xn=-1+i/60,x=(xn+1)/2,angle=i/13,moment=560*Math.min(x,1-x)/2;near(fiberStress(q,xn,angle),q.mean-32*moment/(Math.PI*q.d**3)/1e6*Math.cos(angle));}}
+ for(const d of definitions){const id=d.id;if(only&&id!==only)continue;const start=count,p=solutions[id];ok(criteria(id,p).ok);ok(!criteria(id,defaults[id]).ok);for(const c of d.controls){ok(p[c.id]>c.min&&p[c.id]<c.max);near((p[c.id]-c.min)/c.step,Math.round((p[c.id]-c.min)/c.step));}
+  if(id===251){const q=beam({load:3000,height:60});near(q.maxDeflection,.0026455026455026454,1e-12);near(q.stress,50e6);near(q.M,1500);near(q.V,-1500);near(beam(p,0).deflection,0);near(beam(p,2).deflection,0);for(let i=1;i<200;i++){const x=i/100,q=beam(p,x),h=1e-4,a=beam(p,x-h),b=beam(p,x+h);near(q.deflection,beam(p,2-x).deflection);near((a.deflection-2*q.deflection+b.deflection)/h**2,-q.M/q.E/q.I,1e-6);if(Math.abs(x-1)>.001)near((b.M-a.M)/(2*h),q.V);}}
+  if(id===252){const q=tensile({stress:400,E:200});near(q.strain,.052);near(q.plastic,.05);near(q.extension,.0026);near(tensile({stress:200,E:200}).strain,.001);near(tensile(p).plastic,0);for(let i=0;i<200;i++){const q=tensile({stress:100+i*2,E:210});near(q.strain-q.plastic,q.stress/210e9);near(q.force/(Math.PI*.005**2/4),q.stress);}}
+  if(id===253){near(column({load:30,diameter:40}).critical,115756.7662731193,1e-8);for(let i=0;i<100;i++){const d=20+i*.2,a=column({load:10,diameter:d}),b=column({load:10,diameter:d*2});near(b.critical/a.critical,16);near(a.slenderness,6/a.d);if(a.valid)near(a.amplitude*(1-a.ratio),.001);}}
+  if(id===254)for(let i=0;i<360;i++){const q=mohr({angle:i,tau:60}),r=mohr({angle:i+90,tau:60});near(q.normal+r.normal,160);near(q.shear,-r.shear);near((q.normal-q.C)**2+q.shear**2,q.R**2);near(q.major*q.minor,q.sx*q.sy-q.tauXY*q.tauXY);}
+  if(id===255){const q=fatigue({diameter:20,mean:0});near(q.alternating,560/Math.PI);near(q.safety,180/q.alternating);near(fatigue({diameter:20,mean:300}).eq,q.eq*2);for(let i=0;i<150;i++){const q=fatigue({diameter:18+i*.1,mean:80});near(q.safety*q.utilization,1);ok(q.cycles>0&&q.cycles<=1e6);}}
+  if(id===256){near(concentration({width:1e8,radius:4}).Kt,3,1e-6);near(shoulderKt(1,0),1.970);near(shoulderKt(1,1),.998);for(let i=0;i<100;i++){const q=concentration({width:60+i*.7,radius:4});near(q.peak,q.Kt*20000/((q.W-q.d)*6));near(q.filletPeak,q.filletKt*20000/((q.W-20)*6));}}
+  if(id===257){const q=torsion({torque:400,diameter:40});near(q.angle,.019894367886486915,1e-12);near(q.stress,31830988.61837907);for(let i=0;i<100;i++){const a=torsion({torque:350+i,diameter:25}),b=torsion({torque:350+i,diameter:50});near(a.angle/b.angle,16);near(a.stress/b.stress,8);near(a.angle*a.G*a.J,a.T*a.L);}}
+  if(id===258)for(let i=0;i<150;i++){const q=vessel({pressure:1+i*.01,thickness:5});near(q.hoop,2*q.axial);near(2*q.hoop*q.thickness,q.pressure*2*q.r);near(q.axial*2*Math.PI*q.r*q.thickness,q.pressure*Math.PI*q.r**2);near(q.minThickness*120e6,q.pressure*q.r);}
+  if(id===259)for(let i=0;i<150;i++){const q=truss({load:20+i*.1,height:300+i*4});near(-2*q.diagonal*q.h/q.l,q.P);near(q.bottom+q.diagonal/q.l,0);near(q.reaction*2,q.P);const energy=(2*q.diagonal**2*q.l+q.bottom**2*2)/(2*210e9*300e-6);near(2*energy/q.P,q.deflection);}
+  if(id===260)for(let i=0;i<150;i++){const q=fracture({stress:100,crack:2+i*.1}),b=fracture({stress:100,crack:(2+i*.1)*4});near(b.K,2*q.K);near(fracture({stress:100,crack:q.critical*1000}).K,50);near(q.plasticZone/q.a,1.12**2*100**2/(2*350**2));}
+  console.log(`${id}: ${count-start} comprobaciones correctas`);
+ }console.log(`TOTAL: ${count} comprobaciones correctas`);return count;
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)verify(process.argv.includes('--solo')?+process.argv[process.argv.indexOf('--solo')+1]:0);

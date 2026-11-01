@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-256",
+  "titulo": "Concentración de esfuerzos: agujero y filete",
+  "subtitulo": "Mecánica de Sólidos",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un borde agudo concentra la carga; un radio mayor puede repartirla mejor.\nOT-256 · Mantén ambos picos ≤110 MPa, radio ≥3 mm y ancho ≤115 mm.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Pieza y carga",
+      "descripcion": "Un borde agudo concentra la carga; un radio mayor puede repartirla mejor."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Modelo verificable",
+      "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Decisión profesional",
+      "descripcion": "Mantén ambos picos ≤110 MPa, radio ≥3 mm y ancho ≤115 mm."
+    }
+  ],
+  "mision": [
+    "Observa apoyos, pieza y sentido de carga.",
+    "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+    "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Diseño y mantenimiento industrial",
+      "ejemplo": "Concentración de esfuerzos: agujero y filete"
+    }
+  ]
+};
+export default briefing;

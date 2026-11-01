@@ -146,7 +146,7 @@ fs.mkdirSync(DEPURA, { recursive: true });
 
 // ── Navegador ───────────────────────────────────────────────────────────────
 const navegador = await chromium.launch({
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-watchdog', '--mute-audio'],
 });
 const contexto = await navegador.newContext({
   viewport: { width: VIEWPORT_W, height: VIEWPORT_H },

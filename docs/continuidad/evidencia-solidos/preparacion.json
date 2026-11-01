@@ -1,0 +1,312 @@
+{
+  "revision": "951a7a6f10f71813d826a31da4450b98f7089e515f5ed39ddfda07f791feec86",
+  "steps": [
+    {
+      "name": "Regresión del runtime por defecto:250",
+      "args": [
+        "scripts/auditoria/regresion-runtime-250.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 10910
+    },
+    {
+      "name": "Comprobaciones finales sin navegador",
+      "args": [
+        "scripts/auditoria/comprueba-codigo-solidos.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62528
+    },
+    {
+      "name": "Reconstrucción 251",
+      "args": [
+        "scripts/build-lab.mjs",
+        "viga-flexion-estatica"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 61
+    },
+    {
+      "name": "Verificación numérica individual 251",
+      "args": [
+        "scripts/auditoria/verifica-viga-flexion-estatica.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 69
+    },
+    {
+      "name": "Reconstrucción 252",
+      "args": [
+        "scripts/build-lab.mjs",
+        "traccion-curva-material"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 61
+    },
+    {
+      "name": "Verificación numérica individual 252",
+      "args": [
+        "scripts/auditoria/verifica-traccion-curva-material.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 64
+    },
+    {
+      "name": "Reconstrucción 253",
+      "args": [
+        "scripts/build-lab.mjs",
+        "columna-pandeo-euler"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 59
+    },
+    {
+      "name": "Verificación numérica individual 253",
+      "args": [
+        "scripts/auditoria/verifica-columna-pandeo-euler.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 64
+    },
+    {
+      "name": "Reconstrucción 254",
+      "args": [
+        "scripts/build-lab.mjs",
+        "mohr-plano-critico"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62
+    },
+    {
+      "name": "Verificación numérica individual 254",
+      "args": [
+        "scripts/auditoria/verifica-mohr-plano-critico.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 61
+    },
+    {
+      "name": "Reconstrucción 255",
+      "args": [
+        "scripts/build-lab.mjs",
+        "fatiga-goodman-eje"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 63
+    },
+    {
+      "name": "Verificación numérica individual 255",
+      "args": [
+        "scripts/auditoria/verifica-fatiga-goodman-eje.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 60
+    },
+    {
+      "name": "Reconstrucción 256",
+      "args": [
+        "scripts/build-lab.mjs",
+        "concentracion-agujero-entalla"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62
+    },
+    {
+      "name": "Verificación numérica individual 256",
+      "args": [
+        "scripts/auditoria/verifica-concentracion-agujero-entalla.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62
+    },
+    {
+      "name": "Reconstrucción 257",
+      "args": [
+        "scripts/build-lab.mjs",
+        "torsion-eje-dimensionado"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 60
+    },
+    {
+      "name": "Verificación numérica individual 257",
+      "args": [
+        "scripts/auditoria/verifica-torsion-eje-dimensionado.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 67
+    },
+    {
+      "name": "Reconstrucción 258",
+      "args": [
+        "scripts/build-lab.mjs",
+        "recipiente-aro-espesor"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 59
+    },
+    {
+      "name": "Verificación numérica individual 258",
+      "args": [
+        "scripts/auditoria/verifica-recipiente-aro-espesor.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 64
+    },
+    {
+      "name": "Reconstrucción 259",
+      "args": [
+        "scripts/build-lab.mjs",
+        "cercha-equilibrio-barras"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 63
+    },
+    {
+      "name": "Verificación numérica individual 259",
+      "args": [
+        "scripts/auditoria/verifica-cercha-equilibrio-barras.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62
+    },
+    {
+      "name": "Reconstrucción 260",
+      "args": [
+        "scripts/build-lab.mjs",
+        "fractura-grieta-critica"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 62
+    },
+    {
+      "name": "Verificación numérica individual 260",
+      "args": [
+        "scripts/auditoria/verifica-fractura-grieta-critica.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 69
+    },
+    {
+      "name": "Barrido oficial 251–255",
+      "args": [
+        "scripts/auditoria/barrido-labs.mjs",
+        "--solo",
+        "viga-flexion-estatica,traccion-curva-material,columna-pandeo-euler,mohr-plano-critico,fatiga-goodman-eje"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 47441
+    },
+    {
+      "name": "Barrido oficial 256–260",
+      "args": [
+        "scripts/auditoria/barrido-labs.mjs",
+        "--solo",
+        "concentracion-agujero-entalla,torsion-eje-dimensionado,recipiente-aro-espesor,cercha-equilibrio-barras,fractura-grieta-critica"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 41110
+    },
+    {
+      "name": "Portada propia 251",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "251"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 11070
+    },
+    {
+      "name": "Portada propia 252",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "252"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 10539
+    },
+    {
+      "name": "Portada propia 253",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "253"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 10957
+    },
+    {
+      "name": "Portada propia 254",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "254"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 19663
+    },
+    {
+      "name": "Portada propia 255",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "255"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 12027
+    },
+    {
+      "name": "Portada propia 256",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "256"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 11743
+    },
+    {
+      "name": "Portada propia 257",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "257"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 12945
+    },
+    {
+      "name": "Portada propia 258",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "258"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 11888
+    },
+    {
+      "name": "Portada propia 259",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "259"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 12757
+    },
+    {
+      "name": "Portada propia 260",
+      "args": [
+        "scripts/portadas/capturar-portadas.mjs",
+        "--solo",
+        "260"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 11168
+    }
+  ],
+  "date": "2026-11-01T01:14:08.811Z"
+}

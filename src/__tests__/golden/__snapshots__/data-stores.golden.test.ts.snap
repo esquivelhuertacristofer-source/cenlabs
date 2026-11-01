@@ -11917,6 +11917,348 @@ Robot hexápodo articulado, pista y evaluación del triángulo de apoyo.",
     "titulo": "Robot hexápodo: marcha y polígono de apoyo",
     "videoUrl": "",
   },
+  "mecanica-251": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Viga en flexión: cortante, momento y flecha",
+      },
+    ],
+    "bienvenida": "Una carga dobla la viga: aumentar su altura la vuelve mucho más rígida.
+OT-251 · Soporta al menos 2800 N, con flecha ≤3 mm, esfuerzo ≤120 MPa y masa ≤50 kg.",
+    "codigo": "MEC-251",
+    "conceptos": [
+      {
+        "descripcion": "Una carga dobla la viga: aumentar su altura la vuelve mucho más rígida.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Soporta al menos 2800 N, con flecha ≤3 mm, esfuerzo ≤120 MPa y masa ≤50 kg.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Viga en flexión: cortante, momento y flecha",
+    "videoUrl": "",
+  },
+  "mecanica-252": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Ensayo de tracción: curva y deformación permanente",
+      },
+    ],
+    "bienvenida": "Estira una probeta y observa qué parte recupera su forma al descargar.
+OT-252 · Caracteriza bajo 5,0–5,7 kN, con extensión útil de 60–78 µm y sin deformación permanente.",
+    "codigo": "MEC-252",
+    "conceptos": [
+      {
+        "descripcion": "Estira una probeta y observa qué parte recupera su forma al descargar.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Caracteriza bajo 5,0–5,7 kN, con extensión útil de 60–78 µm y sin deformación permanente.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Ensayo de tracción: curva y deformación permanente",
+    "videoUrl": "",
+  },
+  "mecanica-253": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Pandeo de columnas: carga crítica y esbeltez",
+      },
+    ],
+    "bienvenida": "Una columna larga puede doblarse antes de que su material se aplaste.
+OT-253 · Sostén al menos 25 kN con reserva de Euler entre 2 y 4 y esbeltez ≥100.",
+    "codigo": "MEC-253",
+    "conceptos": [
+      {
+        "descripcion": "Una columna larga puede doblarse antes de que su material se aplaste.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Sostén al menos 25 kN con reserva de Euler entre 2 y 4 y esbeltez ≥100.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Pandeo de columnas: carga crítica y esbeltez",
+    "videoUrl": "",
+  },
+  "mecanica-254": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Círculo de Mohr: encuentra el plano principal",
+      },
+    ],
+    "bienvenida": "Gira un corte del material hasta que desaparezca el esfuerzo que lo desliza.
+OT-254 · Reduce |cortante en el corte| a ≤3 MPa, con principal mayor ≤160 MPa y cortante aplicado ≥50 MPa.",
+    "codigo": "MEC-254",
+    "conceptos": [
+      {
+        "descripcion": "Gira un corte del material hasta que desaparezca el esfuerzo que lo desliza.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Reduce |cortante en el corte| a ≤3 MPa, con principal mayor ≤160 MPa y cortante aplicado ≥50 MPa.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Círculo de Mohr: encuentra el plano principal",
+    "videoUrl": "",
+  },
+  "mecanica-255": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Fatiga de un eje: curva S–N y Goodman",
+      },
+    ],
+    "bienvenida": "Una carga repetida puede dañar un eje aunque ninguna vuelta lo rompa.
+OT-255 · Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 MPa.",
+    "codigo": "MEC-255",
+    "conceptos": [
+      {
+        "descripcion": "Una carga repetida puede dañar un eje aunque ninguna vuelta lo rompa.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 MPa.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Fatiga de un eje: curva S–N y Goodman",
+    "videoUrl": "",
+  },
+  "mecanica-256": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Concentración de esfuerzos: agujero y filete",
+      },
+    ],
+    "bienvenida": "Un borde agudo concentra la carga; un radio mayor puede repartirla mejor.
+OT-256 · Mantén ambos picos ≤110 MPa, radio ≥3 mm y ancho ≤115 mm.",
+    "codigo": "MEC-256",
+    "conceptos": [
+      {
+        "descripcion": "Un borde agudo concentra la carga; un radio mayor puede repartirla mejor.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Mantén ambos picos ≤110 MPa, radio ≥3 mm y ancho ≤115 mm.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Concentración de esfuerzos: agujero y filete",
+    "videoUrl": "",
+  },
+  "mecanica-257": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Torsión: selecciona el diámetro del eje",
+      },
+    ],
+    "bienvenida": "Un eje puede resistir el par y aun así torcerse demasiado para su trabajo.
+OT-257 · Transmite ≥350 N·m con giro ≤1,5°, cortante ≤80 MPa y masa ≤11 kg.",
+    "codigo": "MEC-257",
+    "conceptos": [
+      {
+        "descripcion": "Un eje puede resistir el par y aun así torcerse demasiado para su trabajo.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Transmite ≥350 N·m con giro ≤1,5°, cortante ≤80 MPa y masa ≤11 kg.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Torsión: selecciona el diámetro del eje",
+    "videoUrl": "",
+  },
+  "mecanica-258": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Recipiente a presión: aro y espesor mínimo",
+      },
+    ],
+    "bienvenida": "La pared de un depósito soporta más esfuerzo alrededor que a lo largo.
+OT-258 · Trabaja a ≥1,8 MPa con aro entre 80 y 110 MPa, espesor ≤9 mm y r/t ≥20.",
+    "codigo": "MEC-258",
+    "conceptos": [
+      {
+        "descripcion": "La pared de un depósito soporta más esfuerzo alrededor que a lo largo.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Trabaja a ≥1,8 MPa con aro entre 80 y 110 MPa, espesor ≤9 mm y r/t ≥20.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Recipiente a presión: aro y espesor mínimo",
+    "videoUrl": "",
+  },
+  "mecanica-259": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Cercha: reacciones y fuerzas en las barras",
+      },
+    ],
+    "bienvenida": "Un triángulo reparte la carga entre barras que tiran o empujan.
+OT-259 · Sostén ≥24 kN con esfuerzo ≤100 MPa, flecha ≤2 mm y altura ≤800 mm.",
+    "codigo": "MEC-259",
+    "conceptos": [
+      {
+        "descripcion": "Un triángulo reparte la carga entre barras que tiran o empujan.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Sostén ≥24 kN con esfuerzo ≤100 MPa, flecha ≤2 mm y altura ≤800 mm.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Cercha: reacciones y fuerzas en las barras",
+    "videoUrl": "",
+  },
   "mecanica-26": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -11975,6 +12317,44 @@ Al final vas a entender por qué ningún técnico serio confía en un número de
     ],
     "subtitulo": "Instrumentación · La sonda, los cursores y el espectro",
     "titulo": "Sonda de osciloscopio: atenuación, compensación, cursores y FFT",
+    "videoUrl": "",
+  },
+  "mecanica-260": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Diseño y mantenimiento industrial",
+        "ejemplo": "Fractura: grieta crítica y margen de inspección",
+      },
+    ],
+    "bienvenida": "Una grieta puede volver peligrosa una carga que antes parecía pequeña.
+OT-260 · Mantén reserva Kic/K ≥2, esfuerzo ≥90 MPa, grieta ≥5 mm y zona plástica ≤10 % de a.",
+    "codigo": "MEC-260",
+    "conceptos": [
+      {
+        "descripcion": "Una grieta puede volver peligrosa una carga que antes parecía pequeña.",
+        "icono": "⚙️",
+        "nombre": "Pieza y carga",
+      },
+      {
+        "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades.",
+        "icono": "📐",
+        "nombre": "Modelo verificable",
+      },
+      {
+        "descripcion": "Mantén reserva Kic/K ≥2, esfuerzo ≥90 MPa, grieta ≥5 mm y zona plástica ≤10 % de a.",
+        "icono": "🔎",
+        "nombre": "Decisión profesional",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa apoyos, pieza y sentido de carga.",
+      "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+    ],
+    "subtitulo": "Mecánica de Sólidos",
+    "titulo": "Fractura: grieta crítica y margen de inspección",
     "videoUrl": "",
   },
   "mecanica-27": {
@@ -33075,7 +33455,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-249": [],
   "mecanica-25": [],
   "mecanica-250": [],
+  "mecanica-251": [],
+  "mecanica-252": [],
+  "mecanica-253": [],
+  "mecanica-254": [],
+  "mecanica-255": [],
+  "mecanica-256": [],
+  "mecanica-257": [],
+  "mecanica-258": [],
+  "mecanica-259": [],
   "mecanica-26": [],
+  "mecanica-260": [],
   "mecanica-27": [],
   "mecanica-28": [],
   "mecanica-29": [],
@@ -33610,7 +34000,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-249",
   "mecanica-25",
   "mecanica-250",
+  "mecanica-251",
+  "mecanica-252",
+  "mecanica-253",
+  "mecanica-254",
+  "mecanica-255",
+  "mecanica-256",
+  "mecanica-257",
+  "mecanica-258",
+  "mecanica-259",
   "mecanica-26",
+  "mecanica-260",
   "mecanica-27",
   "mecanica-28",
   "mecanica-29",

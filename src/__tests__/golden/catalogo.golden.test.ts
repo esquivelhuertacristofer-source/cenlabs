@@ -111,6 +111,7 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Sistemas Digitales',
       'Hidráulica y Neumática',
       'Dinámica del Vehículo',
+      'Mecánica de Sólidos',
     ]);
   });
 });

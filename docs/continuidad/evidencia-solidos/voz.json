@@ -1,0 +1,350 @@
+{
+  "metodo": "Qwen3-TTS 1.7B Base · molde_consignas_4 · lote 8 · una toma",
+  "clips": 150,
+  "textos": 49,
+  "pruebas": [
+    {
+      "texto": "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+      "shaTexto": "465285bf365b56894fcb7aeaa8576f06f0c213fc26866ef9f1ef294ef80e6d03",
+      "shaAudio": "e638519317bd86319e4875d7dcef826691cf2964740e797bcc0ecad516e0b750",
+      "segundos": 4.08,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Caracteriza bajo 5,0, 5,7 kN, con extensión útil de 60, 78 micrómetros y sin deformación permanente.",
+      "shaTexto": "898f09ac6a6fe3d073d24d19cdecb41f59d245029a012fadf6b2d7e251ab9a9b",
+      "shaAudio": "93fb6e04a258ceecbd2fa7ea925a2ce8f2da95f25a008be7bf8857652db57196",
+      "segundos": 8.16,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Cercha: reacciones y fuerzas en las barras.",
+      "shaTexto": "0d7ed75cc4958064f65d51a170151f5deb69393c238a4cadf25e3274f591f4ee",
+      "shaAudio": "cdd024dd33aa767d2bc14c2707932dac2ef12d6f0f6736531239af89246f1b6d",
+      "segundos": 3.52,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Concentración de esfuerzos: agujero y filete.",
+      "shaTexto": "69b82b67c16d804cc982f0fffb4ffd96474a08eb22f6892bb957173a042554d0",
+      "shaAudio": "b2c2c388204beb5c6af8bf4e53c537a1ba9819b199c8765e46fcbf38060ab994",
+      "segundos": 3.68,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 megapascales.",
+      "shaTexto": "b6407748b5d89a80cac95a29b49eef270f02028c8445da8c25c4863ea622e786",
+      "shaAudio": "64c62848c4ccb31dd762514ee666a84af09f96cbc2383fefe7e0cafd47619516",
+      "segundos": 8.72,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Círculo de Mohr: encuentra el plano principal.",
+      "shaTexto": "07d701c7c0798371f35869e5357e7eddfacd53b169e9ade22ff4e1e16ab15d0f",
+      "shaAudio": "77a892a96e1df566c369ffdfa56ed46ef69aba6884ce4527a4f7983ecad780ec",
+      "segundos": 3.28,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Decisión profesional.",
+      "shaTexto": "2cda12e1567320874a73ce2b157b377f883e5e1c108de2f64c6fe5a57aa83ede",
+      "shaAudio": "61ca57cd4dca30f5bdd962a761ec31dc913ee17c22b315d9b676e975f062539b",
+      "segundos": 1.52,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Diseño y mantenimiento industrial.",
+      "shaTexto": "576828901f550f3946edd4f85caf4e6ac0b0ebb45bdfc13ca7bb24480adc4730",
+      "shaAudio": "e096651cc3cc58bce1610370724c6662b2bb52e253dc30b7130c2d78c84f4205",
+      "segundos": 2.32,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Ensayo de tracción: curva y deformación permanente.",
+      "shaTexto": "f95a58608b6f6e9183872113af6e9925866ac3d28f4a03ffbed5752555b639fe",
+      "shaAudio": "9bf2451f143d020771010a86412e9d7a3b33d9ea637f13300d7b15e724dc3e50",
+      "segundos": 4.0,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Estira una probeta y observa qué parte recupera su forma al descargar.",
+      "shaTexto": "75a985e0e14bdda70eda791db6abfc85db48d33156138e713723a64482f026df",
+      "shaAudio": "f546ffe1520f0444528b643311c41f09af8ca0b6a628c28cace5f6c4df897115",
+      "segundos": 4.32,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Fatiga de un eje: curva S, N y Goodman.",
+      "shaTexto": "f55cd9c1e9e7076d5eab94fae5107734e0adff8d4b044888c69a79d8fd859309",
+      "shaAudio": "4cd4d755acca7fe5276bef65c24bb220e1803c9ea06ca145bff042d1c9c3ed4d",
+      "segundos": 3.52,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Fractura: grieta crítica y margen de inspección.",
+      "shaTexto": "0f8283483e0149a14553b7a773c6c20e5f7e0a9f86bb33f3582d6f921d37767a",
+      "shaAudio": "008fbdfbc17145b345012862704ab162b0dd8670f9e97c9dfc10801be2b9814c",
+      "segundos": 3.6,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Gira un corte del material hasta que desaparezca el esfuerzo que lo desliza.",
+      "shaTexto": "ed5ecd8ad0d4750f03bad497076e823456b59c466b2b327ecfaeebb2aef185b6",
+      "shaAudio": "7b87276d51e61845e824f314f041d64c13a25cee73addfdddf87e735b4fb8f8f",
+      "segundos": 4.4,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "La pared de un depósito soporta más esfuerzo alrededor que a lo largo.",
+      "shaTexto": "78e3b990d65fed51b0bf5d8910c7d8b65808323e0bb6c488c503e52f09f0bd60",
+      "shaAudio": "7620b4e51b115706dd4e8f6e5948cf6eaa56928bebf0b2ca2ff328b0b51a39fb",
+      "segundos": 4.88,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Mantén ambos picos ≤110 megapascales, radio ≥3 mm y ancho ≤115 mm.",
+      "shaTexto": "f706fe2d1801365d232ee01325b10b7d436cd509c29516d0cbe8db92d3f576de",
+      "shaAudio": "b004bb5b0a6a8bf69b97bd008229dfa553d3cf219f7bd3bfc054739f4a3d40a9",
+      "segundos": 7.44,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Mantén reserva Kic/K ≥2, esfuerzo ≥90 megapascales, grieta ≥5 mm y zona plástica ≤10 % de a.",
+      "shaTexto": "1f818922cf78cc5db337f5abd711e593a811a143a34dcf4fe76d59ec5606be73",
+      "shaAudio": "e4120551fccf20b951114bc76fb8a9076439b83cd5eb66824f9e2a714dbe558a",
+      "segundos": 9.04,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Mecánica de Sólidos.",
+      "shaTexto": "0fd7d230dc91caea8b3f32c93096054d9a9ccfe053543fa5fc4e3f150a412cac",
+      "shaAudio": "82621315d6c53bea5cd30d7b26c4df6c70ceb25f42cba2a0b4900a3035aa41c6",
+      "segundos": 1.68,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Modelo verificable.",
+      "shaTexto": "dc3b54c3926efe820209aa13076b70d9b52c5fc9dc83c3fc58328c4362ea1324",
+      "shaAudio": "d325cea8d4dcb829a6ad366596db717a261900905c5d3c9861397d05901c2cfb",
+      "segundos": 1.6,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-251, Soporta al menos 2800 N, con flecha ≤3 mm, esfuerzo ≤120 megapascales y masa ≤50 kg.",
+      "shaTexto": "6c4782a0fd82eefe45dee7281f3db9c529b1a3b8334fbc4ebf7503be4bc527b9",
+      "shaAudio": "b9f47e09be06e55612241e4bb08df9f0380c09e3042984eb6a788f2d1ebb1fe2",
+      "segundos": 11.44,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-252, Caracteriza bajo 5,0, 5,7 kN, con extensión útil de 60, 78 micrómetros y sin deformación permanente.",
+      "shaTexto": "56da675bf7cc0a8a149295d8fadd198dfe5671da66fcadd188ad13c76ce79b6f",
+      "shaAudio": "095a8e1c8cd6d9db1d54f749a750c8481c5684ec30d4aac6fdbde6b6b7e0c4e7",
+      "segundos": 11.12,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-253, Sostén al menos 25 kN con reserva de Euler entre 2 y 4 y esbeltez ≥100.",
+      "shaTexto": "bc7655e59f055c9b87c2c7002ba584e490b1302c673f4deec19ee5aedf3409cc",
+      "shaAudio": "f69eda2c125b47cb3a36cfa19e44ea17983d61cc66c539cff319afb6cbace2c1",
+      "segundos": 8.16,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-254, Reduce |cortante en el corte| a ≤3 megapascales, con principal mayor ≤160 megapascales y cortante aplicado ≥50 megapascales.",
+      "shaTexto": "8147890b956e6c7693949d2a9aee6769d968050596cbf38316fb5bcd41c0c035",
+      "shaAudio": "f9fa3e761968ccd0c0beea77caeff8a01c04c577f5d0ee4e37318f7378855e91",
+      "segundos": 12.0,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-255, Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 megapascales.",
+      "shaTexto": "d7916ab7dec91e7872e8013afaf8e1ba6a17c42a2b1649b5efec8ac8e1fee93c",
+      "shaAudio": "d6153d7dd075281286e825028c82bdc3b7418834f7b0055b6ed580e194409b60",
+      "segundos": 11.28,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-256, Mantén ambos picos ≤110 megapascales, radio ≥3 mm y ancho ≤115 mm.",
+      "shaTexto": "4274c7ed1299759e3e8dbc2a12e41e299aafd4f5f1489b49d518bbf143b2ac0e",
+      "shaAudio": "c5f1e89b238b868bd957ea0bcd6798402b3ded409604f7d69f69140489d8b541",
+      "segundos": 9.12,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-257, Transmite ≥350 newton metro con giro ≤1,5°, cortante ≤80 megapascales y masa ≤11 kg.",
+      "shaTexto": "bcea6f5e2ca8f883dad5888adc512df439d28fb0ed93a7effb01c4db3d60973e",
+      "shaAudio": "459fa3754e19e65c3452af79e1e2ec44693b9cd68029f5cd448b0bd2ec43f1d6",
+      "segundos": 10.48,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-258, Trabaja a ≥1,8 megapascales con aro entre 80 y 110 megapascales, espesor ≤9 mm y r/t ≥20.",
+      "shaTexto": "221705185c86f0eb4e3bc2fe30e8af3fb91ce4cf440a1f1d828c047a7f0fd0d0",
+      "shaAudio": "9f898b750a822cb5d0654823a3aa344e0ed80708fb271fdc3c2a5a19249640c8",
+      "segundos": 11.04,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-259, Sostén ≥24 kN con esfuerzo ≤100 megapascales, flecha ≤2 mm y altura ≤800 mm.",
+      "shaTexto": "9f71af3b8b194ed2c2670db89778b7a88bea709186fde65df60325955b2d2755",
+      "shaAudio": "14739d9581235af8d46875a12ecfa9de888231a990136608a0a50ef94a8aa383",
+      "segundos": 10.0,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "OT-260, Mantén reserva Kic/K ≥2, esfuerzo ≥90 megapascales, grieta ≥5 mm y zona plástica ≤10 % de a.",
+      "shaTexto": "0804c3d42d5fb4e42c6e8dc3b088fc7f0df14934ae65af5c9eef4c9b07af921d",
+      "shaAudio": "eff6ba384517a083c5c16e1b8675f742e995a6b5a4f7dd88ebbe26d0a5b8c86e",
+      "segundos": 11.36,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Observa apoyos, pieza y sentido de carga.",
+      "shaTexto": "e94bdff85827514ca999491112335f52870317dbe69a56b72923cbc685fce5da",
+      "shaAudio": "9edead28e6a8f11ec0eca1dad121935a8cd215e92fc906c947ea8a2c72c44ca2",
+      "segundos": 3.28,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Pandeo de columnas: carga crítica y esbeltez.",
+      "shaTexto": "fed102dcfde55efc2cb9af6be38608a8f0817c83cf769b5bd6dc9bfe0205e78b",
+      "shaAudio": "4a27815bd2586388a9ccc9884c71dde67da8ef83769ef72cf03b9ec3b0e85186",
+      "segundos": 3.52,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Pieza y carga.",
+      "shaTexto": "40dfb20ab3a90344eff7100eb156741530c985a9fbb48e3206cbb875e942938d",
+      "shaAudio": "62e1137dc8330837292e2d9eec9bcbb65f95267347781bd13bf60b4f682dd0d3",
+      "segundos": 1.2,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas.",
+      "shaTexto": "f1644cae231a3ebbad5345e2bc3c5465c8e12ef2b959c7783942b85eaa68d2b4",
+      "shaAudio": "dfe75bd14eeed78839194a5234aa24c25b73a7e6547209f9f8c540782a8df8fd",
+      "segundos": 5.12,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Recipiente a presión: aro y espesor mínimo.",
+      "shaTexto": "5a382e9be783252064ae75329327884024924d1d2571abcaf11cbee9d1373dc9",
+      "shaAudio": "bba79edfc7cc13da1f6b1dc1f633a2cf9b944e28d4e21e6b809501cb7389820c",
+      "segundos": 3.84,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Reduce |cortante en el corte| a ≤3 megapascales, con principal mayor ≤160 megapascales y cortante aplicado ≥50 megapascales.",
+      "shaTexto": "25d5b57b1a8653afa9c2bd63c9b807bb06b5e34239033dbedbaa740affa4a839",
+      "shaAudio": "a086fd46336213ab934fdee8972bb90391bdf76bcb2faa5bdfc006ffd42a7e5b",
+      "segundos": 9.12,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Relaciona la geometría con las ecuaciones y sus unidades.",
+      "shaTexto": "738fa890d55f2d56f9b1632e482410a8a788afbf5fede06de2aa086fa6314e6d",
+      "shaAudio": "da3a42b54f6a53dbb54632b1ae6c7a0f43869d219f028922974bf8f89349b197",
+      "segundos": 3.36,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Soporta al menos 2800 N, con flecha ≤3 mm, esfuerzo ≤120 megapascales y masa ≤50 kg.",
+      "shaTexto": "c0504bbfe63463b3f3d7514aa53b1f5aa3cb2365ad2e9520137123cc2f31b786",
+      "shaAudio": "39ad0f9b569eed317ba1ac14d9737eba3df46fa958416b2f295ee01d3d11265d",
+      "segundos": 9.36,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Sostén al menos 25 kN con reserva de Euler entre 2 y 4 y esbeltez ≥100.",
+      "shaTexto": "24be80ce3fc0e42ba1f7591012d690cd828c14b25f22ac023353183cea88b2c0",
+      "shaAudio": "fe52c430cf002fca00ede13a0c311e38da2166d0ee383b10e0e40e1c5afc9258",
+      "segundos": 6.4,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Sostén ≥24 kN con esfuerzo ≤100 megapascales, flecha ≤2 mm y altura ≤800 mm.",
+      "shaTexto": "ad35eede70b11faab61e753c73decd08e49d7ff8ffafef839811d9133cb7f5a0",
+      "shaAudio": "86537c4444f139e4a87fb20af42c32d27fc7d54cd16497965583ee7c0286a0d2",
+      "segundos": 7.36,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Torsión: selecciona el diámetro del eje.",
+      "shaTexto": "40094151dab9d705c44623d6a4d5f9fe3d68619e15e594713aea64f3ebe576f1",
+      "shaAudio": "221bae94b3af220b6388f787f38349caf1dfa120da12257f72bbab9567e730e2",
+      "segundos": 3.36,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Trabaja a ≥1,8 megapascales con aro entre 80 y 110 megapascales, espesor ≤9 mm y r/t ≥20.",
+      "shaTexto": "664a429c80befa12d3d6c431ec6a4caac2312ac8aa16e29d885b8eb238871906",
+      "shaAudio": "013d3da455cdf70b97ab902c0c3afca6aacc455d84232ee5022edc75f89581bc",
+      "segundos": 7.76,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Transmite ≥350 newton metro con giro ≤1,5°, cortante ≤80 megapascales y masa ≤11 kg.",
+      "shaTexto": "348a00d304d1dacc28f2e8b261f9a7dcc22419e0389b5a6a02fe3e9d390309f4",
+      "shaAudio": "1a6f0765417308d77d4ea04ddcc90968188f42c4a93a7c1eec056f45e80157a7",
+      "segundos": 8.32,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Un borde agudo concentra la carga; un radio mayor puede repartirla mejor.",
+      "shaTexto": "c8f6c202b793a4820a4f1dc1d0b425d0b324448a6f9c8c12bdb81200fe01ed02",
+      "shaAudio": "d7cd799a94d3a042f2d35277ffe32c4dc37ed2bc1187b142984ab27c8b68a0c4",
+      "segundos": 4.96,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Un eje puede resistir el par y aun así torcerse demasiado para su trabajo.",
+      "shaTexto": "bf2724bd24841b1e8e986b221e4376877c1905ea0fdaea4ab543f6cd07200eef",
+      "shaAudio": "b7f220b8822f5d92638b3a8c7f0c6add1b5a3eeb5b80e7916ab272a2cfdf4d4c",
+      "segundos": 5.28,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Un triángulo reparte la carga entre barras que tiran o empujan.",
+      "shaTexto": "66c0b84f99d5e4a821057bd9c1e2e770075d36806d8789230d6b7fb6df4cb5b2",
+      "shaAudio": "0947caadd7660a1aa42dc1ec4ec0633de377101db9ae283374a479a73d7cb1fc",
+      "segundos": 4.24,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Una carga dobla la viga: aumentar su altura la vuelve mucho más rígida.",
+      "shaTexto": "f52ac32c98b919ed4d457a2084933009d851a0db7fade4b506c8fdaa4484b0e7",
+      "shaAudio": "0fd182d274050d4cd36de1570fdda68c3c4eaaab5a330ba681a6b92e2646b2b9",
+      "segundos": 5.68,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Una carga repetida puede dañar un eje aunque ninguna vuelta lo rompa.",
+      "shaTexto": "df9b2c3dded1812b0d907a906deec02de05ed37c1f97d66d53568e0fd2fe6990",
+      "shaAudio": "d78709cc371fa48802792feec9965729b5dade009849a50e35fd8f1cba3bb56d",
+      "segundos": 4.56,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Una columna larga puede doblarse antes de que su material se aplaste.",
+      "shaTexto": "a5ade133278d199cd4ce4b0b8a683612ca7cadd8d6dc567700cbaf53c9657aa8",
+      "shaAudio": "dee14de9774f702624ad07464e2e880817f5f930f775db44bb61cbb1b3a3b0b2",
+      "segundos": 4.4,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Una grieta puede volver peligrosa una carga que antes parecía pequeña.",
+      "shaTexto": "c7138a4d5760cb11890973c0fc7310effb7ff1f87a28f7271b0b305f7fe97f14",
+      "shaAudio": "2fa70d3de965246f0b91819cd8177e774dd93af4db2986bb3d5912c56cfe8546",
+      "segundos": 4.24,
+      "sampleRate": 24000
+    },
+    {
+      "texto": "Viga en flexión: cortante, momento y flecha.",
+      "shaTexto": "44372f6ac512e649e6c8278094249a0152ce824bcc072900863942e209961f95",
+      "shaAudio": "b3d33549dfd959c04fd1acceaedb5a9afe4b40f242c08d88171fe4b461a35f4e",
+      "segundos": 3.52,
+      "sampleRate": 24000
+    }
+  ]
+}

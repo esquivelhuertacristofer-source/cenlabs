@@ -1,3 +1,7 @@
+# Encargo vigente · Mecánica 251–300 · 31-10-2026
+
+Leer [estado actual de la tanda](mecanica-251-300-estado.md). Bloque **251–260 implementado y revisado localmente**: 40 recorridos completos, 5.388 comprobaciones numéricas, Jest 50 suites / 4.289 pruebas, 150 clips de voz y diez portadas revisadas. [Autocrítica y capturas](evidencia-solidos/autocritica.json). Sin push ni publicación; requieren la primera confirmación del usuario. Commit: consultar el historial de estas fichas. El encargo total es de 50; siguiente bloque **261–270, Elementos de Máquina**, después 291–300, 271–280 y 281–290. El relevo del 30 de octubre que sigue es historial de ciencias, ya integrado en bd61e63.
+
 # Relevo vigente · 30 de octubre de 2026
 
 El usuario pidió entregar el proyecto a otra IA. Leer primero el **[informe de relevo actualizado](RELEVO-AMPLIACION3D-2026-10-30.md)**.
@@ -631,3 +635,115 @@ El alcance confirmado por el usuario comprende las50 prácticas.108 componentes 
 |[quimica-24](quimica-24.md)|2|exploración 7/1600 correcta · 4/4 recorridos finales|
 
 </details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Avance QA laboratorio256: 1600×900 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio257: 1600×900 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio258: 1600×900 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio259: 1600×900 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio260: 1600×900 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio251: 2020×1055 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio252: 2020×1055 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio253: 2020×1055 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio254: 2020×1055 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio255: 2020×1055 verificado; cierre y publicación pendientes.

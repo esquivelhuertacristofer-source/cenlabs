@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-255",
+  "titulo": "Fatiga de un eje: curva S–N y Goodman",
+  "subtitulo": "Mecánica de Sólidos",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Una carga repetida puede dañar un eje aunque ninguna vuelta lo rompa.\nOT-255 · Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 MPa.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Pieza y carga",
+      "descripcion": "Una carga repetida puede dañar un eje aunque ninguna vuelta lo rompa."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Modelo verificable",
+      "descripcion": "Relaciona la geometría con las ecuaciones y sus unidades."
+    },
+    {
+      "icono": "🔎",
+      "nombre": "Decisión profesional",
+      "descripcion": "Consigue reserva Goodman entre 1,5 y 2,2, diámetro ≤28 mm y tensión media ≥50 MPa."
+    }
+  ],
+  "mision": [
+    "Observa apoyos, pieza y sentido de carga.",
+    "Ajusta los mandos para cumplir simultáneamente todos los criterios.",
+    "Prepara el ensayo, registra el ajuste y valida antes de comparar curvas."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Diseño y mantenimiento industrial",
+      "ejemplo": "Fatiga de un eje: curva S–N y Goodman"
+    }
+  ]
+};
+export default briefing;

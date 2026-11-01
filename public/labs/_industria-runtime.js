@@ -1,12 +1,14 @@
 import {launch as shell} from './_mecanismos-runtime.js';
-import {definitions} from './_industria-definiciones.js';
-import {model,criteria,defaults} from './_industria-modelos.js';
-import {build,update} from './_industria-escenas.js';
-import {drawInstrument} from './_industria-instrumentos.js';
+import {definitions as standardDefinitions} from './_industria-definiciones.js';
+import {model as standardModel,criteria as standardCriteria,defaults as standardDefaults} from './_industria-modelos.js';
+import {build as standardBuild,update as standardUpdate} from './_industria-escenas.js';
+import {drawInstrument as standardDrawInstrument} from './_industria-instrumentos.js';
 import {attachInspection,syncInspection} from './_inspeccion-mecanismos.js';
 const stamp=p=>JSON.stringify(p),fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d).replace('.',','):'No viable';
-function duration(id,p){return model(id,0,p).duration||8;}
-export function launch(id){
+
+export function launch(id,bundle={}){
+ const definitions=bundle.definitions||standardDefinitions,model=bundle.model||standardModel,criteria=bundle.criteria||standardCriteria,defaults=bundle.defaults||standardDefaults,build=bundle.build||standardBuild,update=bundle.update||standardUpdate,drawInstrument=bundle.drawInstrument||standardDrawInstrument;
+ const duration=(id,p)=>model(id,0,p).duration||8;
  const d=definitions.find(d=>d.id===id),record={prepared:false,running:false,completed:false,start:0,signature:'',duration:0,result:null};let app;
  const say=text=>{const el=document.getElementById('jobBadge');if(el)el.textContent=text;};
  const current=()=>record.completed&&record.signature===stamp(app.S.values);
