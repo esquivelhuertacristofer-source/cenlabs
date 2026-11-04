@@ -37,10 +37,8 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     // (Cazar un hueco/duplicado sigue funcionando aunque N crezca; NO fijamos N=10
     //  porque el proyecto suma prácticas nuevas — p. ej. mecánica ya tiene 11.)
     for (const cat of CATEGORIAS) {
-      // La tanda 167–176 cierra la reserva anterior: todas las categorías vuelven
-      // a exigir continuidad completa, sin exenciones para nuevos IDs.
       const orden = catalogoDeCategoria(cat).map((i) => i.orden);
-      const esperado = orden.map((_, idx) => idx + 1); // [1, 2, …, N]
+      const esperado = Array.from({length: orden.length}, (_, idx) => idx + 1);
       expect(orden).toEqual(esperado);
       expect(orden.length).toBeGreaterThanOrEqual(10); // ninguna categoría encoge
     }
@@ -112,6 +110,9 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Hidráulica y Neumática',
       'Dinámica del Vehículo',
       'Mecánica de Sólidos',
+      'Elementos de Máquina',
+      'Vibraciones y Dinámica de Máquinas',
+      'Termofluidos y Energía',
     ]);
   });
 });

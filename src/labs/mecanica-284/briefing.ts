@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-284",
+  "titulo": "Refrigeración, COP y subenfriamiento",
+  "subtitulo": "Termofluidos y Energía",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Ajusta la temperatura de evaporación y el subenfriamiento para obtener más frío útil por unidad de trabajo.\nOT-284 · Prepara una cámara de refrigeración a carga parcial. Comprueba frío útil y consumo específico con un cambio de subenfriamiento.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "COP",
+      "descripcion": "Indicador del ensayo."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Frío útil",
+      "descripcion": "Lectura del banco en kJ/kg."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Trabajo de compresión",
+      "descripcion": "Lectura del banco en kJ/kg."
+    }
+  ],
+  "mision": [
+    "Identifica compresor, condensador, válvula y evaporador en el banco.",
+    "Registra un ensayo variando evaporación y subenfriamiento.",
+    "COP entre 3.75 y 4.3. Frío útil entre 145 y 170 kJ/kg. Trabajo de compresión entre 34 y 42 kJ/kg."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Termofluidos y Energía",
+      "ejemplo": "Manipula evaporación y subenfriamiento. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

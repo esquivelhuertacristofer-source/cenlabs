@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-265",
+  "titulo": "Cojinete hidrodinámico: película y fricción",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "El giro arrastra aceite y forma una cuña que mantiene separado el eje del casquillo.\nOT-265 · Selecciona viscosidad y régimen para separar el eje de un cojinete sin exceder las pérdidas.",
+  "conceptos": [
+    {
+      "icono": "💧",
+      "nombre": "Cuña de aceite",
+      "descripcion": "El giro arrastra aceite a una zona que se estrecha y genera presión."
+    },
+    {
+      "icono": "📏",
+      "nombre": "Separación mínima",
+      "descripcion": "El espesor de película se compara con la rugosidad de las superficies."
+    },
+    {
+      "icono": "⚙️",
+      "nombre": "Pérdidas viscosas",
+      "descripcion": "Más viscosidad puede separar mejor, pero también exige más potencia al eje."
+    }
+  ],
+  "mision": [
+    "Observa el aceite en la sección central y localiza el punto de menor separación.",
+    "Ajusta viscosidad y régimen; compara espesor, fricción y pérdidas para la misma carga.",
+    "Registra un ajuste conforme y comprueba el perfil de película y presión después de validar."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Evaluar el compromiso entre separación de superficies y pérdidas viscosas de un apoyo lubricado."
+    }
+  ]
+};
+export default briefing;

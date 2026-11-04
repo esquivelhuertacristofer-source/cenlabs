@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-268",
+  "titulo": "Freno de banda: fuerza que se amplifica",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "El propio giro ayuda a apretar la banda. Un pequeño cambio de palanca puede multiplicar mucho el frenado.\nOT-268 · Ajusta una banda diferencial para frenar un rotor equivalente sin exceder el esfuerzo de banda.",
+  "conceptos": [
+    {
+      "icono": "🌀",
+      "nombre": "Tensión por fricción",
+      "descripcion": "La tensión cambia exponencialmente a lo largo del arco en deslizamiento."
+    },
+    {
+      "icono": "⚖️",
+      "nombre": "Asistencia de palanca",
+      "descripcion": "El extremo tenso ayuda al mando y puede amplificar mucho la carga."
+    },
+    {
+      "icono": "🔥",
+      "nombre": "Energía de parada",
+      "descripcion": "La energía cinética que pierde el rotor se transforma en calor."
+    }
+  ],
+  "mision": [
+    "Sigue los extremos de banda hasta la palanca y localiza el pivote.",
+    "Ajusta fricción y brazo b; relaciona las tensiones con la capacidad y el tiempo de parada.",
+    "Ensaya un ajuste conforme y compara el sentido inverso después de validar."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Evaluar el efecto de la geometría y del sentido de giro en un freno de banda industrial."
+    }
+  ]
+};
+export default briefing;

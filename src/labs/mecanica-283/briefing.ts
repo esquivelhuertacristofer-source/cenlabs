@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-283",
+  "titulo": "Ciclo Rankine y sobrecalentamiento",
+  "subtitulo": "Termofluidos y Energía",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Ajusta presión y temperatura de la caldera para obtener trabajo sin degradar demasiado la calidad a la salida de la turbina.\nOT-283 · Ajusta una caldera de ensayo para equilibrar trabajo de ciclo y humedad a la salida de la turbina.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Eficiencia térmica",
+      "descripcion": "Lectura del banco en %."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Calidad a la salida",
+      "descripcion": "Lectura del banco en %."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Trabajo neto",
+      "descripcion": "Lectura del banco en kJ/kg."
+    }
+  ],
+  "mision": [
+    "Identifica bomba, caldera, turbina y condensador en el banco.",
+    "Registra un ensayo variando presión de caldera y temperatura de vapor.",
+    "Eficiencia térmica entre 37 y 45 %. Calidad a la salida entre 83 y 95 %. Trabajo neto entre 1200 y 1500 kJ/kg."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Termofluidos y Energía",
+      "ejemplo": "Manipula presión de caldera y temperatura de vapor. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

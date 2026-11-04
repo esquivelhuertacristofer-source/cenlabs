@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-263",
+  "titulo": "Engranes helicoidales: empuje y recubrimiento",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Inclinar los dientes suaviza el contacto, pero también empuja los ejes hacia los lados.\nOT-263 · Ajusta una pareja helicoidal para ganar continuidad de contacto sin sobrecargar el apoyo axial.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Contacto progresivo",
+      "descripcion": "La hélice extiende el contacto a lo ancho del diente."
+    },
+    {
+      "icono": "↔️",
+      "nombre": "Carga axial",
+      "descripcion": "La inclinación añade una fuerza que deben soportar los apoyos."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Compromiso de diseño",
+      "descripcion": "Elige ángulo y ancho para cumplir simultáneamente empuje y recubrimiento."
+    }
+  ],
+  "mision": [
+    "Identifica los dos sentidos de hélice y sigue el contacto a través de la cara.",
+    "Compara ancho y ángulo: uno cambia el solape sin cambiar el empuje.",
+    "Ensaya un ajuste conforme y explica qué pedirías al seleccionar los apoyos."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Seleccionar la hélice y el ancho de una transmisión sin exceder el empuje admisible de los apoyos."
+    }
+  ]
+};
+export default briefing;

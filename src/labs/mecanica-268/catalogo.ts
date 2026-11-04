@@ -1,0 +1,10 @@
+import type { CatalogoEntry } from '../_types';
+const catalogo: CatalogoEntry = {
+  modulo: "Elementos de Máquina",
+  titulo: "Freno de banda: fuerza que se amplifica",
+  duracion: "40 min",
+  teoria: "OT-268 · Ajusta una banda diferencial para frenar un rotor equivalente sin exceder el esfuerzo de banda. Escenario: radioR=200 mm, arcoθ=240°, fuerzaF=80 N hacia arriba, brazo de mando l=200 mm y brazo resistente a=60 mm. E=exp(μθ); T1/T2=E durante deslizamiento, T1 mayor en el extremo inicial del arco. Momentos alrededor del pivote: Fl+T1b−T2a=0. T2=Fl/(a−bE); M=(T1−T2)R. Giro inverso: Mrev=FlR(E−1)/(aE−b). La solución positiva exige a−bE>0; el motor rechaza el bloqueo fuera de dominio. Inercia equivalenteJ=12 kg·m² y velocidad inicialω0=60 rad/s. ω=max(0,ω0−Mt/J), ts=Jω0/M, ángulo mostrado=[ω0te−Mte²/(2J)]/40, te=min(t,ts). CalorQ=J(ω0²−ω²)/2, potenciaMω, energía inicial21.600 J. Temperatura media orientativa20°C+Q/(8kg·460J/kgK). Banda flexible ideal, deslizamiento de Coulomb con μ constante, tensiones cuasiestáticas y palanca rígida. Sin desgaste, deformación, calentamiento que cambie μ, elasticidad, holguras, motor ni control de accionamiento. Tras parar, las tensiones y M describen capacidad límite de deslizamiento, no un par que siga acelerando el rotor; la velocidad permanece cero. Inercia referida de máquina, no deducida sólo del tambor dibujado. Giro ralentizado ×1/40; el tiempo de parada conserva segundos reales. Demostración repuesta cada10s sin simular el motor de rearranque; adquisición de8s. Banda de espesor dibujado3–4mm, fórmula de banda delgada sobre radio nominal; las líneas de acción se trazan sobre ese radio. Palanca desplazada hacia el frente axialmente por claridad: equilibrio2D, sin flexión fuera del plano. El brazo b es distancia perpendicular a la tensión, no longitud del eslabón. Todo el rango de mandos conserva margen positivo hasta bloqueo. Temperatura uniforme orientativa, no mapa térmico superficial ni dictamen de seguridad.",
+  estado: "activo",
+  simuladorHtml: "/labs/freno-banda-autoenergizado.html"
+};
+export default catalogo;

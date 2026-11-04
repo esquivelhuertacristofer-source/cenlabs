@@ -1,3 +1,31 @@
+## Entrega local · 4 de noviembre de 2026
+
+El cierre local de 271–300 registra 120 recorridos en cuatro tamaños y 16 repeticiones dirigidas en escritorio y móvil. Se revisaron las portadas finales. Jest aprobó 50 suites, 4569 pruebas y 12 snapshots. TypeScript, ESLint y los registros generados también pasaron.
+
+El usuario pidió completar las prácticas pendientes en local. La autorización anterior de publicación queda sustituida por esta instrucción. La carpeta de desarrollo sigue siendo cen-dashboard. El proyecto de producción migró a labs-d1 y queda fuera del trabajo.
+
+Están integradas las 50 prácticas y el catálogo local registra 300 de mecánica y 90 de ciencias. 261–270 tienen revisión individual. La repetición conjunta conserva 9 de 40 recorridos en la revisión e12d5c4. 291–300 tienen modelo, ficha, ensayo, reto, quiz y cuatro recorridos de navegador cada una. 271–290 pasaron el verificador numérico con 18.503 combinaciones de controles. Se revisaron las 30 portadas y se recapturaron 19 tras cambios de escena. La narración de estudio 271–300 está pendiente. Véase el [índice con las fichas individuales](README.md).
+
+El barrido estático de 271–290, 296, 299 y 300 terminó con 23 resultados sanos. La revisión en Playwright recorre ficha, inspección, ensayo, reto, quiz, exportación y calidad media. El auditor verifica además el cursor cuando está disponible. Se guardan capturas y métricas de geometría en `scripts/auditoria/.salida/control-avanzado`.
+
+El sintetizador de estudio Qwen se detuvo sin producir clips de 291. Los guiones salen del extractor de voz normal y se pueden regenerar una vez liberada memoria de GPU. La metodología y el molde aprobado están en `C:\Users\crist\voces-naturales\README.md`.
+
+## Estado prioritario · 1 noviembre2026,17:20UTC
+
+A251–260 publicado/verificado (0b9ddf8,Cloudflare8028185d),docs534d168 en origin/main. B261–267 revisión individual completa y documentada,268 en revisión. Catálogo local358/producción350.266:28.809 pruebas,4recorridos firma3edfcd37f45bb322080aa8fec81bf53daff1ec7f694caa6f9856b421686776de,16clips.267:47.923 pruebas,4recorridos firma084330ef4593ee4fe55f9af12912c537365cdb2e5aece1ed3c52dc1b68fa723b,16clips. Portadas261–267 recapturadas sinHUD y vistas. TS/lint tras266 limpios; Jest parcial22pruebas/12snapshots hasta357 (5actualizados aditivos), completo pendiente.
+
+268:31.804 pruebas, tambor/banda/palanca, motor y ficha integrados. Cola actual sesión26600 flujo-elementos --solo268 --inspeccion --reanudar. Primer intento falló sólo por float0.30000000000000004 en auditor; redondeo corregido. Narración268 en sesión7391 (14textos nuevos/16clips), aún no instalar hasta terminar. No otros navegadores. No Jest durante navegador. Pendiente:4flujos, revisar capturas reales, barrido/portada, instalarvoz, TS/lint/goldens, ficha268/README antes269. Luego269y270; cierre B40 actuales/Jestcompleto/regresión250yA/commitselectivo/push/despliegue/loginreal. Orden siguienteE291–300 antesC/D.33labs por crear desde268antesdecontarla cerrada. No subagentes.
+
+Modelos nuevos: _elementos-rodamientos.js y rodamiento3d.js, resorte.js/resorte3d.js, freno.js/freno3d.js. Verificas por slug, global los importa. No reejecutar integra-elementos sobre fichas cerradas. Node_repl fs UTF8 para editar: PowerShell pipeline python pierde noASCII; los textos que se intentaron así ya se corrigieron. Los nuevos datos no llevan destacada. Audios7796tras266,7812tras267; manifiesto183/357. Se deben copiar adicionales aldeploy al publicarB.
+
+## Actualización prioritaria · 1 noviembre2026
+
+A251–260 publicado y verificado. B261–265 revisión individual completa;355 locales/350 producción.265 incluye flujo y caudal,443.035 pruebas físicas,4 tamaños.266 en desarrollo. Falta cierre global B.
+
+# Actualizaci?n prioritaria ? 1 noviembre2026
+
+A251?260 publicado y probado. B261?265 revisi?n individual completa,355 labs locales/350 en producci?n.265 incluye trazadores y caudal probados,443.035 comprobaciones,4 tama?os; falta cierre global B.266 siguiente. Firma265 fd6d7a7072a2948222b5e7313fed249d915f6e72ca88f0775d7970ccbef65742. No confundir evidencia individual con publicaci?n.
+
 # Encargo vigente: Mecánica 251–300
 
 ## Publicación A cerrada · 1 de noviembre de2026

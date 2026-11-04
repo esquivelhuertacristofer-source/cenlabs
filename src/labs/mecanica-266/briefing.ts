@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-266",
+  "titulo": "Rodamientos: selección por carga y vida",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "El mismo eje admite varios rodamientos. Elegir uno exige comprobar carga, vida y espacio disponible.\nOT-266 · Selecciona un rodamiento para un eje de 25 mm, carga axial de 400 N y régimen de 1500 rpm.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Carga equivalente",
+      "descripcion": "Combina carga radial y axial mediante los factores de la tabla del fabricante."
+    },
+    {
+      "icono": "⏱️",
+      "nombre": "Vida estadística",
+      "descripcion": "L10 es una medida de supervivencia de una población, no una garantía individual."
+    },
+    {
+      "icono": "📏",
+      "nombre": "Selección compatible",
+      "descripcion": "Un rodamiento debe sostener la carga y caber en el espacio disponible."
+    }
+  ],
+  "mision": [
+    "Compara dimensiones de las tres series sobre el mismo eje.",
+    "Comprueba la carga equivalente, el criterio de vida y la envolvente disponible.",
+    "Registra una selección conforme y justifica por qué mayor capacidad no siempre cabe."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Seleccionar apoyos de motores y transmisiones mediante catálogo, carga equivalente, vida y dimensiones."
+    }
+  ]
+};
+export default briefing;

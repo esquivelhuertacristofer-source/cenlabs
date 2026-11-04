@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-281",
+  "titulo": "Intercambiador a contracorriente por NTU",
+  "subtitulo": "Termofluidos y Energía",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Ajusta el intercambio para enfriar la línea caliente sin exceder la temperatura de retorno.\nOT-281 · Recupera calor en una línea de proceso. La corriente caliente debe bajar de temperatura y el retorno frío tiene un intervalo permitido.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Efectividad",
+      "descripcion": "Lectura del banco en %."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Salida caliente",
+      "descripcion": "Lectura del banco en °C."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Salida fría",
+      "descripcion": "Lectura del banco en °C."
+    }
+  ],
+  "mision": [
+    "Identifica tubos a contracorriente, colectores y perfil térmico en el banco.",
+    "Registra un ensayo variando número de unidades de transferencia y razón de capacidades.",
+    "Efectividad entre 75 y 87 %. Salida caliente entre 27 y 36 °C. Salida fría entre 45 y 56 °C."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Termofluidos y Energía",
+      "ejemplo": "Manipula número de unidades de transferencia y razón de capacidades. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

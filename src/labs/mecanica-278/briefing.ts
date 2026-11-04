@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-278",
+  "titulo": "Órbita de eje y holgura radial",
+  "subtitulo": "Vibraciones y Dinámica de Máquinas",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Reduce la excursión de la órbita para conservar un margen antes de rozar el cojinete.\nOT-278 · Verifica un cojinete de prueba cuyo eje presenta una órbita conocida. Conserva espacio radial sin exceder la holgura de montaje admitida.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Holgura",
+      "descripcion": "Lectura del banco en µm."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Órbita efectiva",
+      "descripcion": "Lectura del banco en µm."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Margen radial",
+      "descripcion": "Lectura del banco en µm."
+    }
+  ],
+  "mision": [
+    "Identifica eje, casquillo y órbita transversal en el banco.",
+    "Registra un ensayo variando holgura radial y órbita libre solicitada.",
+    "Holgura entre 45 y 80 µm. Órbita efectiva entre 25 y 50 µm. Margen radial entre 10 y 50 µm."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Vibraciones y Dinámica de Máquinas",
+      "ejemplo": "Manipula holgura radial y órbita libre solicitada. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

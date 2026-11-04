@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-270",
+  "titulo": "Eje y cubo: tres formas de transmitir par",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Un eje puede arrastrar su cubo por una chaveta, varios dientes o presión de contacto. Cada unión tiene su límite.\nOT-270 · Compara tres alternativas para transmitir250 N·m en un eje nominal de40 mm y cubo exterior de75 mm.",
+  "conceptos": [
+    {
+      "icono": "🔑",
+      "nombre": "Unión por forma",
+      "descripcion": "La chaveta o los dientes transmiten fuerza lateral entre eje y cubo."
+    },
+    {
+      "icono": "⭕",
+      "nombre": "Unión por presión",
+      "descripcion": "La interferencia genera presión radial; la fricción permite transmitir par."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Capacidad y límites",
+      "descripcion": "Una mayor capacidad también puede exigir longitud o presión que no están disponibles."
+    }
+  ],
+  "mision": [
+    "Identifica cómo impide el giro cada alternativa y observa su sección.",
+    "Compara capacidades al variar longitud e interferencia efectiva.",
+    "Ensaya una selección que cumpla las tres uniones y justifica qué límite gobierna."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Comparar uniones eje-cubo por capacidad, dimensiones y presión antes de detallar su fabricación."
+    }
+  ]
+};
+export default briefing;

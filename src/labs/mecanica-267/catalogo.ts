@@ -1,0 +1,10 @@
+import type { CatalogoEntry } from '../_types';
+const catalogo: CatalogoEntry = {
+  modulo: "Elementos de Máquina",
+  titulo: "Resortes: rigidez, esfuerzo y frecuencia",
+  duracion: "40 min",
+  teoria: "OT-267 · Selecciona el alambre y diámetro de un resorte para un carro horizontal de3 kg con precarga constante de30 N. Resorte helicoidal cercano a espira cerrada: G=78,5 GPa, densidad7850 kg/m³, Na=8 espiras activas y dos terminales de una vuelta sujetas en copas, Nt=10, longitud libre100 mm. k=Gd⁴/(8D³Na); índice C=D/d, Wahl K=(4C−1)/(4C−4)+0,615/C; τmax=K8FmaxD/(πd³). Área A=πd²/4, masa por vuelta m1=ρAπD, masa activa ma=8m1. Masa del carro3 kg; extremo móvil aporta m1, extremo fijo inmóvil. Rayleigh meff=3+m1+ma/3; fn=√(k/meff)/(2π). Precarga F=30 N; compresión de equilibrio δ=F/k. Pequeña oscilación de amplitud a=2 mm: longitud=L0−δ−a cos(ωt), fuerza de resorte=F+ka cos(ωt), Fmax=F+ka. Movimiento mostrado ×1/4; la frecuencia indicada es real. Terminales sin rectificar, altura sólida geométrica Hs=(Nt+1)d=11d. Modelo lineal de torsión, ocho espiras activas y terminales sujetos; sin fatiga, pandeo, rozamiento, amortiguamiento ni contacto entre espiras. Guía horizontal soporta el peso; no hay gravedad axial. Masa de alambre por longitud de espira cerrada, sin corrección de hélice. Masa efectiva ma/3 aproxima el modo de desplazamiento lineal; no es solución exacta del continuo ni frecuencia de surge con ambos extremos fijos. La masa del carro es concentrada e incluye el equipo movido, no se deduce del volumen dibujado. Dos terminales tienen paso d y las activas reparten el tramo restante; las copas sujetan las vueltas inactivas. En todo el rango se conserva holgura hasta bloque durante la oscilación. No se simula rotura ni plastificación:220 MPa y dimensiones son límites didácticos del escenario, no homologación de material. Geometría de resorte a30 unidades/m, sin amplificar la amplitud. Flecha dorada: precarga externa30 N, escala0,012 unidades/N.",
+  estado: "activo",
+  simuladorHtml: "/labs/resorte-helicoidal-rigidez-frecuencia.html"
+};
+export default catalogo;

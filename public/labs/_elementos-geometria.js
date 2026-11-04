@@ -1,0 +1,9 @@
+// Pure geometric description in SI; the renderer consumes these same vertices.
+export function toothHalfWidth(q,index,r,backlash=50e-6){const R=q['R'+index],rb=q['rb'+index],z=q['z'+index],alpha=Math.acos(Math.min(1,rb/r)),inv=Math.tan(alpha)-alpha;return Math.PI/(2*z)+Math.tan(q.alphaT)-q.alphaT-inv-backlash/(2*R);}
+export function gearSection(q,index){const z=q['z'+index],root=q['root'+index],tip=q['ra'+index],start=Math.max(root,q['rb'+index]),baseHalf=toothHalfWidth(q,index,start),tipHalf=toothHalfWidth(q,index,tip),points=[];const add=(r,a)=>points.push([r*Math.cos(a),r*Math.sin(a)]);
+ for(let i=0;i<z;i++){const c=i*2*Math.PI/z;for(let j=0;j<=3;j++)add(root,c-Math.PI/z+(Math.PI/z-baseHalf)*j/3);if(start-root>1e-12)add(start,c-baseHalf);for(let j=1;j<=8;j++){const r=start+(tip-start)*j/8;add(r,c-toothHalfWidth(q,index,r));}for(let j=1;j<=4;j++)add(tip,c-tipHalf+2*tipHalf*j/4);for(let j=1;j<=8;j++){const r=tip-(tip-start)*j/8;add(r,c+toothHalfWidth(q,index,r));}if(start-root>1e-12)add(root,c+baseHalf);for(let j=1;j<=2;j++)add(root,c+baseHalf+(Math.PI/z-baseHalf)*j/3);
+ }return points;}
+export function internalHalfWidth(r,z=72,m=.003,backlash=50e-6){const R=z*m/2,alpha=20*Math.PI/180,rb=R*Math.cos(alpha),a=Math.acos(Math.min(1,rb/r));return Math.PI/(2*z)-(Math.tan(alpha)-alpha)+(Math.tan(a)-a)-backlash/(2*R);}
+export function internalRingSection(z=72,m=.003){const R=z*m/2,root=R+1.25*m,tip=R-m,hRoot=internalHalfWidth(root,z,m),hTip=internalHalfWidth(tip,z,m),points=[],add=(r,a)=>points.push([r*Math.cos(a),r*Math.sin(a)]);
+ for(let i=0;i<z;i++){const c=i*2*Math.PI/z;for(let j=0;j<=3;j++)add(root,c-Math.PI/z+(Math.PI/z-hRoot)*j/3);for(let j=1;j<=8;j++){const r=root-(root-tip)*j/8;add(r,c-internalHalfWidth(r,z,m));}for(let j=1;j<=4;j++)add(tip,c-hTip+2*hTip*j/4);for(let j=1;j<=8;j++){const r=tip+(root-tip)*j/8;add(r,c+internalHalfWidth(r,z,m));}for(let j=1;j<=2;j++)add(root,c+hRoot+(Math.PI/z-hRoot)*j/3);
+ }return points;}

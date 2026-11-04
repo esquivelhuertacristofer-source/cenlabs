@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-276",
+  "titulo": "Aislamiento vibratorio de máquina",
+  "subtitulo": "Vibraciones y Dinámica de Máquinas",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Elige apoyos para reducir la fuerza transmitida y respetar el hundimiento estático permitido.\nOT-276 · Selecciona soportes de una máquina de 48 kg instalada sobre una plataforma ligera. El montaje tiene tolerancia tanto a fuerza dinámica como a hundimiento.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Fuerza transmitida / excitación",
+      "descripcion": "Indicador del ensayo."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Flecha estática",
+      "descripcion": "Lectura del banco en mm."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Frecuencia natural",
+      "descripcion": "Lectura del banco en Hz."
+    }
+  ],
+  "mision": [
+    "Identifica máquina, aisladores y placa de reacción en el banco.",
+    "Registra un ensayo variando rigidez total y amortiguamiento relativo.",
+    "Fuerza transmitida / excitación entre 0 y 0.55. Flecha estática entre 0 y 8 mm. Frecuencia natural entre 4 y 7 Hz."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Vibraciones y Dinámica de Máquinas",
+      "ejemplo": "Manipula rigidez total y amortiguamiento relativo. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

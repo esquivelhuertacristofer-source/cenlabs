@@ -328,6 +328,46 @@ import mecanica_257 from './mecanica-257/catalogo';
 import mecanica_258 from './mecanica-258/catalogo';
 import mecanica_259 from './mecanica-259/catalogo';
 import mecanica_260 from './mecanica-260/catalogo';
+import mecanica_261 from './mecanica-261/catalogo';
+import mecanica_262 from './mecanica-262/catalogo';
+import mecanica_263 from './mecanica-263/catalogo';
+import mecanica_264 from './mecanica-264/catalogo';
+import mecanica_265 from './mecanica-265/catalogo';
+import mecanica_266 from './mecanica-266/catalogo';
+import mecanica_267 from './mecanica-267/catalogo';
+import mecanica_268 from './mecanica-268/catalogo';
+import mecanica_269 from './mecanica-269/catalogo';
+import mecanica_270 from './mecanica-270/catalogo';
+import mecanica_271 from './mecanica-271/catalogo';
+import mecanica_272 from './mecanica-272/catalogo';
+import mecanica_273 from './mecanica-273/catalogo';
+import mecanica_274 from './mecanica-274/catalogo';
+import mecanica_275 from './mecanica-275/catalogo';
+import mecanica_276 from './mecanica-276/catalogo';
+import mecanica_277 from './mecanica-277/catalogo';
+import mecanica_278 from './mecanica-278/catalogo';
+import mecanica_279 from './mecanica-279/catalogo';
+import mecanica_280 from './mecanica-280/catalogo';
+import mecanica_281 from './mecanica-281/catalogo';
+import mecanica_282 from './mecanica-282/catalogo';
+import mecanica_283 from './mecanica-283/catalogo';
+import mecanica_284 from './mecanica-284/catalogo';
+import mecanica_285 from './mecanica-285/catalogo';
+import mecanica_286 from './mecanica-286/catalogo';
+import mecanica_287 from './mecanica-287/catalogo';
+import mecanica_288 from './mecanica-288/catalogo';
+import mecanica_289 from './mecanica-289/catalogo';
+import mecanica_290 from './mecanica-290/catalogo';
+import mecanica_291 from './mecanica-291/catalogo';
+import mecanica_292 from './mecanica-292/catalogo';
+import mecanica_293 from './mecanica-293/catalogo';
+import mecanica_294 from './mecanica-294/catalogo';
+import mecanica_295 from './mecanica-295/catalogo';
+import mecanica_296 from './mecanica-296/catalogo';
+import mecanica_297 from './mecanica-297/catalogo';
+import mecanica_298 from './mecanica-298/catalogo';
+import mecanica_299 from './mecanica-299/catalogo';
+import mecanica_300 from './mecanica-300/catalogo';
 import quimica_1 from './quimica-1/catalogo';
 import quimica_2 from './quimica-2/catalogo';
 import quimica_3 from './quimica-3/catalogo';
@@ -680,6 +720,46 @@ export const CATALOGO: Record<string, CatalogoEntry> = {
   'mecanica-258': mecanica_258,
   'mecanica-259': mecanica_259,
   'mecanica-260': mecanica_260,
+  'mecanica-261': mecanica_261,
+  'mecanica-262': mecanica_262,
+  'mecanica-263': mecanica_263,
+  'mecanica-264': mecanica_264,
+  'mecanica-265': mecanica_265,
+  'mecanica-266': mecanica_266,
+  'mecanica-267': mecanica_267,
+  'mecanica-268': mecanica_268,
+  'mecanica-269': mecanica_269,
+  'mecanica-270': mecanica_270,
+  'mecanica-271': mecanica_271,
+  'mecanica-272': mecanica_272,
+  'mecanica-273': mecanica_273,
+  'mecanica-274': mecanica_274,
+  'mecanica-275': mecanica_275,
+  'mecanica-276': mecanica_276,
+  'mecanica-277': mecanica_277,
+  'mecanica-278': mecanica_278,
+  'mecanica-279': mecanica_279,
+  'mecanica-280': mecanica_280,
+  'mecanica-281': mecanica_281,
+  'mecanica-282': mecanica_282,
+  'mecanica-283': mecanica_283,
+  'mecanica-284': mecanica_284,
+  'mecanica-285': mecanica_285,
+  'mecanica-286': mecanica_286,
+  'mecanica-287': mecanica_287,
+  'mecanica-288': mecanica_288,
+  'mecanica-289': mecanica_289,
+  'mecanica-290': mecanica_290,
+  'mecanica-291': mecanica_291,
+  'mecanica-292': mecanica_292,
+  'mecanica-293': mecanica_293,
+  'mecanica-294': mecanica_294,
+  'mecanica-295': mecanica_295,
+  'mecanica-296': mecanica_296,
+  'mecanica-297': mecanica_297,
+  'mecanica-298': mecanica_298,
+  'mecanica-299': mecanica_299,
+  'mecanica-300': mecanica_300,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

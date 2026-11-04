@@ -1,6 +1,21 @@
+# Avance local · 4 de noviembre de 2026
+
+El cierre local de 271–300 registra 120 recorridos en cuatro tamaños y 16 repeticiones dirigidas en escritorio y móvil. Se revisaron las portadas finales. Jest aprobó 50 suites, 4569 pruebas y 12 snapshots. TypeScript, ESLint y los registros generados también pasaron.
+
+El encargo actual es completar 251–300 en local. La publicación y el push quedan fuera de esta entrega. Esta carpeta conserva el desarrollo y producción migró a D1 en otra carpeta.
+
+- 261–270 cuentan con revisión individual. La repetición conjunta conserva 9 de 40 recorridos.
+- [291 · PID](mecanica-291.md) tiene cuatro recorridos funcionales y portada. La narración está pendiente por un fallo del sintetizador.
+- [292 · Bode](mecanica-292.md) tiene cuatro recorridos funcionales y portada. La narración está pendiente.
+- [293 · Lugar de raíces](mecanica-293.md), [294 · Cascada](mecanica-294.md), [295 · Modbus](mecanica-295.md), [296 · PROFINET](mecanica-296.md), [297 · Variador](mecanica-297.md), [298 · Encoder](mecanica-298.md), [299 · Paro](mecanica-299.md) y [300 · Predictivo](mecanica-300.md) están integrados y pasaron cuatro recorridos de navegador cada uno. La narración de estudio sigue pendiente.
+- Vibraciones y Dinámica de Máquinas · [271](mecanica-271.md) · [272](mecanica-272.md) · [273](mecanica-273.md) · [274](mecanica-274.md) · [275](mecanica-275.md) · [276](mecanica-276.md) · [277](mecanica-277.md) · [278](mecanica-278.md) · [279](mecanica-279.md) · [280](mecanica-280.md).
+- Termofluidos y Energía · [281](mecanica-281.md) · [282](mecanica-282.md) · [283](mecanica-283.md) · [284](mecanica-284.md) · [285](mecanica-285.md) · [286](mecanica-286.md) · [287](mecanica-287.md) · [288](mecanica-288.md) · [289](mecanica-289.md) · [290](mecanica-290.md).
+- El catálogo tiene 390 prácticas en local, incluidas las 300 de mecánica. La verificación numérica de 271–290 cubre 18.503 combinaciones de controles. Los dos módulos completaron sus recorridos y la revisión de portadas.
+- Los bancos 271–300 incorporan un cursor para volver a un instante del ensayo. Cambiar el ajuste exige un registro nuevo.
+
 # Encargo vigente · Mecánica251–300 · 1 de noviembre de2026
 
-Bloque **251–260 publicado y verificado**, código **0b9ddf8**, Cloudflare **8028185d**. Diez prácticas,40 recorridos locales,150 clips,portadas revisadas; en producción diez accesos/retos/quizzes y diez notas guardadas/leídas sin errores. Regresión50 ciencias y4 notas10/10 correctas. [Evidencia de publicación](evidencia-solidos/produccion.json) · [estado de la tanda](mecanica-251-300-estado.md). BloqueB:261 y262 revisados individualmente,263 en revisión;264–300 pendientes. Total encargado:50, orden A/B/E/C/D. No confundir borradoresB con producción.
+Bloque **251–260 publicado y verificado**, código **0b9ddf8**, Cloudflare **8028185d**. Diez prácticas,40 recorridos locales,150 clips,portadas revisadas; en producción diez accesos/retos/quizzes y diez notas guardadas/leídas sin errores. Regresión50 ciencias y4 notas10/10 correctas. [Evidencia de publicación](evidencia-solidos/produccion.json) · [estado de la tanda](mecanica-251-300-estado.md). BloqueB:261–269 revisados individualmente;270–300 pendientes. Catálogo local359; producción350. Total encargado:50, orden A/B/E/C/D. No confundir borradoresB con producción.
 
 # Relevo vigente · 30 de octubre de 2026
 
@@ -8,6 +23,14 @@ Bloque **251–260 publicado y verificado**, código **0b9ddf8**, Cloudflare **8
 
 - [mecanica-261](mecanica-261.md): unión atornillada, revisión individual completa (4 tamaños, 7.845 comprobaciones, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-262.
 - [mecanica-262](mecanica-262.md): soldadura/remaches excéntricos, revisión individual completa (4 tamaños, 153 comprobaciones propias, vectores3D contrastados, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-263.
+- [mecanica-263](mecanica-263.md): involutas helicoidales, revisión individual completa (4 tamaños, contacto/penetración/fases y mallas contrastados, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-264.
+- [mecanica-264](mecanica-264.md): planetario con tres bloqueos, revisión individual completa (4 tamaños, dientes/fases/órbitas/pasadores reales, tabla, 15 audios y portada). Local; batería global del bloque pendiente. Siguiente: mecanica-265.
+
+- [mecanica-269](mecanica-269.md): síntesis de trayectoria,864.871 comprobaciones,4recorridos,16clips y portada. Local; siguiente270.
+- [mecanica-268](mecanica-268.md): freno de banda,31.804 comprobaciones,4recorridos,16clips y portada. Local; siguiente269.
+- [mecanica-267](mecanica-267.md): selección de resorte,47.923 comprobaciones,4recorridos,16clips y portada. Local; siguiente268.
+- [mecanica-266](mecanica-266.md): selección NSK por vida y envolvente;28.809 comprobaciones,4 recorridos completos,16 clips y portada. Local. Siguiente:267.
+- [mecanica-265](mecanica-265.md): cojinete con presión, caudal y flujo medio;443.035 comprobaciones,4 recorridos completos,15 clips y portada. Local. Siguiente:266.
 
 El usuario pidió entregar el proyecto a otra IA. Leer primero el **[informe de relevo actualizado](RELEVO-AMPLIACION3D-2026-10-30.md)**.
 
@@ -757,11 +780,87 @@ El alcance confirmado por el usuario comprende las50 prácticas.108 componentes 
 
 
 
-- Avance QA laboratorio261: 390×844 verificado; cierre y publicación pendientes.
 
 
 
 
 
 
-- Avance QA laboratorio262: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Avance QA laboratorio266: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+- Avance QA laboratorio267: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+- Avance QA laboratorio268: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+
+
+
+
+- Avance QA laboratorio269: 390×844 verificado; cierre y publicación pendientes.
+
+
+
+
+
+
+
+
+
+
+- Avance QA laboratorio270: 390×844 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio261: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio262: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio263: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio264: 1366×768 verificado; cierre y publicación pendientes.
+
+- Avance QA laboratorio265: 1366×768 verificado; cierre y publicación pendientes.

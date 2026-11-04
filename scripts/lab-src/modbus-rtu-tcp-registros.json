@@ -1,0 +1,6 @@
+{
+  "mode": "mecanismo",
+  "set": "control-avanzado",
+  "id": 295,
+  "out": "modbus-rtu-tcp-registros.html"
+}

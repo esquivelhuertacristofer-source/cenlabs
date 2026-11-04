@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-275",
+  "titulo": "Balanceo de un cigüeñal de cuatro cilindros",
+  "subtitulo": "Vibraciones y Dinámica de Máquinas",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Ajusta el desfase entre pares y compara las fuerzas alternativas de dos órdenes.\nOT-275 · Revisa el calado de un prototipo de cuatro cilindros. El banco tiene que cumplir el presupuesto de fuerzas alternativas en el intervalo de trabajo.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Fuerza de primer orden",
+      "descripcion": "Lectura del banco en N."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Fuerza de segundo orden",
+      "descripcion": "Lectura del banco en N."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Régimen comprobado",
+      "descripcion": "Lectura del banco en rpm."
+    }
+  ],
+  "mision": [
+    "Identifica cigüeñal, manivelas y cuatro pistones en el banco.",
+    "Registra un ensayo variando régimen y desfase entre pares.",
+    "Fuerza de primer orden entre 0 y 0.01 N. Fuerza de segundo orden entre 0 y 100 N. Régimen comprobado entre 1800 y 2800 rpm."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Vibraciones y Dinámica de Máquinas",
+      "ejemplo": "Manipula régimen y desfase entre pares. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

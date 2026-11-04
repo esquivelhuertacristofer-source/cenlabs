@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-271",
+  "titulo": "Vibración libre de un carro",
+  "subtitulo": "Vibraciones y Dinámica de Máquinas",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Cambia la masa y el amortiguamiento para llevar un carro perturbado al equilibrio.\nOT-271 · El taller necesita un ajuste para que el carro vuelva al cero sin oscilaciones apreciables después de soltarlo desde 50 mm.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Frecuencia natural",
+      "descripcion": "Lectura del banco en Hz."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Razón de amortiguamiento",
+      "descripcion": "Indicador del ensayo."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Desplazamiento al final",
+      "descripcion": "Lectura del banco en mm."
+    }
+  ],
+  "mision": [
+    "Identifica masa, resorte helicoidal y amortiguador en el banco.",
+    "Registra un ensayo variando masa y amortiguamiento.",
+    "Frecuencia natural entre 0.5 y 1.4 Hz. Razón de amortiguamiento entre 0.9 y 1.1. Desplazamiento al final entre -1 y 1 mm."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Vibraciones y Dinámica de Máquinas",
+      "ejemplo": "Manipula masa y amortiguamiento. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

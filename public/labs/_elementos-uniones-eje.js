@@ -1,0 +1,5 @@
+export function shaftJoint(p,t=0){if(!(p.length>0&&p.interference>=0))throw RangeError("Dimensiones inválidas");const d=.04,D=.075,L=p.length/1000,delta=p.interference/1e6,E=210e9,nu=.30,mu=.12,b=.012,h=.008,tauAllow=60e6,bearingAllow=100e6,n=12,effectiveTeeth=.75*n,flank=.002;
+ const pressure=delta*E/(d*2*D*D/(D*D-d*d)),Tfit=mu*pressure*Math.PI*d*d*L/2,TkeyShear=tauAllow*b*L*d/2,TkeyBearing=bearingAllow*h*L*d/4,Tkey=Math.min(TkeyShear,TkeyBearing),Tspline=bearingAllow*effectiveTeeth*flank*L*(d/2),hubHoop=pressure*(D*D+d*d)/(D*D-d*d);
+ return {angle:2*Math.PI*t/4,phase:t,duration:8,signal:Tfit,reference:Tkey,d,D,L,delta,E,nu,mu,b,h,tauAllow,bearingAllow,n,effectiveTeeth,flank,pressure,Tfit,TkeyShear,TkeyBearing,Tkey,Tspline,hubHoop};}
+
+export function hubField(q,r){if(r<q.d/2||r>q.D/2)throw RangeError('Radio fuera del cubo');const a=q.d/2,b=q.D/2,A=q.pressure*a*a/(b*b-a*a),B=q.pressure*a*a*b*b/(b*b-a*a);return {radial:A-B/(r*r),hoop:A+B/(r*r),displacement:((1-q.nu)*A*r+(1+q.nu)*B/r)/q.E};}

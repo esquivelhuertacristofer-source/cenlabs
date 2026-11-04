@@ -1,0 +1,6 @@
+{
+  "mode": "mecanismo",
+  "set": "control-avanzado",
+  "id": 291,
+  "out": "pid-ziegler-nichols-antiwindup.html"
+}

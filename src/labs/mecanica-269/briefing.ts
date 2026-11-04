@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-269",
+  "titulo": "Cuatro barras: diseña una trayectoria",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "El punto de una barra puede dibujar una curva compleja. Cambiar dos longitudes transforma toda su trayectoria.\nOT-269 · Selecciona acoplador y balancín para reproducir una trayectoria de trazado sin degradar la transmisión.",
+  "conceptos": [
+    {
+      "icono": "🔗",
+      "nombre": "Cierre geométrico",
+      "descripcion": "Las longitudes de los eslabones deben cumplirse simultáneamente en cada postura."
+    },
+    {
+      "icono": "✏️",
+      "nombre": "Trayectoria de acoplador",
+      "descripcion": "Un punto fijo de la barra intermedia puede seguir una curva más compleja que un arco."
+    },
+    {
+      "icono": "📐",
+      "nombre": "Transmisión durante el ciclo",
+      "descripcion": "La calidad de transmisión se comprueba en su peor postura, junto con el error de trazado."
+    }
+  ],
+  "mision": [
+    "Identifica qué eslabones ajustas y sigue el lápiz una vuelta.",
+    "Compara error de trayectoria y ángulo mínimo al cambiar cada longitud.",
+    "Ensaya un diseño conforme y comprueba la curva completa en el instrumento."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Sintetizar un mecanismo de trazado o transferencia por trayectoria y transmisión, verificando el ciclo completo."
+    }
+  ]
+};
+export default briefing;

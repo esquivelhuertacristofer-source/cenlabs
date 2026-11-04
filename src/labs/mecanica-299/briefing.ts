@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-299",
+  "titulo": "Paro de emergencia y contactores",
+  "subtitulo": "Mecatrónica",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "El botón de emergencia abre el mando, pero un contacto soldado puede conservar la alimentación. Provoca el fallo y comprueba qué ocurre al rearmar.\nOT-299 · Demuestra que un contacto soldado permite cortar la alimentación y que la supervisión bloquea el rearme.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "K1 soldado",
+      "descripcion": "K1 sigue cerrado al ordenar el paro."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Rearme sin EDM",
+      "descripcion": "El mando vuelve a quedar habilitado tras el fallo."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Rotor en inercia",
+      "descripcion": "La carga sigue girando un tiempo después del corte."
+    }
+  ],
+  "mision": [
+    "Selecciona la arquitectura e inyecta una soldadura. Observa ambos contactores, la carga y el tiempo de desaceleración.",
+    "Ejecuta un ensayo y abre el instrumento de diagnóstico.",
+    "Demuestra que un contacto soldado permite cortar la alimentación y que la supervisión bloquea el rearme."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Mecatrónica",
+      "ejemplo": "Selecciona la arquitectura e inyecta una soldadura. Observa ambos contactores, la carga y el tiempo de desaceleración."
+    }
+  ]
+};
+export default briefing;

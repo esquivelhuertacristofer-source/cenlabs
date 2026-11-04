@@ -95,6 +95,11 @@ const AJUSTES = {
   65: { forzarBanco: true },   // transitorio RL
   67: { forzarBanco: true },   // fasores y desfase
   68: { forzarBanco: true },   // impedancias RLC
+  273: { forzarBanco: true },  // rotor y cojinetes
+  277: { forzarBanco: true },  // viga esbelta y sensor
+  279: { forzarBanco: true },  // guías, percutor y regla
+  287: { forzarBanco: true },  // chorro y rodete
+  293: { forzarBanco: true },  // instrumento y controlador de servo
 };
 const SIN_AJUSTES = process.argv.includes('--sin-ajustes');
 
@@ -259,6 +264,24 @@ while (cola.length) {
       let n = 0;
       for (const el of Array.from(document.body.children)) {
         if (el !== cont) { el.style.setProperty('display', 'none', 'important'); n++; }
+      }
+      // The work-order shell nests the scene and HUD inside one root. Keep
+      // only the canvas branch and give its stage the whole cover viewport.
+      if (document.querySelector('script[src="/labs/_elementos-runtime.js"]') || window.__labDebug?.pelicula || window.__labDebug?.planetario || document.querySelector('#openJob')) {
+        let branch = c;
+        while (branch.parentElement && branch.parentElement !== document.body) {
+          const parent = branch.parentElement;
+          for (const sibling of parent.children) if (sibling !== branch) {
+            sibling.style.setProperty('display', 'none', 'important'); n++;
+          }
+          parent.style.setProperty('position', 'absolute', 'important');
+          parent.style.setProperty('inset', '0', 'important');
+          parent.style.setProperty('width', '100%', 'important');
+          parent.style.setProperty('height', '100%', 'important');
+          parent.style.setProperty('padding', '0', 'important');
+          parent.style.setProperty('margin', '0', 'important');
+          branch = parent;
+        }
       }
       return { ocultos: n, id: cont.id || cont.tagName.toLowerCase() };
     });

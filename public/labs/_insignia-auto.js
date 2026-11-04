@@ -85,5 +85,5 @@ export function boot(cfg){
  function measure(){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(getGroup()),ys=[];for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])ys.push(new THREE.Vector3(x,y,z).project(camera).y);return {vista:S.view,altoPorcentaje:(Math.max(...ys)-Math.min(...ys))*50,lienzo:dims()};}
  window.__labDebug={get mode(){return S.mode;},get solved(){return S.solved;},get quizAnswer(){return S.quizAnswer;},get quizCorrectIndex(){return S.quizCorrectIndex;},state:()=>({resuelto:S.solved,intentos:S.attempts,values:{...S.values},t:S.t,view:S.view,paused:S.paused,diagnostico:S.dxOK}),modelo:model,mideObjeto:measure,escena:()=>({llamadas:renderer.info.render.calls,tri:renderer.info.render.triangles,calidad:S.quality,pixel:renderer.getPixelRatio()})};
  instalaDiag(cfg.slug,{escena:scene,camara:camera,controles:controls,renderizador:renderer,grupos:visual.views});cfg.update(visual,model(),S.values,S);new ResizeObserver(frame).observe(stage);view(S.view);tour();readouts(model());requestAnimationFrame(loop);
- return {S,visual,renderer,scene,camera,frame,view};
+ return {S,visual,renderer,scene,camera,controls,frame,view};
 }

@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-285",
+  "titulo": "Bomba centrífuga y margen NPSH",
+  "subtitulo": "Termofluidos y Energía",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Encuentra un punto de operación útil y conserva margen frente a cavitación.\nOT-285 · Se cambió la posición de una válvula de descarga. Restablece el caudal requerido sin consumir el margen disponible en aspiración.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Caudal de operación",
+      "descripcion": "Lectura del banco en m³/h."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Altura de operación",
+      "descripcion": "Lectura del banco en m."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Margen NPSH",
+      "descripcion": "Lectura del banco en m."
+    }
+  ],
+  "mision": [
+    "Identifica impulsor, aspiración y tubería de descarga en el banco.",
+    "Registra un ensayo variando velocidad y resistencia de válvula.",
+    "Caudal de operación entre 18 y 22 m³/h. Altura de operación entre 12 y 18 m. Margen NPSH entre 1.3 y 4 m."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Termofluidos y Energía",
+      "ejemplo": "Manipula velocidad y resistencia de válvula. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

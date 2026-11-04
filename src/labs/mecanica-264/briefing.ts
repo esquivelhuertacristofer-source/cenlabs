@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-264",
+  "titulo": "Planetario: bloqueos y tabla de velocidades",
+  "subtitulo": "Elementos de Máquina",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Bloquear una pieza cambia la transmisión: los planetas giran sobre su eje y también alrededor del sol.\nOT-264 · Selecciona el bloqueo de un reductor y entrega la tabla de velocidades absolutas.",
+  "conceptos": [
+    {
+      "icono": "⚙️",
+      "nombre": "Giro y órbita",
+      "descripcion": "Un planeta gira sobre un pasador que a su vez puede recorrer una órbita."
+    },
+    {
+      "icono": "🔒",
+      "nombre": "Miembro fijo",
+      "descripcion": "Bloquear sol, corona o portador produce transmisiones distintas."
+    },
+    {
+      "icono": "📋",
+      "nombre": "Tabla con signos",
+      "descripcion": "Registra la velocidad absoluta de cada elemento y el sentido de giro."
+    }
+  ],
+  "mision": [
+    "Identifica los tres miembros y observa giro y órbita de los planetas.",
+    "Prueba los bloqueos con la misma entrada y conserva el signo de cada velocidad.",
+    "Ensaya la configuración elegida, valida y compara la tabla de los tres montajes."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Montaje y mantenimiento de máquinas",
+      "ejemplo": "Elegir la configuración cinemática de un reductor coaxial y evitar confundir velocidades relativas y absolutas."
+    }
+  ]
+};
+export default briefing;

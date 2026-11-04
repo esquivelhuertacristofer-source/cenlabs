@@ -1,0 +1,4 @@
+const TAU=2*Math.PI;
+export function circleProfile(r,N=96){return Array.from({length:N},(_,i)=>[r*Math.cos(i*TAU/N),r*Math.sin(i*TAU/N)]);}
+export function keyProfile(female=false){const r=.02,w=.012,half=w/2,start=Math.PI-Math.acos(half/r),end=TAU+Math.acos(half/r),points=Array.from({length:97},(_,i)=>{const a=start+(end-start)*i/96;return [r*Math.cos(a),r*Math.sin(a)];}),y=Math.sqrt(r*r-half*half)+(female?.00405:-.004);points.push([half,y],[-half,y]);return points;}
+export function splineProfile(clearance=0){const R=.019,h=.021,w=.003,N=12,edge=Math.asin(w/2/R),x=Math.sqrt(R*R-w*w/4),pts=[];for(let i=0;i<N;i++){const a=i*TAU/N,c=Math.cos(a),s=Math.sin(a),push=(x,y)=>pts.push([(x*c-y*s)*(1+clearance/R),(x*s+y*c)*(1+clearance/R)]);push(x,-w/2);push(h,-w/2);push(h,w/2);push(x,w/2);for(let j=1;j<8;j++){const angle=a+edge+(TAU/N-2*edge)*j/8;pts.push([(R+clearance)*Math.cos(angle),(R+clearance)*Math.sin(angle)]);}}return pts;}

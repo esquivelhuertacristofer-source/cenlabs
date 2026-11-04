@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+const briefing: BriefingConfig = {
+  "codigo": "MEC-274",
+  "titulo": "Absorbedor dinámico sintonizado",
+  "subtitulo": "Vibraciones y Dinámica de Máquinas",
+  "acento": "#2A9D8F",
+  "duracion": 40,
+  "videoUrl": "",
+  "bienvenida": "Sintoniza la masa secundaria para descargar la máquina sin multiplicar el recorrido del absorbedor.\nOT-274 · Una máquina debe operar a su frecuencia de servicio. Sintoniza un absorbedor y confirma que su carrera quede dentro del espacio disponible.",
+  "conceptos": [
+    {
+      "icono": "⚙",
+      "nombre": "Amplitud principal",
+      "descripcion": "Lectura del banco en rel.."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Amplitud secundaria",
+      "descripcion": "Lectura del banco en rel.."
+    },
+    {
+      "icono": "⚙",
+      "nombre": "Razón de masa",
+      "descripcion": "Indicador del ensayo."
+    }
+  ],
+  "mision": [
+    "Identifica masa primaria, absorbedor y resortes en el banco.",
+    "Registra un ensayo variando frecuencia del absorbedor y masa relativa.",
+    "Amplitud principal entre 0 y 0.4 rel.. Amplitud secundaria entre 0 y 6 rel.. Razón de masa entre 0.15 y 0.3."
+  ],
+  "aplicaciones": [
+    {
+      "area": "Vibraciones y Dinámica de Máquinas",
+      "ejemplo": "Manipula frecuencia del absorbedor y masa relativa. Compara las lecturas con la orden de trabajo."
+    }
+  ]
+};
+export default briefing;

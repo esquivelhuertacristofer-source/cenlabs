@@ -12357,6 +12357,348 @@ OT-260 · Mantén reserva Kic/K ≥2, esfuerzo ≥90 MPa, grieta ≥5 mm y zona 
     "titulo": "Fractura: grieta crítica y margen de inspección",
     "videoUrl": "",
   },
+  "mecanica-261": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Comprobar una unión axial sin confundir par orientativo con precarga medida.",
+      },
+    ],
+    "bienvenida": "Aprieta dos piezas y descubre por qué una carga exterior no pasa entera al tornillo.
+OT-261 · Ajusta una junta axial para transmitir carga sin perder contacto ni sobrecargar el tornillo.",
+    "codigo": "MEC-261",
+    "conceptos": [
+      {
+        "descripcion": "El apriete crea tracción en el tornillo y compresión entre las piezas.",
+        "icono": "🔩",
+        "nombre": "Precarga y contacto",
+      },
+      {
+        "descripcion": "Las rigideces determinan qué parte de la carga aumenta la tracción del tornillo.",
+        "icono": "📐",
+        "nombre": "Rigidez de junta",
+      },
+      {
+        "descripcion": "Transmite ≥24 kN, conserva ≥3 kN de compresión y limita el tornillo a 34 kN con precarga ≤28 kN.",
+        "icono": "🔎",
+        "nombre": "Decisión de servicio",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica tornillo, piezas comprimidas y sentido de la carga.",
+      "Compara la junta cerrada con la pérdida de contacto al aumentar la carga.",
+      "Prepara el ensayo, registra un ajuste conforme y explica cómo se reparte la carga.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Unión atornillada: precarga y separación",
+    "videoUrl": "",
+  },
+  "mecanica-262": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Seleccionar uniones de una ménsula por cortante directo y momento.",
+      },
+    ],
+    "bienvenida": "Alejar la carga retuerce la unión: el punto más cargado puede recibir mucho más que el promedio.
+OT-262 · Compara dos alternativas para una ménsula cargada fuera del centro de su unión.",
+    "codigo": "MEC-262",
+    "conceptos": [
+      {
+        "descripcion": "Una fuerza apartada del centro añade un momento a la unión.",
+        "icono": "↗️",
+        "nombre": "Carga excéntrica",
+      },
+      {
+        "descripcion": "El cortante directo y el debido al momento tienen direcciones que se suman.",
+        "icono": "🔩",
+        "nombre": "Reparto vectorial",
+      },
+      {
+        "descripcion": "Comprueba soldadura y remaches con sus áreas resistentes y límites del escenario.",
+        "icono": "🔎",
+        "nombre": "Comparación de alternativas",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Localiza el centro de cada grupo y la línea de aplicación de la carga.",
+      "Cambia el alcance y compara las flechas de los puntos superiores e inferiores.",
+      "Registra una solución que cumpla ambas alternativas y explica qué criterio gobierna.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Soldadura y remaches: carga excéntrica",
+    "videoUrl": "",
+  },
+  "mecanica-263": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Seleccionar la hélice y el ancho de una transmisión sin exceder el empuje admisible de los apoyos.",
+      },
+    ],
+    "bienvenida": "Inclinar los dientes suaviza el contacto, pero también empuja los ejes hacia los lados.
+OT-263 · Ajusta una pareja helicoidal para ganar continuidad de contacto sin sobrecargar el apoyo axial.",
+    "codigo": "MEC-263",
+    "conceptos": [
+      {
+        "descripcion": "La hélice extiende el contacto a lo ancho del diente.",
+        "icono": "⚙️",
+        "nombre": "Contacto progresivo",
+      },
+      {
+        "descripcion": "La inclinación añade una fuerza que deben soportar los apoyos.",
+        "icono": "↔️",
+        "nombre": "Carga axial",
+      },
+      {
+        "descripcion": "Elige ángulo y ancho para cumplir simultáneamente empuje y recubrimiento.",
+        "icono": "📐",
+        "nombre": "Compromiso de diseño",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los dos sentidos de hélice y sigue el contacto a través de la cara.",
+      "Compara ancho y ángulo: uno cambia el solape sin cambiar el empuje.",
+      "Ensaya un ajuste conforme y explica qué pedirías al seleccionar los apoyos.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Engranes helicoidales: empuje y recubrimiento",
+    "videoUrl": "",
+  },
+  "mecanica-264": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Elegir la configuración cinemática de un reductor coaxial y evitar confundir velocidades relativas y absolutas.",
+      },
+    ],
+    "bienvenida": "Bloquear una pieza cambia la transmisión: los planetas giran sobre su eje y también alrededor del sol.
+OT-264 · Selecciona el bloqueo de un reductor y entrega la tabla de velocidades absolutas.",
+    "codigo": "MEC-264",
+    "conceptos": [
+      {
+        "descripcion": "Un planeta gira sobre un pasador que a su vez puede recorrer una órbita.",
+        "icono": "⚙️",
+        "nombre": "Giro y órbita",
+      },
+      {
+        "descripcion": "Bloquear sol, corona o portador produce transmisiones distintas.",
+        "icono": "🔒",
+        "nombre": "Miembro fijo",
+      },
+      {
+        "descripcion": "Registra la velocidad absoluta de cada elemento y el sentido de giro.",
+        "icono": "📋",
+        "nombre": "Tabla con signos",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los tres miembros y observa giro y órbita de los planetas.",
+      "Prueba los bloqueos con la misma entrada y conserva el signo de cada velocidad.",
+      "Ensaya la configuración elegida, valida y compara la tabla de los tres montajes.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Planetario: bloqueos y tabla de velocidades",
+    "videoUrl": "",
+  },
+  "mecanica-265": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Evaluar el compromiso entre separación de superficies y pérdidas viscosas de un apoyo lubricado.",
+      },
+    ],
+    "bienvenida": "El giro arrastra aceite y forma una cuña que mantiene separado el eje del casquillo.
+OT-265 · Selecciona viscosidad y régimen para separar el eje de un cojinete sin exceder las pérdidas.",
+    "codigo": "MEC-265",
+    "conceptos": [
+      {
+        "descripcion": "El giro arrastra aceite a una zona que se estrecha y genera presión.",
+        "icono": "💧",
+        "nombre": "Cuña de aceite",
+      },
+      {
+        "descripcion": "El espesor de película se compara con la rugosidad de las superficies.",
+        "icono": "📏",
+        "nombre": "Separación mínima",
+      },
+      {
+        "descripcion": "Más viscosidad puede separar mejor, pero también exige más potencia al eje.",
+        "icono": "⚙️",
+        "nombre": "Pérdidas viscosas",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el aceite en la sección central y localiza el punto de menor separación.",
+      "Ajusta viscosidad y régimen; compara espesor, fricción y pérdidas para la misma carga.",
+      "Registra un ajuste conforme y comprueba el perfil de película y presión después de validar.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Cojinete hidrodinámico: película y fricción",
+    "videoUrl": "",
+  },
+  "mecanica-266": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Seleccionar apoyos de motores y transmisiones mediante catálogo, carga equivalente, vida y dimensiones.",
+      },
+    ],
+    "bienvenida": "El mismo eje admite varios rodamientos. Elegir uno exige comprobar carga, vida y espacio disponible.
+OT-266 · Selecciona un rodamiento para un eje de 25 mm, carga axial de 400 N y régimen de 1500 rpm.",
+    "codigo": "MEC-266",
+    "conceptos": [
+      {
+        "descripcion": "Combina carga radial y axial mediante los factores de la tabla del fabricante.",
+        "icono": "⚙️",
+        "nombre": "Carga equivalente",
+      },
+      {
+        "descripcion": "L10 es una medida de supervivencia de una población, no una garantía individual.",
+        "icono": "⏱️",
+        "nombre": "Vida estadística",
+      },
+      {
+        "descripcion": "Un rodamiento debe sostener la carga y caber en el espacio disponible.",
+        "icono": "📏",
+        "nombre": "Selección compatible",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Compara dimensiones de las tres series sobre el mismo eje.",
+      "Comprueba la carga equivalente, el criterio de vida y la envolvente disponible.",
+      "Registra una selección conforme y justifica por qué mayor capacidad no siempre cabe.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Rodamientos: selección por carga y vida",
+    "videoUrl": "",
+  },
+  "mecanica-267": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Seleccionar un elemento elástico de una máquina por carrera, esfuerzo y respuesta dinámica.",
+      },
+    ],
+    "bienvenida": "Un alambre más grueso endurece mucho el resorte. La geometría también cambia su esfuerzo y la rapidez con que oscila.
+OT-267 · Selecciona el alambre y diámetro de un resorte para un carro horizontal de3 kg con precarga constante de30 N.",
+    "codigo": "MEC-267",
+    "conceptos": [
+      {
+        "descripcion": "El alambre trabaja principalmente a torsión; su diámetro cambia fuertemente la rigidez.",
+        "icono": "🌀",
+        "nombre": "Rigidez geométrica",
+      },
+      {
+        "descripcion": "El factor de Wahl incorpora curvatura y cortante directo del alambre.",
+        "icono": "📐",
+        "nombre": "Esfuerzo corregido",
+      },
+      {
+        "descripcion": "La frecuencia depende de rigidez y masa móvil, con una pequeña contribución del resorte.",
+        "icono": "⏱️",
+        "nombre": "Frecuencia del conjunto",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Distingue alambre, diámetro medio y espiras activas.",
+      "Compara frecuencia, compresión y esfuerzo al cambiar cada dimensión.",
+      "Ensaya una selección conforme y justifica su carrera y margen de esfuerzo.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Resortes: rigidez, esfuerzo y frecuencia",
+    "videoUrl": "",
+  },
+  "mecanica-268": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Evaluar el efecto de la geometría y del sentido de giro en un freno de banda industrial.",
+      },
+    ],
+    "bienvenida": "El propio giro ayuda a apretar la banda. Un pequeño cambio de palanca puede multiplicar mucho el frenado.
+OT-268 · Ajusta una banda diferencial para frenar un rotor equivalente sin exceder el esfuerzo de banda.",
+    "codigo": "MEC-268",
+    "conceptos": [
+      {
+        "descripcion": "La tensión cambia exponencialmente a lo largo del arco en deslizamiento.",
+        "icono": "🌀",
+        "nombre": "Tensión por fricción",
+      },
+      {
+        "descripcion": "El extremo tenso ayuda al mando y puede amplificar mucho la carga.",
+        "icono": "⚖️",
+        "nombre": "Asistencia de palanca",
+      },
+      {
+        "descripcion": "La energía cinética que pierde el rotor se transforma en calor.",
+        "icono": "🔥",
+        "nombre": "Energía de parada",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue los extremos de banda hasta la palanca y localiza el pivote.",
+      "Ajusta fricción y brazo b; relaciona las tensiones con la capacidad y el tiempo de parada.",
+      "Ensaya un ajuste conforme y compara el sentido inverso después de validar.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Freno de banda: fuerza que se amplifica",
+    "videoUrl": "",
+  },
+  "mecanica-269": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Sintetizar un mecanismo de trazado o transferencia por trayectoria y transmisión, verificando el ciclo completo.",
+      },
+    ],
+    "bienvenida": "El punto de una barra puede dibujar una curva compleja. Cambiar dos longitudes transforma toda su trayectoria.
+OT-269 · Selecciona acoplador y balancín para reproducir una trayectoria de trazado sin degradar la transmisión.",
+    "codigo": "MEC-269",
+    "conceptos": [
+      {
+        "descripcion": "Las longitudes de los eslabones deben cumplirse simultáneamente en cada postura.",
+        "icono": "🔗",
+        "nombre": "Cierre geométrico",
+      },
+      {
+        "descripcion": "Un punto fijo de la barra intermedia puede seguir una curva más compleja que un arco.",
+        "icono": "✏️",
+        "nombre": "Trayectoria de acoplador",
+      },
+      {
+        "descripcion": "La calidad de transmisión se comprueba en su peor postura, junto con el error de trazado.",
+        "icono": "📐",
+        "nombre": "Transmisión durante el ciclo",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica qué eslabones ajustas y sigue el lápiz una vuelta.",
+      "Compara error de trayectoria y ángulo mínimo al cambiar cada longitud.",
+      "Ensaya un diseño conforme y comprueba la curva completa en el instrumento.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Cuatro barras: diseña una trayectoria",
+    "videoUrl": "",
+  },
   "mecanica-27": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -12415,6 +12757,386 @@ Al final vas a entender por qué ningún técnico confía en la amplitud indicad
     ],
     "subtitulo": "Instrumentación · La fuente, la carga y la respuesta en frecuencia",
     "titulo": "Generador de funciones: carga, forma de onda, barrido en frecuencia y offset de CD",
+    "videoUrl": "",
+  },
+  "mecanica-270": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Montaje y mantenimiento de máquinas",
+        "ejemplo": "Comparar uniones eje-cubo por capacidad, dimensiones y presión antes de detallar su fabricación.",
+      },
+    ],
+    "bienvenida": "Un eje puede arrastrar su cubo por una chaveta, varios dientes o presión de contacto. Cada unión tiene su límite.
+OT-270 · Compara tres alternativas para transmitir250 N·m en un eje nominal de40 mm y cubo exterior de75 mm.",
+    "codigo": "MEC-270",
+    "conceptos": [
+      {
+        "descripcion": "La chaveta o los dientes transmiten fuerza lateral entre eje y cubo.",
+        "icono": "🔑",
+        "nombre": "Unión por forma",
+      },
+      {
+        "descripcion": "La interferencia genera presión radial; la fricción permite transmitir par.",
+        "icono": "⭕",
+        "nombre": "Unión por presión",
+      },
+      {
+        "descripcion": "Una mayor capacidad también puede exigir longitud o presión que no están disponibles.",
+        "icono": "📐",
+        "nombre": "Capacidad y límites",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica cómo impide el giro cada alternativa y observa su sección.",
+      "Compara capacidades al variar longitud e interferencia efectiva.",
+      "Ensaya una selección que cumpla las tres uniones y justifica qué límite gobierna.",
+    ],
+    "subtitulo": "Elementos de Máquina",
+    "titulo": "Eje y cubo: tres formas de transmitir par",
+    "videoUrl": "",
+  },
+  "mecanica-271": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula masa y amortiguamiento. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Cambia la masa y el amortiguamiento para llevar un carro perturbado al equilibrio.
+OT-271 · El taller necesita un ajuste para que el carro vuelva al cero sin oscilaciones apreciables después de soltarlo desde 50 mm.",
+    "codigo": "MEC-271",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en Hz.",
+        "icono": "⚙",
+        "nombre": "Frecuencia natural",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Razón de amortiguamiento",
+      },
+      {
+        "descripcion": "Lectura del banco en mm.",
+        "icono": "⚙",
+        "nombre": "Desplazamiento al final",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica masa, resorte helicoidal y amortiguador en el banco.",
+      "Registra un ensayo variando masa y amortiguamiento.",
+      "Frecuencia natural entre 0.5 y 1.4 Hz. Razón de amortiguamiento entre 0.9 y 1.1. Desplazamiento al final entre -1 y 1 mm.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Vibración libre de un carro",
+    "videoUrl": "",
+  },
+  "mecanica-272": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula frecuencia relativa y amortiguamiento relativo. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Mueve la frecuencia del excitador y reconoce cuándo amplifica la fuerza que llega a la base.
+OT-272 · El fabricante cambió el régimen de un excitador. Comprueba si la nueva frecuencia deja de amplificar la carga que recibe el anclaje.",
+    "codigo": "MEC-272",
+    "conceptos": [
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Amplificación de desplazamiento",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Fuerza transmitida / excitación",
+      },
+      {
+        "descripcion": "Lectura del banco en °.",
+        "icono": "⚙",
+        "nombre": "Desfase",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica excitador, carro y apoyo en el banco.",
+      "Registra un ensayo variando frecuencia relativa y amortiguamiento relativo.",
+      "Amplificación de desplazamiento entre 0 y 0.5. Fuerza transmitida / excitación entre 0 y 0.5. Desfase entre 120 y 180 °.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Resonancia forzada y transmisibilidad",
+    "videoUrl": "",
+  },
+  "mecanica-273": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula velocidad de giro y acoplamiento giroscópico. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Cruza el mapa de velocidades y observa cómo se separan las ramas de precesión.
+OT-273 · Antes de programar el variador, delimita una zona de giro donde la órbita esté controlada y las ramas de precesión se distingan.",
+    "codigo": "MEC-273",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en mm.",
+        "icono": "⚙",
+        "nombre": "Amplitud de órbita",
+      },
+      {
+        "descripcion": "Lectura del banco en rpm.",
+        "icono": "⚙",
+        "nombre": "Rama directa equivalente",
+      },
+      {
+        "descripcion": "Lectura del banco en rpm.",
+        "icono": "⚙",
+        "nombre": "Rama inversa equivalente",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica rotor, discos, apoyos y órbita en el banco.",
+      "Registra un ensayo variando velocidad de giro y acoplamiento giroscópico.",
+      "Amplitud de órbita entre 0 y 0.2 mm. Rama directa equivalente entre 1580 y 2200 rpm. Rama inversa equivalente entre 1000 y 1499 rpm.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Velocidad crítica de rotor giroscópico",
+    "videoUrl": "",
+  },
+  "mecanica-274": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula frecuencia del absorbedor y masa relativa. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Sintoniza la masa secundaria para descargar la máquina sin multiplicar el recorrido del absorbedor.
+OT-274 · Una máquina debe operar a su frecuencia de servicio. Sintoniza un absorbedor y confirma que su carrera quede dentro del espacio disponible.",
+    "codigo": "MEC-274",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en rel..",
+        "icono": "⚙",
+        "nombre": "Amplitud principal",
+      },
+      {
+        "descripcion": "Lectura del banco en rel..",
+        "icono": "⚙",
+        "nombre": "Amplitud secundaria",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Razón de masa",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica masa primaria, absorbedor y resortes en el banco.",
+      "Registra un ensayo variando frecuencia del absorbedor y masa relativa.",
+      "Amplitud principal entre 0 y 0.4 rel.. Amplitud secundaria entre 0 y 6 rel.. Razón de masa entre 0.15 y 0.3.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Absorbedor dinámico sintonizado",
+    "videoUrl": "",
+  },
+  "mecanica-275": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula régimen y desfase entre pares. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta el desfase entre pares y compara las fuerzas alternativas de dos órdenes.
+OT-275 · Revisa el calado de un prototipo de cuatro cilindros. El banco tiene que cumplir el presupuesto de fuerzas alternativas en el intervalo de trabajo.",
+    "codigo": "MEC-275",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en N.",
+        "icono": "⚙",
+        "nombre": "Fuerza de primer orden",
+      },
+      {
+        "descripcion": "Lectura del banco en N.",
+        "icono": "⚙",
+        "nombre": "Fuerza de segundo orden",
+      },
+      {
+        "descripcion": "Lectura del banco en rpm.",
+        "icono": "⚙",
+        "nombre": "Régimen comprobado",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica cigüeñal, manivelas y cuatro pistones en el banco.",
+      "Registra un ensayo variando régimen y desfase entre pares.",
+      "Fuerza de primer orden entre 0 y 0.01 N. Fuerza de segundo orden entre 0 y 100 N. Régimen comprobado entre 1800 y 2800 rpm.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Balanceo de un cigüeñal de cuatro cilindros",
+    "videoUrl": "",
+  },
+  "mecanica-276": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula rigidez total y amortiguamiento relativo. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Elige apoyos para reducir la fuerza transmitida y respetar el hundimiento estático permitido.
+OT-276 · Selecciona soportes de una máquina de 48 kg instalada sobre una plataforma ligera. El montaje tiene tolerancia tanto a fuerza dinámica como a hundimiento.",
+    "codigo": "MEC-276",
+    "conceptos": [
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Fuerza transmitida / excitación",
+      },
+      {
+        "descripcion": "Lectura del banco en mm.",
+        "icono": "⚙",
+        "nombre": "Flecha estática",
+      },
+      {
+        "descripcion": "Lectura del banco en Hz.",
+        "icono": "⚙",
+        "nombre": "Frecuencia natural",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica máquina, aisladores y placa de reacción en el banco.",
+      "Registra un ensayo variando rigidez total y amortiguamiento relativo.",
+      "Fuerza transmitida / excitación entre 0 y 0.55. Flecha estática entre 0 y 8 mm. Frecuencia natural entre 4 y 7 Hz.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Aislamiento vibratorio de máquina",
+    "videoUrl": "",
+  },
+  "mecanica-277": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula longitud y modo. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Cambia la longitud y mide cómo se desplaza la segunda frecuencia natural.
+OT-277 · El taller cambia la longitud de la probeta. Comprueba si el segundo modo queda dentro del intervalo que puede medir el equipo de ensayo.",
+    "codigo": "MEC-277",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en Hz.",
+        "icono": "⚙",
+        "nombre": "Frecuencia modal",
+      },
+      {
+        "descripcion": "Lectura del banco en m.",
+        "icono": "⚙",
+        "nombre": "Longitud de la probeta",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Modo solicitado",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica empotramiento, viga y forma modal en el banco.",
+      "Registra un ensayo variando longitud y modo.",
+      "Frecuencia modal entre 45 y 80 Hz. Longitud de la probeta entre 0.8 y 1.2 m. Modo solicitado = 2.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Análisis modal de una viga en voladizo",
+    "videoUrl": "",
+  },
+  "mecanica-278": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula holgura radial y órbita libre solicitada. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Reduce la excursión de la órbita para conservar un margen antes de rozar el cojinete.
+OT-278 · Verifica un cojinete de prueba cuyo eje presenta una órbita conocida. Conserva espacio radial sin exceder la holgura de montaje admitida.",
+    "codigo": "MEC-278",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en µm.",
+        "icono": "⚙",
+        "nombre": "Holgura",
+      },
+      {
+        "descripcion": "Lectura del banco en µm.",
+        "icono": "⚙",
+        "nombre": "Órbita efectiva",
+      },
+      {
+        "descripcion": "Lectura del banco en µm.",
+        "icono": "⚙",
+        "nombre": "Margen radial",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica eje, casquillo y órbita transversal en el banco.",
+      "Registra un ensayo variando holgura radial y órbita libre solicitada.",
+      "Holgura entre 45 y 80 µm. Órbita efectiva entre 25 y 50 µm. Margen radial entre 10 y 50 µm.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Órbita de eje y holgura radial",
+    "videoUrl": "",
+  },
+  "mecanica-279": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula altura de caída y coeficiente de restitución. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta la altura de caída y el material de contacto para contener el rebote sin perder energía de ensayo.
+OT-279 · Regula un ensayo de caída sobre una placa instrumentada. El impacto debe entregar energía medible y mantener el rebote dentro de la guía.",
+    "codigo": "MEC-279",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en m/s.",
+        "icono": "⚙",
+        "nombre": "Velocidad antes del impacto",
+      },
+      {
+        "descripcion": "Lectura del banco en m.",
+        "icono": "⚙",
+        "nombre": "Altura de rebote",
+      },
+      {
+        "descripcion": "Lectura del banco en J.",
+        "icono": "⚙",
+        "nombre": "Energía disipada",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica guías, percutor y placa de impacto en el banco.",
+      "Registra un ensayo variando altura de caída y coeficiente de restitución.",
+      "Velocidad antes del impacto entre 3 y 5 m/s. Altura de rebote entre 0 y 0.25 m. Energía disipada entre 10 y 20 J.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Impacto, restitución y energía",
     "videoUrl": "",
   },
   "mecanica-28": {
@@ -12476,6 +13198,386 @@ Al final vas a entender que el mismo código DTC puede significar "vigílalo en 
     "subtitulo": "Autotrónica · Del código pendiente al testigo MIL",
     "titulo": "Fallo de Encendido: Árbol de Decisión P0300",
   },
+  "mecanica-280": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Vibraciones y Dinámica de Máquinas",
+        "ejemplo": "Manipula inercia y fluctuación de energía. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Dimensiona la inercia para mantener el régimen dentro de tolerancia bajo una carga pulsante.
+OT-280 · Dimensiona un volante para una máquina con demanda pulsante. La variación de régimen y la energía almacenada tienen límites de operación.",
+    "codigo": "MEC-280",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Fluctuación pico a pico",
+      },
+      {
+        "descripcion": "Lectura del banco en J.",
+        "icono": "⚙",
+        "nombre": "Energía de referencia",
+      },
+      {
+        "descripcion": "Lectura del banco en rpm.",
+        "icono": "⚙",
+        "nombre": "Variación pico a pico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica eje, volante y perfil de carga en el banco.",
+      "Registra un ensayo variando inercia y fluctuación de energía.",
+      "Fluctuación pico a pico entre 0 y 6 %. Energía de referencia entre 0 y 125 J. Variación pico a pico entre 0 y 9 rpm.",
+    ],
+    "subtitulo": "Vibraciones y Dinámica de Máquinas",
+    "titulo": "Volante de inercia y fluctuación cíclica",
+    "videoUrl": "",
+  },
+  "mecanica-281": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula número de unidades de transferencia y razón de capacidades. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta el intercambio para enfriar la línea caliente sin exceder la temperatura de retorno.
+OT-281 · Recupera calor en una línea de proceso. La corriente caliente debe bajar de temperatura y el retorno frío tiene un intervalo permitido.",
+    "codigo": "MEC-281",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Efectividad",
+      },
+      {
+        "descripcion": "Lectura del banco en °C.",
+        "icono": "⚙",
+        "nombre": "Salida caliente",
+      },
+      {
+        "descripcion": "Lectura del banco en °C.",
+        "icono": "⚙",
+        "nombre": "Salida fría",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica tubos a contracorriente, colectores y perfil térmico en el banco.",
+      "Registra un ensayo variando número de unidades de transferencia y razón de capacidades.",
+      "Efectividad entre 75 y 87 %. Salida caliente entre 27 y 36 °C. Salida fría entre 45 y 56 °C.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Intercambiador a contracorriente por NTU",
+    "videoUrl": "",
+  },
+  "mecanica-282": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula conductividad y convección. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Compara conductividad y convección para retirar calor manteniendo una punta suficientemente activa.
+OT-282 · Compara materiales para el disipador de un módulo de potencia. Entrega calor suficiente sin que la punta quede prácticamente a temperatura ambiente.",
+    "codigo": "MEC-282",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Eficiencia",
+      },
+      {
+        "descripcion": "Lectura del banco en °C.",
+        "icono": "⚙",
+        "nombre": "Temperatura en punta",
+      },
+      {
+        "descripcion": "Lectura del banco en W.",
+        "icono": "⚙",
+        "nombre": "Calor por aleta",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica placa caliente, siete aletas y mapa térmico en el banco.",
+      "Registra un ensayo variando conductividad y convección.",
+      "Eficiencia entre 65 y 82 %. Temperatura en punta entre 58 y 75 °C. Calor por aleta entre 20 y 32 W.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Aleta de enfriamiento y eficiencia",
+    "videoUrl": "",
+  },
+  "mecanica-283": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula presión de caldera y temperatura de vapor. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta presión y temperatura de la caldera para obtener trabajo sin degradar demasiado la calidad a la salida de la turbina.
+OT-283 · Ajusta una caldera de ensayo para equilibrar trabajo de ciclo y humedad a la salida de la turbina.",
+    "codigo": "MEC-283",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Eficiencia térmica",
+      },
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Calidad a la salida",
+      },
+      {
+        "descripcion": "Lectura del banco en kJ/kg.",
+        "icono": "⚙",
+        "nombre": "Trabajo neto",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica bomba, caldera, turbina y condensador en el banco.",
+      "Registra un ensayo variando presión de caldera y temperatura de vapor.",
+      "Eficiencia térmica entre 37 y 45 %. Calidad a la salida entre 83 y 95 %. Trabajo neto entre 1200 y 1500 kJ/kg.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Ciclo Rankine y sobrecalentamiento",
+    "videoUrl": "",
+  },
+  "mecanica-284": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula evaporación y subenfriamiento. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta la temperatura de evaporación y el subenfriamiento para obtener más frío útil por unidad de trabajo.
+OT-284 · Prepara una cámara de refrigeración a carga parcial. Comprueba frío útil y consumo específico con un cambio de subenfriamiento.",
+    "codigo": "MEC-284",
+    "conceptos": [
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "COP",
+      },
+      {
+        "descripcion": "Lectura del banco en kJ/kg.",
+        "icono": "⚙",
+        "nombre": "Frío útil",
+      },
+      {
+        "descripcion": "Lectura del banco en kJ/kg.",
+        "icono": "⚙",
+        "nombre": "Trabajo de compresión",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica compresor, condensador, válvula y evaporador en el banco.",
+      "Registra un ensayo variando evaporación y subenfriamiento.",
+      "COP entre 3.75 y 4.3. Frío útil entre 145 y 170 kJ/kg. Trabajo de compresión entre 34 y 42 kJ/kg.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Refrigeración, COP y subenfriamiento",
+    "videoUrl": "",
+  },
+  "mecanica-285": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula velocidad y resistencia de válvula. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Encuentra un punto de operación útil y conserva margen frente a cavitación.
+OT-285 · Se cambió la posición de una válvula de descarga. Restablece el caudal requerido sin consumir el margen disponible en aspiración.",
+    "codigo": "MEC-285",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en m³/h.",
+        "icono": "⚙",
+        "nombre": "Caudal de operación",
+      },
+      {
+        "descripcion": "Lectura del banco en m.",
+        "icono": "⚙",
+        "nombre": "Altura de operación",
+      },
+      {
+        "descripcion": "Lectura del banco en m.",
+        "icono": "⚙",
+        "nombre": "Margen NPSH",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica impulsor, aspiración y tubería de descarga en el banco.",
+      "Registra un ensayo variando velocidad y resistencia de válvula.",
+      "Caudal de operación entre 18 y 22 m³/h. Altura de operación entre 12 y 18 m. Margen NPSH entre 1.3 y 4 m.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Bomba centrífuga y margen NPSH",
+    "videoUrl": "",
+  },
+  "mecanica-286": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula velocidad media y rugosidad relativa. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Cambia caudal y rugosidad para cumplir el presupuesto de carga del circuito.
+OT-286 · Dimensiona la operación de una línea de agua con una caída de presión admisible. Contrasta la influencia de la rugosidad en los dos regímenes.",
+    "codigo": "MEC-286",
+    "conceptos": [
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Reynolds",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Factor de Darcy",
+      },
+      {
+        "descripcion": "Lectura del banco en m.",
+        "icono": "⚙",
+        "nombre": "Pérdida total",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica tubo, tomas de presión y trazador en el banco.",
+      "Registra un ensayo variando velocidad media y rugosidad relativa.",
+      "Reynolds entre 50000 y 80000. Factor de Darcy entre 0.015 y 0.03. Pérdida total entre 0 y 2.5 m.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Moody y pérdidas en una tubería",
+    "videoUrl": "",
+  },
+  "mecanica-287": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula altura neta y relación de velocidades. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Ajusta la velocidad periférica para aprovechar el chorro sin sacrificar el empuje útil.
+OT-287 · Prepara el rodete para una línea hidráulica de altura conocida. Evalúa empuje, potencia y eficiencia antes de fijar la velocidad de giro.",
+    "codigo": "MEC-287",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en kW.",
+        "icono": "⚙",
+        "nombre": "Potencia al rodete",
+      },
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Eficiencia del rodete",
+      },
+      {
+        "descripcion": "Lectura del banco en N.",
+        "icono": "⚙",
+        "nombre": "Fuerza tangencial",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica boquilla, chorro, cucharas y eje en el banco.",
+      "Registra un ensayo variando altura neta y relación de velocidades.",
+      "Potencia al rodete entre 2.5 y 4 kW. Eficiencia del rodete entre 88 y 95 %. Fuerza tangencial entre 140 y 205 N.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Turbina Pelton y cantidad de movimiento",
+    "videoUrl": "",
+  },
+  "mecanica-288": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula relación total de presión y etapas. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Reparte la relación de presión entre etapas para bajar el trabajo y la temperatura de descarga.
+OT-288 · Reduce el calentamiento de un tren de aire comprimido conservando la relación total de presión que pide el proceso.",
+    "codigo": "MEC-288",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en kJ/kg.",
+        "icono": "⚙",
+        "nombre": "Trabajo específico",
+      },
+      {
+        "descripcion": "Lectura del banco en °C.",
+        "icono": "⚙",
+        "nombre": "Temperatura de etapa",
+      },
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Ahorro frente a una etapa",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica compresores por etapas y tren de enfriamiento en el banco.",
+      "Registra un ensayo variando relación total de presión y etapas.",
+      "Trabajo específico entre 190 y 235 kJ/kg. Temperatura de etapa entre 65 y 110 °C. Ahorro frente a una etapa entre 13 y 24 %.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Compresión politrópica con interenfriamiento",
+    "videoUrl": "",
+  },
+  "mecanica-289": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula espesor añadido y convección exterior. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Comprueba cuándo añadir una capa delgada puede aumentar la pérdida de calor.
+OT-289 · Un recubrimiento delgado elevó el consumo térmico. Reproduce el efecto y ubica el radio que separa aumento y reducción de la pérdida.",
+    "codigo": "MEC-289",
+    "conceptos": [
+      {
+        "descripcion": "Lectura del banco en mm.",
+        "icono": "⚙",
+        "nombre": "Radio crítico",
+      },
+      {
+        "descripcion": "Lectura del banco en W/m.",
+        "icono": "⚙",
+        "nombre": "Pérdida de calor",
+      },
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Aumento frente a tubo desnudo",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica tubo, capa aislante y perfil de pérdida en el banco.",
+      "Registra un ensayo variando espesor añadido y convección exterior.",
+      "Radio crítico entre 12 y 20 mm. Pérdida de calor entre 8 y 12 W/m. Aumento frente a tubo desnudo entre 5 y 18 %.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Radio crítico de aislamiento",
+    "videoUrl": "",
+  },
   "mecanica-29": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -12534,6 +13636,386 @@ Al final vas a poder mirar cualquier combinación de conexión, monitores y cód
     ],
     "subtitulo": "Autotrónica · Aprobación, rechazo y readiness en la verificación vehicular",
     "titulo": "Monitores de Disponibilidad (Readiness) y Tabla 1",
+  },
+  "mecanica-290": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Termofluidos y Energía",
+        "ejemplo": "Manipula área de salida / garganta y contrapresión / presión total. Compara las lecturas con la orden de trabajo.",
+      },
+    ],
+    "bienvenida": "Controla la contrapresión para ubicar un choque normal dentro de la sección divergente.
+OT-290 · Localiza el choque dentro de la sección divergente para que la descarga reproduzca la contrapresión del banco.",
+    "codigo": "MEC-290",
+    "conceptos": [
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Mach de salida",
+      },
+      {
+        "descripcion": "Lectura del banco en %.",
+        "icono": "⚙",
+        "nombre": "Posición del choque",
+      },
+      {
+        "descripcion": "Indicador del ensayo.",
+        "icono": "⚙",
+        "nombre": "Régimen con choque interno",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica garganta, tramo divergente y anillo de choque en el banco.",
+      "Registra un ensayo variando área de salida / garganta y contrapresión / presión total.",
+      "Mach de salida entre 0.26 y 0.45. Posición del choque entre 63 y 87 %. Régimen con choque interno = 1.",
+    ],
+    "subtitulo": "Termofluidos y Energía",
+    "titulo": "Tobera convergente-divergente con choque",
+    "videoUrl": "",
+  },
+  "mecanica-291": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Compara la recuperación con y sin corrección del integrador. Repite el ensayo después de cambiar el ajuste.",
+      },
+    ],
+    "bienvenida": "Cuando el motor ya recibe toda la tensión disponible, el controlador todavía puede acumular error. Observa qué ocurre al bajar la consigna.
+OT-291 · Recupera el control de velocidad tras una consigna que supera la capacidad del accionamiento.",
+    "codigo": "MEC-291",
+    "conceptos": [
+      {
+        "descripcion": "El actuador tiene un límite de tensión aunque el controlador pida más.",
+        "icono": "⚙️",
+        "nombre": "Saturación",
+      },
+      {
+        "descripcion": "La oscilación marginal de la planta permite estimar el ajuste inicial.",
+        "icono": "📐",
+        "nombre": "Ganancia última",
+      },
+      {
+        "descripcion": "La diferencia de mando corrige la acumulación integral.",
+        "icono": "↩️",
+        "nombre": "Anti-windup",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa el intervalo saturado.",
+      "Ajusta la ganancia y la corrección del integrador.",
+      "Registra la recuperación y compara la tensión ordenada con la aplicada.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "PID de velocidad con anti-windup",
+    "videoUrl": "",
+  },
+  "mecanica-292": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Los dos indicadores se mueven a la frecuencia de cruce. Compara el retraso de la salida y registra los márgenes.",
+      },
+    ],
+    "bienvenida": "Dos señales pueden tener el mismo tamaño y llegar en momentos distintos. Ese retraso cambia cómo se comporta un lazo de control.
+OT-292 · Ajusta un compensador y comprueba ambos márgenes antes de cerrar el lazo.",
+    "codigo": "MEC-292",
+    "conceptos": [
+      {
+        "descripcion": "La ganancia del lazo vale uno.",
+        "icono": "📈",
+        "nombre": "Cruce de magnitud",
+      },
+      {
+        "descripcion": "Expresa cuánto se retrasa la salida durante un ciclo.",
+        "icono": "↔️",
+        "nombre": "Fase",
+      },
+      {
+        "descripcion": "Mide cuánto cambio admite el lazo antes de alcanzar la condición marginal.",
+        "icono": "🧰",
+        "nombre": "Margen",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Compara la fase de ambos indicadores.",
+      "Ajusta ganancia y adelanto.",
+      "Registra los dos cruces y valida los márgenes.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Bode y márgenes de estabilidad",
+    "videoUrl": "",
+  },
+  "mecanica-293": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Ajusta la ganancia y el tiempo de respuesta. Compara la perturbación con los polos.",
+      },
+    ],
+    "bienvenida": "El eje recibe una pequeña perturbación. Según el ajuste, la oscilación desaparece, se mantiene o crece.
+OT-293 · Ajusta el servo para disipar una perturbación angular.",
+    "codigo": "MEC-293",
+    "conceptos": [
+      {
+        "descripcion": "Cada polo aporta un modo de respuesta.",
+        "icono": "✳️",
+        "nombre": "Polos",
+      },
+      {
+        "descripcion": "La parte real determina la rapidez de crecimiento o caída.",
+        "icono": "📉",
+        "nombre": "Envolvente",
+      },
+      {
+        "descripcion": "La parte imaginaria fija la frecuencia del modo.",
+        "icono": "🔁",
+        "nombre": "Oscilación",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Observa la perturbación.",
+      "Ajusta ganancia y constante de tiempo.",
+      "Comprueba los polos y la caída de la envolvente.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Lugar de las raíces de un servo",
+    "videoUrl": "",
+  },
+  "mecanica-294": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Ajusta los lazos exteriores. Observa la llegada a la marca y el efecto de una carga aplicada a los dos segundos.",
+      },
+    ],
+    "bienvenida": "El carro debe llegar a una marca. Un lazo pide velocidad, otro pide corriente y el último entrega el esfuerzo al motor.
+OT-294 · Pon a punto un eje de posicionamiento para llegar a la marca y resistir una carga.",
+    "codigo": "MEC-294",
+    "conceptos": [
+      {
+        "descripcion": "El error de posición determina la velocidad solicitada.",
+        "icono": "📍",
+        "nombre": "Posición",
+      },
+      {
+        "descripcion": "La corrección de velocidad determina la corriente solicitada.",
+        "icono": "⚙️",
+        "nombre": "Velocidad",
+      },
+      {
+        "descripcion": "El lazo interior regula el par disponible.",
+        "icono": "⚡",
+        "nombre": "Corriente",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el movimiento y la llegada a la marca.",
+      "Ajusta los dos lazos exteriores.",
+      "Contrasta las tres señales y valida bajo carga.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Servo con tres lazos en cascada",
+    "videoUrl": "",
+  },
+  "mecanica-295": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Cambia el transporte y la dirección. Sigue la petición y la respuesta, luego lee sus bytes en el analizador.",
+      },
+    ],
+    "bienvenida": "El PLC pide tres registros al variador. La respuesta depende de la dirección y de que la trama llegue íntegra.
+OT-295 · Verifica la lectura de tres registros de retención en la unidad 7.",
+    "codigo": "MEC-295",
+    "conceptos": [
+      {
+        "descripcion": "Cada palabra contiene 16 bits y se identifica por su dirección en el PDU.",
+        "icono": "🧾",
+        "nombre": "Registro",
+      },
+      {
+        "descripcion": "El mismo PDU viaja con CRC en RTU o cabecera MBAP en TCP.",
+        "icono": "🔗",
+        "nombre": "Encapsulado",
+      },
+      {
+        "descripcion": "Una excepción recibida se distingue del silencio por descarte.",
+        "icono": "🔎",
+        "nombre": "Diagnóstico",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Localiza el inicio del mapa solicitado.",
+      "Compara una lectura RTU, TCP y una trama RTU alterada.",
+      "Ensaya la lectura correcta y explica sus bytes.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Modbus RTU y TCP en un banco de PLC",
+    "videoUrl": "",
+  },
+  "mecanica-296": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Ajusta ambos periodos y sigue la detección por las tres etapas. El instrumento muestra la peor fase del escenario.",
+      },
+    ],
+    "bienvenida": "El sensor ya detectó la pieza. El programa aún debe esperar a que el dato pase por el maestro y llegue a su ciclo de lectura.
+OT-296 · Coordina el sensor, el maestro IO-Link y el ciclo del PLC.",
+    "codigo": "MEC-296",
+    "conceptos": [
+      {
+        "descripcion": "El sensor intercambia datos de proceso con un puerto del maestro.",
+        "icono": "📡",
+        "nombre": "Puerto IO-Link",
+      },
+      {
+        "descripcion": "El maestro entrega su imagen de datos al controlador PROFINET.",
+        "icono": "🔗",
+        "nombre": "Actualización de red",
+      },
+      {
+        "descripcion": "El consumo sucede cuando el programa lee la imagen actualizada.",
+        "icono": "⏱️",
+        "nombre": "Fase del programa",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Identifica los dos tipos de enlace.",
+      "Ajusta los periodos y compara latencia y cota.",
+      "Ensaya y justifica la fase de peor caso.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "PROFINET e IO-Link: del sensor al PLC",
+    "videoUrl": "",
+  },
+  "mecanica-297": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Ajusta la pendiente y el límite. Observa el arranque, la velocidad sostenida y la parada ordenada por el PLC.",
+      },
+    ],
+    "bienvenida": "Una rampa rápida pide más esfuerzo al motor. Si la corriente llega al límite, la velocidad deja de seguir la orden.
+OT-297 · Configura una rampa de marcha y parada de un accionamiento limitado en corriente.",
+    "codigo": "MEC-297",
+    "conceptos": [
+      {
+        "descripcion": "La consigna cambia con una pendiente programada.",
+        "icono": "📈",
+        "nombre": "Rampa",
+      },
+      {
+        "descripcion": "La corriente disponible fija el par máximo.",
+        "icono": "⚡",
+        "nombre": "Límite",
+      },
+      {
+        "descripcion": "El tiempo real depende de la rampa y la respuesta del rotor.",
+        "icono": "⏱️",
+        "nombre": "Parada",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Sigue el arranque y la parada.",
+      "Ajusta pendiente y límite.",
+      "Compara velocidad y corriente antes de validar.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Variador con PLC y límite de corriente",
+    "videoUrl": "",
+  },
+  "mecanica-298": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Ajusta la velocidad y el muestreo. Las pistas del disco representan A, B y los seis bits Gray.",
+      },
+    ],
+    "bienvenida": "El disco sigue girando aunque el lector se salte marcas. Compara el conteo de flancos con la posición que entrega una palabra absoluta.
+OT-298 · Selecciona el muestreo para contar la cuadratura sin perder posición.",
+    "codigo": "MEC-298",
+    "conceptos": [
+      {
+        "descripcion": "El orden de los estados indica el sentido del eje.",
+        "icono": "🔢",
+        "nombre": "Cuadratura",
+      },
+      {
+        "descripcion": "Dos sectores contiguos cambian un solo bit.",
+        "icono": "💿",
+        "nombre": "Código Gray",
+      },
+      {
+        "descripcion": "Una lectura lenta puede perder estados entre muestras.",
+        "icono": "⏱️",
+        "nombre": "Muestreo",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Compara las pistas durante el giro.",
+      "Ajusta el muestreo para conservar el conteo.",
+      "Ensaya y explica la diferencia entre sector y desplazamiento.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Encoder incremental y absoluto",
+    "videoUrl": "",
+  },
+  "mecanica-299": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Selecciona la arquitectura e inyecta una soldadura. Observa ambos contactores, la carga y el tiempo de desaceleración.",
+      },
+    ],
+    "bienvenida": "El botón de emergencia abre el mando, pero un contacto soldado puede conservar la alimentación. Provoca el fallo y comprueba qué ocurre al rearmar.
+OT-299 · Demuestra que un contacto soldado permite cortar la alimentación y que la supervisión bloquea el rearme.",
+    "codigo": "MEC-299",
+    "conceptos": [
+      {
+        "descripcion": "K1 sigue cerrado al ordenar el paro.",
+        "icono": "⚙",
+        "nombre": "K1 soldado",
+      },
+      {
+        "descripcion": "El mando vuelve a quedar habilitado tras el fallo.",
+        "icono": "⚙",
+        "nombre": "Rearme sin EDM",
+      },
+      {
+        "descripcion": "La carga sigue girando un tiempo después del corte.",
+        "icono": "⚙",
+        "nombre": "Rotor en inercia",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Selecciona la arquitectura e inyecta una soldadura. Observa ambos contactores, la carga y el tiempo de desaceleración.",
+      "Ejecuta un ensayo y abre el instrumento de diagnóstico.",
+      "Demuestra que un contacto soldado permite cortar la alimentación y que la supervisión bloquea el rearme.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Paro de emergencia y contactores",
+    "videoUrl": "",
   },
   "mecanica-3": {
     "acento": "#2A9D8F",
@@ -12654,6 +14136,44 @@ Al final vas a poder mirar una traza diferencial en el osciloscopio y decir, sol
     ],
     "subtitulo": "Autotrónica · Señalización diferencial, terminación 120 Ω y arbitraje no destructivo",
     "titulo": "Bus CAN: Diagnóstico con Osciloscopio",
+  },
+  "mecanica-300": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mecatrónica",
+        "ejemplo": "Acorta la ventana para captar la degradación reciente y compara el efecto de espaciar las mediciones.",
+      },
+    ],
+    "bienvenida": "Un rodamiento empieza a vibrar con más intensidad. Ajusta la ventana de diagnóstico y estima cuándo alcanzará el umbral del taller.
+OT-300 · Estima la alarma a 7–12 días, con al menos cinco muestras y residuo RMS ≤0,11 mm/s.",
+    "codigo": "MEC-300",
+    "conceptos": [
+      {
+        "descripcion": "La tendencia diluye el crecimiento reciente.",
+        "icono": "⚙",
+        "nombre": "Ventana demasiado larga",
+      },
+      {
+        "descripcion": "Quedan muy pocos puntos para estimar una pendiente.",
+        "icono": "⚙",
+        "nombre": "Mediciones escasas",
+      },
+      {
+        "descripcion": "La intersección se desplaza al cambiar el ajuste.",
+        "icono": "⚙",
+        "nombre": "Estimación fuera de rango",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "Acorta la ventana para captar la degradación reciente y compara el efecto de espaciar las mediciones.",
+      "Ejecuta un ensayo y abre el instrumento de diagnóstico.",
+      "Estima la alarma a 7–12 días, con al menos cinco muestras y residuo RMS ≤0,11 mm/s.",
+    ],
+    "subtitulo": "Mecatrónica",
+    "titulo": "Mantenimiento predictivo por vibración",
+    "videoUrl": "",
   },
   "mecanica-31": {
     "acento": "#2A9D8F",
@@ -33466,11 +34986,51 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-259": [],
   "mecanica-26": [],
   "mecanica-260": [],
+  "mecanica-261": [],
+  "mecanica-262": [],
+  "mecanica-263": [],
+  "mecanica-264": [],
+  "mecanica-265": [],
+  "mecanica-266": [],
+  "mecanica-267": [],
+  "mecanica-268": [],
+  "mecanica-269": [],
   "mecanica-27": [],
+  "mecanica-270": [],
+  "mecanica-271": [],
+  "mecanica-272": [],
+  "mecanica-273": [],
+  "mecanica-274": [],
+  "mecanica-275": [],
+  "mecanica-276": [],
+  "mecanica-277": [],
+  "mecanica-278": [],
+  "mecanica-279": [],
   "mecanica-28": [],
+  "mecanica-280": [],
+  "mecanica-281": [],
+  "mecanica-282": [],
+  "mecanica-283": [],
+  "mecanica-284": [],
+  "mecanica-285": [],
+  "mecanica-286": [],
+  "mecanica-287": [],
+  "mecanica-288": [],
+  "mecanica-289": [],
   "mecanica-29": [],
+  "mecanica-290": [],
+  "mecanica-291": [],
+  "mecanica-292": [],
+  "mecanica-293": [],
+  "mecanica-294": [],
+  "mecanica-295": [],
+  "mecanica-296": [],
+  "mecanica-297": [],
+  "mecanica-298": [],
+  "mecanica-299": [],
   "mecanica-3": [],
   "mecanica-30": [],
+  "mecanica-300": [],
   "mecanica-31": [],
   "mecanica-32": [],
   "mecanica-33": [],
@@ -34011,11 +35571,51 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-259",
   "mecanica-26",
   "mecanica-260",
+  "mecanica-261",
+  "mecanica-262",
+  "mecanica-263",
+  "mecanica-264",
+  "mecanica-265",
+  "mecanica-266",
+  "mecanica-267",
+  "mecanica-268",
+  "mecanica-269",
   "mecanica-27",
+  "mecanica-270",
+  "mecanica-271",
+  "mecanica-272",
+  "mecanica-273",
+  "mecanica-274",
+  "mecanica-275",
+  "mecanica-276",
+  "mecanica-277",
+  "mecanica-278",
+  "mecanica-279",
   "mecanica-28",
+  "mecanica-280",
+  "mecanica-281",
+  "mecanica-282",
+  "mecanica-283",
+  "mecanica-284",
+  "mecanica-285",
+  "mecanica-286",
+  "mecanica-287",
+  "mecanica-288",
+  "mecanica-289",
   "mecanica-29",
+  "mecanica-290",
+  "mecanica-291",
+  "mecanica-292",
+  "mecanica-293",
+  "mecanica-294",
+  "mecanica-295",
+  "mecanica-296",
+  "mecanica-297",
+  "mecanica-298",
+  "mecanica-299",
   "mecanica-3",
   "mecanica-30",
+  "mecanica-300",
   "mecanica-31",
   "mecanica-32",
   "mecanica-33",
