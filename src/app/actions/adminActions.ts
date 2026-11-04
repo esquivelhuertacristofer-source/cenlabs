@@ -1,8 +1,7 @@
 "use server";
 
 import { getAdminClient } from "@/lib/supabase-admin";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { usuarioConRol } from "@/lib/supabase-server";
 
 export interface UserImport {
   email: string;
@@ -31,28 +30,10 @@ function generateEmail(fullName: string, domain: string = DEFAULT_EMAIL_DOMAIN):
 }
 
 async function requireAdminRole(): Promise<void> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('No autorizado');
-
-  const admin = getAdminClient();
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || profile.role !== 'admin') {
+  // Labs sobre D1: sesión propia; el rol se lee del servidor, nunca del navegador.
+  const yo = await usuarioConRol();
+  if (!yo) throw new Error('No autorizado');
+  if (yo.role !== 'admin') {
     throw new Error('Acceso denegado: se requiere rol de administrador');
   }
 }
@@ -74,11 +55,14 @@ export async function onboardInstitutionalUsers(
   customPassword: string
 ) {
   await requireAdminRole();
+  // Listas cerradas: el tipo de TypeScript no existe en tiempo de ejecución (manual 3c).
+  if (role !== "alumno" && role !== "profesor") throw new Error("Rol inválido.");
+  if (!Array.isArray(names) || names.length > 200) throw new Error("Lista de nombres inválida (máximo 200).");
 
   if (!customPassword || customPassword.trim().length < 8) {
     throw new Error('Se requiere una contraseña de al menos 8 caracteres.');
   }
-  const admin = getAdminClient();
+  const admin = await getAdminClient();
   const password = customPassword.trim();
 
   const results = {
@@ -87,7 +71,7 @@ export async function onboardInstitutionalUsers(
   };
 
   for (const rawName of names) {
-    const name = rawName.trim();
+    const name = String(rawName ?? "").trim().slice(0, 120);
     if (!name) continue;
 
     const email = generateEmail(name);

@@ -27,9 +27,8 @@ const scriptSrc = isDev
   : "'self' 'unsafe-inline' blob: https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    reactCompiler: false,
-  },
+  // Next 16: reactCompiler salió de `experimental`. Sigue apagado, como en Next 15.
+  reactCompiler: false,
   // Sin DSN: aliasa '@sentry/nextjs' al stub no-op para que el SDK no entre al bundle.
   // Con DSN: passthrough — se usa el SDK real (y withSentryConfig lo instrumenta abajo).
   // En servidor: aliasa 'jspdf' al stub no-op (es solo-cliente) para no inflar el worker.
@@ -57,7 +56,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src ${scriptSrc}; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://raw.githack.com https://cdn.jsdelivr.net https://i.ytimg.com https://images.unsplash.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' *.supabase.co https://raw.githack.com https://cdn.jsdelivr.net blob:; frame-src 'self' https://www.youtube.com https://youtube.com;`
+            value: `default-src 'self'; script-src ${scriptSrc}; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://raw.githack.com https://cdn.jsdelivr.net https://i.ytimg.com https://images.unsplash.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://raw.githack.com https://cdn.jsdelivr.net blob:; frame-src 'self' https://www.youtube.com https://youtube.com;`
           },
           {
             key: 'X-Frame-Options',
@@ -66,6 +65,11 @@ const nextConfig: NextConfig = {
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff'
+          },
+          {
+            // Antes solo la ponía el middleware (que además duplicaba las demás).
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
           },
           {
             key: 'Referrer-Policy',

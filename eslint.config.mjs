@@ -1,16 +1,35 @@
-import { FlatCompat } from "@eslint/eslintrc";
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
+// ESLint 9 — flat config. eslint-config-next 16 publica configuraciones planas
+// nativas en ./core-web-vitals y ./typescript: se expanden directo, sin FlatCompat
+// (con FlatCompat truena «Converting circular structure to JSON»). Igual que NEM.
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import typescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: [".next/**", ".open-next/**", "out/**", "build/**", "next-env.d.ts"],
+    // public/labs/vendor: three.js de terceros, servido tal cual (47 errores ajenos).
+    ignores: [".next/**", ".open-next/**", ".wrangler/**", ".export/**", "out/**", "build/**", "next-env.d.ts", "cloudflare-env.d.ts", "public/labs/vendor/**"],
+  },
+  ...coreWebVitals,
+  ...typescript,
+  {
+    // ── Reglas del compilador de React (nuevas en eslint-config-next 16) ─────
+    // Con Next 16 aparecieron 673 marcas (2026-11-03): immutability 326, refs 210,
+    // set-state-in-effect 78, preserve-manual-memoization 24, use-memo 18, purity 11,
+    // static-components 6. Describen lo que el compilador de React supone, y en Labs
+    // el compilador está APAGADO (next.config: reactCompiler false), así que no cambian
+    // cómo corre nada. Casi todas (465) están en los simuladores 3D, donde three.js muta
+    // la escena en cada frame a propósito. Quedan como AVISO para que `lint` pueda ser
+    // la puerta del despliegue (Next 16 ya no corre ESLint dentro de `next build`) sin
+    // esconder la deuda. Mismo criterio que NEM.
+    rules: {
+      "react-hooks/immutability": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/use-memo": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/static-components": "warn",
+    },
   },
   {
     rules: {
@@ -58,7 +77,7 @@ const eslintConfig = [
   // No forman parte del bundle del navegador, así que estas reglas no aplican.
   {
     files: [
-      "scripts/**/*.{ts,js,mjs}",
+      "scripts/**/*.{ts,js,mjs,mts}",
       "*.config.{js,mjs,ts}",
       "jest.config.js",
       "jest.setup.js",

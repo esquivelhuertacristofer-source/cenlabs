@@ -15,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -38,6 +38,10 @@
   ],
   "exclude": [
     "node_modules",
+    // Migración a D1: scripts de Node (.mts con tsx) y el worker envolvente (lo compila
+    // wrangler con esbuild contra .open-next/worker.js, que solo existe después del build).
+    "scripts/d1",
+    "worker.ts",
     "src/backups",
     "src/__tests__",
     "backups",

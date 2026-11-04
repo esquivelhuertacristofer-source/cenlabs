@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // PILOTO labs-d1 (migración de CEN Laboratorios a D1, 2026-11-03). SIN "routes": con rutas le
+  // robaría el dominio a producción. Producción sigue siendo el worker cen-dashboard (Supabase),
+  // desplegado desde scratch\Proyecto LABS\cen-deploy, hasta la ventana del cambio.
+  // Se despliega SOLO con «npm run deploy:piloto» (revisa nombre, rutas y paquete antes de subir).
+  "name": "labs-d1",
+  "main": "worker.ts",
+  // La misma fecha que producción: cambiarla es otro cambio de comportamiento, no se mezcla.
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  // Sirve los estáticos generados por OpenNext (incluye public/labs/*.html).
+  // html_handling "none": servir los .html tal cual (paridad con producción), sin el
+  // redirect 307 .html -> URL sin extensión. Los labs se cargan por /labs/<x>.html.
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets",
+    "html_handling": "none"
+  },
+  "services": [
+    // Self-reference de OpenNext: debe coincidir con "name".
+    { "binding": "WORKER_SELF_REFERENCE", "service": "labs-d1" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "labs-d1", "database_id": "0d75ce94-5d36-4659-872d-f01907d08f9a" }
+  ],
+  // Caché incremental de Next (ISR / data cache) — ver open-next.config.ts. KV PROPIO del piloto:
+  // el de producción (0da92b58…) no se toca.
+  "kv_namespaces": [
+    { "binding": "NEXT_INC_CACHE_KV", "id": "c12796fe8fc7462eb1c071598d89cc3b" }
+  ],
+  // Frenos (ver worker.ts). Espacios de nombres propios del piloto (NEM usa 910xx, Financiera 920xx).
+  // RL_SESION 80/10 s: medido 2026-11-03, el pico legítimo es 55 (alumno). Ver worker.ts.
+  "ratelimits": [
+    { "name": "RL_SESION", "namespace_id": "93001", "simple": { "limit": 80, "period": 10 } },
+    { "name": "RL_ANONIMO", "namespace_id": "93002", "simple": { "limit": 600, "period": 60 } },
+    { "name": "RL_LOGIN", "namespace_id": "93003", "simple": { "limit": 900, "period": 60 } }
+  ],
+  // Ninguna petición puede pasar de 5 s de CPU (bucles infinitos).
+  "limits": { "cpu_ms": 5000 },
+  "observability": {
+    "enabled": true
+  }
+}

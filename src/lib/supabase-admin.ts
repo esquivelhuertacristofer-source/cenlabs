@@ -1,23 +1,8 @@
 /**
- * supabase-admin.ts
- * Cliente Supabase con SERVICE_ROLE_KEY — solo para Server Actions y scripts.
- * NUNCA importar en componentes de cliente ('use client').
- * Bypasea RLS — usar únicamente para operaciones administrativas autorizadas.
+ * supabase-admin.ts — Labs sobre D1.
+ * Antes: cliente de Supabase con SERVICE_ROLE_KEY. Ahora: el cliente de SERVICIO de D1
+ * (no aplica políticas). Solo para Server Actions, después de comprobar quién llama.
+ * NUNCA importar en componentes de cliente ('use client'). Ya no hay ninguna llave.
  */
-
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-export const getAdminClient = () => {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY no está configurada en el servidor.');
-  }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-};
+import 'server-only'
+export { getSupabaseAdmin as getAdminClient } from '@/lib/supabase-server'

@@ -83,3 +83,6 @@ _diagnostico-correctivo.log
 zz-voz.json
 output/
 Recursos.zip
+
+# Migración a D1: exportaciones, credenciales y resultados (nunca a git)
+/.export/

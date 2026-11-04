@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoveLeft, Eye, EyeOff, Beaker, Loader2, AlertCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase-browser";
 import { getCurrentProfile } from "@/lib/supabase-helpers";
-import { ensureProfileServer } from "@/app/actions/auth";
+import { iniciarSesion } from "@/app/actions/auth";
 import { useSimuladorStore } from "@/store/simuladorStore";
 import PrivacyConsentCheckbox from "@/components/PrivacyConsentCheckbox";
 
@@ -19,7 +18,7 @@ export default function LoginPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorObj, setErrorObj] = useState<{message: string} | null>(null);
-  const { setSession, setUser } = useSimuladorStore();
+  const { setUser } = useSimuladorStore();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,32 +26,24 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorObj(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-      });
-      if (error) throw error;
-      if (data.session) {
-        setSession(data.session);
-        const { data: { user } } = await supabase.auth.getUser();
-        let profile = await getCurrentProfile();
-        if (!profile && user) {
-          const result = await ensureProfileServer(user.id, user.email || '', user.user_metadata);
-          if (result.success) {
-            profile = result.profile;
-          }
-        }
-        if (profile) {
-          setUser(profile);
-          if (profile.role === 'admin') router.push("/admin/usuarios");
-          else if (profile.role === 'profesor') router.push("/");
-          else router.push("/alumno/inicio");
-        } else {
-          setErrorObj({ message: "Error al cargar perfil académico." });
-        }
+      // Labs sobre D1: el login va al servidor (cookie HttpOnly firmada); el navegador ya no
+      // habla con la base. Mismos destinos por rol y mismos mensajes que antes.
+      const r = await iniciarSesion(email.trim().toLowerCase(), password.trim());
+      if (!r.ok) {
+        setErrorObj({
+          message: r.error === 'credenciales' ? 'Credenciales incorrectas'
+            : r.error === 'pausa' ? 'Demasiados intentos con la contraseña equivocada. Espera 15 minutos o avísale a tu maestro.'
+            : 'Error al cargar perfil académico.',
+        });
+        return;
       }
-    } catch (err: any) {
-      setErrorObj({ message: err.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : err.message });
+      const profile = await getCurrentProfile();
+      if (profile) setUser(profile);
+      if (r.role === 'admin') router.push("/admin/usuarios");
+      else if (r.role === 'profesor') router.push("/");
+      else router.push("/alumno/inicio");
+    } catch {
+      setErrorObj({ message: 'No se pudo iniciar sesión. Intenta de nuevo.' });
     } finally {
       setIsLoading(false);
     }
@@ -181,7 +172,8 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] font-black text-[#023047]/30 uppercase tracking-[0.2em]">Contraseña</label>
-                    <Link href="/forgot-password" className="text-[9px] font-black text-[#219EBC] hover:text-[#FB8500] uppercase tracking-widest transition-colors font-bold">Reiniciar</Link>
+                    {/* Sin recuperación por correo (decisión del 2026-11-03): la clave la cambia CEN. */}
+                    <span className="text-[9px] font-black text-[#219EBC] uppercase tracking-widest font-bold">¿La olvidaste? Avísale a tu maestro</span>
                   </div>
                   <div className="relative">
                     <input

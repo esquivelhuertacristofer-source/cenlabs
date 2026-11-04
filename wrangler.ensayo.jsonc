@@ -1,0 +1,49 @@
+// ENSAYO de la ventana de Labs (2026-11-03): mismo código que el piloto, base labs-d1-ensayo
+// (f7d74fd0…, WNAM) y KV propio (ea0beee8…), SIN rutas. Aquí se ensaya la ventana completa y
+// el regreso (wrangler rollback) antes de hacerlo en producción. Frenos: 93011–93013.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // PILOTO labs-d1 (migración de CEN Laboratorios a D1, 2026-11-03). SIN "routes": con rutas le
+  // robaría el dominio a producción. Producción sigue siendo el worker cen-dashboard (Supabase),
+  // desplegado desde scratch\Proyecto LABS\cen-deploy, hasta la ventana del cambio.
+  // Ensayo: se despliega con «node scripts/d1/desplegar-piloto.mjs --ensayo».
+  "name": "labs-d1-ensayo",
+  "main": "worker.ts",
+  // La misma fecha que producción: cambiarla es otro cambio de comportamiento, no se mezcla.
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  // Sirve los estáticos generados por OpenNext (incluye public/labs/*.html).
+  // html_handling "none": servir los .html tal cual (paridad con producción), sin el
+  // redirect 307 .html -> URL sin extensión. Los labs se cargan por /labs/<x>.html.
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets",
+    "html_handling": "none"
+  },
+  "services": [
+    // Self-reference de OpenNext: debe coincidir con "name".
+    { "binding": "WORKER_SELF_REFERENCE", "service": "labs-d1-ensayo" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "labs-d1-ensayo", "database_id": "f7d74fd0-5a8d-4208-957d-440ab05a8175" }
+  ],
+  // Caché incremental de Next (ISR / data cache) — ver open-next.config.ts. KV PROPIO del piloto:
+  // el de producción (0da92b58…) no se toca.
+  "kv_namespaces": [
+    { "binding": "NEXT_INC_CACHE_KV", "id": "ea0beee83244443eb402b77ab6424c79" }
+  ],
+  // Frenos (ver worker.ts). Espacios de nombres propios del piloto (NEM usa 910xx, Financiera 920xx).
+  // RL_SESION 80/10 s: medido 2026-11-03, el pico legítimo es 55 (alumno). Ver worker.ts.
+  "ratelimits": [
+    { "name": "RL_SESION", "namespace_id": "93011", "simple": { "limit": 80, "period": 10 } },
+    { "name": "RL_ANONIMO", "namespace_id": "93012", "simple": { "limit": 600, "period": 60 } },
+    { "name": "RL_LOGIN", "namespace_id": "93013", "simple": { "limit": 900, "period": 60 } }
+  ],
+  // Ninguna petición puede pasar de 5 s de CPU (bucles infinitos).
+  "limits": { "cpu_ms": 5000 },
+  "observability": {
+    "enabled": true
+  }
+}

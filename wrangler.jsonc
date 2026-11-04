@@ -1,34 +1,52 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // PRODUCCIÓN de CEN Laboratorios sobre D1 — se usa SOLO en la ventana del cambio, con
+  // «node scripts/d1/desplegar-produccion.mjs --ventana» y el visto bueno del usuario.
+  // Mismo nombre, dominio, fecha de compatibilidad y KV que el cen-dashboard de hoy (cen-deploy,
+  // leído el 2026-11-03); lo nuevo: worker.ts con los frenos, la base D1 y los limitadores.
+  //
+  // REGRESO (perfil §11):
+  //   · en la ventana, antes de que alguien escriba en D1 (vuelve a Supabase, que no se tocó):
+  //       npx wrangler rollback 8028185d-32c1-494e-aad7-d5446876346a --name cen-dashboard
+  //     (confirmar el día de la ventana que ESA sigue siendo la versión activa)
+  //   · con datos nuevos en D1: rollback a la versión D1 anterior + d1 time-travel restore.
   "name": "cen-dashboard",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2025-03-25",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
-  // Dominio de producción (cutover Vercel -> Cloudflare). Custom Domains: Cloudflare
-  // crea/gestiona el registro DNS (proxied) y el certificado SSL. Sobrescribe los
-  // registros previos de Vercel (www CNAME cname.vercel-dns.com / apex A 76.76.21.21).
-  // Rollback = re-apuntar estos hostnames a Vercel en el panel de DNS de Cloudflare.
+  "preview_urls": false,
   "routes": [
     { "pattern": "www.cenlaboratorios.com.mx", "custom_domain": true },
     { "pattern": "cenlaboratorios.com.mx", "custom_domain": true }
   ],
-  // Sirve los estáticos generados por OpenNext (incluye public/labs/*.html).
-  // html_handling "none": servir los .html tal cual (paridad con Vercel), sin el
-  // redirect 307 .html -> URL sin extensión. Los labs se cargan por /labs/<x>.html.
   "assets": {
     "binding": "ASSETS",
     "directory": ".open-next/assets",
     "html_handling": "none"
   },
-  // Caché incremental de Next (ISR / data cache) — ver open-next.config.ts.
-  "kv_namespaces": [
-    {
-      "binding": "NEXT_INC_CACHE_KV",
-      "id": "0da92b588ccb44aa9af534d2596f541b"
-    }
+  "services": [
+    // Self-reference de OpenNext: debe coincidir con "name".
+    { "binding": "WORKER_SELF_REFERENCE", "service": "cen-dashboard" }
   ],
-  "observability": {
-    "enabled": true
-  }
+  // Creada en la ventana del 2026-11-03 (npx wrangler d1 create labs-produccion --location wnam).
+  "d1_databases": [
+    { "binding": "DB", "database_name": "labs-produccion", "database_id": "45ee2bad-698a-47b0-bbe4-c6eaa3750463" }
+  ],
+  // El KV de caché de siempre de producción.
+  "kv_namespaces": [
+    { "binding": "NEXT_INC_CACHE_KV", "id": "0da92b588ccb44aa9af534d2596f541b" }
+  ],
+  // Frenos (ver worker.ts): espacios propios de producción (piloto 93001–3, ensayo 93011–3).
+  // RL_SESION 80/10 s: medido 2026-11-03, el pico legítimo es 55 (alumno).
+  "ratelimits": [
+    { "name": "RL_SESION", "namespace_id": "93021", "simple": { "limit": 80, "period": 10 } },
+    { "name": "RL_ANONIMO", "namespace_id": "93022", "simple": { "limit": 600, "period": 60 } },
+    { "name": "RL_LOGIN", "namespace_id": "93023", "simple": { "limit": 900, "period": 60 } }
+  ],
+  "limits": { "cpu_ms": 5000 },
+  "observability": { "enabled": true }
+  // Secretos (NO van aquí ni en .env*): SESION_SECRETO, generado NUEVO por desplegar-produccion.mjs
+  // y subido en el MISMO despliegue (--secrets-file): una versión sin secreto no deja entrar a nadie
+  // (medido en el ensayo del 2026-11-03), y un regreso a ella dejaría el sitio sin login.
 }

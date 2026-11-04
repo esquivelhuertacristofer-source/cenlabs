@@ -54,8 +54,9 @@ export interface BitacoraEntry {
 
 // ── Guards ───────────────────────────────────────────────────────────────────
 
-export const isSupabaseConfigured = (): boolean =>
-  !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+// Labs sobre D1 (2026-11-03): los datos llegan por /api/datos del propio sitio; ya no hay
+// URL ni llave de Supabase que configurar. Se conserva el nombre para no tocar a quien lo usa.
+export const isSupabaseConfigured = (): boolean => true;
 
 // ── getCurrentProfile ────────────────────────────────────────────────────────
 
