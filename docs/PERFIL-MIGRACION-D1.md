@@ -467,6 +467,10 @@ El usuario aprobó la ventana («Adelante hazlo»). Producción es ahora la vers
 | Respaldo nocturno | `labs-produccion` agregada a la tarea «CEN Respaldos D1» (`financiera-d1/scripts/d1/respaldo-nocturno.mjs`). Primer respaldo verificado: 7 tablas, 416 filas, idénticas |
 | Centinela | Lista todas las bases y workers: ya ve `labs-produccion` y `cen-dashboard` |
 
+**2026-11-04:**
+- Se quitó el secreto `SUPABASE_SERVICE_ROLE_KEY` de `cen-dashboard`, que el código D1 no usaba. La activa pasó a ser `8da81cfd-96f8-44e3-b8af-c84dbd326a1b`; humo ✓ con una cuenta temporal, ya borrada, y la base quedó en 43/42/304.
+- El trabajo quedó en el commit `29c2e6c` de la rama `migracion-d1`, en GitHub.
+
 **Lección de la ventana:** una cuenta de prueba tiene que tener la misma forma que las reales, con un UUID de verdad (`crypto.randomUUID()`). Si no, la prueba falla por la cuenta y parece que falló la versión.
 
 **El regreso, a partir de ahora:**
