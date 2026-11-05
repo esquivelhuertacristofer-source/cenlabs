@@ -63,6 +63,7 @@ export function helicalContacts(q,theta){
  }return lines;
 }
 export function planetary(p,t=0){
+ // eslint-disable-next-line @next/next/no-assign-module-variable -- «module» es el módulo del engrane (m), variable local
  const zs=24,zp=24,zr=72,module=.003,orbit=module*(zs+zp)/2,Rs=zs*module/2,Rp=zp*module/2,Rr=zr*module/2;
  let sun,ring,carrier;if(p.fixed===1){carrier=0;sun=p.speed;ring=-zs/zr*sun;}else if(p.fixed===2){ring=0;sun=p.speed;carrier=zs/(zs+zr)*sun;}else if(p.fixed===3){sun=0;ring=p.speed;carrier=zr/(zs+zr)*ring;}else throw Error('Miembro fijo inválido');
  const planet=carrier-zs/zp*(sun-carrier),scale=2*Math.PI*t/(60*100),thetaSun=sun*scale,thetaRing=ring*scale,thetaCarrier=carrier*scale,thetaPlanet=planet*scale;
