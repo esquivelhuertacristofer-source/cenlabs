@@ -131,6 +131,8 @@ for (const id of PRACTICAS) {
   copiarArchivo(path.join(desde, 'index.html'), path.join(hasta, 'index.html'))
   copiarArchivo(path.join(desde, 'app.js'), path.join(hasta, 'app.js'))
   if (fs.existsSync(path.join(desde, 'modelos'))) copiarCarpeta(path.join(desde, 'modelos'), path.join(hasta, 'modelos'))
+  // narración grabada de la ficha y la guía (mp3 junto a la página; la práctica la detecta sola)
+  if (fs.existsSync(path.join(desde, 'voz'))) copiarCarpeta(path.join(desde, 'voz'), path.join(hasta, 'voz'))
   await portada(id)
   versiones[id] = version(id, fs.readFileSync(path.join(hasta, 'app.js'), 'utf8'))
   const propios = Object.entries(huellas).filter(([k]) => k.startsWith(`${id}/`))
