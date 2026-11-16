@@ -84,8 +84,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Fuera: los estáticos que sirve Cloudflare tal cual (labs, sus datos, voz, imágenes, el SW).
+  // Fuera: los estáticos que sirve Cloudflare tal cual (labs, sus datos, voz, imágenes, el SW y
+  // las prácticas estrella de /estrellas/, que se abren sin sesión igual que /labs/*.html).
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|labs/|labs-data/|assets/|images/|sw\\.js|manifest\\.webmanifest|icon-).*)',
+    '/((?!_next/static|_next/image|favicon.ico|labs/|labs-data/|estrellas/|assets/|images/|sw\\.js|manifest\\.webmanifest|icon-).*)',
   ],
 };

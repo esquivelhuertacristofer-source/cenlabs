@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E7 · Sintonía de un lazo de temperatura con PID</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#172b3b;background:#e9eff3;font-size:16px;--k:1;--tinta:#172b3b;--suave:#4c6070;--borde:#d4e0e7;--acento:#176b78;--ok:#1f7a4f;--mal:#b3421d;--banco:#0f1a24}
+*{box-sizing:border-box}body{margin:0;background:#e9eff3}
+h1{font-size:calc(var(--k)*29px);margin:6px 0}h2{font-size:calc(var(--k)*21px);margin:0 0 14px}h3{font-size:calc(var(--k)*17px);margin:20px 0 8px}h4{font-size:calc(var(--k)*15px);margin:0 0 6px}
+main{max-width:1560px;padding:12px 14px 24px;margin:auto}
+p,li{line-height:1.55}.hint{color:var(--suave);font-size:calc(var(--k)*14px);line-height:1.5}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:calc(var(--k)*14px)}
+input,select,textarea,button{font:inherit}
+input,select,textarea{padding:8px 9px;border:1px solid #90a3af;border-radius:5px;width:100%;background:#fff;color:var(--tinta)}
+input[type=radio],input[type=checkbox]{width:auto;margin-right:8px}
+input.mal{border-color:var(--mal);background:#fff4ef}
+textarea{min-height:64px;resize:vertical}
+button{background:var(--acento);color:#fff;border:0;border-radius:6px;padding:9px 14px;cursor:pointer;margin:4px 6px 4px 0}
+button.sec{background:#e5eef2;color:#203d50}button.mini{padding:6px 10px;font-size:calc(var(--k)*14px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #e08a00;outline-offset:2px}
+.panel{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.aviso{padding:11px 13px;background:#fff5df;border-radius:6px;font-size:calc(var(--k)*14px);line-height:1.5}
+.estado{padding:10px 12px;border-left:5px solid #7b8c98;background:#f2f6f8;margin:10px 0;font-size:calc(var(--k)*14px);line-height:1.5;min-height:20px}
+.estado.ok{border-color:var(--ok);background:#eaf6ef}.estado.mal{border-color:var(--mal);background:#fff1ea}
+.fila{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 14px;align-items:end}
+.un{font-weight:400;color:var(--suave)}
+.scroll{overflow:auto;max-width:100%}.scroll.alto{max-height:230px;border:1px solid var(--borde);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:calc(var(--k)*14px);font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;text-align:right;border-bottom:1px solid #dce5ea;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}thead th{position:sticky;top:0;background:#f4f8fa}
+caption{text-align:left;font-weight:600;padding:6px 0}
+td.si{color:var(--ok);font-weight:700}td.no{color:var(--mal);font-weight:700}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* cabecera (kit .cen-cab): avisos de pestaña y de almacenamiento, siempre a la vista */
+.cen-cab .cen-id label{margin:0;font-weight:600}
+.cen-cab .cen-id button{margin:0}
+.cen-cab output{display:block;margin-top:2px}
+.aviso-cab{margin:6px 0 0;padding:6px 10px;border-radius:6px;background:#ffe3d6;color:#3b1406;font-size:calc(var(--k)*13.44px);font-weight:600;line-height:1.45}
+.cen-integridad details[open] > div p{margin:0 0 6px;line-height:1.5}
+/* banco: la escena, su barra, el dock de cifras y la leyenda */
+.banco{background:var(--banco);border-radius:14px;padding:10px 10px 12px;color:#dce8f0;border:1px solid #1e2f3d;margin-bottom:14px}
+.escena-marco{position:relative;border-radius:10px;overflow:hidden;background:#0b131a;border:1px solid #21323f}
+#escena3d{display:block;width:100%;height:clamp(300px,58vh,640px);touch-action:pan-y}
+#sinWebgl{padding:26px;color:#ffd9a8}
+.cen-barra .cen-grupo button{margin:0}.cen-barra .cen-suelto{margin:0;color:#d7e3ec;font-size:calc(var(--k)*13px);padding:5px 11px;min-height:32px}
+.cen-barra .cen-suelto[aria-pressed=true]{background:#3d3410;color:#ffe19a;border-color:#6a5a1c}
+.cen-dock#dock > span{min-width:104px}
+@media(max-width:1500px){.cen-dock#dock > span{min-width:0;padding:3px 8px 4px}.cen-dock#dock > span > i{font-size:calc(var(--k)*13px)}.cen-dock#dock > span > b{font-size:calc(var(--k)*14.4px)}.cen-barra button,.cen-barra .cen-suelto{padding:5px 9px}}
+.cen-dock .pt{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(255,255,255,.45)}
+.cen-dock#dock > span#tjPuerta > b{white-space:normal;max-width:230px}
+.cen-dock#dock > span.abierta{border-color:#3a6fa8;background:linear-gradient(180deg,#132a40,#0f1d2b)}.cen-dock#dock > span.abierta > b{color:#9fd0ff}
+.cen-dock#dock > span.escala{min-width:220px;flex:1 1 220px;max-width:360px}
+.cen-dock .barra-term{display:block;position:relative;height:10px;border-radius:3px;margin:4px 0 2px;border:1px solid #2c4156}
+.cen-dock .barra-term s{position:absolute;top:-4px;width:2px;height:16px;margin-left:-1px;background:#fff;box-shadow:0 0 0 1px #0b131a;text-decoration:none}
+.cen-dock .esc{display:flex;justify-content:space-between;font-size:calc(var(--k)*13px);font-weight:500;color:#c5d5e0}
+.cen-dock .esc small{font-size:inherit}
+.banco .cen-linea{margin-top:8px}
+/* instrumentos: frontal del controlador, ficha y tendencia */
+.instr{background:var(--banco);border-radius:14px;padding:12px;color:#dce8f0;border:1px solid #1e2f3d;margin-bottom:14px}
+.instr-fila{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start}.instr-fila>*{min-width:0}
+/* ronda 3: frontal y ficha en la columna del horno (bajo la leyenda), uno junto al otro cuando hay sitio */
+.banco-instr{margin-top:10px;padding-top:10px;border-top:1px solid #1e2f3d}.instr>.banco-instr{margin:0 0 10px;padding:0;border:0}
+@media(min-width:900px){.banco-instr .instr-fila{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+.frontal{background:linear-gradient(#1b1e21,#0c0e10);border:2px solid #33383d;border-radius:12px;padding:10px 13px 12px;box-shadow:inset 0 0 0 4px #121416;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:4px 16px;align-items:start}
+.frontal .rot:first-child{grid-column:1/-1}.fr-der{display:flex;flex-direction:column}
+.frontal .rot{font-size:calc(var(--k)*13px);color:#a9b6bf;line-height:1.35;margin-bottom:7px}
+.frontal .disp{background:#020405;border:1px solid #2a2f33;border-radius:6px;padding:7px 12px;font-family:"Consolas","DejaVu Sans Mono","Menlo",monospace;font-variant-numeric:tabular-nums;display:block;gap:0}
+.frontal .ln{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.frontal .et{font-size:calc(var(--k)*13px);color:#8fa0ab;font-family:system-ui,sans-serif;letter-spacing:.06em}
+#dPV{font-size:calc(var(--k)*40px);font-weight:700;color:#f4f6f6;line-height:1.05;letter-spacing:.02em}
+#dSV{font-size:calc(var(--k)*27px);font-weight:700;color:#35d07f;line-height:1.1}
+#dMV{font-size:calc(var(--k)*20px);font-weight:700;color:#ffb020;line-height:1.2}
+.lamps{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.lamp{font-size:calc(var(--k)*13px);font-weight:700;letter-spacing:.05em;padding:3px 7px;border-radius:4px;background:#1c2125;color:#aab6be;border:1px solid #3a444b}.lamps.did{border-top:1px dashed #3a444b;padding-top:7px;margin-top:6px;align-items:center}.lamps.did .et{flex:1 1 100%}
+.lamp.on{background:#ffb020;color:#1a1200;border-color:#ffb020}.lamp.rojo.on{background:#ff5140;border-color:#ff5140;color:#fff}.lamp.verde.on{background:#35d07f;border-color:#35d07f;color:#04200f}
+.par{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:0;padding:0}
+.par div{background:#15191c;border:1px solid #2a3035;border-radius:5px;padding:4px 8px;min-width:0;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:0 6px}
+.par span{display:block;font-size:calc(var(--k)*13px);color:#8fa0ab;white-space:nowrap}.par strong{display:block;font-size:calc(var(--k)*13.5px);white-space:nowrap;color:#e6edf1;font-variant-numeric:tabular-nums;font-family:"Consolas","DejaVu Sans Mono",monospace;overflow:hidden;text-overflow:ellipsis}
+.frontal button{background:#2b3237;border:1px solid #4a545c;font-size:calc(var(--k)*13px);padding:6px 12px;margin:8px 0 0;align-self:flex-start}
+.ficha{background:#111e29;border:1px solid #21323f;border-radius:10px;padding:8px 10px 6px}
+.ficha table{font-size:calc(var(--k)*13px)}.ficha caption{color:#9fc4d8;font-size:calc(var(--k)*13px);letter-spacing:.06em;text-transform:uppercase;padding:2px 0 6px}
+.ficha th,.ficha td{border-bottom:1px solid #1d2e3c;padding:4px 4px;white-space:normal}.ficha th{color:#b8c8d3;font-weight:400;text-align:left;position:static;background:none}.ficha td{color:#eef4f7;font-weight:600;text-align:right;white-space:nowrap}
+.tend{margin-top:12px;background:#0c151d;border:1px solid #21323f;border-radius:10px;padding:9px 11px}
+.tend-cab{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.tend-cab strong{font-size:calc(var(--k)*15px)}.x100{background:#ffb020;color:#1a1200;border-radius:999px;padding:2px 10px;font-size:calc(var(--k)*13px);font-weight:700}
+.tend-cab button{margin:0;background:#22394a;font-size:calc(var(--k)*13px);padding:6px 11px}
+#tendencia{display:block;width:100%;height:230px}.tend.vacia #tendencia{height:84px}
+.leg{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:calc(var(--k)*13px);color:#c5d5e0;margin-top:6px}.leg i{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:5px}
+.leg label{display:inline;margin:0;font-weight:400;font-size:calc(var(--k)*13px);color:#c5d5e0}
+#irTend{position:fixed;right:14px;bottom:14px;z-index:20;background:#ffb020;color:#1a1200;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.35);min-height:44px;margin:0}
+.encargo{margin:0 0 10px;font-size:calc(var(--k)*15px);line-height:1.5}.encargo details{display:inline;font-size:calc(var(--k)*14px)}.encargo details[open]{display:block;margin-top:4px}.encargo details p{margin:6px 0}
+/* pestañas */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tabs button{background:#dbe6ec;color:#203d50;margin:0;border-radius:8px 8px 0 0;padding:10px 14px;font-weight:600}
+.tabs button[aria-selected=true]{background:#fff;color:#0e4a55;box-shadow:inset 0 3px 0 var(--acento)}
+#tbComp td:first-child{position:sticky;left:0;background:#fff}
+.paso{border-top:1px solid var(--borde);padding-top:14px;margin-top:16px}.paso:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.num{display:inline-block;background:#142f42;color:#fff;border-radius:999px;min-width:26px;height:26px;line-height:26px;text-align:center;font-size:calc(var(--k)*14px);margin-right:6px;padding:0 7px}
+details.metodo{margin:4px 0 8px}details.metodo>summary{font-size:calc(var(--k)*14px);color:var(--acento)}details.metodo>p{margin:6px 0 0}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.dos>*{min-width:0}
+canvas.graf{display:block;width:100%;height:270px;border:1px solid var(--borde);border-radius:8px}
+canvas.nyq{height:340px}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+.tarj{border:1px solid var(--borde);border-radius:10px;padding:12px;background:#f9fbfc}
+.tarj.pid{background:#f6faf7}.tarj h4 small{font-weight:400;color:var(--suave);display:block;margin-top:2px}
+.tarj .fila{grid-template-columns:repeat(3,1fr)}.tarj .res{font-size:calc(var(--k)*13px);color:var(--suave);margin-top:6px;line-height:1.5;min-height:20px}
+.ops{display:flex;gap:10px 18px;flex-wrap:wrap;align-items:end}.ops>div{min-width:170px}
+.cond{list-style:none;padding:0;margin:8px 0}.cond li{padding:5px 0 5px 28px;position:relative}.cond li::before{position:absolute;left:0;top:4px;width:20px;height:20px;border-radius:50%;text-align:center;line-height:20px;font-size:calc(var(--k)*13px);color:#fff;content:"·";background:#90a3af}
+.cond li.si::before{content:"✓";background:var(--ok)}.cond li.no::before{content:"✗";background:var(--mal)}
+fieldset{border:1px solid var(--borde);border-radius:8px;margin:12px 0;padding:10px 14px}legend{font-weight:600;padding:0 6px}
+fieldset label{font-weight:400;margin:6px 0;font-size:calc(var(--k)*15px);display:flex;align-items:flex-start}
+.total{font-size:calc(var(--k)*26px);font-weight:700;font-variant-numeric:tabular-nums}
+details{margin-top:10px}summary{cursor:pointer;font-weight:600}
+details.bloque>summary h2{display:inline;font-size:calc(var(--k)*19px);margin:0}
+#detPie{overflow-wrap:anywhere;font-size:calc(var(--k)*13px);color:#526574;padding:6px 2px 30px;line-height:1.55}#detPie li{margin-bottom:4px}
+[hidden]{display:none!important}
+/* vista dividida en escritorio: el horno queda fijo a la izquierda mientras se trabaja a la derecha (ronda 3: la cabecera
+   usa la misma rejilla que el cuerpo, de borde a borde con 14 px, en lugar de centrarse a 1560 px) */
+@media(min-width:1180px){
+  main.dividida{display:grid;grid-template-columns:minmax(0,61fr) minmax(400px,39fr);gap:14px;align-items:start;max-width:none}
+  main.dividida>.banco{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;scrollbar-width:thin;margin-bottom:0}
+  header.cen-cab{padding-left:14px;padding-right:14px}
+  main.dividida #escena3d{height:clamp(300px,calc(100vh - 252px),900px)}
+  main.dividida .dos{grid-template-columns:minmax(0,1fr)}
+  main.dividida .panel{padding:16px 18px}
+}
+@media(max-width:1179px){.dos{grid-template-columns:1fr}}
+@media(max-width:720px){.frontal{grid-template-columns:1fr}}
+@media(max-width:600px){main{padding:10px 10px 30px}h1{font-size:calc(var(--k)*24px)}.panel{padding:14px}.banco,.instr{padding:8px}#escena3d{height:340px}#dPV{font-size:calc(var(--k)*36px)}.par{grid-template-columns:repeat(2,1fr)}.tabs button{padding:9px 10px;font-size:calc(var(--k)*14px);flex:1 1 30%}#tendencia{height:220px}.tarj .fila{grid-template-columns:repeat(3,1fr)}.cen-cab .cen-id{flex:1 1 100%}.cen-cab .cen-id input{flex:1 1 140px;width:auto}button,select,input[type=text],input[type=file]{min-height:44px}button.mini{padding:10px 12px}input[type=radio],input[type=checkbox]{width:22px;height:22px;flex:0 0 22px}fieldset label,.leg label{min-height:44px;align-items:center}.leg label{display:inline-flex}.cen-barra button,.cen-barra .cen-suelto,.tend-cab button,.frontal button{min-height:44px}.cen-dock#dock > span{min-width:0;flex:1 1 40%}.ficha tr{display:grid;grid-template-columns:minmax(0,1fr) auto}.cen-dock#dock > span.escala{flex-basis:100%;max-width:none}details.metodo>summary{min-height:32px;display:flex;align-items:center}}
+@media print{button,.tabs,.cen-barra,.cen-id{display:none!important}body{background:#fff}.panel{break-inside:avoid;border:1px solid #999}.cen-cab{background:#fff;color:#000}.cen-cab .cen-ceja,.cen-integridad,.cen-cab output{color:#000}[role=tabpanel][hidden]{display:block!important}.banco,.tend{display:none}.instr{background:#fff;color:#000;border:1px solid #999}.ficha{background:#fff;border-color:#999}.ficha th,.ficha td,.ficha caption{color:#000}.scroll.alto{max-height:none}#tbLect tr:not(:nth-child(20n+1)){display:none}#tbLect::after{content:"Tabla resumida al imprimir: una lectura de cada veinte. El archivo CSV lleva todas.";display:block;font-size:calc(var(--k)*13px)}#irTend,#confirma,input[type=file]{display:none!important}details>*{display:block}}
+/* ---- ronda 2 visual (E7-1.8) ---- */
+/* el kit r2 pone .cen-dock en flex: el visor y los parámetros del frontal conservan su disposición */
+.cen-r2 .frontal .disp.cen-dock{display:block}.cen-r2 .frontal .par.cen-dock{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.cen-r2 .frontal .disp.cen-dock > *, .cen-r2 .frontal .par.cen-dock > *{flex:none;min-width:0}
+/* dock: cifras en neutro (el color queda para los estados: abierta, demostración); etiquetas de 0,72 rem */
+.cen-dock#dock > span > b{color:#e8eef3}.cen-dock#dock > span.abierta > b{color:#9fd0ff}.cen-dock#dock > span.demo > b{color:#ffe19a}
+.cen-dock#dock > span.demo{border-color:#6a5a1c;background:linear-gradient(180deg,#2a2410,#1c180b)}
+.cen-dock#dock > span > i{font-size:calc(var(--k)*13px)}
+.banco .cen-dock-cab{color:#ffe19a;margin:8px 0 4px}
+/* barra: menú «⋯» con Calidad y Demostración */
+.e7-mas{position:relative;display:inline-flex}
+.e7-menu{position:absolute;right:0;bottom:calc(100% + 6px);z-index:6;display:flex;flex-direction:column;gap:6px;padding:8px;background:#101b25;border:1px solid #2c4156;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.45);min-width:190px}
+.e7-menu button{margin:0;width:100%;text-align:left;white-space:nowrap}
+#btnMas{min-width:40px;font-weight:700;letter-spacing:.1em}
+/* ronda 4, patrón de E1: en escritorio Calidad y «Demostración: sí/no» van a la vista en la barra y «⋯» no existe */
+.e7-menu.en-linea{position:static;flex-direction:row;padding:0;background:none;border:0;box-shadow:none;min-width:0;z-index:auto}
+.e7-menu.en-linea button{width:auto}
+@media(min-width:1501px){#btnMas{display:none}}
+/* ronda 4: señal «Controlador ↓» bajo el dock mientras el frontal queda fuera de la columna fija; lleva hasta él */
+#leyenda{position:relative}.ir-control{position:absolute;right:0;top:-3px;z-index:4;margin:0;background:#ffb020;color:#1a1200;font-weight:700;border:0;border-radius:6px;padding:2px 12px;min-height:24px;font-size:calc(var(--k)*13px);line-height:1.3;cursor:pointer}
+@media(max-width:1179px){.ir-control{display:none!important}}
+/* aviso de la vista térmica en el primer ensayo: pulso de 2 s */
+@keyframes e7pulso{0%,100%{box-shadow:0 0 0 0 rgba(255,176,32,0)}50%{box-shadow:0 0 0 4px rgba(255,176,32,.75)}}
+#btnTermica.pulso{animation:e7pulso .7s ease-in-out 3}
+@media(prefers-reduced-motion:reduce){#btnTermica.pulso{animation:none;box-shadow:0 0 0 3px rgba(255,176,32,.75)}}
+/* indicadores en una fila a 1366 */
+.lamps{flex-wrap:nowrap;gap:4px}.lamps.did{display:grid;grid-template-columns:repeat(3,max-content);gap:4px}.lamps.did .et{grid-column:1/-1}
+/* tendencia sin ensayo: una barra con el título y los botones */
+.tend.vacia #tendencia,.tend.vacia #tendMsg:empty{display:none}.tend.vacia .tend-cab{margin-bottom:0}
+.leg .t1esc{color:#ff9a7a;font-style:italic}
+/* datos de la variante: un par por fila por debajo de 1500 px */
+@media(max-width:1500px){.ficha tr{display:grid;grid-template-columns:minmax(0,1fr) auto}.ficha th,.ficha td{border-bottom:0}.ficha tr{border-bottom:1px solid #1d2e3c}}
+/* móvil: cabecera compacta (ronda 3: ceja y versión en una línea, el título en otra, la integridad solo con su enlace),
+   vistas en una fila deslizable con un degradado de 24 px en el borde derecho, Real/Térmica en una segunda fila a la vista
+   y escena al 56 % del alto */
+@media(max-width:600px){
+  header.cen-cab{padding-top:6px;padding-bottom:6px}header.cen-cab h1{font-size:calc(var(--k)*17px);line-height:1.2;margin:1px 0}header.cen-cab .cen-titulo{gap:2px 8px}
+  header.cen-cab .cen-ceja{font-size:calc(var(--k)*13px)}header.cen-cab .cen-version{font-size:calc(var(--k)*13px);padding:1px 7px}
+  header.cen-cab .cen-fila{gap:6px}header.cen-cab .cen-id{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
+  header.cen-cab .cen-id label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  header.cen-cab .cen-id input{flex:1 1 auto;min-width:0}header.cen-cab .cen-id button{flex:0 0 auto;padding:0 12px;font-size:calc(var(--k)*14px)}
+  header.cen-cab output,header.cen-cab .cen-integridad{font-size:calc(var(--k)*13px);line-height:1.35}
+  #escena3d{height:56vh}
+  header.cen-cab .cen-titulo{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline}header.cen-cab .cen-ceja{grid-row:1;grid-column:1}header.cen-cab .cen-version{grid-row:1;grid-column:2;justify-self:end}header.cen-cab h1{grid-row:2;grid-column:1/-1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.cen-cab .cen-integridad > span{display:none}header.cen-cab .cen-integridad{margin-top:4px}
+  .cen-barra{flex-wrap:wrap;overflow:visible;row-gap:6px}.cen-barra .cen-grupo{flex:0 0 auto;flex-wrap:nowrap}.cen-barra button{white-space:nowrap}.cen-barra .cen-sep{display:none}
+  .cen-barra > .cen-grupo:first-child{flex:1 1 100%;max-width:100%;overflow-x:auto;scrollbar-width:none}.cen-barra > .cen-grupo:first-child.desborda{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
+  .e7-menu{bottom:auto;top:calc(100% + 6px)}
+  .cen-dock#dock > span > i{font-size:calc(var(--k)*13px)}
+}
+/* modo Explorar (_comun/experiencia.js): el lienzo llena la escena a pantalla completa y la barra de vistas queda abajo */
+html.cx-explorar #escena3d{height:100%!important;width:100%!important}
+html.cx-explorar #barra{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 10px;background:rgba(6,11,20,.74);backdrop-filter:blur(8px)}
+html.cx-recorrido #barra{opacity:0;pointer-events:none}
+/* ===== interfaz de trabajo (estándar del 15/11 noche, _comun/ESTANDAR-INTERFAZ-TRABAJO.md) =====
+   Escala: todos los tamaños de letra de esta hoja van multiplicados por --k (1; 1,12 desde 1600 px de ancho) y ninguno
+   baja de 13 px. La raíz se queda en 16 px para no mover la ficha ni el modo Explorar del módulo común. */
+@media(min-width:1600px){:root{--k:1.12}}
+main,header.cen-cab{font-size:calc(var(--k)*16px)}
+/* cabecera en una fila: título, botones comunes, matrícula, «Generar mi variante» y el menú «Más» */
+header.cen-cab{position:relative;padding-top:8px;padding-bottom:8px}
+header.cen-cab .cen-fila{flex-wrap:nowrap;gap:8px 12px}
+header.cen-cab .cen-titulo{flex:1 1 auto;flex-wrap:nowrap;align-items:center;gap:10px;min-width:0}
+header.cen-cab .cen-ceja{font-size:calc(var(--k)*13px);letter-spacing:.08em;text-transform:none;flex:0 0 auto}
+header.cen-cab h1{font-size:calc(var(--k)*18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+header.cen-cab #cx-cab{flex:0 0 auto;flex-wrap:nowrap;margin-left:2px}
+header.cen-cab #cx-cab button{font-size:calc(var(--k)*14px);white-space:nowrap}
+header.cen-cab .cen-id{flex:0 0 auto;flex-wrap:nowrap}
+header.cen-cab .cen-id input{width:calc(var(--k)*170px);font-size:calc(var(--k)*14px)}
+header.cen-cab .cen-id button,.mas-cab{font-size:calc(var(--k)*14px);white-space:nowrap;margin:0;padding:7px 12px}
+.mas-cab{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.26);color:#e6edf3;flex:0 0 auto}
+.mas-cab[aria-expanded=true]{background:#0f5961}
+.menu-cab{position:absolute;right:14px;top:calc(100% - 4px);z-index:30;width:min(640px,calc(100vw - 28px));background:#101b25;border:1px solid #2c4156;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:12px 14px}
+.menu-cab-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}.menu-cab-btns button{margin:0;font-size:calc(var(--k)*14px)}
+header.cen-cab .menu-cab .cen-version{font-size:calc(var(--k)*13px);margin-left:auto}
+header.cen-cab .cen-integridad{font-size:calc(var(--k)*14px);margin:0;line-height:1.5}
+header.cen-cab output{font-size:calc(var(--k)*14px)}header.cen-cab output:empty{display:none}
+@media(max-width:1100px){header.cen-cab .cen-fila,header.cen-cab .cen-titulo{flex-wrap:wrap}header.cen-cab #cx-cab{flex-wrap:wrap}header.cen-cab .cen-id{flex:1 1 220px}}
+/* banco: letras de 13 px o más y cifras de 20 px */
+.banco .escena-marco .cen-pastilla{font-size:13.5px;letter-spacing:.01em;line-height:1.3;padding:4px 10px}
+.banco .cen-barra button,.banco .cen-barra .cen-suelto{font-size:calc(var(--k)*14px);padding:5px 9px}
+@media(min-width:1600px){.banco .cen-barra button,.banco .cen-barra .cen-suelto{font-size:15px}}
+/* 15/11: con la franja «Ahora te toca» el marcador de cifras quedaba bajo el pliegue. La escena cede alto para que horno, barra y cifras quepan en la primera pantalla a 1366 × 768 y a 1920 × 1080. Entre 1501 y 1699 px se conserva el alto anterior: las pruebas de composición a 1600 × 900 (píxeles cálidos y cara de corte) están medidas con ese encuadre */
+@media(min-width:1180px) and (max-width:1500px){main.dividida #escena3d{height:clamp(300px,calc(100vh - 350px),900px)}}
+@media(min-width:1700px){main.dividida #escena3d{height:clamp(300px,calc(100vh - 345px),900px)}}
+html.cx-ver-todo .nota-tabs{display:none}
+.banco .cen-dock#dock > span > i{font-size:calc(var(--k)*13px)}
+.banco .cen-dock#dock > span > b{font-size:calc(var(--k)*20px)}
+.banco .cen-dock#dock > span#tjPuerta > b{font-size:calc(var(--k)*16px)}
+.banco .cen-dock-cab{font-size:calc(var(--k)*13px);text-transform:none;letter-spacing:.03em}
+.banco .cen-linea{font-size:calc(var(--k)*13px)}
+.escena-marco .cen-rotulo{font-size:calc(var(--k)*13px)}
+body .cen-aviso{font-size:calc(var(--k)*15px)}
+.frontal .ln{flex-wrap:wrap}.frontal .et{letter-spacing:.02em}
+.frontal .lamps{flex-wrap:wrap}.frontal .lamp{white-space:nowrap}.frontal .lamps.did{display:flex;flex-wrap:wrap}.frontal .lamps.did .et{flex:1 1 100%}
+.frontal button{font-size:calc(var(--k)*14px)}.frontal .fr-nota{margin:7px 0 0}
+.ficha caption{text-transform:none;letter-spacing:.03em;font-weight:600}
+.tend-cab button{font-size:calc(var(--k)*14px)}
+/* gráfica sin ensayo: una línea que dice qué aparecerá ahí; sin botones apagados */
+.tend.vacia .tend-cab button,.tend.vacia .x100,.tend.vacia #tendT{display:none}
+.tend.vacia #tendTitulo{font-weight:500;font-size:calc(var(--k)*14px);color:#c5d5e0}
+.encargo{margin:0 0 8px}
+main sub,main sup{font-size:calc(var(--k)*13px);line-height:0}.tarj h4 small{font-size:calc(var(--k)*13.5px);line-height:1.4}
+.par strong{font-size:calc(var(--k)*15px)}.ficha table{font-size:calc(var(--k)*13.5px)}
+/* pestañas: seis en una fila, letra grande y nombre corto; las de partes futuras llevan candado (módulo común) */
+.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin-bottom:6px}
+.tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:5px 3px 6px;min-height:50px;line-height:1.15}
+.tabs button b{font-size:calc(var(--k)*17px)}
+.tabs button span{font-size:calc(var(--k)*13px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tabs button.cx-nv-cerrado::before{position:absolute;top:3px;right:4px;margin:0;font-size:12px}
+.nota-tabs{font-size:calc(var(--k)*13.5px);color:#3a4d5c;margin:0 0 8px;line-height:1.4}
+/* pasos por etapas dentro de cada parte: lo que aún no toca no se ve (con «Ver todas las herramientas», sí) */
+html:not(.cx-ver-todo) .e7-luego{display:none!important}
+button.accion{background:#ffb020;color:#1a1200;font-weight:700;padding:11px 18px;box-shadow:0 2px 0 #b97700}
+h3 small{display:block;font-weight:400;font-size:calc(var(--k)*14px);color:var(--suave);margin:3px 0 0 38px;line-height:1.4}
+h2 .un{font-size:calc(var(--k)*15px)}
+.porque{display:inline-block;font-size:calc(var(--k)*14px);line-height:1.4;color:#5c3200;background:#fff1d6;border-radius:6px;padding:4px 9px;margin:4px 0}
+.cierre-parte{margin:0 0 16px;padding:12px 14px;border-radius:10px;background:#fff;border:1px solid var(--borde);border-left:5px solid #7b8c98;font-size:calc(var(--k)*15px);line-height:1.5;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap}
+.cierre-parte.ok{border-left-color:var(--ok);background:#eaf6ef}.cierre-parte button{margin:0;flex:0 0 auto}.cierre-parte span{flex:1 1 260px}
+#notaCerrada{margin:0 0 8px}
+@media(max-width:600px){.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}header.cen-cab .cen-id{flex:1 1 200px}.mas-cab{min-height:44px}}
+@media print{.mas-cab,.menu-cab,.nota-tabs,.cierre-parte,.porque{display:none!important}}
+</style>
+</head>
+<body>
+<header class="cen-cab">
+  <div class="cen-fila">
+    <div class="cen-titulo"><span class="cen-ceja">CEN · E7</span><h1>Sintonía de un lazo de temperatura con PID</h1></div>
+    <div class="cen-id"><label for="idAlumno" class="sr">Tu matrícula o código de alumno</label><input id="idAlumno" maxlength="60" autocomplete="off" placeholder="Matrícula o código" title="Escribe tu identificador y genera tu variante; sin él se ve el caso base, que no se evalúa"><button id="btnVariante" type="button">Generar mi variante</button></div>
+    <button type="button" id="btnMasCab" class="mas-cab" aria-haspopup="true" aria-expanded="false" aria-controls="menuCab">Más ▾</button>
+  </div>
+  <output id="msgVariante" role="status" aria-live="polite"></output>
+  <div id="menuCab" class="menu-cab" role="group" aria-label="Más opciones de la práctica" hidden>
+  <div class="menu-cab-btns"><button type="button" class="sec" id="btnMasJson">Exportar mi expediente (JSON)</button><button type="button" class="sec" id="btnMasPrint">Imprimir</button><span class="cen-version" id="version"></span></div>
+  <div id="avisoInicio" class="cen-integridad">
+    <span>Evaluación local, con registro de intentos y huella del expediente.</span>
+    <details id="detIntegridad"><summary>Cómo se evalúa y qué no garantiza</summary><div>
+      <p>Simulación educativa. El horno y sus parámetros son ilustrativos (diseño CEN), no los de un equipo concreto. Nada se envía a internet. Tu trabajo, el registro de intentos (cargas de la variante, entregas y cierre) y los bloqueos se guardan en este navegador por identificador y se recuperan al recargar; el expediente exportado lleva ese registro y una huella SHA-256 (detecta daños y ediciones casuales; no es una firma, porque quien edite el archivo puede recalcularla).</p>
+      <p>El identificador se normaliza (sin espacios ni acentos y en mayúsculas): «a-123», «a 123» y «A123» son el mismo alumno (solo cuentan letras y dígitos), con el mismo horno y el mismo registro. Si abres la práctica en varias pestañas, el registro es uno solo: una entrega o un cierre en una pestaña bloquea las demás.</p>
+      <p><b>Límite declarado:</b> un paquete local no puede garantizar la entrega única, porque el almacenamiento del navegador se puede borrar; esa garantía requiere la plataforma con servidor. El registro y la huella hacen visible un reintento, pero no lo impiden.</p>
+    </div></details>
+  </div>
+  </div>
+  <div class="aviso-cab" id="msgPestana" role="alert" hidden></div>
+  <div class="aviso-cab" id="msgAlmacen" role="alert" hidden><b>Este navegador no permite guardar datos</b> (navegación privada o almacenamiento bloqueado): el registro de intentos no se conservará al recargar y el AT no dará cifras. Usa una ventana normal.</div>
+</header>
+<main class="dividida">
+<section class="banco" aria-label="Horno en 3D: escena, vistas y lecturas">
+  <div class="escena-marco">
+    <canvas id="escena3d" role="img" aria-label="Horno eléctrico de revenido de convección forzada, en corte: resistencias en espiral en las paredes de ladrillo refractario, carga de piezas sobre la parrilla, ventilador de recirculación y termopar por el techo, puerta de elevación con dos cilindros neumáticos y, a la izquierda, el gabinete cerrado con el controlador y la unidad de tiristores"></canvas>
+    <div id="sinWebgl" hidden>Este navegador no ofrece WebGL: no se puede dibujar el horno en 3D. La práctica sigue funcionando con el controlador, las tendencias y las tablas.</div>
+  </div>
+  <div id="barra"></div>
+  <div class="cen-dock" id="dock" role="group" aria-label="Lecturas del horno">
+    <span id="tjT1"><i><em class="pt" id="ptT1"></em>Resistencias T₁</i><b id="lT1"></b></span>
+    <span id="tjT2"><i><em class="pt" id="ptT2"></em>Cámara y carga T₂</i><b id="lT2"></b></span>
+    <span id="tjTm"><i><em class="pt" id="ptTm"></em>Termopar Tₘ</i><b id="lTm"></b></span>
+    <span id="tjPuerta" data-cx-desde="C"><i>Puerta</i><b id="chipPuerta">cerrada</b></span>
+    <span id="tjMV"><i>Potencia (MV)</i><b id="lMV"></b></span>
+    <span id="tjTiempo"><i>Tiempo de proceso</i><b id="lTiempo"></b></span>
+    <span id="tjMuestra"><i>La escena muestra</i><b id="lMuestra"></b></span>
+    <span id="tjEscala" class="escala" hidden><i>Escala de la vista térmica</i><b><em class="barra-term" id="barraTerm"></em><em class="esc"><small id="escMin"></small><small id="escMarcas"></small><small id="escMax"></small></em></b></span>
+  </div>
+  <div class="cen-linea" id="leyenda"><span id="leyLinea"></span> <details id="detEscena"><summary>Qué representa la escena</summary><div id="leyCuerpo"></div></details><button type="button" id="irControl" class="ir-control" hidden aria-label="Ir al frontal del controlador, bajo la escena">Controlador ↓</button></div>
+  <!-- ronda 3: el frontal del controlador y los datos de la variante son instrumentos, como el dock: van en la columna
+       del horno, bajo la escena; a la derecha quedan el encargo, las pestañas, la tendencia y el contenido de la fase -->
+  <div class="banco-instr" id="bancoInstr" role="group" aria-label="Controlador y datos de tu variante">
+    <div class="instr-fila">
+      <div class="frontal" role="group" aria-label="Frontal del controlador de temperatura">
+        <div class="rot">Frontal imitado; algoritmo PID de CEN.</div>
+        <div class="fr-izq">
+        <div class="disp cen-dock" aria-live="off">
+          <div class="ln"><span class="et">PV · medida (°C)</span><span id="dPV">25,0</span></div>
+          <div class="ln"><span class="et">SV · pedida (°C)</span><span id="dSV">----</span></div>
+          <div class="ln"><span class="et">MV · potencia (%)</span><span id="dMV">0,0</span></div>
+        </div>
+        <div class="lamps" role="group" aria-label="Indicadores del controlador">
+          <span class="lamp cen-chip" id="lmOUT" data-n="OUT" role="img"></span><span class="lamp verde cen-chip" id="lmAT" data-n="TUNE" role="img" data-cx-desde="C"></span><span class="lamp cen-chip" id="lmMANU" data-n="MANU" role="img"></span>
+        </div>
+        <div class="lamps did" role="group" aria-label="Testigos didácticos de CEN, que el equipo real no tiene" data-cx-desde="C"><span class="et">Testigos didácticos CEN</span>
+          <span class="lamp cen-chip" id="lmAW" data-n="AW" role="img"></span><span class="lamp rojo cen-chip" id="lmSAT" data-n="MV 100 %" role="img"></span><span class="lamp rojo cen-chip" id="lmERR" data-n="S.ERR" role="img"></span>
+        </div>
+        </div>
+        <div class="fr-der">
+        <div class="par cen-dock">
+          <div><span>P · banda (°C)</span><strong id="pP">—</strong></div><div><span>I · Ti (s)</span><strong id="pI">—</strong></div><div><span>D · Td (s)</span><strong id="pD">—</strong></div><div><span>Filtro N</span><strong id="pN">—</strong></div>
+          <div data-cx-desde="B"><span>at-h (°C)</span><strong id="pATH">—</strong></div><div data-cx-desde="B"><span>AT · relé (%)</span><strong id="pLCMA">—</strong></div><div data-cx-desde="D"><span>SL-H (°C)</span><strong id="pSLH">—</strong></div><div data-cx-desde="D"><span>MV at PV Error</span><strong id="pMVE">—</strong></div>
+        </div>
+        <p class="rot fr-nota" id="frNota">P, I y D se llenan al correr un ensayo.</p>
+        <button type="button" id="btnAT" data-cx-desde="C">AT · autosintonía CEN</button>
+        <div id="msgAT" class="rot" style="margin:8px 0 0" role="status" aria-live="polite" data-cx-desde="C"></div>
+        </div>
+      </div>
+      <div class="ficha"><table><caption>Datos de tu variante</caption><tbody id="ficha"></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<div id="trabajo">
+<div class="encargo" id="encargo"><b>Tu encargo:</b> dejar bien ajustado el controlador nuevo de este horno. <details id="detEncargo"><summary>Leer el encargo completo</summary>
+    <p>Eres el ingeniero de control de un taller de tratamientos térmicos. Se sustituyó el controlador de un horno de revenido y quedó con los valores de fábrica. Con ellos el horno no sobrepasa la consigna y aguanta la apertura de la puerta, pero el lazo queda con poco margen de estabilidad (un Ms mayor que el que admite el criterio): responde con oscilaciones poco amortiguadas y, si el termopar tiene ruido, la salida se mueve con violencia. Compruébalo en el paso 0; después identifica el proceso, sintoniza con varios métodos, compáralos de forma justa y deja el controlador configurado.</p>
+  </details>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Partes de la práctica" id="tabs"></div>
+<p class="nota-tabs" id="notaTabs" hidden></p>
+<p class="aviso" id="notaCerrada" role="status" hidden></p>
+<section class="instr" aria-label="Tendencia del ensayo">
+  <div class="tend vacia" id="tendCaja">
+    <div class="tend-cab">
+      <strong id="tendTitulo">Aquí aparecerá la gráfica del ensayo.</strong><span class="x100 cen-chip" id="x100"></span>
+      <button type="button" id="btnPlay">Reproducir</button><button type="button" id="btnFin">Ir al final</button>
+      <span id="tendT" class="hint" style="color:#c5d5e0"></span>
+    </div>
+    <canvas id="tendencia" role="img" aria-label="Tendencia de PV, SV, MV y T1 del ensayo en curso"></canvas>
+    <div class="leg" id="tendLeg" hidden><span><i style="background:#f4f6f6"></i>PV (termopar)</span><span><i style="background:#35d07f"></i>SV</span><span><i style="background:#ffb020"></i>MV (eje derecho)</span><span><i style="background:#ff6a3d"></i>T₁ resistencias</span><span id="tendT1Esc" class="t1esc" hidden></span><span><i style="background:rgba(255,80,60,.5);height:9px"></i>MV saturada</span><span><i style="background:rgba(90,170,255,.4);height:9px"></i>puerta abierta</span>
+      <label><input type="checkbox" id="verT1" checked>mostrar T₁</label></div>
+    <div id="tendMsg" class="hint" style="color:#c5d5e0;margin-top:4px" role="status" aria-live="polite"></div>
+    <p id="tendAlt" class="sr"></p>
+  </div>
+</section>
+
+<div id="paneles"></div>
+<div id="cierreParte" class="cierre-parte" role="status" aria-live="polite" hidden><span id="cierreTxt"></span><button type="button" id="btnSigParte" hidden></button></div>
+
+<details class="panel bloque" id="detLimites"><summary><h2>Modelo y límites</h2></summary>
+  <ul id="limites"></ul>
+</details>
+<details id="detPie"><summary>Fuentes y versión</summary><footer id="pie"></footer></details>
+</div>
+</main>
+<button type="button" id="irTend" hidden>Ver la tendencia ↑</button>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body>
+</html>

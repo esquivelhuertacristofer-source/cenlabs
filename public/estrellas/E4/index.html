@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E4 · Corrección del factor de potencia y recibo de CFE</title>
+<style>
+:root{--tinta:#172b3b;--sub:#4f6170;--fondo:#e9eef2;--panel:#fff;--borde:#d3dde4;--noche:#0f1924;--noche2:#16232f;--linea-osc:#2a3d50;--acento:#0f7c86;--acento2:#0b5f67;--cobre:#c8742a;--ok:#1f8a5b;--mal:#b93434;--aviso:#fff5df;--P:#2563c9;--Q:#e07b1a;--adel:#b8328a;
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--tinta);background:var(--fondo);font-size:15.5px}
+*{box-sizing:border-box}
+body{margin:0;line-height:1.5;background:var(--fondo)}
+h1{line-height:1.2}
+h2{font-size:18px;margin:0 0 12px}
+h3{font-size:15.5px;margin:16px 0 8px}
+p{margin:8px 0}
+a{color:#0d5b7a}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=number],select,textarea{width:100%;padding:7px 9px;border:1px solid #8fa1ad;border-radius:6px;background:#fff;min-width:0}
+input[type=range]{width:100%;accent-color:var(--acento)}
+textarea{min-height:74px;resize:vertical}
+input:disabled,select:disabled,textarea:disabled{background:#eef2f4;color:#4d5d69;border-color:#c5d0d8}
+button{background:var(--acento);color:#fff;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600}
+button:hover:not(:disabled){background:var(--acento2)}
+button.sec{background:#e3ecf0;color:#1c3a4c}
+button.sec:hover:not(:disabled){background:#d3e0e6}
+button.claro{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28)}
+button.claro:hover:not(:disabled){background:rgba(255,255,255,.18)}
+button.mini{padding:4px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:3px solid #f0a000;outline-offset:2px}
+/* ---------- cabecera compacta (kit: .cen-cab) ---------- */
+.cen-cab .cen-titulo h1{font-size:1.16rem}
+.cen-cab form.cen-id{margin:0}
+.cen-cab .cen-id button.claro{color:#e6edf3}
+.cen-cab .fila2{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px}
+.cen-cab .fila2 .sep{flex:1 1 auto}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.22);white-space:nowrap}
+.chip.ok{background:#e4f4ec;color:#14613f;border-color:#b6dcc8}
+.chip.pend{background:#fff0d9;color:#8a5200;border-color:#f1d49c}
+.estado-sesion{font-size:13px;color:#c9d9e4;min-width:0;flex:0 1 auto}
+.cen-cab .err{color:#ffb4ac;font-size:13px;font-weight:600;margin:4px 0 0}
+.cen-cab .err:empty{display:none}
+.cen-cab .notice{margin:6px 0 0;color:var(--tinta)}
+.cen-integridad .largo p{margin:4px 0}
+/* ---------- maquetación ---------- */
+main{max-width:2240px;margin:auto;padding:12px 14px 30px}
+.notice{background:var(--aviso);border:1px solid #f0dcae;border-radius:10px;padding:8px 14px;font-size:13.5px;margin-bottom:12px}
+.panel{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:16px 18px;margin-bottom:14px;min-width:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(min-width:1300px){.grid{grid-template-columns:minmax(0,1.65fr) minmax(380px,1fr)}}
+.grid>*{min-width:0}
+label{font-weight:600;font-size:13.5px;display:block;margin:0 0 3px}
+.fila{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.fila>.campo{flex:1 1 150px;min-width:0}
+.hint{color:var(--sub);font-size:13.5px}
+.err{color:var(--mal);font-size:13px;font-weight:600;min-height:1em}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.et{font-weight:600;font-size:13.5px;margin:0 0 3px}
+.oculto{display:none!important}
+/* ---------- columna de la escena (oscura): pestañas, lienzo, barra, dock ---------- */
+.banco{background:var(--noche);border-color:#1d2c3a;color:#e6edf3;padding:10px 10px 14px}
+.tabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tabs button{background:#16232f;color:#c9d6e0;border:1px solid var(--linea-osc);border-radius:8px;padding:6px 12px;font-size:13.5px}
+.tabs button:hover:not(:disabled){background:#1d2e3d}
+.tabs button[aria-selected=true]{background:#0f5961;color:#fff;border-color:#2b8a92}
+.visor{position:relative;border-radius:10px;overflow:hidden;background:#121c26}
+.visor canvas{display:block;width:100%;height:clamp(300px,calc(100vh - 300px),780px);touch-action:pan-y}
+.sinwebgl{display:flex;align-items:center;justify-content:center;text-align:center;color:#e8f2f7;padding:24px;font-size:15px;min-height:240px}
+.dock-e4>span.oculto{display:none}
+.lecturas,.lecturas.cen-dock{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:6px 0 4px;padding:0}
+.lect{background:linear-gradient(180deg,#13202d,#0f1923);border:1px solid var(--linea-osc);color:#e9f4f9;border-radius:8px;padding:5px 9px;min-width:0;line-height:1.25}
+.lect span{display:block;font-size:11.5px;color:#9db5c7;font-weight:600;letter-spacing:.02em}
+.lect strong{display:block;font-size:18px;font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace;white-space:nowrap;color:#8fe3b4}
+.lect small{font-size:11.5px;color:#ffd08a;display:block;min-height:1.3em}
+.lect.claro strong{color:#cfe7f5}
+.banco .fila label,.banco .et{color:#c9d6e0}
+.banco .hint{color:#a9bccb}
+.banco .err{color:#ffb4ac}
+.banco input[type=text],.banco input[type=number],.banco select{background:#0f1924;color:#e6edf3;border-color:#3a4f63}
+.banco input:disabled,.banco select:disabled{background:#16212c;color:#7f93a3;border-color:#2b3b4a}
+.banco .zona{margin-top:8px}
+.banco button.sec{background:#1d2e3d;color:#e0eaf1;border:1px solid #33495d}
+.banco button.sec:hover:not(:disabled){background:#26394b}
+.evento{background:#fdecec;border:1px solid #efc1c1;color:#7c1f1f;border-radius:8px;padding:8px 12px;font-size:13.5px;font-weight:600;margin:8px 0}
+/* ---------- tarjetas plegables ---------- */
+.tarjetas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.tarjeta{border:1px solid var(--borde);border-radius:10px;min-width:0;background:#fff;color:var(--tinta)}
+.tarjeta.ancha{grid-column:1/-1}
+.tarjeta>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px}
+.tarjeta>summary::-webkit-details-marker{display:none}
+.tarjeta>summary::before{content:"▸";color:var(--acento2);font-size:14px;transition:transform .15s}
+.tarjeta[open]>summary::before{transform:rotate(90deg)}
+.tarjeta>summary h3{margin:0;font-size:14.5px;flex:1;min-width:0}
+.tarjeta[open]>summary{border-bottom:1px solid #e3eaef;border-radius:10px 10px 0 0;background:#f6f9fb}
+.tarjeta>.cuerpo{padding:10px 12px}
+.tarjeta .chip{background:#eef3f6;color:#365062;border-color:#cfdbe3;font-weight:600}
+.tarjeta .hint{color:var(--sub)}
+.tarjeta label,.tarjeta .et{color:var(--tinta)}
+.tarjeta input[type=text],.tarjeta input[type=number],.tarjeta select{background:#fff;color:var(--tinta);border-color:#8fa1ad}
+.tarjeta input:disabled,.tarjeta select:disabled{background:#eef2f4;color:#4d5d69;border-color:#c5d0d8}
+.tarjeta button.sec{background:#e3ecf0;color:#1c3a4c;border:0}
+.tarjeta .err{color:var(--mal)}
+canvas.graf{display:block;width:100%;height:250px;border-radius:6px}
+canvas.graf.alta{height:290px} canvas.graf.baja{height:210px}
+.scroll{overflow-x:auto;max-width:100%}
+@media(min-width:701px){#tabla-res{width:100%;table-layout:fixed}#tabla-res th,#tabla-res td{white-space:normal;padding:5px 3px;overflow-wrap:anywhere}#tabla-res th{font-size:12.5px}#tabla-res th:first-child{width:6%}#tabla-res th:nth-child(2),#tabla-res th:nth-child(3),#tabla-res th:nth-child(5){width:15%}#tabla-res input,#tabla-res select{width:100%;min-width:0!important;box-sizing:border-box;padding-left:3px;padding-right:2px}}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+caption{caption-side:bottom;text-align:left;color:var(--sub);font-size:13px;padding:6px 2px 0}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid #e1e8ec;white-space:nowrap}
+th{font-size:12.5px;color:var(--sub);font-weight:700;background:#f5f8fa}
+th:first-child,td:first-child{text-align:left}
+td.izq,th.izq{text-align:left;white-space:normal}
+tr.off td{color:#9aa6ae}
+.recibo{border:1px dashed #8fa1ad;border-radius:8px;padding:12px;background:#fcfdfd}
+.recibo .marca{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mal);font-weight:700}
+.pos{color:var(--mal);font-weight:700}.neg{color:var(--ok);font-weight:700}
+.bloqueo{background:#f3f5f7;border:1px dashed #b3c0c9;border-radius:8px;padding:10px 12px;color:var(--sub);font-size:13.5px}
+.dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+/* ---------- pasos ---------- */
+h3.fase{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acento2);font-weight:700;margin:16px 0 6px}
+details.paso{border:1px solid var(--borde);border-radius:10px;margin-bottom:8px;background:#fff}
+details.paso>summary{cursor:pointer;padding:9px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;list-style:none}
+details.paso>summary::-webkit-details-marker{display:none}
+details.paso>summary .t{flex:1;min-width:0;font-size:15px;margin:0;font-weight:700}
+details.paso[open]>summary{border-bottom:1px solid var(--borde);background:#f5f9fb;border-radius:10px 10px 0 0}
+details.paso .cuerpo{padding:12px 14px}
+.fase{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acento2);font-weight:700;margin:16px 0 6px}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;margin:10px 0}
+.campos .campo.todo{grid-column:1/-1}
+.campo .un{display:flex;gap:6px;align-items:center}
+.campo .un span{font-size:13px;color:var(--sub);white-space:nowrap}
+fieldset{border:1px solid var(--borde);border-radius:8px;padding:8px 12px;margin:10px 0;min-width:0}
+legend{font-weight:700;font-size:13.5px;padding:0 6px}
+.opc{display:flex;gap:8px;align-items:flex-start;margin:5px 0;font-weight:500;font-size:14px}
+.opc input{margin-top:4px;flex:none}
+.previa{background:#f4f1fb;border:1px solid #d9d0f0;border-radius:8px;padding:10px 12px;margin:10px 0}
+.retro{border-left:5px solid var(--acento);background:#eef7f8;border-radius:0 8px 8px 0;padding:10px 12px;margin:12px 0;font-size:14px}
+.retro ul{margin:6px 0;padding-left:18px}
+.retro li.si{color:#14613f}.retro li.no{color:#8f2323}
+.total{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+details.plegable>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+details.plegable>summary::-webkit-details-marker{display:none}
+details.plegable>summary::before{content:"▸";color:var(--acento2)}
+details.plegable[open]>summary::before{content:"▾"}
+details.plegable>summary h2{margin:0}
+details.plegable[open]>summary{margin-bottom:10px}
+.linea-sec{font-size:13.5px;color:var(--sub);margin:6px 0}
+.linea-sec details{display:inline}
+.linea-sec summary{display:inline;cursor:pointer;color:var(--acento2);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.linea-sec details[open]{display:block}
+ul.lim{margin:6px 0;padding-left:20px;font-size:14px}
+footer{font-size:13px;color:var(--sub);padding:6px 2px 20px}
+footer li{margin:3px 0}footer span,.hint,td.izq{overflow-wrap:anywhere}
+input[type=file]{font-size:13.5px;max-width:100%}
+.atajos{display:none}
+@media(min-width:1101px){#col-banco{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;border-radius:12px}#col-banco>.panel{margin-bottom:0}}
+@media(max-width:1100px){.atajos{display:flex;gap:6px;position:fixed;left:0;right:0;bottom:0;z-index:20;padding:6px 8px;background:rgba(16,40,59,.96);justify-content:center}.atajos button{flex:1 1 0;padding:8px 4px;font-size:13px;min-width:0}body{padding-bottom:52px}}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+@media(max-width:700px){table.compacta{font-size:12.5px}table.compacta th,table.compacta td{padding:5px 4px}table.compacta td:first-child,table.compacta th:first-child{white-space:normal}canvas.graf.tri{height:600px}main{padding:8px 8px 24px}.banco{padding:8px}.cen-cab .cen-id input{width:150px}.lecturas,.lecturas.cen-dock{grid-template-columns:repeat(2,minmax(0,1fr))}.tarjetas,.dos,.campos{grid-template-columns:1fr}.visor canvas{height:min(56vh,480px)}.panel{padding:13px 12px}canvas.graf{height:230px}canvas.graf.alta{height:320px}.estado-sesion{flex-basis:100%}}
+@media print{
+  .cen-cab{background:#fff;color:#000;padding:0 0 8px}.cen-cab *{color:#000!important}.chip{color:#000;border-color:#999}
+  button,.tabs,.visor,#col-banco,.noimp,.atajos{display:none!important}
+  body{background:#fff;font-size:12px}.grid{display:block}.panel,details.paso{break-inside:avoid;border-color:#999}
+  details.paso>.cuerpo{display:block!important}
+}
+/* ---------- ronda 2 visual (E4-1.4): cabecera de una línea, dock sobre el visor, columna de pasos más tranquila ---------- */
+.cen-cab.cab-e4{padding:6px 14px;position:relative}
+.cab-e4 .cen-fila{flex-wrap:nowrap;gap:8px 12px}
+.cab-e4 .cen-titulo{flex:1 1 160px;flex-wrap:nowrap;overflow:hidden;gap:8px}
+.cab-e4 .cen-titulo h1{font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cab-e4 .chip{flex:none}
+#chip-variante{gap:0}
+.cab-e4 .como{flex:none;font-size:.84rem}
+.cab-e4 .como>summary{cursor:pointer;color:#7fd3da;font-weight:600;text-decoration:underline;text-underline-offset:2px;list-style:none;white-space:nowrap}
+.cab-e4 .como>summary::-webkit-details-marker{display:none}
+.cab-e4 .como[open]>.largo{position:absolute;left:14px;right:14px;top:calc(100% + 2px);z-index:40;background:#0d1620;border:1px solid #2c4156;border-radius:10px;padding:8px 14px;color:#d3e0ea;max-height:70vh;overflow:auto;box-shadow:0 14px 32px rgba(0,0,0,.45)}
+.cab-e4 .como .largo p{margin:6px 0}
+.cab-acc{display:flex;align-items:center;gap:6px;flex:none}
+.cab-e4 .cen-id{flex-wrap:nowrap}
+.cab-e4 .cen-id input{width:160px}
+.cab-e4 .cen-id button,.cab-acc>button{padding:5px 11px;white-space:nowrap}
+.cab-e4 .salto,#btn-mas{display:none}
+@media(max-width:1280px){.cab-e4 .cen-fila{flex-wrap:wrap}.cab-e4 .cen-titulo{flex:1 1 100%}}
+/* visor: canvas alto y marcadores encima (pegados a la escena, sin fila propia) */
+.visor canvas{height:clamp(300px,calc(100vh - 236px),780px)}
+#dock{position:absolute;left:8px;right:8px;top:8px;display:flex;flex-wrap:wrap;gap:6px;padding:0;z-index:3;pointer-events:none}
+#dock>span{background:rgba(10,18,26,.74);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(120,150,175,.32);min-width:0;padding:3px 9px 4px;pointer-events:auto}
+#dock>span>i{font-size:.6rem}
+#dock>span>b{font-size:.84rem}
+#dock>span.demo{background:rgba(42,36,16,.84);border-color:#6a5a1c}
+#d-acel{margin-left:auto}
+#d-flujo b{display:flex;gap:10px;color:#e6edf3}
+#d-flujo em{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+#d-flujo em::before{content:"";width:18px;height:4px;border-radius:2px}
+#d-flujo em.fp::before{background:#3b7cf0}
+#d-flujo em.fq::before{background:#f08a24}
+.visor .cen-rotulo::after{height:10px;bottom:-10px;background:#8fb3cc}
+.visor .cen-rotulo::before{content:"";position:absolute;left:calc(50% - 3px);bottom:-15px;width:6px;height:6px;border-radius:50%;background:#ffd36b;box-shadow:0 0 0 2px rgba(9,16,23,.85)}
+.tabs{margin-bottom:6px}
+.tabs button{padding:4px 12px;font-size:13px}
+.lect{padding:4px 9px}
+.lect strong{font-size:17px}
+.lecturas,.lecturas.cen-dock{margin:6px 0 2px}
+/* barra: interruptor de la demostración y menú ⚙ (calidad y sonido) */
+.cen-barra .interruptor::before{content:"";display:inline-block;width:24px;height:13px;border-radius:7px;margin-right:7px;vertical-align:-2px;background:radial-gradient(circle at 6.5px 50%,#cfd9e2 4px,#33495d 4.6px)}
+.cen-barra .interruptor[aria-pressed=true]{background:#2a2410;border-color:#6a5a1c;color:#ffe19a}
+.cen-barra .interruptor[aria-pressed=true]::before{background:radial-gradient(circle at 17.5px 50%,#fff 4px,#c9a227 4.6px)}
+.cen-barra .ajustes{position:relative}
+.cen-barra .ajustes>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:32px;padding:0 9px;color:#d7e3ec}
+.cen-barra .ajustes>summary::-webkit-details-marker{display:none}
+.cen-barra .ajustes-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:6;display:flex;flex-direction:column;min-width:160px;background:#0c1620;border:1px solid var(--linea-osc);border-radius:8px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.cen-barra .ajustes-menu button{text-align:left;padding:7px 12px}
+.cen-barra .ajustes-menu button+button{border-top:1px solid var(--linea-osc)}
+/* columna de pasos: tarjetas grises claras junto al visor oscuro, paso en curso y datos plegados */
+#col-pasos .panel,#col-pasos details.paso{background:#f3f6f8;border-color:#dfe6eb}
+#col-pasos details.paso[open]>summary{background:#e9eff3}
+.curso{padding:10px 14px}
+.curso-fila{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
+.curso h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acento2);margin:0;flex:1 1 auto}
+.curso h3{margin:4px 0 0;font-size:15.5px;flex:1 1 240px;min-width:0}
+.curso .chip,.datos-res .chip{background:#e3ecf1;color:#1c3a4c;border-color:#c9d7e0;font-variant-numeric:tabular-nums}
+.curso .estado-sesion{font-size:13px;color:var(--sub);margin:6px 0 0}
+.estado-sesion:empty{display:none}
+.datos{padding:0}
+.datos>details>summary{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;cursor:pointer;list-style:none;padding:10px 14px}
+.datos>details>summary::-webkit-details-marker{display:none}
+.datos>details>summary::before{content:"▸";color:var(--acento2)}
+.datos>details[open]>summary::before{content:"▾"}
+.datos h2{margin:0;font-size:16px}
+.datos-res{display:flex;flex-wrap:wrap;gap:6px}
+#datos-cuerpo{padding:0 14px 12px}
+@media(max-width:700px){
+  .cen-cab.cab-e4{padding:6px 10px}
+  .cab-e4 .cen-fila{gap:4px 8px}
+  .cab-e4 .cen-titulo{flex:1 1 0}
+  .cab-e4 .cen-titulo h1{font-size:.95rem}
+  .cab-e4 .cen-ceja,.cab-e4 .cen-version{display:none}
+  #btn-mas{display:inline-flex;order:1;padding:3px 10px}
+  .cab-e4 .salto{display:block;flex-basis:100%;height:0;order:2}
+  .cab-e4 .chip{order:3;font-size:11.5px;padding:0 8px}
+  .cab-e4 .chip .pref{display:none}
+  .cab-e4 .como{order:4;font-size:.8rem}
+  .cab-acc{display:none;order:5;flex-basis:100%;flex-wrap:wrap}
+  .cab-acc.abierta{display:flex}
+  .cab-e4 .cen-id{flex-wrap:wrap}
+  .cab-e4 .cen-id input{width:150px}
+  #dock>span>b{font-size:.78rem}
+  #d-flujo{display:none!important}
+  .visor canvas{height:min(56vh,480px)}
+}
+@media print{.cab-e4 .como>.largo{display:block;position:static}#dock,.cab-acc,#btn-mas{display:none!important}}
+/* ---------- ronda 3 visual (E4-1.5) ---------- */
+/* la barra de vistas sube a la fila de las pestañas (se recuperan ~44 px para el dock) y lleva el menú «⋯» */
+.fila-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:6px}
+.fila-tabs .tabs{margin:0;flex:none;flex-wrap:nowrap}
+#barra.cen-barra{padding:0;margin-left:auto;gap:6px;flex-wrap:nowrap}
+#barra.cen-barra .cen-sep{display:none}
+#barra.cen-barra button{padding:4px 9px;font-size:.76rem;min-height:30px}
+.e4-mas{position:relative;display:inline-flex}
+.e4-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:flex;flex-direction:column;min-width:210px;background:#0c1620;border:1px solid var(--linea-osc);border-radius:8px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.e4-menu[hidden]{display:none}
+#barra.cen-barra .e4-menu button{text-align:left;padding:8px 12px;white-space:nowrap;width:100%;min-height:34px}
+.e4-menu button+button{border-top:1px solid var(--linea-osc)}
+#btnMas{min-width:38px;font-weight:700;letter-spacing:.1em}
+/* el lienzo cede 26 px para que las dos filas del dock (y el encabezado de la demostración) entren en 1366 × 768 y 1600 × 900 */
+@media(min-width:701px){.visor canvas{height:clamp(300px,calc(100vh - 262px),780px)}}
+
+/* dock de la demostración: cifras en ámbar, encabezado de 11 px */
+.cab-demo{margin:5px 0 0;font-size:11px;font-weight:600;color:#e9d7a6;letter-spacing:.01em;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cab-demo .marca{display:inline-block;color:#1b1405;background:#f0b429;border-radius:4px;padding:0 6px;margin-right:4px;font-weight:700}
+.lect.demo{border:1px solid rgba(240,180,41,.55);background:linear-gradient(180deg,#221c0d,#16130a)}
+.lect.demo strong{color:#f0b429}
+.lect.demo.claro strong{color:#b9a46e}
+.lect.demo small{color:#e9d7a6}
+#d-reserva b{color:#f0b429}
+/* en escritorio el encabezado de la demostración monta sobre el borde inferior del visor (franja de 22 px): no empuja las
+   filas del dock, que entran enteras a 1366 × 768 y 1600 × 900 */
+@media(min-width:701px){.cab-demo{position:relative;z-index:4;margin:-22px 0 0;height:22px;padding:3px 10px;background:rgba(16,13,5,.86);border-radius:0 0 10px 10px;border-top:1px solid rgba(240,180,41,.55)}}
+/* rótulos con tallo (SVG de 1 px) en lugar de la patita fija */
+.e4-tallos{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible}
+.e4-tallos line{stroke:rgba(255,255,255,.6);stroke-width:1}
+.e4-tallos circle{fill:#ffd36b;stroke:rgba(9,16,23,.85);stroke-width:2}
+.visor .cen-rotulo.con-tallo::after,.visor .cen-rotulo.con-tallo::before{display:none}
+.visor .cen-rotulo.con-tallo{white-space:nowrap;max-width:none}   /* ronda 4: con el máximo de 240 px del kit el texto largo se salía de su caja y la caja no avisaba del solape */
+/* la leyenda del flujo dentro del chip de la escena: solo en móvil */
+#d-escena .leyenda-flujo{display:none}
+/* móvil: la barra de atajos se esconde (con transform, sigue en el diseño) mientras el visor o el dock están en pantalla */
+@media(max-width:1100px){.atajos{transition:transform .2s ease}.atajos.escondida{transform:translateY(110%)}}
+@media(prefers-reduced-motion:reduce){.atajos{transition:none}}
+@media(max-width:700px){
+  #barra.cen-barra{flex-wrap:nowrap;margin-left:0;gap:4px;max-width:100%}
+  #barra.cen-barra button{padding:4px 6px;font-size:.7rem;min-height:30px}
+  #btnMas{min-width:30px;letter-spacing:.04em}
+  .fila-tabs .tabs{flex-wrap:wrap}
+  #d-escena .leyenda-flujo{display:flex;gap:8px;align-items:center;font-size:11px;line-height:14px;color:#c9d6e0;margin-top:1px}
+  #d-escena .leyenda-flujo[hidden]{display:none}
+  #d-escena .leyenda-flujo em{font-style:normal;display:inline-flex;align-items:center;gap:4px}
+  #d-escena .leyenda-flujo em::before{content:"";width:12px;height:3px;border-radius:2px}
+  #d-escena .leyenda-flujo em.fp::before{background:#3b7cf0}
+  #d-escena .leyenda-flujo em.fq::before{background:#f08a24}
+  .cab-demo{white-space:normal}
+  /* cabecera de 56 px: el chip de la variante sube a la línea del título */
+  .cen-cab.cab-e4{padding:5px 10px}
+  .cab-e4 .salto{display:none}
+  .cab-e4 .cen-fila{gap:2px 6px}
+  .cab-e4 .cen-titulo h1{font-size:.9rem}
+  .cab-e4 .chip{order:1;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #btn-mas{order:2}
+  .cab-e4 .como{order:4;flex-basis:100%;font-size:.76rem;line-height:1.2}
+}
+/* ronda 4 (crítica r3, Interfaz 1, 2, 4, 5 y 6) */
+.t-corto{display:none}
+@media(max-width:1700px){.t-largo{display:none}.t-corto{display:inline}}   /* ronda 5: hasta 1700 (a 1600, con el chip de una variante, el largo se cortaba) */
+.lect.guia{grid-column:1/-1}
+.lect.guia strong{font-family:inherit;font-size:15px;line-height:21.25px}
+.mandos-b{margin-top:32px}
+.chip.pend{background:#eef2f5;color:#5b6b78;border-color:#d5dde3}
+@media(max-width:700px){
+  #dock #d-escena{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px;white-space:nowrap}
+  #dock #d-escena>i{display:none}
+  #dock #d-escena>b{font-size:11px;line-height:14px}
+  #d-escena .leyenda-flujo{margin-top:0}
+  .cab-e4 .chip{max-width:48vw}
+  .lecturas>.lect:nth-child(5):last-child{grid-column:1/-1}
+}
+/* ronda 5 (crítica r4, Interfaz 2): la tarjeta guía del medidor de MT ocupa las tres columnas de P, Q y FP de MT */
+#lecturas-B2 .lect.guia-mt{display:none;grid-column:span 3}
+#lecturas-B2.mt-cerrado .lect.guia-mt{display:block}
+#lecturas-B2.mt-cerrado .lect.mt{display:none}
+#lecturas-B2 .lect.guia-mt strong{font-family:inherit;font-size:15px;line-height:21.25px}
+@media(max-width:700px){#lecturas-B2 .lect.guia-mt{grid-column:1/-1;order:9}}
+/* ---------- experiencia (E4-1.8, _comun/experiencia.js): modos en la cabecera y modo Explorar ---------- */
+/* Los cuatro modos (Ficha, Explorar, Guía, Informe) van al final de la fila de la cabecera. Donde no caben junto al título
+   sin cortarlo (701 a 1760 px), el título y los modos ocupan la primera fila y los datos de la sesión pasan a la segunda;
+   el lienzo cede lo que crece la cabecera para que el dock siga entrando en la ventana. En móvil, los modos van en su fila. */
+@media(max-width:700px){.cab-e4 #cx-cab{order:6;flex:1 1 100%;padding:2px 0 3px}}
+/* =====================================================================================================
+   INTERFAZ DE TRABAJO (15/11 noche · _comun/ESTANDAR-INTERFAZ-TRABAJO.md). Manda sobre lo de arriba.
+   Legibilidad: nada por debajo de 13 px; rótulos, botones y opciones en 14 px o más; texto y títulos de paso en 15 px
+   o más; cifras de los indicadores en 20 px. Los tamaños van en rem: a partir de 1600 px de ancho la raíz crece 12,5 %.
+   ===================================================================================================== */
+:root{font-size:16px}
+@media(min-width:1600px){:root{font-size:18px}}
+.t-largo{display:none}.t-corto{display:inline}
+h2{font-size:1.125rem}h3{font-size:1rem}
+label,.et,.hint,.notice,.evento,.bloqueo,table,legend,.linea-sec,.retro,ul.lim,.opc,input[type=file],.campo .un span,button.mini{font-size:.875rem}
+caption,th,.err,footer,.cen-linea,.estado-sesion,.curso .estado-sesion,.cen-cab .err{font-size:.8125rem}
+#tabla-res th{font-size:.8125rem}
+.chip{font-size:.8125rem;padding:3px 10px;line-height:1.3}
+.recibo .marca{font-size:.8125rem;letter-spacing:.04em;text-transform:none}
+/* ---------- cabecera: una fila; lo secundario, en el menú «Más» ---------- */
+.cen-cab.cab-e4{padding:7px 14px}
+.cab-e4 .cen-ceja,.cab-e4 .cen-version{font-size:.8125rem;letter-spacing:.06em}
+.cab-e4 .cen-id label{font-size:.875rem}
+.cab-e4 .cen-titulo h1{font-size:1.06rem}
+.cab-e4 .como{font-size:.875rem}
+.cab-e4 .como>summary,.cab-e4 .como:not([open])>.largo{display:none}
+.cab-e4 .como .largo{font-size:.875rem;line-height:1.5}
+.cab-e4 .como-x{float:right;margin:0 0 6px 12px}
+#btn-mas{display:inline-flex;align-items:center;white-space:nowrap;font-size:.875rem;padding:6px 12px;min-height:34px;color:#e6edf3}
+.cab-e4 .cen-id input{font-size:.875rem;padding:6px 9px}
+.cab-e4 .cen-id button{font-size:.875rem;padding:6px 12px;min-height:34px}
+.cab-e4 #cx-cab{flex:none;flex-wrap:nowrap;margin-left:0;gap:5px}
+.cab-e4 #cx-cab button{font-size:.875rem;padding:5px 11px 5px 8px;min-height:34px}
+.cab-menu button{font-size:.875rem;text-align:left;white-space:nowrap;min-height:38px;padding:8px 14px}
+@media(min-width:701px){
+  .cab-e4 .cen-fila{flex-wrap:nowrap;gap:8px 10px}
+  .cab-e4 .cen-titulo{flex:1 1 auto;order:0;min-width:0}
+  .cab-e4 .cen-fila>.chip{order:1}
+  .cab-acc{order:2}
+  #btn-mas{order:3}
+  .cab-e4 #cx-cab{order:4}
+  .cab-e4 .salto{display:none}
+  .cab-menu{display:none;position:absolute;top:calc(100% - 3px);right:14px;z-index:45;flex-direction:column;min-width:250px;background:#0d1620;border:1px solid #2c4156;border-radius:10px;overflow:hidden;box-shadow:0 14px 32px rgba(0,0,0,.45)}
+  .cab-acc.abierta .cab-menu{display:flex}
+  .cab-menu button{border:0;border-radius:0;background:transparent}
+  .cab-menu button+button{border-top:1px solid #2c4156}
+}
+@media(min-width:701px) and (max-width:1699px){.cab-e4 .cen-version,.cab-e4 .pref-v{display:none}}
+@media(min-width:701px) and (max-width:1499px){.cab-e4 .cen-ceja{display:none}.cab-e4 .cen-id input{width:128px}}
+@media(min-width:701px) and (max-width:1339px){.cab-e4 .cen-fila{flex-wrap:wrap}.cab-e4 .cen-titulo{flex:1 1 100%}}
+@media(max-width:700px){
+  .cab-menu{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%}
+  .cab-e4 .chip{font-size:.8125rem}
+  .cab-e4 .cen-titulo h1{font-size:.95rem}
+}
+/* ---------- pestañas de zona y barra de vistas ---------- */
+.tabs button{font-size:.9375rem;padding:6px 13px;min-height:36px}
+#barra.cen-barra button{font-size:.875rem;padding:5px 10px;min-height:36px}
+#barra.cen-barra .e4-menu button{font-size:.875rem;min-height:38px}
+.cen-barra .ajustes-menu button{font-size:.875rem}
+/* ---------- insignias sobre la escena: dos como máximo, en letra legible ---------- */
+#dock>span{padding:5px 11px 6px;max-width:calc(100% - 4px)}
+#dock>span>i{font-size:.8125rem;text-transform:none;letter-spacing:0;color:#a9bccb}
+#dock>span>b{font-size:.9375rem;white-space:normal;color:#e9f4f9}
+#dock>span.demo>b{color:#ffe19a}
+#d-escena .leyenda-flujo{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:.8125rem;line-height:1.3;color:#c9d6e0;margin-top:2px}
+#d-escena .leyenda-flujo[hidden],#d-escena-res[hidden]{display:none}
+#d-escena .leyenda-flujo em{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+#d-escena .leyenda-flujo em::before{content:"";width:18px;height:4px;border-radius:2px}
+#d-escena .leyenda-flujo em.fp::before{background:#3b7cf0}
+#d-escena .leyenda-flujo em.fq::before{background:#f08a24}
+#d-escena-res{color:#f0b429}
+.visor .cen-rotulo{font-size:13px}
+/* ---------- tarjetas de cifras ---------- */
+.lect{padding:5px 10px 6px}
+.lect span{font-size:.8125rem;color:#a9c0d1;letter-spacing:0}
+.lect strong{font-size:1.25rem;line-height:1.25}
+.lect small{font-size:.8125rem}
+.lect.guia strong,#lecturas-B2 .lect.guia-mt strong{font-size:.9375rem;line-height:1.4;white-space:normal}
+.cab-demo{font-size:.8125rem;line-height:1.35;white-space:normal;height:auto}
+.cab-demo .marca{font-size:.8125rem}
+@media(min-width:701px){.cab-demo{margin:-28px 0 0;height:28px;padding:5px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+/* ---------- mandos: por qué está apagado un control, junto a él y en texto ---------- */
+.porque{display:flex;align-items:flex-start;gap:8px;margin:8px 0 2px;padding:7px 11px;border-radius:8px;font-size:.875rem;line-height:1.4;font-weight:600;color:#ffe2bf;background:rgba(251,133,0,.12);border:1px solid rgba(251,133,0,.45)}
+.porque::before{content:"🔒";flex:none}
+.porque:empty{display:none}
+.banco .linea-sec{color:#a9bccb}
+.banco .linea-sec summary{color:#8fd3da}
+.banco .tarjeta .fila label,.banco .tarjeta .et{color:var(--tinta)}
+.banco .tarjeta .hint{color:var(--sub)}
+.mandos-b{margin-top:32px}
+/* lo que todavía no aplica dentro de la parte en curso se oculta en el modo guiado; con «Ver todas las herramientas» se ve
+   (apagado y con su porqué). Las partes futuras las oculta el módulo común (data-cx-desde). */
+html:not(.cx-ver-todo) .e4-luego{display:none!important}
+/* ---------- lista de pasos: título llano, término técnico debajo y el paso que toca, marcado ---------- */
+h3.fase,.fase{font-size:.875rem;letter-spacing:.02em;text-transform:none}
+details.paso>summary{padding:10px 14px}
+details.paso>summary .t{font-size:1rem;line-height:1.35}
+details.paso>summary .t small{display:block;font-size:.8125rem;font-weight:500;color:var(--sub);margin-top:1px}
+.marca-ahora{display:none;flex:none;font-size:.8125rem;font-weight:800;letter-spacing:.04em;color:#0b1f2e;background:#FB8500;border-radius:6px;padding:2px 8px;white-space:nowrap}
+#col-pasos details.paso.actual{border:2px solid #FB8500;background:#fff}
+details.paso.actual .marca-ahora{display:inline-block}
+details.paso.actual>summary .chip.pend{display:none}
+.curso h2{font-size:.875rem;letter-spacing:.02em;text-transform:none}
+.curso h3{font-size:1rem}
+.datos h2{font-size:1.0625rem}
+.tarjeta>summary h3{font-size:.9375rem}
+.revisar{margin-top:12px;font-size:.875rem}
+.revisar>summary{cursor:pointer;color:var(--acento2);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.revisar .campo{margin-top:8px}
+.revisar label{font-weight:500}
+/* ---------- alto del lienzo: lo fija interfaz.js (ajustaLienzo) para que la escena, sus cifras y el primer mando entren en la ventana ---------- */
+@media(min-width:1101px){.visor canvas{height:var(--e4-lienzo,clamp(300px,calc(100vh - 340px),780px))}}
+@media(max-width:700px){
+  #dock #d-escena>b{font-size:.8125rem;line-height:1.3;white-space:normal}
+  #dock #d-escena{flex-wrap:wrap;white-space:normal}
+  #d-escena .leyenda-flujo{font-size:.8125rem}
+  #barra.cen-barra button{font-size:.8125rem;padding:4px 7px}
+  .atajos button{font-size:.8125rem}
+  table.compacta{font-size:.8125rem}
+}
+/* Explorar: el visor ocupa la ventana (lo fija el módulo), el lienzo lo llena, el dock baja bajo el HUD y la fila de
+   pestañas y vistas se fija abajo; durante el recorrido, el dock baja bajo la franja de cine y la fila se oculta. */
+html.cx-explorar #visor{border-radius:0}
+html.cx-explorar #visor canvas{height:100%!important;width:100%!important}
+html.cx-explorar #dock{top:76px}
+html.cx-recorrido #dock{top:calc(8.5vh + 12px)}
+@media(max-width:700px){html.cx-recorrido #dock{opacity:0;pointer-events:none}}
+html.cx-explorar .fila-tabs{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 12px;background:rgba(6,11,20,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);justify-content:center}
+html.cx-explorar .fila-tabs #barra.cen-barra{margin-left:0}
+html.cx-explorar .e4-menu{top:auto;bottom:calc(100% + 6px)}
+html.cx-recorrido .fila-tabs{opacity:0;pointer-events:none}
+html.cx-explorar .atajos{display:none!important}
+</style>
+</head>
+<body>
+<header class="cen-cab cab-e4">
+  <div class="cen-fila">
+    <div class="cen-titulo"><span class="cen-ceja">CEN · E4</span><h1 title="Corrección del factor de potencia de una planta y su efecto en el recibo de CFE"><span class="t-largo">Corrección del factor de potencia de una planta y su efecto en el recibo de CFE</span><span class="t-corto">Factor de potencia y recibo de CFE</span></h1><span class="cen-version" id="version"></span></div>
+    <button type="button" class="claro noimp" id="btn-mas" aria-expanded="false" aria-controls="cab-menu" aria-haspopup="true" title="Caso de demostración, cómo se evalúa, exportar e imprimir">Más ▾</button>
+    <span class="salto" aria-hidden="true"></span>
+    <span class="chip" id="chip-variante">Variante: —</span>
+    <div class="cab-acc noimp" id="cab-acc">
+      <form class="cen-id" id="form-id" autocomplete="off"><label for="in-id" class="vh">Identificador del alumno (matrícula o clave)</label><input type="text" id="in-id" maxlength="40" placeholder="Matrícula o clave"><button type="submit" id="btn-variante">Generar mi variante</button></form>
+      <div class="cab-menu" id="cab-menu" role="group" aria-label="Más opciones de la práctica">
+        <button type="button" class="claro" id="btn-como" aria-expanded="false" aria-controls="aviso-inicio">Cómo se evalúa</button>
+        <button type="button" class="claro" id="btn-base" title="Abre la planta de ejemplo: sirve para probar, no se califica ni se guarda">Caso base (demostración)</button>
+        <button type="button" class="claro" id="btn-exportar" aria-label="Exportar expediente (JSON)" title="Guarda en un archivo todo lo que registraste">Exportar mi expediente</button>
+        <button type="button" class="claro" id="btn-imprimir">Imprimir</button>
+      </div>
+    </div>
+  </div>
+  <details class="como" id="aviso-inicio"><summary>Cómo se evalúa</summary><div class="largo"><button type="button" class="claro mini como-x noimp" id="como-x">Cerrar ✕</button>
+      <p><strong>Evaluación local con registro de intentos y huella; sin servidor no garantiza la entrega única.</strong></p>
+      <p><strong>Simulación educativa, sin conexión a internet.</strong> Los datos de la planta, el monto, los costos, la red y el espectro son <strong>datos del caso</strong>, no mediciones ni cotizaciones. El recibo es ilustrativo: el monto es un dato del caso, antes de IVA, y el ahorro no incluye la reducción de pérdidas del transformador. El acuerdo solo define el recargo para el FP atrasado; no dice cómo se registra la reactiva adelantada. El caso base es una demostración guiada con la solución publicada: no se califica ni se guarda.</p>
+      <p>El mismo identificador da siempre los mismos datos. Cada entrega se guarda en este navegador con fecha y hora: si recargas la página o vuelves a generar tu variante, <strong>recuperas lo registrado, bloqueado</strong>; no se reinicia. <strong>Límite declarado:</strong> un paquete local no puede garantizar la entrega única, porque el almacenamiento del navegador se puede borrar; esa garantía requiere la plataforma con servidor. El registro de intentos y la huella del expediente hacen visible el reintento, pero no lo impiden. La huella no es una firma: detecta ediciones casuales, no una falsificación deliberada. Al cerrar se muestran solo las referencias propias de tu variante; no se revela la referencia que coincide entre variantes: su valor se repite, o la referencia de otra variante se aceptaría en la tuya, en el 35 % de los casos o más: de ella ves solo el veredicto. Al revisar un expediente la calificación se recalcula; la nota guardada no se usa. No abras la práctica en varias pestañas: todas comparten el registro, y lo que una entrega o cierra queda bloqueado en las demás. No se puede cerrar sin al menos una entrega. El identificador se normaliza (solo letras y dígitos, en mayúsculas y sin acentos; espacios, guiones, puntos y caracteres invisibles se quitan), y dos identificadores que den la misma variante comparten el registro.</p>
+      <p><strong>Equipo compartido:</strong> hay 200 variantes; si dos alumnos distintos usan este mismo navegador y les toca la misma variante, comparten el registro: el segundo encuentra lo que entregó el primero, bloqueado, y el expediente lista los dos identificadores. En un equipo compartido, cada alumno debe usar su propio perfil de navegador.</p>
+    </div></details>
+  <p class="err" id="id-msg" role="alert"></p>
+  <p class="notice oculto" id="aviso-almacen" role="alert"><strong>Este navegador no deja guardar datos</strong> (navegación privada o almacenamiento bloqueado). La práctica funciona, pero el registro de intentos no se conserva al recargar: el expediente lo dirá.</p>
+  <p class="notice oculto" id="aviso-pestanas" role="alert"></p>
+</header>
+<main>
+  <div class="grid">
+    <div id="col-banco">
+      <section class="panel banco" aria-labelledby="h-banco">
+        <h2 id="h-banco" class="vh">Banco virtual</h2>
+        <div class="fila-tabs">
+          <div class="tabs" role="tablist" aria-label="Zona del banco virtual">
+            <button type="button" role="tab" id="tab-A" aria-controls="zona-A" aria-selected="true" aria-label="A · Banco del motor: banco de pruebas del motor (parte A)">A · Banco del motor</button>
+            <button type="button" role="tab" id="tab-B" aria-controls="zona-B" aria-selected="false" data-cx-desde="B" aria-label="B–E · Cuarto eléctrico: cuarto eléctrico de la planta (partes B a E)">B–E · Cuarto eléctrico</button>
+          </div>
+          <div id="barra" class="noimp"></div>
+        </div>
+        <div class="visor" id="visor">
+          <canvas id="c3d" aria-label="Vista 3D del banco virtual: cuarto eléctrico con celdas de media tensión, transformador, tablero general y banco de capacitores; banco de pruebas del motor. Las lecturas equivalentes están en las tarjetas de abajo." role="img"></canvas>
+          <div class="sinwebgl oculto" id="sinwebgl">Este equipo no tiene WebGL: no se muestra la vista 3D. La práctica sigue completa con los paneles, las tablas y las gráficas de abajo.</div>
+          <div class="cen-dock dock-e4" id="dock" aria-label="Estado de la escena">
+            <span id="d-escena"><b id="d-escena-v">Este es tu banco de pruebas</b><small class="leyenda-flujo" id="d-escena-flujo" hidden title="Las flechas «›» delante de los cables son un dibujo: su ancho y su velocidad siguen a la P y la Q de la barra; no son una medición."><em class="fp">energía útil (P)</em><em class="fq">reactiva (Q)</em><span id="d-escena-res" hidden>contorno ámbar: lugar del banco</span></small></span>
+            <span id="d-instante" class="oculto"><i id="d-instante-et">Motor</i><b id="hud-izq"></b></span>
+            <span id="d-acel" class="acel oculto"><i>Tiempo</i><b id="hud-der" class="oculto"></b></span>
+          </div>
+        </div>
+        <div id="zona-A" role="tabpanel" aria-labelledby="tab-A" class="zona"></div>
+        <div id="zona-B" role="tabpanel" aria-labelledby="tab-B" class="zona oculto"></div>
+        <div class="cen-linea" id="linea-escena"></div>
+      </section>
+    </div>
+    <div id="col-pasos">
+      <section class="panel curso" id="curso" aria-labelledby="h-curso">
+        <div class="curso-fila"><h2 id="h-curso">Tu avance</h2><span class="chip" id="chip-progreso">Pasos registrados: 0 de 12</span></div>
+        <div class="curso-fila"><h3 id="curso-t"></h3><button type="button" class="mini noimp" id="curso-ir">Abrir el paso</button></div>
+        <p class="estado-sesion" id="estado-sesion" role="status" aria-live="polite"></p>
+      </section>
+      <section class="panel datos" id="datos" aria-labelledby="h-datos" data-cx-desde="B"><details id="datos-d"><summary><h2 id="h-datos">Datos del caso</h2><span class="datos-res" id="datos-resumen"></span></summary><div id="datos-cuerpo"></div></details></section>
+      <section id="pasos" aria-label="Desarrollo de la práctica"></section>
+      <section class="panel" id="evaluacion" aria-labelledby="h-eval" data-cx-desde="B">
+        <h2 id="h-eval">Evaluación automática</h2>
+        <div class="linea-sec">La página califica sola cada respuesta; la solución se ve al cerrar. <details><summary>Detalles</summary><p class="hint">No hay docente: cada criterio es una comprobación con tolerancia contra el modelo, para tu variante. Lo que no has registrado cuenta cero. Al registrar ves solo el veredicto de cada comprobación; las cifras de referencia se muestran al cerrar la práctica. El texto libre se conserva en el expediente, pero no se califica.</p></details></div>
+        <div class="fila noimp"><button type="button" id="btn-evaluar">Calcular mi evaluación</button><button type="button" id="btn-cerrar" class="sec">Cerrar la práctica y ver la solución</button></div>
+        <p class="err" id="cerrar-msg" role="alert"></p>
+        <div id="eval-cuerpo" aria-live="polite"></div>
+        <details class="revisar noimp" id="revisar-d"><summary>Comprobar un expediente guardado</summary><div class="campo"><label for="in-revisar">Elige el archivo .json que exportaste. La página te dice si alguien lo cambió después de exportarlo y vuelve a calcular su calificación. No altera tu práctica.</label><input type="file" id="in-revisar" accept="application/json,.json"></div></details>
+        <p class="hint" id="revisar-msg" role="status" aria-live="polite"></p>
+      </section>
+      <details class="panel plegable" id="limites"><summary><h2 id="h-lim">Modelo y límites</h2></summary><div id="limites-cuerpo"></div></details>
+      <details class="panel plegable" id="fuentes-d"><summary><h2>Fuentes y localizadores</h2></summary><footer id="fuentes"></footer></details>
+    </div>
+  </div>
+</main>
+<nav class="atajos noimp" aria-label="Atajos de la página"><button type="button" class="sec" id="ir-instrumento">Ir al instrumento</button><button type="button" class="sec" id="ir-paso">Ir al paso en curso</button><button type="button" class="sec" id="ir-evaluacion" data-cx-desde="B">Ir a la evaluación</button></nav>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body>
+</html>

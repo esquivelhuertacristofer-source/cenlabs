@@ -7,7 +7,9 @@ import typescript from "eslint-config-next/typescript";
 const eslintConfig = [
   {
     // public/labs/vendor: three.js de terceros, servido tal cual (47 errores ajenos).
-    ignores: [".next/**", ".open-next/**", ".wrangler/**", ".export/**", "out/**", "build/**", "next-env.d.ts", "cloudflare-env.d.ts", "public/labs/vendor/**"],
+    // public/estrellas: paquetes ya compilados de las prácticas estrella (three.js incluido,
+    // ~2,6 MB por app.js); los copia scripts/estrellas/copiar-estrellas.mjs y no se editan aquí.
+    ignores: [".next/**", ".open-next/**", ".wrangler/**", ".export/**", "out/**", "build/**", "next-env.d.ts", "cloudflare-env.d.ts", "public/labs/vendor/**", "public/estrellas/**"],
   },
   ...coreWebVitals,
   ...typescript,

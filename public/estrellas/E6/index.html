@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E6 · Caracterización de semiconductores contra su hoja de datos</title>
+<style>
+/* Interfaz de trabajo (estándar del 15/11): letra base de 16 px (antes 15) y ningún texto por debajo de 13 px; rótulos,
+   botones y opciones en 14 px o más; texto corriente en 15 px o más; cifras de los indicadores en 20 px o más. Todo va en
+   rem: a partir de 1600 px de ancho la letra base sube a 18 px (+12,5 %) y la interfaz entera crece con ella. */
+:root{--tinta:#16222e;--suave:#4f606d;--fondo:#e7ecf0;--panel:#fff;--borde:#d3dce4;--acento:#0d6f79;--acento2:#0a565e;--ambar:#9a5800;--ok:#1b7447;--mal:#b3261e;--noche:#0f1924;--noche2:#16222f;--noche3:#1d2c3b;--linea-osc:#2c4156;--texto-osc:#e6edf3;--suave-osc:#a9bccb;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;color:var(--tinta);background:var(--fondo)}
+@media (min-width:1600px){:root{font-size:18px}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);line-height:1.45}
+h2{font-size:1.12rem;margin:0 0 8px}
+h3{font-size:1rem;margin:14px 0 6px}
+p{margin:6px 0}
+a{color:var(--acento2)}
+/* ---------- cabecera en UNA fila (a 1366 px): título corto, los cuatro botones comunes, la matrícula y «Más» ---------- */
+.cab.cen-cab{position:relative;z-index:8;padding-left:max(14px,calc((100vw - 2240px) / 2 + 14px));padding-right:max(14px,calc((100vw - 2240px) / 2 + 14px))}
+.cab .cen-fila{flex-wrap:nowrap;gap:8px 12px}
+.cab .cen-titulo{flex:1 1 auto;min-width:0;flex-wrap:nowrap;align-items:center;gap:2px 10px}
+.cab .cen-titulo h1{font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.cab .cen-ceja{display:none;font-size:.875rem;text-transform:none;letter-spacing:.06em}
+@media (min-width:1800px){.cab .cen-ceja{display:inline}}
+.cab #cx-cab{flex:0 0 auto;flex-wrap:nowrap}
+.cab .cen-id{flex:0 0 auto;flex-wrap:nowrap}
+.cab .cen-id label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.cab .cen-id input{width:9.5rem;font-size:.9375rem}
+.cab .cen-id button{font-size:.9375rem;white-space:nowrap}
+.cab .cen-version{font-size:.875rem}
+.mas{position:relative;flex:0 0 auto;margin:0}
+/* el panel cerrado lleva [hidden] (display:none): así innerText de lo que guarda sigue devolviendo su texto a las pruebas */
+.cab .mas>button{cursor:pointer;font-weight:700;font-size:.9375rem;padding:6px 12px;border:1px solid rgba(255,255,255,.3);border-radius:999px;color:#e6edf3;white-space:nowrap;background:rgba(255,255,255,.06)}
+.cab .mas>button::after{content:" ▾"}
+.cab .mas>button[aria-expanded=true]{background:#0f5961;border-color:#8fd3da}
+.mas-panel[hidden]{display:none}
+.mas-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(36rem,calc(100vw - 28px));background:#101c28;border:1px solid #2c4156;border-radius:12px;padding:12px 14px;box-shadow:0 14px 40px rgba(0,0,0,.45);display:grid;gap:10px;max-height:75vh;overflow:auto}
+.mas-panel .mas-fila{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.mas-panel .cen-integridad{margin:0;font-size:.9375rem}
+.cab .chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.chip{font-size:.875rem;background:#10222e;border:1px solid #2e5566;color:#c4ecef;border-radius:999px;padding:2px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip.reg{background:transparent;border-color:#35506a;color:#a9bccb}
+#integridad #limiteDeclarado{margin:0;font-size:.9375rem;line-height:1.5}
+#avisoId:empty{display:none}#avisoId{padding:0 14px;max-width:2240px;margin:auto}
+main{display:grid;grid-template-columns:minmax(0,62fr) minmax(360px,38fr);gap:12px;padding:10px 14px 24px;max-width:2240px;margin:auto;align-items:start}
+.col-izq,.col-der{display:flex;flex-direction:column;gap:12px;min-width:0}
+/* La escena manda (estándar visual 3.1): el lienzo solo lleva el 3D; la barra de vistas y el dock van debajo */
+.escena-card{background:var(--noche);border-radius:14px;padding:8px 10px 10px;color:var(--texto-osc)}
+.escena{position:relative;border-radius:10px;overflow:hidden;background:#2a333b}
+#lienzo3d{display:block;width:100%;height:clamp(340px,calc(100vh - 22.5rem),920px);touch-action:none}
+.aviso3d{padding:26px;color:#ffd08a}
+.leyenda{font-size:.875rem;color:var(--suave-osc);margin:6px 2px 0}
+.leyenda b{color:#d7e3ec;font-weight:600}
+/* piezas del kit que venían por debajo de 13 px: pastilla de la demostración, barra de vistas, marcador y recuadro del corte */
+#escena3d .cen-pastilla{font-size:.9375rem;letter-spacing:.01em;line-height:1.3;white-space:normal;max-width:min(27rem,calc(100% - 20px));border-radius:12px;padding:7px 12px}
+body.cen-r2 .cen-barra button{font-size:.875rem}
+body.cen-r2 .cen-dock>span>i{font-size:.875rem}
+body.cen-r2 .cen-dock>span>b{font-size:1.3rem}
+body.cen-r2 .cen-dock-cab{font-size:.875rem;text-transform:none;letter-spacing:.01em;color:#ffe19a}
+body.cen-r2 .cen-rotulo{font-size:.875rem}
+#escena3d .e6-det-pie,#escena3d .e6-det.estrecho .e6-det-pie{font-size:.8125rem}
+#escena3d .e6-det.estrecho .e6-det-pie{white-space:nowrap;text-overflow:ellipsis}
+#btnDemo{border:1px solid var(--linea-osc);border-radius:8px;background:#0c1620}
+#btnDemo[aria-pressed=true]{background:#3a3210;color:#ffe19a;border-color:#6a5a1c}
+.panel{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:14px 16px}
+/* «Empieza aquí»: la única acción de la primera parte */
+.inicio{border:2px solid var(--acento);box-shadow:0 6px 22px rgba(13,111,121,.16)}
+.inicio h2{font-size:1.3rem;color:var(--acento2)}
+.inicio p{font-size:1rem}
+.inicio .inicio-fila{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:8px}
+.inicio label{font-size:.9375rem;font-weight:600;color:var(--tinta)}
+.inicio input{font-size:1.1rem;padding:9px 10px}
+.inicio button{font-size:1.05rem;padding:11px 18px}
+#rutaCerrada{font-size:.9375rem;margin:0}
+#sigParte .alerta{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:12px 0 0}
+#sigParte button{font-size:.9375rem}
+.porque{font-size:.9375rem;color:#3a4854;margin:6px 0 0}
+.porque[hidden]{display:none}
+/* banco (E6-1.5): panel claro como el resto; la lectura sigue siendo la pantalla oscura del instrumento */
+#banco h3{color:var(--acento2);font-size:.9375rem;letter-spacing:.02em;margin:12px 0 2px}
+.pulso-oculto{display:none}
+/* subíndices de las etiquetas: el guion bajo sigue en el texto (lo citan el manual y las pruebas) pero no se ve */
+.sb{font-size:0}.fase sub,#lecturas sub{vertical-align:sub}
+/* ningún subíndice ni superíndice baja de 13 px */
+body sub,body sup,body label sub,#tablaA0 sub,#maximos sub,#escena3d .e6-det-pie sub,#dock sub{font-size:max(.8125rem,.8em);line-height:0}
+#btnIrA0{width:100%;margin-top:6px}
+/* E6-1.6 (crítica r2, 3.7.2): «Ejecutar la medición» queda bloqueado hasta A0; el motivo es el botón primario de debajo */
+#btnMedir:disabled{background:#dfe6eb;color:#3a4854;border:1px dashed #9aa9b5}
+/* E6-1.6 (crítica r2, 3.7.3): «Escala de corriente» no se separa de su desplegable */
+.tabs .grupo-escala{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+/* dispositivo y prueba a todo el ancho: sus opciones (citadas por el manual) caben sin cortarse */
+#banco>.rej{grid-template-columns:minmax(0,1fr)}
+#detVariante>summary h2,#detMaximos>summary h2{display:inline;font-size:1rem;margin:0}#detVariante table{margin-top:6px}#detVariante th{text-align:left;color:var(--suave);font-weight:600}
+/* siete fases (el kit prevé seis) en dos filas estables de cuatro, sin cortar ningún nombre, y la pestaña activa en el
+   acento (el kit la pinta del color del panel y aquí su texto es blanco). Con body para ganar a la hoja del kit */
+body.cen-r2 .fases{grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}
+body.cen-r2 .fases button{padding:8px 3px;text-align:center;font-size:.875rem}
+body.cen-r2 .fases button[aria-selected=true]{background:var(--acento);color:#fff}
+.fases button.cx-nv-cerrado::before,.tabs button.cx-nv-cerrado::before{margin-right:2px;font-size:.8em}
+@media (max-width:1599px){#escena3d .e6-det-pal{display:none}}
+/* una pestaña con candado se sigue leyendo (el módulo común la deja al 62 %): texto oscuro sobre gris claro */
+.fases button.cx-nv-cerrado,.tabs button.cx-nv-cerrado,body.cen-r2 .fases button.cx-nv-cerrado[aria-selected=true]{opacity:1!important;background:#e9eef2;color:#3a4854;border:1px dashed #9aa9b5}
+@media (max-width:600px){body.cen-r2 .fases{display:flex;flex-wrap:wrap;overflow:visible}body.cen-r2 .fases button{flex:1 1 auto;min-height:40px}}
+.osc{background:var(--noche2);border-color:#29394a;color:var(--texto-osc)}
+.osc h2{color:#fff}
+.osc h3{color:#8fd3da;font-size:.9375rem;letter-spacing:.02em;margin:12px 0 2px}
+.osc label{color:#b9cad6}
+.osc input[type=text],.osc select{background:#0f1924;color:#e6edf3;border-color:#3a4f63}
+.osc input:disabled,.osc select:disabled{background:#1a2632;color:#c3cfda;border-style:dashed}
+.osc .pista{color:#a9bccb}
+.osc .alerta{background:#33210b;border-color:#e3a54a;color:#ffe2b0}
+.osc .alerta.roja{background:#3a1512;border-color:#ff6b61;color:#ffd5d1}
+.osc .alerta.ok{background:#0f2b1d;border-color:#4fd08a;color:#c9f3dc}
+.osc button.sec{background:#243547;color:#e6edf3}
+label{font-size:.9rem;color:var(--suave);display:block;margin:7px 0 3px}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input:not([type]),select,textarea{width:100%;padding:6px 8px;background:#fff;border:1px solid #8697a5;border-radius:6px;color:var(--tinta);min-width:0}
+textarea{min-height:58px;resize:vertical}
+input:disabled,select:disabled,textarea:disabled{opacity:1;color:#3a4854;background:#eef2f5;border-style:dashed;cursor:not-allowed}
+button{background:var(--acento);color:#fff;border:0;border-radius:7px;padding:8px 13px;font-weight:600;cursor:pointer}
+button:hover{background:var(--acento2)}
+button.sec{background:#e3ebf0;color:#1d3445;font-weight:550}
+button.peligro{background:#8d2a22;color:#fff}
+button:disabled{opacity:1;background:#c9d3da;color:#2f3d48;cursor:not-allowed}
+.osc button:disabled{background:#2b3948;color:#c3cfda}
+:focus-visible{outline:3px solid #f0a000;outline-offset:2px}
+.rej{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px}
+.rej3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 10px;align-items:end}
+.fases{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.fases button{background:#e3ebf0;color:#1d3445;padding:6px 10px;font-weight:600;border:1px solid transparent;font-size:.9rem}
+.fases button[aria-selected=true]{background:var(--acento);color:#fff}
+.fase{display:none}.fase.activa{display:block}
+.fase ol{padding-left:20px;margin:6px 0}.fase li{margin:5px 0}
+.pista{font-size:.9375rem;color:var(--suave)}
+.nota{font-size:.9375rem;background:#eef6f7;border-left:3px solid var(--acento);padding:7px 9px;border-radius:0 6px 6px 0;margin:8px 0}
+.alerta{font-size:.9375rem;background:#fff5e2;border-left:4px solid #d58a1c;padding:8px 10px;border-radius:0 6px 6px 0;margin:8px 0;color:#4a2d00}
+.alerta.roja{background:#fdecea;border-color:var(--mal);color:#5c1510}
+.alerta.ok{background:#e8f5ee;border-color:var(--ok);color:#0e3d24}
+.aviso-auto{font-size:.9rem;color:#8a4e00;margin:6px 0 0}
+/* lectura del instrumento y marcador de máximos (cifras de la SMU: fuera del 3D) */
+.lect{font-variant-numeric:tabular-nums;background:#071019;border:1px solid #20394a;border-radius:9px;padding:10px 12px;min-height:64px;font-size:.9375rem;color:#d6e4ee;margin-top:10px}
+.lect b{color:#9ff5e7}
+.lect .gr{font-family:var(--mono);font-size:1.3rem;color:#b9ffd9;font-weight:600}
+.lect .alerta{margin:4px 0}
+.lect.antigua{opacity:.6;border-style:dashed}
+.lect.antigua::before{content:"Lectura ANTERIOR: la última orden no se ejecutó.";display:block;color:#ffb547;font-weight:600;margin-bottom:4px}
+#maximos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;padding:0}
+#maximos div{background:#fff;border:1px solid var(--borde);border-radius:7px;padding:6px 9px;font-size:.875rem;font-variant-numeric:tabular-nums;line-height:1.3}
+#maximos span{display:block;color:var(--suave)}#maximos span.sb{display:inline}
+#maximos b{color:var(--tinta);font-size:1.25rem}
+#maximos i{display:block;height:6px;border-radius:3px;background:#dfe6ec;margin-top:5px;overflow:hidden;font-style:normal}
+#maximos i u{display:block;height:100%;background:#4fd08a;text-decoration:none}
+#btnMedir{width:100%;margin-top:10px;padding:11px 13px;font-size:1.05rem}
+.tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;align-items:center}
+.tabs button{background:#e3ebf0;color:#1d3445;padding:6px 10px;border:1px solid transparent;font-weight:600;font-size:.9rem}
+.tabs button[aria-selected=true]{background:#1d3445;color:#fff}
+.tabs label{margin:0}
+.vista{display:none;min-width:0;max-width:100%;overflow-x:auto}.vista.activa{display:block}
+/* los lienzos se dibujan ampliados (lienzos.js, prepara): su letra de 11–12 px se ve de 14–15 px */
+.vista canvas{width:100%;height:28rem;display:block;border-radius:8px;background:#0a1118}
+.desliz{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{padding:5px 7px;border-bottom:1px solid #e1e8ed;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--suave);font-weight:600}
+.osc th,.osc td{border-color:#26384a}.osc th{color:#a9bccb}
+td select{padding:3px 4px;font-size:.9rem;min-width:118px}
+.sem{display:inline-block;width:11px;height:11px;border-radius:50%;background:#8a96a1;margin-right:6px;vertical-align:-1px}
+.sem.C{background:#2fae5f}.sem.N{background:#d2392f}.sem.I{background:#e8a317}
+fieldset{border:1px solid var(--borde);border-radius:8px;margin:8px 0;padding:8px 10px}
+legend{font-size:.9375rem;color:var(--suave);padding:0 5px}
+.op{display:flex;gap:7px;align-items:flex-start;margin:4px 0;font-size:.9375rem;color:var(--tinta)}
+.op input{margin-top:3px;flex:none}
+details{margin:8px 0}summary{cursor:pointer;font-weight:600}
+.col-der>details.panel{margin:0}
+details.mini{margin:6px 0}details.mini>summary{font-size:.9rem;font-weight:600;color:var(--acento2)}
+.osc details.mini>summary{color:#8fd3da}
+#tablaMax td,#tablaMax th{text-align:left;white-space:normal;font-size:.875rem}
+.dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.dos>*{min-width:0}
+#limites>summary{font-size:1rem}
+#limites ul{margin:8px 0 0;padding-left:18px}
+.total{font-size:1.7rem;font-weight:750;color:var(--acento2)}
+footer{padding:0 14px 30px;max-width:2240px;margin:auto;font-size:.9rem;color:var(--suave)}
+footer li{margin:3px 0;overflow-wrap:anywhere}
+.oculto{display:none!important}
+.solo-imp{display:none}
+#resumenVista{margin:8px 0 0}
+@media (max-width:1279px){.rej3.banco3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1100px){
+  main{display:flex;flex-direction:column}
+  .col-izq,.col-der{display:contents}
+  .escena-card{order:1}#inicio,#detVariante,#detMaximos,#banco{order:2}#desarrollo{order:3}#panelVistas{order:4}#limites{order:5}
+  main>*,.col-izq>*,.col-der>*{min-width:0;max-width:100%;box-sizing:border-box}
+  #lienzo3d{height:min(56vh,88vw);min-height:300px}
+  .rej3.banco3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cab .cen-fila{flex-wrap:wrap}.cab .cen-titulo{flex-wrap:wrap;flex:1 1 100%}.cab .cen-titulo h1{white-space:normal}.cab #cx-cab{flex-wrap:wrap}.cab .cen-id{flex:1 1 auto;flex-wrap:wrap}
+}
+@media (max-width:600px){#lienzo3d{height:56svh;min-height:300px}}
+@media (max-width:600px){.cab .cen-titulo h1{font-size:1rem}.cab .cen-id input{flex:1 1 120px;width:auto}main{padding:8px}footer{padding:0 10px 24px}.rej3,.rej3.banco3{grid-template-columns:repeat(2,minmax(0,1fr))}.dos{grid-template-columns:minmax(0,1fr)}.vista canvas{height:360px;width:680px;min-width:680px}select,input[type=text],button{min-height:40px}td select{min-height:40px}#maximos{grid-template-columns:minmax(0,1fr)}.panel{padding:12px}.inicio .inicio-fila{grid-template-columns:minmax(0,1fr)}}
+@media print{
+  :root{color:#000;background:#fff;font-size:15px}body{background:#fff}
+  .cab{background:#fff!important;color:#000!important;border:0}.cab .cen-ceja,.cab .chip{color:#000}
+  .mas>button{display:none!important}.mas-panel,.mas-panel[hidden]{display:block;position:static;background:#fff;border:0;box-shadow:none;padding:0;width:auto;max-height:none}
+  main{display:block;padding:0}.col-izq,#banco,.fases,.cen-id button,.no-imp,footer,#integridad details{display:none!important}
+  .solo-imp{display:block!important}.desliz{overflow:visible}table{font-size:10px}th,td{white-space:normal;color:#000;border-color:#999}
+  .panel{border:0;background:#fff;padding:0}.fase{display:block!important;break-inside:avoid;margin-bottom:10px}
+  input,select,textarea{border:1px solid #777!important;background:#fff!important;color:#000!important}
+  .nota,.alerta,.lect{background:#fff!important;color:#000!important;border:1px solid #999}
+  h3,label,.pista,th,legend,.chip{color:#000!important}.chip{background:#fff;border-color:#777}
+  .total{color:#000}
+}
+/* Experiencia (15/11, _comun/experiencia.js): en «Explorar» la escena ocupa la ventana; el lienzo la llena y la barra de vistas
+   queda abajo, sobre la escena (se oculta durante el recorrido de cámara) */
+html.cx-explorar #lienzo3d{height:100%!important;width:100%!important;min-height:0!important}
+html.cx-explorar #barraVistas{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 10px;background:rgba(6,11,20,.74);backdrop-filter:blur(8px)}
+html.cx-explorar #escena3d{background:#1d252d}
+html.cx-recorrido #barraVistas{opacity:0;pointer-events:none}
+/* «Comenzar a trabajar» por encima de la barra de vistas (interfaz.js mide su alto en --e6-barra al entrar en Explorar) */
+html.cx-explorar #cx #cx-trabajar{bottom:calc(var(--e6-barra,56px) + 18px)!important}
+</style>
+</head>
+<body>
+<header class="cab cen-cab">
+  <div class="cen-fila">
+    <div class="cen-titulo"><span class="cen-ceja">CEN · Práctica estrella</span><h1 title="Caracterización de dispositivos semiconductores contra su hoja de datos">E6 · Semiconductores contra su hoja de datos</h1></div>
+    <div class="ident cen-id"><label for="idAlumno">Identificador del alumno (matrícula)</label><input id="idAlumno" type="text" maxlength="40" autocomplete="off" value="REFERENCIA"><button id="btnId" type="button">Generar mi variante</button></div>
+    <div class="mas" id="masCab"><button type="button" id="btnMas" aria-expanded="false" aria-controls="masPanel" title="Tu variante, el registro de intentos, cómo se evalúa y la versión">Más</button>
+    <div class="mas-panel" id="masPanel" hidden>
+  <div class="mas-fila"><div id="chips" class="chips" aria-live="polite"></div><span class="chip reg" id="intentos" aria-live="polite"></span><span class="cen-version" id="version"></span></div>
+  <div id="integridad" class="cen-integridad"><span>Todo queda en este equipo, sin servidor.</span> <details id="detIntegridad"><summary>Cómo se evalúa y qué no garantiza</summary><div><p id="limiteDeclarado"><b>Límite declarado.</b> Esta práctica corre en tu equipo, sin servidor. Guarda aquí mismo tu avance, tus bloqueos y un registro de intentos (fecha y hora de cada recarga, regeneración y entrega), que va completo en el expediente junto con su huella SHA-256. La huella no es una firma: detecta ediciones casuales del archivo, no una falsificación deliberada (quien edite puede recalcularla). Tu identificador se reduce a letras y dígitos en mayúsculas (sin espacios, acentos, guiones ni caracteres invisibles): todas sus grafías comparten variante y registro. Si abres la práctica en varias pestañas, todas comparten el registro: lo que una entrega o cierra bloquea a las demás. Un paquete local <b>no puede garantizar la entrega única</b>: borrar los datos del navegador reinicia el registro. Garantizarla exige un servidor.</p></div></details></div>
+    </div></div>
+  </div>
+</header>
+<div id="avisoId" aria-live="assertive"></div>
+<div id="avisoAlmacen" aria-live="polite"></div>
+<div id="avisoPestana" aria-live="assertive"></div>
+
+<main>
+  <div class="col-izq">
+    <section class="escena-card no-imp" aria-label="Banco de caracterización en 3D">
+      <div class="escena" id="escena3d">
+        <canvas id="lienzo3d" role="img" aria-label="Banco de caracterización en 3D: rack con la SMU de dos canales y la de un canal, cables Kelvin, recinto de aire con el dispositivo en su zócalo, cámara termográfica en su brazo con su monitor, carrete y bandeja con la muestra"></canvas>
+        <div id="sinWebgl" class="aviso3d" hidden>Este navegador no ofrece WebGL: la vista 3D no está disponible. La práctica funciona igual con el banco, las lecturas y las gráficas.</div>
+      </div>
+      <div id="barraVistas"></div>
+      <div id="dock" aria-label="Instrumentos del banco"></div>
+      <p class="leyenda" id="leyenda"></p>
+    </section>
+    <section class="panel claro no-imp" id="panelVistas" data-cx-desde="A" aria-label="Gráficas, corte, cámara, lote y registro">
+      <div class="tabs" role="tablist" aria-label="Vistas">
+        <button type="button" role="tab" data-vista="curvas" data-cx-desde="A" aria-selected="true">Curvas I-V</button>
+        <button type="button" role="tab" data-vista="pulso" data-cx-desde="B" aria-selected="false">Pulso</button>
+        <button type="button" role="tab" data-vista="corte" data-cx-desde="C" aria-selected="false">Esquema del corte</button>
+        <button type="button" role="tab" data-vista="camara" data-cx-desde="C" aria-selected="false">Imagen térmica 2D</button>
+        <button type="button" role="tab" data-vista="lote" data-cx-desde="D" aria-selected="false">Lote y regla</button>
+        <button type="button" role="tab" data-vista="registro" data-cx-desde="A" aria-selected="false">Registro</button>
+        <span style="flex:1"></span>
+        <span class="grupo-escala"><label for="escalaY" style="margin:0">Escala de corriente</label>
+        <select id="escalaY" style="width:auto"><option value="lin">lineal</option><option value="log">logarítmica</option></select></span>
+        <button type="button" class="sec" id="btnLimpiar">Limpiar curvas</button>
+      </div>
+      <div class="vista activa" id="vista-curvas"><canvas id="cvCurvas" role="img" aria-label="Gráfica de las curvas medidas" aria-describedby="resumenVista"></canvas></div>
+      <div class="vista" id="vista-pulso"><canvas id="cvPulso" role="img" aria-label="Forma de onda del pulso con el retardo y la ventana de medida" aria-describedby="resumenVista"></canvas></div>
+      <div class="vista" id="vista-corte"><canvas id="cvCorte" role="img" aria-label="Corte esquemático del dispositivo" aria-describedby="resumenVista"></canvas></div>
+      <div class="vista" id="vista-camara"><canvas id="cvCamara" role="img" aria-label="Imagen de la cámara termográfica: carcasa del dispositivo" aria-describedby="resumenVista"></canvas></div>
+      <div class="vista" id="vista-lote"><canvas id="cvLote" role="img" aria-label="Las 10 piezas frente a los límites y la banda de guarda" aria-describedby="resumenVista"></canvas></div>
+      <div class="vista" id="vista-registro"><div class="desliz"><table id="tablaReg"><thead><tr><th>#</th><th>Prueba</th><th>Condición</th><th>Modo</th><th>Hilos</th><th>Lectura</th><th>Tj calc.</th><th>Estado</th></tr></thead><tbody></tbody></table></div></div>
+      <p class="pista" id="resumenVista" aria-live="polite"></p>
+    </section>
+
+    <details class="panel claro no-imp" id="limites" data-cx-desde="A"><summary>Qué simula este banco y qué no (modelo y límites)</summary>
+      <div class="dos">
+        <ul class="pista" id="limitesA"></ul>
+        <ul class="pista" id="limitesB"></ul>
+      </div>
+    </details>
+  </div>
+  <div class="col-der">
+      <section class="panel inicio no-imp" id="inicio" aria-label="Empieza aquí">
+        <h2>Empieza aquí: genera tu variante</h2>
+        <p>Cada matrícula recibe su propio laboratorio y sus propias 10 piezas. Escribe la tuya y pulsa el botón. Para solo probar, deja REFERENCIA.</p>
+        <div class="inicio-fila">
+          <div><label for="idInicio">Tu matrícula</label><input id="idInicio" type="text" maxlength="40" autocomplete="off" value="REFERENCIA"></div>
+          <button type="button" id="btnInicio">Generar mi variante</button>
+        </div>
+      </section>
+      <details class="panel claro no-imp" id="detVariante" data-cx-desde="A0"><summary><h2>Datos de tu variante</h2></summary><div class="desliz"><table id="tablaVariante" aria-label="Datos de tu variante"></table></div></details>
+      <details class="panel claro no-imp" id="detMaximos" data-cx-desde="A0"><summary><h2>Ficha de máximos de las tres hojas</h2></summary>
+        <div class="desliz"><table id="tablaMax" aria-label="Máximos absolutos y datos térmicos de las tres hojas"></table></div>
+      </details>
+      <section class="panel no-imp" id="banco" data-cx-desde="A" aria-label="Banco de prueba: SMU y recinto">
+        <h2>Banco de prueba</h2>
+        <div class="rej">
+          <div><label for="selDut">Dispositivo</label><select id="selDut"></select></div>
+          <div><label for="selPrueba">Prueba</label><select id="selPrueba"></select></div>
+        </div>
+        <div class="rej3" id="params"></div>
+        <p class="aviso-auto" id="avisoAuto" aria-live="polite"></p>
+        <h3>Fuente de medida (SMU) y recinto</h3>
+        <div class="rej3 banco3">
+          <div data-cx-desde="D"><label for="c_inst">Instrumento</label><select id="c_inst"><option value="2636B">2636B (2 canales)</option><option value="2450">2450 (1 canal)</option></select></div>
+          <div><label for="c_modo">Modo</label><select id="c_modo"><option value="">— elige —</option><option value="pulso">Pulso</option><option value="cd">CD</option></select></div>
+          <div><label for="c_hilos">Conexión</label><select id="c_hilos"><option value="2">2 hilos</option><option value="4">4 hilos (Kelvin)</option></select></div>
+          <div data-cx-desde="B"><label for="c_ancho">Ancho del pulso (µs)</label><input id="c_ancho" type="text" inputmode="decimal" value="295"></div>
+          <div data-cx-desde="B"><label for="c_periodo">Periodo (ms)</label><input id="c_periodo" type="text" inputmode="decimal" value="15"></div>
+          <div data-cx-desde="B"><label for="c_retardo">Retardo de medida (µs)</label><input id="c_retardo" type="text" inputmode="decimal" value="120"></div>
+          <div data-cx-desde="B"><label for="c_nplc">Apertura (NPLC)</label><input id="c_nplc" type="text" inputmode="decimal" value="0,01"></div>
+          <div data-cx-desde="B"><label for="c_limV">Límite de tensión (V)</label><input id="c_limV" type="text" inputmode="decimal" value="20"></div>
+          <div data-cx-desde="B"><label for="c_limI">Límite de corriente (mA)</label><input id="c_limI" type="text" inputmode="decimal" value="500"></div>
+          <div><label for="c_rango">Rango de medida de V</label><select id="c_rango"><option value="2" selected>2 V</option><option value="20">20 V</option><option value="200">200 V</option></select></div>
+          <div><label for="c_tset">Consigna del recinto (°C)</label><input id="c_tset" type="text" inputmode="decimal" value="25"></div>
+          <div data-cx-desde="D"><label for="c_rec02">Estabilidad del recinto</label><select id="c_rec02"><option value="0">la de la variante</option><option value="1">mejorada: ±0,2 K</option></select></div>
+        </div>
+        <div id="planPulso" class="pista" aria-live="polite"></div>
+        <details class="mini" data-cx-desde="B"><summary>Límites de fuente</summary><p class="pista">El límite de tensión y el de corriente actúan sobre el canal de potencia (drenaje, colector o ánodo). Si la fuente llega a uno de ellos, la lectura lo dice: «LÍMITE de fuente». Por encima de 100 mA la SMU solo trabaja hasta 20 V. En el rango de 200 V, el 2636B real exige cerrar el enclavamiento de seguridad (<i>interlock</i>) del accesorio de prueba.</p></details>
+        <button type="button" id="btnMedir">Ejecutar la medición</button>
+        <button type="button" id="btnIrA0" hidden>Primero, la fase A0: ir a registrar el montaje</button>
+        <p class="porque" id="porqueMedir" hidden></p>
+        <div id="bloqueo" aria-live="assertive"></div>
+        <div class="lect" id="lecturas" aria-live="polite">Sin lecturas todavía.</div>
+        <div class="max cen-dock" id="maximos" aria-label="Indicador de máximos absolutos"></div>
+      </section>
+
+  <section class="panel claro" aria-label="Desarrollo de la práctica" id="desarrollo">
+    <h2>Desarrollo</h2>
+    <div class="fases no-imp" role="tablist" aria-label="Fases">
+      <button type="button" role="tab" data-fase="A0" data-cx-desde="A0" aria-selected="true">A0 · Montaje</button>
+      <button type="button" role="tab" data-fase="A" data-cx-desde="A" aria-selected="false">A · Diodo</button>
+      <button type="button" role="tab" data-fase="B" data-cx-desde="B" aria-selected="false">B · BJT</button>
+      <button type="button" role="tab" data-fase="C" data-cx-desde="C" aria-selected="false">C · MOSFET</button>
+      <button type="button" role="tab" data-fase="D" data-cx-desde="D" aria-selected="false">D · Lote</button>
+      <button type="button" role="tab" data-fase="F" data-cx-desde="F" aria-selected="false">Dictamen</button>
+      <button type="button" role="tab" data-fase="E" data-cx-desde="E" aria-selected="false">Evaluación</button>
+    </div>
+    <p class="pista no-imp" id="rutaCerrada">Las partes se abren una por una. La primera se abre cuando generas tu variante.</p>
+
+    <div class="fase activa" id="fase-A0" data-cx-desde="A0">
+      <h3>A0 · Predice y registra tu montaje (30 min)</h3>
+      <p>Llegó un carrete de 2000 MOSFET 2N7000 y tomaste <b>10 piezas</b>. Antes de medirlas, demuestra con el diodo y el transistor (BJT) que tu montaje no pasa de ningún <b>máximo absoluto</b>: el valor que, si se excede, daña la pieza.</p>
+      <p><b>Tu predicción:</b> ¿cada condición se puede medir en continua (CD) o hay que medirla con pulsos cortos?</p>
+      <div class="desliz"><table id="tablaA0"><thead><tr><th>Condición de prueba</th><th>¿CD o pulso?</th></tr></thead><tbody></tbody></table></div>
+      <label for="canalControl">Asignación de canales del 2636B</label>
+      <select id="canalControl">
+        <option value="">— elige —</option>
+        <option value="A">Canal A en compuerta o base; canal B en drenaje o colector</option>
+        <option value="B">Canal B en compuerta o base; canal A en drenaje o colector</option>
+      </select>
+      <button type="button" id="btnA0" style="margin-top:10px">Registrar la predicción y el montaje</button>
+      <div id="msgA0" aria-live="polite"></div>
+      <p class="pista">Antes de registrar, lee los máximos de las tres hojas: están arriba, en «Ficha de máximos de las tres hojas». El banco no mide hasta que registres esta tabla, y al registrarla ya no se puede cambiar.</p>
+    </div>
+
+    <div class="fase" id="fase-A" data-cx-desde="A">
+      <h3>A · Mide el diodo 1N4007 (50 min)</h3>
+      <ol>
+        <li>Mide V_F a 1 A <b>en pulso</b> con el plan de pulso: primero a 2 hilos y luego a 4. El banco pone el <b>rango de 2 V</b> para V_F, V_CE(sat) y V_DS: es el más bajo de los tres rangos que modela este banco (2, 20 y 200 V) que contiene esas lecturas. El 2636B real tiene además un rango de 200 mV, que aquí no se modela.</li>
+        <li>Repite en CD sostenida a 4 y a 2 hilos. Explica por qué los dos errores se compensan en parte.</li>
+        <li>Mide en pulso y a 4 hilos a 10 mA, 100 mA, 0,3 A y 1 A (o usa «Barrido I-V») y calcula:
+          <div class="nota">n_ap = [V(100 mA) − V(10 mA)] / (φt·ln 10), con φt = <span data-m="phit"></span> mV a 25 °C<br>R_s,ap = [V(1 A) − V(0,3 A) − n_ap·φt·ln(1/0,3)] / 0,7 A</div></li>
+        <li><b>Predicción:</b> ¿cuánto cambia V_F a 1 A si el recinto sube 50 K? Regístrala y después mide con el recinto a 75 °C.</li>
+      </ol>
+      <div class="rej">
+        <div><label for="p_dvf50">Predicción de ΔV_F a +50 K (mV)</label><input id="p_dvf50" type="text" inputmode="decimal"></div>
+        <div style="align-self:end"><button type="button" class="sec" id="btnPredA">Registrar la predicción</button></div>
+      </div>
+      <div id="msgPredA" aria-live="polite"></div>
+      <h3>Escribe tus resultados del diodo</h3>
+      <div class="rej">
+        <div><label for="r_vf">V_F (1 A, pulso, 4 hilos) (V)</label><input id="r_vf" type="text" inputmode="decimal"></div>
+        <div><label for="r_n">n aparente</label><input id="r_n" type="text" inputmode="decimal"></div>
+        <div><label for="r_rs">R_s aparente (mΩ)</label><input id="r_rs" type="text" inputmode="decimal"></div>
+        <div><label for="r_dvf50">ΔV_F medido a +50 K (mV)</label><input id="r_dvf50" type="text" inputmode="decimal"></div>
+      </div>
+    </div>
+
+    <div class="fase" id="fase-B" data-cx-desde="B">
+      <h3>B · Mide el transistor (BJT) P2N2222A (40 min)</h3>
+      <ol>
+        <li>Traza las curvas de salida: el canal de control impone I_B y el de potencia barre V_CE.</li>
+        <li>Mide hFE con I_C = 150 mA y V_CE = 10 V (fila con nota 1: pulso). El banco barre I_B hasta que I_C llega al objetivo: hFE = I_C / I_B.</li>
+        <li>Mide V_CE(sat) con I_C = 150 mA e I_B = 15 mA, en pulso.</li>
+        <li>Compara con la hoja: hFE de 100 a 300; V_CE(sat) ≤ 0,3 V. En CD solo los puntos de 0,1 a 10 mA, comprobando antes P frente a P_D.</li>
+      </ol>
+      <div class="rej">
+        <div><label for="r_hfe">hFE (150 mA; 10 V; pulso)</label><input id="r_hfe" type="text" inputmode="decimal"></div>
+        <div><label for="r_vcesat">V_CE(sat) (150/15 mA) (mV)</label><input id="r_vcesat" type="text" inputmode="decimal"></div>
+      </div>
+    </div>
+
+    <div class="fase" id="fase-C" data-cx-desde="C">
+      <h3>C · Mide el MOSFET 2N7000 de referencia (55 min)</h3>
+      <ol>
+        <li>V_GS(th) por corriente constante: compuerta unida al drenaje, I_D = 1 mA (condición de la hoja), lectura puntual en CD.</li>
+        <li>V_GS(th) por extrapolación lineal: transferencia con V_DS = 0,1 V y paso de 10 mV. En el máximo de g_m:
+          <div class="nota">V_GS(th),ext = V_GS(g_m máx.) − I_D / g_m − V_DS / 2</div></li>
+        <li>R_DS(on) con V_GS = 10 V: en pulso a 0,5 A y a 0,2 A, y en CD a 0,2 A, a 4 hilos. Observa la cámara y la Tj calculada.</li>
+        <li><b>Predicción:</b> ¿qué pasa si mides en CD a 0,5 A?</li>
+      </ol>
+      <fieldset id="predCD05"><legend>Predicción: CD a 0,5 A</legend></fieldset>
+      <button type="button" class="sec" id="btnPredC">Registrar la predicción</button>
+      <div id="msgPredC" aria-live="polite"></div>
+      <h3>Escribe tus resultados del MOSFET</h3>
+      <div class="rej">
+        <div><label for="r_vthcc">V_GS(th) a 1 mA (V)</label><input id="r_vthcc" type="text" inputmode="decimal"></div>
+        <div><label for="r_vthelr">V_GS(th) por extrapolación (V)</label><input id="r_vthelr" type="text" inputmode="decimal"></div>
+        <div><label for="r_dif">Diferencia entre métodos (mV)</label><input id="r_dif" type="text" inputmode="decimal"></div>
+        <div><label for="r_ron">R_DS(on) en pulso, 0,5 A (Ω)</label><input id="r_ron" type="text" inputmode="decimal"></div>
+        <div><label for="r_aumcd">Aumento en CD a 0,2 A frente al pulso a 0,2 A (%)</label><input id="r_aumcd" type="text" inputmode="decimal"></div>
+        <div><label for="r_tjcd">Tj en CD a 0,2 A (°C) · no puntúa</label><input id="r_tjcd" type="text" inputmode="decimal"></div>
+      </div>
+    </div>
+
+    <div class="fase" id="fase-D" data-cx-desde="D">
+      <h3>D · Mide y clasifica las 10 piezas del lote (50 min)</h3>
+      <ol>
+        <li>Mide las 10 piezas: V_GS(th) a 1 mA y R_DS(on) a 10 V y 0,5 A, <b>a 4 hilos, en pulso y con el recinto a 25 °C</b> (la condición de la hoja).</li>
+        <li>Presupuesta U de V_GS(th) (GUM, k = 2) cerca del límite superior con estos datos:
+          <div class="nota" id="datosU"></div></li>
+        <li>Clasifica cada pieza con la regla del caso (JCGM 106 §8.3, w = U): conforme si LSL + U ≤ y ≤ USL − U; no conforme si y &lt; LSL − U o y &gt; USL + U; indeterminada entre las dos. Son dos reglas binarias de la norma aplicadas a la vez, la aceptación con guarda (§8.3.2) y el rechazo con guarda (§8.3.3): entre las dos, esa medición no demuestra nada.</li>
+        <li>Aplica la prueba de Grubbs a R_DS(on) (G_crít = <span data-m="gcrit"></span> con n = 10 y α = 1 %). Si marca una pieza, mide su BV_DSS.</li>
+      </ol>
+      <button type="button" id="btnLote">Medir las 10 piezas con la configuración del banco</button>
+      <div id="msgLote" aria-live="polite"></div>
+      <div class="rej3">
+        <div><label for="r_U">U (k = 2) de V_GS(th) (mV)</label><input id="r_U" type="text" inputmode="decimal"></div>
+        <div><label for="r_comp1">Componente dominante 1</label><select id="r_comp1"></select></div>
+        <div><label for="r_comp2">Componente dominante 2</label><select id="r_comp2"></select></div>
+      </div>
+      <div class="desliz"><table id="tablaLote"><thead><tr><th>Pieza</th><th>V_GS(th) (V)</th><th>R_DS(on) (Ω)</th><th>Tu clasificación</th></tr></thead><tbody></tbody></table></div>
+      <div id="grubbsInfo" class="pista" aria-live="polite"></div>
+      <label for="r_marcada">Pieza que marca la prueba de Grubbs</label>
+      <select id="r_marcada"><option value="">— elige —</option><option value="0">Ninguna</option></select>
+      <button type="button" id="btnBloqD" style="margin-top:10px">Bloquear U, componentes, clasificación y pieza marcada</button>
+      <div id="msgBloqD" aria-live="polite"></div>
+      <p class="pista">Al bloquear ya no podrás cambiarlos. Solo entonces se pueden ejecutar las acciones de la fase «Dictamen». El estadístico G de referencia no se muestra: lo calculas tú.</p>
+    </div>
+
+    <div class="fase" id="fase-F" data-cx-desde="F">
+      <h3>Dictamina el lote y defiende tu decisión (15 min)</h3>
+      <label for="r_accion">Acción ante la pieza dudosa</label>
+      <select id="r_accion"></select>
+      <button type="button" class="sec" id="btnAccion" style="margin-top:8px">Ejecutar la acción</button>
+      <p class="pista">La acción actúa sobre la pieza que clasificaste como indeterminada y solo se puede ejecutar una vez. Si no hay ninguna, no se ejecuta, no se gasta y no puntúa.</p>
+      <div id="msgAccion" aria-live="polite"></div>
+      <div class="rej">
+        <div><label for="r_finalDudosa">Clasificación final de la pieza dudosa</label><select id="r_finalDudosa"></select></div>
+        <div><label for="r_dictamen">Dictamen del lote (plan n = 10, c = 0)</label><select id="r_dictamen"></select></div>
+      </div>
+      <p class="pista" id="planOC"><b>Qué protege el plan n = 10, c = 0</b> (plan del caso): P(aceptar) = (1 − p)<sup>10</sup>, con p la fracción de piezas defectuosas del lote. Acepta el 95 % de los lotes con 0,5 % de defectuosos, el 60 % con 5 % y el 10 % con 20,6 %. Una sola pieza demostrada no conforme basta para rechazar; aceptar con 10 de 10 conformes solo demuestra, con 90 % de confianza, que el lote tiene menos del 20,6 % de defectuosos.</p>
+      <h3>Defiende tu decisión: cuatro preguntas</h3>
+      <div id="defensa"></div>
+      <label for="r_notas">Notas y justificación (se conservan en el expediente; no se califican)</label>
+      <textarea id="r_notas"></textarea>
+    </div>
+
+    <div class="fase" id="fase-E" data-cx-desde="E">
+      <h3>Entrega tu práctica y ciérrala</h3>
+      <p class="pista">La rúbrica compara tus respuestas con las lecturas del simulador para tu variante. No interviene ninguna persona y nada sale de este equipo.</p>
+      <ol class="pista">
+        <li><b>Entregar la práctica</b> pide confirmación, avisa si hay partes en blanco y bloquea tus respuestas y el banco. Verás el veredicto (cumple o no cumple) de las comprobaciones cuya respuesta depende de tu variante; las demás aparecen como «entregado · sin veredicto» y se califican fuera de esta página. Explorar no penaliza: de cada condición cuenta tu mejor medición.</li>
+        <li><b>Cerrar la práctica</b> es la acción final y queda en el registro. No muestra las respuestas de lo que puntúa, porque valdrían para cualquier matrícula; muestra solo lo que no puntúa.</li>
+        <li><b>Exporta el expediente</b> (JSON): lleva el registro de intentos y una huella SHA-256. Su calificación es informativa: quien lo revise la recalcula con tus respuestas y tu registro. La huella delata una edición casual. No es una firma: sin un secreto de servidor, quien edite el archivo puede recalcularla.</li>
+      </ol>
+      <div class="no-imp"><button type="button" id="btnEntregar">Entregar la práctica</button>
+      <button type="button" id="btnCerrar" disabled>Cerrar la práctica</button>
+      <button type="button" class="sec" id="btnExportar">Exportar el expediente (JSON)</button>
+      <button type="button" class="sec" id="btnImprimir">Imprimir el expediente</button>
+      <p class="porque" id="porqueCerrar" hidden></p></div>
+      <div id="confirmaEntrega" class="no-imp" aria-live="assertive"></div>
+      <div id="confirmaCierre" class="no-imp" aria-live="assertive"></div>
+      <div id="resultado" aria-live="polite"></div>
+      <div id="solucionFinal" aria-live="polite"></div>
+      <div id="impRegistro" class="solo-imp"></div>
+      <div class="no-imp">
+        <h3>Revisar un expediente exportado</h3>
+        <label for="archRev">Archivo del expediente (.json). Se comprueba su huella (detecta ediciones casuales; no es una firma) y se recalcula su nota con sus respuestas, su registro y su variante; la nota guardada en el archivo no se usa. No se importa ni desbloquea nada.</label>
+        <input type="file" id="archRev" accept=".json,application/json">
+        <div id="msgRev" aria-live="polite"></div>
+      </div>
+    </div>
+    <div id="sigParte" class="no-imp" aria-live="polite"></div>
+  </section>
+  </div>
+</main>
+
+<footer>
+  <details id="fuentes"><summary>Fuentes</summary>
+  <b>Fuentes</b> (localizadores en <code>fundamento-y-validacion.md</code>):
+  <ul>
+    <li>onsemi, <i>2N7000, 2N7002, NDS7002A</i>, NDS7002A/D Rev. 11 (mar. 2025): tablas, pp. 1–3; nota 1 (pulso ≤ 300 µs, ciclo ≤ 2 %), p. 4; figs. 1, 3, 6 y 16, pp. 4–7.</li>
+    <li>Microchip, <i>2N7000</i>, DS20005695A (2021), pp. 1–3: «N-Channel Enhancement-Mode Vertical DMOS FET». De aquí se toma que la estructura es <b>vertical</b>; para la pieza de onsemi (que solo dice «DMOS technology») es una inferencia declarada.</li>
+    <li>onsemi, <i>P2N2222A</i>, P2N2222A/D Rev. 7 (ene. 2013), pp. 1–5: tabla, nota 1, figs. 3 y 11.</li>
+    <li>onsemi, <i>1N4001…1N4007</i>, 1N4001/D Rev. 18 (jun. 2024), pp. 2–4: tabla y fig. 1.</li>
+    <li>Keithley, SPEC-2636B Rev. C (abr. 2021), pp. 1–5; hoja de datos de la Serie 2600B (nota de NPLC, discrepante con la anterior); SPEC-2450 Rev. B (nov. 2017): medida de V en 20 V y fuente de 1 mA; manual de usuario del 2450, 2450-900-01 Rev. E, §7 (dos fuentes para un dispositivo de tres terminales). Los nombres de equipo son un referente; no se usan logotipos.</li>
+    <li>JCGM 100:2008 (GUM), §4 y §5 (presupuesto de incertidumbre) y §6 (incertidumbre expandida, U = k·u_c), y JCGM 106:2012, §8.3.2 y §8.3.3 (aceptación y rechazo con banda de guarda).</li>
+    <li>TecNM DCF-2303 (§8, p. 8; tema 4, p. 7). TecNM ETF-1017, dictamen AS-1-088/2017: P1, pp. 1–8, y sugerencia didáctica 3, p. 8; P2, p. 9; P6, p. 47; P7, p. 48.</li>
+    <li>UNAM FES Cuautitlán, <i>Dispositivos y Circuitos Electrónicos</i> (semestre 2027-1): P3, p. 15; P11, pp. 44–46.</li>
+    <li>Analog Devices, «Activity: A BJT Curve Tracer – ADALM2000» (código D11 del diseño): https://wiki.analog.com/university/courses/electronics/electronics-lab-4 (sección de preguntas).</li>
+  </ul>
+  <span id="pieVersion"></span>
+  </details>
+</footer>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body>
+</html>

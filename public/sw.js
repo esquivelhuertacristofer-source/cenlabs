@@ -61,11 +61,18 @@ const SEMILLA = [
   '/alumno/laboratorio/fisica',
   '/alumno/laboratorio/biologia',
   '/alumno/laboratorio/matematicas',
+  '/alumno/laboratorio/ingenieria-avanzada',
 ];
 
-/** Archivos con nombre fijo que cambian entre despliegues: red primero. */
+/** Archivos con nombre fijo que cambian entre despliegues: red primero.
+    Las prácticas estrella (/estrellas/E#/app.js, modelos, portadas) entran aquí por lo mismo:
+    su `app.js` conserva el nombre de una versión a otra, así que servirlo de caché primero
+    dejaría el `index.html` nuevo con el programa viejo. Con red primero se actualizan solas
+    y, una vez abiertas, siguen abriendo sin internet. */
 function esLab(url) {
-  return url.pathname.startsWith('/labs/') || url.pathname.startsWith('/labs-data/');
+  return url.pathname.startsWith('/labs/')
+    || url.pathname.startsWith('/labs-data/')
+    || url.pathname.startsWith('/estrellas/');
 }
 
 /** Lo que se guarda al pasar y no cambia sin cambiar de nombre: caché primero. */

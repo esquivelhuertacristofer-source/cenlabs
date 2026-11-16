@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E1 · Mezcladora de tres silos con PLC</title>
+<style>
+:root{--tinta:#16222e;--suave:#51626f;--fondo:#e9eef2;--panel:#fff;--borde:#d3dce4;--acento:#0d6f79;--acento2:#0a565e;--ambar:#b96a00;--ok:#1b7447;--mal:#b3261e;--noche:#0f1924;--noche2:#182635;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--tinta);background:var(--fondo);font-size:16px}
+*{box-sizing:border-box}
+body{margin:0;line-height:1.5}
+h1{font-size:1.75rem;margin:.25rem 0 .35rem;line-height:1.2}
+h2{font-size:1.25rem;margin:0 0 .75rem}
+h3{font-size:1.02rem;margin:1.3rem 0 .5rem}
+p{margin:.5rem 0}
+a{color:var(--acento2)}
+.cab #resVariante{flex:1 1 420px;min-width:0}
+main{max-width:1560px;margin:auto;padding:12px 14px 40px}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{padding:7px 9px;border:1px solid #8697a5;border-radius:6px;background:#fff;max-width:100%}
+textarea{width:100%;font-family:var(--mono);font-size:.84rem;line-height:1.45}
+button{background:var(--acento);color:#fff;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600}
+button:hover{background:var(--acento2)}
+button.sec{background:#e3ebf0;color:#1d3445}
+button.sec:hover{background:#d3dfe7}
+button.mini{padding:3px 9px;font-size:.84rem;border-radius:5px}
+button:disabled,fieldset:disabled button{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid #f0a000;outline-offset:2px}
+.banco{display:grid;grid-template-columns:minmax(0,1.72fr) minmax(320px,1fr);gap:12px;background:var(--noche);border-radius:14px;padding:10px;color:#e6edf3}
+/* La escena manda (estándar visual 3.1): el lienzo solo lleva el 3D; la barra de vistas y el dock van debajo, nunca encima */
+.escena{position:relative;background:#121c28;border-radius:10px;overflow:hidden;min-height:300px}
+#lienzo3d{display:block;width:100%;height:min(68vh,660px);min-height:300px;touch-action:none}
+.vistas .leyenda{margin:6px 2px 0}
+.aviso3d{padding:26px;color:#ffd08a}
+.mando{display:flex;flex-direction:column;gap:10px;min-width:0}
+.bloque{border:1px solid var(--borde);border-radius:9px;padding:6px 12px;margin:8px 0;background:#fbfcfd}
+.bloque>summary{font-weight:650;color:var(--acento2);padding:2px 0}
+.bloque[open]>summary{margin-bottom:4px}
+.mando h2{font-size:1.02rem;margin:0;color:#fff}
+.caja{background:var(--noche2);border:1px solid #29394a;border-radius:10px;padding:10px 12px}
+.caja h3{margin:0 0 6px;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:#8fd3da}
+.fila{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.mando select,.mando input{background:#0f1924;color:#e6edf3;border-color:#3a4f63;padding:4px 7px;font-size:.88rem}
+.pul{min-width:64px;padding:8px 8px;border-radius:999px;font-size:.82rem;border:2px solid rgba(255,255,255,.28);box-shadow:0 2px 0 rgba(0,0,0,.5);touch-action:manipulation;user-select:none}
+.pul.blanco{background:#f1f3f4;color:#111}.pul.negro{background:#22272d}.pul.amar{background:#f0c330;color:#221a00}.pul.azul{background:#1c62c4}.pul.verde{background:#1c8f43}.pul.rojo{background:#c62828}
+.pul.seta{background:#c62828;border:4px solid #f0c330;min-width:112px}
+.pul[aria-pressed=true]{transform:translateY(2px);box-shadow:none;filter:brightness(.82)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:.8rem;border-radius:6px;padding:2px 7px;background:#0f1924;border:1px solid #33475a;color:#9db0c0;font-variant-numeric:tabular-nums}
+.chip.on{background:#123f2a;border-color:#2c9a63;color:#b9f5d3}
+.chip.al.on{background:#4a1512;border-color:#d0463c;color:#ffd3cf}
+.chip.amb.on{background:#4a3408;border-color:#d99a1b;color:#ffe2a8}
+.mando label{font-size:.85rem}
+.mando fieldset{border:0;padding:0;margin:0;min-width:0}
+.fallas{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px}
+.nota{font-size:.82rem;color:#a9bccb;margin:4px 0 0}
+.fases{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 0;padding:0}
+.fases button{background:#d9e3ea;color:#1d3445;border-radius:9px 9px 0 0;padding:9px 14px;font-weight:600}
+.fases button[aria-selected=true]{background:var(--panel);color:var(--acento2);box-shadow:inset 0 3px 0 var(--acento)}
+.fases small{display:block;font-weight:400;font-size:.78rem;color:var(--suave)}
+.panel{background:var(--panel);border:1px solid var(--borde);border-radius:0 12px 12px 12px;padding:20px 22px}
+.panel[hidden]{display:none}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:6px 9px;border-bottom:1px solid #e1e8ed;text-align:left;vertical-align:top}
+th{font-size:.8rem;color:var(--suave);font-weight:650;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.ayuda{color:var(--suave);font-size:.88rem}
+.estado{padding:9px 12px;border-left:5px solid var(--ambar);background:#fff5e2;border-radius:4px;margin:10px 0;font-size:.92rem}
+.estado.ok{border-color:var(--ok);background:#e8f5ee}
+.estado.mal{border-color:var(--mal);background:#fdecea}
+.estado ul{margin:.2rem 0;padding-left:1.2rem}
+.campo{display:flex;flex-direction:column;gap:3px;margin:8px 0}
+.campo label{font-weight:600;font-size:.9rem}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 18px}
+.red{border:1px solid var(--borde);border-radius:9px;margin:9px 0;background:#fbfcfd}
+.red.sel{border-color:var(--acento);box-shadow:0 0 0 2px rgba(13,111,121,.18)}
+.red-cab{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 9px;border-bottom:1px solid #e6ecf0;background:#f1f5f8;border-radius:9px 9px 0 0}
+.red-cab b{font-family:var(--mono);font-size:.85rem;color:var(--acento2)}
+.red-cab input{flex:1 1 180px;padding:3px 7px;font-size:.88rem;border-color:#c3ced7}
+.red-cab .enl{font-size:.78rem;border-radius:5px;padding:1px 7px;background:#dfe7ed;color:#51626f}
+.red-cab .enl.on{background:#c8efd9;color:#135c36}
+.red-svg{padding:4px 6px}
+.red-txt{display:flex;gap:6px;padding:0 9px 8px;align-items:center}
+.red-txt input{flex:1;font-family:var(--mono);font-size:.82rem;padding:4px 7px;min-width:0}
+svg.red .w{stroke:#6b7c8a;stroke-width:2}
+svg.red .riel{stroke:#22323f;stroke-width:4}
+svg.red .s{stroke:#1a2733;stroke-width:2.6;fill:none}
+svg.red .tag{font:600 12px var(--mono);fill:#16222e}
+svg.red .dir{font:12px var(--mono);fill:#6a7b89}
+svg.red .let{font:700 12px var(--mono);fill:#1a2733}
+svg.red .caja{fill:#fff;stroke:#1a2733;stroke-width:1.8}
+svg.red .zona{fill:transparent;stroke:transparent;stroke-width:2;cursor:pointer}
+svg.red g:hover>.zona{fill:rgba(13,111,121,.07)}
+svg.red g.sel>.zona{stroke:var(--acento);fill:rgba(13,111,121,.1)}
+svg.red g:focus-visible{outline:none}
+svg.red g:focus-visible>.zona{stroke:#f0a000;stroke-width:3}
+svg.red g.on .s,svg.red g.on .caja{stroke:#16a05a}
+svg.red g.on .tag{fill:#0f7a43}
+.insp{position:sticky;bottom:0;background:#f1f7f8;border:1px solid #b9d5d9;border-radius:9px;padding:9px 11px;margin:8px 0;z-index:3}
+.insp .fila{gap:8px;align-items:end}
+.insp .campo{margin:0}
+.insp input{width:150px}
+svg.grafcet .etapa rect{fill:#fff;stroke:#1a2733;stroke-width:2}
+svg.grafcet .etapa.activa rect{fill:#c8efd9;stroke:#16a05a}
+svg.grafcet .num{font:700 15px var(--mono)}
+svg.grafcet .nom{font:600 12px system-ui;fill:#16222e}
+svg.grafcet .prog{font:11px var(--mono);fill:#6a7b89}
+svg.grafcet .prog.on{fill:#0f7a43;font-weight:700}
+svg.grafcet .lin{stroke:#51626f;stroke-width:1.6;fill:none}
+svg.grafcet .barra{stroke:#1a2733;stroke-width:4}
+svg.grafcet .rec{font:11px var(--mono);fill:#16222e}
+svg.grafcet .acc{fill:#f6f9fb;stroke:#51626f}
+svg.grafcet .acct{font:11px system-ui;fill:#16222e}
+svg.grafcet .punta{fill:#51626f}
+svg.cab{background:#0f1924;border-radius:8px;width:100%;height:auto}
+svg.cab text{font:12px var(--mono);fill:#c5d6e2}
+svg.cab .h{stroke:#51677b;stroke-width:1.8;fill:none}
+svg.cab .v{stroke:#39d98a;stroke-width:2.2;fill:none}
+svg.cab .rot{stroke:#ff6b5e;stroke-width:2.2;fill:none}
+svg.cab .tit{fill:#8fd3da;font-weight:700}
+.tr-ok td:first-child{border-left:4px solid var(--ok)}
+.tr-mal td:first-child{border-left:4px solid var(--mal)}
+.si{color:var(--ok);font-weight:700}.no{color:var(--mal);font-weight:700}
+details{margin:8px 0}
+summary{cursor:pointer;font-weight:600}
+details ul{margin:.3rem 0;padding-left:1.2rem;font-size:.88rem}
+.preg{border:1px solid var(--borde);border-radius:9px;padding:10px 14px;margin:9px 0}
+.preg legend{font-weight:600;padding:0 4px}
+.preg label{display:block;padding:3px 0}
+.total{font-size:1.9rem;font-weight:750;color:var(--acento2)}
+footer{font-size:.84rem;color:var(--suave);padding:18px 4px 0}
+footer li{margin:.15rem 0}
+/* Vista dividida en escritorio: la planta y la botonera quedan fijas a la izquierda mientras se trabaja en las fases */
+@media(min-width:1280px){
+  main.dividida{display:grid;grid-template-columns:minmax(0,61fr) minmax(380px,39fr);gap:14px;align-items:start;max-width:none}
+  main.dividida .banco{grid-row:1 / span 3;grid-column:1;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;grid-template-columns:minmax(0,1fr);scrollbar-width:thin}
+  main.dividida .fases,main.dividida #paneles,main.dividida footer{grid-column:2;min-width:0}
+  main.dividida .fases{margin-top:0}
+  main.dividida #lienzo3d{height:clamp(300px,calc(100vh - 290px),780px)}
+  main.dividida .dos{grid-template-columns:minmax(0,1fr)}
+  main.dividida .mando{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+  main.dividida .panel{padding:16px 18px}
+}
+main:not(.dividida) .cen-tira{display:none!important}
+#btnDividir{display:none}
+@media(min-width:1280px){#btnDividir{display:inline-block}}
+#btnHud{display:none}
+#barraMovil{display:none}
+@media(max-width:1020px){.vistas button{min-height:40px;padding:6px 12px}
+  #barraMovil{display:block;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#0d1721;color:#e6edf3;border-top:2px solid #2c4156;padding:5px 8px calc(5px + env(safe-area-inset-bottom))}
+  #bmEstado{font-size:.78rem;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px}
+  #barraMovil .fila{display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;margin:0}
+  #barraMovil button{min-height:42px;min-width:46px;padding:4px 9px;font-size:.84rem;flex:0 0 auto}
+  #barraMovil button[aria-pressed=true]{outline:3px solid #f0a000;outline-offset:-3px}
+  body{padding-bottom:124px}}
+@media print{#barraMovil{display:none!important}}
+@media(max-width:1020px){.planta{display:flex;flex-direction:column}.planta>.vistas{order:-1;padding:0 0 8px}}
+@media(max-width:1020px){.banco{grid-template-columns:minmax(0,1fr)}.dos{grid-template-columns:minmax(0,1fr)}#lienzo3d{height:56vh}}
+@media(max-width:560px){.cen-cab .cen-ceja,.cen-cab .cen-version{display:none}.cen-cab h1{font-size:1.05rem}.cen-cab .cen-titulo{flex:1 1 100%}.cen-cab .cen-id{flex:1 1 100%;flex-wrap:nowrap}.cen-cab .cen-id label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.cen-cab .cen-id input{flex:1 1 auto;width:auto;min-width:0}.cen-cab .cen-id button{white-space:nowrap}.cab #resVariante{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.74rem}.cen-integridad>span:first-child{display:none}.cab{padding:8px 10px 6px}}
+@media(max-width:560px){main{padding:10px 10px 30px}.panel{padding:14px 12px}.cab{padding:16px 12px}h1{font-size:1.35rem}.fallas{grid-template-columns:1fr}.fases button{padding:7px 9px;font-size:.9rem}.fases small{display:none}.insp input{width:120px}#tablaES thead{display:none}#tablaES,#tablaES tbody{display:block}#tablaES tr{display:grid;grid-template-columns:1fr;gap:4px;border:1px solid var(--borde);border-radius:8px;padding:8px;margin:0 0 8px}#tablaES td{display:block;border:0;padding:1px 0}#tablaES td:empty{display:none}#tablaES td[data-et]::before{content:attr(data-et) ': ';font-size:.8rem;color:var(--suave)}#tablaES select{width:100%;min-height:40px}.fallas label{display:flex;align-items:center;gap:8px;min-height:40px}.fallas input[type=checkbox]{width:22px;height:22px}button.mini{min-height:40px;padding:6px 12px}.mando select{min-height:40px}.preg label{min-height:40px;display:flex;align-items:center;gap:8px}.hud span:nth-child(n+4){display:none}.hud.todo span{display:inline-flex}.vistas #btnHud{display:inline-block}.cab #resVariante{font-size:.8rem}}
+@media print{.banco,.fases,button,.no-imp,.insp{display:none!important}.panel{display:block!important;border:0;padding:0 0 12px}.panel[hidden]{display:block!important}.cab{background:#fff;color:#000}.cab p,.cab .cen-ceja,.alumno label,.alumno output,.cen-integridad{color:#000}body{background:#fff}.panel:not(#faseE){display:none!important}}
+/* ===== E1-1.4 (ronda 3 visual) =====
+   Tema oscuro en toda la página, como E2: la escena 3D pasa a ser lo más luminoso de la pantalla (en la 1.3 el panel
+   claro medía 237 de gris frente a 107 del lienzo). El editor de peldaños y el GRAFCET dibujan en tinta oscura: van
+   sobre una hoja clara, como un plano sobre la mesa. */
+body.cen-r2{--tinta:#e6edf3;--suave:#a9bccb;--fondo:#0b131b;--panel:#16222f;--borde:#2c4156;--acento2:#8fd3da;--ok:#5fd394;--mal:#ff8a80;--ambar:#ffb74d;background:#0b131b;color:#e6edf3}
+/* el kit (interfaz-r2.css) se inyecta después y pone el cuerpo en #dfe6ec con la misma especificidad: se gana con «html» */
+html body.cen-r2{background:#0b131b}
+body.cen-r2 button:hover{background:#0a565e}
+body.cen-r2 button.sec{background:#22364a;color:#e6edf3}
+body.cen-r2 button.sec:hover{background:#2b4560}
+body.cen-r2 input,body.cen-r2 select,body.cen-r2 textarea{background:#0f1924;color:#e6edf3;border-color:#3a4f63}
+body.cen-r2 .fases button{background:#121e2a;color:#a9bccb}
+body.cen-r2 .fases button[aria-selected=true]{background:#16222f;color:#8fd3da;box-shadow:inset 0 3px 0 #2bb3c0}
+body.cen-r2 .panel{background:#16222f;border-color:#2c4156;color:#e6edf3}
+body.cen-r2 .panel th,body.cen-r2 .panel td{border-bottom-color:#26384a}
+body.cen-r2 .panel .bloque,body.cen-r2 .bloque{background:#1b2a39;border-color:#2c4156}
+body.cen-r2 .bloque>summary{color:#8fd3da}
+body.cen-r2 .estado{background:#2a2210;color:#f3e6cc}
+body.cen-r2 .estado.ok{background:#10281c;color:#d3f2e0}
+body.cen-r2 .estado.mal{background:#2c1414;color:#ffd9d4}
+body.cen-r2 .insp{background:#10212b;border-color:#2c5a62}
+body.cen-r2 .preg{border-color:#2c4156}
+body.cen-r2 .red-cab .enl{background:#dfe7ed;color:#3d4e5b}
+/* la hoja de dibujo: peldaños y GRAFCET en tinta oscura sobre claro */
+body.cen-r2 .panel .red{background:#e9eef2;border-color:#9fb0bf;color:#16222e;--tinta:#16222e;--suave:#51626f}
+body.cen-r2 .panel .red input{background:#fff;color:#16222e;border-color:#c3ced7}
+body.cen-r2 .panel .red .red-cab b{color:#0a565e}
+body.cen-r2 svg.grafcet{background:#e9eef2;border-radius:8px}
+footer{color:var(--suave)}
+@media print{html body.cen-r2{background:#fff}body.cen-r2{--tinta:#16222e;--suave:#51626f;--panel:#fff;--borde:#d3dce4;--acento2:#0a565e;--ok:#1b7447;--mal:#b3261e;background:#fff;color:#000}body.cen-r2 .panel{background:#fff;color:#000}body.cen-r2 .estado{background:#fff;color:#000}}
+/* dock: una tarjeta sin dato se dice en gris */
+.cen-dock > span.vacio > b{color:#6f8496;font-weight:550}
+/* vista dividida: la planta llena la columna fija (sin tarjetas cortadas) y la botonera es una sola, la tira */
+@media(min-width:1280px){
+  main.dividida #lienzo3d{height:clamp(300px,calc(100vh - 36px - var(--resto-planta,270px)),980px)}
+  main.dividida #mando>.caja.botonera{display:none}
+}
+@media(min-width:1280px) and (max-width:1439px){#tiraMando button:not(.cen-seta){padding:0 8px}}
+/* tabla de E/S en tarjetas cuando el panel es estrecho (a 1366 y 1600 px perdía su última columna) */
+#paneles .panel{container-type:inline-size}
+@container (max-width:680px){#tablaES thead{display:none}#tablaES,#tablaES tbody{display:block}#tablaES tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;border:1px solid var(--borde);border-radius:8px;padding:8px;margin:0 0 8px}#tablaES td{display:block;border:0;padding:1px 0}#tablaES td:empty{display:none}#tablaES td[data-et]::before{content:attr(data-et) ': ';font-size:.8rem;color:var(--suave)}#tablaES td:nth-child(3){grid-column:1 / -1}#tablaES td:nth-child(6){grid-column:1 / -1}#tablaES select{width:100%}}
+@container (max-width:420px){#tablaES tr{grid-template-columns:1fr}}
+/* móvil: las vistas en UNA fila y lo demás detrás de «⋯» (rótulos, calidad y demostración) */
+#btnMas{display:none}
+@media(max-width:1020px){
+  #barraVistas.cen-barra{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  #barraVistas .cen-grupo{flex-wrap:nowrap;flex:0 0 auto}
+  #barraVistas .cen-grupo button{white-space:nowrap}
+  #barraVistas .cen-sep{display:none}
+  #barraVistas .cen-grupo+.cen-grupo,#barraVistas #btnDemo{display:none}
+  #barraVistas.abierta{flex-wrap:wrap}
+  #barraVistas.abierta .cen-grupo+.cen-grupo,#barraVistas.abierta #btnDemo{display:inline-flex}
+  #btnMas{display:inline-block;min-width:44px;font-size:1.1rem;line-height:1}
+}
+@media(max-width:560px){#barraVistas [data-vista=general]{display:none}#barraVistas .cen-grupo button,#barraVistas #btnHud{padding:6px 7px;font-size:.84rem}
+  /* «⋯» justo después de las vistas, y «Marcador» (que se prueba visible en móvil, H09) al final */
+  #barraVistas #btnMas{order:5;min-width:40px;padding:6px 8px}#barraVistas #btnHud{order:6}
+  /* E1-1.5: «Marcador» va DENTRO de «⋯» (se salía de la barra: 395 px de contenido en 350) */
+  #barraVistas:not(.abierta) #btnHud{display:none}}
+/* E1-1.5: la barra inferior del móvil se desplaza en horizontal; un degradado en el borde derecho lo avisa (el
+   relleno final deja el último botón fuera del degradado cuando se llega al tope) */
+@media(max-width:1020px){
+  #barraMovil .fila{padding-right:30px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 30px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 30px),transparent)}
+  #bmEstado .vacio{color:#8195a6}
+}
+/* E1-1.5: al abrir, la cabecera empuja la planta unos 115 px y el pliegue cortaba la fila del dock a cualquier alto (a
+   1366 × 768 se perdía la fila entera; a 1600 × 900 y a 1920 × 1080, unos 9 px): lienzo 40 px más bajo en la vista
+   dividida y, con el alto ≤ 800, además, dock compacto. Medido: el dock acaba en 737 de 768, 869 de 900 y 813 de 844 */
+@media(min-width:1280px){
+  main.dividida #lienzo3d{height:var(--alto-lienzo,clamp(300px,calc(100vh - 76px - var(--resto-planta,270px)),940px))}
+}
+/* E1-1.6 (U1): --alto-lienzo lo mide interfaz.js (ajustarColumna) para que, con la página arriba, la tira de botones quepa
+   entera sobre el pliegue; el cálculo de arriba queda como respaldo si el script no llega a medir */
+@media(min-width:1280px) and (max-height:800px){
+  html body.cen-r2 #hud.cen-dock > span{padding:3px 8px 4px}
+  html body.cen-r2 #hud.cen-dock > span > b{font-size:1rem}
+}
+/* E1-1.7 · experiencia (_comun/experiencia.js): en Explorar el lienzo llena la escena, la barra de vistas flota al pie y
+   la barra fija del móvil se retira; durante el recorrido la barra de vistas se oculta */
+html.cx-explorar #lienzo3d{height:100%!important;width:100%!important;min-height:0!important}
+html.cx-explorar #barraVistas{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 10px;background:rgba(6,11,20,.74);backdrop-filter:blur(8px)}
+html.cx-recorrido #barraVistas{opacity:0;pointer-events:none}
+html.cx-explorar #barraMovil{display:none!important}
+/* ===== E1-1.8 · interfaz de trabajo (_comun/ESTANDAR-INTERFAZ-TRABAJO.md) =====
+   1) Legibilidad medida con _comun/legibilidad.mjs: ningún texto por debajo de 13 px, rótulos y botones en 14 o más,
+      texto corriente en 15 o más y cifras del marcador en 20. Todo en rem: desde 1600 px de ancho la raíz pasa de 16 a
+      18 px y la interfaz entera crece un 12,5 %.
+   2) Cabecera en una fila (título, Ficha/Explorar/Guía/Informe, matrícula, «Generar mi variante» y «Más»).
+   3) Herramientas por partes: data-cx-desde (módulo común) y, dentro de la parte A, data-e1-tras="conoce". */
+@media(min-width:1600px){:root{font-size:18px}}
+table{font-size:.95rem}
+th{font-size:.875rem}
+code,.mono{font-size:.93em}
+textarea{font-size:.9rem}
+.ayuda{font-size:.94rem}
+.estado{font-size:.95rem}
+.nota{font-size:.875rem;color:#b6c7d4}
+button.mini{font-size:.875rem}
+.caja h3{font-size:.875rem;text-transform:none;letter-spacing:.02em}
+.chip{font-size:.875rem;padding:3px 8px}
+.mando label{font-size:.9rem}
+.mando select,.mando input{font-size:.9rem}
+.pul{font-size:.9rem}
+.pul.verde{background:#177a39}
+.fases small{font-size:.875rem}
+html body.cen-r2 .fases button{padding:8px 6px}
+.red-cab b{font-size:.9rem}.red-cab input{font-size:.9rem}.red-cab .enl{font-size:.84rem}.red-txt input{font-size:.875rem}
+details ul{font-size:.94rem}
+footer{font-size:.875rem}
+svg.red .tag{font:600 14.5px var(--mono)}svg.red .dir{font:14.5px var(--mono);fill:#4d5d6b}svg.red .let{font:700 14.5px var(--mono)}
+svg.grafcet .nom{font:600 14.5px system-ui}svg.grafcet .prog{font:14.5px var(--mono);fill:#4d5d6b}svg.grafcet .rec{font:14.5px var(--mono)}svg.grafcet .acct{font:14.5px system-ui}
+/* el esquema cableado se dibuja a tamaño natural (27 rem = 432 px) y se desplaza si la tarjeta es más estrecha: su letra no se encoge */
+svg.cab{width:27rem;max-width:none;height:auto;display:block}
+svg.cab text{font:14.5px var(--mono)}
+#cableado{overflow-x:auto;scrollbar-width:thin}
+html body.cen-r2 .cen-dock > span > i{font-size:.875rem}
+html body.cen-r2 #hud.cen-dock > span > b{font-size:1.25rem}
+html body.cen-r2 .cen-dock-cab{font-size:.875rem;text-transform:none;letter-spacing:0;color:#a9bccb}
+html body.cen-r2 .cen-pastilla{font-size:.875rem;letter-spacing:0;line-height:1.25;max-width:calc(100% - 20px);border-radius:10px;padding:7px 12px}
+html body.cen-r2 .cen-barra button{font-size:.875rem}
+html body.cen-r2 .cen-linea{font-size:.875rem}
+html body.cen-r2 .cen-integridad{font-size:.875rem;margin:10px 4px 0}
+html body.cen-r2 .cen-aviso{font-size:1rem}
+html body.cen-r2 #cx-cab button{font-size:.9rem;white-space:nowrap}
+html body.cen-r2 #cx-cab button span{font-size:inherit}
+@media(min-width:1280px){html body.cen-r2 .cen-tira button{font-size:.9rem;height:2.4rem}html body.cen-r2 .cen-tira .cen-seta{height:2.9rem;min-width:2.9rem}
+  main.dividida{grid-template-rows:auto auto auto 1fr}
+  main.dividida .banco{grid-row:1 / span 4}
+  main.dividida #avisoInicio{grid-column:2;min-width:0;align-self:start}
+  main.dividida .mando>.caja.cableado{grid-column:1 / -1}}
+/* --- cabecera en una fila --- */
+header.cab.cen-cab{position:relative;z-index:7;padding:8px 16px}
+.cen-cab .cen-id label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cen-cab .cen-id input{font-size:.94rem}
+.cen-cab .cen-id button{font-size:.9rem;white-space:nowrap}
+@media(min-width:1021px){
+  .cen-cab .cen-fila{flex-wrap:nowrap;gap:6px 14px}
+  .cen-cab .cen-titulo{flex:1 1 auto;flex-wrap:nowrap;align-items:center;gap:10px;min-width:0}
+  .cen-cab h1{font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  html body.cen-r2 #cx-cab{flex-wrap:nowrap;flex:0 0 auto}
+  .cen-cab .cen-id{flex:0 0 auto;flex-wrap:nowrap}
+  .cen-cab .cen-id input{width:11.5rem}
+}
+@media(max-width:1020px){.cen-cab .cen-id{min-width:0;max-width:100%}.cen-cab .cen-id input{flex:1 1 5rem;width:5rem;min-width:0}.cen-cab .cen-id button{padding-left:10px;padding-right:10px}}
+.e1-mas{position:relative;flex:0 0 auto}
+.e1-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:min(24rem,92vw);background:#16222f;border:1px solid #3a5670;border-radius:10px;padding:12px;box-shadow:0 14px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:8px}
+.e1-menu[hidden]{display:none}
+.e1-menu output,.cab .e1-menu #resVariante{flex:0 0 auto;font-size:.9rem;line-height:1.4;color:#d9f3e4}
+.e1-menu-tit{margin:0;font-size:.875rem;font-weight:700;color:#8fd3da}
+.e1-menu button{text-align:left}
+.e1-menu-pie{margin:2px 0 0;font-size:.84rem;color:#a9bccb}
+.cen-cab .e1-menu .cen-ceja,.cen-cab .e1-menu .cen-version{font-size:.84rem;letter-spacing:0;text-transform:none;border:0;padding:0;color:#a9bccb;white-space:normal}
+.e1-aviso{margin:8px 0 0;padding:7px 12px;border-radius:8px;background:#3b2a12;border:1px solid #d99a1b;color:#ffe2a8;font-size:.94rem;font-weight:600}
+.e1-aviso[hidden]{display:none}
+/* --- herramientas por partes --- */
+html.e1-paso1:not(.cx-ver-todo) [data-e1-tras]{display:none!important}
+.tira-pista{display:none;font-size:.94rem;font-weight:600;color:#ffd7a8;white-space:nowrap;margin-left:6px}
+html.e1-paso1:not(.cx-ver-todo) .tira-pista{display:inline}
+html.e1-paso1:not(.cx-ver-todo) [data-boton=rearme],html.e1-paso1:not(.cx-ver-todo) [data-boton3=rearme],html.e1-paso1:not(.cx-ver-todo) [data-boton2=rearme]{outline:3px solid #FB8500;outline-offset:3px}
+.fases .tab-candado{display:none}
+.fases [role=tab].cx-nv-cerrado{opacity:.86}
+.fases [role=tab].cx-nv-cerrado::before{content:none}
+.fases [role=tab].cx-nv-cerrado .tab-abierta{display:none}
+.fases [role=tab].cx-nv-cerrado .tab-candado{display:block}
+.paso-uno{border:2px solid #FB8500;border-radius:10px;padding:12px 16px;margin:10px 0;background:#2a2210;color:#f3e6cc}
+.paso-uno h3{margin:0 0 6px;font-size:1.1rem;color:#ffd7a8}
+.paso-uno p{font-size:1rem;margin:.4rem 0}
+.paso-uno.hecho{border:1px solid #2c9a63;background:#10281c;color:#d3f2e0;padding:6px 14px}
+.paso-uno.hecho p{font-size:.95rem}
+.paso-fase{margin:8px 0;padding:8px 12px;border-radius:8px;background:#1b2a39;border:1px solid #2c4156;font-size:.94rem;color:#e6edf3}
+.paso-fase.ok{background:#10281c;border-color:#2c9a63;color:#d3f2e0}
+.paso-fase[hidden]{display:none}
+.paso-fase button{margin-left:6px}
+#sigueMatriz .fila{margin:8px 0}
+</style>
+</head>
+<body>
+<header class="cab cen-cab">
+  <div class="cen-fila">
+    <div class="cen-titulo"><h1>Mezcladora de tres silos con PLC</h1></div>
+    <div class="alumno cen-id"><label for="alumno">Identificador del alumno (genera tu variante)</label><input id="alumno" maxlength="60" autocomplete="off" placeholder="Tu matrícula o código"><button id="btnVariante" type="button">Generar mi variante</button>
+      <div class="e1-mas"><button type="button" class="sec" id="btnMenu" aria-expanded="false" aria-controls="menuMas">Más ▾</button>
+        <div id="menuMas" class="e1-menu" hidden>
+          <p class="e1-menu-tit">Planta en uso</p>
+          <output id="resVariante" aria-live="polite"></output>
+          <button type="button" class="sec" id="btnCasoBase">Usar el caso base (sin matrícula)</button>
+          <button type="button" class="sec" id="btnComoEvalua">Ver cómo se evalúa</button>
+          <p class="e1-menu-pie"><span class="cen-ceja">CEN · Práctica estrella E1 · PLC</span> · <span class="cen-version" id="version"></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="avisoArriba" class="e1-aviso" role="alert" hidden></div>
+</header>
+<main>
+  <section class="banco" aria-label="Banco virtual: planta y tablero">
+    <div class="planta">
+      <div class="escena">
+        <canvas id="lienzo3d" role="img" aria-label="Planta en 3D: tres silos en corte, compuertas, cinta, carro sobre báscula, tablero y estación de mando"></canvas>
+        <div id="sinWebgl" class="aviso3d" hidden>Este navegador no ofrece WebGL: la vista 3D no está disponible. La práctica funciona igual con los paneles, el estado del tablero y la matriz de pruebas.</div>
+      </div>
+      <div class="vistas no-imp" id="barraVistas"></div>
+      <div class="hud" id="hud" aria-label="Instrumentos de la planta"></div>
+      <div class="cen-tira no-imp" id="tiraMando" role="group" aria-label="Botonera rápida"></div>
+      <div class="leyenda"></div>
+    </div>
+    <div class="mando" id="mando"></div>
+  </section>
+
+  <div class="fases" role="tablist" aria-label="Fases de la práctica" id="fases"></div>
+  <div id="paneles"></div>
+
+  <footer id="pie"></footer>
+  <div id="avisoInicio" class="cen-integridad" role="status"></div>
+</main>
+<div id="barraMovil" class="no-imp" role="region" aria-label="Mando rápido, siempre a la vista">
+  <p id="bmEstado"></p>
+  <div class="fila"><button type="button" class="sec" data-ir=".banco" aria-label="Ir a la planta">Planta</button><button type="button" class="sec" data-ir="#fases" aria-label="Ir a las fases">Fases</button><button type="button" data-boton2="SB1" aria-label="M1, mando rápido" aria-pressed="false">M1</button><button type="button" data-boton2="SB2" aria-label="M2, mando rápido" aria-pressed="false">M2</button><button type="button" data-boton2="SB3" aria-label="M3, mando rápido" aria-pressed="false">M3</button><button type="button" data-boton2="SB4" aria-label="M4, mando rápido" aria-pressed="false">M4</button><button type="button" data-boton2="SB5" aria-label="Paro de ciclo, mando rápido" aria-pressed="false">Paro</button><button type="button" data-boton2="SB9" aria-label="Acuse, mando rápido" aria-pressed="false">Acuse</button><button type="button" data-boton2="rearme" aria-label="Rearme, mando rápido" aria-pressed="false">Rearme</button><button type="button" data-boton2="marcha" aria-label="Marcha, mando rápido" aria-pressed="false">Marcha</button><button type="button" data-boton2="paroInm" aria-label="Paro inmediato, mando rápido" aria-pressed="false">Paro inm.</button></div>
+</div>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body>
+</html>

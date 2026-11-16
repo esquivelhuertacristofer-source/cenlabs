@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E3 · Torneado CNC: de la primera pieza a la capacidad del proceso</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b3b;background:#e9eef2;font-size:16px}
+*{box-sizing:border-box}body{margin:0;background:#e9eef2}
+.cab .lema{margin:0;color:#cfe0ea;font-size:.88rem;line-height:1.45}
+.cab .cen-fila2{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 22px;margin-top:5px}.cab .cen-fila2 .cen-integridad{margin:0}
+.cab .lema strong{color:#fff}
+h1{font-size:28px;margin:6px 0}h2{font-size:20px;margin:0 0 12px}h3{font-size:16px;margin:18px 0 8px}
+main{padding:12px 14px 28px;margin:0 auto}
+.dividida{display:grid;grid-template-columns:minmax(0,62fr) minmax(380px,38fr);gap:14px;align-items:start}.dividida>*{min-width:0}
+.panel{background:#fff;border:1px solid #d4dfe6;border-radius:12px;padding:18px;margin-bottom:14px;min-width:0}
+.aviso{padding:10px 14px;background:#fff4dc;border:1px solid #ecd49a;border-radius:8px;margin-bottom:16px;font-size:14px}
+.banco{background:#0e1822;color:#e6edf3;border-radius:14px;padding:10px;position:sticky;top:8px}
+/* la escena llena el alto útil y no lo cede: el cajón del control, abierto o cerrado, va debajo (ronda 4) */
+.visor{position:relative;border-radius:10px;overflow:hidden;background:#1e2328;height:calc(100vh - 282px);min-height:300px;max-height:980px;transition:height .25s}
+.visor canvas{display:block;width:100%;height:100%}
+/* viñeta de foto de producto sobre el lienzo (DOM, no 3D): las esquinas bajan y la máquina queda al frente */
+.visor::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 58%,rgba(6,9,12,.34) 100%)}
+.banco .cen-dock>span{min-width:0}
+.leyenda3d{margin:6px 2px 0}
+.mandos{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:8px 0 2px;font-size:.84rem;color:#c9d6df}
+.fila-mandos{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px}.fila-mandos .mandos{margin:8px 0 2px}
+.mandos .tecla{padding:5px 10px}.fila-mandos .leyenda3d{margin:6px 0 0 auto;font-size:.8rem;color:#9fb3c2}.fila-mandos .leyenda3d summary{color:#8fd3ff;font-weight:500}
+.fila-mandos .leyenda3d[open]{flex-basis:100%;margin:4px 0 0}.fila-mandos .leyenda3d[open]>div{margin-top:6px;line-height:1.5;color:#c9d6df}
+.cajon{margin-top:8px;border-top:1px solid #22303b;padding-top:6px}.cajon>summary{color:#8fd3ff;font-size:.86rem;padding:4px 0}
+.cajon .cuerpo{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:10px;margin-top:6px}.cajon .cuerpo>*{min-width:0}
+.cajon .lado{display:grid;grid-template-rows:auto auto;gap:8px}.cajon .control .scroll{max-height:150px}
+/* en la fase C el control vive en la columna derecha, sobre fondo de máquina (ronda 4) */
+.ranura-control{background:#0e1822;color:#e6edf3;border-radius:10px;padding:10px;margin:10px 0 12px}.ranura-control .cuerpo{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.ranura-control .cuerpo>*{min-width:0}
+.ranura-control .lado{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;align-items:start}.ranura-control .control .scroll{max-height:none}
+#hud.dock-e3{display:flex;flex-wrap:nowrap;gap:6px;padding:8px 0 0;overflow:hidden}
+#hud.dock-e3>span{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:linear-gradient(180deg,#13202d,#0f1923);border:1px solid #2b3945;border-radius:8px;padding:4px 10px 5px;line-height:1.2;font-variant-numeric:tabular-nums}
+#hud.dock-e3>span[hidden]{display:none}#hud.dock-e3>span>i{font-style:normal;font-size:.7rem;color:#8ea6b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud.dock-e3>span>b{font-size:1.15rem;font-weight:650;color:#7dffb0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud.dock-e3>span>em{font-style:normal;font-size:.74rem;color:#b9c9d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud.dock-e3>span.demo{border-color:#6a5a1c;background:linear-gradient(180deg,#2a2410,#1c180b)}#hud.dock-e3>span.demo>b{color:#ffe19a}
+#hud.dock-e3>span.ancha{flex:1.6 1 0}#hud.dock-e3 .gota{display:inline-block;width:.62em;height:.62em;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#5fc3ff;margin-right:.4em;vertical-align:.05em}#hud.dock-e3 .gota.no{background:#4b5b68}
+/* desgaste del filo: diez segmentos frente al criterio de cambio, sin cifras (ronda 4, corrección de integridad) */
+#hud.dock-e3 .vb{display:inline-flex;gap:2px;vertical-align:-.12em}#hud.dock-e3 .vb>span{display:inline-block;width:.42em;height:.9em;border-radius:2px;background:#2b3945}#hud.dock-e3 .vb>span.si{background:#7dffb0}#hud.dock-e3 .vb>span.si.alto{background:#ffb35c}
+.mandos label{font-size:.84rem;color:#c9d6df;font-weight:400;margin:0;display:flex;gap:6px;align-items:center}
+.mandos select{width:auto;padding:4px 6px}.mandos input{width:auto}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.control{background:#0a1016;border:2px solid #2b3945;border-radius:8px;padding:10px;font-family:ui-monospace,Consolas,monospace}
+.ctl-tit{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;color:#8fd3ff;font-size:13px;font-weight:700;margin-bottom:8px}
+.ctl-tit span{color:#c9d6df;font-weight:400;font-size:12px}
+.control table{font-size:13px;color:#e8eef3}.control th{color:#8fd3ff;font-weight:600;border-color:#22303b}.control td{border-color:#22303b}
+.control td.cursor{background:#f2f5f7;color:#0a1016;font-weight:700}
+.ctl-entrada{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.ctl-entrada input,.ctl-entrada select{width:auto;flex:1;min-width:110px;background:#eaf2f7}
+.tecla{background:#33414d;color:#fff;border:1px solid #55677a;font:600 12px ui-monospace,Consolas,monospace;padding:9px 10px;margin:0}
+#msgControl{font-size:13px;color:#ffd166;min-height:20px;margin-top:8px;white-space:pre-line}
+.dos{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;margin-top:10px}.dos>*{min-width:0}
+.micro{background:#0b1a14;border:1px solid #2b3945;border-radius:8px;padding:10px;text-align:center}
+.micro .lcd{font:700 30px ui-monospace,Consolas,monospace;color:#7dffb0;letter-spacing:.04em}
+.micro small,.banco figcaption,.ranura-control figcaption{color:#9fb3c2;font-size:12px}figure{margin:0}
+/* pestañas en una fila, en dos líneas como las de E1 («Fase A» y su nombre); el texto de cada pestaña no cambia */
+.pasos{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:12px}
+.pasos button{position:relative;background:#d9e3ea;color:#1d3445;margin:0;padding:7px 8px 8px;font-size:13px;line-height:1.2;text-align:left;border-radius:9px 9px 0 0;min-width:0;font-weight:600}
+.pasos button .f{display:block;font-weight:400;font-size:11.5px;color:#4c6070;white-space:nowrap}.pasos button .f::before{content:"Fase "}
+.pasos button[data-fase=F] .f::before{content:"Cierre"}.pasos button[data-fase=X] .f::before{content:"Registro"}
+.pasos button .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pasos button[aria-selected="true"]{background:#f3f6f8;color:#125a77;box-shadow:inset 0 3px 0 #176b78}.pasos button[aria-selected="true"] .f{color:#176b78}
+.pasos button .ok{position:absolute;top:5px;right:6px;color:#1d8a5b;font-weight:700;font-size:12px}
+.guia{margin:4px 0 12px;padding:9px 12px;border-left:4px solid #176b78;background:#eaf2f8;color:#173b52;font-size:14px}
+#faseA.sinVariante .conVariante{display:none}#faseA:not(.sinVariante) .guia{display:none}
+.fase[hidden]{display:none}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:14.5px}
+input,select,textarea,button{font:inherit}
+input,select,textarea{padding:8px;border:1px solid #90a3af;border-radius:5px;width:100%;background:#fff;color:#172b3b}
+input:disabled,select:disabled,textarea:disabled{background:#eef2f5;color:#4c6070}
+textarea.codigo{font:13.5px/1.45 ui-monospace,Consolas,monospace;min-height:340px;white-space:pre;overflow:auto;tab-size:2}
+pre.codigo{font:13px/1.45 ui-monospace,Consolas,monospace;background:#f4f7f9;border:1px solid #d4dfe6;border-radius:6px;padding:10px;max-height:260px;overflow:auto;margin:8px 0}
+button{background:#176b78;color:#fff;border:0;border-radius:6px;padding:10px 14px;cursor:pointer;margin:6px 6px 6px 0}
+button.sec{background:#e3ecf1;color:#203d50}button.peligro{background:#8d2c1c}
+button:disabled{opacity:.45;cursor:default}
+.cen-barra button,.cen-cab .cen-id button{margin:0}
+.cen-barra .cen-suelto{color:#ffe19a}
+.cen-cab .cen-id label{margin:0;font-weight:500}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #e08a00;outline-offset:2px}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 12px}
+.campos.cortos{grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+.pista{color:#4c6070;font-size:13.5px;line-height:1.5;margin:6px 0}
+.estado{padding:10px 12px;border-left:5px solid #af5b21;background:#fff3e8;margin:10px 0;font-size:14px;white-space:pre-line}
+.estado.ok{border-color:#297752;background:#eaf6ef}.estado.info{border-color:#17527a;background:#eaf2f8}.estado:empty{display:none}
+#datosVariante,#avisoAlmacen{margin:0 0 12px}
+.scroll{overflow:auto;max-height:300px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid #dce5ea;white-space:nowrap;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}td.izq,th.izq{text-align:left;white-space:normal}
+tr.senal td{background:#fde7e7}tr.excl td{color:#8a97a1;text-decoration:line-through}
+.reaccion{border:2px solid #c62828;border-radius:8px;padding:12px;background:#fff7f7;margin:10px 0}
+.bloq{font-size:13px;color:#1d8a5b;font-weight:600}
+canvas.graf{display:block;width:100%;border:1px solid #d4dfe6;border-radius:6px;margin:8px 0;background:#fff}
+.graficas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:14px}
+details summary{cursor:pointer;font-weight:600}p,li{line-height:1.55}a{color:#125a77}
+footer{font-size:13px;color:#4c6070;padding:6px 2px 30px}footer li{margin-bottom:3px}footer details{margin-bottom:6px}
+.nota{font-size:22px;font-weight:700}.crit{margin:12px 0}.crit td.no{color:#9c2b1b}.crit td.si{color:#1d7a50}
+@media(max-width:1020px){.dividida{grid-template-columns:minmax(0,1fr)}.banco{position:static}.visor{height:56vh;max-height:none}.pasos{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:700px){#hud.dock-e3{flex-wrap:wrap}#hud.dock-e3>span,#hud.dock-e3>span.ancha{flex:1 1 40%}#hud.dock-e3>span>b{white-space:normal}.cajon .cuerpo{grid-template-columns:1fr}}
+@media(max-width:560px){main{padding:10px 8px 24px}.dos{grid-template-columns:1fr}.panel{padding:13px}textarea.codigo{min-height:260px}.banco{padding:8px}.cab .lema{font-size:.82rem}}
+/* móvil: cabecera de 140 px como máximo (ronda 4): título en una línea con elipsis, versión, identificador y variante; el lema y la
+   línea de integridad van al desplegable «El caso y cómo se evalúa», cerrado */
+.cab-mas[hidden]{display:none}.cab-mas{margin-top:4px;font-size:.8rem}.cab-mas>summary{color:#8fd3ff;font-weight:600;padding:2px 0}.cab-mas[open] .cen-fila2{margin-top:4px}
+@media(max-width:560px){.cab.cen-cab{padding:8px 10px 6px}.cab .cen-ceja{display:none}.cab .cen-titulo{flex:1 1 100%;flex-wrap:nowrap;gap:8px;align-items:center}.cab .cen-titulo h1{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+  .cab .cen-id{flex:1 1 100%;flex-wrap:nowrap}.cab .cen-id label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.cab .cen-id input{flex:1 1 auto;width:auto;min-width:0}.cab .cen-id button{flex:0 0 auto;padding:6px 10px}}
+/* Experiencia (E3-1.6, _comun/experiencia.js): en «Explorar» el visor ocupa la ventana, el lienzo lo llena y la barra de vistas queda
+   abajo, fija sobre la escena (el módulo la mide con barraEscena para subir «Comenzar a trabajar»); durante el recorrido se oculta.
+   En móvil, Ficha · Explorar · Guía · Informe bajan a su propia línea, debajo del título */
+html.cx-explorar .visor{border-radius:0;transition:none}
+html.cx-explorar .visor::after{display:none}
+html.cx-explorar #barraVistas{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 10px;background:rgba(6,11,20,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html.cx-recorrido #barraVistas{opacity:0;pointer-events:none}
+@media(max-width:560px){.cab .cen-titulo{flex-wrap:wrap}.cab .cen-titulo h1{flex:1 1 0}.cab #cx-cab{flex:1 1 100%;margin:4px 0 0}}
+/* ============================================================================================================
+   INTERFAZ DE TRABAJO (15/11, _comun/ESTANDAR-INTERFAZ-TRABAJO.md). Va al final y manda sobre lo anterior.
+   · letra: nada por debajo de 13 px; rótulos y botones en 14 px o más; texto corriente en 15 px o más; cifras del
+     marcador en 21 px. --k escala toda la interfaz un 12 % desde 1600 px de ancho.
+   · cabecera en una fila (lo secundario, en «Más»); ruta de fases a todo lo ancho, con candado en las que faltan;
+   · herramientas por partes: la fase A se abre de una acción en una acción (pA1 → pA2 → pA3).
+   Los selectores llevan «body» o un id para ganar a las hojas del kit, que se inyectan después de esta.
+   ============================================================================================================ */
+:root{--k:1}
+@media(min-width:1600px){:root{--k:1.12}}
+main,.pasos{font-size:calc(16px*var(--k))}main{padding-top:10px}
+h2{font-size:calc(21px*var(--k))}h3{font-size:calc(17px*var(--k))}
+label{font-size:calc(15px*var(--k))}
+.pista{font-size:calc(14.5px*var(--k));color:#40535f}
+.estado{font-size:calc(15px*var(--k))}.guia{font-size:calc(15.5px*var(--k));line-height:1.45}
+table{font-size:calc(14.5px*var(--k))}.bloq{font-size:calc(14px*var(--k))}
+footer{font-size:calc(14px*var(--k))}
+textarea.codigo{font-size:calc(14.5px*var(--k))}pre.codigo{font-size:calc(14px*var(--k))}
+.aviso{font-size:calc(15px*var(--k))}
+.tecla{font-size:calc(14px*var(--k))}
+.ctl-tit{font-size:calc(14.5px*var(--k))}.ctl-tit span{font-size:calc(13.5px*var(--k))}
+.control table{font-size:calc(14px*var(--k))}#msgControl{font-size:calc(14px*var(--k))}
+.ctl-entrada label.ctl-et{color:#c9d6df;font-size:calc(14px*var(--k));margin:0;font-weight:500}
+.micro small,.banco figcaption,.ranura-control figcaption{font-size:calc(13.5px*var(--k));color:#b4c6d4}
+.micro .lcd{font-size:calc(30px*var(--k))}
+.mandos,.mandos label{font-size:calc(14.5px*var(--k));color:#d7e3ec}
+.fila-mandos .leyenda3d{font-size:calc(14px*var(--k));color:#c9d6df}
+.cajon>summary{font-size:calc(15px*var(--k))}
+.nota-ctl{font-size:calc(14px*var(--k));color:#40535f;margin-left:2px}
+.mandos .nota-ctl{color:#b4c6d4}
+button:not(:disabled)+.nota-ctl{display:none}
+#btnDetener:not(:disabled){background:#b3261e;border-color:#e0786f;color:#fff}
+
+/* ---- cabecera: una fila; «Más» guarda el caso, la versión y cómo se evalúa */
+body .cen-cab{position:relative;padding:8px 14px}
+body .cen-cab .cen-fila{flex-wrap:nowrap;gap:6px 14px}
+body .cen-cab .cen-titulo{flex:1 1 auto;flex-wrap:nowrap;align-items:center;gap:10px}
+body .cen-cab h1{font-size:calc(1.2rem*var(--k));white-space:nowrap}
+.cab-chip{flex:0 0 auto;font-size:calc(14px*var(--k));font-weight:800;letter-spacing:.04em;color:#0b1f2e;background:#8fd3da;border-radius:7px;padding:3px 8px}
+.h1-resto{display:none}
+@media(min-width:2000px){.h1-resto{display:inline}}
+body .cen-cab #cx-cab{flex-wrap:nowrap;margin-left:4px}
+body .cen-cab .cen-id{flex:0 0 auto;flex-wrap:nowrap}
+body .cen-cab .cen-id label{font-size:calc(14px*var(--k));color:#d7e3ec;white-space:nowrap}
+body .cen-cab .cen-id input{font-size:calc(15px*var(--k));width:calc(190px*var(--k))}
+body .cen-cab .cen-id button{font-size:calc(15px*var(--k));white-space:nowrap}
+body .cen-cab .cab-btn-mas{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.3);color:#fff}
+body .cen-cab .cab-btn-mas[aria-expanded="true"]{background:#0b6b82;border-color:#8ECAE6}
+.cab-mas{position:absolute;right:14px;top:calc(100% + 6px);z-index:40;width:min(680px,calc(100vw - 28px));max-height:calc(100vh - 90px);overflow:auto;background:#0f1c28;border:1px solid #3a5670;border-radius:12px;padding:14px 18px 12px;box-shadow:0 18px 44px rgba(0,0,0,.45);font-size:calc(15px*var(--k));color:#d7e3ec;margin:0}
+.cab-mas[hidden]{display:none}
+.cab-mas p{margin:0 0 8px}
+.cab-mas .cab-mas-nombre{font-size:calc(17px*var(--k));font-weight:700;color:#fff}
+body .cen-cab .cab-mas .cen-ceja{font-size:calc(13.5px*var(--k));text-transform:none;letter-spacing:.03em;white-space:normal}
+body .cen-cab .cab-mas .cen-version{font-size:calc(13.5px*var(--k));color:#c5d6e2}
+.cab .cab-mas .cen-fila2{display:block;margin:0}
+.cab .cab-mas .lema{font-size:calc(15px*var(--k));color:#d7e3ec}
+body .cab-mas .cen-integridad{font-size:calc(14.5px*var(--k));color:#c9d8e3;margin:0 0 6px}
+body .cab-mas .cen-integridad details[open]>:not(summary){font-size:calc(14.5px*var(--k))}
+@media(max-width:1180px){body .cen-cab .cen-fila{flex-wrap:wrap}body .cen-cab .cen-id{flex:1 1 auto;min-width:0;flex-wrap:wrap}body .cen-cab .cen-titulo{flex-wrap:wrap}body .cen-cab #cx-cab{flex-wrap:wrap}}
+@media(max-width:560px){body .cen-cab .cen-id label{position:static;width:auto;height:auto;clip:auto;flex:1 1 100%}body .cen-cab .cen-id input{flex:1 1 120px;width:auto;min-width:0}}
+
+/* ---- franja «Ahora te toca»: en esta práctica va compacta para no quitarle alto a la escena */
+html #cx-ahora .cx-ah-btns{gap:6px}
+html #cx-ahora .cx-ah-btns button{padding:6px 12px;min-height:36px}
+/* en escritorio, el nombre de la parte comparte fila con los botones y las frases «qué hago» y «NUEVO» usan todo el ancho:
+   una línea cada una en vez de tres apretadas junto a los botones */
+@media(min-width:1021px){
+html #cx-ahora .cx-ah-fila{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:2px 14px;padding:7px 14px 8px}
+html #cx-ahora .cx-ah-txt{display:contents}
+html #cx-ahora .cx-ah-et{grid-column:1;grid-row:1 / span 3}
+html #cx-ahora .cx-ah-letra{grid-column:2;grid-row:1 / span 3}
+html #cx-ahora .cx-ah-nombre{grid-column:3;grid-row:1}
+html #cx-ahora .cx-ah-btns{grid-column:4;grid-row:1;flex-wrap:nowrap}
+html #cx-ahora .cx-ah-obj{grid-column:3 / span 2;grid-row:2;font-size:calc(16px*var(--k));color:#fff}
+html #cx-ahora .cx-ah-nuevo{grid-column:3 / span 2;grid-row:3;margin-top:1px}
+}
+
+/* ---- ruta de fases: una fila a todo lo ancho; la que falta lleva candado y dice cuándo se abre */
+.pasos{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:0 0 10px}
+.pasos button{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;background:#d3dee6;color:#1d3445;margin:0;padding:6px 26px 6px 8px;font-size:calc(15px*var(--k));line-height:1.2;text-align:left;border-radius:9px;min-width:0;font-weight:650}
+.pasos button .f{display:grid;place-items:center;flex:0 0 auto;min-width:1.75em;height:1.75em;padding:0 5px;border-radius:7px;background:#1d3445;color:#fff;font-weight:800;font-size:calc(14px*var(--k));white-space:nowrap}
+.pasos button .f::before,.pasos button[data-fase=F] .f::before,.pasos button[data-fase=X] .f::before{content:none}
+.pasos button[data-fase=F] .f::after{content:"✓"}.pasos button[data-fase=X] .f::after{content:"§"}
+.pasos button[aria-selected="true"]{background:#fff;color:#0d4f66;box-shadow:inset 0 -4px 0 #FB8500,0 0 0 1px #9db4c2}
+.pasos button[aria-selected="true"] .f{background:#176b78;color:#fff}
+.pasos button .ok{top:50%;right:8px;transform:translateY(-50%);font-size:calc(15px*var(--k))}
+.pasos button.cx-nv-cerrado{opacity:1;filter:none;background:#e3e9ee;color:#4a5d6a;box-shadow:inset 0 0 0 1px #c3d0d9}
+.pasos button.cx-nv-cerrado .f{background:#7b8c98}
+.pasos button.cx-nv-cerrado::before{order:9;margin:0 0 0 auto;font-size:.9em}
+.pasos button.cx-nv-cerrado::after{flex:1 1 100%;font-size:calc(13px*var(--k));font-weight:400;color:#40535f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tabB.cx-nv-cerrado::after{content:"Se abre al entregar la A"}#tabC.cx-nv-cerrado::after{content:"Se abre al entregar la B"}
+#tabD.cx-nv-cerrado::after{content:"Se abre al entregar la C"}#tabE.cx-nv-cerrado::after{content:"Se abre al entregar la D"}
+#tabF.cx-nv-cerrado::after{content:"Se abre al entregar la E"}
+@media(max-width:1020px){.pasos{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:560px){.pasos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---- escena y lo que va debajo */
+@media(min-width:1021px){.dividida{grid-template-columns:minmax(0,60fr) minmax(380px,40fr)}}
+.visor{height:calc(100vh - 300px)}
+/* en una pantalla alta (1080 px o más) la escena deja sitio para ver sin desplazarse las cifras y los mandos de tu torno */
+@media(min-height:1000px) and (min-width:1021px){.visor{height:calc(100vh - 530px)}}
+body .cen-pastilla{font-size:calc(14.5px*var(--k));line-height:1.3;letter-spacing:0;font-weight:650;max-width:calc(100% - 20px);border-radius:10px;padding:7px 12px;white-space:normal;background:rgba(28,24,11,.9)}
+body .cen-pastilla.mia{color:#d9f3e4;background:rgba(10,30,24,.9);border-color:#2f7d5b}
+html.cx-explorar .cen-pastilla.mia{display:none}
+body #barraVistas button{font-size:calc(14px*var(--k));min-height:36px;padding:5px 10px}
+body .cen-dock-cab{font-size:calc(14.5px*var(--k));letter-spacing:0;text-transform:none;color:#ffe19a;font-weight:650;margin:8px 0 0}
+#hud.dock-e3>span>i{font-size:calc(13.5px*var(--k));color:#b4c6d4;white-space:normal;overflow:visible;line-height:1.15;min-height:2.3em}
+#hud.dock-e3>span>b{font-size:calc(21px*var(--k))}
+#hud.dock-e3>span>em{font-size:calc(13.5px*var(--k));color:#c9d6df}
+body.cen-r2 #hud.cen-dock.cen-detenida>span:not(.demo){opacity:.82}
+.torno-aviso{display:none;margin:8px 0 0;padding:9px 12px;border-radius:9px;border:1px solid #6a5a1c;background:#231e0d;color:#f1e6c4;font-size:calc(15px*var(--k));line-height:1.4}
+.torno-aviso strong{color:#ffe19a}
+#tuTorno.cx-nv-cerrado+.torno-aviso{display:block}
+@media(max-width:1020px){.visor{height:56vh}}
+
+/* ---- fase A, de una acción en una acción (con «Ver todas las herramientas» se ve entera) */
+.guia.sigue{display:none;border-left-color:#FB8500;background:#fff4e2;color:#4a3208}
+html:not(.cx-ver-todo) #faseA.sinVariante .pA3{display:none}
+html:not(.cx-ver-todo) #faseA[data-paso="1"] .pA2,html:not(.cx-ver-todo) #faseA[data-paso="1"] .pA3,html:not(.cx-ver-todo) #faseA[data-paso="2"] .pA3{display:none}
+html:not(.cx-ver-todo) #faseA[data-paso="1"]:not(.sinVariante) #sigueA1,html:not(.cx-ver-todo) #faseA[data-paso="2"]:not(.sinVariante) #sigueA2{display:block}
+#cierreX.cx-nv-cerrado+#sigueX{display:block}
+@media print{.banco,.pasos,button,.aviso,#pGraficas,footer,details,.cen-integridad{display:none!important}.fase{display:block!important}.fase[hidden]{display:block!important}.cab{background:#fff;color:#000}.cab .lema,.cen-ceja{color:#000}.dividida{display:block}.panel{break-inside:avoid;border:0;padding:6px 0}textarea.codigo{min-height:0;height:auto}.scroll{max-height:none;overflow:visible}}
+</style></head><body>
+<header class="cab cen-cab">
+  <div class="cen-fila">
+    <div class="cen-titulo"><span class="cab-chip" aria-hidden="true">E3</span><h1>Torneado CNC<span class="h1-resto">: de la primera pieza a la capacidad del proceso</span></h1></div>
+    <div class="cen-id" id="pVariante"><label for="alumno">Matrícula o identificador</label><input id="alumno" autocomplete="off" maxlength="40" placeholder="Por ejemplo, 2026-0147"><button id="btnVariante" type="button">Generar mi variante</button><button id="btnMas" type="button" class="cab-btn-mas" aria-expanded="false" aria-controls="cabMas">Más ▾</button></div>
+  </div>
+  <div class="cab-mas" id="cabMas" role="region" aria-label="Más: el caso, la versión y cómo se evalúa" hidden>
+    <p class="cab-mas-tit"><span class="cen-ceja">CEN · Práctica estrella E3 · CNC y manufactura</span> <span class="cen-version">versión E3-1.6</span></p>
+    <p class="cab-mas-nombre">Torneado CNC: de la primera pieza a la capacidad del proceso</p>
+  <div class="cen-fila2"><p class="lema">Libera una flecha de AISI 1045: el cliente pide <strong>Ppk &gt; 1,67</strong> sobre <span data-m="npz"></span> piezas consecutivas.</p>
+  <div class="cen-integridad" id="leyenda" role="note"><span><strong>Simulación</strong> · <strong>Desgaste acelerado ×<span data-m="K"></span></strong> · paquete local, sin servidor</span>
+    <details><summary>Cómo se evalúa y qué no garantiza</summary><div>Variación simulada con el modelo del §5.2 del diseño. El desgaste se acelera ×<span data-m="K"></span> (factor didáctico; VB<sub>B</sub> real a escala de vida del filo). No incluye deriva térmica, deflexión ni rugosidad. Nada se envía a internet: exporta tu expediente antes de cerrar. <strong>Paquete local:</strong> tu avance y tus entregas quedan registrados en este navegador y en el expediente, con una huella que detecta ediciones casuales (no es una firma: quien edite el archivo puede recalcularla); un paquete sin servidor no puede garantizar la entrega única, porque el almacenamiento del navegador se puede borrar.</div></details></div></div>
+    <button type="button" class="sec" id="btnMasCerrar">Cerrar</button>
+  </div>
+</header>
+<main>
+<div class="pasos" id="rutaFases" role="tablist" aria-label="Fases">
+  <button role="tab" id="tabA" aria-controls="faseA" data-fase="A" aria-selected="true" aria-label="A · Planeación"><span class="f">A<span class="vh"> · </span></span>Planeación</button><button role="tab" id="tabB" data-cx-desde="B" aria-controls="faseB" tabindex="-1" data-fase="B" aria-label="B · Programa"><span class="f">B<span class="vh"> · </span></span>Programa</button><button role="tab" id="tabC" data-cx-desde="C" aria-controls="faseC" tabindex="-1" data-fase="C" aria-label="C · Primera pieza"><span class="f">C<span class="vh"> · </span></span>Primera pieza</button>
+  <button role="tab" id="tabD" data-cx-desde="D" aria-controls="faseD" tabindex="-1" data-fase="D" aria-label="D · Lote 1 y cartas"><span class="f">D<span class="vh"> · </span></span>Lote 1 y cartas</button><button role="tab" id="tabE" data-cx-desde="E" aria-controls="faseE" tabindex="-1" data-fase="E" aria-label="E · Lote 2 y decisión"><span class="f">E<span class="vh"> · </span></span>Lote 2 y decisión</button><button role="tab" id="tabF" data-cx-desde="F" aria-controls="faseF" tabindex="-1" data-fase="F" aria-label="Defensa"><span class="f"></span>Defensa</button><button role="tab" id="tabX" aria-controls="faseX" tabindex="-1" data-fase="X" aria-label="Expediente"><span class="f"></span>Expediente</button>
+</div>
+<div class="dividida">
+<section class="banco" id="banco" aria-label="Banco virtual: torno CNC">
+  <div class="visor"><canvas id="lienzo3d" role="img" aria-label="Torno CNC de bancada inclinada en 3D: carcasa, plato de tres mordazas, pieza, torreta de doce estaciones, contrapunto y control"></canvas></div>
+  <div id="sinWebgl" class="estado" hidden>Este navegador no ofrece WebGL: el torno en 3D no se muestra. Los paneles, el control y las gráficas funcionan igual.</div>
+  <div id="barraVistas"></div>
+  <div id="tuTorno" data-cx-desde="B"><div class="hud dock-e3" id="hud" role="group" aria-label="Instrumentos del torno"></div></div>
+  <p class="torno-aviso" id="tornoAviso"><strong>Tu torno todavía no se mueve.</strong> Lo que se corta en la escena es una demostración. Tu torno se mueve cuando simulas tu programa en la fase B; entonces aquí aparecen sus cifras y sus mandos.</p>
+  <div class="fila-mandos">
+  <div class="mandos" id="mandos" data-cx-desde="B" role="group" aria-label="Animación">
+    <label for="velocidad">Velocidad<select id="velocidad"><option value="2">×2</option><option value="8" selected>×8</option><option value="24">×24</option></select></label>
+    <label for="animar"><input type="checkbox" id="animar" checked> Animaciones</label>
+    <button class="tecla" id="btnDetener" disabled>Detener</button><span class="nota-ctl" id="notaDetener">se enciende mientras tu torno se mueve</span>
+  </div>
+  <details class="leyenda3d"><summary>Qué es ilustrativo en la escena</summary><div>Trayectoria: rápidos punteados, avances continuos. La forma de la viruta y del chorro es ilustrativa; cada viruta dibujada es una viruta real de su morfología (unos 14 mm³ en el desbaste, 2,3 mm³ en el acabado y 20 mm³ en el tronzado): su número sale de la remoción calculada, con un tope de 60 por segundo, y la viruta y las gotas caen en cámara lenta (×4). El chorro de refrigerante es ilustrativo: su caudal no sale de ningún cálculo; solo se enciende con M08 y se apaga con M09. El giro del plato se muestra ralentizado. En el 3D, la franja gris del inserto T2 es su VB<sub>B</sub> calculado (con el factor), dibujada a escala. En reposo, la escena enseña una demostración sobre una pieza neutra, que no es la de ninguna variante y no da cifras; se apaga en cuanto usas el banco.</div></details>
+  </div>
+  <details class="cajon" id="cajonControl" data-cx-desde="C"><summary>Control y correctores</summary><div class="cuerpo" id="cuerpoControl">
+  <div class="control" id="control">
+    <div class="ctl-tit">OFFSETS DE HERRAMIENTA <span>Ajuste 285 «X Diameter Programming»: TRUE · Ajuste 9: MM · [ENTER] suma · [F1] sustituye</span></div>
+    <div class="scroll"><table id="tablaOffsets" aria-label="Tabla de offsets de herramienta"></table></div>
+    <div class="ctl-entrada">
+      <label for="campoOffset" class="ctl-et">Cursor</label>
+      <select id="campoOffset"><option value="X">T2 · X WEAR</option><option value="Z">T2 · Z WEAR</option></select>
+      <label for="entradaOffset" class="ctl-et">Entrada</label>
+      <input id="entradaOffset" inputmode="decimal" autocomplete="off" placeholder="valor">
+      <button class="tecla" id="btnEnter">ENTER</button><button class="tecla" id="btnF1">F1</button>
+      <button class="tecla" id="btnXDia">X DIAMETER MEASURE</button><button class="tecla" id="btnZFace">Z FACE MEASURE</button>
+    </div>
+    <div id="msgControl" role="status" aria-live="polite"></div>
+  </div>
+  <div class="lado">
+    <figure><canvas id="cvInserto" role="img" class="graf" style="border-color:#2b3945" aria-label="Flanco del inserto de acabado con su marca de desgaste"></canvas><figcaption>Flanco del inserto T2: la banda gris es su VB<sub>B</sub> calculado con el factor ×<span data-m="K"></span>, en décimas del criterio de cambio y sin cifras.</figcaption></figure>
+    <div class="micro"><small>Micrómetro digital 0–25 mm · resolución 0,001</small><div class="lcd" id="lcdMicro" aria-live="polite">—</div><small id="notaMicro">Sin medición</small></div>
+  </div>
+  </div></details>
+</section>
+
+<div class="columna">
+<div id="avisoAlmacen" class="estado" role="alert" hidden></div>
+<div id="datosVariante" class="estado info" aria-live="polite"></div>
+<section id="fases" aria-label="Desarrollo de la práctica">
+
+
+<div class="panel fase sinVariante" id="faseA" role="tabpanel" aria-labelledby="tabA"><h2>A · Planeación y hoja de procesos</h2>
+  <canvas id="cvPlano" role="img" class="graf" aria-label="Plano de la flecha"></canvas>
+  <p class="guia" id="guiaA"><strong>Empieza aquí.</strong> Escribe tu matrícula arriba, a la derecha, y pulsa «Generar mi variante». Es lo único que hay que hacer para empezar: lo demás se abre paso a paso.</p>
+  <div class="conVariante">
+  <div class="pA1"><label for="A_factible">1. Factibilidad</label><select id="A_factible" data-campo="A.factible" data-banco="factible"></select></div>
+  <p class="guia sigue" id="sigueA1">Lee el plano y responde la factibilidad. Al responder se abre la hoja de procesos.</p>
+  <div class="pA2">
+  <h3>2. Hoja de procesos del acabado (T2)</h3>
+  <div id="datosCorte" class="pista"></div>
+  <div class="campos">
+    <div><label for="A_vc">Vc de acabado (m/min)</label><input id="A_vc" data-campo="A.vc" inputmode="decimal"></div>
+    <div><label for="A_f">Avance de acabado (mm/rev)</label><input id="A_f" data-campo="A.fAcabado" inputmode="decimal"></div>
+    <div><label for="A_rpm">rpm en el ø18</label><input id="A_rpm" data-campo="A.rpm18" inputmode="decimal"></div>
+    <div><label for="A_g50">Límite G50 (rpm)</label><input id="A_g50" data-campo="A.g50" inputmode="decimal"></div>
+    <div><label for="A_filo">Piezas por filo, real (Taylor)</label><input id="A_filo" data-campo="A.piezasFilo" inputmode="decimal"></div>
+  </div>
+  </div>
+  <p class="guia sigue" id="sigueA2">Llena las cinco casillas de la hoja. Al llenarlas se abren la predicción y el botón para registrar.</p>
+  <div class="pA3">
+  <h3>3. Predicción antes de cortar</h3>
+  <p class="pista">Si la primera pieza mide <span data-m="pred"></span> mm por encima del nominal, ¿qué valor tecleas en X Wear con [ENTER]?</p>
+  <div class="campos">
+    <div><label for="A_pred">Valor en X Wear (mm)</label><input id="A_pred" data-campo="A.predXWear" inputmode="decimal" placeholder="con su signo"></div>
+    <div><label for="A_conv">Convención</label><select id="A_conv" data-campo="A.predConvencion" data-banco="convencion"></select></div>
+  </div>
+  </div>
+  </div>
+  <button id="btnA" class="pA3">Registrar hoja de procesos y predicción</button><span class="bloq" id="bloqA"></span>
+  <div id="msgA" class="estado" aria-live="polite"></div>
+</div>
+
+<div class="panel fase" id="faseB" role="tabpanel" aria-labelledby="tabB" hidden><h2>B · Programa, simulación y comparación</h2>
+  <p class="pista">Escribe el programa con comandos básicos: G00, G01 y el ciclo G90 (en este torno, G90 es un ciclo de torneado, no «absoluto»). X va en diámetro y con punto decimal. El programa debe desbastar con T1, acabar con T2 y tronzar con T3, dentro de la profundidad y el avance de cada inserto (panel «Modelo y límites»). El subconjunto admitido está en el manual; todo lo demás se rechaza con su página del manual Haas.</p>
+  <label for="programa">4. Tu programa</label><textarea id="programa" class="codigo" spellcheck="false" autocapitalize="characters"></textarea>
+  <button id="btnSimular">5. Simular mi programa</button><button id="btnEsqueleto" class="sec">Restablecer el esqueleto</button>
+  <div id="resPropio" class="estado" aria-live="polite"></div>
+  <h3>6. Programa generado por el control (plantilla de tipo VPS)</h3>
+  <button id="btnPlantilla" class="sec">Generar y simular la plantilla G71/G70</button>
+  <pre id="textoPlantilla" class="codigo" hidden tabindex="0"></pre>
+  <div id="resPlantilla" class="estado" aria-live="polite"></div>
+  <div class="campos">
+    <div><label for="B_bp">Bloques, tu programa</label><input id="B_bp" data-campo="B.comparacion.bloquesPropio" inputmode="numeric"></div>
+    <div><label for="B_bl">Bloques, plantilla</label><input id="B_bl" data-campo="B.comparacion.bloquesPlantilla" inputmode="numeric"></div>
+    <div><label for="B_tp">Tiempo de ciclo, tu programa (s)</label><input id="B_tp" data-campo="B.comparacion.tiempoPropio" inputmode="decimal"></div>
+    <div><label for="B_tl">Tiempo de ciclo, plantilla (s)</label><input id="B_tl" data-campo="B.comparacion.tiempoPlantilla" inputmode="decimal"></div>
+  </div>
+  <label for="B_el">¿Qué programa es más apropiado para producir? (con las dos piezas conformes, el de menor tiempo de ciclo)</label><select id="B_el" data-campo="B.comparacion.eleccion" data-banco="eleccion"></select>
+  <label for="B_prod">Programa con el que vas a producir</label><select id="B_prod" data-campo="B.produccion" data-banco="eleccion"></select>
+  <button id="btnB">Fijar el programa de producción</button><span class="bloq" id="bloqB"></span>
+  <div id="msgB" class="estado" aria-live="polite"></div>
+</div>
+
+<div class="panel fase" id="faseC" role="tabpanel" aria-labelledby="tabC" hidden><h2>C · Reglaje y primera pieza</h2>
+  <ol>
+    <li>Da una pasada de limpieza con T2 y mide su diámetro con el vernier. <button id="btnSkim" class="sec">Pasada de limpieza y medición</button> <span id="vernier" aria-live="polite"></span></li>
+    <li>En el control, aquí debajo, teclea ese diámetro y pulsa <strong>[X DIAMETER MEASURE]</strong>; después, <strong>[Z FACE MEASURE]</strong>. En el control real el orden es el inverso: primero la tecla y después el diámetro con [ENTER].</li>
+    <li>Pon la sobremedida en <strong>X WEAR</strong> antes de cortar: un desgaste positivo deliberado, para que la primera pieza nunca salga por debajo del nominal.</li>
+    <li>Maquina la primera pieza a avance reducido, mídela, corrige en X WEAR, repásala y apruébala.</li>
+  </ol>
+  <div class="ranura-control" id="ranuraControlC" role="group" aria-label="Control del torno: offsets y micrómetro" hidden></div>
+  <button id="btnCortar">Cortar (o repasar) y medir</button><button id="btnPiezaNueva" class="sec">Montar una pieza nueva</button><button id="btnAprobar">Aprobar la primera pieza</button><span class="bloq" id="bloqC"></span>
+  <div id="msgC" class="estado" aria-live="polite"></div>
+  <div class="scroll"><table id="tablaCortes" aria-label="Registro de la primera pieza"></table></div>
+</div>
+
+<div class="panel fase" id="faseD" role="tabpanel" aria-labelledby="tabD" hidden><h2>D · Lote de caracterización y cartas</h2>
+  <p class="pista">Corre <span data-m="nsub"></span> subgrupos de <span data-m="nsg"></span> piezas consecutivas <strong>sin compensar</strong>. Es un <strong>ensayo de caracterización que solo existe en la simulación</strong>, por el factor ×<span data-m="K"></span>: en un taller, el proceso se detendría en la primera pieza fuera de tolerancia. Aquí esas piezas se segregan como chatarra simulada para que puedas medir la deriva.</p>
+  <button id="btnLote1">9. Correr el lote 1</button><button id="btnCsv1" class="sec" disabled>Descargar lecturas (CSV)</button><button id="btnCopiar1" class="sec" disabled>Copiar lecturas</button><span class="nota-ctl">Descargar y copiar se encienden cuando corres el lote 1.</span>
+  <div id="msgLote1" class="estado" aria-live="polite"></div>
+  <div class="scroll"><table id="tablaLote1" aria-label="Lecturas del lote 1"></table></div>
+  <p class="pista"><a href="#pGraficas">Ver las gráficas ↓</a></p>
+  <p class="pista" id="constantes"></p>
+  <h3>10. Cartas (primero R, después X̄)</h3>
+  <div class="campos cortos">
+    <div><label for="D_Rb">R̄</label><input id="D_Rb" data-campo="D.resp.Rb" inputmode="decimal"></div><div><label for="D_uclR">LCS de R</label><input id="D_uclR" data-campo="D.resp.uclR" inputmode="decimal"></div>
+    <div><label for="D_xbb">X̄̄</label><input id="D_xbb" data-campo="D.resp.xbb" inputmode="decimal"></div><div><label for="D_uclX">LCS de X̄</label><input id="D_uclX" data-campo="D.resp.uclX" inputmode="decimal"></div><div><label for="D_lclX">LCI de X̄</label><input id="D_lclX" data-campo="D.resp.lclX" inputmode="decimal"></div>
+  </div>
+  <h3>Regresión del diámetro contra el número de pieza</h3>
+  <p class="pista">Explora el modelo y mira sus residuos (abajo, en «Gráficas»). Si hay salto, el quiebre que se califica es el de <strong>mínimo error cuadrático</strong>; la pendiente se compara con la regresión por tramos <strong>en el quiebre que tú declares</strong>.</p>
+  <div class="campos">
+    <div><label for="D_modelo">Modelo que exploras</label><select id="D_modelo"><option value="simple">Recta simple</option><option value="tramos">Por tramos: pendiente común y un escalón</option></select></div>
+    <div><label for="D_kcExp">Primera pieza tras el escalón</label><input id="D_kcExp" inputmode="numeric" placeholder="2 a 125"></div>
+    <div><label for="D_sse">Suma de cuadrados de los residuos</label><output id="D_sse" class="pista" aria-live="polite">—</output></div>
+  </div>
+  <label for="D_patron">¿Qué muestran la carta X̄ y la de residuos?</label><select id="D_patron" data-campo="D.resp.patron" data-banco="patron"></select>
+  <div class="campos">
+    <div><label for="D_kc">Pieza del salto (si lo hay)</label><input id="D_kc" data-campo="D.resp.kc" inputmode="numeric" placeholder="vacío si no hay"></div>
+    <div><label for="D_pend">Pendiente ŵ (mm/pieza)</label><input id="D_pend" data-campo="D.resp.pendiente" inputmode="decimal" placeholder="mm por pieza"></div>
+  </div>
+  <h3>11. Índices del lote 1</h3>
+  <div class="campos cortos" id="D_indices"></div>
+  <label for="D_nocap">¿Por qué estos índices no son la capacidad del proceso?</label><select id="D_nocap" data-campo="D.resp.noCapacidad" data-banco="noCapacidad"></select>
+  <h3>Sistema de medición (calculado con tus datos)</h3>
+  <p class="pista" id="textoMsa"></p>
+  <div class="campos"><div><label for="D_grr">%R&amp;R sobre la variación observada</label><input id="D_grr" data-campo="D.resp.grr" inputmode="decimal"></div><div><label for="D_ndc">ndc</label><input id="D_ndc" data-campo="D.resp.ndc" inputmode="decimal"></div></div>
+  <label for="D_msa">Conclusión</label><select id="D_msa" data-campo="D.resp.conclMsa" data-banco="conclMsa"></select>
+  <button id="btnD">Confirmar la fase D (ya no se podrá editar)</button><span class="bloq" id="bloqD"></span>
+  <div id="msgD" class="estado" aria-live="polite"></div>
+</div>
+
+<div class="panel fase" id="faseE" role="tabpanel" aria-labelledby="tabE" hidden><h2>E · Estrategia, lote de capacidad y decisión</h2>
+  <h3>12. Estrategia de compensación y plan de reacción</h3>
+  <div class="campos">
+    <div><label for="E_modo">Regla de corrección</label><select id="E_modo"></select></div>
+    <div><label for="E_west">Pendiente ŵ (mm/pieza)</label><input id="E_west" readonly aria-describedby="notaWest" placeholder="la de tu fase D"></div>
+    <div><label for="E_g">Ganancia g (solo C)</label><input id="E_g" inputmode="decimal" value="0,5"></div>
+  </div>
+  <p class="pista" id="notaWest">La pendiente es la que confirmaste en la fase D y no se puede cambiar aquí.</p>
+  <button id="btnEstimar" class="sec">Estimar con <span data-m="ncalif"></span> lotes simulados de mi variante</button>
+  <div id="resEstimar" class="estado info" aria-live="polite"></div>
+  <p class="pista"><strong>Plan de reacción:</strong> la carta en tiempo real usa el nominal como línea central y los límites del lote 1 (T ± A₂·R̄₁; R ≤ D₄·R̄₁). Ante cada señal se detiene el lote: revisa el filo. Si está sano, registra la parada como ajena a la herramienta (reglaje residual, paso de la compensación o falsa alarma) y sigue; si está astillado, cambia el inserto, pon el desgaste en cero, rehaz la primera pieza y excluye los subgrupos contaminados. El estudio sigue hasta tener 25 subgrupos válidos.</p>
+  <h3>13. Lote 2 (filo nuevo y nueva primera pieza; se corre una sola vez)</h3>
+  <button id="btnLote2">Correr el lote 2 con esta estrategia</button><button id="btnCsv2" class="sec" disabled>Descargar lecturas (CSV)</button><button id="btnCopiar2" class="sec" disabled>Copiar lecturas</button><span class="nota-ctl">Descargar y copiar se encienden cuando termina el lote 2.</span>
+  <div id="msgLote2" class="estado" aria-live="polite"></div>
+  <div id="reaccion" class="reaccion" hidden role="alertdialog" aria-labelledby="tituloReaccion">
+    <strong id="tituloReaccion"></strong><div id="textoReaccion" class="pista"></div>
+    <button id="btnRevisar">Revisar el filo</button><button id="btnSeguir" class="sec">Continuar con la producción</button>
+    <div class="campos"><div><label for="desdeSub">Excluir desde el subgrupo</label><input id="desdeSub" inputmode="numeric"></div><div style="align-self:end"><button id="btnCambiar" class="peligro">Cambiar el inserto y excluir</button></div></div>
+  </div>
+  <div class="scroll"><table id="tablaLote2" aria-label="Lecturas del lote 2"></table></div>
+  <p class="pista"><a href="#pGraficas">Ver las gráficas ↓</a></p>
+  <h3>14. Cartas e índices del lote 2 (25 subgrupos válidos)</h3>
+  <div class="campos cortos">
+    <div><label for="E_Rb">R̄</label><input id="E_Rb" data-campo="E.resp.Rb" inputmode="decimal"></div><div><label for="E_uclR">LCS de R</label><input id="E_uclR" data-campo="E.resp.uclR" inputmode="decimal"></div>
+    <div><label for="E_xbb">X̄̄</label><input id="E_xbb" data-campo="E.resp.xbb" inputmode="decimal"></div><div><label for="E_uclX">LCS de X̄</label><input id="E_uclX" data-campo="E.resp.uclX" inputmode="decimal"></div><div><label for="E_lclX">LCI de X̄</label><input id="E_lclX" data-campo="E.resp.lclX" inputmode="decimal"></div>
+  </div>
+  <div class="campos cortos" id="E_indices"></div>
+  <div id="senalesRetro" class="estado info" aria-live="polite"></div>
+  <label for="E_causa">¿Qué muestra la carta del estudio del lote 2 (los 25 subgrupos válidos, con tus límites)?</label><select id="E_causa" data-campo="E.resp.causa" data-banco="causa" aria-describedby="notaCausa"></select>
+  <p class="pista" id="notaCausa">Las paradas de la carta en tiempo real ya las atendiste con el plan de reacción y no cuentan aquí.</p>
+  <label for="E_dec">Decisión (PPAP, con la condición de estabilidad)</label><select id="E_dec" data-campo="E.resp.decision" data-banco="decision"></select>
+  <div id="msgE" class="estado" aria-live="polite"></div>
+</div>
+
+<div class="panel fase" id="faseF" role="tabpanel" aria-labelledby="tabF" hidden><h2>Defensa</h2>
+  <label for="F_q1a">1. ¿Por qué compensar el desgaste no mejora tu Cp de forma sistemática entre los dos lotes, aunque sí puede cambiar mucho tu Ppk?</label><select id="F_q1a" data-campo="F.q1a" data-banco="q1a"></select>
+  <label for="F_q1b">¿Cuánto puede variar Cp solo por azar? Semiancho relativo aproximado del 95 %: 1,96·d₃/(d₂·√25), en %</label><input id="F_q1b" data-campo="F.q1b" inputmode="decimal">
+  <label for="F_q2">2. ¿Cuándo es válido un Cpk?</label><select id="F_q2" data-campo="F.q2" data-banco="q2"></select>
+  <label for="F_q3">3. ¿Qué significa G90 en este torno y en una fresadora? ¿Cómo se programa lo incremental en el torno?</label><select id="F_q3" data-campo="F.q3" data-banco="q3"></select>
+  <label for="F_q4">4. Con tu σ_w del lote 2 y σ_m = <span data-m="sm"></span> mm, ¿qué Cp tendrías con un instrumento ideal? (USL − LSL)/(6·σ_pieza)</label><input id="F_q4" data-campo="F.q4" inputmode="decimal">
+  <label for="F_q5a">5. Si subes Vc un 10 %, ¿por cuánto se multiplica la deriva w de tu variante? (respeta el límite de rpm)</label><input id="F_q5a" data-campo="F.q5a" inputmode="decimal">
+  <label for="F_q5b">¿Cuánto desgaste real, en diámetro, vería un estudio de 125 piezas consecutivas, sin el factor ×<span data-m="K"></span>? (mm)</label><input id="F_q5b" data-campo="F.q5b" inputmode="decimal">
+</div>
+
+<div class="panel fase" id="faseX" role="tabpanel" aria-labelledby="tabX" hidden><h2>Expediente y evaluación automática</h2>
+  <p class="pista">La evaluación compara tus respuestas con el cálculo de la plataforma sobre <strong>tus propios datos</strong>. Se entrega una sola vez: después ya no se puede editar, y al recargar la página la sesión se recupera bloqueada. Tras la entrega verás el veredicto de las comprobaciones que dependen de tu variante; las que son comunes a todas las variantes quedan como «entregado», sin veredicto, y las califica la plataforma. Las cifras de referencia solo aparecen al <strong>cerrar la práctica</strong>. Exporta el expediente en JSON para conservarlo; nada se envía a internet.</p>
+  <p class="pista" id="registro" aria-live="polite"></p>
+  <div id="avance" class="estado info" aria-live="polite"></div>
+  <label for="confirmo" style="font-weight:400"><input type="checkbox" id="confirmo" style="width:auto"> Entiendo que al entregar se bloquean todas las respuestas.</label>
+  <button id="btnEntregar">Entregar y evaluar</button><button id="btnExportar" class="sec">Exportar expediente JSON</button><button id="btnImprimir" class="sec">Imprimir expediente</button>
+  <div id="resultado" aria-live="polite"></div>
+  <div id="cierreX" data-cx-desde="X">
+  <h3>Cerrar la práctica</h3>
+  <label for="confirmoCierre" style="font-weight:400"><input type="checkbox" id="confirmoCierre" style="width:auto"> Confirmo el cierre: se mostrarán las cifras de referencia y quedará registrado.</label>
+  <button id="btnCerrar" class="peligro" disabled>Cerrar la práctica y ver las soluciones</button><span class="nota-ctl">Se enciende después de entregar.</span>
+  <p class="pista">Al cerrar se muestran las cifras de referencia de tu variante. No se muestran las opciones correctas de las listas ni la decisión: son comunes a todas las variantes.</p>
+  <div id="msgCierre" class="estado" aria-live="polite"></div>
+  <div id="solucion" aria-live="polite"></div>
+  <h3>Revisar un expediente exportado</h3>
+  <label for="archivoRevisar">Archivo JSON (se comprueba su huella y se recalculan sus puntos con veredicto; no cambia ni desbloquea nada)</label><p class="pista">Alcance de la huella: detecta ediciones casuales, pero no una falsificación deliberada, porque quien edite el archivo puede recalcularla. No es una firma.</p><input type="file" id="archivoRevisar" accept=".json,application/json">
+  <div id="resRevisar" class="estado" aria-live="polite"></div>
+  </div>
+  <p class="guia sigue" id="sigueX">El cierre de la práctica y la revisión de un expediente exportado se abren cuando completes la defensa.</p>
+</div>
+</section>
+</div>
+</div>
+
+<section class="panel" id="pGraficas" data-cx-desde="D" hidden><h2>Gráficas</h2>
+  <p class="pista"><a href="#fases">↑ Volver a la fase</a></p>
+  <div class="barra" role="group" aria-label="Lote que se grafica"><button class="tecla" id="verLote1" style="background:#176b78" disabled>Lote 1</button><button class="tecla" id="verLote2" style="background:#176b78" disabled>Lote 2</button><span class="nota-ctl">«Lote 2» se enciende cuando lo corres en la fase E.</span></div>
+  <div class="graficas"><canvas id="cvCartas" role="img" class="graf" aria-label="Cartas X̄ y R"></canvas><div><canvas id="cvResiduos" role="img" class="graf" aria-label="Regresión y residuos"></canvas><canvas id="cvHist" role="img" class="graf" aria-label="Histograma con tolerancias"></canvas></div></div>
+</section>
+
+<details class="panel" id="limites"><summary>Modelo y límites</summary>
+<ul id="listaLimites"></ul></details>
+
+<footer><details><summary>Fuentes y créditos</summary>
+<p>Localizadores de páginas impresas.</p>
+<ul>
+<li>UAEH, Escuela Superior de Cd. Sahagún, <em>Manual de prácticas de Control Numérico Computarizado</em>, P3 «Maquinado de flecha Continental en el torno CNC VIWA», pp. 21–26.</li>
+<li>TESCHA, <em>Manual de prácticas de Control Estadístico de la Calidad</em>, P2 «Gráficos de control para variables», pp. 13–17 según el índice.</li>
+<li>Haas, <em>Lathe Operator's Manual, Next Generation Control</em>, 96-8910 Rev. V (2025): pp. 39, 129, 133, 185, 186, 193–194, 242–243, 321–322, 337, 349, 355, 357–359, 384–385, 389, 428, 431, 479–480, 490 y 500. Haas, <em>Lathe Programming Workbook</em> (2015), pp. 6, 61 y 67. Marca citada como referente; sin logotipos.</li>
+<li>NIST/SEMATECH, <em>e-Handbook of Statistical Methods</em>, §6.3.2 y §6.3.2.1 (A₂ = 0,577; D₃ = 0; D₄ = 2,115 para n = 5).</li>
+<li>AIAG, <em>Production Part Approval Process</em>, 4.ª ed., §2.1 y §2.2.11 (copia no oficial con OCR).</li>
+<li>Equeter et al., <em>Materials Science Forum</em> 986 (2020) 93–101, pp. 93 y 95–97. Johansson et al., <em>Procedia Manufacturing</em> 11 (2017) 602–609. ISO 3685:1993, citada a través de Equeter et al.</li>
+</ul>
+<p>Práctica CEN E3-1.6 · paquete local, sin conexión · three.js r184 (licencia MIT).</p></details></footer>
+</main>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body></html>

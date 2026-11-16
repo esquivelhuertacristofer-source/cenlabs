@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEN · E5 · Motor de inducción: arranque directo, estrella-delta, arrancador suave y variador</title>
+<style>
+/* Interfaz de trabajo (estándar del 15/11 noche): ningún texto por debajo de 13 px; rótulos y botones, 14 px o más; texto
+   corriente, 15 px o más; cifras principales de los instrumentos, 20 px o más. Los tamaños van en px por el factor --k,
+   que vale 1 y pasa a 1,13 a partir de 1600 px de ancho (la pantalla del responsable). La raíz no se toca: la ficha del
+   módulo común mide en rem. */
+:root{--tinta:#172b3b;--sub:#46586a;--fondo:#eef2f5;--panel:#fff;--borde:#d3dde4;--marino:#10283b;--marino2:#173a52;--acento:#0f7c86;--acento2:#0b5f67;--cobre:#c8742a;--ok:#1f8a5b;--mal:#b93434;--aviso:#fff5df;--k:1;
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--tinta);background:var(--fondo);font-size:15.5px}
+@media (min-width:1600px){:root{--k:1.13}}
+*{box-sizing:border-box}
+body{margin:0;line-height:1.5;background:var(--fondo);font-size:calc(15.5px*var(--k))}
+h2{font-size:calc(18.5px*var(--k));margin:0 0 10px}
+h3{font-size:calc(16px*var(--k));margin:14px 0 6px}
+p{margin:7px 0}
+a{color:#0d5b7a}
+/* ---------- cabecera en una fila: título, botones comunes, matrícula, «Generar mi variante» y «Más» ---------- */
+.cab.cen-cab{padding:8px 14px;position:relative;z-index:8}
+.cab .cen-fila{gap:6px 12px}
+.cab .cen-titulo{align-items:center;gap:6px 9px;flex:1 1 auto}
+.cab h1{font-size:calc(17.5px*var(--k));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cab h1 .h1-lar{display:none}
+.cab .cen-ceja{font-size:calc(13px*var(--k));display:none}
+.cab #cx-cab{margin-left:0}
+.cab .ident{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap}
+.cab .ident label{font-size:calc(14px*var(--k));color:#d5e3ee;font-weight:600;margin:0;white-space:nowrap}
+.cab .ident input{width:calc(158px*var(--k));padding:6px 8px;border-radius:6px;border:1px solid #6d879b;background:#0f1b26;color:#fff;font-size:calc(15px*var(--k))}
+.cab .ident input:disabled{background:#16242f;color:#e6edf3;border-color:#3b5266}
+.cab .ident button{padding:7px 13px;white-space:nowrap;font-size:calc(15px*var(--k))}
+.cab .err{color:#ffd0c8;font-size:calc(14.5px*var(--k));margin-top:4px}
+.cab .err:empty,.aviso-alm:empty{display:none}
+.aviso-alm{color:#ffd9a0;font-weight:600;font-size:calc(14.5px*var(--k));margin-top:4px}
+.mas{position:relative;flex:0 0 auto}
+.mas>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;font-weight:700;font-size:calc(14.5px*var(--k));white-space:nowrap}
+.mas>summary::-webkit-details-marker{display:none}
+.mas>summary::after{content:"▾"}
+.mas[open]>summary{background:#0f5961;border-color:#8fd3da}
+.mas-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(calc(520px*var(--k)),calc(100vw - 28px));max-height:calc(100vh - 110px);overflow:auto;background:#fff;color:var(--tinta);border:1px solid #b7c6d1;border-radius:12px;padding:12px 16px 14px;box-shadow:0 18px 44px rgba(4,12,20,.4);font-size:calc(15px*var(--k))}
+.mas-panel h2{font-size:calc(16.5px*var(--k));margin:0 0 6px}
+.mas-panel details{margin:8px 0 0}
+.mas-panel details>summary{cursor:pointer;font-weight:700;color:#0d5b7a}
+.mas-panel .fila{margin:8px 0 2px}
+@media (min-width:1180px){.cab .cen-fila,.cab .cen-titulo,.cab .ident{flex-wrap:nowrap}.cab #cx-cab{flex-wrap:nowrap;flex:0 0 auto}}
+@media (min-width:1500px){.cab h1 .h1-lar{display:inline}}
+@media (min-width:1800px){.cab .cen-ceja{display:inline}}
+/* ---------- piezas ---------- */
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+.chips:empty{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 11px;font-size:calc(14px*var(--k));font-weight:600;background:#e6eef2;color:var(--tinta);border:1px solid var(--borde)}
+.chip.ok{background:#e4f4ec;color:#14613f;border-color:#b6dcc8}
+.chip.pend{background:#fff0d9;color:#7a4800;border-color:#f1d49c}
+.chip.mal{background:#fbe6e6;color:#8f2020;border-color:#ecc0c0}
+main{padding:12px 14px 26px;max-width:1720px;margin:auto}
+.panel{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:14px 16px;margin-bottom:14px;min-width:0}
+label{font-weight:600;font-size:calc(14px*var(--k));display:block;margin:0 0 3px}
+input,select,button{font:inherit;color:inherit}
+input[type=text],select{width:100%;padding:7px 8px;border:1px solid #8fa1ad;border-radius:6px;background:#fff;min-width:0}
+input:disabled,select:disabled{background:#eef2f4;color:#3d4d59;border-color:#c5d0d8}
+button{background:var(--acento);color:#fff;border:0;border-radius:7px;padding:9px 15px;cursor:pointer;font-weight:650}
+button:hover:not(:disabled){background:var(--acento2)}
+button.sec{background:#e3ecf0;color:#1c3a4c}
+button.sec:hover:not(:disabled){background:#d3e0e6}
+button.marcha{background:#17794e}
+button.marcha:hover:not(:disabled){background:#126240}
+button.paro{background:#b93434}
+button:disabled{opacity:.5;cursor:not-allowed}
+button[hidden]{display:none}
+:focus-visible{outline:3px solid #c47500;outline-offset:2px}
+.fila{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.fila>.campo{flex:1 1 130px;min-width:0}
+.campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(215px*var(--k)),1fr));gap:10px 12px;margin:8px 0}
+.campo .u{font-weight:400;color:var(--sub)}
+.hint{color:var(--sub);font-size:calc(14px*var(--k))}
+.err{color:var(--mal);font-size:calc(14.5px*var(--k));font-weight:600;min-height:1.1em}
+/* mensaje del expediente: lo que acaba de pasar (una entrega, un aviso) se lee sin buscarlo */
+#msgExp:not(:empty){background:var(--aviso);border:1px solid #f1d49c;border-radius:8px;padding:8px 12px;color:#4a3300;font-size:calc(15px*var(--k));margin-top:8px}
+/* primer paso de la parte A: UNA acción (calcular el punto nominal); lo demás de la parte aparece después */
+.primer{border:2px solid #f0b56a;background:#fff8ec;border-radius:10px;padding:10px 14px 12px;margin:6px 0 10px}
+.primer h3{margin:0 0 4px;color:#7a4800}
+.primer button{margin-top:6px;font-size:calc(16px*var(--k));padding:10px 16px}
+.primer .sal{margin-top:8px;font-size:calc(15px*var(--k))}
+.primer .sal:empty{display:none}
+html:not(.cx-ver-todo) #parteA.e5-espera .e5-tras{display:none}
+.entregada{background:#e4f4ec;border:1px solid #b6dcc8;border-radius:8px;padding:6px 11px;color:#14613f;font-weight:600}
+/* ---------- bloque de la escena: oscuro, la escena manda ---------- */
+.escenaCol{min-width:0}
+.cuarto{background:#0e1822;border-radius:12px;padding:8px 8px 10px;margin-bottom:14px}
+.visor{position:relative;border-radius:9px;overflow:hidden;background:#111a24}
+#escena{display:block;width:100%;height:clamp(300px,calc(100vh - 392px),780px);touch-action:none}
+.sinwebgl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#e8f2f7;padding:24px;font-size:calc(16px*var(--k))}
+/* la insignia de demostración es una frase: puede ocupar dos renglones sin salirse del lienzo. El kit congelado (interfaz-r2.css)
+   la deja en .72rem = 11,2 px, sin piso en px: aquí se le pone el mismo piso que el kit da a .cen-version (pedido al coordinador) */
+#visor .cen-pastilla{font-size:max(14px,.875rem);max-width:calc(100% - 20px);white-space:normal;line-height:1.35;border-radius:12px;letter-spacing:.02em}
+/* instrumentos bajo la escena: tarjetas en rejilla; las cifras de medida, a 20 px o más */
+.filaDock{display:block}
+.filaDock .cen-dock-cab{margin:8px 0 2px;text-transform:none;letter-spacing:.01em;color:#ffe19a}
+#lecturas.cen-dock{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(150px*var(--k)),1fr));gap:6px;padding-top:6px}
+#lecturas.cen-dock>span{min-width:0;padding:5px 10px 6px}
+#lecturas.cen-dock>span>i{font-size:calc(14px*var(--k));letter-spacing:0;text-transform:none;white-space:normal;color:#a9bccb;overflow:visible}
+#lecturas.cen-dock>span>b{font-size:calc(16.5px*var(--k));white-space:normal;overflow:visible;line-height:1.25}
+#lecturas.cen-dock>span:is([data-id=t],[data-id=n],[data-id=i],[data-id=par],[data-id=barra],[data-id=rele])>b{font-size:calc(20px*var(--k))}
+.cab.cen-cab{padding-left:14px;padding-right:14px}
+.estado{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 0;padding:6px 8px;border:1px solid #2c4156;border-radius:8px;background:linear-gradient(180deg,#13202d,#0f1923)}
+.estado .rot{color:#c5d6e2;font-size:calc(14px*var(--k));font-weight:600;margin-right:2px}
+.led{display:inline-flex;align-items:center;gap:6px;font-size:calc(14px*var(--k));font-weight:650;border:1px solid #2c4156;border-radius:6px;padding:2px 9px;background:#132130;color:#b4c6d4}
+.led i{width:10px;height:10px;border-radius:50%;background:#3b4b58;display:inline-block}
+.led.on{color:#bff1d2;border-color:#2f7a52}.led.on i{background:#3ee07a;box-shadow:0 0 6px #3ee07a}
+.led.warn{color:#ffe1a6;border-color:#8a6420}.led.warn i{background:#ffb21c;box-shadow:0 0 6px #ffb21c}
+.led.trip{color:#ffc7c0;border-color:#8f2c26}.led.trip i{background:#ff4d3d;box-shadow:0 0 6px #ff4d3d}
+.led.demo{color:#ffe19a;border-color:#6a5a1c;background:#1c180b}.led.demo i{background:#3ee07a;box-shadow:0 0 6px #3ee07a}
+/* barra de la escena: vistas, ayudas, corte, demostración y, desde la parte C, el mando del ensayo */
+.cuarto .cen-barra{flex-wrap:wrap;gap:6px}
+.cuarto .cen-barra .cen-grupo{flex-wrap:nowrap;flex:0 0 auto}
+.cuarto .cen-barra button{padding:6px 7px;font-size:calc(14px*var(--k));min-height:36px;white-space:nowrap}
+.cuarto .cen-barra .cen-sep{flex:1 1 4px}
+.cuarto .cen-barra .cen-grupo[hidden]{display:none}
+.cuarto .cen-barra .mando button.marcha{background:#17794e;color:#fff}
+.cuarto .cen-barra .mando button.marcha:hover:not(:disabled){background:#126240}
+.cuarto .cen-barra .mando button.paro{background:#8f2c2c;color:#fff}
+.cuarto .cen-barra .mando button:disabled{opacity:.45}
+.cuarto .cen-linea{margin:8px 2px 0;font-size:calc(14.5px*var(--k))}
+/* ---------- pestañas de parte (A–E y el banco): las que aún no tocan llevan candado y dicen cuándo se abren ---------- */
+#fases{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) minmax(0,1.3fr);gap:4px;margin:10px 0 8px;overflow:visible}
+#fases button{background:#d9e3ea;color:#1d3445;border-radius:9px 9px 0 0;padding:7px 6px 6px 8px;font-weight:700;text-align:left;font-size:calc(14.5px*var(--k));line-height:1.3;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fases button[aria-selected=true]{background:#fff;color:var(--acento2);box-shadow:inset 0 3px 0 var(--acento)}
+#fases button:hover:not(:disabled){background:#c9d7e0}
+#fases small{display:block;font-weight:500;font-size:calc(14px*var(--k));color:#34495a;overflow:hidden;text-overflow:ellipsis}
+#fases button.cx-nv-cerrado .lar,#fases button.cx-nv-cerrado .s-ab,#fases button:not(.cx-nv-cerrado) .s-cand{display:none}
+#partes details.parte:not([open])>summary{padding:8px 14px}
+.graficas{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.graf{border:1px solid var(--borde);border-radius:8px;overflow:hidden;background:#fbfcfd;min-width:0}
+.graf h3{margin:0;padding:7px 10px;font-size:calc(14.5px*var(--k));background:#f0f4f6;border-bottom:1px solid var(--borde)}
+.graf canvas{display:block;width:100%;max-width:700px;height:auto;margin:0 auto}
+.graf.ancha canvas{max-width:none}
+.graf.ancha{grid-column:1/-1}
+@media (min-width:1600px){.cuarto .cen-barra button{padding:6px 11px}.graficas{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.banco{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(165px*var(--k)),1fr));gap:9px 10px;margin:8px 0}
+.keypad{background:#1b2227;border-radius:10px;padding:10px 12px;color:#dfe8ee;margin:8px 0}
+.keypad .pant{background:#0b1410;border:2px solid #39464e;border-radius:6px;padding:6px 10px;font-family:Consolas,ui-monospace,monospace;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.keypad .pant b{font-size:calc(27px*var(--k));color:#ff6a4d;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.keypad .pant span{color:#9be3a8;font-size:calc(14.5px*var(--k))}
+.keypad .leds{display:flex;gap:12px;font-size:calc(14px*var(--k));margin-top:6px;color:#b4c2cb;flex-wrap:wrap}
+.keypad .leds i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#44525b;margin-right:5px}
+.keypad .leds .on i{background:#3be06c}.keypad .leds .al i{background:#ff4a3a}
+.keypad label{color:#d3dfe6}
+.keypad .campo .u{color:#b4c2cb}
+.keypad .fijo{font-size:calc(14px*var(--k));color:#b9c6cf;margin-top:6px}
+details.parte{border:1px solid var(--borde);border-radius:10px;margin-bottom:10px;background:#fff}
+details.parte>summary{cursor:pointer;padding:10px 14px;font-weight:700;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;font-size:calc(15.5px*var(--k))}
+details.parte>summary>span:first-child{min-width:0;flex:1 1 200px}
+details.parte>summary>.chip{flex:none;white-space:nowrap}
+details.parte>div{padding:0 14px 12px}
+details.parte[open]>summary{border-bottom:1px solid var(--borde);margin-bottom:8px}
+details.pide>summary{cursor:pointer;color:#0d5b7a;font-weight:600;font-size:calc(14.5px*var(--k))}
+details.bloque>summary{cursor:pointer;font-weight:700;color:#0d5b7a}
+table{border-collapse:collapse;width:100%;font-size:calc(14px*var(--k))}
+th,td{border:1px solid var(--borde);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#f0f4f6}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tabla-scroll{overflow-x:auto}
+.okc{color:#17794e;font-weight:700}.malc{color:var(--mal);font-weight:700}
+.nota-total{font-size:calc(30px*var(--k));font-weight:800}
+.nota-final{font-size:calc(34px*var(--k));font-weight:800}
+.opciones label{font-weight:400;display:flex;gap:8px;align-items:flex-start;margin:5px 0;font-size:calc(15px*var(--k))}
+.opciones input{margin-top:5px}
+fieldset{border:1px solid var(--borde);border-radius:8px;margin:8px 0;padding:8px 12px}
+legend{font-weight:700;font-size:calc(14.5px*var(--k));padding:0 6px}
+footer{padding:0 2px 10px;font-size:calc(14px*var(--k));color:var(--sub)}
+footer li{margin:3px 0}
+.solo-impresion{display:none}
+.ent{color:#4a5a6a;font-weight:600}
+@media (min-width:1180px){
+  main.dividida{display:grid;grid-template-columns:minmax(0,62fr) minmax(360px,38fr);gap:14px;align-items:start;max-width:none}
+  main.dividida .escenaCol{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;scrollbar-width:thin}
+}
+@media (max-width:1179px){#escena{height:clamp(280px,56vh,620px)}}
+/* experiencia (E5-1.4): en Explorar el visor ocupa la ventana y la barra de vistas flota fija al pie */
+html.cx-explorar #escena{height:100%!important;width:100%!important}
+html.cx-explorar #barraVistas{position:fixed!important;left:0;right:0;bottom:0;z-index:160;margin:0;padding:8px 10px;background:rgba(6,11,20,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html.cx-recorrido #barraVistas{opacity:0;pointer-events:none}
+@media (max-width:560px){.cuarto .cen-barra .cen-grupo{flex-wrap:wrap;flex:0 1 auto}.cab .ident input{width:150px}.cab .ident button{padding:7px 10px}#fases{grid-template-columns:repeat(6,minmax(92px,1fr));overflow-x:auto}#lecturas.cen-dock{grid-template-columns:1fr 1fr}main{padding:8px 10px 24px}.panel{padding:12px}.campos{grid-template-columns:minmax(0,1fr)}.cuarto{padding:6px}.mas-panel{position:fixed;left:14px;right:14px;top:auto;width:auto}}
+@media print{
+  header.cab,.no-imprimir,footer,.cuarto,.graficas,.fases,#panelBanco,#panelHoja,#panelLimites{display:none!important}
+  body{background:#fff;font-size:12px}main.dividida{display:block}.panel{border:0;padding:0}
+  details.parte{break-inside:avoid}details.parte>div{display:block!important}
+  .solo-impresion{display:block}
+}
+</style>
+</head>
+<body>
+<header class="cab cen-cab">
+  <div class="cen-fila">
+    <div class="cen-titulo"><span class="cen-ceja">CEN · Actuadores</span><h1 title="Motor de inducción: arranque directo, estrella-delta, arrancador suave y variador">E5 · Motor de inducción<span class="h1-lar">: arranque y variador</span></h1><span class="cen-version" id="version"></span></div>
+    <form class="ident cen-id no-imprimir" id="formId" autocomplete="off">
+      <label for="alumnoId">Tu matrícula</label><input type="text" id="alumnoId" maxlength="40" aria-describedby="errId" placeholder="matrícula o identificador"><button type="submit" id="btnAsignar">Generar mi variante</button>
+    </form>
+    <details class="mas no-imprimir" id="mas">
+      <summary aria-label="Más: exportar, imprimir y cómo se evalúa">Más</summary>
+      <div class="mas-panel" id="avisoModelo">
+        <h2>Más opciones</h2>
+        <div class="fila"><button type="button" class="sec" id="masExportar" disabled>Exportar mi expediente (JSON)</button><button type="button" class="sec" id="masImprimir">Imprimir mi expediente</button></div>
+        <p class="hint" id="masNota">«Exportar» se enciende cuando generas tu variante.</p>
+        <p>Modelo cuasiestático: calcula el arranque punto a punto. Cada parte se entrega una sola vez. Funciona sin internet.</p>
+        <details><summary>Qué no representa el modelo</summary><div>No representa el pico asimétrico del primer ciclo, el transitorio de reconexión del estrella-delta, la saturación de las reactancias de dispersión, los armónicos del arrancador suave y del variador ni la caída de frecuencia del diésel.</div></details>
+        <details id="detEntrega"><summary>Cómo se evalúa y qué no garantiza</summary><div><strong>Entrega y registro.</strong> Cada parte se entrega una sola vez. Tu avance y el registro de intentos se guardan en este navegador, y el expediente exportado lleva una huella SHA-256. Límite: un paquete local no puede garantizar la entrega única, porque el almacenamiento del navegador se puede borrar; esa garantía requiere la plataforma con servidor. El registro y la huella hacen visible un reintento, pero no lo impiden. La huella detecta ediciones casuales del archivo; no es una firma: sin un secreto de servidor, quien edite el expediente puede recalcularla. El identificador se reduce a letras y cifras (sin espacios, acentos, guiones ni diferencia de mayúsculas) antes de asignar la variante y el registro. Si abres la práctica en varias pestañas, lo que entregues o cierres en una bloquea las demás.</div></details>
+      </div>
+    </details>
+  </div>
+  <div class="err" id="errId" role="alert"></div>
+  <div class="aviso-alm" id="avisoAlm" role="alert"></div>
+</header>
+<main class="dividida">
+  <section class="escenaCol" aria-label="Cuarto de motores">
+    <div class="cuarto">
+      <div class="visor" id="visor">
+        <canvas id="escena" role="img" aria-label="Cuarto de motores en 3D: motor de la bomba y bomba centrífuga (con corte), banda transportadora con su motor, tablero de arranque, variador y grupo electrógeno"></canvas>
+      </div>
+      <div id="barraVistas" class="no-imprimir"></div>
+      <div class="filaDock"><div id="lecturas" class="cen-dock" aria-live="off"></div><div class="estado" id="estado" aria-live="polite" role="group" aria-label="Contactores y protección"></div></div>
+      <div id="leyenda" class="cen-linea"></div>
+    </div>
+    <section class="panel" id="panelGraf" data-cx-desde="C" aria-label="Gráficas del ensayo">
+      <div class="graficas">
+        <div class="graf"><h3 id="tG1">Curva par-velocidad</h3><canvas id="gPar" width="640" height="400" role="img" aria-labelledby="tG1"></canvas></div>
+        <div class="graf"><h3 id="tG3">Curva de disparo del relé térmico</h3><canvas id="gRele" width="640" height="400" role="img" aria-labelledby="tG3"></canvas></div>
+        <div class="graf ancha"><h3 id="tG2">Envolventes del valor eficaz durante el arranque (no es un oscilograma)</h3><canvas id="gTiempo" width="820" height="640" role="img" aria-labelledby="tG2"></canvas></div>
+      </div>
+    </section>
+  </section>
+  <div class="expCol">
+    <section class="panel" id="panelExp" aria-labelledby="tExp">
+      <h2 id="tExp">Tu expediente</h2>
+      <div class="solo-impresion" id="impCabecera"></div>
+      <div class="chips" id="chips" aria-live="polite"></div>
+      <div id="encargo"></div>
+      <div class="fases" role="tablist" aria-label="Partes de la práctica y banco" id="fases"></div>
+      <div id="partes"></div>
+      <div id="msgExp" aria-live="polite"></div>
+    </section>
+    <section class="panel no-imprimir" id="panelBanco" data-cx-desde="C" aria-labelledby="tBanco">
+      <h2 id="tBanco">Banco de arranque</h2>
+      <div id="banco"></div>
+    </section>
+    <section class="panel" id="panelEval" data-cx-desde="F" aria-labelledby="tEval">
+      <h2 id="tEval">Califica y cierra tu práctica</h2>
+      <div id="evaluacion" aria-live="polite"></div>
+      <div class="fila no-imprimir" style="margin-top:10px">
+        <button type="button" id="btnCalificar" disabled>Calificar</button>
+        <button type="button" class="paro" id="btnCerrar" disabled>Cerrar la práctica</button>
+        <button type="button" class="sec" id="btnExportar" disabled>Exportar expediente (JSON)</button>
+        <button type="button" class="sec" id="btnImprimir">Imprimir expediente</button>
+      </div>
+      <p class="hint no-imprimir" id="ayudaEval"></p>
+      <div id="registro" class="no-imprimir"></div>
+      <div class="campo no-imprimir" style="margin-top:10px"><label for="impArchivo">Revisar un expediente exportado: elige el archivo y la página dice si está intacto y recalcula su nota (no cambia nada de tu práctica)</label><input type="file" id="impArchivo" accept=".json,application/json"></div>
+      <div class="hint" id="msgRevisar" aria-live="polite"></div>
+    </section>
+    <section class="panel" id="panelHoja" aria-labelledby="tHoja">
+      <h2 id="tHoja">Hoja de datos del motor y del equipo</h2>
+      <details class="bloque" id="detHoja"><summary>Ver la hoja</summary><div id="hoja"></div></details>
+    </section>
+    <section class="panel" id="panelLimites" aria-labelledby="tLim">
+      <h2 id="tLim">Modelo y límites</h2>
+      <details class="bloque"><summary>Ver el modelo y sus límites</summary><div id="limites"></div></details>
+    </section>
+    <footer>
+      <details class="bloque"><summary>Fuentes</summary>
+      <ul id="fuentes"></ul>
+      <p>Práctica de simulación. Los nombres de fabricantes y equipos se citan como referente técnico; no se usan logotipos. Evaluación automática; nada se envía a internet. three.js r184 (licencia MIT) incluido en el paquete.</p></details>
+    </footer>
+  </div>
+</main>
+<!--MODELOS--><!--/MODELOS-->
+<script src="app.js"></script>
+</body>
+</html>

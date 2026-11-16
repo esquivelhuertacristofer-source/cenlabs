@@ -7,13 +7,42 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { 
   FlaskConical, Zap, Microscope, Calculator, Power,
-  Play, Award, ArrowRight, Atom, Cog
+  Play, Award, ArrowRight, Atom, Cog, Factory, Layers
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { supabase } from '@/lib/supabase-browser';
 import { getCurrentProfile } from '@/lib/supabase-helpers';
+import { ESTRELLAS, MOSAICO_ESTRELLAS } from '@/lib/estrellas';
+
+// Una ficha del hub. Las cinco materias de siempre reportan su avance a la base (tabla
+// `intentos`) y muestran el anillo «n / total». Una ficha con `sinProgreso` no reporta nada
+// (sus prácticas guardan en el navegador): muestra `resumen` en lugar del anillo y queda fuera
+// del porcentaje general, para no bajarle el avance al alumno con prácticas que no se cuentan.
+type Materia = {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  wide?: boolean;
+  gradient: string;
+  fadeColor: string;
+  accent: string;
+  ringColor: string;
+  shadowGlow: string;
+  buttonColor: string;
+  image: string;
+  practices: number;
+  totalPractices: number;
+  lastPractice: string;
+  sinProgreso?: boolean;
+  /** Rótulo sobre el título; por defecto «Materia». */
+  etiqueta?: string;
+  /** Solo con `sinProgreso`: la línea que ocupa el lugar del anillo. */
+  resumen?: string;
+  subtitulo?: string;
+};
 
 // ==========================================
 // Componentes de UI Auxiliares
@@ -43,7 +72,7 @@ const CircularProgress = ({ value, total, color }: { value: number, total: numbe
   );
 };
 
-const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number }) => {
+const SpotlightBentoCard = ({ subject, index }: { subject: Materia, index: number }) => {
   const divRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [opacity, setOpacity] = useState(0);
@@ -102,7 +131,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
             <div className="w-12 h-12 rounded-2xl bg-white/70 dark:bg-[#0B151F]/70 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white dark:border-white/10 transition-colors">
               <MainIcon className={`w-6 h-6 ${subject.accent}`} />
             </div>
-            <span className="text-sm font-bold text-[#023047]/60 dark:text-slate-400 tracking-widest uppercase transition-colors">Materia</span>
+            <span className="text-sm font-bold text-[#023047]/60 dark:text-slate-400 tracking-widest uppercase transition-colors">{subject.etiqueta ?? 'Materia'}</span>
           </div>
           
           <h2 className="text-[22px] sm:text-[32px] md:text-[40px] font-black text-[#023047] dark:text-white leading-tight mb-8 transition-colors group-hover:text-black dark:group-hover:text-white">
@@ -110,6 +139,22 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
           </h2>
 
           {/* Stats Compacto Bento */}
+          {subject.sinProgreso ? (
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 shrink-0 rounded-full bg-white/70 dark:bg-black/40 border border-white dark:border-white/10 flex items-center justify-center">
+                 <Layers className={`w-5 h-5 ${subject.accent}`} />
+               </div>
+               <p className="font-black text-[#023047] dark:text-white text-lg sm:text-2xl leading-tight transition-colors">{subject.resumen}</p>
+            </div>
+
+            {subject.subtitulo && (
+            <div className="bg-white/50 dark:bg-black/40 rounded-2xl p-4 backdrop-blur-md border border-white/60 dark:border-white/10 w-fit max-w-[420px] shadow-sm transition-colors">
+               <p className="text-sm font-bold text-[#023047] dark:text-slate-200 leading-snug transition-colors">{subject.subtitulo}</p>
+            </div>
+            )}
+          </div>
+          ) : (
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
                <CircularProgress value={subject.practices} total={subject.totalPractices} color={subject.ringColor} />
@@ -124,6 +169,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
                <p className="text-sm font-black text-[#023047] dark:text-slate-200 truncate transition-colors">{subject.lastPractice}</p>
             </div>
           </div>
+          )}
         </div>
 
         {/* CTA Bottom Left */}
@@ -252,7 +298,7 @@ export default function AlumnoInicio() {
     }
   }, [user, setSession, setUser, router]);
 
-  const subjects = useMemo(() => [
+  const subjects = useMemo<Materia[]>(() => [
     {
       id: "quimica",
       name: "Laboratorio de Química",
@@ -329,10 +375,34 @@ export default function AlumnoInicio() {
       buttonColor: "bg-[#2A9D8F] hover:bg-[#1F776C]",
       image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp"
     },
+    {
+      // Las siete prácticas estrella: paquetes estáticos (public/estrellas) que guardan en el
+      // navegador y no escriben en `intentos`. Sin anillo y fuera del porcentaje general.
+      id: "ingenieria-avanzada",
+      name: "Laboratorio de Ingeniería Avanzada",
+      wide: true,
+      sinProgreso: true,
+      etiqueta: "Prácticas estrella",
+      resumen: `${ESTRELLAS.length} prácticas · nivel licenciatura`,
+      subtitulo: `${ESTRELLAS.length} prácticas estrella de la industria: automatización, robótica, manufactura, energía y control`,
+      icon: Factory,
+      gradient: "bg-[#e6f1f6] dark:bg-[#04202F]",
+      fadeColor: "from-[#e6f1f6] dark:from-[#04202F]",
+      accent: "text-[#023047] dark:text-[#FFB703]",
+      ringColor: "stroke-[#023047] dark:stroke-[#FFB703]",
+      shadowGlow: "hover:shadow-[0_20px_50px_-12px_rgba(2,48,71,0.35)] dark:hover:shadow-[0_20px_50px_-12px_rgba(33,158,188,0.6)]",
+      practices: 0,
+      totalPractices: 0,
+      lastPractice: "",
+      buttonColor: "bg-[#FB8500] hover:bg-[#023047] dark:hover:bg-[#219EBC]",
+      image: MOSAICO_ESTRELLAS
+    },
   ], [realProgress]);
 
-  const totalCompletadas = subjects.reduce((acc, subj) => acc + subj.practices, 0);
-  const totalExistentes = subjects.reduce((acc, subj) => acc + subj.totalPractices, 0);
+  // El porcentaje general solo cuenta las materias que reportan avance a la base.
+  const conProgreso = subjects.filter((subj) => !subj.sinProgreso);
+  const totalCompletadas = conProgreso.reduce((acc, subj) => acc + subj.practices, 0);
+  const totalExistentes = conProgreso.reduce((acc, subj) => acc + subj.totalPractices, 0);
   const percentTotal = Math.round((totalCompletadas / totalExistentes) * 100) || 0;
 
 
