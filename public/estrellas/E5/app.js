@@ -49095,11 +49095,11 @@ void main() {
       pinturaMotor: fundicion(4874608),
       pinturaMotorChapa: chapa(4874608),
       pinturaBomba: fundicion(2051978),
-      pinturaBase: chapa(3422783),
+      pinturaBase: chapa(4080971),
       pinturaReductor: fundicion(4215392),
       motorDiesel: mate(3883593),
       alternador: mate(5661549),
-      hierroValvula: fundicion(2896953),
+      hierroValvula: fundicion(3686985),
       tubo: chapa(3111504),
       // agua de servicio: verde (convención de identificación)
       transportador: chapa(9082011),
@@ -49110,7 +49110,8 @@ void main() {
       rojo: S2({ color: 11741728, metalness: 0.15, roughness: 0.4 }),
       amarillo: S2({ color: 14722578, metalness: 0.12, roughness: 0.42 }),
       variador: S2({ color: 2830645, metalness: 0.25, roughness: 0.45 }),
-      frenteVariador: S2({ color: 13620696, metalness: 0.05, roughness: 0.5 }),
+      frenteVariador: S2({ color: 13092807, metalness: 0.05, roughness: 0.5 }),
+      // gris neutro: con azul salía lila y con verde, menta
       negro: S2({ color: 1909029, metalness: 0.08, roughness: 0.55 }),
       aparato: S2({ color: 10133927, metalness: 0.04, roughness: 0.5 }),
       aparatoOsc: S2({ color: 4870230, metalness: 0.06, roughness: 0.5 }),
@@ -49271,11 +49272,14 @@ void main() {
     }
     for (const s of [-1, 1]) {
       for (const xf of [-0.12, 0.12]) {
-        L.add(pintura, cajaR(0.085, 0.026, 0.078, 4e-3, xf, -H2 + 0.013, s * 0.14));
-        const web = extruido(contornoRedondeado([[-s * 0.104, -H2 + 0.02], [-s * 0.176, -H2 + 0.02], [-s * 0.16, -H2 + 0.05], [-s * 0.118, -0.085], [-s * 0.064, -0.118]], 8e-3, 2), { espesor: 0.062, bisel: 4e-3 });
+        L.add(pintura, cajaR(0.085, 0.026, 0.106, 4e-3, xf, -H2 + 0.013, s * 0.121));
+        const web = extruido(contornoRedondeado([[-s * 0.07, -H2 + 0.02], [-s * 0.12, -H2 + 0.02], [-s * 0.125, -H2 + 0.042], [-s * 0.118, -0.085], [-s * 0.064, -0.118]], 8e-3, 2), { espesor: 0.062, bisel: 4e-3 });
         web.rotateY(PI / 2);
         web.translate(xf, 0, 0);
         L.add(pintura, web);
+        L.add(M.acero, cil(0.0105, 25e-4, xf, -H2 + 0.0272, s * 0.14, 0, 0, 0, 16), false);
+        L.add(M.acero, cil(88e-4, 8e-3, xf, -H2 + 0.0325, s * 0.14, 0, 0, 0, 6), false);
+        L.add(M.acero, cil(52e-4, 6e-3, xf, -H2 + 0.0395, s * 0.14, 0, 0, 0, 8), false);
       }
       L.add(pintura, caja(0.29, 0.05, 0.016, 0, -0.118, s * 0.098, s * 0.5, 0, 0));
     }
@@ -49302,6 +49306,17 @@ void main() {
     };
     escudo(1);
     escudo(-1);
+    for (let k = 0; k < 4; k++) {
+      const phi = PI / 4 + k * PI / 2, v = enVentana(phi), lote = v ? LV : L;
+      const pon = (geo) => {
+        geo.rotateX(phi);
+        return geo;
+      };
+      lote.add(v ? pinturaV : pintura, pon(cilX(0.0115, 0.02, Lf / 2 + 4e-3, 0.151, 0, 14)));
+      lote.add(v ? pinturaV : pintura, pon(cilX(72e-4, 7e-3, Lf / 2 + 0.0165, 0.151, 0, 6)), false);
+      lote.add(v ? chapaV : chapa, pon(cil(85e-4, 2e-3, x0 - 0.022, 0.1705, 0, 0, 0, 0, 14)), false);
+      lote.add(v ? chapaV : chapa, pon(cil(58e-4, 55e-4, x0 - 0.022, 0.174, 0, 0, 0, 0, 6)), false);
+    }
     const xc0 = x0 - 0.081;
     const xS = x0 + 4e-3, xF = xc0 - 0.163;
     const pSom = [[0.157, xS], [0.166, xS - 0.014], [0.172, xS - 0.034], [0.172, xF + 0.021], [0.166, xF + 7e-3], [0.155, xF], [0.152, xF], [0.163, xF + 9e-3], [0.169, xF + 0.023], [0.169, xS - 0.034], [0.163, xS - 0.014], [0.1545, xS]];
@@ -49716,6 +49731,13 @@ void main() {
       L.add(M.acero, cil(7e-3, 0.04, xx, y0 + 0.02, s * (ancho / 2 + 0.06), 0, 0, 0, 8), false);
       L.add(M.pinturaBase, caja(0.07, 0.01, 0.07, xx, y0 + 5e-3, s * (ancho / 2 + 0.055)));
     }
+    for (const s of [-1, 1]) for (const xx of [x - largo / 2 + 0.2, x + largo / 2 - 0.2]) {
+      const oreja = extruido(contornoRedondeado([[-0.035, 0], [0.035, 0], [0.035, 0.03], [0.015, 0.06], [-0.015, 0.06], [-0.035, 0.03]], 8e-3, 2), { espesor: 0.01, bisel: 0, huecos: [circulo(0, 0.036, 0.011, 14)] });
+      oreja.translate(xx, y0 + alto * 0.28, s * (ancho / 2 + 6e-3));
+      L.add(M.amarillo, oreja, false);
+    }
+    L.add(M.galvanizado, cilX(0.016, 0.03, x + largo / 2 + 0.014, y0 + alto - 0.03, 0, 14), false);
+    L.add(M.acero, cilX(0.012, 0.012, x + largo / 2 + 0.034, y0 + alto - 0.03, 0, 6), false);
     L.cerrar(g2, { nombre: "bancada" });
     g2.userData = { yBase: y0 + alto };
     return g2;
@@ -49726,6 +49748,18 @@ void main() {
     for (const s of [-1, 1]) L.add(M.pinturaBase, caja(largo, alto - 0.012, 0.012, 0, (alto - 0.012) / 2, s * (ancho / 2 - 6e-3)));
     for (const s of [-1, 1]) L.add(M.pinturaBase, caja(0.012, alto - 0.012, ancho - 0.024, s * (largo / 2 - 6e-3), (alto - 0.012) / 2, 0));
     for (const s of [-1, 1]) for (const xx of [-0.12, 0.12]) L.add(M.aceroOsc, caja(0.07, 6e-3, 0.07, xx, alto + 3e-3, s * 0.14), false);
+    for (const s of [-1, 1]) {
+      L.add(M.pinturaBase, caja(0.05, 0.01, ancho - 0.04, s * (largo / 2 + 0.025), 5e-3, 0));
+      for (const zz of [-1, 1]) {
+        L.add(M.acero, cil(0.011, 25e-4, s * (largo / 2 + 0.028), 0.0112, zz * (ancho / 2 - 0.07), 0, 0, 0, 16), false);
+        L.add(M.acero, cil(85e-4, 8e-3, s * (largo / 2 + 0.028), 0.0165, zz * (ancho / 2 - 0.07), 0, 0, 0, 6), false);
+        const c = extruido([[0, 0], [0.042, 0], [0, alto - 0.02]], { espesor: 6e-3, bisel: 0 });
+        c.translate(0, 0.01, 0);
+        if (s < 0) c.rotateY(PI);
+        c.translate(s * largo / 2, 0, zz * (ancho / 2 - 0.03));
+        L.add(M.pinturaBase, c, false);
+      }
+    }
     L.cerrar(g2, { nombre: "pedestal" });
     return g2;
   }
@@ -50341,6 +50375,34 @@ void main() {
     L.add(M.alternador, cajaR(0.284, 0.224, 0.014, 6e-3, xA, yS + 0.5, 0.434), false);
     for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) L.add(M.acero, cilZ(6e-3, 6e-3, xA + x * 0.125, yS + 0.5 + y * 0.095, 0.442, 8), false);
     L.add(M.negro, cilZ(0.026, 0.012, -1, yS + 0.45, 0.447, 6), false);
+    {
+      const xT2 = xA - 0.321, yA = yS + 0.43;
+      L.add(M.negro, cilX(0.262, 4e-3, xT2, yA, 0, 40), false);
+      for (let k = 0; k < 5; k++) L.add(M.alternador, mueve(new TorusGeometry(0.085 + k * 0.042, 45e-4, 6, 44), xT2 - 4e-3, yA, 0, 0, PI / 2, 0), false);
+      for (let k = 0; k < 8; k++) {
+        const q2 = caja(7e-3, 0.2, 0.012, 0, 0.165, 0);
+        q2.rotateX(k / 8 * TAU + 0.39);
+        q2.translate(xT2 - 4e-3, yA, 0);
+        L.add(M.alternador, q2, false);
+      }
+      L.add(M.alternador, revX([[0, xT2 - 0.03], [0.05, xT2 - 0.03], [0.066, xT2 - 0.02], [0.07, xT2 - 4e-3], [0.07, xT2 + 2e-3]], { seg: 28 }).translate(0, yA, 0), false);
+      for (let k = 0; k < 6; k++) {
+        const a = k / 6 * TAU;
+        L.add(M.acero, cilX(55e-4, 6e-3, xT2 - 0.023, yA + Math.cos(a) * 0.058, Math.sin(a) * 0.058, 6), false);
+      }
+      L.add(M.alternador, revX([[0.262, xT2 - 6e-3], [0.3, xT2 - 6e-3], [0.3, xT2 + 4e-3]], { seg: 44 }).translate(0, yA, 0), false);
+      for (let k = 0; k < 12; k++) {
+        const phi = -1.3 + k * 0.2;
+        if (phi > 0.95) continue;
+        const n = caja(0.4, 0.016, 0.011, xA - 0.02, 0.333, 0);
+        n.rotateX(phi);
+        n.translate(0, yA, 0);
+        L.add(M.alternador, n, false);
+      }
+      for (const x of [xA - 0.2, xA + 0.12]) for (const s of [-1, 1]) {
+        L.add(M.acero, mueve(new TorusGeometry(0.024, 7e-3, 8, 20), x, yA + 0.2, s * 0.262, s * 0.92, 0, 0), false);
+      }
+    }
     const yB = yS + 0.8, yCc = yS + 1, WC = 0.38, HC = 0.32;
     for (const s of [-1, 1]) L.add(M.aceroOsc, caja(0.012, 0.07, 0.2, xA + s * 0.12, yS + 0.765, 0), false);
     L.add(M.aceroOsc, cajaR(0.3, 0.012, 0.22, 4e-3, xA, yB, 0), false);
@@ -50546,16 +50608,16 @@ void main() {
     };
     ponCan(PH - 0.08, -PW / 2 + 0.04, y0 + H2 / 2, true);
     ponCan(PH - 0.08, PW / 2 - 0.04, y0 + H2 / 2, true);
-    for (const y of [1.43, 0.98, 0.6, PH]) ponCan(PW - 0.16, 0, y0 + y, false);
+    for (const y of [1.43, 0.98, 0.6, 1.7]) ponCan(PW - 0.16, 0, y0 + y, false);
     tapaCan(PW - 0.16, 0, y0 + 0.6);
     ponCan(0.5, -0.12, y0 + 0.31, false);
     tapaCan(0.5, -0.12, y0 + 0.31);
-    for (const y of [1.62, 1.2, 0.79, 0.42, 0.2]) LI.add(M.galvanizado, caja(PW - 0.18, 0.035, 75e-4, 0, y0 + y, zP + 4e-3), false);
+    for (const y of [1.555, 1.2, 0.79, 0.42, 0.2]) LI.add(M.galvanizado, caja(PW - 0.18, 0.035, 75e-4, 0, y0 + y, zP + 4e-3), false);
     const sobre = (x, y) => V2(x, y0 + y, zP + 75e-4);
-    interruptorCaja(LI, M, sobre(-0.26, 1.62));
+    interruptorCaja(LI, M, sobre(-0.26, 1.555));
     for (const x of [-0.13, -0.095]) {
       const b = magnetotermico2(mat, { polos: 2 });
-      b.position.copy(sobre(x, 1.62));
+      b.position.copy(sobre(x, 1.555));
       b.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = false;
@@ -50564,11 +50626,11 @@ void main() {
       });
       g2.add(b);
     }
-    LI.add(M.aparatoOsc, cajaR(0.12, 0.1, 0.11, 4e-3, 0.03, y0 + 1.62, zP + 0.055), false);
-    for (const s of [-1, 1]) LI.add(M.cobre, cilX(0.034, 0.03, 0.03 + s * 0.022, y0 + 1.65, zP + 0.06, 20), false);
-    LI.add(M.aparatoOsc, caja(0.11, 0.07, 0.02, 0.03, y0 + 1.65, zP + 0.06), false);
-    moduloRiel(LI, M, sobre(0.16, 1.62));
-    for (let k = 0; k < 4; k++) moduloRiel(LI, M, sobre(0.215 + k * 0.023, 1.62), { mat: M.cableAzul, perilla: false });
+    LI.add(M.aparatoOsc, cajaR(0.12, 0.1, 0.11, 4e-3, 0.03, y0 + 1.555, zP + 0.055), false);
+    for (const s of [-1, 1]) LI.add(M.cobre, cilX(0.034, 0.03, 0.03 + s * 0.022, y0 + 1.585, zP + 0.06, 20), false);
+    LI.add(M.aparatoOsc, caja(0.11, 0.07, 0.02, 0.03, y0 + 1.585, zP + 0.06), false);
+    moduloRiel(LI, M, sobre(0.16, 1.555));
+    for (let k = 0; k < 4; k++) moduloRiel(LI, M, sobre(0.215 + k * 0.023, 1.555), { mat: M.cableAzul, perilla: false });
     const K1 = contactorIEC(LI, M, sobre(-0.29, 1.215), vivos), K2 = contactorIEC(LI, M, sobre(-0.21, 1.215), vivos), K3 = contactorIEC(LI, M, sobre(-0.13, 1.215), vivos);
     LI.add(M.aparatoOsc, caja(0.03, 0.03, 0.045, -0.17, y0 + 1.215, zP + 0.03), false);
     const F2 = releTermicoIEC(LI, M, sobre(-0.29, 1.215 - 0.0425 - 0.031));
@@ -50609,6 +50671,11 @@ void main() {
     const LC = new Lote();
     const tubo = (pts, r = 42e-4, m = M.cable) => LC.add(m, new TubeGeometry(new CatmullRomCurve3(pts), r < 3e-3 ? 10 : 16, r, r < 3e-3 ? 4 : 6, false), false);
     for (const [pts, yC] of [[F2.inf, 0.98], [K2.inf, 0.98], [K3.inf, 0.98]]) for (const p of pts) tubo([p, p.clone().add(V2(0, -0.02, 0.01)), V2(p.x, y0 + yC + 0.04, zP + 0.03), V2(p.x, y0 + yC, zP + 0.02)]);
+    for (let i = -1; i <= 1; i++) {
+      const x = -0.26 + i * 0.0325;
+      tubo([V2(x, y0 + 1.555 + 0.071, zP + 0.066), V2(x, y0 + 1.555 + 0.1, zP + 0.07), V2(x, y0 + 1.7 - 0.012, zP + 0.045), V2(x, y0 + 1.7, zP + 0.02)], 52e-4);
+      tubo([V2(x, y0 + 1.555 - 0.071, zP + 0.066), V2(x, y0 + 1.555 - 0.095, zP + 0.07), V2(x, y0 + 1.43 + 0.012, zP + 0.045), V2(x, y0 + 1.43, zP + 0.02)], 52e-4);
+    }
     for (const C2 of [K1, K2, K3]) for (const p of C2.sup) tubo([p, p.clone().add(V2(0, 0.02, 0.01)), V2(p.x, y0 + 1.43 - 0.04, zP + 0.03), V2(p.x, y0 + 1.43, zP + 0.02)]);
     for (let k = 0; k < 3; k++) {
       const x = xs + (k - 1) * 0.045;
@@ -50738,29 +50805,65 @@ void main() {
   }
   function variadorCompacto(M, { ancho = 0.27, alto = 0.46, fondo = 0.22 } = {}) {
     const g2 = new Group(), L = new Lote(), W = ancho, H2 = alto, D = fondo;
-    L.add(M.aluminio, caja(W + 0.02, H2, 0.012, 0, 0, 6e-3));
-    for (const s of [-1, 1]) for (let k = 0; k < 6; k++) L.add(M.aluminio, caja(3e-3, H2 * 0.9, D * 0.6, s * (W / 2 + 6e-3 - k * 45e-4), 0, D * 0.32), false);
-    L.add(M.variador, cajaR(W - 0.02, H2 * 0.86, D * 0.82, 0.012, 0, H2 * 0.04, D * 0.42));
-    L.add(M.frenteVariador, cajaR(W * 0.86, H2 * 0.6, 0.014, 8e-3, 0, H2 * 0.1, D * 0.83 + 7e-3));
-    L.add(M.negro, cajaR(W * 0.6, H2 * 0.27, 8e-3, 6e-3, 0, H2 * 0.2, D * 0.84 + 0.014), false);
-    for (let k = 0; k < 6; k++) L.add(k === 4 ? M.verde : k === 5 ? M.rojo : M.plasticoClaro, cajaR(W * 0.12, 0.018, 8e-3, 3e-3, -W * 0.21 + k % 3 * W * 0.21, H2 * 0.12 - Math.floor(k / 3) * 0.028, D * 0.84 + 0.02), false);
-    for (let k = 0; k < 8; k++) L.add(M.negro, caja(W * 0.6, 6e-3, 0.01, 0, H2 * 0.43 - k * 0.014 + 4e-3, D * 0.83), false);
-    L.add(M.variador, cajaR(W - 0.03, H2 * 0.16, D * 0.72, 0.01, 0, -H2 * 0.43, D * 0.37));
+    const zD = 0.01 + D * 0.38, zF = zD + D * 0.52;
+    L.add(M.aluminio, caja(W + 0.03, H2 + 0.05, 0.01, 0, 0, 5e-3));
+    for (const [x, y] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+      L.add(M.acero, cilZ(8e-3, 2e-3, x * (W / 2 - 0.02), y * (H2 / 2 + 0.012), 0.011, 14), false);
+      L.add(M.acero, cilZ(55e-4, 5e-3, x * (W / 2 - 0.02), y * (H2 / 2 + 0.012), 0.0135, 6), false);
+    }
+    L.add(M.aluminioFundido, caja(W - 0.06, H2 - 0.03, zD - 0.01, 0, 0, (zD + 0.01) / 2));
+    for (const s of [-1, 1]) for (let k = 0; k < 8; k++) L.add(M.aluminioFundido, caja(0.026, H2 - 0.04, 32e-4, s * (W / 2 - 0.018), 0, 0.0145 + k * (zD - 0.0185) / 7), false);
+    L.add(M.variador, caja(W - 0.012, 0.022, zD - 6e-3, 0, H2 / 2 - 6e-3, (zD + 0.012) / 2));
+    for (const s of [-1, 1]) {
+      const xv = s * W * 0.24, yv = H2 / 2 + 55e-4, zv = (zD + 0.012) / 2, rv = Math.min(0.034, (zD - 0.02) / 2);
+      L.add(M.negro, cil(rv, 2e-3, xv, yv - 5e-4, zv, 0, 0, 0, 24), false);
+      L.add(M.plastico, mueve(new TorusGeometry(rv, 28e-4, 6, 28), xv, yv + 1e-3, zv, PI / 2, 0, 0), false);
+      L.add(M.plastico, mueve(new TorusGeometry(rv * 0.55, 18e-4, 6, 22), xv, yv + 1e-3, zv, PI / 2, 0, 0), false);
+      for (const a of [0, PI / 2]) L.add(M.plastico, caja(2 * rv, 25e-4, 35e-4, xv, yv + 1e-3, zv, 0, a, 0), false);
+      L.add(M.plastico, cil(rv * 0.3, 4e-3, xv, yv + 1e-3, zv, 0, 0, 0, 14), false);
+    }
+    L.add(M.frenteVariador, cajaR(W, H2, zF - zD, 0.016, 0, 0, (zD + zF) / 2));
+    for (let k = 0; k < 5; k++) L.add(M.negro, caja(W * 0.6, 45e-4, 4e-3, 0, H2 * 0.455 - k * 0.011, zF), false);
+    for (const s of [-1, 1]) for (let k = 0; k < 7; k++) L.add(M.negro, caja(4e-3, 6e-3, (zF - zD) * 0.5, s * W / 2, H2 * 0.4 - k * 0.014, (zD + zF) / 2), false);
+    const yT = H2 * 0.095, hT = H2 * 0.5;
+    L.add(M.variador, cajaR(W * 0.84, hT, 0.01, 0.01, 0, yT, zF + 4e-3));
+    const yK = yT - 2e-3, zK = zF + 9e-3 + 0.014;
+    L.add(M.plastico, cajaR(0.108, 0.168, 0.014, 8e-3, 0, yK, zK - 7e-3), false);
+    L.add(M.negro, caja(0.09, 0.042, 3e-3, 0, yK + 0.052, zK + 5e-4), false);
+    L.add(M.aparato, cilZ(0.0165, 7e-3, -0.024, yK - 0.016, zK + 35e-4, 28), false);
+    L.add(M.negro, cilZ(65e-4, 9e-3, -0.024, yK - 0.016, zK + 45e-4, 16), false);
+    for (const [x, y] of [[0.014, 0], [0.038, 0], [0.014, -1], [0.038, -1]]) L.add(M.plasticoClaro, caja(0.019, 0.013, 6e-3, x, yK - 6e-3 + y * 0.019, zK + 2e-3), false);
+    L.add(M.verde, caja(0.032, 0.016, 6e-3, -0.024, yK - 0.058, zK + 2e-3), false);
+    L.add(M.rojo, caja(0.032, 0.016, 6e-3, 0.024, yK - 0.058, zK + 2e-3), false);
+    const yB = -H2 * 0.325, hB = H2 * 0.21;
+    L.add(M.frenteVariador, cajaR(W * 0.84, hB, 8e-3, 8e-3, 0, yB, zF + 3e-3));
+    for (const s of [-1, 1]) L.add(M.negro, caja(3e-3, hB, 4e-3, s * (W * 0.42 + 15e-4), yB, zF), false);
+    L.add(M.negro, caja(W * 0.84, 3e-3, 4e-3, 0, yB - hB / 2 - 15e-4, zF), false);
+    L.add(M.negro, caja(W * 0.84, 3e-3, 4e-3, 0, yB + hB / 2 + 6e-3, zF), false);
+    for (const s of [-1, 1]) {
+      L.add(M.acero, cilZ(65e-4, 3e-3, s * W * 0.34, yB - hB * 0.3, zF + 78e-4, 14), false);
+      L.add(M.negro, caja(8e-3, 16e-4, 1e-3, s * W * 0.34, yB - hB * 0.3, zF + 95e-4), false);
+    }
+    L.add(M.amarillo, caja(0.034, 0.024, 8e-4, -W * 0.25, yB + hB * 0.16, zF + 74e-4), false);
+    L.add(M.plasticoClaro, caja(0.075, 0.024, 8e-4, W * 0.13, yB + hB * 0.16, zF + 74e-4), false);
+    const zE = (zD + zF) / 2;
+    L.add(M.acero, cil(0.023, 8e-3, 0, H2 / 2 + 4e-3, zE, 0, 0, 0, 6), false);
+    L.add(M.negro, cil(0.019, 0.02, 0, H2 / 2 + 0.012, zE, 0, 0, 0, 14), false);
+    L.add(M.aluminio, caja(W - 0.03, 0.01, zF - 0.03, 0, -H2 / 2 - 5e-3, (zF + 0.01) / 2));
     const bocas = [];
     for (let k = 0; k < 3; k++) {
       const x = (k - 1) * W * 0.28;
       L.add(M.negro, cil(0.017, 0.03, x, -H2 * 0.51 - 0.015, D * 0.4, 0, 0, 0, 14), false);
-      L.add(M.acero, cil(0.021, 0.01, x, -H2 * 0.51, D * 0.4, 0, 0, 0, 6), false);
+      L.add(M.acero, cil(0.021, 0.01, x, -H2 * 0.51 - 8e-3, D * 0.4, 0, 0, 0, 6), false);
       bocas.push(V2(x, -H2 * 0.51 - 0.03, D * 0.4));
     }
-    for (const [x, y] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) L.add(M.acero, cilZ(6e-3, 6e-3, x * (W / 2 + 2e-3), y * (H2 / 2 - 0.015), 0.014, 8), false);
     L.cerrar(g2, { nombre: "variador" });
-    const pant = new Mesh(new PlaneGeometry(W * 0.5, H2 * 0.09), new MeshBasicMaterial({ color: 16777215, toneMapped: false }));
-    pant.position.set(0, H2 * 0.25, D * 0.84 + 0.0185);
+    const pant = new Mesh(new PlaneGeometry(0.08, 0.03), new MeshBasicMaterial({ color: 16777215, toneMapped: false }));
+    pant.position.set(0, yK + 0.052, zK + 25e-4);
     pant.userData.vivo = true;
     g2.add(pant);
-    const leds = [0, 1, 2].map((k) => ({ p: V2(W * 0.22 - k * 0.022, H2 * 0.165, D * 0.84 + 0.0185), n: V2(0, 0, 1) }));
-    g2.userData = { pantalla: pant, leds, bocas };
+    const leds = [0, 1, 2].map((k) => ({ p: V2(0.036 - k * 0.013, yK + 0.021, zK + 12e-4), n: V2(0, 0, 1) }));
+    g2.userData = { pantalla: pant, leds, bocas, entrada: V2(0, H2 / 2 + 0.022, zE) };
     return g2;
   }
   function extintor(M, { anchoAla = 0.3, yBase = 0.98 } = {}) {
@@ -56017,6 +56120,12 @@ void main() {
     LT.add(M.galvanizado, mueve(geoTuboCuadrado({ largo: 2.3, a: 0.06 }), xD, 0, -2.1));
     LT.add(M.galvanizado, mueve(geoPlacaBase({ a: 0.16 }), xD, 0, -2.1));
     LT.add(M.galvanizado, new BoxGeometry(0.2, 0.04, 0.08).translate(xD, 2.3 - 0.0645, -2.1));
+    for (const [xa2, ya, za, xb2, zb] of [[XM1 + 0.165, Y_BASE + Y_PED + 0.02, ZP + 0.172, XM1 + 0.3, ZP + 0.235], [XB - 0.392, Y_BASE + 0.022, ZP + 0.122, XB - 0.3, ZP + 0.235]]) {
+      const yb = Y_BASE + 4e-3;
+      LT.add(M.bornePE, new TubeGeometry(new CatmullRomCurve3([V32(xa2, ya, za), V32(xa2 + 0.01, ya + 0.012, za + 0.03), V32((xa2 + xb2) / 2, (ya + yb) / 2 + 0.01, (za + zb) / 2 + 0.02), V32(xb2, yb + 0.03, zb), V32(xb2, yb + 8e-3, zb)]), 20, 45e-4, 6, false), false);
+      LT.add(M.laton, new CylinderGeometry(8e-3, 8e-3, 0.01, 6).translate(xb2, yb + 5e-3, zb), false);
+      LT.add(M.laton, new CylinderGeometry(65e-4, 65e-4, 8e-3, 6).rotateX(PI2 / 2).translate(xa2, ya, za), false);
+    }
     LT.cerrar(planta, { nombre: "tuberia" });
     const mano = manometroSifon(mat, { d: 0.1 });
     mano.position.set(xD + 0.175, d0.y + 0.5, zD);
@@ -56067,9 +56176,7 @@ void main() {
     const tab = tableroArranque(M, mat, magnetotermico, canaletaRanurada, {});
     tab.position.set(X_TAB, 0, Z_TAB);
     planta.add(tab);
-    const luzTab = new PointLight(16773597, 1.1, 1.4, 2);
-    luzTab.position.set(X_TAB, 1.55, Z_TAB + 0.12);
-    escena.add(luzTab);
+    const luzTab = new PointLight(16773597, 0.8, 1.4, 2);
     const vfd = variadorCompacto(M);
     vfd.position.set(-1.25, 1.55, PARED + 3e-3);
     planta.add(vfd);
@@ -56093,7 +56200,10 @@ void main() {
       const xq = xa - 0.065;
       conduit(LC, M, [V32(xq, 0, -1.2), V32(xq, 0.022, -1.12), V32(xq, 0.022, Z_DRIVE - 0.17), V32(xq, 0.62, Z_DRIVE - 0.17)], { p: p2, d: V32(1, 0, 0) });
       for (const z of [-0.8, -0.25, 0.1]) LC.add(M.galvanizado, new BoxGeometry(0.05, 0.012, 0.06).translate(xq, 6e-3, z), false);
-      conduit(LC, M, [V32(-1.25, 1.55 + 0.23, PARED + 0.1), V32(-1.25, 2.55, PARED + 0.1), V32(-1.25, 2.62, zC - 0.05)], null);
+      {
+        const en2 = vfd.userData.entrada.clone().add(vfd.position);
+        conduit(LC, M, [en2, V32(en2.x, 2.5, en2.z), V32(en2.x, 2.62, zC - 0.05)], null);
+      }
       for (const b of vfd.userData.bocas) {
         const w = b.clone().add(vfd.position);
         conduit(LC, M, [w, V32(w.x, 0.02, w.z)], null, { r: 0.012 });
@@ -56207,14 +56317,15 @@ void main() {
     est.rotulos.agrega("rodete", "Rodete (voluta en corte)", bomba.userData.interior, { prioridad: 9, ancla: V32(0.12, 0.05, 0.16) });
     await pausa();
     const vertical = () => est.camara && est.camara.aspect < 1;
-    const heroe = () => ({ caja: new Box3(V32(XM1 - 0.6, 0.05, ZP - 0.45), V32(XB + 0.45, 1.3, ZP + 0.45)), dir: [0.5, 0.28, 1], fraccion: vertical() ? 0.95 : 0.84, anchoMax: vertical() ? 1.25 : 1, desplaza: [0.02, -0.04, 0] });
+    const heroe = () => ({ caja: new Box3(V32(XM1 - 0.6, 0.1, ZP - 0.45), V32(XB + 0.45, 1.16, ZP + 0.45)), dir: [0.5, 0.28, 1], fraccion: vertical() ? 0.95 : 0.9, anchoMax: vertical() ? 1.25 : 1, desplaza: [0.02, -0.04, 0] });
     const cajaPlanta = () => new Box3(V32(-3.05, 0, PARED), V32(X_FIN + 0.2, 2.55, 1.05));
     est.definirVistas({
       heroe,
       general: () => vertical() ? heroe() : { caja: new Box3(V32(-2.75, 0.15, -2.2), V32(X_FIN, 1.9, 0.8)), dir: [0.4, 0.3, 1], fraccion: 0.98, anchoMax: 1.04, centroPantalla: -0.26, desplaza: [0.42, 0, 0] },
       corte: () => ({ caja: new Box3(V32(XM1 - 0.5, Y_BASE + 0.14, ZP - 0.3), V32(XB + 0.3, Y_BASE + 0.62, ZP + 0.3)), dir: [0.58, 0.42, 1], fraccion: 0.68, anchoMax: vertical() ? 1.25 : 0.92, desplaza: [0.05, -0.05, 0], centroPantalla: -0.1 }),
       banda: () => ({ caja: new Box3(V32(XM2 - 0.6, 0.12, ZC - 0.5), V32(X_FIN, 1.2, Z_DRIVE + 0.2)), dir: [0.55, 0.34, 1], fraccion: 0.86, desplaza: [0, -0.06, 0], centroPantalla: -0.14, anchoMax: vertical() ? 1.25 : 1 }),
-      tablero: () => ({ caja: new Box3(V32(X_TAB - 0.55, 0.1, Z_TAB - 0.25), V32(-1.7, 2, Z_TAB + 0.5)), dir: [-0.1, 0.26, 1], fraccion: 0.78 }),
+      tablero: () => ({ caja: new Box3(V32(X_TAB - 0.56, 0.28, Z_TAB - 0.25), V32(-1.08, 2.02, Z_TAB + 0.5)), dir: [-0.06, 0.2, 1], fraccion: 0.93 }),
+      // (r2) más cerca: el gabinete llena el alto y entran el variador y la estación
       generador: () => ({ caja: new Box3(V32(X_GEN - 1.55, 0, Z_GEN - 0.6), V32(X_GEN + 1.55, 1.5, Z_GEN + 0.6)), dir: [0.5, 0.62, 0.8], fraccion: 0.82, desplaza: [0, -0.05, 0] })
       // alto: mira por encima de la banda
     });
