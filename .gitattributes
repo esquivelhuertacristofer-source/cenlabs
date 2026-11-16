@@ -1,0 +1,3 @@
+# Paquetes de las prácticas estrella: se guardan byte a byte. Sus SHA-256 están en public/estrellas/huellas.json
+# y una prueba los compara con el disco; una conversión de fin de línea los rompería.
+public/estrellas/** -text
