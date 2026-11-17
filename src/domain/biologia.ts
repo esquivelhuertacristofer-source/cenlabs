@@ -7,7 +7,7 @@
  */
 import type {
   ResultadoValidacion,
-  MicroscopioStateB1, MuestraB1, ObjetivoMagB1,
+  MicroscopioStateB1, MuestraB1,
   TransporteStateB2,
   SintesisStateB3,
   FotosintesisStateB4, ColorLuzB4,
@@ -18,6 +18,11 @@ import type {
   DigestionStateB9, EnzimaB9, MacronutrienteB9, OrganoB9, IncubacionB9,
   EcosistemaStateB10, ParametrosLVB10,
 } from '@/store/types';
+
+import {
+  CASOS_B1, ORDEN_CASOS_B1, CASOS_PARA_APROBAR_B1, errorEnfoqueUm, evaluarRespuestaB1, estadoCasoB1, casosResueltosB1,
+} from './microscopia/casos';
+import { ABERRACION_SIN_ACEITE_UM, campoUm, desenfoqueUm, sinAceite } from './microscopia/optica';
 
 /** Generador pseudoaleatorio inyectable (las pruebas usan uno con semilla). */
 export type Rng = () => number;
@@ -39,67 +44,57 @@ const ok = (): ResultadoValidacion => ({ ok: true });
 const falla = (mensaje: string): ResultadoValidacion => ({ ok: false, mensaje });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// B1 — Microscopio óptico
+// B1 — Microscopio digital con casos
 // ═════════════════════════════════════════════════════════════════════════════
+// La óptica, las preparaciones y el juicio de cada caso viven en ./microscopia.
+// Aquí queda lo que el store y los paneles ya consumían con el sufijo B1.
+
+export {
+  CASOS_B1, ORDEN_CASOS_B1, CASOS_PARA_APROBAR_B1, TRANSMISION_B1, BRILLO_MIN_B1, BRILLO_MAX_B1,
+  brilloEfectivoB1, enFocoB1, focoCasoB1, errorEnfoqueUm, margenEnfoqueUm, verdadCasoB1, evaluarRespuestaB1,
+  condicionesOpticasB1, estadoCasoB1, casosResueltosB1, tomarRespuestaB1,
+} from './microscopia/casos';
 
 export const MUESTRAS_B1: Record<MuestraB1, string> = {
-  vegetal: 'Hoja de Elodea (montaje en agua)',
-  animal: 'Mucosa bucal (azul de metileno)',
-  bacteria: 'Yogur natural (tinción de Gram)',
+  estanque: `${CASOS_B1.estanque.nombre} (${CASOS_B1.estanque.tincion.toLowerCase()})`,
+  sangre: `${CASOS_B1.sangre.nombre} (${CASOS_B1.sangre.tincion.toLowerCase()})`,
+  gram: `${CASOS_B1.gram.nombre} (${CASOS_B1.gram.tincion.toLowerCase()})`,
+  mitosis: `${CASOS_B1.mitosis.nombre} (${CASOS_B1.mitosis.tincion.toLowerCase()})`,
+  cebolla: `${CASOS_B1.cebolla.nombre} (${CASOS_B1.cebolla.tincion.toLowerCase()})`,
+  estomas: `${CASOS_B1.estomas.nombre} (${CASOS_B1.estomas.tincion.toLowerCase()})`,
 };
 
-/**
- * Misiones posibles. `magMin` = objetivo mínimo con el que la estructura se
- * RESUELVE (ocular 10x): la pared y el contorno celular ya se ven a 100x
- * totales; núcleo y cloroplastos (≈ 5 µm) piden 400x; las bacterias (≈ 1 µm)
- * piden 1000x con aceite de inmersión.
- */
-export const OBJETIVOS_B1: readonly { muestra: MuestraB1; organelo: string; magMin: ObjetivoMagB1 }[] = [
-  { muestra: 'vegetal', organelo: 'Cloroplastos', magMin: 40 },
-  { muestra: 'vegetal', organelo: 'Pared celular', magMin: 10 },
-  { muestra: 'animal', organelo: 'Núcleo', magMin: 40 },
-  { muestra: 'animal', organelo: 'Membrana plasmática (contorno celular)', magMin: 10 },
-  { muestra: 'bacteria', organelo: 'Bacilos y cocos', magMin: 100 },
-];
-
-/** Profundidad de campo útil (unidades del tornillo): a más aumento, menos margen. */
-export const TOLERANCIA_ENFOQUE_B1: Record<ObjetivoMagB1, number> = { 4: 8, 10: 5, 40: 2.5, 100: 1 };
+/** Ancho de referencia del visor (px) con el que `desenfoqueB1` expresa el desenfoque. */
+export const VISOR_REF_PX_B1 = 720;
 
 /**
- * Fracción de la luz que llega al ojo con cada objetivo (lentes de mayor aumento
- * captan un campo más pequeño: la imagen se oscurece y hay que subir el reóstato).
+ * Desenfoque en px de CSS (desviación típica del emborronado) para un visor de
+ * 720 px: 0 dentro de la profundidad de campo, y crece con el error de enfoque
+ * tanto más deprisa cuanto mayor es la apertura numérica. `capaUm` es la altura
+ * de una capa de la preparación respecto de su plano principal.
  */
-export const TRANSMISION_B1: Record<ObjetivoMagB1, number> = { 4: 1, 10: 0.9, 40: 0.75, 100: 0.6 };
-/** Brillo efectivo (iluminación × transmisión) con el que la imagen es legible. */
-export const BRILLO_MIN_B1 = 45;
-export const BRILLO_MAX_B1 = 75;
-
-export function brilloEfectivoB1(m: Pick<MicroscopioStateB1, 'iluminacion' | 'objetivoMag'>): number {
-  return m.iluminacion * (TRANSMISION_B1[m.objetivoMag] ?? 1);
+export function desenfoqueB1(
+  m: Pick<MicroscopioStateB1, 'enfoqueZ' | 'focoIdealZ' | 'objetivoMag' | 'aceiteInmersionAplicado'> & { muestra?: MuestraB1; apertura?: number },
+  capaUm = 0,
+): number {
+  const aceite = m.aceiteInmersionAplicado, ap = m.apertura ?? 1;
+  const c = desenfoqueUm(errorEnfoqueUm(m) - capaUm, m.objetivoMag, aceite, ap);
+  // Sin aceite, el objetivo de inmersión añade aberración esférica: nunca queda nítido.
+  const esferica = sinAceite(m.objetivoMag, aceite) ? ABERRACION_SIN_ACEITE_UM : 0;
+  return 0.35 * Math.hypot(c, esferica) * (VISOR_REF_PX_B1 / campoUm(m.objetivoMag));
 }
 
-/** Desenfoque en px de CSS: 0 en el plano focal, crece fuera de la profundidad de campo. */
-export function desenfoqueB1(m: Pick<MicroscopioStateB1, 'enfoqueZ' | 'focoIdealZ' | 'objetivoMag' | 'aceiteInmersionAplicado'>): number {
-  const tol = TOLERANCIA_ENFOQUE_B1[m.objetivoMag] ?? 8;
-  const dif = Math.abs(m.enfoqueZ - m.focoIdealZ);
-  // A 100x sin aceite, la refracción del aire limita la apertura numérica (Abbe): imagen lechosa.
-  const sinAceite = m.objetivoMag === 100 && !m.aceiteInmersionAplicado ? 4 : 0;
-  return Math.min(14, 2.2 * (dif / tol)) + sinAceite;
-}
-
-export function enFocoB1(m: Pick<MicroscopioStateB1, 'enfoqueZ' | 'focoIdealZ' | 'objetivoMag'>): boolean {
-  return Math.abs(m.enfoqueZ - m.focoIdealZ) <= (TOLERANCIA_ENFOQUE_B1[m.objetivoMag] ?? 8);
-}
-
+/** Aprueba quien resuelve bien tres de los seis casos. */
 export function evaluarB1(m: MicroscopioStateB1): ResultadoValidacion {
-  if (m.muestra !== m.muestraObjetivo) return falla('La preparación que está en la platina no es la que pide la misión.');
-  if (m.objetivoMag < m.magMin) return falla(`Con este objetivo no se resuelve: ${m.targetOrganelle.toLowerCase()} es más pequeño que el límite de resolución. Necesitas más aumento.`);
-  if (m.objetivoMag === 100 && !m.aceiteInmersionAplicado) return falla('El objetivo de 100x es de inmersión: sin aceite la apertura numérica cae y la imagen pierde resolución.');
-  const brillo = brilloEfectivoB1(m);
-  if (brillo < BRILLO_MIN_B1) return falla('La imagen está demasiado oscura para este objetivo: sube la intensidad de la lámpara.');
-  if (brillo > BRILLO_MAX_B1) return falla('La imagen está deslumbrada: baja la intensidad de la lámpara.');
-  if (!enFocoB1(m)) return falla('La muestra está fuera de foco: ajusta con el tornillo micrométrico.');
-  return ok();
+  const resueltos = casosResueltosB1(m).length;
+  if (resueltos >= CASOS_PARA_APROBAR_B1) return ok();
+  const fallidos = ORDEN_CASOS_B1.filter((c) => estadoCasoB1(m, c) === 'incorrecto');
+  if (fallidos.length) {
+    const c = fallidos[0];
+    const r = evaluarRespuestaB1(c, m.semilla, m.focoIdealZ, m.respuestas[c]);
+    return falla(`Llevas ${resueltos} de ${CASOS_PARA_APROBAR_B1} casos resueltos. ${CASOS_B1[c].corto}: ${r.mensaje ?? 'revisa tu respuesta.'}`);
+  }
+  return falla(`Llevas ${resueltos} de ${CASOS_PARA_APROBAR_B1} casos resueltos: observa una preparación, responde su pregunta y pulsa «Comprobar».`);
 }
 export const validarB1 = (m: MicroscopioStateB1): boolean => evaluarB1(m).ok;
 

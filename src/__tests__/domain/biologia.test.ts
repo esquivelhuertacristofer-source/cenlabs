@@ -12,7 +12,8 @@ const S = () => useSimuladorStore.getState();
 const SEMILLAS = 500;
 const SEMILLAS_B6 = 200; // cada semilla juega 6 generaciones de caza: más lento
 
-// ── B1 Microscopio ───────────────────────────────────────────────────────────
+// ── B1 Microscopio digital con casos ─────────────────────────────────────────
+// (óptica, preparaciones y juicio caso por caso: src/__tests__/bio01-microscopio.test.ts)
 describe('B1 microscopio', () => {
   it('la nitidez depende de |enfoqueZ − focoIdealZ| y del objetivo', () => {
     const base = { focoIdealZ: 47.3, objetivoMag: 40 as const, aceiteInmersionAplicado: false };
@@ -23,30 +24,73 @@ describe('B1 microscopio', () => {
       .toBeGreaterThan(B.desenfoqueB1({ ...base, objetivoMag: 4, enfoqueZ: 49 }));
     // Sin aceite, 100x nunca queda nítido.
     expect(B.desenfoqueB1({ ...base, objetivoMag: 100, enfoqueZ: 47.3 })).toBeGreaterThan(0);
+    // El desenfoque crece con la apertura numérica: a igual error, 4x < 10x < 40x < 100x.
+    const err = { focoIdealZ: 40, enfoqueZ: 48, aceiteInmersionAplicado: true };
+    const px = ([4, 10, 40, 100] as const).map((objetivoMag) => B.desenfoqueB1({ ...err, objetivoMag }));
+    expect(px[0]).toBeLessThan(px[1]); expect(px[1]).toBeLessThan(px[2]); expect(px[2]).toBeLessThan(px[3]);
+    // Las capas de una preparación gruesa se enfocan por separado (corte óptico).
+    expect(B.desenfoqueB1({ ...base, enfoqueZ: 47.3 }, 6)).toBeGreaterThan(0);
+    expect(B.desenfoqueB1({ ...base, enfoqueZ: 47.9 }, 6)).toBe(0);
   });
 
   it('barrido: el intento nuevo no aprueba y siempre existe una configuración que sí', () => {
+    const SITIO: Partial<Record<string, [number, number]>> = { mitosis: [0, 270] };
     for (let i = 0; i < SEMILLAS; i++) {
       S().entrarLab('biologia-1');
       expect(S().validarLab('biologia-1').ok).toBe(false);
-      const m = S().microscopio;
-      const macro = Math.floor(m.focoIdealZ);
-      const micro = Math.round((m.focoIdealZ - macro) * 100) / 10;
-      // Objetivo insuficiente o preparación equivocada: no aprueba.
-      S().setMicroscopio({ muestra: m.muestraObjetivo, objetivoMag: 4, iluminacion: 60, enfoqueMacro: macro, enfoqueMicro: micro });
-      if (m.magMin > 4) expect(S().validarLab('biologia-1').ok).toBe(false);
-      S().setMicroscopio({ objetivoMag: 100, aceiteInmersionAplicado: true, iluminacion: 100 });
+      const m0 = S().microscopio;
+      // El intento abre con la preparación viva ya enfocada y bien iluminada…
+      expect(m0.muestra).toBe('estanque');
+      expect(B.enFocoB1(m0)).toBe(true);
+      expect(B.brilloEfectivoB1(m0)).toBeGreaterThanOrEqual(B.BRILLO_MIN_B1);
+      expect(B.brilloEfectivoB1(m0)).toBeLessThanOrEqual(B.BRILLO_MAX_B1);
+      // …pero sin ninguna respuesta.
+      expect(m0.respuestas).toEqual({});
+      let resueltos = 0;
+      for (const caso of B.ORDEN_CASOS_B1) {
+        const c = B.CASOS_B1[caso];
+        const mag = c.objetivoExacto ?? (c.objetivoMin < 10 ? 10 : c.objetivoMin);
+        const foco = B.focoCasoB1(m0.focoIdealZ, caso);
+        const macro = Math.floor(foco), micro = Math.round((foco - macro) * 100) / 10;
+        const [x, y] = SITIO[caso] ?? [0, 0];
+        S().setMicroscopio({
+          muestra: caso, objetivoMag: mag, enfoqueMacro: macro, enfoqueMicro: micro, posicionX: x, posicionY: y,
+          aceiteInmersionAplicado: mag === 100, iluminacion: mag === 100 ? 100 : 75, apertura: 0.8,
+        });
+        const m = S().microscopio;
+        const verdad = B.verdadCasoB1(caso, m.semilla, { x, y, objetivoMag: mag });
+        // Respuesta equivocada: queda registrada, no cuenta.
+        S().setMicroscopio({ respuestas: { ...m.respuestas, [caso]: B.tomarRespuestaB1(m, verdad.map((v) => v * 2 + 9)) } });
+        expect(B.estadoCasoB1(S().microscopio, caso)).toBe('incorrecto');
+        expect(B.casosResueltosB1(S().microscopio)).toHaveLength(resueltos);
+        S().setMicroscopio({ respuestas: { ...m.respuestas, [caso]: B.tomarRespuestaB1(m, verdad) } });
+        if (B.estadoCasoB1(S().microscopio, caso) === 'correcto') resueltos++;
+        // Aprueba exactamente al llegar a tres casos bien resueltos.
+        expect(S().validarLab('biologia-1').ok).toBe(resueltos >= B.CASOS_PARA_APROBAR_B1);
+      }
+      // Los seis casos tienen solución con la verdad (salvo un campo sin estomas o sin mitosis, que el juez manda mover).
+      expect(resueltos).toBeGreaterThanOrEqual(4);
       expect(S().validarLab('biologia-1')).toEqual({ ok: true });
-      S().setMicroscopio({ muestra: m.muestraObjetivo === 'animal' ? 'bacteria' : 'animal' });
+      // Reiniciar borra las respuestas: ya no aprueba.
+      S().resetB1();
       expect(S().validarLab('biologia-1').ok).toBe(false);
+      expect(B.enFocoB1(S().microscopio)).toBe(true);
     }
   });
 
   it('a 100x hay que subir la lámpara (transmisión menor) y poner aceite', () => {
-    const base = { ...S().microscopio, muestra: 'bacteria' as const, muestraObjetivo: 'bacteria' as const, magMin: 100 as const, objetivoMag: 100 as const, focoIdealZ: 50, enfoqueZ: 50 };
-    expect(B.evaluarB1({ ...base, iluminacion: 60, aceiteInmersionAplicado: true }).ok).toBe(false); // 36 % efectivo
-    expect(B.evaluarB1({ ...base, iluminacion: 100, aceiteInmersionAplicado: false }).ok).toBe(false);
-    expect(B.evaluarB1({ ...base, iluminacion: 100, aceiteInmersionAplicado: true }).ok).toBe(true);
+    const semilla = 12;
+    const m = { ...S().microscopio, semilla, muestra: 'gram' as const, objetivoMag: 100 as const, focoIdealZ: 50, enfoqueZ: B.focoCasoB1(50, 'gram'), apertura: 1, posicionX: 0, posicionY: 0 };
+    const verdad = B.verdadCasoB1('gram', semilla, { x: 0, y: 0, objetivoMag: 100 });
+    const juzgar = (iluminacion: number, aceiteInmersionAplicado: boolean) =>
+      B.evaluarRespuestaB1('gram', semilla, 50, B.tomarRespuestaB1({ ...m, iluminacion, aceiteInmersionAplicado }, verdad)).ok;
+    expect(B.brilloEfectivoB1({ iluminacion: 60, objetivoMag: 100 })).toBeCloseTo(36, 10); // 36 % efectivo
+    expect(juzgar(60, true)).toBe(false);
+    expect(juzgar(100, false)).toBe(false);
+    expect(juzgar(100, true)).toBe(true);
+    // cerrar el diafragma quita luz: brillo = lámpara × transmisión × (0,5 + 0,5·apertura)
+    expect(B.brilloEfectivoB1({ iluminacion: 100, objetivoMag: 100, apertura: 0.2 })).toBeCloseTo(36, 10);
+    expect(B.brilloEfectivoB1({ iluminacion: 80, objetivoMag: 4, apertura: 1 })).toBe(80);
   });
 });
 

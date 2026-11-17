@@ -1,241 +1,139 @@
 "use client";
 
+/**
+ * Bitácora de BIO-01 · Microscopio digital con casos.
+ *   1. Casos: qué respondió el alumno en cada uno y si el juez lo da por bueno
+ *      (el mismo `estadoCasoB1` que decide la práctica). Nunca muestra el valor correcto.
+ *   2. Cálculo óptico del objetivo en uso: aumento total y resolución (0,61·λ/AN).
+ *   3. Micrografías capturadas del campo ocular.
+ */
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
-  Trash2, ShieldCheck, Calculator, BookOpen,
-  Binary, Compass, Bot, Volume2, Shapes, Microscope, Sun, Camera, RotateCcw, ZoomIn, Layers, Droplet, Move, Crosshair, ChevronRight,
-  Maximize2, ZoomOut, Settings2, Lightbulb, Focus
-} from 'lucide-react';
+import { Calculator, Camera, Check, ListChecks, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
-import { OBJECTIVES, calculateAbbeLimit, calculateTotalMagnification } from '@/utils/opticEngine';
-import { enFocoB1, brilloEfectivoB1, BRILLO_MIN_B1, BRILLO_MAX_B1 } from '@/domain/biologia';
+import { CASOS_B1, ORDEN_CASOS_B1, CASOS_PARA_APROBAR_B1, casosResueltosB1, estadoCasoB1 } from '@/domain/biologia';
+import { LAMBDA_UM, OBJETIVOS_OPTICOS, aumentoTotal, resolucionUm } from '@/domain/microscopia/optica';
+import type { MuestraB1, RespuestaCasoB1 } from '@/store/types';
+import { LetraBitacoraEstrella } from '../simulador/RaizLabEstrella';
+
+const coma = (x: number, dec = 2) => x.toFixed(dec).replace('.', ',');
+
+function textoRespuesta(caso: MuestraB1, r: RespuestaCasoB1): string {
+  const c = CASOS_B1[caso];
+  if (c.opciones) return c.opciones[r.valores[0]] ?? '—';
+  return c.campos.map((f, k) => `${f.etiqueta.toLowerCase()} ${coma(r.valores[k], Number.isInteger(r.valores[k]) ? 0 : 1)}${f.unidad ? ` ${f.unidad}` : ''}`).join(' · ');
+}
+
+const TARJETA = 'rounded-3xl border border-slate-200 bg-white p-5 shadow-sm';
+const TITULO = 'flex items-center gap-2 text-[14px] font-bold text-[#023047]';
 
 export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () => void }) {
   const microscopio = useSimuladorStore((s) => s.microscopio);
   const setMicroscopio = useSimuladorStore((s) => s.setMicroscopio);
   const validarB1 = useSimuladorStore((s) => s.validarB1);
   const resetB1 = useSimuladorStore((s) => s.resetB1);
-  const tomarCaptura = useSimuladorStore((s) => s.tomarCaptura);
-  
-  const {
-    muestra, objetivoMag, aceiteInmersionAplicado, magnificacionVerified, capturas = []
-  } = microscopio;
+  const { objetivoMag, aceiteInmersionAplicado, magnificacionVerified, abbeVerified, capturas = [] } = microscopio;
 
-  const [conclusionText, setConclusionText] = useState("");
-  const [magInput, setMagInput] = useState('');
-  const [abbeInput, setAbbeInput] = useState('');
+  const [magTexto, setMagTexto] = useState('');
+  const [resTexto, setResTexto] = useState('');
+  const [calculo, setCalculo] = useState<null | 'bien' | 'mal'>(null);
 
-  const safeObjMag = (OBJECTIVES[objetivoMag as keyof typeof OBJECTIVES] ? objetivoMag : 4) as keyof typeof OBJECTIVES;
-  const curObj = OBJECTIVES[safeObjMag];
+  const resueltos = casosResueltosB1(microscopio).length;
+  const listo = resueltos >= CASOS_PARA_APROBAR_B1;
+  const an = OBJETIVOS_OPTICOS[objetivoMag].an;
 
-  const quantumMsg = "Ajusta la iluminación Köhler y el enfoque micrométrico para observar los orgánulos. Recuerda que para el objetivo de 100x es obligatorio aplicar aceite de inmersión para evitar la refracción del aire.";
-
-  const handleCapture = () => {
-    // Misma micrografía que captura el Piloto (muestra y objetivo actuales).
-    tomarCaptura(`/assets/bio/${muestra}_${objetivoMag}x.webp`);
-    audio.playPop();
+  const verificar = () => {
+    const mag = Number(magTexto.replace(',', '.')), res = Number(resTexto.replace(',', '.'));
+    // resolución con el diafragma abierto del todo: d = 0,61·λ/AN, en nanómetros
+    const real = resolucionUm(objetivoMag, true, 1) * 1000;
+    const magOk = mag === aumentoTotal(objetivoMag), resOk = Number.isFinite(res) && Math.abs(res - real) <= real * 0.03;
+    setMicroscopio({ magnificacionVerified: magOk, abbeVerified: resOk });
+    setCalculo(magOk && resOk ? 'bien' : 'mal');
+    if (magOk && resOk) audio.playSuccess(); else audio.playError();
   };
-
-  const handleVerifyCalculations = () => {
-    const realMag = calculateTotalMagnification(curObj.mag);
-    const realAbbe = calculateAbbeLimit(curObj.na, curObj.mag === 100, aceiteInmersionAplicado);
-
-    const parsedMag = parseInt(magInput);
-    const parsedAbbe = parseFloat(abbeInput);
-
-    const magOk = parsedMag === realMag;
-    const abbeOk = Math.abs(parsedAbbe - realAbbe) < 2.0;
-
-    if (magOk && abbeOk) {
-      setMicroscopio({ magnificacionVerified: true, abbeVerified: true });
-      audio.playSuccess();
-    } else {
-      audio.playError();
-      // No alert here, Dr. Quantum can handle feedback via pose or audio if needed, 
-      // but for simple calculation error, the red flash/audio is enough or a local toast.
-    }
-  };
-
-  const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  // Mismas reglas que el validador (src/domain/biologia.ts): lo que aquí se ve verde, el juez lo acepta.
-  const isFocused = enFocoB1(microscopio);
-  const brillo = brilloEfectivoB1(microscopio);
-  const luzOk = brillo >= BRILLO_MIN_B1 && brillo <= BRILLO_MAX_B1;
-  const canValidate = wordCount >= 30 && magnificacionVerified;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
-      {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
-      <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-emerald-500/30 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-           <Bot size={60} className="text-white" />
-        </div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-             <span className="text-[10px] font-black text-emerald-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
+    <LetraBitacoraEstrella id="biologia-1">
+      <div className="space-y-5 pb-16 font-['Outfit']">
+        {/* 1 · casos */}
+        <section className={TARJETA} data-bitacora-casos="">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className={TITULO}><ListChecks size={17} className="text-emerald-600" /> Casos resueltos</h3>
+            <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${listo ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>{resueltos} de {CASOS_PARA_APROBAR_B1}</span>
           </div>
-          
-          <h4 className="text-white font-black text-lg leading-tight mb-2">Auditoría Óptica</h4>
-          <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre el manejo del revólver, el enfoque y la resolución de Abbe.
+          <p className="mt-1 text-[13px] leading-snug text-slate-500">Resuelve tres de los seis. Cada respuesta se guarda con la imagen que tenías al darla.</p>
+          <ul className="mt-3 space-y-2">
+            {ORDEN_CASOS_B1.map((c) => {
+              const est = estadoCasoB1(microscopio, c), r = microscopio.respuestas[c];
+              return (
+                <li key={c} className={`rounded-2xl border px-3 py-2 ${est === 'correcto' ? 'border-emerald-300 bg-emerald-50' : est === 'incorrecto' ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-semibold text-[#023047]">{CASOS_B1[c].nombre}</span>
+                    {est === 'correcto' ? <Check size={17} className="shrink-0 text-emerald-600" /> : est === 'incorrecto' ? <X size={17} className="shrink-0 text-rose-500" /> : <span className="shrink-0 text-[13px] text-slate-400">pendiente</span>}
+                  </div>
+                  <p className="text-[13px] leading-snug text-slate-600">{r ? `Tu respuesta: ${textoRespuesta(c, r)} (a ${r.objetivoMag}×).` : CASOS_B1[c].tincion}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        {/* 2 · cálculo óptico */}
+        <section className={TARJETA} data-bitacora-optica="">
+          <h3 className={TITULO}><Calculator size={17} className="text-emerald-600" /> Cálculo óptico del objetivo</h3>
+          <p className="mt-1 text-[13px] leading-snug text-slate-600">
+            Objetivo de <b>{objetivoMag}×</b>, apertura numérica <b>{coma(an)}</b>{objetivoMag === 100 ? (aceiteInmersionAplicado ? ' (con aceite)' : ' (grabada; exige aceite)') : ''}, ocular de 10×, luz de {Math.round(LAMBDA_UM * 1000)} nm.
           </p>
-          
-          <button 
-            onClick={() => audio.playNotification()}
-            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
-          >
-            <Volume2 size={18} fill="currentColor" className="text-white" />
-            Solicitar Informe Óptico
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-[13px] font-semibold text-slate-600">
+              Aumento total
+              <input type="number" value={magTexto} onChange={(e) => { setMagTexto(e.target.value); setCalculo(null); }} placeholder="objetivo × ocular"
+                className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 font-mono text-[14px] text-[#023047] outline-none focus:border-emerald-500" />
+            </label>
+            <label className="flex flex-col gap-1 text-[13px] font-semibold text-slate-600">
+              Resolución (nm)
+              <input type="number" value={resTexto} onChange={(e) => { setResTexto(e.target.value); setCalculo(null); }} placeholder="0,61·λ / AN"
+                className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 font-mono text-[14px] text-[#023047] outline-none focus:border-emerald-500" />
+            </label>
+          </div>
+          <button type="button" onClick={verificar}
+            className={`mt-3 h-10 w-full rounded-xl text-[13px] font-bold transition-colors ${magnificacionVerified && abbeVerified ? 'bg-emerald-500 text-white' : 'bg-[#023047] text-white hover:bg-[#054a6d]'}`}>
+            {magnificacionVerified && abbeVerified ? 'Cálculo verificado' : 'Verificar cálculo'}
+          </button>
+          {calculo === 'mal' && <p className="mt-2 text-[13px] text-rose-600">No coincide. Aumento = objetivo × ocular; resolución d = 0,61·λ/AN, con λ en nanómetros.</p>}
+          {calculo === 'bien' && <p className="mt-2 text-[13px] text-emerald-700">Bien: dos puntos más juntos que esa distancia se ven como uno solo.</p>}
+        </section>
+
+        {/* 3 · micrografías */}
+        <section className={TARJETA} data-bitacora-capturas="">
+          <h3 className={TITULO}><Camera size={17} className="text-emerald-600" /> Micrografías</h3>
+          {capturas.length > 0 ? (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {capturas.map((cap, i) => (
+                <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
+                  <Image src={cap} alt={`Micrografía ${i + 1}`} fill unoptimized className="object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 rounded-2xl border-2 border-dashed border-slate-200 px-3 py-5 text-center text-[13px] text-slate-400">Pulsa «Capturar» bajo el ocular para guardar lo que ves, con su barra de escala.</p>
+          )}
+        </section>
+
+        <div className="flex gap-3">
+          <button type="button" aria-label="Reiniciar el instrumento y borrar las respuestas" title="Reiniciar el instrumento y borrar las respuestas"
+            onClick={() => { resetB1(); setMagTexto(''); setResTexto(''); setCalculo(null); audio.playPop(); }}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-500 hover:text-emerald-600">
+            <RotateCcw size={19} />
+          </button>
+          <button type="button" disabled={!listo}
+            onClick={() => { if (onValidate) onValidate(); else if (validarB1()) audio.playSuccess(); else audio.playError(); }}
+            className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-[13px] font-bold shadow ${listo ? 'bg-[#023047] text-white hover:bg-emerald-600' : 'cursor-not-allowed bg-slate-200 text-slate-400'}`}>
+            <ShieldCheck size={17} /> {listo ? 'Validar práctica' : `Faltan ${CASOS_PARA_APROBAR_B1 - resueltos} casos`}
           </button>
         </div>
       </div>
-
-      {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
-         <div className="flex items-center gap-2 mb-4">
-            <Microscope size={14} className="text-emerald-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
-         </div>
-
-         <div className="space-y-4">
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${isFocused ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${isFocused ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Planicidad de Campo
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {isFocused ? '✓ Enfoque Crítico Alcanzado' : '... Calibrando Micrométrico'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${isFocused ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${luzOk ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${luzOk ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Sincronía Köhler
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {luzOk ? '✓ Iluminación Optimizada' : '... Ajustando Reóstato'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${luzOk ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-         </div>
-      </div>
-
-      {/* MONITOR DE TELEMETRÍA ÓPTICA */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-            <Calculator size={20} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Protocolo de Análisis</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cálculos de Resolución</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-           <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                 <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Magnificación Total</label>
-                 <input type="number" value={magInput} onChange={e => setMagInput(e.target.value)} placeholder="Ej: 400" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-[#023047] outline-none focus:border-emerald-500" />
-              </div>
-              <div className="space-y-1">
-                 <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Límite Abbe (nm)</label>
-                 <input type="number" step="0.1" value={abbeInput} onChange={e => setAbbeInput(e.target.value)} placeholder="Ej: 220" className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-[#023047] outline-none focus:border-emerald-500" />
-              </div>
-           </div>
-
-           <button 
-             onClick={handleVerifyCalculations}
-             className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${magnificacionVerified ? 'bg-emerald-500 text-white' : 'bg-[#023047] text-white hover:bg-[#054a6d]'}`}
-           >
-             {magnificacionVerified ? 'Telemetría Validada' : 'Sincronizar Óptica'}
-           </button>
-        </div>
-      </div>
-
-      {/* GALERÍA DE MICROGRAFÍAS */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                <Camera size={14} className="text-[#023047]" />
-                <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Banco de Capturas</span>
-             </div>
-             <button onClick={handleCapture} className="px-3 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full hover:bg-emerald-600 transition-colors">Nueva Captura</button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-             {capturas.length > 0 ? capturas.map((cap, i) => (
-                <div key={i} className="aspect-square rounded-xl bg-slate-100 border border-slate-200 overflow-hidden relative group">
-                   <div className="relative w-full h-full">
-                     <Image 
-                       src={cap} 
-                       alt="micro" 
-                       fill
-                       className="object-cover grayscale group-hover:grayscale-0 transition-all" 
-                     />
-                   </div>
-                   <div className="absolute inset-0 bg-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-             )) : (
-                <div className="col-span-3 py-10 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center opacity-30">
-                   <Camera size={30} className="text-slate-300" />
-                   <span className="text-[8px] font-black uppercase mt-2">Sin micrografías</span>
-                </div>
-             )}
-          </div>
-      </div>
-
-      {/* ENSAYO CRÍTICO */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                <BookOpen size={14} className="text-[#023047]" />
-                <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Análisis Microscópico</span>
-             </div>
-             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
-          </div>
-          <textarea 
-             value={conclusionText} onChange={e => setConclusionText(e.target.value)}
-             placeholder="Explica qué es el límite de resolución de Abbe y por qué el uso de aceite de inmersión mejora la resolución en objetivos de alta magnificación..."
-             rows={4}
-             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-emerald-500 italic"
-          />
-      </div>
-
-      {/* BOTONES DE ACCIÓN FINALES */}
-      <div className="flex gap-3">
-        <button 
-          onClick={() => { resetB1(); setConclusionText(""); audio.playPop(); }}
-          className="w-14 h-14 bg-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
-        >
-          <Trash2 size={20} />
-        </button>
-        <button 
-          onClick={() => { 
-            if (onValidate) onValidate();
-            else {
-              if (validarB1()) audio.playSuccess();
-              else audio.playError();
-            }
-          }}
-          disabled={!canValidate}
-          className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-        >
-          <ShieldCheck size={16} />
-          {canValidate ? 'Misión Certificada' : 'Someter Análisis'}
-        </button>
-      </div>
-
-    </div>
+    </LetraBitacoraEstrella>
   );
 }

@@ -9,18 +9,20 @@
  *   · platina: sube con el tornillo de enfoque (macro + micro) y la preparación se
  *     desliza con los mandos X/Y;
  *   · lámpara: el reóstato gira y la ventana de la base brilla según la iluminación;
+ *   · condensador: la palanca del diafragma de apertura gira con su mando;
  *   · aceite de inmersión: la gota sobre el cubreobjetos, bajo el objetivo de 100x.
+ * Sin rótulos ni cifras dentro del 3D: los datos van en el panel del DOM.
  * No se dibuja el plano focal ideal (es la respuesta): la altura de la platina sólo
  * refleja los tornillos, como en un instrumento real.
  */
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { LabCanvas, useMateriales, cajaRedondeada, cilindro, geoCache, sanearNormales, Etiqueta } from '../_kit';
-import type { Muestra } from './CampoOcular';
+import { LabCanvas, useMateriales, cajaRedondeada, cilindro, geoCache, sanearNormales } from '../_kit';
+import type { MuestraB1 } from '@/store/types';
 
 interface Props {
-  muestra: Muestra;
+  caso: MuestraB1;
   objetivoMag: number;
   enfoqueMacro: number;
   enfoqueMicro: number;
@@ -28,19 +30,24 @@ interface Props {
   posicionX: number;
   posicionY: number;
   iluminacion: number;
+  /** diafragma del condensador (0,2..1) */
+  apertura: number;
   aceite: boolean;
 }
 
 const OBJETIVOS = [
-  { mag: 4, largo: 0.7, banda: '#c62828', texto: '4×' },
-  { mag: 10, largo: 0.78, banda: '#f2c200', texto: '10×' },
-  { mag: 40, largo: 0.86, banda: '#1e5fb3', texto: '40×' },
-  { mag: 100, largo: 0.9, banda: '#f1f1ee', texto: '100×' },
+  { mag: 4, largo: 0.7, banda: '#c62828' },
+  { mag: 10, largo: 0.78, banda: '#f2c200' },
+  { mag: 40, largo: 0.86, banda: '#1e5fb3' },
+  { mag: 100, largo: 0.9, banda: '#f1f1ee' },
 ] as const;
 const Y_REVOLVER = 2.0;
 const Z_REVOLVER = -0.34;
 const R_REVOLVER = 0.34;
-const COLOR_PREPARACION: Record<Muestra, string> = { vegetal: '#79ab55', animal: '#8ea3d8', bacteria: '#b98acb' };
+/** Color de la preparación vista a simple vista sobre el portaobjetos. */
+const COLOR_PREPARACION: Record<MuestraB1, string> = {
+  estanque: '#a9b58a', sangre: '#c98a92', gram: '#b98acb', mitosis: '#9a8fcf', cebolla: '#d9b45a', estomas: '#c56aa8',
+};
 
 function brazo(): THREE.BufferGeometry {
   return geoCache('bio01:brazo', () => {
@@ -66,7 +73,7 @@ function Perilla({ radio, ancho, rot, material, nervaduras = 14 }: { radio: numb
   );
 }
 
-function Objetivo({ largo, banda, texto, muestra100 }: { largo: number; banda: string; texto: string; muestra100: boolean }) {
+function Objetivo({ largo, banda, muestra100 }: { largo: number; banda: string; muestra100: boolean }) {
   const m = useMateriales();
   const bandaMat = useMemo(() => m.plastico(banda, 0.4), [m, banda]);
   return (
@@ -77,12 +84,11 @@ function Objetivo({ largo, banda, texto, muestra100 }: { largo: number; banda: s
       <mesh geometry={cilindro(0.085, 0.052, largo * 0.28, 24)} material={m.cromo} position={[0, -largo * 0.86, 0]} />
       {muestra100 && <mesh geometry={cilindro(0.088, 0.088, 0.025, 24)} material={m.goma} position={[0, -largo * 0.66, 0]} />}
       <mesh geometry={cilindro(0.04, 0.04, 0.012, 20)} material={m.vidrio} position={[0, -largo - 0.004, 0]} />
-      <Etiqueta modo="plano" texto={texto} tamano={0.05} color="#222" fondo={null} position={[0, -largo * 0.42, 0.122]} />
     </group>
   );
 }
 
-function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, posicionX, posicionY, iluminacion, aceite }: Props) {
+function Escena({ caso, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, posicionX, posicionY, iluminacion, apertura, aceite }: Props) {
   const m = useMateriales();
   const revolver = useRef<THREE.Group>(null);
   const platina = useRef<THREE.Group>(null);
@@ -100,15 +106,15 @@ function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, po
     }
     if (platina.current) platina.current.position.y += (yPlatina - platina.current.position.y) * k;
     if (portaobjetos.current) {
-      portaobjetos.current.position.x += ((posicionX / 500) * 0.38 - portaobjetos.current.position.x) * k;
-      portaobjetos.current.position.z += ((posicionY / 500) * 0.3 - portaobjetos.current.position.z) * k;
+      portaobjetos.current.position.x += ((posicionX / 1200) * 0.3 - portaobjetos.current.position.x) * k;
+      portaobjetos.current.position.z += ((posicionY / 1200) * 0.22 - portaobjetos.current.position.z) * k;
     }
   });
 
   const brillo = 0.15 + (iluminacion / 100) * 2.4;
   const ventana = useMemo(() => m.emisor('#fff1cf', brillo), [m, brillo]);
   const pintura = useMemo(() => m.pintura('#cdd4da'), [m]);
-  const matPrep = useMemo(() => m.plastico(COLOR_PREPARACION[muestra], 0.6), [m, muestra]);
+  const matPrep = useMemo(() => m.plastico(COLOR_PREPARACION[caso], 0.6), [m, caso]);
   const gota = useMemo(() => new THREE.MeshPhysicalMaterial({ color: '#e0a73c', roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.03, transmission: m.calidad === 'alta' ? 0.6 : 0, thickness: 0.05, ior: 1.515, transparent: m.calidad !== 'alta', opacity: 0.85 }), [m]);
   useEffect(() => () => { gota.dispose(); }, [gota]);
 
@@ -124,6 +130,12 @@ function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, po
       <mesh geometry={cilindro(0.26, 0.26, 0.012, 32)} material={ventana} position={[0, 0.286, 0]} />
       <mesh geometry={cilindro(0.2, 0.3, 0.14, 32)} material={m.cromo} position={[0, 0.35, 0]} castShadow />
       <mesh geometry={cilindro(0.19, 0.19, 0.014, 32)} material={m.vidrio} position={[0, 0.425, 0]} />
+      {/* diafragma de apertura: anillo moleteado y palanca que gira con el mando */}
+      <mesh geometry={cilindro(0.315, 0.315, 0.035, 36)} material={m.carcasaOscura} position={[0, 0.315, 0]} />
+      <group position={[0, 0.315, 0]} rotation={[0, 0.5 + (1 - apertura) * 1.5, 0]}>
+        <mesh geometry={cajaRedondeada(0.03, 0.022, 0.2, 0.008, 2)} material={m.cromo} position={[0, 0, 0.4]} />
+        <mesh material={m.goma} position={[0, 0, 0.5]}><sphereGeometry args={[0.03, 14, 10]} /></mesh>
+      </group>
       {/* reóstato */}
       <group position={[0.62, 0.28, 0.82]}>
         <mesh geometry={cilindro(0.17, 0.17, 0.07, 28)} material={m.carcasaOscura} position={[0, 0.035, 0]} castShadow />
@@ -150,12 +162,9 @@ function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, po
           <mesh geometry={cilindro(0.085, 0.085, 0.004, 28)} material={matPrep} position={[0, 0.0148, 0]} scale={[1.2, 1, 0.7]} />
           <mesh geometry={cajaRedondeada(0.22, 0.003, 0.22, 0.001, 1)} material={m.vidrio} position={[0, 0.0175, 0]} />
           {aceite && (
-            <>
-              <mesh material={gota} position={[0, 0.03, 0]} scale={[1, 0.5, 1]}>
-                <sphereGeometry args={[0.075, 28, 18]} />
-              </mesh>
-              <Etiqueta texto="Aceite de inmersión" position={[0.15, 0.26, 0.42]} tamano={0.1} fondo="#ffffffd9" />
-            </>
+            <mesh material={gota} position={[0, 0.03, 0]} scale={[1, 0.5, 1]}>
+              <sphereGeometry args={[0.075, 28, 18]} />
+            </mesh>
           )}
         </group>
       </group>
@@ -169,7 +178,7 @@ function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, po
             const a = i * (Math.PI / 2);
             return (
               <group key={o.mag} position={[Math.sin(a) * R_REVOLVER, -0.07, Math.cos(a) * R_REVOLVER]} rotation={[0, a, 0]}>
-                <Objetivo largo={o.largo} banda={o.banda} texto={o.texto} muestra100={o.mag === 100} />
+                <Objetivo largo={o.largo} banda={o.banda} muestra100={o.mag === 100} />
               </group>
             );
           })}
@@ -191,12 +200,6 @@ function Escena({ muestra, objetivoMag, enfoqueMacro, enfoqueMicro, enfoqueZ, po
         </group>
       ))}
 
-      {/* ── rótulos ── */}
-      <Etiqueta texto="Ocular" position={[0.2, 3.55, 0.6]} tamano={0.115} fondo="#ffffffd9" />
-      <Etiqueta texto="Objetivos" position={[-0.78, 1.75, 0.5]} tamano={0.115} fondo="#ffffffd9" />
-      <Etiqueta texto="Platina" position={[0.98, yPlatina + 0.12, 0.95]} tamano={0.115} fondo="#ffffffd9" />
-      <Etiqueta texto="Enfoque" position={[0.95, 1.4, -1.0]} tamano={0.115} fondo="#ffffffd9" />
-      <Etiqueta texto="Lámpara" position={[-0.7, 0.12, 1.32]} tamano={0.115} fondo="#ffffffd9" />
     </group>
   );
 }

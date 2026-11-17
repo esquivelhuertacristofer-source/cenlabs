@@ -588,22 +588,35 @@ export type BiologiaSlice = Pick<SimuladorState,
 // marcados «oculto» son la incógnita del intento: el panel no los muestra.
 type StatusLabBio = 'idle' | 'success' | 'error';
 export type ObjetivoMagB1 = 4 | 10 | 40 | 100;
-export type MuestraB1 = 'vegetal' | 'animal' | 'bacteria';
+/** Los seis casos (preparaciones) del microscopio digital. */
+export type MuestraB1 = 'estanque' | 'sangre' | 'gram' | 'mitosis' | 'cebolla' | 'estomas';
+
+/** Respuesta a un caso, con la fotografía de la óptica y de la platina al responder. */
+export interface RespuestaCasoB1 {
+  valores: number[];
+  x: number;                     // platina al responder (µm)
+  y: number;
+  objetivoMag: ObjetivoMagB1;
+  enfoqueZ: number;
+  iluminacion: number;
+  apertura: number;
+  aceite: boolean;
+}
 
 export interface MicroscopioStateB1 {
-  muestra: MuestraB1;
+  muestra: MuestraB1;            // caso que está en la platina
   objetivoMag: ObjetivoMagB1;
-  enfoqueMacro: number;          // 0..100
-  enfoqueMicro: number;          // 0..10 (décimas del macro)
+  enfoqueMacro: number;          // 0..100 (1 unidad = 10 µm)
+  enfoqueMicro: number;          // 0..10 (µm)
   enfoqueZ: number;              // macro + micro/10
-  focoIdealZ: number;            // oculto: plano focal de la preparación
+  focoIdealZ: number;            // oculto: plano focal de referencia del intento
   iluminacion: number;           // % del reóstato
+  apertura: number;              // diafragma del condensador: fracción de la AN del objetivo (0,2..1)
   aceiteInmersionAplicado: boolean;
-  posicionX: number;
+  posicionX: number;             // platina (µm)
   posicionY: number;
-  muestraObjetivo: MuestraB1;    // misión: preparación a observar
-  targetOrganelle: string;       // misión: estructura a localizar
-  magMin: ObjetivoMagB1;         // oculto: objetivo mínimo que la resuelve
+  semilla: number;               // oculto: de aquí sale cada preparación y su respuesta
+  respuestas: Partial<Record<MuestraB1, RespuestaCasoB1>>;
   capturas: string[];
   magnificacionVerified: boolean;
   abbeVerified: boolean;

@@ -20,12 +20,17 @@ const azar = (min: number, max: number) => min + Math.random() * (max - min);
 const azarEntero = (min: number, max: number) => Math.floor(azar(min, max + 1));
 const redondear = (x: number, paso: number) => Math.round(x / paso) * paso;
 
+/** Foco de referencia con el micrométrico a medio recorrido: el intento abre ya enfocado. */
+const MACRO_INICIAL_B1 = 50;
+const MICRO_INICIAL_B1 = 5;
 const microscopioInicial = (): MicroscopioStateB1 => ({
-  muestra: 'vegetal', objetivoMag: 4,
-  enfoqueMacro: 0, enfoqueMicro: 0, enfoqueZ: 0, focoIdealZ: 50,
-  iluminacion: 30, aceiteInmersionAplicado: false,
+  // Abre con lo más vistoso: agua de estanque viva, a 40× y enfocada.
+  muestra: 'estanque', objetivoMag: 40,
+  enfoqueMacro: MACRO_INICIAL_B1, enfoqueMicro: MICRO_INICIAL_B1, enfoqueZ: MACRO_INICIAL_B1 + MICRO_INICIAL_B1 / 10,
+  focoIdealZ: MACRO_INICIAL_B1 + MICRO_INICIAL_B1 / 10,
+  iluminacion: 80, apertura: 0.7, aceiteInmersionAplicado: false,
   posicionX: 0, posicionY: 0,
-  muestraObjetivo: 'vegetal', targetOrganelle: 'Cloroplastos', magMin: 40,
+  semilla: 1, respuestas: {},
   capturas: [], magnificacionVerified: false, abbeVerified: false,
   status: 'idle',
 });
@@ -87,7 +92,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   };
 
   const evaluadores: Record<number, () => ResultadoValidacion> = {
-    1: () => juzgar('microscopio', B.evaluarB1, 'bio_microscopio', (m) => ({ muestra: m.muestra, objetivo: m.objetivoMag, organelo: m.targetOrganelle, iluminacion: m.iluminacion })),
+    1: () => juzgar('microscopio', B.evaluarB1, 'bio_microscopio', (m) => ({ casos: B.casosResueltosB1(m), semilla: m.semilla })),
     2: () => juzgar('transporte', B.evaluarB2, 'bio_transporte', (t) => ({ nacl: t.concExt, glucosa: t.glucosaExt, tipoCelula: t.tipoCelula, temperatura: t.temperatura })),
     3: () => juzgar('sintesis', B.evaluarB3, 'bio_sintesis_proteica', (s) => ({ adnPlantilla: s.adnPlantilla, arn: s.arnMensajero, proteina: s.proteina.map((a) => a.name).join('-'), errores: s.errores })),
     4: () => juzgar('fotosintesis', B.evaluarB4, 'bio_fotosintesis', (f) => ({ ensayos: f.ensayos.length, meta: f.meta, dMin: f.dMin })),
@@ -109,26 +114,29 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
       return { microscopio: m };
     }),
     generarSemillaB1: () => set(() => {
-      const obj = B.OBJETIVOS_B1[Math.floor(Math.random() * B.OBJETIVOS_B1.length)];
+      // Cada intento trae otra preparación (semilla) y otro plano focal; abre enfocado.
+      const macro = azarEntero(35, 65);
       return {
         microscopio: {
           ...microscopioInicial(),
-          capturas: [],
-          muestra: obj.muestra === 'vegetal' ? 'animal' : 'vegetal', // la platina NO arranca con la preparación pedida
-          muestraObjetivo: obj.muestra, targetOrganelle: obj.organelo, magMin: obj.magMin,
-          focoIdealZ: redondear(azar(30, 70), 0.01),
+          semilla: azarEntero(1, 2_000_000),
+          enfoqueMacro: macro, enfoqueZ: macro + MICRO_INICIAL_B1 / 10, focoIdealZ: macro + MICRO_INICIAL_B1 / 10,
         },
       };
     }),
     validarB1: () => evaluadores[1]().ok,
-    resetB1: () => set((state) => ({
-      microscopio: {
-        ...state.microscopio,
-        objetivoMag: 4, enfoqueMacro: 0, enfoqueMicro: 0, enfoqueZ: 0, iluminacion: 30,
-        aceiteInmersionAplicado: false, posicionX: 0, posicionY: 0, status: 'idle',
-        magnificacionVerified: false, abbeVerified: false,
-      },
-    })),
+    resetB1: () => set((state) => {
+      // Deja el instrumento como al abrir (mismo intento: misma semilla y plano focal) y borra las respuestas.
+      const macro = Math.floor(state.microscopio.focoIdealZ);
+      return {
+        microscopio: {
+          ...microscopioInicial(),
+          semilla: state.microscopio.semilla, focoIdealZ: state.microscopio.focoIdealZ,
+          enfoqueMacro: macro, enfoqueZ: macro + MICRO_INICIAL_B1 / 10,
+          capturas: state.microscopio.capturas,
+        },
+      };
+    }),
     tomarCaptura: (url: string) => set((state) => ({
       microscopio: { ...state.microscopio, capturas: [url, ...state.microscopio.capturas].slice(0, 6) },
     })),
