@@ -27,7 +27,7 @@ function montar(el: React.ReactElement) {
 
 describe('Práctica estrella por pilar de ciencias', () => {
   it('son exactamente las cuatro elegidas', () => {
-    expect(ESTRELLA_POR_CATEGORIA).toEqual({ quimica: 'quimica-9', fisica: 'fisica-10', matematicas: 'matematicas-10', biologia: 'biologia-8' });
+    expect(ESTRELLA_POR_CATEGORIA).toEqual({ quimica: 'quimica-9', fisica: 'fisica-10', matematicas: 'matematicas-6', biologia: 'biologia-1' });
   });
 
   it.each(Object.entries(ESTRELLA_POR_CATEGORIA))('%s: la estrella %s existe, está activa y es destacada', (_cat, id) => {

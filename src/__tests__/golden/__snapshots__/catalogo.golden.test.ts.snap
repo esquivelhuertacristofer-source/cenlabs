@@ -3,6 +3,7 @@
 exports[`golden master — catálogo por categoría (invariante ante extracción a src/labs) catalogoDeCategoria('biologia') 1`] = `
 [
   {
+    "destacada": true,
     "duracion": "30 min",
     "estado": "activo",
     "id": "biologia-1",

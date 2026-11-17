@@ -6,6 +6,8 @@ const catalogo: CatalogoEntry = {
   duracion: "30 min",
   teoria: "Explora la ultraestructura celular haciendo zoom profundo desde el tejido hasta los orgánulos operando en tiempo real.",
   estado: "activo",
+  // 2026-11-16: práctica estrella de Biología (microscopio digital con casos)
+  destacada: true,
 };
 
 export default catalogo;
