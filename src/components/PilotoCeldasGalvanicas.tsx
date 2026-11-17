@@ -17,7 +17,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useShallow } from 'zustand/react/shallow';
-import { RefreshCcw, ShieldCheck, Pause, Play, Scan, Tags, Beaker, FlaskConical, Minus, Plus, Activity } from 'lucide-react';
+import { RefreshCcw, ShieldCheck, Pause, Play, Scan, Tags, Beaker, FlaskConical, Minus, Plus, Activity, Atom } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { validarQ9 } from '@/domain/quimica';
 import { audio } from '@/utils/audioEngine';
@@ -32,6 +32,11 @@ import type { ModoQ9 } from './simuladores/qmi09/Galvanic3DScene';
 const Galvanic3DScene = dynamic(() => import('./simuladores/qmi09/Galvanic3DScene'), {
   ssr: false,
   loading: () => <div className="absolute inset-0 bg-[#06090c]" />,
+});
+// la lupa atómica, también en su chunk: sólo se descarga al abrirla
+const VistaAtomica = dynamic(() => import('./simuladores/qmi09/VistaAtomica'), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 bg-[#050b14]" />,
 });
 
 type Calidad = 'alta' | 'media';
@@ -159,6 +164,8 @@ export default function PilotoCeldasGalvanicas({ isProfesor = false, onValidate 
   const [reducido] = useState(prefiereReducirMovimiento);
   const [pausa, setPausa] = useState(reducido);
   const [rotulos, setRotulos] = useState(false);
+  /** lupa atómica: la interfaz de cada electrodo a escala de átomos (sólo en la celda de Daniell) */
+  const [atomosPedido, setAtomos] = useState(false);
   const [encuadre, setEncuadre] = useState(0);
   const [calidad, setCalidad] = useState<Calidad>('alta');
   useEffect(() => { setCalidad(detectarCalidad()); }, []);
@@ -300,22 +307,36 @@ export default function PilotoCeldasGalvanicas({ isProfesor = false, onValidate 
   }, [seleccionado, celda.vasoIzq, celda.vasoDer, setMetalVaso]);
 
   const daniell = modo === 'daniell';
+  const atomos = atomosPedido && daniell;
   const carga = daniell ? cargaD : cargaR;
   const setCarga = (c: Carga) => { if (daniell) setCargaD(c); else setCargaR(c); audio?.playPop(); };
 
   const escena = (
-    <div className="relative h-full w-full overflow-hidden bg-[#06090c]" data-modo-q9={modo}>
-      <Galvanic3DScene
-        reloj={reloj} modo={modo}
-        izq={daniell ? 'Zn' : izqR} der={daniell ? 'Cu' : derR}
-        puente={daniell ? true : celda.puenteSalino} cables={daniell ? true : celda.cablesConectados}
-        carga={carga} seedMetales={celda.seedMetales} validado={validado}
-        calidad={calidad} reducido={reducido} rotulos={rotulos} encuadre={encuadre} onListo={onListo}
-      />
+    <div className="relative h-full w-full overflow-hidden bg-[#06090c]" data-modo-q9={modo} data-atomos-q9={atomos ? '1' : '0'}>
+      {atomos ? (
+        <VistaAtomica reloj={reloj} reducido={reducido} />
+      ) : (
+        <Galvanic3DScene
+          reloj={reloj} modo={modo}
+          izq={daniell ? 'Zn' : izqR} der={daniell ? 'Cu' : derR}
+          puente={daniell ? true : celda.puenteSalino} cables={daniell ? true : celda.cablesConectados}
+          carga={carga} seedMetales={celda.seedMetales} validado={validado}
+          calidad={calidad} reducido={reducido} rotulos={rotulos} encuadre={encuadre} onListo={onListo}
+        />
+      )}
       {/* capas y vistas */}
       <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap items-center gap-1.5">
-        <Pildora activo={rotulos} onClick={() => setRotulos((v) => !v)} title="Nombres de las piezas (también al pasar el ratón)"><Tags size={14} /> Rótulos</Pildora>
-        <Pildora activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={14} /></Pildora>
+        {daniell && (
+          <button type="button" onClick={() => { setAtomos((v) => !v); audio?.playPop(); }} aria-pressed={atomos} data-boton-atomos=""
+            title={atomos ? 'Volver al banco del laboratorio' : 'Acercarse a escala atómica: ver la reacción átomo por átomo'}
+            className={`pointer-events-auto flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold backdrop-blur transition-colors ${atomos ? 'border-white/20 bg-[#0b1422]/80 text-white hover:border-white/40' : 'border-amber-300/60 bg-amber-400/90 text-[#1a1200] shadow-[0_0_18px_rgba(251,191,36,0.45)] hover:bg-amber-300'}`}>
+            {atomos ? <><FlaskConical size={14} /> Volver al banco</> : <><Atom size={14} /> Ver átomos</>}
+          </button>
+        )}
+        {!atomos && <>
+          <Pildora activo={rotulos} onClick={() => setRotulos((v) => !v)} title="Nombres de las piezas (también al pasar el ratón)"><Tags size={14} /> Rótulos</Pildora>
+          <Pildora activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={14} /></Pildora>
+        </>}
       </div>
       {/* instrumentos en franja: se abren y se pliegan desde aquí (o con Escape) */}
       {!conLateral && (
@@ -348,10 +369,12 @@ export default function PilotoCeldasGalvanicas({ isProfesor = false, onValidate 
           Sólo el voltímetro · 1 M · 25 °C
         </div>
       )}
-      <button type="button" onClick={() => setCalidad((c) => (c === 'alta' ? 'media' : 'alta'))} title="Calidad gráfica (alta: vidrio con transmisión y posproceso)"
-        className="absolute bottom-2 right-2 flex h-8 items-center rounded-md border border-white/10 bg-[#0b1220]/75 px-2 text-[13px] font-semibold text-slate-300 backdrop-blur hover:text-white" data-calidad-q9={calidad}>
-        <span className="hidden sm:inline">Calidad:&nbsp;</span>{calidad}
-      </button>
+      {!atomos && (
+        <button type="button" onClick={() => setCalidad((c) => (c === 'alta' ? 'media' : 'alta'))} title="Calidad gráfica (alta: vidrio con transmisión y posproceso)"
+          className="absolute bottom-2 right-2 flex h-8 items-center rounded-md border border-white/10 bg-[#0b1220]/75 px-2 text-[13px] font-semibold text-slate-300 backdrop-blur hover:text-white" data-calidad-q9={calidad}>
+          <span className="hidden sm:inline">Calidad:&nbsp;</span>{calidad}
+        </button>
+      )}
       {/* avisos: el de entrada (una vez por modo) y el de las disoluciones nuevas */}
       {(avisoNernst ?? aviso) && (
         <div key={(avisoNernst ?? aviso)!.n} className="pointer-events-none absolute inset-x-0 top-12 flex justify-center px-4">
