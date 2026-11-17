@@ -13,7 +13,8 @@
  */
 import * as F from '@/components/simuladores/fis06/flotacion';
 import { Ondas, velocidadFase, amortiguamiento } from '@/components/simuladores/fis06/ondas';
-import { RelojTanque, relojReto, fijarInmersion } from '@/components/simuladores/fis06/reloj';
+import { RelojTanque, relojReto, relojExploracion, fijarInmersion, T_ENTRADA_INICIAL } from '@/components/simuladores/fis06/reloj';
+import { pasoReto, guiaReto, guiaExplorar, GUIA_RETO } from '@/components/simuladores/fis06/guia';
 import { FLUIDOS, pesoAparente, lecturaDinamometro, G_TIERRA } from '@/domain/fisica';
 
 const agua = F.LIQUIDOS.agua, etanol = F.LIQUIDOS.alcohol, glicerina = F.LIQUIDOS.glicerina;
@@ -303,5 +304,85 @@ describe('reloj único', () => {
     r.reiniciar(m, F.estadoSoltar(m));
     expect(r.generacion).toBe(g + 1);
     expect(r.nHist).toBe(1);
+  });
+});
+
+describe('estado inicial: al abrir, el bloque ya está entrando en el agua', () => {
+  const abrir = () => {
+    const m = libre(F.bloque('pino', 'tumbado'), agua);
+    const r = relojExploracion(m, 0.01);
+    r.integrar(T_ENTRADA_INICIAL);
+    return r;
+  };
+
+  test('a los 0,12 s de modelo el pino corta la superficie, baja y ya recibe empuje E = ρ·g·V_sumergido', () => {
+    const r = abrir(), s = r.s;
+    expect(s.corta).toBe(true);
+    expect(s.vy).toBeLessThan(0);                               // sigue entrando
+    expect(s.V).toBeGreaterThan(0);
+    expect(s.V).toBeLessThan(F.volumen(r.m.c));
+    expect(s.E).toBeCloseTo(agua.rho * F.G * s.V, 9);           // Arquímedes, con el volumen de ESE instante
+    expect(Math.abs(s.E - s.P)).toBeGreaterThan(0.1 * s.P);     // lejos del equilibrio E = P: por eso se mueve
+    // el nivel ya subió justo el volumen desalojado entre el área del tanque
+    expect(r.subidaNivel).toBeCloseTo(s.V / F.AREA_TANQUE, 12);
+    expect(s.ys * F.AREA_TANQUE).toBeCloseTo(F.V_AGUA + s.V, 9);
+    // y la superficie ya no está en calma: hay onda levantada por la entrada
+    let amp = 0;
+    for (const v of r.ondas.u) amp = Math.max(amp, Math.abs(v));
+    expect(amp).toBeGreaterThan(1e-5);
+  });
+
+  test('desde ahí acaba flotando con V_s/V = ρ_c/ρ_l, E = P y el nivel subido V_s/A', () => {
+    const r = abrir();
+    r.integrar(12);
+    const c = r.m.c;
+    expect(r.fraccionSumergida).toBeCloseTo(F.fraccionEquilibrio(c.rho, agua.rho), 3);
+    expect(r.s.E).toBeCloseTo(r.s.P, 3);
+    expect(r.s.N).toBe(0);
+    expect(r.subidaNivel).toBeCloseTo((F.masa(c) / agua.rho) / F.AREA_TANQUE, 6);   // desaloja su propio peso en agua
+  });
+});
+
+describe('guía «Ahora te toca»: orienta sin dar la respuesta del reto', () => {
+  test('el paso sale de lo que el alumno ya hizo, en orden', () => {
+    expect(pasoReto({ lecturaAire: null, lecturaFluido: null, densidadAlumno: null })).toBe(1);
+    expect(pasoReto({ lecturaAire: null, lecturaFluido: 4.2, densidadAlumno: 2500 })).toBe(1);
+    expect(pasoReto({ lecturaAire: 7.1, lecturaFluido: null, densidadAlumno: 2500 })).toBe(2);
+    expect(pasoReto({ lecturaAire: 7.1, lecturaFluido: 4.2, densidadAlumno: null })).toBe(3);
+    expect(pasoReto({ lecturaAire: 7.1, lecturaFluido: 4.2, densidadAlumno: NaN })).toBe(3);
+    expect(pasoReto({ lecturaAire: 7.1, lecturaFluido: 4.2, densidadAlumno: 2500 })).toBe(4);
+  });
+
+  test('ningún texto de la guía lleva la densidad del sólido, ni cifras de fuerza, ni depende de ella', () => {
+    // la firma no recibe la densidad real: dos sólidos distintos con el mismo avance dan la misma guía
+    for (const rho of [1400, 2484, 2700, 7874, 8960]) {
+      const V = 3e-4, W = lecturaDinamometro(pesoAparente(rho, V, FLUIDOS.agua.rho, 0)), Wa = lecturaDinamometro(pesoAparente(rho, V, FLUIDOS.agua.rho, 1));
+      const estados = [
+        { densidadCuerpo: rho, lecturaAire: null, lecturaFluido: null, densidadAlumno: null },
+        { densidadCuerpo: rho, lecturaAire: W, lecturaFluido: null, densidadAlumno: null },
+        { densidadCuerpo: rho, lecturaAire: W, lecturaFluido: Wa, densidadAlumno: null },
+        { densidadCuerpo: rho, lecturaAire: W, lecturaFluido: Wa, densidadAlumno: rho * 1.2 },
+      ];
+      estados.forEach((e, i) => {
+        const t = guiaReto(e);
+        expect(t).toBe(GUIA_RETO[(i + 1) as 1 | 2 | 3 | 4]);
+        // los únicos números permitidos son los de la inmersión (0 % y 100 %)
+        expect((t.match(/\d+(?:[.,]\d+)?/g) ?? []).every((n) => n === '0' || n === '100')).toBe(true);
+        expect(t).not.toMatch(/kg\/m|vidrio|aluminio|hierro|cobre|PVC|titanio|zinc|latón|granito/i);
+      });
+    }
+    for (const t of Object.values(GUIA_RETO)) expect(t.length).toBeLessThanOrEqual(66);   // una línea a 1366 × 768
+  });
+
+  test('la guía de la exploración describe lo que se ve: flota, vuelca o se hunde', () => {
+    const caso = (mat: F.IdMaterial, post: F.Postura, liq: F.Liquido) => {
+      const c = F.bloque(mat, post);
+      return guiaExplorar(F.flota(c, liq), F.alturaMetacentrica(c, liq).GM >= 0);
+    };
+    expect(caso('pino', 'tumbado', agua)).toMatch(/^flota/);
+    expect(caso('hielo', 'tumbado', etanol)).toMatch(/^se hunde/);      // 917 > 789 kg/m³
+    expect(caso('hielo', 'tumbado', glicerina)).toMatch(/^flota/);
+    expect(caso('hierro', 'tumbado', glicerina)).toMatch(/^se hunde/);
+    expect(caso('pino', 'canto', agua)).toMatch(/vuelca/);
   });
 });

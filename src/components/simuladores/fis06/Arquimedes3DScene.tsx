@@ -165,13 +165,13 @@ function puntosEncuadre(modo: ModoF6, alturaAro: number): THREE.Vector3[] {
   const ox = COTAS.ix + COTAS.vidrio, oz = COTAS.iz + COTAS.vidrio;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     P.push(new THREE.Vector3(sx * ox, 0, sz * oz));
-    P.push(new THREE.Vector3(sx * ox, Y_BORDE + (modo === 'explorar' ? 0.12 : 0), sz * oz));
+    P.push(new THREE.Vector3(sx * ox, Y_BORDE + (modo === 'explorar' ? 0.06 : 0), sz * oz));
   }
   if (modo === 'reto') {
     // la varilla (no la base entera), la nuez y el dinamómetro completo con su aro
     P.push(new THREE.Vector3(COTAS.xVarilla - 0.2, 0.1, 0.3), new THREE.Vector3(COTAS.xVarilla - 0.2, alturaAro + 0.32, 0));
-    // aire sobre el aro: la franja de arriba (modo y aviso) no tapa el dinamómetro ni la nuez
-    P.push(new THREE.Vector3(0.2, alturaAro + 0.6, 0));
+    // un poco de aire sobre el aro (los mandos ya no van encima del lienzo)
+    P.push(new THREE.Vector3(0.2, alturaAro + 0.2, 0));
   }
   return P;
 }
@@ -201,7 +201,7 @@ function Camara({ modo, alturaAro, reducido, encuadre }: { modo: ModoF6; alturaA
     if (ultimoEncuadre.current !== encuadre || ultimoModo.current !== modo) { ultimoEncuadre.current = encuadre; ultimoModo.current = modo; usuario.current = false; }
     if (!primera.current && usuario.current) return;
     // apaisado: el banco ocupa ~64 % del alto; en vertical manda el ancho
-    const p = encuadrar(DIR_CAMARA, new THREE.Vector3(0, 1.6, 0), puntosEncuadre(modo, aro), camera.fov, aspecto, 0.88, modo === 'explorar' ? 0.78 : 0.88);
+    const p = encuadrar(DIR_CAMARA, new THREE.Vector3(0, 1.6, 0), puntosEncuadre(modo, aro), camera.fov, aspecto, 0.93, modo === 'explorar' ? 0.9 : 0.94);
     if (primera.current || reducido) {
       primera.current = false;
       camera.position.copy(p.pos); controls.target.copy(p.objetivo); controls.update();
@@ -499,7 +499,7 @@ function RotuloRaton({ fijar }: { fijar: React.MutableRefObject<(d: DatoRotulo) 
   useEffect(() => { fijar.current = setD; return () => { fijar.current = () => undefined; }; }, [fijar]);
   if (!d) return null;
   return (
-    <div className="pointer-events-none absolute z-20 max-w-[260px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+    <div className="pointer-events-none absolute z-20 max-w-[260px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
       style={{ left: d.x + 14, top: d.y + 12 }} data-rotulo-raton-f6="">
       {d.texto}
     </div>
@@ -540,7 +540,7 @@ export default function Arquimedes3DScene(props: Arquimedes3DProps) {
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {lista.map((r) => (
           <div key={r.id} ref={(el) => { if (el) nodos.current.set(r.id, el); else nodos.current.delete(r.id); }}
-            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
             style={{ transform: 'translate(-9999px, -9999px)' }} data-rotulo-f6={r.id}>
             {r.texto}
           </div>

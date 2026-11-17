@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { evaluarF6, FLUIDOS, G_TIERRA, TOL_DENSIDAD } from '@/domain/fisica';
 import BitacoraFisica from './fisica/BitacoraFisica';
+import { LetraBitacoraEstrella } from '../simulador/RaizLabEstrella';
 
 /** Coma decimal, como el resto del lab (el dato del dominio no cambia). */
 const coma = (x: number, d?: number) => (d === undefined ? String(x) : x.toFixed(d)).replace('.', ',');
@@ -16,6 +17,7 @@ export default function BitacoraArquimedes({ onValidate }: { onValidate?: () => 
 
   // Los ensayos van UNA vez, en los datos (sin tabla que los repita).
   return (
+    <LetraBitacoraEstrella id="fisica-6">
     <BitacoraFisica
       titulo="Principio de Arquímedes"
       intro="Todo cuerpo sumergido recibe un empuje vertical igual al peso del fluido que desaloja. Con un dinamómetro se mide el peso en el aire y el peso aparente sumergido; su diferencia es el empuje, que da el volumen del cuerpo sin necesidad de medirlo."
@@ -41,5 +43,6 @@ export default function BitacoraArquimedes({ onValidate }: { onValidate?: () => 
       acento="#3b82f6"
       onValidate={onValidate}
     />
+    </LetraBitacoraEstrella>
   );
 }

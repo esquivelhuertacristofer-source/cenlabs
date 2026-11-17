@@ -25,6 +25,8 @@ export const rotuloLento = (f: number) => (f >= 0.999 ? '×1' : `×1/${Math.roun
 export const VENTANA = 3;
 const DT_MUESTRA = 0.004;
 const N_HIST = Math.ceil(VENTANA / DT_MUESTRA) + 8;
+/** Tiempo de modelo ya transcurrido al abrir el lab (s): el bloque recién soltado ya toca el agua y levanta la primera onda. */
+export const T_ENTRADA_INICIAL = 0.12;
 /** Velocidad máxima del soporte del dinamómetro (m/s de modelo). */
 export const V_SOPORTE = 0.08;
 

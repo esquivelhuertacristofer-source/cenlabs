@@ -66,7 +66,7 @@ function pasoBonito(rango: number, n = 4) {
 function dibujarGrafica(g: CanvasRenderingContext2D, w: number, h: number, r: RelojTanque, reto: boolean, zEq: number | null) {
   g.fillStyle = '#0a1220'; g.fillRect(0, 0, w, h);
   const fam = familia();
-  const izq = 34, der = reto ? 10 : 30, arriba = 18, abajo = 16;
+  const izq = 46, der = reto ? 12 : 44, arriba = 24, abajo = 21;
   const x0 = izq, x1 = w - der, y0 = arriba, y1 = h - abajo;
   if (x1 - x0 < 30 || y1 - y0 < 20) return;
   const tFin = Math.max(VENTANA, r.s.t), tIni = tFin - VENTANA;
@@ -88,18 +88,18 @@ function dibujarGrafica(g: CanvasRenderingContext2D, w: number, h: number, r: Re
   const Yth = (d: number) => (y0 + y1) / 2 - (d / thEsc) * ((y1 - y0) / 2);
   // rejilla
   g.strokeStyle = COL.rejilla; g.lineWidth = 1; g.beginPath();
-  const pv = pasoBonito(vMax - vMin, Math.max(2, Math.round((y1 - y0) / 34)));
+  const pv = pasoBonito(vMax - vMin, Math.max(2, Math.round((y1 - y0) / 44)));
   const marcasV: number[] = [];
   for (let v = Math.ceil(vMin / pv) * pv; v <= vMax + 1e-9; v += pv) { marcasV.push(v); const y = Math.round(Y(v)) + 0.5; g.moveTo(x0, y); g.lineTo(x1, y); }
-  const pt = pasoBonito(VENTANA, Math.max(2, Math.round((x1 - x0) / 70)));
+  const pt = pasoBonito(VENTANA, Math.max(2, Math.round((x1 - x0) / 90)));
   for (let t = Math.ceil(tIni / pt) * pt; t <= tFin + 1e-9; t += pt) { const x = Math.round(X(t)) + 0.5; g.moveTo(x, y0); g.lineTo(x, y1); }
   g.stroke();
-  g.font = `500 9.5px ${fam}`; g.fillStyle = COL.tenue; g.textBaseline = 'middle'; g.textAlign = 'right';
+  g.font = `500 13px ${fam}`; g.fillStyle = COL.tenue; g.textBaseline = 'middle'; g.textAlign = 'right';
   const decV = pv < 0.1 ? 2 : pv < 1 ? 1 : 0;
   for (const v of marcasV) g.fillText(cifra(v, decV), x0 - 4, Y(v));
   g.textAlign = 'center'; g.textBaseline = 'top';
-  for (let t = Math.ceil(tIni / pt) * pt; t <= tFin + 1e-9; t += pt) { const x = X(t); if (x < x1 - 14) g.fillText(cifra(t, pt < 1 ? 1 : 0), x, y1 + 3); }
-  g.textAlign = 'right'; g.fillText('s', x1, y1 + 3);
+  for (let t = Math.ceil(tIni / pt) * pt; t <= tFin + 1e-9; t += pt) { const x = X(t); if (x < x1 - 18) g.fillText(cifra(t, pt < 1 ? 1 : 0), x, y1 + 4); }
+  g.textAlign = 'right'; g.fillText('s', x1, y1 + 4);
   // eje θ a la derecha
   if (!reto) {
     g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(199,155,255,0.75)';
@@ -127,11 +127,11 @@ function dibujarGrafica(g: CanvasRenderingContext2D, w: number, h: number, r: Re
   // cursor del instante y leyenda
   const xc = Math.round(X(r.s.t)) + 0.5;
   g.strokeStyle = 'rgba(255,224,138,0.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(xc, y0); g.lineTo(xc, y1); g.stroke();
-  g.font = `600 10px ${fam}`; g.textBaseline = 'middle'; g.textAlign = 'left';
-  const items: [string, string][] = reto ? [['T (dinamómetro), N', COLOR.T]] : [['z de G, cm', '#ffe08a'], ['θ', COLOR.th]];
+  g.font = `600 13px ${fam}`; g.textBaseline = 'middle'; g.textAlign = 'left';
+  const items: [string, string][] = reto ? [['lectura, N', COLOR.T]] : [['altura, cm', '#ffe08a'], ['giro', COLOR.th]];
   let cx = x0;
-  for (const [t, c] of items) { g.fillStyle = c; g.fillRect(cx, 8, 12, 2.5); g.fillStyle = COL.texto; g.fillText(t, cx + 16, 9); cx += 26 + g.measureText(t).width; }
-  if (zEq !== null && cx + 80 < x1) { g.setLineDash([3, 3]); g.strokeStyle = 'rgba(63,210,255,0.7)'; g.beginPath(); g.moveTo(cx, 9.5); g.lineTo(cx + 12, 9.5); g.stroke(); g.setLineDash([]); g.fillStyle = COL.texto; g.fillText('equilibrio', cx + 16, 9); }
+  for (const [t, c] of items) { g.fillStyle = c; g.fillRect(cx, 10, 12, 2.5); g.fillStyle = COL.texto; g.fillText(t, cx + 16, 11.5); cx += 28 + g.measureText(t).width; }
+  if (zEq !== null && cx + 84 < x1) { g.setLineDash([3, 3]); g.strokeStyle = 'rgba(63,210,255,0.7)'; g.beginPath(); g.moveTo(cx, 11.5); g.lineTo(cx + 12, 11.5); g.stroke(); g.setLineDash([]); g.fillStyle = COL.texto; g.fillText('equilibrio', cx + 16, 11.5); }
 }
 
 function Grafica({ reloj, reto, zEq }: { reloj: React.MutableRefObject<RelojTanque>; reto: boolean; zEq: number | null }) {
@@ -177,11 +177,11 @@ function Barra({ etiqueta, valor, max, color, titulo, compacto }: { etiqueta: st
   const w = Math.max(0, Math.min(1, valor / max));
   return (
     <div className="flex items-center gap-1.5" title={titulo}>
-      <span className="w-3.5 shrink-0 text-[11px] font-bold" style={{ color }}>{etiqueta}</span>
+      <span className="w-3.5 shrink-0 text-[13px] font-bold" style={{ color }}>{etiqueta}</span>
       <div className={`relative ${compacto ? 'h-[7px]' : 'h-[9px]'} min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]`}>
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${w * 100}%`, background: color, opacity: 0.85 }} />
       </div>
-      <span className={`${compacto ? 'w-[46px] text-[10.5px]' : 'w-[52px] text-[11px]'} shrink-0 text-right font-mono tabular-nums text-white`}>{cifra(valor, 2)} N</span>
+      <span className="w-[64px] shrink-0 text-right font-mono text-[13px] tabular-nums text-white">{cifra(valor, 2)} N</span>
     </div>
   );
 }
@@ -200,7 +200,7 @@ function useAncho(ref: React.RefObject<HTMLDivElement | null>) {
 
 function Chip({ children, tono = 'neutro', titulo }: { children: React.ReactNode; tono?: 'neutro' | 'bien' | 'mal'; titulo?: string }) {
   const c = tono === 'bien' ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100' : tono === 'mal' ? 'border-rose-400/30 bg-rose-500/10 text-rose-100' : 'border-white/10 bg-white/[0.04] text-slate-200';
-  return <span title={titulo} className={`whitespace-nowrap rounded-md border px-1 py-px font-mono text-[10px] tabular-nums ${c}`}>{children}</span>;
+  return <span title={titulo} className={`whitespace-nowrap rounded-md border px-1.5 py-px text-[13px] tabular-nums ${c}`}>{children}</span>;
 }
 
 export interface DockProps {
@@ -232,14 +232,14 @@ export function DockF6({ reloj, reto, liq, validado }: DockProps) {
   const alcance = alcanceDinamometro(P);
 
   return (
-    <div ref={caja} className={`flex shrink-0 gap-2 border-t border-white/10 bg-[#0c1524] ${compacto ? 'h-[132px] p-1.5' : 'h-[clamp(128px,25%,196px)] p-2'}`}
+    <div ref={caja} className={`flex shrink-0 gap-2 border-t border-white/10 bg-[#0c1524] ${compacto ? (reto ? 'h-[132px] p-1.5' : 'h-[172px] p-1.5') : reto && !validado ? 'h-[clamp(118px,20%,170px)] p-2' : 'h-[clamp(156px,27%,204px)] p-2'}`}
       data-dock-f6={reto ? 'reto' : 'explorar'} data-compacto={compacto ? '' : undefined}>
-      <div className={`flex min-h-0 shrink-0 flex-col justify-center text-[11px] text-slate-300 ${compacto ? 'w-[56%] gap-1' : 'w-[clamp(150px,38%,232px)] gap-1.5'}`}>
+      <div className={`flex min-h-0 shrink-0 flex-col justify-center text-[13px] text-slate-300 ${compacto ? 'w-[56%] gap-1' : 'w-[clamp(206px,40%,260px)] gap-1.5'}`}>
         {reto ? (
           <>
             <div className={`flex items-baseline justify-between gap-2 rounded-lg border border-[#7be08f]/25 bg-[#7be08f]/[0.07] ${compacto ? 'px-1.5 py-0.5' : 'px-2 py-1'}`} data-lectura-dinamometro="">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#a8f0b6]">Dinamómetro</span>
-              <span className={`font-mono font-bold tabular-nums text-white ${compacto ? 'text-[16px]' : 'text-[19px]'}`}>{cifra(lectura, 2)}<span className="ml-1 text-[11px] font-semibold text-slate-400">N</span></span>
+              <span className="text-[13px] font-bold text-[#a8f0b6]">Dinamómetro</span>
+              <span className={`font-mono font-bold tabular-nums text-white ${compacto ? 'text-[16px]' : 'text-[19px]'}`}>{cifra(lectura, 2)}<span className="ml-1 text-[13px] font-semibold text-slate-400">N</span></span>
             </div>
             <div className="flex flex-wrap gap-1">
               <Chip titulo="Alcance de la escala">0–{alcance} N</Chip>
@@ -259,12 +259,12 @@ export function DockF6({ reloj, reto, liq, validado }: DockProps) {
             <Barra compacto={compacto} etiqueta="E" valor={s.E} max={max} color={COLOR.E} titulo="Empuje: ρ_l·g·V_sumergido" />
             <Barra compacto={compacto} etiqueta="N" valor={s.N} max={max} color={COLOR.N} titulo="Apoyo del fondo" />
             <div className="flex flex-wrap gap-1">
-              <Chip titulo="Volumen sumergido / volumen del cuerpo">V<sub>s</sub>/V {cifra(fr * 100, 0)} %</Chip>
-              <Chip titulo="Densidad del cuerpo / densidad del líquido">ρ<sub>c</sub>/ρ<sub>l</sub> {cifra(c.rho / liq.rho, 2)}</Chip>
+              <Chip titulo="Volumen sumergido entre el volumen del cuerpo, ahora mismo">sumergido {cifra(fr * 100, 0)} %</Chip>
+              <Chip titulo="Densidad del cuerpo entre la densidad del líquido: si es menor que 1, flota con esa fracción sumergida">ρ cuerpo / ρ líquido {cifra(c.rho / liq.rho, 2)}</Chip>
               {flotaC ? (
-                <Chip tono={gm.GM >= 0 ? 'bien' : 'mal'} titulo="Altura metacéntrica GM = KB + BM − KG de la postura elegida">GM {cifra(gm.GM * 100, 1, true)} cm</Chip>
+                <Chip tono={gm.GM >= 0 ? 'bien' : 'mal'} titulo="Altura metacéntrica GM = KB + BM − KG de la postura elegida: positiva, estable; negativa, vuelca">{gm.GM >= 0 ? 'estable' : 'vuelca'} · GM {cifra(gm.GM * 100, 1, true)} cm</Chip>
               ) : (
-                <Chip titulo="Velocidad límite al hundirse tumbado (arrastre de White)">v<sub>lím</sub> {cifra(velocidadTerminal(c, liq), 2)} m/s</Chip>
+                <Chip titulo="Velocidad límite al hundirse tumbado (arrastre de White)">cae a {cifra(velocidadTerminal(c, liq), 2)} m/s</Chip>
               )}
             </div>
           </>

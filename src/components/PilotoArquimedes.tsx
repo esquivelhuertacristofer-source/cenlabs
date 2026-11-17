@@ -13,20 +13,22 @@
  *
  * Un solo reloj por modo (fis06/reloj.ts) mueve la escena, el dock y las lecturas.
  */
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ShieldAlert, Plus, Pause, Play, Tags, Scan, RotateCcw, ChevronRight, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { ShieldAlert, Plus, Pause, Play, Tags, Scan, RotateCcw, ChevronRight, BookOpen, X, ArrowRight, Gauge } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { FLUIDOS, G_TIERRA, TOL_DENSIDAD, evaluarF6, lecturaDinamometro, pesoAparente } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
-import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab, Segmentado } from './simulador/LabLayout';
+import LabLayout from './simulador/LabLayout';
+import RaizLabEstrella from './simulador/RaizLabEstrella';
 import {
-  LIQUIDOS, MATERIALES, V_AGUA, bloque, estadoSoltar, esLiquido, alcanceDinamometro, peso, cilindroProblema,
+  LIQUIDOS, MATERIALES, V_AGUA, bloque, estadoSoltar, esLiquido, alcanceDinamometro, peso, cilindroProblema, flota, alturaMetacentrica,
   type IdLiquido, type IdMaterial, type Montaje, type Postura,
 } from './simuladores/fis06/flotacion';
-import { RelojTanque, relojExploracion, relojReto, fijarInmersion, LENTOS, rotuloLento } from './simuladores/fis06/reloj';
+import { RelojTanque, relojExploracion, relojReto, fijarInmersion, LENTOS, rotuloLento, T_ENTRADA_INICIAL } from './simuladores/fis06/reloj';
 import { DockF6, cifra } from './simuladores/fis06/Dock';
+import { guiaExplorar, guiaReto, pasoReto } from './simuladores/fis06/guia';
 import type { ModoF6 } from './simuladores/fis06/Arquimedes3DScene';
 
 // la escena 3D va en su propio chunk (el dock y el reloj no arrastran three)
@@ -56,13 +58,38 @@ function prefiereReducirMovimiento(): boolean {
 const montajeLibre = (mat: IdMaterial, post: Postura, liq: IdLiquido): Montaje =>
   ({ c: bloque(mat, post), liq: LIQUIDOS[liq], Vagua: V_AGUA, colgado: false, ySoporte: 0, kMuelle: 0 });
 
-/** Pastilla de la escena. */
-function Pildora({ activo, onClick, children, title, ancho }: { activo: boolean; onClick: () => void; children: React.ReactNode; title?: string; ancho?: boolean }) {
+/**
+ * Botón del riel: icono y nombre a 13 px. Los mandos de la vista y del tiempo van AL LADO del
+ * lienzo, no encima del tanque.
+ */
+function BotonRiel({ activo, onClick, icono, texto, titulo }: { activo?: boolean; onClick: () => void; icono?: React.ReactNode; texto: string; titulo: string }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={activo} title={title} aria-label={title}
-      className={`pointer-events-auto flex h-7 items-center justify-center gap-1.5 rounded-full border text-[11px] font-semibold backdrop-blur transition-colors ${ancho === false ? 'w-7' : 'px-2.5'} ${activo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
-      {children}
+    <button type="button" onClick={onClick} aria-pressed={activo} title={titulo} aria-label={titulo}
+      className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border px-0.5 text-[13px] max-sm:w-[70px] sm:w-full font-semibold leading-none transition-colors ${icono ? 'h-[44px]' : 'h-[30px]'} ${activo ? 'border-[#8ECAE6]/60 bg-[#219EBC]/25 text-white' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/30 hover:text-white'}`}>
+      {icono}
+      <span>{texto}</span>
     </button>
+  );
+}
+const RIEL = 'flex shrink-0 gap-1 border-white/10 bg-[#0c1524] p-1.5 [scrollbar-width:none] max-sm:items-center max-sm:overflow-x-auto sm:w-[78px] sm:flex-col sm:overflow-y-auto';
+
+const ETQ = 'shrink-0 text-[13px] font-semibold text-slate-400';
+const BOTON = 'flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
+
+/** Selector segmentado en línea (la etiqueta a la izquierda, 13 px): dos filas de mandos caben a 1366 × 768. */
+function Seg<T extends string>({ etiqueta, titulo, valor, opciones, onChange }: { etiqueta?: string; titulo?: string; valor: T; opciones: { valor: T; texto: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="flex h-9 items-center gap-2">
+      {etiqueta && <span className={ETQ}>{etiqueta}</span>}
+      <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label={etiqueta ?? titulo} title={titulo}>
+        {opciones.map((o) => (
+          <button key={o.valor} type="button" onClick={() => onChange(o.valor)} aria-pressed={valor === o.valor}
+            className={`h-8 rounded-md px-2.5 text-[13px] font-semibold ${valor === o.valor ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
+            {o.texto}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -71,17 +98,12 @@ function Desplegable({ titulo, children }: { titulo: string; children: React.Rea
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.03]">
       <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
-        className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left text-[11.5px] font-semibold text-slate-200 hover:text-white">
+        className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left text-[13px] font-semibold text-slate-200 hover:text-white">
         <ChevronRight size={13} className={`shrink-0 transition-transform ${abierto ? 'rotate-90' : ''}`} /> {titulo}
       </button>
-      {abierto && <div className="space-y-1.5 px-3 pb-2.5 text-[11px] leading-snug text-slate-300">{children}</div>}
+      {abierto && <div className="space-y-1.5 px-3 pb-2.5 text-[13px] leading-snug text-slate-300">{children}</div>}
     </div>
   );
-}
-
-/** Lecturas de la barra superior: las del mismo reloj que la escena. */
-function Material({ texto }: { texto: string }) {
-  return <span className="text-[13px] font-bold text-white">{texto}</span>;
 }
 
 export default function PilotoArquimedes({ onValidate }: { onValidate?: () => void }) {
@@ -101,20 +123,7 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
   const [rotulos, setRotulos] = useState(false);
   const [encuadre, setEncuadre] = useState(0);
 
-  // ── ancho del LabLayout: por debajo de 640 px su panel lateral se SUPERPONE a la escena y
-  // taparía el dock; ahí «Modelo» se abre como hoja dentro de la vista 3D, encima del dock ──
-  const raiz = useRef<HTMLDivElement>(null);
-  const [anchoLab, setAnchoLab] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const lab = raiz.current?.closest('[data-lab-layout]');
-    if (!lab) return;
-    const ro = new ResizeObserver(([e]) => setAnchoLab(e.contentRect.width));
-    ro.observe(lab);
-    return () => ro.disconnect();
-  }, []);
-  const estrechoLab = anchoLab !== null && anchoLab < 640;
   const [hojaModelo, setHojaModelo] = useState(false);
-  useEffect(() => { if (!estrechoLab) setHojaModelo(false); }, [estrechoLab]);
 
   // ── exploración ──
   const [material, setMaterial] = useState<IdMaterial>('pino');
@@ -123,7 +132,11 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
 
   // ── relojes ──
   const relojE = useRef<RelojTanque | null>(null);
-  if (!relojE.current) relojE.current = relojExploracion(montajeLibre('pino', 'tumbado', 'agua'), dxOndas('alta'));
+  if (!relojE.current) {
+    relojE.current = relojExploracion(montajeLibre('pino', 'tumbado', 'agua'), dxOndas('alta'));
+    // al abrir, el bloque ya está entrando en el agua (no un tanque quieto con un bloque en el aire)
+    relojE.current.integrar(T_ENTRADA_INICIAL);
+  }
   const fluidoReto: IdLiquido = esLiquido(fluido) ? fluido : 'agua';
   const relojR = useRef<RelojTanque | null>(null);
   if (!relojR.current) relojR.current = relojReto(densidadCuerpo, volumenCuerpo, LIQUIDOS[fluidoReto], sumergido, dxOndas('alta'));
@@ -172,27 +185,6 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
     return () => setAsistente({ visible: false });
   }, [setAsistente]);
 
-  // ── aviso de una sola vez por modo (cuando la escena ya se ve) ──
-  const [listo, setListo] = useState(false);
-  const onListo = useCallback(() => setListo(true), []);
-  const vistos = useRef<Set<ModoF6>>(new Set());
-  const [aviso, setAviso] = useState<{ texto: string; n: number } | null>(null);
-  useEffect(() => {
-    if (!listo || vistos.current.has(modo)) return;
-    vistos.current.add(modo);
-    setAviso({
-      n: Date.now(),
-      texto: modo === 'explorar'
-        ? 'El bloque de pino flota cuando el empuje iguala su peso.'
-        : 'Pesa el cilindro en el aire y sumergido.',
-    });
-  }, [modo, listo]);
-  useEffect(() => {
-    if (!aviso) return;
-    const t = window.setTimeout(() => setAviso(null), 6500);
-    return () => window.clearTimeout(t);
-  }, [aviso]);
-
   // ── reto: registros y veredicto (mismas reglas que antes) ──
   const [rhoInput, setRhoInput] = useState(densidadAlumno !== null ? String(densidadAlumno).replace('.', ',') : '');
   const [alerta, setAlerta] = useState<string | null>(null);
@@ -227,7 +219,7 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
   const comprobar = () => {
     const v = evaluarF6(a);
     setVeredicto(v);
-    if (v.ok) audio?.playSuccess(); else { audio?.playError(); avisar(v.mensaje ?? 'Revisa tus datos.'); }
+    if (v.ok) audio?.playSuccess(); else audio?.playError();
   };
   const validado = !!veredicto?.ok || a.resultado === 'exito';
 
@@ -244,12 +236,12 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
   }, [densidadCuerpo]);
 
   const panelModelo = (
-    <div className="flex flex-col gap-2 text-[12px] text-slate-200" data-panel-modelo-f6="">
+    <div className="flex flex-col gap-2 text-[13px] text-slate-200" data-panel-modelo-f6="">
       <Desplegable titulo="Ecuaciones del modelo">
-        <p className="font-mono text-[11px] text-slate-100">E = ρ_l·g·V_sumergido · W_ap = W − E</p>
-        <p className="font-mono text-[11px] text-slate-100">flota: V_s/V = ρ_c/ρ_l · GM = KB + BM − KG, BM = b²/(12d)</p>
-        <p className="font-mono text-[11px] text-slate-100">(m + m_a)·ÿ = −m·g + E + N + T − c·ẏ − F_arrastre</p>
-        <p className="font-mono text-[11px] text-slate-100">T₀ = 2π·√((m + m_a)/(ρ_l·g·A_f·A_t/(A_t − A_f)))</p>
+        <p className="font-mono text-[13px] text-slate-100">E = ρ_l·g·V_sumergido · W_ap = W − E</p>
+        <p className="font-mono text-[13px] text-slate-100">flota: V_s/V = ρ_c/ρ_l · GM = KB + BM − KG, BM = b²/(12d)</p>
+        <p className="font-mono text-[13px] text-slate-100">(m + m_a)·ÿ = −m·g + E + N + T − c·ẏ − F_arrastre</p>
+        <p className="font-mono text-[13px] text-slate-100">T₀ = 2π·√((m + m_a)/(ρ_l·g·A_f·A_t/(A_t − A_f)))</p>
         <p>La sección sumergida es el rectángulo girado recortado por la superficie: su área por el largo es V_sumergido y su centroide es B. El nivel del tanque sube justo el volumen desalojado. Arrastre: correlación de White, C_d = 24/Re + 6/(1 + √Re) + C∞. La superficie sigue la ecuación de ondas con la velocidad de las ondas de 4 cm (agua: 0,27 m/s) y el menisco, el perfil de Laplace–Young.</p>
       </Desplegable>
       <Desplegable titulo="Qué simplifica el modelo">
@@ -261,153 +253,150 @@ export default function PilotoArquimedes({ onValidate }: { onValidate?: () => vo
     </div>
   );
 
+  const flotaE = flota(bloque(material, postura), LIQUIDOS[liqE]);
+  const estableE = alturaMetacentrica(bloque(material, postura), LIQUIDOS[liqE]).GM >= 0;
+  const guia = explorar ? guiaExplorar(flotaE, estableE)
+    : validado ? `ρ real ${cifra(densidadCuerpo, 0)} kg/m³, parecida a la del ${parecido}. Valida tu práctica.`
+      : guiaReto(a);
+  const paso = pasoReto(a);
+
   const escena = (
-    <div ref={raiz} className="flex h-full w-full min-h-0 flex-col bg-[#070b10]" data-modo-f6={modo}>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <Arquimedes3DScene
-          reloj={reloj} modo={modo} material={material} postura={postura} liq={liqActivo} validado={validado}
-          calidad={calidad} reducido={reducido} rotulos={rotulos} encuadre={encuadre} divisiones={divisiones} onListo={onListo}
-        />
-        {/* modo y, a su lado, el aviso de una sola vez (en la franja de arriba: no tapa el banco) */}
-        <div className="pointer-events-none absolute left-2 right-28 top-2 flex items-start gap-1.5">
-          <div className="pointer-events-auto flex shrink-0 rounded-full border border-white/10 bg-[#0b1422]/75 p-0.5 backdrop-blur" role="group" aria-label="Modo">
-            {(['explorar', 'reto'] as const).map((m) => (
-              <button key={m} type="button" onClick={() => { setModo(m); audio?.playPop(); }} aria-pressed={modo === m}
-                className={`h-6 rounded-full px-2.5 text-[11px] font-semibold transition-colors ${modo === m ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
-                {m === 'explorar' ? 'Explorar' : 'Reto'}
-              </button>
-            ))}
-          </div>
-          {aviso && (
-            <span key={aviso.n} className="aviso-f6 min-w-0 max-w-[460px] rounded-lg border border-white/10 bg-[#0a1420]/85 px-2.5 py-1 text-[12px] leading-snug text-slate-200 shadow-lg backdrop-blur" data-aviso-f6="">
-              {aviso.texto}
-            </span>
+    <div className="flex h-full w-full min-h-0 flex-col bg-[#070b10]" data-modo-f6={modo}>
+      <div className="flex min-h-0 flex-1 max-sm:flex-col">
+        {/* rieles: el tiempo (izquierda) y la vista (derecha), fuera del lienzo; en móvil, filas arriba y abajo */}
+        <div className={`${RIEL} max-sm:border-b sm:border-r`} role="toolbar" aria-label="Tiempo">
+          <BotonRiel activo={pausa} onClick={() => setPausa((p) => !p)} icono={pausa ? <Play size={16} /> : <Pause size={16} />} texto={pausa ? 'Seguir' : 'Pausa'} titulo={pausa ? 'Reanudar' : 'Pausa'} />
+          {LENTOS.map((v) => (
+            <BotonRiel key={v} activo={lento === v} onClick={() => (explorar ? setLentoE(v) : setLentoR(v))} texto={rotuloLento(v)} titulo={v >= 0.999 ? 'Tiempo real' : `Cámara lenta ${rotuloLento(v)}`} />
+          ))}
+          <span className="text-center text-[13px] leading-tight text-amber-200/90 max-sm:ml-1" data-camara-lenta="">{pausa ? 'en pausa' : lento >= 0.999 ? 'tiempo real' : 'cámara lenta'}</span>
+        </div>
+        <div className={`${RIEL} order-last max-sm:border-t sm:border-l`} role="toolbar" aria-label="Vista">
+          <BotonRiel activo={rotulos} onClick={() => setRotulos((v) => !v)} icono={<Tags size={16} />} texto="Rótulos" titulo="Nombres de las piezas (también al pasar el ratón)" />
+          <BotonRiel onClick={() => setEncuadre((n) => n + 1)} icono={<Scan size={16} />} texto="Centrar" titulo="Volver al encuadre automático" />
+          <BotonRiel activo={hojaModelo} onClick={() => setHojaModelo((v) => !v)} icono={<BookOpen size={16} />} texto="Modelo" titulo="Ecuaciones y simplificaciones del modelo" />
+          <BotonRiel onClick={() => setCalidad((c) => (c === 'alta' ? 'media' : 'alta'))} icono={<Gauge size={16} />} texto={calidad === 'alta' ? 'Alta' : 'Media'} titulo={`Calidad gráfica: ${calidad} (alta: líquido con transmisión y posproceso)`} />
+        </div>
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden" data-lienzo-f6="">
+          <Arquimedes3DScene
+            reloj={reloj} modo={modo} material={material} postura={postura} liq={liqActivo} validado={validado}
+            calidad={calidad} reducido={reducido} rotulos={rotulos} encuadre={encuadre} divisiones={divisiones}
+          />
+          {hojaModelo && (
+            <aside className="absolute inset-2 z-10 mx-auto flex min-h-0 max-w-[560px] flex-col rounded-lg border border-white/10 bg-[#0f1a2b]/95 shadow-2xl shadow-black/50 backdrop-blur" data-hoja-modelo-f6="">
+              <div className="flex h-10 shrink-0 items-center justify-between border-b border-white/10 px-3">
+                <span className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#8ECAE6]">Cómo está hecho el modelo</span>
+                <button type="button" onClick={() => setHojaModelo(false)} className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Cerrar">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 text-[13px] leading-snug">{panelModelo}</div>
+            </aside>
           )}
         </div>
-        {/* tiempo: pausa y cámara lenta con su factor real */}
-        <div className="pointer-events-none absolute bottom-2 left-2 flex flex-col items-start gap-1">
-          <span className="rounded bg-[#0b1422]/75 px-1.5 py-0.5 font-mono text-[10.5px] font-medium tabular-nums text-amber-200/90" data-camara-lenta="">
-            {pausa ? 'en pausa' : lento >= 0.999 ? '×1 · tiempo real' : `${rotuloLento(lento)} · cámara lenta`}
-          </span>
-          <div className="flex items-center gap-1" role="toolbar" aria-label="Tiempo">
-            <Pildora ancho={false} activo={pausa} onClick={() => setPausa((p) => !p)} title={pausa ? 'Reanudar' : 'Pausa'}>{pausa ? <Play size={13} /> : <Pause size={13} />}</Pildora>
-            {LENTOS.map((v) => (
-              <Pildora key={v} activo={lento === v} onClick={() => (explorar ? setLentoE(v) : setLentoR(v))} title={v >= 0.999 ? 'Tiempo real' : `Cámara lenta ${rotuloLento(v)}`}>{rotuloLento(v)}</Pildora>
-            ))}
-          </div>
-        </div>
-        {/* rótulos, encuadre y calidad */}
-        <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-1">
-          <Pildora activo={rotulos} onClick={() => setRotulos((v) => !v)} title="Nombres de las piezas (también al pasar el ratón)"><Tags size={12} /> Rótulos</Pildora>
-          <Pildora ancho={false} activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={12} /></Pildora>
-          <Pildora activo={false} onClick={() => setCalidad((c) => (c === 'alta' ? 'media' : 'alta'))} title="Calidad gráfica (alta: líquido con transmisión y posproceso)">Calidad: {calidad}</Pildora>
-        </div>
-        {estrechoLab && !hojaModelo && (
-          <button type="button" onClick={() => setHojaModelo(true)} aria-label="Abrir panel Modelo"
-            className="absolute right-2 top-2 flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-[#0f1a2b]/85 px-2.5 text-[11px] font-semibold text-slate-200 backdrop-blur hover:border-[#219EBC] hover:text-white">
-            <PanelRightOpen size={14} /> Modelo
-          </button>
-        )}
-        {estrechoLab && hojaModelo && (
-          <aside className="absolute bottom-2 right-2 top-2 z-10 flex w-[min(86%,300px)] min-h-0 flex-col rounded-lg border border-white/10 bg-[#0f1a2b]/95 shadow-2xl shadow-black/50 backdrop-blur" data-hoja-modelo-f6="">
-            <div className="flex h-9 shrink-0 items-center justify-between border-b border-white/10 px-3">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8ECAE6]">Modelo</span>
-              <button type="button" onClick={() => setHojaModelo(false)} className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Plegar panel">
-                <PanelRightClose size={15} />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 text-[13px] leading-snug">{panelModelo}</div>
-          </aside>
-        )}
-        <style>{`.aviso-f6{animation:avisoF6 6.5s ease forwards}@keyframes avisoF6{0%{opacity:0;transform:translateY(-4px)}6%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}@media (prefers-reduced-motion: reduce){.aviso-f6{animation:none}}`}</style>
       </div>
       <DockF6 reloj={reloj} reto={!explorar} liq={liqActivo} validado={validado} />
     </div>
   );
 
-  const barraSuperior = explorar ? (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-      <div className="mr-1 flex shrink-0 flex-col leading-tight">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Bloques de igual volumen</span>
-        <Material texto={`${MATERIALES[material].nombre} en ${liqActivo.nombre.toLowerCase()}`} />
-      </div>
-      <Lectura etiqueta="ρ cuerpo" valor={MATERIALES[material].rho} unidad="kg/m³" />
-      <Lectura etiqueta="ρ líquido" valor={liqActivo.rho} unidad="kg/m³" />
-      <Lectura etiqueta="V" valor={256} unidad="cm³" />
-    </div>
-  ) : (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-      <div className="mr-1 flex shrink-0 flex-col leading-tight">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Reto</span>
-        <Material texto="Densidad del sólido problema" />
-      </div>
-      <Lectura etiqueta="ρ líquido" valor={densidadLiquido} unidad="kg/m³" />
-      <Lectura etiqueta="g" valor={cifra(G_TIERRA, 2)} unidad="m/s²" />
+  const selectorModo = (
+    <div className="ml-auto flex shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Modo">
+      {(['explorar', 'reto'] as const).map((m) => (
+        <button key={m} type="button" onClick={() => { setModo(m); audio?.playPop(); }} aria-pressed={modo === m}
+          className={`h-8 rounded-md px-3 text-[13px] font-semibold transition-colors ${modo === m ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
+          {m === 'explorar' ? 'Explorar' : 'Reto'}
+        </button>
+      ))}
     </div>
   );
-
-  const controlesExplorar = (
-    <GrupoControles>
-      <Segmentado<IdMaterial> etiqueta="Bloque" valor={material} onChange={(v) => { setMaterial(v); audio?.playPop(); }}
-        opciones={(Object.keys(MATERIALES) as IdMaterial[]).map((k) => ({ valor: k, texto: MATERIALES[k].nombre }))} />
-      <Segmentado<IdLiquido> etiqueta="Líquido" valor={liqE} onChange={(v) => { setLiqE(v); audio?.playPop(); }}
-        opciones={(Object.keys(LIQUIDOS) as IdLiquido[]).map((k) => ({ valor: k, texto: LIQUIDOS[k].nombre }))} />
-      <Segmentado<Postura> etiqueta="Postura" valor={postura} onChange={(v) => { setPostura(v); audio?.playPop(); }}
-        opciones={[{ valor: 'tumbado', texto: 'Tumbado' }, { valor: 'canto', texto: 'De canto' }]} />
-      <BotonLab variante="secundario" onClick={() => { setPausa(false); soltar(); audio?.playPop(); }}><RotateCcw size={14} /> Soltar de nuevo</BotonLab>
-    </GrupoControles>
-  );
-
-  const controlesReto = (
-    <div className="flex flex-col gap-2">
-      <GrupoControles>
-        <Segmentado etiqueta="Líquido" valor={fluido as string} onChange={cambiarFluido}
-          opciones={Object.entries(FLUIDOS).map(([k, f]) => ({ valor: k, texto: f.nombre }))} />
-        <Deslizador etiqueta="Inmersión" valor={fraccion * 100} min={0} max={100} paso={5} unidad="%" decimales={0} ancho="w-36"
-          onChange={(v) => setArquimedes6({ sumergido: Math.min(1, Math.max(0, v / 100)) })} />
-        <BotonLab variante="secundario" onClick={registrarAire} title="Registra la lectura con el sólido fuera del líquido">
-          <Plus size={14} /> Peso en aire{lecturaAire !== null && <span className="font-mono tabular-nums text-[#ffd59a]"> · {cifra(lecturaAire, 2)} N</span>}
-        </BotonLab>
-        <BotonLab onClick={registrarFluido} title="Registra la lectura con el sólido sumergido al 100 %">
-          <Plus size={14} /> Peso sumergido{lecturaFluido !== null && <span className="font-mono tabular-nums"> · {cifra(lecturaFluido, 2)} N</span>}
-        </BotonLab>
-      </GrupoControles>
-      <GrupoControles>
-        <label className="flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-amber-300">ρ del sólido</span>
-          <input type="text" inputMode="decimal" autoComplete="off" value={rhoInput} onChange={(e) => guardarRho(e.target.value)} placeholder="ej. 2650,5"
-            aria-label="Densidad del sólido en kilogramos por metro cúbico"
-            className="h-8 w-28 rounded-lg border border-amber-500/40 bg-slate-950 px-2.5 font-mono text-[13px] outline-none focus:border-amber-400" />
-          <span className="text-[11px] text-slate-400">kg/m³</span>
-        </label>
-        <BotonLab variante="acento" onClick={comprobar}>Comprobar análisis</BotonLab>
-        {validado && (
-          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-300" data-densidad-real="">
-            ρ real {cifra(densidadCuerpo, 0)} kg/m³ · parecida a la del {parecido}
-          </span>
+  const DATO = 'font-mono font-semibold tabular-nums text-white';
+  const barraSuperior = (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {explorar ? (
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[13px] text-slate-300" data-datos-f6="" title="Los cuatro bloques tienen el mismo volumen: 256 cm³">
+            <span>ρ {MATERIALES[material].nombre.toLowerCase()} <span className={DATO}>{MATERIALES[material].rho}</span></span>
+            <span>ρ {liqActivo.nombre.toLowerCase()} <span className={DATO}>{liqActivo.rho}</span> kg/m³</span>
+          </div>
+        ) : (
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 rounded-lg border border-[#FB8500]/40 bg-[#FB8500]/10 px-2.5 py-1 text-[13px] text-slate-300" data-datos-f6="">
+            <span className="font-semibold uppercase tracking-[0.04em] text-amber-300">Reto</span>
+            <span>ρ {liqActivo.nombre.toLowerCase()} <span className={DATO}>{densidadLiquido}</span> kg/m³</span>
+            <span>g <span className={DATO}>{cifra(G_TIERRA, 2)}</span> m/s²</span>
+          </div>
         )}
-      </GrupoControles>
-      {(alerta || veredicto?.ok) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {alerta && (
-            <div role="alert" className="flex min-h-8 items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/20 px-3 py-1 text-[12px] font-bold text-rose-200">
-              <ShieldAlert size={14} /> {alerta}
-            </div>
-          )}
-          <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="Tu densidad coincide con tus lecturas del dinamómetro. Valida tu práctica." />
-        </div>
+        {selectorModo}
+      </div>
+      {!explorar && alerta ? (
+        <p role="alert" data-alerta-f6="" className="flex items-start gap-1.5 text-[13px] font-semibold leading-snug text-rose-200">
+          <ShieldAlert size={15} className="mt-0.5 shrink-0" /> <span>{alerta}</span>
+        </p>
+      ) : !explorar && veredicto && !veredicto.ok ? (
+        <p role="alert" data-veredicto-f6="falla" className="flex items-start gap-1.5 text-[13px] font-semibold leading-snug text-amber-200">
+          <ShieldAlert size={15} className="mt-0.5 shrink-0" /> <span>Todavía no. {veredicto.mensaje ?? 'Revisa tus datos.'}</span>
+        </p>
+      ) : (
+        <p role="status" data-guia-f6="" className="flex items-start gap-1.5 text-[13px] leading-snug text-slate-200">
+          <ArrowRight size={15} className="mt-0.5 shrink-0 text-sky-300" />
+          <span data-densidad-real={!explorar && validado ? '' : undefined}><b className="font-semibold text-sky-200">{explorar ? 'Ahora te toca: ' : validado ? 'Resuelto: ' : `Paso ${paso} de 4: `}</b>{guia}</span>
+        </p>
       )}
     </div>
   );
 
+  const controlesExplorar = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <Seg<IdMaterial> etiqueta="Bloque" valor={material} onChange={(v) => { setMaterial(v); audio?.playPop(); }}
+        opciones={(Object.keys(MATERIALES) as IdMaterial[]).map((k) => ({ valor: k, texto: MATERIALES[k].nombre }))} />
+      <button type="button" onClick={() => { setPausa(false); soltar(); audio?.playPop(); }} title="Suelta el bloque otra vez sobre el líquido"
+        className={`${BOTON} border border-white/15 bg-white/[0.04] text-slate-100 hover:border-[#219EBC] hover:text-white`}><RotateCcw size={15} /> Soltar de nuevo</button>
+      <Seg<IdLiquido> etiqueta="Líquido" valor={liqE} onChange={(v) => { setLiqE(v); audio?.playPop(); }}
+        opciones={(Object.keys(LIQUIDOS) as IdLiquido[]).map((k) => ({ valor: k, texto: LIQUIDOS[k].nombre }))} />
+      <Seg<Postura> titulo="Postura del bloque al soltarlo" valor={postura} onChange={(v) => { setPostura(v); audio?.playPop(); }}
+        opciones={[{ valor: 'tumbado', texto: 'Tumbado' }, { valor: 'canto', texto: 'De canto' }]} />
+    </div>
+  );
+
+  const controlesReto = (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Seg<string> etiqueta="Líquido" valor={fluido as string} onChange={cambiarFluido}
+          opciones={Object.entries(FLUIDOS).map(([k, f]) => ({ valor: k, texto: f.nombre }))} />
+        <label className="flex h-9 items-center gap-2">
+          <span className={ETQ}>Inmersión</span>
+          <input type="range" min={0} max={100} step={5} value={fraccion * 100} aria-label="Inmersión del cilindro" aria-valuetext={`${Math.round(fraccion * 100)} %`}
+            onChange={(e) => setArquimedes6({ sumergido: Math.min(1, Math.max(0, Number(e.target.value) / 100)) })}
+            className="h-1.5 w-[clamp(90px,14vw,150px)] cursor-pointer appearance-none rounded-full bg-white/15 accent-[#219EBC]" />
+          <span className="w-[46px] shrink-0 text-right font-mono text-[13px] font-semibold tabular-nums text-white">{Math.round(fraccion * 100)} %</span>
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button type="button" onClick={registrarAire} title="Registra la lectura con el sólido fuera del líquido"
+          className={`${BOTON} border ${paso === 1 ? 'border-[#219EBC] bg-[#219EBC] text-white hover:bg-[#1b87a1]' : 'border-white/15 bg-white/[0.04] text-slate-100 hover:border-[#219EBC]'}`}>
+          <Plus size={15} /> Peso en aire{lecturaAire !== null && <span className="font-mono tabular-nums text-[#ffd59a]"> {cifra(lecturaAire, 2)} N</span>}
+        </button>
+        <button type="button" onClick={registrarFluido} title="Registra la lectura con el sólido sumergido al 100 %"
+          className={`${BOTON} border ${paso === 2 ? 'border-[#219EBC] bg-[#219EBC] text-white hover:bg-[#1b87a1]' : 'border-white/15 bg-white/[0.04] text-slate-100 hover:border-[#219EBC]'}`}>
+          <Plus size={15} /> Peso sumergido{lecturaFluido !== null && <span className="font-mono tabular-nums text-[#ffd59a]"> {cifra(lecturaFluido, 2)} N</span>}
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="flex items-center gap-1.5">
+          <span className="text-[13px] font-semibold text-amber-300">ρ del sólido</span>
+          <input type="text" inputMode="decimal" autoComplete="off" value={rhoInput} onChange={(e) => guardarRho(e.target.value)} placeholder="¿?"
+            aria-label="Densidad del sólido en kilogramos por metro cúbico"
+            className="h-9 w-[104px] rounded-lg border border-amber-500/50 bg-slate-950 px-2.5 font-mono text-[14px] text-white outline-none focus:border-amber-400" />
+          <span className="text-[13px] text-slate-400">kg/m³</span>
+        </label>
+        <button type="button" onClick={comprobar} className={`${BOTON} bg-[#FB8500] text-white hover:bg-[#e07700]`}>Comprobar análisis</button>
+      </div>
+      <AvisoReto visible={!!veredicto?.ok} onValidate={onValidate} className="max-sm:flex-wrap !gap-x-3 !gap-y-1.5 !px-3 !py-1.5" texto="Tu densidad coincide con tus lecturas del dinamómetro. Valida tu práctica." />
+    </div>
+  );
+
   return (
-    <LabLayout
-      escena={escena}
-      barraSuperior={barraSuperior}
-      controles={explorar ? controlesExplorar : controlesReto}
-      panelLateral={estrechoLab ? undefined : panelModelo}
-      tituloPanel="Modelo"
-      panelAbiertoInicial={false}
-    />
+    <RaizLabEstrella id="fisica-6">
+      <LabLayout escena={escena} barraSuperior={barraSuperior} controles={explorar ? controlesExplorar : controlesReto} />
+    </RaizLabEstrella>
   );
 }
