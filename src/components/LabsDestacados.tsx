@@ -25,13 +25,62 @@ export const MEJORES_POR_CATEGORIA: Record<string, string[]> = {
   mecanica: ['mecanica-166', 'mecanica-165', 'mecanica-169', 'mecanica-127'],
 };
 
-export default function LabsDestacados({ items: todas, acento, categoria }: { items: LabDestacado[]; acento: string; categoria?: string }) {
+/**
+ * Práctica estrella de cada pilar de ciencias (2026-11-16, pedido del dueño: «que los destaques sobre todos, que tal
+ * vez sean los únicos destacados que aparezcan»). Si la categoría tiene estrella, la franja muestra SOLO esa, con
+ * acento dorado; las demás marcadas como destacadas siguen en el catálogo normal.
+ */
+export const ESTRELLA_POR_CATEGORIA: Record<string, string> = {
+  quimica: 'quimica-9',
+  fisica: 'fisica-10',
+  matematicas: 'matematicas-10',
+  biologia: 'biologia-8',
+};
+export const ORO = '#E0A100';
+
+export default function LabsDestacados({ items: todas, acento: acentoMateria, categoria }: { items: LabDestacado[]; acento: string; categoria?: string }) {
   const orden = (categoria && MEJORES_POR_CATEGORIA[categoria]) || [];
   const clave = (h: string) => h.split('/').pop() ?? h;
+  const idEstrella = categoria ? ESTRELLA_POR_CATEGORIA[categoria] : undefined;
+  const estrella = idEstrella ? todas.find((it) => clave(it.href) === idEstrella) : undefined;
   const elegidas = orden.map((id) => todas.find((it) => clave(it.href) === id)).filter((x): x is LabDestacado => !!x);
-  const items = [...elegidas, ...todas.filter((it) => !elegidas.includes(it))].slice(0, MAX_DESTACADAS);
+  const items = estrella ? [estrella] : [...elegidas, ...todas.filter((it) => !elegidas.includes(it))].slice(0, MAX_DESTACADAS);
   if (items.length === 0) return null;
   const varias = items.length > 1;
+  const acento = estrella ? ORO : acentoMateria;
+  if (estrella) {
+    return (
+      <section className="w-full mb-12" aria-label="Práctica estrella">
+        <p className="flex items-center gap-2 text-sm font-black uppercase tracking-widest mb-4 text-[#7A5600] dark:text-[#F5C542]">
+          <Sparkles size={16} style={{ color: ORO }} />
+          Práctica estrella · la mejor de la materia
+        </p>
+        <div
+          className="relative overflow-hidden rounded-[28px] p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 bg-white dark:bg-[#0A1121] border-2 shadow-[0_18px_50px_-18px_rgba(224,161,0,0.55)]"
+          style={{ borderColor: ORO }}
+        >
+          <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(120% 140% at 0% 0%, ${ORO}22 0%, transparent 55%)` }} aria-hidden="true" />
+          <div className="relative flex items-center gap-5 min-w-0">
+            <div className="w-16 h-16 shrink-0 rounded-2xl flex items-center justify-center border-2" style={{ backgroundColor: `${ORO}1f`, borderColor: `${ORO}66` }}>
+              <Play className="w-8 h-8" style={{ color: ORO }} fill="currentColor" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-widest mb-1 text-[#7A5600] dark:text-[#F5C542]">⭐ Estrella · {estrella.modulo}</p>
+              <p className="text-xl sm:text-2xl font-black text-[#023047] dark:text-white leading-snug">{estrella.titulo}</p>
+            </div>
+          </div>
+          <Link
+            href={estrella.href}
+            className="relative px-7 py-3.5 rounded-xl font-black text-[#1a1200] shadow-lg transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 whitespace-nowrap shrink-0"
+            style={{ backgroundColor: ORO }}
+          >
+            <Play size={18} fill="currentColor" />
+            Iniciar
+          </Link>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="w-full mb-12" aria-label="Prácticas destacadas">
       <p className="flex items-center gap-2 text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
