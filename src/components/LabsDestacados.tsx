@@ -32,7 +32,7 @@ export const MEJORES_POR_CATEGORIA: Record<string, string[]> = {
  */
 export const ESTRELLA_POR_CATEGORIA: Record<string, string> = {
   quimica: 'quimica-9',
-  fisica: 'fisica-10',
+  fisica: 'fisica-6',
   matematicas: 'matematicas-6',
   biologia: 'biologia-1',
 };
