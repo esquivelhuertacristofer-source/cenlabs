@@ -11,8 +11,8 @@
   },
   "archivos": {
     "E1/app.js": {
-      "sha256": "bbf38566292ed9bc1efefc2752c6b1a4a1a6e50b2933c7dc65006ba1f8226a6f",
-      "bytes": 2734824
+      "sha256": "be1be40a20384bb306c5e91ca4eaa6649ad39887b75ffb74dc1006766102111b",
+      "bytes": 2742723
     },
     "E1/index.html": {
       "sha256": "474aaa632e7396159014ce343655a2b8a5bc565c42c2288f3e23b45a99f58f0d",
@@ -79,8 +79,8 @@
       "bytes": 336604
     },
     "E2/app.js": {
-      "sha256": "2861771070afbe6c03cc270f2390e66855fd4863bdf43d32f92635497ec38909",
-      "bytes": 2620670
+      "sha256": "417a05e9ee648599e3367793a021bd5ee526b47216fd654620068175b44de912",
+      "bytes": 2629312
     },
     "E2/index.html": {
       "sha256": "746d86eea21edfd373bb83a59ebfd32d7047444de6c2875c8953d9df68edfa4b",
@@ -159,8 +159,8 @@
       "bytes": 387229
     },
     "E3/app.js": {
-      "sha256": "63070d3c4f537fe28e57894bcceac303e2c1ecad8266814703e46c1a9332b03c",
-      "bytes": 2642718
+      "sha256": "e55af2a913664cfc54749617cf238ec23c69a0ea3bb194a6de6c56fc86a8e7cd",
+      "bytes": 2657061
     },
     "E3/index.html": {
       "sha256": "fe99942b87787fb993a32d23e5ee04ac1a793fbb06fcadbf700d4f121556b63c",
@@ -235,8 +235,8 @@
       "bytes": 296450
     },
     "E4/app.js": {
-      "sha256": "353e95e054de0a96fdfc8fd6992a3aecab389158cd9f944d37de48770b51cc0b",
-      "bytes": 2694411
+      "sha256": "bf6bc84b0e2cd0b7fc1c8b825b789cf5dc0b264d16ba22ec3c41faab4c5cf3ff",
+      "bytes": 2703902
     },
     "E4/index.html": {
       "sha256": "965a159588eac1765a7ac8e50a79775d10d2a8d6fc22329ebd8acaee400c9720",
@@ -307,8 +307,8 @@
       "bytes": 263514
     },
     "E5/app.js": {
-      "sha256": "44111a448c213a2a4355c69f599874cb2be868101be13b64be1621160ea04476",
-      "bytes": 2611090
+      "sha256": "dd01e7f9e964765fb68bdd8cd0962fce30afee9ab20c7bea735ad8f2f34a2af8",
+      "bytes": 2622075
     },
     "E5/index.html": {
       "sha256": "538c85a8cbfcad947f65e76ef6449777c076b7c01e2fdad811225a2c31434216",
@@ -379,8 +379,8 @@
       "bytes": 355716
     },
     "E6/app.js": {
-      "sha256": "7dc509dab3e7935c0d95f8cc0994d4bb8273c602879c8e7acd6c0b4f4f24b388",
-      "bytes": 2902299
+      "sha256": "4ef063ff93ba41c81c89796d5ba8c7b8a4fd14ff751a6808c5760371a8b2e022",
+      "bytes": 2914968
     },
     "E6/index.html": {
       "sha256": "1ac8802300492c6620712e01d205ec10e3e95ac97e96fe331dda7e4f5cb935bb",
@@ -455,8 +455,8 @@
       "bytes": 320457
     },
     "E7/app.js": {
-      "sha256": "a2d64f8cfe6d3aa33acdb462b3c254a092ef0ff883797fe5d0a1b8e9bb74d7ff",
-      "bytes": 2626828
+      "sha256": "cb0a55406a51cbcd1f3880cb0e4e4945d11de68bfd2777e30e072e8a5b298ca8",
+      "bytes": 2639126
     },
     "E7/index.html": {
       "sha256": "41d9b59afc2c311984f92a578c9f43adb8390c777231cb5391f2c0e76542141d",
