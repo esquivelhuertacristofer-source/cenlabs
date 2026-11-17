@@ -260,14 +260,11 @@ export default function PilotoCeldasGalvanicas({ isProfesor = false, onValidate 
     return () => ro.disconnect();
   }, []);
   const conLateral = !!caja && caja.w >= ANCHO_CON_LATERAL;
-  // la franja abre sola si deja a la escena un alto digno (portátil de 1366 × 768: sí; móvil: no)
-  // (en el reto arranca plegada: allí mandan el montaje y sus mandos; se abre con «Gráficas»)
-  const [franjaD, setFranjaD] = useState<boolean | null>(null);
+  // la franja arranca plegada en los dos modos: al entrar manda la celda en 3D a todo el alto;
+  // las gráficas de descarga y de Nernst se abren con «Gráficas»
+  const [franjaD, setFranjaD] = useState(false);
   const [franjaR, setFranjaR] = useState(false);
-  useEffect(() => {
-    if (franjaD === null && caja) setFranjaD(caja.w >= 480 && caja.h >= 640);
-  }, [caja, franjaD]);
-  const franja = modo === 'daniell' ? !!franjaD : franjaR;
+  const franja = modo === 'daniell' ? franjaD : franjaR;
   const setFranja = useCallback((v: boolean) => { if (modo === 'daniell') setFranjaD(v); else setFranjaR(v); }, [modo]);
   const cerrarFranja = useCallback(() => setFranja(false), [setFranja]);
   const franjaAbierta = !conLateral && franja;

@@ -109,6 +109,8 @@ const ACABADO: Record<IdMetal, { pulido: [string, number]; atacado: [string, num
 
 export interface MatsQ9 {
   mesa: THREE.MeshPhysicalMaterial;
+  pared: THREE.MeshStandardMaterial;
+  zocalo: THREE.MeshStandardMaterial;
   elevador: THREE.MeshPhysicalMaterial;
   carcasa: THREE.MeshPhysicalMaterial;
   bisel: THREE.MeshPhysicalMaterial;
@@ -130,7 +132,7 @@ function texturasMesa(calidad: Calidad) {
   const S = calidad === 'alta' ? 512 : 256;
   const col = crearLienzo(S, S), rug = crearLienzo(S, S);
   const c = col.getContext('2d')!, o = rug.getContext('2d')!;
-  c.fillStyle = '#20252a'; c.fillRect(0, 0, S, S);
+  c.fillStyle = '#15181c'; c.fillRect(0, 0, S, S);
   o.fillStyle = `rgb(0, ${Math.round(0.5 * 255)}, 0)`; o.fillRect(0, 0, S, S);
   let sem = 4111;
   const rnd = () => { sem = (sem * 16807) % 2147483647; return sem / 2147483647; };
@@ -139,7 +141,7 @@ function texturasMesa(calidad: Calidad) {
     const claro = rnd() > 0.5;
     for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) {
       const g = c.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
-      g.addColorStop(0, claro ? 'rgba(52,58,64,0.32)' : 'rgba(14,16,18,0.32)'); g.addColorStop(1, 'rgba(32,37,42,0)');
+      g.addColorStop(0, claro ? 'rgba(40,45,50,0.3)' : 'rgba(8,9,11,0.3)'); g.addColorStop(1, 'rgba(21,24,28,0)');
       c.fillStyle = g; c.fillRect(x + dx - r, y + dy - r, 2 * r, 2 * r);
       const h = o.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
       const v = Math.round((claro ? 0.42 : 0.58) * 255);
@@ -147,7 +149,7 @@ function texturasMesa(calidad: Calidad) {
       o.fillStyle = h; o.fillRect(x + dx - r, y + dy - r, 2 * r, 2 * r);
     }
   }
-  const rep: [number, number] = [2, 1.2];
+  const rep: [number, number] = [3.2, 1.6];
   return { mapa: texturaDeLienzo(col, { repetir: rep }), rug: texturaDeLienzo(rug, { srgb: false, repetir: rep }) };
 }
 
@@ -159,8 +161,10 @@ export function useMatsQ9(calidad: Calidad): MatsQ9 {
     return {
       mesa: new THREE.MeshPhysicalMaterial({
         color: '#ffffff', map: tex?.mapa ?? null, roughnessMap: tex?.rug ?? null, roughness: 1, metalness: 0,
-        clearcoat: alta ? 0.35 : 0, clearcoatRoughness: 0.38, name: 'q9-mesa',
+        clearcoat: alta ? 0.8 : 0.3, clearcoatRoughness: 0.14, name: 'q9-mesa',
       }),
+      pared: new THREE.MeshStandardMaterial({ color: '#5d6f7d', roughness: 0.92, metalness: 0, name: 'q9-pared' }),
+      zocalo: new THREE.MeshStandardMaterial({ color: '#2a3138', roughness: 0.6, metalness: 0, name: 'q9-zocalo' }),
       // aluminio anodizado gris grafito, satinado
       elevador: new THREE.MeshPhysicalMaterial({ color: '#3a3f46', metalness: 0.7, roughness: 0.42, clearcoat: alta ? 0.25 : 0, clearcoatRoughness: 0.4, name: 'q9-elevador' }),
       // ABS carbón con un barniz suave
@@ -205,7 +209,13 @@ export function useMatsQ9(calidad: Calidad): MatsQ9 {
 export function Mesa({ mats }: { mats: MatsQ9 }) {
   return (
     <group>
-      <mesh geometry={cajaRedondeada(9, 0.3, 5.2, 0.05, 3)} material={mats.mesa} position={[0, -0.15, -0.4]} receiveShadow />
+      {/* cubierta de resina epóxica negra, tan ancha y honda que su borde no entra en cuadro */}
+      <mesh geometry={cajaRedondeada(16, 0.3, 7.6, 0.05, 3)} material={mats.mesa} position={[0, -0.15, 0.6]} receiveShadow />
+      {/* zócalo y pared del laboratorio: la luz clave deja en ella un charco cálido que da profundidad */}
+      <mesh geometry={cajaRedondeada(16, 0.5, 0.06, 0.015, 2)} material={mats.zocalo} position={[0, 0.25, -3.12]} receiveShadow />
+      <mesh position={[0, 4, -3.2]} material={mats.pared} receiveShadow>
+        <planeGeometry args={[30, 8]} />
+      </mesh>
     </group>
   );
 }
@@ -660,7 +670,9 @@ export function crearMaterialLiquido(calidad: Calidad): THREE.MeshPhysicalMateri
  */
 export function tintarLiquido(mat: THREE.MeshPhysicalMaterial, metal: IdMetal, c: number, calidad: Calidad) {
   const eps = METAL[metal].epsRGB;
-  const base = [0.985, 0.992, 0.996]; // el agua sola: un velo frío casi imperceptible
+  // el agua sola: un velo frío leve (en alta, algo más marcado para que una disolución
+  // incolora, como el ZnSO₄, se lea como líquido y no como un vaso vacío)
+  const base = calidad === 'alta' ? [0.93, 0.972, 0.99] : [0.985, 0.992, 0.996];
   if (calidad === 'alta') {
     // Camino óptico VISUAL de CAMINO_VISUAL_CM por unidad (no los 10 cm reales): con el
     // diámetro entero, el CuSO₄ 1 M absorbía todo el rojo y casi todo el verde y, sobre

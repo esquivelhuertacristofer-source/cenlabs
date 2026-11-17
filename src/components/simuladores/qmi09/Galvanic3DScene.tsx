@@ -77,7 +77,7 @@ function Ajustes({ calidad }: { calidad: Calidad }) {
   const scene = useThree((s) => s.scene);
   useLayoutEffect(() => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.12;
+    gl.toneMappingExposure = 1.2;
     gl.outputColorSpace = THREE.SRGBColorSpace;
     (gl as unknown as { transmissionResolutionScale?: number }).transmissionResolutionScale = calidad === 'alta' ? 1 : 0.5;
     // fondo de estudio: degradado radial oscuro con un tramado mínimo (sin bandas)
@@ -87,7 +87,7 @@ function Ajustes({ calidad }: { calidad: Calidad }) {
     const g = c.getContext('2d');
     if (g) {
       const grad = g.createRadialGradient(256, 200, 10, 256, 250, 420);
-      grad.addColorStop(0, '#1c2834'); grad.addColorStop(0.55, '#0f161e'); grad.addColorStop(1, FONDO);
+      grad.addColorStop(0, '#3a4a58'); grad.addColorStop(0.6, '#26323d'); grad.addColorStop(1, '#141b22');
       g.fillStyle = grad; g.fillRect(0, 0, 512, 512);
       const img = g.getImageData(0, 0, 512, 512);
       let s = 991;
@@ -105,7 +105,7 @@ function Ajustes({ calidad }: { calidad: Calidad }) {
     const pm = new THREE.PMREMGenerator(gl);
     const env = pm.fromScene(new RoomEnvironment(), 0.035).texture;
     scene.environment = env;
-    (scene as unknown as { environmentIntensity: number }).environmentIntensity = 0.5;
+    (scene as unknown as { environmentIntensity: number }).environmentIntensity = 0.85;
     return () => { scene.environment = null; scene.background = null; env.dispose(); pm.dispose(); tex?.dispose(); };
   }, [gl, scene, calidad]);
   return null;
@@ -122,9 +122,9 @@ function Luces({ calidad }: { calidad: Calidad }) {
   }, []);
   return (
     <>
-      <hemisphereLight args={['#b4c6d8', '#07090c', 0.32]} />
-      {/* luz clave de estudio: foco cálido de penumbra ancha → charco de luz y sombras suaves */}
-      <spotLight ref={clave} position={[-3.6, 6.2, 4.2]} angle={0.5} penumbra={0.9} decay={0} intensity={2.2} color="#fff1df" castShadow
+      <hemisphereLight args={['#c4d4e2', '#0b0e12', 0.5]} />
+      {/* luz clave de estudio: foco cálido de penumbra ancha → charco de luz en mesa y pared, sombras suaves */}
+      <spotLight ref={clave} position={[-3.6, 6.2, 4.2]} angle={0.62} penumbra={0.95} decay={0} intensity={2.6} color="#fff1df" castShadow
         shadow-mapSize-width={mapa} shadow-mapSize-height={mapa} />
       {/* contraluz fría: recorta el vidrio y el contorno del voltímetro */}
       <directionalLight position={[3.5, 3.2, -4.5]} intensity={1.05} color="#cfe0ff" />
@@ -179,7 +179,7 @@ function encuadrar(dir: THREE.Vector3, objetivo: THREE.Vector3, puntos: THREE.Ve
 }
 
 const DIR_CAMARA = (() => {
-  const el = THREE.MathUtils.degToRad(20), az = THREE.MathUtils.degToRad(-11);
+  const el = THREE.MathUtils.degToRad(16), az = THREE.MathUtils.degToRad(-12);
   return new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).normalize();
 })();
 
@@ -231,8 +231,8 @@ function Camara({ reto, reducido, encuadre }: { reto: boolean; reducido: boolean
     // «Encuadrar» devuelve el control al encuadre automático
     if (ultimoEncuadre.current !== encuadre) { ultimoEncuadre.current = encuadre; usuario.current = false; }
     if (!primera.current && usuario.current) return;
-    // apaisado: el banco ocupa ~64 % del alto; en vertical manda el ancho
-    const p = encuadrar(DIR_CAMARA, new THREE.Vector3(0, 0.75, -0.3), puntosEncuadre(reto), camera.fov, aspecto, 0.9, 0.64);
+    // apaisado: el banco ocupa ~78 % del alto (de cerca, sin vacío alrededor); en vertical manda el ancho
+    const p = encuadrar(DIR_CAMARA, new THREE.Vector3(0, 0.75, -0.3), puntosEncuadre(reto), camera.fov, aspecto, 0.92, 0.78);
     if (primera.current || reducido) {
       primera.current = false;
       camera.position.copy(p.pos); controls.target.copy(p.objetivo); controls.update();

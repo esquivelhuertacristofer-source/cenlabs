@@ -33,7 +33,7 @@ export const COLOR_ION: Record<IdMetal | 'K' | 'NO3' | 'e', string> = {
  * Brillo de emisión (× color). En alta pasa algo de 1 para que el bloom les dé halo; en
  * media no hay bloom y el tono ACES los lavaría hacia el blanco: se quedan en ~1.
  */
-const BRILLO_CAL = { alta: 1.6, media: 0.95 } as const;
+const BRILLO_CAL = { alta: 1.15, media: 0.9 } as const;
 
 function materialBrillante(): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ color: '#23272c', roughness: 0.32, metalness: 0, emissive: '#ffffff', emissiveIntensity: 1, name: 'q9-ion' });
@@ -206,7 +206,7 @@ export function IonesVasos({ reloj, izq, der, puente, animar, calidad }: PropsIo
     for (let i = 0; i < CAP_VASOS; i++) {
       if (!S.activo[i]) continue;
       const k = i * 3, v = S.vaso[i];
-      let escala = S.tipo[i] === TIPO_CAT ? 0.0155 : 0.012;
+      let escala = S.tipo[i] === TIPO_CAT ? 0.0118 : 0.0092;
       if (S.fase[i] === DEPOSITA) {
         S.t[i] += dt / 0.55;
         const u = Math.min(1, S.t[i]);
