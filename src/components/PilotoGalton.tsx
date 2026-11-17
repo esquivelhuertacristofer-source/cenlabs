@@ -1,21 +1,40 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { RefreshCcw, ShieldCheck, CheckCircle2, Play, Pause, Droplet, Grid3x3, Layers, Maximize2, Turtle, Rabbit } from 'lucide-react';
-import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
+import LabLayout, { GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 import Galton3DScene, { useMovimientoReducido } from './simuladores/mat10/Galton3DScene';
-import { DockGalton } from './simuladores/mat10/Dock';
+import { DockGalton, Xbarra } from './simuladores/mat10/Dock';
 import { useBancoGalton, type Vista } from './simuladores/mat10/banco';
 import { alfaDeP } from './simuladores/mat10/galton';
-import { estadisticaMuestraM10, chiCuadradaM10, MUESTRA_MIN_M10 } from '@/domain/matematicas';
+import { estadisticaMuestraM10, chiCuadradaM10, evaluarM10, MUESTRA_MIN_M10 } from '@/domain/matematicas';
 
 const VISTAS: { v: Vista; t: string; icono: React.ReactNode; d: string }[] = [
-  { v: 'tablero', t: 'Tablero', icono: <Maximize2 size={13} />, d: 'La máquina entera' },
-  { v: 'clavos', t: 'Clavos', icono: <Grid3x3 size={13} />, d: 'La tolva y las diez filas de clavos, de cerca' },
-  { v: 'pilas', t: 'Pilas', icono: <Layers size={13} />, d: 'Los once canales y sus pilas' },
+  { v: 'tablero', t: 'Tablero', icono: <Maximize2 size={14} />, d: 'La máquina entera' },
+  { v: 'clavos', t: 'Clavos', icono: <Grid3x3 size={14} />, d: 'La tolva y las diez filas de clavos, de cerca' },
+  { v: 'pilas', t: 'Pilas', icono: <Layers size={14} />, d: 'Los once canales y sus pilas' },
 ];
+
+/** Ancho de la columna del laboratorio desde el que el panel «Muestra» cabe AL LADO de la máquina sin taparla. */
+const ANCHO_CON_DOCK = 760;
+
+/**
+ * Letra ≥ 13 px en los mandos del kit (botones, deslizador, cabecera del panel), sólo
+ * dentro de esta práctica: el kit común no se toca.
+ */
+const LETRA_13 = '[&_[data-franja]_button]:text-[13px] [&_[data-franja=controles]_label_span]:text-[13px] [&_[data-franja=lateral]>div:first-child_span]:text-[13px] [&_[data-franja=lateral]>div:first-child_span]:tracking-[0.08em]';
+
+/** Lectura de la barra superior, con rótulo ≥ 13 px (la del kit lo pone a 10 px y en mayúsculas: «x̄» salía descompuesta). */
+function LecturaG({ etiqueta, valor, acento = false, title }: { etiqueta: React.ReactNode; valor: React.ReactNode; acento?: boolean; title?: string }) {
+  return (
+    <div title={title} className={`flex shrink-0 items-baseline gap-1.5 rounded-lg border px-2 py-1 ${acento ? 'border-[#FB8500]/40 bg-[#FB8500]/10' : 'border-white/10 bg-white/[0.04]'}`}>
+      <span className="text-[13px] font-semibold text-slate-400">{etiqueta}</span>
+      <span className={`font-mono text-[14px] font-semibold tabular-nums ${acento ? 'text-[#FFB703]' : 'text-white'}`}>{valor}</span>
+    </div>
+  );
+}
 
 /**
  * MAT-10 · Máquina de Galton. Cada bolita choca con FILAS_M10 = 10 clavos y en cada
@@ -36,9 +55,9 @@ export default function PilotoGalton({ onValidate }: { onValidate?: () => void }
     audio: s.audio, setAsistente: s.setAsistente,
   })));
   const { probabilidad, contenedores, status, prediccionMedia, prediccionSigma } = galton10;
-  const { vista, lenta, goteo, alfaVis, setVista, setLenta, setGoteo, reiniciarBanco } = useBancoGalton(useShallow((s) => ({
+  const { vista, lenta, goteo, alfaVis, setVista, setLenta, setGoteo, reiniciarBanco, setDockVisible } = useBancoGalton(useShallow((s) => ({
     vista: s.vista, lenta: s.lenta, goteo: s.goteo, alfaVis: s.alfaVis,
-    setVista: s.setVista, setLenta: s.setLenta, setGoteo: s.setGoteo, reiniciarBanco: s.reiniciar,
+    setVista: s.setVista, setLenta: s.setLenta, setGoteo: s.setGoteo, reiniciarBanco: s.reiniciar, setDockVisible: s.setDockVisible,
   })));
   const reducido = useMovimientoReducido();
 
@@ -61,24 +80,45 @@ export default function PilotoGalton({ onValidate }: { onValidate?: () => void }
   // banco nuevo en cada entrada; con «reducir movimiento» la tolva arranca cerrada
   useEffect(() => { reiniciarBanco(!reducido); }, [reiniciarBanco, reducido]);
 
-  if (!mounted) return null;
+  // El panel «Muestra» sólo existe si cabe al lado de la máquina (no encima). En columnas
+  // estrechas (1366 px, móvil) el histograma lo lleva la bitácora; nunca los dos a la vez.
+  const raiz = useRef<HTMLDivElement>(null);
+  const [ancho, setAncho] = useState<number | null>(null);
+  useEffect(() => {
+    const el = raiz.current; if (!el) return;
+    const publicar = () => setDockVisible(!!el.querySelector('[data-dock="galton"]'));
+    const ro = new ResizeObserver(([e]) => setAncho(e.contentRect.width));
+    ro.observe(el);
+    const mo = new MutationObserver(publicar);
+    mo.observe(el, { childList: true, subtree: true });
+    publicar();
+    return () => { ro.disconnect(); mo.disconnect(); setDockVisible(false); };
+  }, [setDockVisible]);
+  const conDock = ancho !== null && ancho >= ANCHO_CON_DOCK;
+
 
   const fmt = (v: number, d: number) => (Number.isFinite(v) ? v.toFixed(d) : '—');
   // inclinación: la que muestra la escena en este cuadro (o la que pide p, sin escena)
   const alfaGrados = ((alfaVis ?? alfaDeP(probabilidad)) * 180) / Math.PI;
-  const campo = 'h-8 w-24 rounded-lg border border-white/15 bg-white/[0.05] px-2.5 font-mono text-[13px] font-semibold text-white outline-none focus:border-[#FB8500]';
+  const campo = 'h-9 w-24 rounded-lg border border-white/15 bg-white/[0.05] px-2.5 font-mono text-[14px] font-semibold text-white outline-none focus:border-[#FB8500]';
+  // el aviso orienta (qué falta: bolitas, escribir, cuál número no cuadra) sin dar μ ni σ
+  const aviso = status === 'error' ? (evaluarM10(galton10).mensaje ?? 'Ya está todo: vuelve a validar.') : null;
   return (
-    <LabLayout
+    <div ref={raiz} className="h-full w-full min-h-0 min-w-0 overflow-hidden [contain:inline-size]" data-lab="matematicas-10">
+    {mounted && ancho !== null && <LabLayout
+      key={conDock ? 'con-dock' : 'sin-dock'}
+      className={LETRA_13}
       tituloPanel="Muestra"
+      panelAbiertoInicial={conDock}
       barraSuperior={
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <Lectura etiqueta="p" valor={probabilidad.toFixed(2)} acento title="Probabilidad de ir a la derecha en cada clavo" />
-          <Lectura etiqueta="∠" valor={`${alfaGrados >= 0 ? '' : '−'}${Math.abs(alfaGrados).toFixed(2)}°`} title="Inclinación del tablero (baja el lado derecho si α > 0)" />
-          <Lectura etiqueta="N" valor={`${N} / ${MUESTRA_MIN_M10}`} title="Bolitas en los contenedores" />
-          <Lectura etiqueta="x̄" valor={fmt(muestra.media, 2)} title="Media de la muestra" />
-          <Lectura etiqueta="s" valor={fmt(muestra.sigma, 2)} title="Desviación de la muestra" />
+          <LecturaG etiqueta="p" valor={probabilidad.toFixed(2)} acento title="Probabilidad de ir a la derecha en cada clavo" />
+          <LecturaG etiqueta="∠" valor={`${alfaGrados >= 0 ? '' : '−'}${Math.abs(alfaGrados).toFixed(2)}°`} title="Inclinación del tablero (baja el lado derecho si α > 0)" />
+          <LecturaG etiqueta="N" valor={`${N} / ${MUESTRA_MIN_M10}`} title="Bolitas en los contenedores" />
+          <LecturaG etiqueta={<Xbarra />} valor={fmt(muestra.media, 2)} title="Media de la muestra" />
+          <LecturaG etiqueta="s" valor={fmt(muestra.sigma, 2)} title="Desviación de la muestra" />
           {chi && (
-            <Lectura etiqueta="χ² / crítico" valor={`${chi.chi2.toFixed(1)} / ${chi.critico.toFixed(1)}`} title="Estadístico χ² contra su valor crítico (α = 0.001)" />
+            <LecturaG etiqueta="χ² / crítico" valor={`${chi.chi2.toFixed(1)} / ${chi.critico.toFixed(1)}`} title="Estadístico χ² contra su valor crítico (α = 0.001)" />
           )}
         </div>
       }
@@ -88,23 +128,26 @@ export default function PilotoGalton({ onValidate }: { onValidate?: () => void }
           <div className="absolute bottom-2 left-2 flex rounded-lg border border-white/10 bg-[#0b1220]/80 p-0.5 backdrop-blur" role="group" aria-label="Vista de cámara">
             {VISTAS.map((o) => (
               <button key={o.v} type="button" title={o.d} onClick={() => { setVista(o.v); audio?.playPop(); }}
-                className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-semibold ${vista === o.v ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
+                className={`flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-semibold ${vista === o.v ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
                 {o.icono}{o.t}
               </button>
             ))}
           </div>
           <button type="button" onClick={() => setLenta(!lenta)} title={lenta ? 'Pasar a tiempo real' : 'Pasar a cámara lenta'}
-            className="absolute bottom-2 right-2 flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-[#0b1220]/80 px-2 font-mono text-[11px] font-semibold text-cyan-100/90 backdrop-blur hover:text-white">
-            {lenta ? <Turtle size={13} /> : <Rabbit size={13} />}{lenta ? '×1/4 · cámara lenta' : '×1 · tiempo real'}
+            aria-pressed={lenta}
+            className={`absolute bottom-2 right-2 flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] font-semibold backdrop-blur hover:text-white ${lenta ? 'border-[#FB8500]/60 bg-[#FB8500]/20 text-[#FFD08A]' : 'border-white/10 bg-[#0b1220]/80 text-cyan-100/90'}`}>
+            {lenta ? <Turtle size={15} /> : <Rabbit size={15} />}
+            <span className="font-mono">{lenta ? '×¼' : '×1'}</span>
+            <span className="hidden sm:inline">{lenta ? 'cámara lenta' : 'tiempo real'}</span>
           </button>
         </div>
       }
-      panelLateral={<DockGalton />}
+      panelLateral={conDock ? <DockGalton /> : undefined}
       controles={
         <div className="space-y-2">
           <GrupoControles className="items-end">
             <div title="Inclina el tablero. Cambiar p vacía la máquina: cada muestra corresponde a una sola p.">
-              <Deslizador etiqueta="Probabilidad de ir a la derecha (p)" valor={probabilidad} min={0.1} max={0.9} paso={0.05} decimales={2} ancho="w-52 2xl:w-60"
+              <Deslizador etiqueta="Probabilidad a la derecha (p)" valor={probabilidad} min={0.1} max={0.9} paso={0.05} decimales={2} ancho="w-[13.5rem]"
                 onChange={(v) => { setProbabilidadM10(v); audio?.playPop(); }} />
             </div>
             <BotonLab variante="acento" title="Soltar 100 bolitas" onClick={() => { lanzarBolitasM10(); audio?.playPop(); }}>
@@ -119,20 +162,21 @@ export default function PilotoGalton({ onValidate }: { onValidate?: () => void }
           </GrupoControles>
           <GrupoControles className="items-end">
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-slate-300">Tu μ teórica</span>
+              <span className="text-[13px] font-semibold text-slate-300">Tu μ teórica</span>
               <input type="text" inputMode="decimal" value={prediccionMedia} placeholder="μ" onChange={(e) => setPrediccionM10(e.target.value, prediccionSigma)} className={campo} />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-slate-300">Tu σ teórica</span>
+              <span className="text-[13px] font-semibold text-slate-300">Tu σ teórica</span>
               <input type="text" inputMode="decimal" value={prediccionSigma} placeholder="σ" onChange={(e) => setPrediccionM10(prediccionMedia, e.target.value)} className={campo} />
             </label>
             <BotonLab variante={validado ? 'primario' : 'acento'} onClick={() => onValidate?.()}>
               {validado ? <CheckCircle2 size={14} /> : <ShieldCheck size={14} />} {validado ? 'Distribución correcta' : 'Validar distribución'}
             </BotonLab>
-            {status === 'error' && <span role="status" className="text-[12px] font-semibold text-rose-300">Revisa tu predicción y la muestra.</span>}
+            {aviso && <span role="status" className="min-w-[200px] flex-1 basis-full text-[13px] font-semibold leading-snug text-rose-300" data-aviso="validacion">{aviso}</span>}
           </GrupoControles>
         </div>
       }
-    />
+    />}
+    </div>
   );
 }

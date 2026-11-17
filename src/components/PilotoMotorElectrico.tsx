@@ -21,6 +21,7 @@ import { useSimuladorStore } from '@/store/simuladorStore';
 import { MOTOR, ESPIRAS10, RANGO_V10, estadoMotor, evaluarF10, type Polo } from '@/domain/fisica';
 import AvisoReto from './fisica/AvisoReto';
 import LabLayout, { Lectura, GrupoControles, BotonLab } from './simulador/LabLayout';
+import RaizLabEstrella from './simulador/RaizLabEstrella';
 import { RelojMotor, rotuloFactor } from './simuladores/fis10/reloj';
 import { DockMotor, useTickReloj } from './simuladores/fis10/Dock';
 import { cifra, leerDecimal } from './simuladores/fis10/formato';
@@ -74,7 +75,7 @@ function Mando({ etiqueta, valor, min, max, paso, unidad, decimales, onChange }:
       <input type="range" min={min} max={max} step={paso} value={valor} onChange={(e) => onChange(Number(e.target.value))}
         aria-valuetext={`${cifra(valor, decimales)} ${unidad}`} aria-label={etiqueta}
         className="h-1.5 w-[clamp(96px,14vw,170px)] cursor-pointer appearance-none rounded-full bg-white/15 accent-[#219EBC]" />
-      <span className="w-[46px] shrink-0 text-right font-mono text-[12px] font-semibold tabular-nums text-white">{cifra(valor, decimales)} {unidad}</span>
+      <span className="w-[52px] shrink-0 text-right font-mono text-[13px] font-semibold tabular-nums text-white">{cifra(valor, decimales)} {unidad}</span>
     </label>
   );
 }
@@ -123,7 +124,10 @@ function FactorLento({ reloj, pausa }: { reloj: RelojMotor; pausa: boolean }) {
   useTickReloj(reloj, 4);
   return (
     <span className="rounded bg-[#0b1422]/75 px-1.5 py-0.5 font-mono text-[10.5px] font-medium tabular-nums text-amber-200/90" data-camara-lenta="">
-      {pausa ? 'En pausa' : reloj.factor >= 1 ? '×1 · tiempo real' : `${rotuloFactor(reloj.factor)} · cámara lenta`}
+      {pausa ? 'En pausa'
+        : reloj.factor > 1 ? `${rotuloFactor(reloj.factor)} · cámara rápida`
+          : reloj.factor === 1 ? (reloj.transitorio ? '×1 · tiempo real mientras cambia' : '×1 · tiempo real')
+            : `${rotuloFactor(reloj.factor)} · cámara lenta`}
     </span>
   );
 }
@@ -197,6 +201,19 @@ export default function PilotoMotorElectrico({ onValidate }: { onValidate?: () =
     r.arrancarEnRegimen();
     return r;
   }, []);
+  /**
+   * Cambio de modo: estado NUEVO, nada se hereda. El Reto empieza desenergizado y con el rotor
+   * parado (antes heredaba el giro del Banco: 1259–1500 rpm «sin energizar»); el Banco vuelve a
+   * su régimen con sus propios mandos.
+   */
+  const cambiarModo = (v: Modo) => {
+    if (v === modo) return;
+    if (v === 'reto') {
+      setMotor10({ encendido: false });
+      reloj.reiniciar({ V: voltaje, N: espiras, izq: imanIzq, der: imanDer, carga, energizado: false });
+    } else reloj.reiniciar({ V: VB, N: NB, izq: izqB, der: derB, carga: frenoB, energizado: encB });
+    setModo(v);
+  };
   useEffect(() => { reloj.fijar(params); }, [reloj, params.V, params.N, params.izq, params.der, params.carga, params.energizado]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { reloj.pausa = pausa; }, [reloj, pausa]);
 
@@ -290,7 +307,7 @@ export default function PilotoMotorElectrico({ onValidate }: { onValidate?: () =
 
   const selectorModo = (
     <div className="ml-auto shrink-0 pl-1">
-      <Seg<Modo> valor={modo} onChange={(v) => { setModo(v); audio?.playPop(); }}
+      <Seg<Modo> valor={modo} onChange={(v) => { cambiarModo(v); audio?.playPop(); }}
         opciones={[{ valor: 'banco', texto: 'Banco' }, { valor: 'reto', texto: 'Reto' }]} />
     </div>
   );
@@ -304,9 +321,13 @@ export default function PilotoMotorElectrico({ onValidate }: { onValidate?: () =
     </>
   ) : (
     <>
-      <Lectura etiqueta="Reto" valor={cifra(reto.rpmObjetivo, 0)} unidad="rpm" acento />
-      <Lectura etiqueta="Giro" valor={reto.sentido} acento />
-      <Lectura etiqueta="Freno" valor={cifra(reto.carga, 3)} unidad="N·m" acento />
+      {/* una sola ficha: a 1366 cabe en la fila del selector y no le quita alto al motor */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 rounded-lg border border-[#FB8500]/40 bg-[#FB8500]/10 px-2.5 py-1 text-[13px]" data-reto-f10="">
+        <span className="font-semibold uppercase tracking-[0.04em] text-slate-300">Reto</span>
+        <span className="font-mono font-semibold tabular-nums text-[#FFB703]">{cifra(reto.rpmObjetivo, 0)} rpm</span>
+        <span className="font-semibold text-[#FFB703]">{reto.sentido}</span>
+        <span className="text-slate-300">con freno de <span className="font-mono font-semibold tabular-nums text-[#FFB703]">{cifra(reto.carga, 3)} N·m</span></span>
+      </div>
       {selectorModo}
     </>
   );
@@ -347,11 +368,15 @@ export default function PilotoMotorElectrico({ onValidate }: { onValidate?: () =
           {!alerta && medido && veredicto && !veredicto.ok && (
             <span role="status" className="flex items-center gap-1.5 text-[12px] text-amber-200"><ShieldAlert size={14} className="shrink-0" /> {veredicto.mensaje}</span>
           )}
-          <AvisoReto visible={medido && !!veredicto?.ok} onValidate={onValidate} className="!px-3 !py-1.5" texto="El motor cumple el reto y tu predicción es correcta. Valida tu práctica." />
+          <AvisoReto visible={medido && !!veredicto?.ok} onValidate={onValidate} className="flex-wrap !gap-x-3 !gap-y-1.5 !px-3 !py-1.5" texto="El motor cumple el reto y tu predicción es correcta. Valida tu práctica." />
         </GrupoControles>
       )}
     </div>
   );
 
-  return <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} />;
+  return (
+    <RaizLabEstrella id="fisica-10">
+      <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} />
+    </RaizLabEstrella>
+  );
 }

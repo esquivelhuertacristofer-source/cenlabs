@@ -1,210 +1,136 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, Activity, Zap, CheckCircle2, Star, Table, Info, 
-  Trash2, ShieldCheck, Calculator, BookOpen,
-  Binary, Compass, Bot, Volume2, Shapes, Microscope, Battery, Beaker
-} from 'lucide-react';
+import { BookOpen, ListChecks, Compass, ShieldCheck } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { useShallow } from 'zustand/react/shallow';
 import { validarQ9 } from '@/domain/quimica';
-import { audio } from '@/utils/audioEngine';
+import { useBancoCelda } from '@/components/simuladores/qmi09/banco';
 
-export default function BitacoraCeldasGalvanicas({ onValidate }: { onValidate?: () => void }) {
-  const { celda, validarP9, setRespuestaP9 } = useSimuladorStore(useShallow((s) => ({ celda: s.celda, validarP9: s.validarP9, setRespuestaP9: s.setRespuestaP9 })));
-  const [aviso, setAviso] = useState<string | null>(null);
-  const [anodo, setAnodo] = useState("");
-  const [catodo, setCatodo] = useState("");
-  const [voltaje, setVoltaje] = useState("");
-  const [conclusionText, setConclusionText] = useState("");
+type Tono = 'ok' | 'mal' | 'neutro';
+const TONOS: Record<Tono, { caja: string; titulo: string; punto: string }> = {
+  ok: { caja: 'border-emerald-200 bg-emerald-50', titulo: 'text-emerald-700', punto: 'bg-emerald-500' },
+  mal: { caja: 'border-amber-200 bg-amber-50', titulo: 'text-amber-700', punto: 'bg-amber-500' },
+  neutro: { caja: 'border-slate-200 bg-slate-50', titulo: 'text-slate-500', punto: 'bg-slate-300' },
+};
 
-  const quantumMsg = "Identifica los metales en los vasos. El ánodo siempre será el metal con el potencial de reducción más negativo. No olvides instalar el puente salino para completar el circuito iónico.";
+function Hallazgo({ tono, titulo, valor, dato }: { tono: Tono; titulo: string; valor: string; dato: string }) {
+  const t = TONOS[tono];
+  return (
+    <div className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 transition-all ${t.caja}`} data-hallazgo={dato} data-tono={tono}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className={`text-[13px] font-bold ${t.titulo}`}>{titulo}</span>
+        <span className="text-[14px] font-semibold leading-snug text-[#023047]">{valor}</span>
+      </div>
+      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.punto}`} aria-hidden />
+    </div>
+  );
+}
 
-  const handleReset = () => {
-    setAnodo("");
-    setCatodo("");
-    setVoltaje("");
-    setConclusionText("");
-    audio.playPop();
-  };
+const coma = (v: number, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d).replace('.', ',')}`;
 
-  // Mismo juez que el botón «Validar práctica» (validarQ9); el voltaje leído queda
-  // como registro de la bitácora.
-  const handleValidar = () => {
-    const v = parseFloat(voltaje.replace(',', '.'));
-    if (!anodo || !catodo || isNaN(v)) { setAviso("Completa todos los campos de registro."); audio.playError(); return; }
-    setRespuestaP9(anodo, catodo);
-    const ok = validarP9();
-    if (ok) {
-      audio.playSuccess();
-      setAviso(null);
-    } else {
-      audio.playError();
-      setAviso(validarQ9(useSimuladorStore.getState().celda).mensaje ?? null);
-    }
-  };
+/**
+ * Bitácora de las celdas galvánicas: el cuaderno del alumno. Dice qué mirar en la
+ * exploración (celda de Daniell), registra en vivo el montaje del reto y guarda el
+ * análisis escrito.
+ *
+ * UN SOLO JUEZ, UN SOLO SITIO: el ánodo y el cátodo se eligen en los mandos del
+ * laboratorio y se validan allí («Validar celda», el mismo juez que «Validar práctica»
+ * de la cabecera: `validarQ9`). Aquí no hay otro formulario ni otro botón de validar.
+ * NO REGALA: la identificación sólo se da por buena después de validar.
+ */
+export default function BitacoraCeldasGalvanicas(_props: { onValidate?: () => void }) {
+  const celda = useSimuladorStore(useShallow((s) => s.celda));
+  const modo = useBancoCelda((b) => b.modo);
+  const [conclusionText, setConclusionText] = useState('');
 
+  const seed = celda.seedMetales ?? [];
+  const montados = [celda.vasoIzq, celda.vasoDer];
+  const electrodos = seed.length >= 2 && seed.every((m) => montados.includes(m)) && celda.vasoIzq !== celda.vasoDer;
+  const circuito = celda.puenteSalino && celda.cablesConectados;
+  const hayLectura = electrodos && circuito;
+  const validado = celda.status === 'success';
+  const intentado = celda.status === 'error';
+  const r = celda.respuesta;
+  const respondido = !!r?.anodo && !!r?.catodo;
+  const veredicto = validarQ9(celda);
   const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
-  const canValidate = celda.status === 'success' && wordCount >= 30;
+  const reto = modo === 'reto';
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
-      
-      {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
-      <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-orange-500/30 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-           <Bot size={60} className="text-white" />
+    <div className="space-y-3 animate-in fade-in duration-500 font-['Outfit'] pb-10" data-bitacora="quimica-9">
+
+      {/* QUÉ TOCA AHORA */}
+      <div className="rounded-[1.6rem] border border-sky-200 bg-sky-50 p-4 shadow-sm" data-seccion="ahora">
+        <div className="mb-1.5 flex items-center gap-2">
+          <Compass size={16} className="text-[#219EBC]" />
+          <h4 className="text-[14px] font-black tracking-wide text-[#023047]">{reto ? 'Reto: arma e identifica tu celda' : 'Explora la celda de Daniell'}</h4>
         </div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-             <div className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
-             <span className="text-[10px] font-black text-orange-400/80 uppercase tracking-[0.2em]">Asistente de Voz Activo</span>
+        {reto ? (
+          <ol className="list-decimal space-y-1 pl-5 text-[14px] font-medium leading-snug text-slate-700">
+            <li>Coloca un electrodo de cada metal, uno en cada vaso.</li>
+            <li>Pon el puente salino y conecta las puntas del voltímetro.</li>
+            <li>Mira el signo de la lectura y decide cuál metal es el ánodo y cuál el cátodo.</li>
+            <li>Pulsa <b>Validar celda</b> en los mandos del laboratorio.</li>
+          </ol>
+        ) : (
+          <ul className="list-disc space-y-1 pl-5 text-[14px] font-medium leading-snug text-slate-700">
+            <li>Baja <b>[Cu²⁺]</b> o <b>[Zn²⁺]</b> y mira cómo cambia <b>E</b>: eso es la ecuación de Nernst.</li>
+            <li>Cambia la <b>carga</b>: con más corriente, la tensión en bornes <b>V</b> se aleja de <b>E</b>.</li>
+            <li>Sube la cámara rápida y sigue el punto por la recta de Nernst hasta el equilibrio (E = 0).</li>
+            <li>Cuando lo tengas claro, pasa a <b>Reto</b> en los mandos.</li>
+          </ul>
+        )}
+      </div>
+
+      {/* REGISTRO DEL RETO */}
+      <div className={`space-y-2 rounded-[1.6rem] border border-slate-200 bg-white p-4 shadow-sm ${reto ? '' : 'opacity-70'}`} data-seccion="hallazgos">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ListChecks size={16} className="text-[#219EBC]" />
+            <h4 className="text-[14px] font-black tracking-wide text-[#023047]">Registro del reto</h4>
           </div>
-          
-          <h4 className="text-white font-black text-lg leading-tight mb-2">Auditoría Electroquímica</h4>
-          <p className="text-[11px] text-slate-400 font-medium mb-6 leading-relaxed">
-            Presiona el botón para recibir instrucciones sobre potenciales de reducción y la configuración de la celda galvánica.
+          {seed.length >= 2 && <span className="text-[13px] font-bold text-slate-600">{seed.join(' y ')}</span>}
+        </div>
+        <Hallazgo dato="electrodos" tono={electrodos ? 'ok' : 'neutro'} titulo="Electrodos"
+          valor={electrodos ? `${celda.vasoIzq} en el vaso izquierdo · ${celda.vasoDer} en el derecho` : 'Falta un electrodo de cada metal, uno en cada vaso'} />
+        <Hallazgo dato="circuito" tono={circuito ? 'ok' : 'neutro'} titulo="Circuito cerrado"
+          valor={`Puente salino ${celda.puenteSalino ? 'puesto' : 'sin poner'} · puntas ${celda.cablesConectados ? 'conectadas' : 'sin conectar'}`} />
+        <Hallazgo dato="lectura" tono={hayLectura ? (celda.voltaje > 0 ? 'ok' : 'mal') : 'neutro'} titulo="Lectura del voltímetro"
+          valor={hayLectura
+            ? (celda.voltaje > 0 ? `${coma(celda.voltaje)} V` : `${coma(celda.voltaje)} V · la aguja va al revés: revisa a qué electrodo va la punta COM`)
+            : 'Sin lectura hasta cerrar el circuito'} />
+        <Hallazgo dato="identificacion" tono={validado ? 'ok' : intentado && respondido ? 'mal' : 'neutro'} titulo="Ánodo y cátodo"
+          valor={validado ? `Ánodo ${r?.anodo} · cátodo ${r?.catodo} · identificación correcta`
+            : respondido ? `Ánodo ${r?.anodo} · cátodo ${r?.catodo} · ${intentado ? 'aún no es correcta' : 'se comprueba al validar'}`
+            : 'Elígelos en los mandos del laboratorio'} />
+        {validado ? (
+          <p className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[14px] font-bold text-emerald-700" role="status">
+            <ShieldCheck size={16} className="shrink-0" /> Celda armada e identificada.
           </p>
-          
-          <button 
-            onClick={() => audio.playNotification()}
-            className="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 rounded-2xl text-white font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-orange-500/20"
-          >
-            <Volume2 size={18} fill="currentColor" className="text-white" />
-            Solicitar Informe Redox
-          </button>
+        ) : intentado && veredicto.mensaje ? (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[14px] font-semibold leading-snug text-amber-800" role="status" data-aviso-bitacora="">{veredicto.mensaje}</p>
+        ) : (
+          <p className="px-1 text-[13px] font-medium leading-snug text-slate-500">Se valida en un solo sitio: el botón <b>Validar celda</b> de los mandos (hace lo mismo que «Validar práctica»).</p>
+        )}
+      </div>
+
+      {/* ANÁLISIS */}
+      <div className="space-y-2 rounded-[1.6rem] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <BookOpen size={16} className="text-[#023047]" />
+            <span className="text-[14px] font-black tracking-wide text-[#023047]">Análisis redox</span>
+          </div>
+          <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{wordCount}/30 palabras</span>
         </div>
+        <textarea
+          value={conclusionText} onChange={(e) => setConclusionText(e.target.value)}
+          placeholder="Explica cómo funciona la celda, para qué sirve el puente salino y por qué el metal que elegiste como ánodo es el que se oxida."
+          rows={5}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[14px] font-medium leading-snug text-slate-700 placeholder:text-slate-500 focus:border-[#219EBC] focus:outline-none"
+        />
       </div>
-
-      {/* REGISTRO DE HALLAZGOS EN TIEMPO REAL */}
-      <div className="bg-white/5 rounded-[2rem] border border-white/10 p-6 overflow-hidden relative">
-         <div className="flex items-center gap-2 mb-4">
-            <Microscope size={14} className="text-orange-400" />
-            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Registro de Hallazgos</h4>
-         </div>
-
-         <div className="space-y-4">
-            {/* Hallazgo: Puente Salino */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${celda.puenteSalino ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${celda.puenteSalino ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Circuito Iónico
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {celda.puenteSalino ? '✓ Puente Salino Instalado' : '... Esperando Conexión'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${celda.puenteSalino ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-
-            {/* Hallazgo: FEM */}
-            <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${celda.voltaje > 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-               <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${celda.voltaje > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                     Energía Libre (ΔG)
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                     {celda.voltaje > 0 ? `✓ FEM: ${celda.voltaje.toFixed(2)}V Detectada` : '... Sin Diferencia de Potencial'}
-                  </span>
-               </div>
-               <div className={`w-2 h-2 rounded-full ${celda.voltaje > 0 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-600'}`} />
-            </div>
-         </div>
-      </div>
-
-      {/* MONITOR DE CELDA */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-            <Calculator size={20} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-[#023047] uppercase tracking-widest">Cálculo de Potencial</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">E°celda = E°cat - E°ano</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-             <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Ánodo (-)</label>
-                <select value={anodo} onChange={e => setAnodo(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[10px] font-black text-[#023047] focus:border-orange-500 outline-none">
-                   <option value="">Metal...</option>
-                   {celda.seedMetales.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-             </div>
-             <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Cátodo (+)</label>
-                <select value={catodo} onChange={e => setCatodo(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[10px] font-black text-[#023047] focus:border-blue-500 outline-none">
-                   <option value="">Metal...</option>
-                   {celda.seedMetales.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-             </div>
-          </div>
-
-          <div className="relative">
-             <input 
-               type="number" step="0.01" placeholder="0.00"
-               value={voltaje} onChange={e => setVoltaje(e.target.value)}
-               className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-4xl font-black text-[#023047] text-center font-mono outline-none focus:border-orange-500 transition-all shadow-inner"
-             />
-             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-xl">V</div>
-          </div>
-
-          <button 
-            onClick={handleValidar}
-            disabled={celda.status === 'success'}
-            className={`w-full py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95 ${celda.status === 'success' ? 'bg-emerald-500 text-white' : 'bg-[#023047] text-white hover:bg-[#054a6d]'}`}
-          >
-            {celda.status === 'success' ? 'Celda Certificada' : 'Validar Potencial'}
-          </button>
-          {aviso && celda.status !== 'success' && (
-            <p className="text-[11px] font-bold text-amber-600">{aviso}</p>
-          )}
-        </div>
-      </div>
-
-      {/* ENSAYO CRÍTICO */}
-      <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                <BookOpen size={14} className="text-[#023047]" />
-                <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Análisis Redox</span>
-             </div>
-             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
-          </div>
-          <textarea 
-             value={conclusionText} onChange={e => setConclusionText(e.target.value)}
-             placeholder="Explica el funcionamiento de la celda galvánica, el papel del puente salino y por qué el metal elegido como ánodo sufre una reacción de oxidación..."
-             rows={4}
-             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-orange-500 italic"
-          />
-      </div>
-
-      {/* BOTONES DE ACCIÓN FINALES */}
-      <div className="flex gap-3">
-        <button 
-          onClick={handleReset}
-          className="w-14 h-14 bg-slate-100 hover:bg-orange-50 text-slate-400 hover:text-orange-500 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200"
-        >
-          <Trash2 size={20} />
-        </button>
-        <button 
-          onClick={() => { 
-            if (onValidate) onValidate();
-            else { audio.playSuccess(); alert("Certificación Redox Completada."); }
-          }}
-          disabled={!canValidate}
-          className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-        >
-          <ShieldCheck size={16} />
-          {canValidate ? 'Misión Certificada' : 'Someter Análisis'}
-        </button>
-      </div>
-
     </div>
   );
 }

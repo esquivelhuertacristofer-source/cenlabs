@@ -65,10 +65,10 @@ const PX = (p: Panel, a: number) => p.x0 + ((a - p.a0) / (p.a1 - p.a0)) * (p.x1 
 const PY = (p: Panel, v: number) => p.y1 - ((v - p.v0) / (p.v1 - p.v0)) * (p.y1 - p.y0);
 
 function leyenda(g: CanvasRenderingContext2D, x: number, y: number, items: [string, string, boolean?][], maxX: number) {
-  g.font = FUENTE(10, 600); g.textBaseline = 'middle'; g.textAlign = 'left';
+  g.font = FUENTE(13, 600); g.textBaseline = 'middle'; g.textAlign = 'left';
   let cx = x;
   for (const [t, c, rayada] of items) {
-    const ancho = 22 + g.measureText(t).width;
+    const ancho = 24 + g.measureText(t).width;
     if (cx + ancho - 6 > maxX) break;
     g.strokeStyle = c; g.lineWidth = 2;
     g.setLineDash(rayada ? [3, 2.5] : []);
@@ -96,7 +96,7 @@ function dibujarPar(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor, 
   // en mN·m
   const amp = Math.max(k * I * G_EXTREMOS.max, tc) * 1000;
   const yMax = tope(Math.max(0.5, amp * 1.18));
-  const izq = 34, der = 8, arriba = 20, abajo = 15;
+  const izq = 48, der = 8, arriba = 24, abajo = 19;
   const P: Panel = { x0: izq, x1: w - der, y0: arriba, y1: h - abajo, a0: 0, a1: 360, v0: -yMax, v1: yMax };
   // rejilla
   g.strokeStyle = COL.rejilla; g.lineWidth = 1; g.beginPath();
@@ -105,9 +105,9 @@ function dibujarPar(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor, 
   g.stroke();
   g.strokeStyle = COL.cero; g.beginPath(); { const y = Math.round(PY(P, 0)) + 0.5; g.moveTo(P.x0, y); g.lineTo(P.x1, y); } g.stroke();
   // ejes
-  g.fillStyle = COL.tenue; g.font = FUENTE(9.5); g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.fillStyle = COL.tenue; g.font = FUENTE(13); g.textAlign = 'right'; g.textBaseline = 'middle';
   for (const v of [-yMax, 0, yMax]) g.fillText(cifraSig(v, 2), P.x0 - 4, PY(P, v));
-  g.save(); g.translate(8, (P.y0 + P.y1) / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('mN·m', 0, 0); g.restore();
+  g.save(); g.translate(9, (P.y0 + P.y1) / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('mN·m', 0, 0); g.restore();
   g.textAlign = 'center'; g.textBaseline = 'top';
   for (const a of [0, 90, 180, 270]) g.fillText(`${a}°`, PX(P, a) + (a === 0 ? 6 : 0), P.y1 + 2);
   g.textAlign = 'right'; g.fillText('θ', P.x1, P.y1 + 2);
@@ -147,13 +147,13 @@ function dibujarPar(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor, 
   g.restore();
 
   // título y leyenda
-  g.font = FUENTE(10.5, 700); g.fillStyle = COL.texto; g.textAlign = 'left'; g.textBaseline = 'middle';
-  g.fillText('τ(θ)', izq, 9);
+  g.font = FUENTE(13, 700); g.fillStyle = COL.texto; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText('τ(θ)', izq, 11);
   const ini = izq + g.measureText('τ(θ)').width + 10;
   const items: [string, string, boolean?][] = [['conmutador', COL.par], ['1 bobina sin él', COL.fantasma, true], ['freno', COL.freno, true]];
-  leyenda(g, ini, 9, c.tipo === 'dipolo' ? items : [['freno', COL.freno, true]], w - der - reserva);
+  leyenda(g, ini, 11, c.tipo === 'dipolo' ? items : [['freno', COL.freno, true]], w - der - reserva);
   if (c.tipo !== 'dipolo' && I > 0) {
-    g.font = FUENTE(10, 600); g.fillStyle = COL.par; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.font = FUENTE(13, 600); g.fillStyle = COL.par; g.textAlign = 'center'; g.textBaseline = 'bottom';
     g.fillText('polos iguales: las dos fuerzas no dan par', (P.x0 + P.x1) / 2, PY(P, 0) - 4);
   }
 }
@@ -163,7 +163,7 @@ function dibujarPar(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor, 
 function dibujarOmega(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor, objetivo: number | null, reserva = 0) {
   const g = preparar(cv, w, h); if (!g) return;
   const W = r.ventana, tNow = r.e.t;
-  const izq = 40, der = 34, arriba = 20, abajo = 15;
+  const izq = 54, der = 44, arriba = 24, abajo = 19;
   // rango de n e I en la ventana
   let nMin = 0, nMax = 0, iMax = 0;
   const n0 = r.hn;
@@ -185,15 +185,15 @@ function dibujarOmega(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor
   const paso = pasoBonito(P.v1 - P.v0, 3);
   g.strokeStyle = COL.rejilla; g.lineWidth = 1; g.beginPath();
   for (let v = Math.ceil(P.v0 / paso) * paso; v <= P.v1 + 1e-9; v += paso) { const y = Math.round(PY(P, v)) + 0.5; g.moveTo(P.x0, y); g.lineTo(P.x1, y); }
-  const pt = pasoBonito(W, Math.max(2, Math.round((P.x1 - P.x0) / 75)));
+  const pt = pasoBonito(W, Math.max(2, Math.round((P.x1 - P.x0) / 95)));
   for (let t = -Math.floor(W / pt) * pt; t <= 1e-9; t += pt) { const x = Math.round(PX(P, t)) + 0.5; g.moveTo(x, P.y0); g.lineTo(x, P.y1); }
   g.stroke();
-  g.fillStyle = COL.tenue; g.font = FUENTE(9.5); g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.fillStyle = COL.tenue; g.font = FUENTE(13); g.textAlign = 'right'; g.textBaseline = 'middle';
   for (let v = Math.ceil(P.v0 / paso) * paso; v <= P.v1 + 1e-9; v += paso) g.fillText(cifra(v, 0), P.x0 - 4, PY(P, v));
-  g.save(); g.translate(8, (P.y0 + P.y1) / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('rpm', 0, 0); g.restore();
+  g.save(); g.translate(9, (P.y0 + P.y1) / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('rpm', 0, 0); g.restore();
   g.textAlign = 'left';
   for (const v of [0, Im / 2, Im]) g.fillText(cifraSig(v, 2), P.x1 + 4, PY(P, P.v0 + ((P.v1 - P.v0) * v) / Im));
-  g.save(); g.translate(w - 6, (P.y0 + P.y1) / 2); g.rotate(Math.PI / 2); g.textAlign = 'center'; g.fillStyle = COL.I; g.fillText('A', 0, 0); g.restore();
+  g.save(); g.translate(w - 8, (P.y0 + P.y1) / 2); g.rotate(Math.PI / 2); g.textAlign = 'center'; g.fillStyle = COL.I; g.fillText('A', 0, 0); g.restore();
   g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = COL.tenue;
   const decT = pt < 0.01 ? 3 : pt < 0.1 ? 2 : pt < 1 ? 1 : 0;
   for (let t = -Math.floor(W / pt) * pt; t <= 1e-9; t += pt) {
@@ -226,12 +226,12 @@ function dibujarOmega(cv: HTMLCanvasElement, w: number, h: number, r: RelojMotor
   trazo((m) => PY(P, aRpm(m.w)), COL.n, 2.1);
   g.restore();
   // título y leyenda
-  g.font = FUENTE(10.5, 700); g.fillStyle = COL.texto; g.textAlign = 'left'; g.textBaseline = 'middle';
-  g.fillText('ω(t)', izq, 9);
+  g.font = FUENTE(13, 700); g.fillStyle = COL.texto; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText('ω(t)', izq, 11);
   const ini = izq + g.measureText('ω(t)').width + 10;
   const it: [string, string, boolean?][] = [['n', COL.n], ['I', COL.I]];
   if (objetivo !== null) it.push(['objetivo', COL.objetivo, true]);
-  leyenda(g, ini, 9, it, w - der - reserva);
+  leyenda(g, ini, 11, it, w - der - reserva);
 }
 
 // ───────────────────────────── cifras ─────────────────────────────
@@ -243,9 +243,11 @@ function Cifras({ reloj, compacto }: { reloj: RelojMotor; compacto: boolean }) {
     barJ: useRef<HTMLDivElement>(null), barM: useRef<HTMLDivElement>(null),
   };
   useEffect(() => {
-    let t0 = 0;
+    let t0 = 0, reinicios = reloj.reinicios;
     const f = (forzar = false) => {
       const ahora = performance.now();
+      // tras un reinicio (cambio de modo) la cifra vieja no puede quedarse ni un instante
+      if (reloj.reinicios !== reinicios) { reinicios = reloj.reinicios; forzar = true; }
       if (!forzar && ahora - t0 < 110) return;
       t0 = ahora;
       const l = reloj.lectura();
@@ -281,7 +283,7 @@ function Cifras({ reloj, compacto }: { reloj: RelojMotor; compacto: boolean }) {
     );
   }
   return (
-    <div className="flex w-[150px] shrink-0 flex-col justify-between gap-1 py-0.5" data-cifras-motor="">
+    <div className="flex w-[176px] shrink-0 flex-col justify-between gap-1 py-0.5" data-cifras-motor="">
       <div>
         <div className={et}>Tacómetro</div>
         <div className="flex items-baseline gap-1">
@@ -324,7 +326,7 @@ export function DockMotor({ reloj, objetivo }: { reloj: RelojMotor; objetivo: nu
     if (!forzar && ahora - ultimo.current < 30) return;
     ultimo.current = ahora;
     const verPar = !estrecho || vista === 'par', verOmega = !estrecho || vista === 'omega';
-    const reserva = estrecho ? 92 : 0;
+    const reserva = estrecho ? 104 : 0;
     if (verPar && lA.current && tamA.w > 0) dibujarPar(lA.current, tamA.w, tamA.h, reloj, reserva);
     if (verOmega && lB.current && tamB.w > 0) dibujarOmega(lB.current, tamB.w, tamB.h, reloj, obj.current, reserva);
   }, [reloj, tamA.w, tamA.h, tamB.w, tamB.h, estrecho, vista]);
@@ -334,14 +336,14 @@ export function DockMotor({ reloj, objetivo }: { reloj: RelojMotor; objetivo: nu
   const lienzo = 'relative min-w-0 overflow-hidden rounded-md ring-1 ring-black/40';
   return (
     <div ref={caja} data-dock="motor"
-      className={`relative flex shrink-0 border-t border-white/10 bg-[#0c1524] p-2 ${estrecho ? 'h-[164px] flex-col gap-1.5' : 'h-[clamp(140px,27%,188px)] gap-2.5'}`}>
+      className={`relative flex shrink-0 border-t border-white/10 bg-[#0c1524] p-2 ${estrecho ? 'h-[178px] flex-col gap-1.5' : 'h-[clamp(140px,27%,188px)] gap-2.5'}`}>
       <Cifras reloj={reloj} compacto={estrecho} />
       <div className={`relative flex min-h-0 min-w-0 flex-1 ${estrecho ? 'flex-col' : 'gap-2'}`}>
         {estrecho && (
           <div className="absolute right-1 top-1 z-10 flex gap-0.5 rounded-md bg-[#0a1220]/90 p-0.5" role="tablist" aria-label="Gráfica">
             {(['par', 'omega'] as const).map((v) => (
               <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
-                className={`h-[20px] rounded px-2 text-[10.5px] font-semibold ${vista === v ? 'bg-sky-400/25 text-white' : 'text-slate-400 hover:text-white'}`}>
+                className={`h-[22px] rounded px-2 text-[13px] font-semibold ${vista === v ? 'bg-sky-400/25 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {v === 'par' ? 'τ(θ)' : 'ω(t)'}
               </button>
             ))}

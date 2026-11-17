@@ -7,14 +7,23 @@
  * estado de ESE cuadro. El rotor 3D, las fuerzas, la corriente en las cabezas de bobina,
  * el tacómetro, el dock (τ(θ) y ω(t)) y las cifras leen este mismo objeto.
  *
- * Cámara lenta automática: el inducido se ve girar a ≤ 2,4 vueltas por segundo de pantalla.
- * El factor sale de la velocidad mayor entre la actual y la de régimen, y se rotula siempre.
+ * Cámara lenta automática: EN RÉGIMEN el inducido se ve girar a ≤ 2,4 vueltas por segundo de
+ * pantalla. El factor sale de la velocidad mayor entre la actual y la de régimen, y se rotula
+ * siempre.
+ *
+ * Transitorios en tiempo real: cuando un mando deja al motor lejos de su régimen (frenar,
+ * cortar, polos iguales, invertir, energizar) el reloj pasa a ×1 mientras dura el transitorio
+ * y vuelve solo a la cámara lenta al llegar. Sin esto, la inercia REAL del rotor (3–4 s para
+ * pararse con el freno suave) vista a ×1/10 eran 30–40 s de pantalla con el tacómetro casi
+ * quieto. La física no cambia: sólo cuántos segundos de modelo pasan por segundo de pantalla.
+ * Si el transitorio dura más de 8 s (rotor muy rápido y freno suave), se acelera ×2 o ×4,
+ * también rotulado.
  *
  * Tacómetro óptico: una cinta reflectante en el acople; cada vez que pasa frente al sensor
  * (θ múltiplo de 2π) da un pulso y la lectura es 60/T entre pulsos, como el de verdad.
  */
 import {
-  paso as pasoMotor, configImanes, corriente, estadoInicial, regimen, aRpm, bobinaActiva, fcemMedia,
+  paso as pasoMotor, configImanes, corriente, estadoInicial, regimen, aRpm, bobinaActiva, fcemMedia, tauMecanica, J_ROTOR,
   type ConfigImanes, type EstadoDin, type ParamsMotor, type Regimen,
 } from './motor';
 import { kMotor, rArmadura } from '@/domain/fisica';
@@ -25,6 +34,12 @@ export const LENTOS = [1, 1 / 2, 1 / 5, 1 / 10, 1 / 20, 1 / 50, 1 / 100] as cons
 export const VUELTAS_VISIBLES = 2.4;
 /** Segundos de pantalla que abarca la gráfica ω(t). */
 export const SEGUNDOS_GRAFICA = 12;
+/** Factores de un transitorio (≥ 1: tiempo real o cámara rápida). */
+export const RAPIDOS = [1, 2, 4] as const;
+/** Segundos de pantalla que se quiere que dure, como mucho, un transitorio. */
+export const SEGUNDOS_TRANSITORIO = 8;
+/** Se entra en transitorio a más de un 5 % del régimen y se sale a menos de un 1 % (y con el tacómetro al día). */
+export const UMBRAL_TRANSITORIO = { entra: 0.05, sale: 0.01 } as const;
 /** Subpaso máximo de integración (s de modelo). */
 export const H_MAX = 1e-4;
 
@@ -34,8 +49,8 @@ export function factorAuto(rps: number): number {
   return LENTOS[LENTOS.length - 1];
 }
 
-/** «×1/10» o «×1». */
-export const rotuloFactor = (f: number) => (f >= 1 ? '×1' : `×1/${Math.round(1 / f)}`);
+/** «×1/10», «×1» o «×4». */
+export const rotuloFactor = (f: number) => (f > 1 ? `×${Math.round(f)}` : f === 1 ? '×1' : `×1/${Math.round(1 / f)}`);
 
 export interface Lectura {
   /** rpm del tacómetro (con signo: + horario); 0 si no llegan pulsos */
@@ -62,11 +77,18 @@ export class RelojMotor {
   e: EstadoDin;
   reg: Regimen;
   factor = 1 / 10;
+  /** el motor va camino de su régimen (o de pararse): el reloj corre a ×1 o más */
+  transitorio = false;
+  private factorTransitorio = 1;
+  /** tope de seguridad (t de modelo): el transitorio no se alarga más allá */
+  private tFinTransitorio = Infinity;
   /** s de modelo que abarca ω(t) */
   ventana = 1.2;
   pausa = false;
   /** sube con cada cuadro integrado o cambio de parámetros */
   version = 0;
+  /** sube con cada `reiniciar` (cambio de modo): los instrumentos se refrescan sin esperar a su cadencia */
+  reinicios = 0;
   /** historia ω(t) e I(t) (anillo) */
   readonly ht = new Float64Array(CAP);
   readonly hw = new Float32Array(CAP);
@@ -94,13 +116,47 @@ export class RelojMotor {
   suscribir(f: () => void): () => void { this.subs.add(f); return () => { this.subs.delete(f); }; }
   private avisar() { this.version++; this.subs.forEach((f) => f()); }
 
-  /** Elige la cámara lenta: con `regimen`, también fija la ventana de ω(t). */
+  /** ω a la que tiende el motor con los mandos actuales (rad/s): la de régimen, o 0 si no hay par que lo mueva. */
+  get omegaMeta(): number { return this.p.energizado && this.reg.arranca ? this.reg.omega : 0; }
+
+  /** ¿Está ω a más de `umbral` (fracción del régimen; mínimo 0,5 rad/s) de su meta? */
+  private lejos(umbral: number): boolean {
+    const meta = this.omegaMeta;
+    return Math.abs(this.e.omega - meta) > Math.max(umbral * Math.abs(meta), 0.5);
+  }
+
+  /** Duración estimada (s de modelo) del transitorio que empieza ahora. */
+  private duracionTransitorio(): number {
+    // con par motor: exponencial de constante τ_m (≈ 4 constantes); sin él, el freno seco: |ω|·J/τ_c
+    if (this.omegaMeta !== 0) return 4 * tauMecanica(this.p.N);
+    return this.p.carga > 0 ? (Math.abs(this.e.omega) * J_ROTOR) / this.p.carga : Infinity;
+  }
+
+  /** Abre (o cierra) el transitorio según lo lejos que quede el motor de su meta. */
+  private abrirTransitorio() {
+    this.transitorio = this.lejos(UMBRAL_TRANSITORIO.entra);
+    if (!this.transitorio) return;
+    const d = this.duracionTransitorio();
+    this.tFinTransitorio = Number.isFinite(d) ? this.e.t + 3 * d + 2 : Infinity;
+    this.factorTransitorio = RAPIDOS.find((f) => d / f <= SEGUNDOS_TRANSITORIO) ?? RAPIDOS[RAPIDOS.length - 1];
+  }
+
+  /** El tacómetro (que mide por pulsos, una vez por vuelta) ya marca la velocidad que lleva el rotor. */
+  private tacometroAlDia(): boolean {
+    const real = aRpm(this.e.omega);
+    return Math.abs(this.lectura().nTacho - real) <= Math.max(0.03 * Math.abs(real), 3);
+  }
+
+  /** Elige el factor de tiempo: con `conVentana`, también fija la ventana de ω(t). */
   private elegirFactor(conVentana: boolean) {
     const rpsReg = this.p.energizado && this.reg.arranca ? Math.abs(this.reg.rpm) / 60 : 0;
     const rpsAhora = Math.abs(this.e.omega) / (2 * Math.PI);
-    const f = factorAuto(Math.max(rpsReg, rpsAhora));
-    // histéresis: sólo se acelera la cámara si con el factor nuevo sigue holgado
-    if (f < this.factor || Math.max(rpsReg, rpsAhora) * f <= VUELTAS_VISIBLES * 0.85) this.factor = f;
+    if (this.transitorio) this.factor = this.factorTransitorio;
+    else {
+      const f = factorAuto(Math.max(rpsReg, rpsAhora));
+      // histéresis: sólo se acelera la cámara si con el factor nuevo sigue holgado
+      if (f < this.factor || Math.max(rpsReg, rpsAhora) * f <= VUELTAS_VISIBLES * 0.85) this.factor = f;
+    }
     if (conVentana) {
       const fv = rpsReg > 0 ? factorAuto(rpsReg) : this.factor;
       this.ventana = Math.max(0.12, SEGUNDOS_GRAFICA * fv);
@@ -115,8 +171,22 @@ export class RelojMotor {
     this.p = nuevo;
     this.c = configImanes(nuevo.izq, nuevo.der);
     this.reg = regimen(nuevo);
+    this.abrirTransitorio();
     this.elegirFactor(true);
     this.avisar();
+  }
+
+  /**
+   * Estado NUEVO con estos mandos (cambio de modo Banco ↔ Reto): nada de lo anterior se hereda.
+   * Si están energizados y el motor arranca, sale ya en su régimen; si no, parado (ω = 0, sin
+   * pulsos en el tacómetro). La historia de ω(t) se rehace desde ese estado.
+   */
+  reiniciar(p: ParamsMotor) {
+    this.p = { ...p };
+    this.c = configImanes(p.izq, p.der);
+    this.reg = regimen(p);
+    this.reinicios++;
+    this.arrancarEnRegimen();
   }
 
   /** Lleva el motor a su régimen (si arranca) y rellena ω(t) con la ventana anterior. */
@@ -125,6 +195,7 @@ export class RelojMotor {
     this.e = estadoInicial(theta);
     this.hn = 0; this.hi = 0; this.tUltimaMuestra = -Infinity;
     this.tacho = { rpm: 0, tPulso: -Infinity, periodo: Infinity, pulsos: 0 };
+    this.transitorio = false;
     if (this.p.energizado && this.reg.arranca) {
       this.e.omega = this.reg.omega;
       this.e.quieto = false;
@@ -139,6 +210,8 @@ export class RelojMotor {
   paso(dtReal: number) {
     if (this.pausa || !(dtReal > 0)) return;
     this.integrar(Math.min(dtReal, 0.1) * this.factor);
+    // el transitorio acaba cuando el rotor llegó Y el tacómetro lo marca (así el alumno ve la cifra final a ×1)
+    if (this.transitorio && ((!this.lejos(UMBRAL_TRANSITORIO.sale) && this.tacometroAlDia()) || this.e.t > this.tFinTransitorio)) this.transitorio = false;
     this.elegirFactor(false);
     this.avisar();
   }

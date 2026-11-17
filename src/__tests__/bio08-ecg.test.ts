@@ -21,7 +21,10 @@ import {
   TEJIDO, type ModeloElectrico,
 } from '@/components/simuladores/bio08/electro';
 import { RelojCardiaco, valvulas, tiemposDominio, type ModeloReloj } from '@/components/simuladores/bio08/reloj';
-import { tiemposCicloB8 } from '@/domain/biologia';
+import { tiemposCicloB8, TOLERANCIA_LECTURA_B8 } from '@/domain/biologia';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { leerCalibrador, ajustarMarca, moverMarca, MM_POR_S, MM_CUADRO_GRANDE, PASO_FINO_MM } from '@/components/simuladores/bio08/calibrador';
 
 jest.setTimeout(240000);
 
@@ -226,5 +229,81 @@ describe('mecánica', () => {
     expect(tiemposDominio(el.act.vMin, el.act.rMin, 2, m, mod.act)[0]).toBeCloseTo(c.pr, 6);
     expect(tiemposDominio(el.act.vMax, el.act.rMax, 2, m, mod.act)[0]).toBeCloseTo(c.qrsFin, 6);
     expect(tiemposDominio(el.act.aMax, el.act.aMax, 1, m, mod.act)[0]).toBeCloseTo(c.p, 6);
+  });
+});
+
+describe('calibrador de la tira: mide el intervalo, no da la FC', () => {
+  test('lee la distancia entre las dos marcas en ms (25 mm/s) y en cuadros grandes (5 mm), sin importar el orden', () => {
+    expect(MM_POR_S).toBe(25);
+    expect(MM_CUADRO_GRANDE).toBe(5);
+    const l = leerCalibrador(12, 32);                       // 20 mm
+    expect(l.mm).toBe(20);
+    expect(l.ms).toBe(800);
+    expect(l.cuadrosGrandes).toBe(4);
+    expect(leerCalibrador(32, 12)).toEqual(l);
+    expect(leerCalibrador(7.25, 7.25).ms).toBe(0);
+    // paso fino: un cuarto de milímetro son 10 ms
+    expect(leerCalibrador(0, PASO_FINO_MM).ms).toBe(10);
+  });
+
+  test('NO muestra la FC: ni el dato ni el texto llevan latidos por minuto, para ningún intervalo', () => {
+    for (let mm = 0; mm <= 110; mm += PASO_FINO_MM) {
+      const l = leerCalibrador(3, 3 + mm);
+      // los únicos datos que entrega: el intervalo en mm, ms y cuadros, y su texto
+      expect(Object.keys(l).sort()).toEqual(['cuadrosGrandes', 'mm', 'ms', 'texto']);
+      expect(l.texto).toBe(`${l.ms} ms · ${l.cuadrosGrandes.toFixed(2).replace('.', ',')} cuadros grandes`);
+      expect(l.texto).not.toMatch(/lpm|lat|bpm|\/\s*min|FC|frecuencia/i);
+      // ningún número del texto es la frecuencia de ese R-R (ni 60 000/ms ni 300/cuadros)
+      if (l.ms >= 240 && l.ms <= 3000) {
+        const fc = 60000 / l.ms;
+        const numeros = (l.texto.match(/\d+(?:,\d+)?/g) ?? []).map((x) => Number(x.replace(',', '.')));
+        expect(numeros).toEqual([l.ms, Number(l.cuadrosGrandes.toFixed(2))]);
+        for (const n of numeros) expect(Math.abs(n - fc)).toBeGreaterThan(0.5);
+      }
+    }
+  });
+
+  test('con el calibrador sobre dos R seguidas de la tira, la FC que calcula el alumno entra en la tolerancia del juez', () => {
+    for (const bpm of [40, 52, 75, 112, 140]) {
+      const rj = new RelojCardiaco(bpm);
+      rj.fijarModelo(mod);
+      rj.paso(6000);
+      // picos R de la derivación II en la historia (posición en mm de papel hacia atrás desde la pluma)
+      const u = VECTOR_DERIVACION.II, D: V3 = [0, 0, 0], v: number[] = [];
+      for (let k = 0; k < 2800 && rj.muestra(k, D); k++) v.push(D[0] * u[0] + D[1] * u[1] + D[2] * u[2]);
+      const max = Math.max(...v), picos: number[] = [];
+      for (let k = 1; k < v.length - 1; k++) if (v[k] > 0.6 * max && v[k] >= v[k - 1] && v[k] > v[k + 1]) picos.push(k);
+      expect(picos.length).toBeGreaterThanOrEqual(2);
+      const mmDe = (k: number) => ajustarMarca((k * 2 / 1000) * MM_POR_S, 1000);   // muestras cada 2 ms
+      const l = leerCalibrador(mmDe(picos[0]), mmDe(picos[1]));
+      // la cuenta la hace el alumno; la resolución de 10 ms deja el error dentro de los ±5 lpm del juez
+      expect(Math.abs(60000 / l.ms - bpm)).toBeLessThan(TOLERANCIA_LECTURA_B8);
+      expect(Math.abs(300 / l.cuadrosGrandes - bpm)).toBeLessThan(TOLERANCIA_LECTURA_B8);
+    }
+  });
+
+  test('las marcas se quedan en el papel visible y en la rejilla de 0,25 mm; el teclado las mueve', () => {
+    expect(ajustarMarca(-3, 100)).toBe(0);
+    expect(ajustarMarca(250, 100)).toBe(100);
+    expect(ajustarMarca(250, 99.9)).toBe(99.75);
+    expect(ajustarMarca(10.1, 100)).toBe(10);
+    expect(ajustarMarca(10.13, 100)).toBe(10.25);
+    expect(moverMarca(10, 'ArrowRight', {}, 100)).toBe(11);                  // 1 mm = 40 ms
+    expect(moverMarca(10, 'ArrowLeft', {}, 100)).toBe(9);
+    expect(moverMarca(10, 'ArrowRight', { shift: true }, 100)).toBe(15);     // un cuadro grande
+    expect(moverMarca(10, 'ArrowLeft', { alt: true }, 100)).toBe(9.75);      // paso fino: 10 ms
+    expect(moverMarca(10, 'Home', {}, 100)).toBe(0);
+    expect(moverMarca(10, 'End', {}, 100)).toBe(100);
+    expect(moverMarca(99.5, 'ArrowRight', {}, 100)).toBe(100);
+    expect(moverMarca(0.5, 'ArrowLeft', {}, 100)).toBe(0);
+    expect(moverMarca(10, 'Enter', {}, 100)).toBeNull();
+  });
+
+  test('ni el dock ni el visor calculan la frecuencia: en sus fuentes no hay «lpm» ni 60 000 / RR', () => {
+    for (const f of ['DockECG.tsx', 'calibrador.ts', 'Electrocardiograma3DScene.tsx']) {
+      const src = readFileSync(join(process.cwd(), 'src/components/simuladores/bio08', f), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');   // sin comentarios
+      expect(src).not.toMatch(/lpm|60[\s_]?000\s*\/|(?<![-\w])300\s*\/|\/\s*reloj\.rr|\/\s*rr\b/i);
+    }
   });
 });

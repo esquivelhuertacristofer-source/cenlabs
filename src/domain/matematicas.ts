@@ -393,6 +393,49 @@ export function validarM10(g: Pick<Galton10State, 'contenedores' | 'probabilidad
   return evaluarM10(g).ok;
 }
 
+/**
+ * Juicio de la PREDICCIÓN sola (sin la muestra): μ = n·p y σ = √(n·p·(1 − p)) con las
+ * n = FILAS_M10 filas reales de la máquina y la misma tolerancia del validador.
+ * «escrita» = los dos campos son números; «correcta» = además coinciden con la binomial.
+ * Quien pinta el hallazgo sólo debe enseñar `correcta` DESPUÉS de que el alumno valide:
+ * antes sería un oráculo para tantear μ y σ.
+ */
+export function juicioPrediccionM10(g: Pick<Galton10State, 'probabilidad' | 'prediccionMedia' | 'prediccionSigma'>, n = FILAS_M10) {
+  const mu = leerNumero(g.prediccionMedia);
+  const sg = leerNumero(g.prediccionSigma);
+  const escrita = Number.isFinite(mu) && Number.isFinite(sg);
+  const p = g.probabilidad;
+  const mediaOk = Number.isFinite(mu) && Math.abs(mu - n * p) <= TOL_PREDICCION_M10;
+  const sigmaOk = Number.isFinite(sg) && Math.abs(sg - Math.sqrt(n * p * (1 - p))) <= TOL_PREDICCION_M10;
+  return { escrita, mediaOk, sigmaOk, correcta: escrita && mediaOk && sigmaOk };
+}
+
+/**
+ * Qué enseñar en el hallazgo «Tu predicción» y en el aviso de los mandos. No da μ ni σ:
+ * dice qué falta (bolitas, escribir, cuál de los dos números no cuadra) y por dónde ir.
+ *  - 'pendiente': aún no se ha validado con estos números (gris, sin veredicto);
+ *  - 'correcta': validada y coincide con la binomial (verde);
+ *  - 'incorrecta': validada y no coincide (rojo).
+ */
+export function hallazgoPrediccionM10(
+  g: Pick<Galton10State, 'contenedores' | 'probabilidad' | 'prediccionMedia' | 'prediccionSigma' | 'status'>,
+): { estado: 'vacia' | 'pendiente' | 'correcta' | 'incorrecta'; pista: string } {
+  const j = juicioPrediccionM10(g);
+  const N = g.contenedores.reduce((a, b) => a + b, 0);
+  const faltan = Math.max(0, MUESTRA_MIN_M10 - N);
+  const bolitas = faltan > 0 ? ` Faltan ${faltan} ${faltan === 1 ? 'bolita' : 'bolitas'} para poder validar.` : '';
+  if (!j.escrita) return { estado: 'vacia', pista: 'Escribe tu μ y tu σ teóricas en los mandos.' };
+  if (g.status === 'idle') return { estado: 'pendiente', pista: 'Se comprueba al validar.' };
+  if (j.correcta) {
+    return { estado: 'correcta', pista: faltan > 0 ? `Tu μ y tu σ coinciden con la binomial.${bolitas}` : 'Tu μ y tu σ coinciden con la binomial.' };
+  }
+  const cual = !j.mediaOk && !j.sigmaOk ? 'Ni tu μ ni tu σ coinciden' : !j.mediaOk ? 'Tu μ no coincide' : 'Tu σ no coincide';
+  const guia = !j.mediaOk
+    ? 'Piensa cuántas veces decide cada bolita y con qué probabilidad va a la derecha.'
+    : 'Recuerda cómo se calcula la varianza de una binomial y saca su raíz.';
+  return { estado: 'incorrecta', pista: `${cual} con la binomial de esta p. ${guia}${bolitas}` };
+}
+
 export function evaluarM10(g: Pick<Galton10State, 'contenedores' | 'probabilidad' | 'prediccionMedia' | 'prediccionSigma'>): VeredictoM {
   const N = g.contenedores.reduce((a, b) => a + b, 0);
   if (N < MUESTRA_MIN_M10) return { ok: false, mensaje: `La muestra tiene ${N} bolitas; se necesitan al menos ${MUESTRA_MIN_M10}.` };

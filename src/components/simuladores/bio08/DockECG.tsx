@@ -8,16 +8,19 @@
  * la pluma (el instante actual, el mismo de la escena) queda fija; con cámara lenta
  * el papel corre más despacio pero sigue midiendo en tiempo del paciente.
  *
- * Lo que NO hay a propósito: ni FC, ni intervalos, ni calibradores con número.
- * Se mide contando cuadros.
+ * Calibrador: dos marcas arrastrables (también con el teclado) sobre el papel; el dock
+ * dice el intervalo entre ellas en ms y en cuadros grandes (bio08/calibrador.ts).
+ *
+ * Lo que NO hay a propósito: la FC. Ni el monitor ni el calibrador la dan: pasar del
+ * intervalo R-R a latidos por minuto es el cálculo del alumno.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pause, Play } from 'lucide-react';
 import { DERIVACIONES, VECTOR_DERIVACION, type Derivacion } from './electro';
 import { PASO_MS, type RelojCardiaco } from './reloj';
 import type { V3 } from './anatomia';
+import { MM_POR_S, MM_POR_MV, ajustarMarca, leerCalibrador, moverMarca } from './calibrador';
 
-const MM_POR_S = 25;
-const MM_POR_MV = 10;
 /** Alto útil de la tira en mV (de −1,5 a +1,5). */
 const RANGO_MV = 3.1;
 
@@ -74,8 +77,12 @@ function dibujarTira(cv: HTMLCanvasElement, w: number, h: number, reloj: RelojCa
   g.moveTo(xc, y0); g.lineTo(xc + 1.5 * mm, y0); g.lineTo(xc + 1.5 * mm, y0 - MM_POR_MV * mm); g.lineTo(xc + 6.5 * mm, y0 - MM_POR_MV * mm); g.lineTo(xc + 6.5 * mm, y0); g.lineTo(cab - 0.5 * mm, y0);
   g.stroke();
   // rótulo de la derivación
-  g.fillStyle = '#1b2030'; g.font = `600 ${Math.round(11 * dpr)}px Outfit, system-ui, sans-serif`; g.textBaseline = 'top';
-  g.fillText(der, cab + Math.round(2 * mm), Math.round(1.2 * mm));
+  // (abajo: arriba van las pestañas del calibrador y llega la punta de la R)
+  g.font = `600 ${Math.round(13 * dpr)}px Outfit, system-ui, sans-serif`; g.textBaseline = 'alphabetic';
+  const rot = `${der}  ·  25 mm/s  ·  10 mm/mV`;
+  const xr = cab + Math.round(4 * dpr), yr = H - Math.round(5 * dpr), ar = g.measureText(rot).width;
+  g.fillStyle = 'rgba(253,245,241,0.86)'; g.fillRect(xr - 3 * dpr, yr - 13 * dpr, ar + 6 * dpr, 17 * dpr);
+  g.fillStyle = '#1b2030'; g.fillText(rot, xr, yr);
   if (!reloj || !reloj.modelo) return;
   // trazo: muestras cada PASO_MS hacia atrás desde la pluma
   const u = VECTOR_DERIVACION[der];
@@ -112,17 +119,17 @@ function dibujarVCG(cv: HTMLCanvasElement, lado: number, reloj: RelojCardiaco | 
   const g = cv.getContext('2d'); if (!g) return;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = '#0a1220'; g.fillRect(0, 0, W, W);
-  const c = W / 2, R = W * 0.36, esc = R / 1.6; // 1,6 mV al borde del círculo
+  const c = W / 2, R = W * 0.33, esc = R / 1.6; // 1,6 mV al borde del círculo
   g.strokeStyle = 'rgba(148,180,205,0.18)'; g.lineWidth = Math.max(1, dpr);
   g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.stroke();
-  g.font = `600 ${Math.round(9 * dpr)}px Outfit, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `600 ${Math.round(13 * dpr)}px Outfit, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const d of DERIVACIONES) {
     const a = (ANG[d] * Math.PI) / 180, x = Math.cos(a), y = Math.sin(a); // ángulo hexaxial: positivo hacia abajo
     const sel = d === der;
     g.strokeStyle = sel ? 'rgba(215,240,255,0.85)' : 'rgba(148,180,205,0.22)'; g.lineWidth = (sel ? 1.6 : 1) * dpr;
     g.beginPath(); g.moveTo(c - x * R, c - y * R); g.lineTo(c + x * R, c + y * R); g.stroke();
     g.fillStyle = sel ? '#e6f6ff' : 'rgba(170,196,214,0.65)';
-    g.fillText(d, c + x * (R + 9 * dpr), c + y * (R + 8 * dpr));
+    g.fillText(d, c + x * (R + 15 * dpr), c + y * (R + 11 * dpr));
   }
   if (!reloj || !reloj.modelo) return;
   // lazo del último ciclo (más reciente = más claro)
@@ -151,14 +158,45 @@ function dibujarVCG(cv: HTMLCanvasElement, lado: number, reloj: RelojCardiaco | 
   g.fillStyle = '#fff1d6'; g.beginPath(); g.arc(x, y, 2.6 * dpr, 0, Math.PI * 2); g.fill();
 }
 
-export default function DockECG({ reloj, derivacion, onDerivacion, listo }: {
+/** Alto del visor entero (el padre del dock): de él sale cuánto puede crecer la tira. */
+function useAltoPadre(ref: React.RefObject<HTMLElement | null>): number {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    const p = ref.current?.parentElement; if (!p) return;
+    const ro = new ResizeObserver(([e]) => setH(Math.round(e.contentRect.height)));
+    ro.observe(p);
+    return () => ro.disconnect();
+  }, [ref]);
+  return h;
+}
+
+/** Milímetros de alto que necesita el papel (±1,5 mV y un margen). */
+const MM_ALTO = RANGO_MV * MM_POR_MV + 2;
+
+/**
+ * Alto de la tira (px): el que pide su ancho para que el milímetro salga lo más grande
+ * posible (114 mm a la vista), sin pasar de ≈ 27 % del visor (mínimo 150 px) ni de 240 px.
+ */
+export function altoTira(anchoTira: number, altoVisor: number): number {
+  const porAncho = (anchoTira / 114) * MM_ALTO;
+  return Math.round(Math.max(104, Math.min(porAncho, Math.max(150, 0.27 * altoVisor), 240)));
+}
+
+type Marca = 'A' | 'B';
+
+export default function DockECG({ reloj, derivacion, onDerivacion, listo, pausa, onPausa }: {
   reloj: RelojCardiaco; derivacion: Derivacion; onDerivacion: (d: Derivacion) => void; listo: boolean;
+  pausa: boolean; onPausa: (p: boolean) => void;
 }) {
   const [cont, tamCont] = useTamano<HTMLDivElement>();
+  const altoVisor = useAltoPadre(cont);
   const [caja, tam] = useTamano<HTMLDivElement>();
   const tira = useRef<HTMLCanvasElement>(null);
   const vcg = useRef<HTMLCanvasElement>(null);
-  const conVCG = tamCont.w >= 560;
+  // el lazo vectorcardiográfico sólo cuando sobra ancho: la tira (el instrumento) va primero
+  const conVCG = tamCont.w >= 760;
+  let alto = altoTira(tamCont.w, altoVisor);
+  if (conVCG) alto = altoTira(tamCont.w - alto - 8, altoVisor);
   const derRef = useRef(derivacion); derRef.current = derivacion;
   const dibujar = useCallback(() => {
     const r = listo ? reloj : null;
@@ -167,24 +205,83 @@ export default function DockECG({ reloj, derivacion, onDerivacion, listo }: {
   }, [reloj, listo, tam.w, tam.h, conVCG]);
   useEffect(() => { dibujar(); return reloj.suscribir(dibujar); }, [reloj, dibujar]);
   useEffect(() => { dibujar(); }, [derivacion, dibujar]);
+
+  // ── calibrador: posiciones en mm de papel desde el borde de la cabecera ──
+  const mm = tam.w > 0 ? pxPorMm(tam.h, tam.w) : 4;
+  const cab = Math.round(9 * mm);
+  const maxMm = Math.max(0, (tam.w - cab - 2) / mm);
+  const [marcas, setMarcas] = useState<Record<Marca, number> | null>(null);
+  const pos: Record<Marca, number> = marcas
+    ? { A: ajustarMarca(marcas.A, maxMm), B: ajustarMarca(marcas.B, maxMm) }
+    : { A: ajustarMarca(Math.round(maxMm * 0.3), maxMm), B: ajustarMarca(Math.round(maxMm * 0.62), maxMm) };
+  const lectura = leerCalibrador(pos.A, pos.B);
+  const mover = (m: Marca, v: number) => setMarcas({ ...pos, [m]: ajustarMarca(v, maxMm) });
+  const arrastre = useRef<Marca | null>(null);
+  const aMm = (clientX: number) => {
+    const r = caja.current?.getBoundingClientRect();
+    return r ? (clientX - r.left - cab) / mm : 0;
+  };
+  const xIzq = cab + Math.min(pos.A, pos.B) * mm, xDer = cab + Math.max(pos.A, pos.B) * mm;
+
   return (
-    <div ref={cont} className="flex h-[clamp(128px,27%,212px)] shrink-0 gap-2 border-t border-white/10 bg-[#0c1524] p-2" data-dock="ecg">
-      <div className="grid shrink-0 grid-cols-2 content-center gap-1" role="group" aria-label="Derivación">
-        {DERIVACIONES.map((d) => (
-          <button key={d} type="button" onClick={() => onDerivacion(d)} aria-pressed={d === derivacion}
-            className={`h-7 w-10 rounded-md border text-[11px] font-semibold transition-colors ${d === derivacion ? 'border-sky-300/70 bg-sky-400/20 text-white' : 'border-white/10 bg-white/[0.03] text-slate-400 hover:text-white'}`}>
-            {d}
-          </button>
-        ))}
-      </div>
-      <div ref={caja} className="relative min-w-0 flex-1 overflow-hidden rounded-md ring-1 ring-black/40">
-        <canvas ref={tira} className="absolute inset-0 h-full w-full" role="img" aria-label={`Tira de ECG, derivación ${derivacion}, 25 mm/s y 10 mm/mV`} />
-      </div>
-      {conVCG && (
-        <div className="relative aspect-square h-full shrink-0 overflow-hidden rounded-md ring-1 ring-white/10" title="Vectorcardiograma frontal: lazo del último latido y su proyección en la derivación elegida">
-          <canvas ref={vcg} className="absolute inset-0 h-full w-full" role="img" aria-label="Lazo vectorcardiográfico en el plano frontal" />
+    <div ref={cont} className="flex shrink-0 flex-col gap-1.5 border-t border-white/10 bg-[#0c1524] p-2" data-dock="ecg">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="flex shrink-0 gap-1" role="group" aria-label="Derivación">
+          {DERIVACIONES.map((d) => (
+            <button key={d} type="button" onClick={() => onDerivacion(d)} aria-pressed={d === derivacion} title={`Derivación ${d}`}
+              className={`h-8 min-w-[34px] rounded-md border px-1 text-[13px] font-semibold transition-colors ${d === derivacion ? 'border-sky-300/70 bg-sky-400/25 text-white' : 'border-white/10 bg-white/[0.03] text-slate-300 hover:text-white'}`}>
+              {d}
+            </button>
+          ))}
         </div>
-      )}
+        <div className="ml-auto flex min-w-0 items-center gap-2">
+          <span className="text-[13px] leading-tight text-slate-300" role="status" aria-live="polite" data-calibrador-lectura=""
+            title="Distancia entre las dos marcas A y B de la tira. Arrástralas o usa las flechas del teclado.">
+            <span className="text-slate-400">A↔B </span>
+            <b className="text-[14px] font-semibold tabular-nums text-sky-200">{lectura.texto}</b>
+          </span>
+          <button type="button" onClick={() => onPausa(!pausa)} aria-pressed={pausa} title={pausa ? 'Soltar el papel' : 'Detener el papel para medir'}
+            aria-label={pausa ? 'Soltar el papel' : 'Detener el papel para medir'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors ${pausa ? 'border-amber-300/70 bg-amber-400/20 text-amber-100' : 'border-white/10 bg-white/[0.04] text-slate-200 hover:text-white'}`}>
+            {pausa ? <Play size={15} /> : <Pause size={15} />}
+          </button>
+        </div>
+      </div>
+      <div className="flex min-w-0 gap-2" style={{ height: alto }}>
+        <div ref={caja} className="relative min-w-0 flex-1 overflow-hidden rounded-md ring-1 ring-black/40" data-tira-ecg="">
+          <canvas ref={tira} className="absolute inset-0 h-full w-full" role="img" aria-label={`Tira de ECG, derivación ${derivacion}, 25 mm/s y 10 mm/mV`} />
+          {tam.w > 0 && (
+            <>
+              <div className="pointer-events-none absolute inset-y-0 bg-sky-500/[0.09]" style={{ left: xIzq, width: Math.max(0, xDer - xIzq) }} />
+              {(['A', 'B'] as Marca[]).map((m) => (
+                <div key={m} role="slider" tabIndex={0} data-marca-calibrador={m}
+                  aria-label={`Marca ${m} del calibrador`} aria-orientation="horizontal"
+                  aria-valuemin={0} aria-valuemax={Math.round(maxMm * 40)} aria-valuenow={Math.round(pos[m] * 40)}
+                  aria-valuetext={`a ${Math.round(pos[m] * 40)} ms del borde del papel; entre A y B, ${lectura.texto}`}
+                  className="group absolute inset-y-0 w-[26px] cursor-ew-resize touch-none select-none outline-none"
+                  style={{ left: cab + pos[m] * mm - 13 }}
+                  onPointerDown={(e) => { arrastre.current = m; e.currentTarget.setPointerCapture(e.pointerId); e.currentTarget.focus(); }}
+                  onPointerMove={(e) => { if (arrastre.current === m) mover(m, aMm(e.clientX)); }}
+                  onPointerUp={(e) => { arrastre.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }}
+                  onPointerCancel={() => { arrastre.current = null; }}
+                  onKeyDown={(e) => {
+                    const v = moverMarca(pos[m], e.key, { shift: e.shiftKey, alt: e.altKey }, maxMm);
+                    if (v === null) return;
+                    e.preventDefault(); mover(m, v);
+                  }}>
+                  <span className="absolute inset-y-0 left-[12px] w-[2px] bg-sky-700 group-focus-visible:bg-sky-500" />
+                  <span className="absolute left-[3px] top-0 flex h-[19px] w-[20px] items-center justify-center rounded-b-md bg-sky-700 text-[13px] font-bold leading-none text-white shadow group-focus-visible:ring-2 group-focus-visible:ring-amber-400">{m}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+        {conVCG && (
+          <div className="relative aspect-square h-full shrink-0 overflow-hidden rounded-md ring-1 ring-white/10" title="Vectorcardiograma frontal: lazo del último latido y su proyección en la derivación elegida">
+            <canvas ref={vcg} className="absolute inset-0 h-full w-full" role="img" aria-label="Lazo vectorcardiográfico en el plano frontal" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

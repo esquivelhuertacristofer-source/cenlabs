@@ -112,9 +112,9 @@ function presetVista(vista: Vista, aspecto: number, fov: number) {
   if (vista === 'pilas') {
     return encuadrar(DIR_DETALLE, rect(-X_PARED - 0.6, X_PARED + 0.6, Y_INF_EXT, Y_TABIQUE + 1.2), fov, aspecto, 0.94, 0.9);
   }
-  // tablero entero y peana: el tablero ocupa ~70 % del alto del lienzo
+  // tablero entero y peana llenando el lienzo: sólo queda el aire justo para los botones de abajo
   const pts = [...rect(-X_EXT, X_EXT, Y_INF_EXT, Y_SUP_EXT), ...rect(-18, 18, Y_PIVOTE - 1.6 - ALTO_PEANA, Y_PIVOTE - 1.6, -6.6, 6.4)];
-  return encuadrar(DIR_TABLERO, pts, fov, aspecto, 0.86, 0.79);
+  return encuadrar(DIR_TABLERO, pts, fov, aspecto, 0.95, 0.93);
 }
 
 const facil = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -287,7 +287,7 @@ function RotuloDom({ fijar }: { fijar: React.MutableRefObject<(d: DatoRotulo) =>
   useEffect(() => { fijar.current = setD; return () => { fijar.current = () => undefined; }; }, [fijar]);
   if (!d) return null;
   return (
-    <div className="pointer-events-none absolute z-10 max-w-[260px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+    <div className="pointer-events-none absolute z-10 max-w-[260px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
       style={{ left: d.x + 14, top: d.y + 12 }}>
       {d.texto}
     </div>

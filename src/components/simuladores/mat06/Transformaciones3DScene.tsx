@@ -170,8 +170,12 @@ const direccion = (azGrad: number, elGrad: number) => {
 };
 /** Taller: un poco de lado y desde arriba (se lee el grosor); reto: casi de frente (paralaje mínimo). */
 const DIR = { explorar: direccion(-11, 9), reto: direccion(-4, 4) };
-/** El cuadro de lo que importa ocupa ~66 % del alto del lienzo. */
-const MARGEN_X = 0.93, MARGEN_Y = 0.66;
+/**
+ * El cuadro de lo que importa (figura + imagen + centro) llena el lienzo: ~84 % del alto
+ * (el resto es el aire de las pastillas de arriba y la leyenda de abajo). Con 66 % la
+ * figura quedaba pequeña en el portátil de 1366 px, donde el lienzo mide 556 × 386.
+ */
+const MARGEN_X = 0.93, MARGEN_Y = 0.84;
 
 interface DefEncuadre { dir: THREE.Vector3; puntos: THREE.Vector3[]; centro: THREE.Vector3 }
 const facil = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -198,7 +202,7 @@ function Camara({ def, reducido, encuadre, clave }: { def: DefEncuadre; reducido
     if (ultimo.current.encuadre !== encuadre || ultimo.current.clave !== clave) { ultimo.current = { encuadre, clave }; usuario.current = false; }
     if (!primera.current && usuario.current) return;
     const vertical = aspecto < 1;
-    const p = encuadrar(def.dir, def.centro, def.puntos, camera.fov, aspecto, vertical ? 0.95 : MARGEN_X, vertical ? 0.6 : MARGEN_Y);
+    const p = encuadrar(def.dir, def.centro, def.puntos, camera.fov, aspecto, vertical ? 0.95 : MARGEN_X, vertical ? 0.74 : MARGEN_Y);
     meta.current = { pos: p.pos, obj: p.objetivo };
     if (primera.current || reducido) {
       primera.current = false;
@@ -664,7 +668,7 @@ export default function Transformaciones3DScene(props: Transformaciones3DProps) 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {lista.map((r) => (
           <div key={r.id} ref={(el) => { if (el) nodos.current.set(r.id, el); else nodos.current.delete(r.id); }}
-            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
             style={{ transform: 'translate(-9999px, -9999px)' }} data-rotulo-m6={r.id}>
             {r.texto}
           </div>

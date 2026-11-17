@@ -16,12 +16,24 @@ import { TOL_M6, RANGO_T_M6, ESCALA_MIN_M6, ESCALA_MAX_M6 } from '@/domain/matem
 import { num, trs, det2 } from '../simuladores/mat06/transformaciones';
 import BitacoraFisica from './fisica/BitacoraFisica';
 
+const CSS_LETRA_13 = `
+[data-bitacora="matematicas-6"] [class*="text-[8px]"],
+[data-bitacora="matematicas-6"] [class*="text-[9px]"],
+[data-bitacora="matematicas-6"] [class*="text-[10px]"],
+[data-bitacora="matematicas-6"] [class*="text-[11px]"],
+[data-bitacora="matematicas-6"] .text-xs { font-size: 13px; letter-spacing: 0.04em; }
+[data-bitacora="matematicas-6"] textarea { font-size: 14px; }
+`;
+
 export default function BitacoraTransformaciones({ onValidate }: { onValidate?: () => void }) {
   const { geometria6 } = useSimuladorStore(useShallow((s) => ({ geometria6: s.geometria6 })));
   const { tx, ty, rotacion, escala, status } = geometria6;
   const det = det2(trs(tx, ty, rotacion, escala));
 
   return (
+    <div data-bitacora="matematicas-6">
+    {/* letra ≥ 13 px sólo en esta bitácora (el componente común no se toca) */}
+    <style>{CSS_LETRA_13}</style>
     <BitacoraFisica
       titulo="Matrices de transformación"
       intro="Cada pose de la placa es una matriz 3×3: el bloque 2×2 gira y escala, la última columna traslada y el determinante mide el área."
@@ -47,5 +59,6 @@ export default function BitacoraTransformaciones({ onValidate }: { onValidate?: 
       acento="#ffb43a"
       onValidate={onValidate}
     />
+    </div>
   );
 }

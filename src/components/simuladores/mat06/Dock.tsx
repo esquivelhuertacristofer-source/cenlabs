@@ -58,10 +58,10 @@ const colDet = (d: number) => (d > 5e-3 ? '#34d399' : d < -5e-3 ? '#f472b6' : '#
 // ───────────────────────────── matriz ─────────────────────────────
 
 function Matriz({ M, titulo, color, compacto }: { M: Mat3; titulo: string; color?: string; compacto: boolean }) {
-  const celda = `text-right font-mono tabular-nums ${compacto ? 'text-[11.5px]' : 'text-[13px]'} font-semibold leading-[1.35]`;
+  const celda = `text-right font-mono tabular-nums ${compacto ? 'text-[13px]' : 'text-[15px]'} font-semibold leading-[1.35]`;
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`font-mono font-bold ${compacto ? 'text-[13px]' : 'text-[15px]'}`} style={{ color: color ?? '#e2e8f0' }}>{titulo}</span>
+      <span className={`font-mono font-bold ${compacto ? 'text-[14px]' : 'text-[17px]'}`} style={{ color: color ?? '#e2e8f0' }}>{titulo}</span>
       <div className={`grid grid-cols-3 rounded-[5px] border-x-2 border-slate-300/50 ${compacto ? 'gap-x-1.5 px-1.5' : 'gap-x-2.5 px-2'} py-0.5`} data-matriz-m6={titulo}>
         {[0, 1, 2].map((i) => [0, 1, 2].map((j) => (
           <span key={`${i}${j}`} className={celda}
@@ -75,12 +75,15 @@ function Matriz({ M, titulo, color, compacto }: { M: Mat3; titulo: string; color
 }
 
 function Det({ d, compacto }: { d: number; compacto: boolean }) {
-  const texto = d > 5e-3 ? 'orientación igual' : d < -5e-3 ? 'orientación invertida' : 'área 0: sin inversa';
+  // en el dock estrecho, la versión corta (cabe junto a la matriz a 13 px)
+  const texto = compacto
+    ? (d > 5e-3 ? 'se conserva' : d < -5e-3 ? 'se invierte' : 'sin inversa')
+    : (d > 5e-3 ? 'orientación igual' : d < -5e-3 ? 'orientación invertida' : 'área 0: sin inversa');
   return (
     <div className="flex flex-col leading-tight" title="|det| = área de la imagen ÷ área de la figura; el signo dice si la orientación se conserva">
-      <span className="text-[10.5px] font-semibold text-slate-400">det</span>
-      <span className={`font-mono font-bold tabular-nums ${compacto ? 'text-[15px]' : 'text-[18px]'}`} style={{ color: colDet(d) }} data-det-m6="">{num(d, 2, true)}</span>
-      <span className="text-[10px] text-slate-400">{texto}</span>
+      <span className="text-[13px] font-semibold text-slate-400">det</span>
+      <span className={`font-mono font-bold tabular-nums ${compacto ? 'text-[17px]' : 'text-[22px]'}`} style={{ color: colDet(d) }} data-det-m6="">{num(d, 2, true)}</span>
+      <span className="whitespace-nowrap text-[13px] text-slate-300">{texto}</span>
     </div>
   );
 }
@@ -128,7 +131,7 @@ function dibujarBase(cv: HTMLCanvasElement, w: number, h: number, reloj: RelojTr
   const l = reloj.lectura();
   // escala fija por estación (la de la matriz de llegada): el paralelogramo se mueve, la rejilla no
   const R_BASE = Math.max(1.7, 1.18 * Math.max(alcance(reloj.matrizFinal(0)), l.M2 ? alcance(reloj.matrizFinal(1)) : 1));
-  const arriba = 18, lado = Math.max(40, Math.min(w - 12, h - arriba - 6));
+  const arriba = 24, lado = Math.max(40, Math.min(w - 12, h - arriba - 6));
   const s = lado / (2 * R_BASE);
   const cx = w / 2, cy = arriba + lado / 2;
   const X = (x: number) => cx + x * s, Y = (y: number) => cy - y * s;
@@ -167,12 +170,12 @@ function dibujarBase(cv: HTMLCanvasElement, w: number, h: number, reloj: RelojTr
   paralelogramo(l.M, 'rgba(226,232,240,0.7)', false);
   g.restore();
   // títulos
-  g.font = FUENTE(10.5, 700); g.fillStyle = 'rgba(214,228,240,0.88)'; g.textAlign = 'left'; g.textBaseline = 'middle';
-  g.fillText('Base', 6, 9);
-  const x0 = 6 + g.measureText('Base').width + 8;
-  g.font = FUENTE(10, 600);
-  g.fillStyle = COLOR.A; g.fillText('Me₁', x0, 9);
-  g.fillStyle = COLOR.B; g.fillText('Me₂', x0 + g.measureText('Me₁').width + 7, 9);
+  g.font = FUENTE(13, 700); g.fillStyle = 'rgba(214,228,240,0.92)'; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText('Base', 7, 12);
+  const x0 = 7 + g.measureText('Base').width + 9;
+  g.font = FUENTE(13, 600);
+  g.fillStyle = COLOR.A; g.fillText('Me₁', x0, 12);
+  g.fillStyle = COLOR.B; g.fillText('Me₂', x0 + g.measureText('Me₁').width + 8, 12);
 }
 
 // ───────────────────────────── coordenadas ─────────────────────────────
@@ -185,17 +188,17 @@ function Tabla({ reloj, compacto }: { reloj: RelojTransf; compacto: boolean }) {
   const dec = compacto && comp ? 1 : 2;
   const par = (p: [number, number]) => `${num(p[0], dec)}; ${num(p[1], dec)}`;
   const cols = reto ? ['pieza', 'tu placa'] : comp ? ['original', 'T·R', 'R·T'] : ['original', 'ahora'];
-  const th = 'pb-0.5 text-left text-[10px] font-semibold text-slate-400';
-  const td = `py-[1px] pr-2 font-mono ${compacto ? 'text-[10.5px]' : 'text-[11.5px]'} tabular-nums whitespace-nowrap`;
+  const th = 'pb-0.5 pr-3 text-left text-[13px] font-semibold text-slate-400';
+  const td = 'py-[1px] pr-3 font-mono text-[13px] tabular-nums whitespace-nowrap';
   return (
     <div className="flex min-w-0 flex-col" data-tabla-m6="">
-      <span className="mb-0.5 text-[10.5px] font-bold text-slate-200">Coordenadas</span>
+      {!compacto && <span className="mb-0.5 text-[13px] font-bold text-slate-200">Coordenadas</span>}
       <table className="border-separate border-spacing-0">
         <thead><tr><th className={th} />{cols.map((c) => <th key={c} className={th}>{c}</th>)}</tr></thead>
         <tbody>
           {l.puntos.map((q) => (
             <tr key={q.id}>
-              <td className="pr-1.5"><span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold" style={{ color: COLOR[q.id] }}><i className="inline-block h-2 w-2 rounded-full" style={{ background: COLOR[q.id], boxShadow: `0 0 5px ${COLOR[q.id]}` }} />{q.id}</span></td>
+              <td className="pr-1.5"><span className="inline-flex items-center gap-1 font-mono text-[13px] font-bold" style={{ color: COLOR[q.id] }}><i className="inline-block h-2 w-2 rounded-full" style={{ background: COLOR[q.id], boxShadow: `0 0 5px ${COLOR[q.id]}` }} />{q.id}</span></td>
               <td className={`${td} text-slate-300`}>{par(q.orig)}</td>
               <td className={`${td} text-white`} style={comp ? { color: COLOR.imagen } : undefined}>{par(q.ahora)}</td>
               {comp && q.ahora2 && <td className={td} style={{ color: COLOR.rama2 }}>{par(q.ahora2)}</td>}
@@ -235,23 +238,23 @@ export function DockTransf({ reloj }: { reloj: RelojTransf }) {
   const pestanas: [Vista, string][] = [['base', 'Base'], ['tabla', 'Coordenadas']];
   return (
     <div ref={caja} data-dock="m6"
-      className={`relative flex shrink-0 gap-3 border-t border-white/10 bg-[#0c1524] px-2.5 py-2 ${estrecho ? 'h-[170px]' : 'h-[clamp(150px,25%,186px)]'}`}>
+      className={`relative flex shrink-0 gap-3 border-t border-white/10 bg-[#0c1524] px-2.5 py-2 ${estrecho ? 'h-[188px]' : 'h-[clamp(160px,25%,196px)]'}`}>
       <BloqueMatriz reloj={reloj} compacto={estrecho} />
       {estrecho && (
         <div className="absolute right-2 top-1.5 z-10 flex gap-0.5 rounded-md bg-[#0a1220]/90 p-0.5" role="tablist" aria-label="Instrumento">
           {pestanas.map(([v, t]) => (
             <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
-              className={`h-[20px] rounded px-2 text-[10.5px] font-semibold ${vista === v ? 'bg-sky-400/25 text-white' : 'text-slate-400 hover:text-white'}`}>
+              className={`h-7 rounded px-2.5 text-[13px] font-semibold ${vista === v ? 'bg-sky-400/25 text-white' : 'text-slate-300 hover:text-white'}`}>
               {t}
             </button>
           ))}
         </div>
       )}
-      <div ref={cajaB} className={`relative min-w-0 overflow-hidden rounded-md ring-1 ring-black/40 ${estrecho ? (vista === 'base' ? (tam.w < 470 ? 'mt-6 flex-1' : 'flex-1') : 'hidden') : 'aspect-square h-full shrink-0'}`}>
+      <div ref={cajaB} className={`relative min-w-0 overflow-hidden rounded-md ring-1 ring-black/40 ${estrecho ? (vista === 'base' ? 'mt-8 flex-1' : 'hidden') : 'aspect-square h-full shrink-0'}`}>
         <canvas ref={lienzo} className="absolute inset-0 h-full w-full" role="img"
           aria-label="El cuadrado unidad y su imagen: el paralelogramo de las columnas de la matriz; su área con signo es el determinante" />
       </div>
-      <div className={`min-w-0 ${estrecho ? (vista === 'tabla' ? 'flex-1 pt-5' : 'hidden') : 'flex-1'}`}>
+      <div className={`min-w-0 ${estrecho ? (vista === 'tabla' ? 'flex-1 overflow-x-auto pt-9' : 'hidden') : 'flex-1'}`}>
         <Tabla reloj={reloj} compacto={estrecho} />
       </div>
     </div>

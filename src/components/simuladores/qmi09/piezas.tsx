@@ -630,6 +630,11 @@ export function PinzaCocodrilo({ funda, mats, ...g }: GroupProps & { funda: THRE
 
 // ───────────────────────────── líquido (Beer–Lambert) ─────────────────────────────
 
+/** Camino óptico (cm por unidad de escena) con que se PINTA la disolución en calidad alta. */
+const CAMINO_VISUAL_CM = 1.6;
+/** Luz dispersada por la disolución coloreada (calidad alta), a absorción total. */
+const BRILLO_DISOLUCION = 0.5;
+
 /** Material del líquido de un vaso; el color de atenuación lo fija la escena con `tintarLiquido`. */
 export function crearMaterialLiquido(calidad: Calidad): THREE.MeshPhysicalMaterial {
   if (calidad === 'alta') {
@@ -657,11 +662,22 @@ export function tintarLiquido(mat: THREE.MeshPhysicalMaterial, metal: IdMetal, c
   const eps = METAL[metal].epsRGB;
   const base = [0.985, 0.992, 0.996]; // el agua sola: un velo frío casi imperceptible
   if (calidad === 'alta') {
+    // Camino óptico VISUAL de CAMINO_VISUAL_CM por unidad (no los 10 cm reales): con el
+    // diámetro entero, el CuSO₄ 1 M absorbía todo el rojo y casi todo el verde y, sobre
+    // el fondo oscuro del banco, salía un bloque azul marino opaco. El tono sigue siendo
+    // Beer–Lambert (log T lineal en c); sólo se acorta el camino con que se pinta.
     mat.attenuationColor.setRGB(
-      Math.max(1e-12, base[0] * Math.pow(10, -eps[0] * c * 10)),
-      Math.max(1e-12, base[1] * Math.pow(10, -eps[1] * c * 10)),
-      Math.max(1e-12, base[2] * Math.pow(10, -eps[2] * c * 10)),
+      Math.max(1e-6, base[0] * Math.pow(10, -eps[0] * c * CAMINO_VISUAL_CM)),
+      Math.max(1e-6, base[1] * Math.pow(10, -eps[1] * c * CAMINO_VISUAL_CM)),
+      Math.max(1e-6, base[2] * Math.pow(10, -eps[2] * c * CAMINO_VISUAL_CM)),
     );
+    // La luz que la disolución dispersa hacia el ojo (un vaso real iluminado «brilla» azul):
+    // proporcional a lo que absorbe, con el color de lo que deja pasar a media anchura.
+    const l = COTAS.rInterior * 10;
+    const t = eps.map((e) => Math.pow(10, -e * c * l * 0.35));
+    const absorbe = 1 - (t[0] + t[1] + t[2]) / 3;
+    mat.emissive.setRGB(t[0] * 0.10 + 0.0, t[1] * 0.42, t[2] * 0.95);
+    mat.emissiveIntensity = BRILLO_DISOLUCION * absorbe;
     return;
   }
   const l = COTAS.rInterior * 10; // cm

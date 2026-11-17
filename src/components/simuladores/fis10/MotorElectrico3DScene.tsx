@@ -189,7 +189,7 @@ function defVista(v: Vista): DefVista {
     P(POS_SENSOR[0] + 1.0, 0.55, POS_SENSOR[2]),
     P(-2.9, COTA.yBase, -1.0), P(2.9, COTA.yBase, -1.0), P(0, COTA.yBase - 0.8, 2.0),
   ];
-  return { dir: direccion(34, 21), objetivo: P(0, -0.5, -4), puntos: pts, mx: 0.9, my: 0.66 };
+  return { dir: direccion(34, 21), objetivo: P(0, -0.5, -4), puntos: pts, mx: 0.95, my: 0.8 };
 }
 
 const facil = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -469,7 +469,7 @@ function RotuloRaton({ fijar }: { fijar: React.MutableRefObject<(d: DatoRotulo) 
   useEffect(() => { fijar.current = setD; return () => { fijar.current = () => undefined; }; }, [fijar]);
   if (!d) return null;
   return (
-    <div className="pointer-events-none absolute z-20 max-w-[280px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+    <div className="pointer-events-none absolute z-20 max-w-[280px] rounded-md border border-white/15 bg-[#0b1220]/90 px-2 py-1 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
       style={{ left: d.x + 14, top: d.y + 12 }} data-rotulo-raton-f10="">
       {d.texto}
     </div>
@@ -717,7 +717,7 @@ export default function MotorElectrico3DScene(props: MotorSceneProps) {
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {lista.map((r) => (
           <div key={r.id} ref={(el) => { if (el) nodos.current.set(r.id, el); else nodos.current.delete(r.id); }}
-            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[11px] font-semibold text-slate-100 shadow-lg backdrop-blur"
+            className="absolute left-0 top-0 whitespace-nowrap rounded-md border border-white/20 bg-[#0a1420]/85 px-2 py-0.5 text-[13px] font-semibold text-slate-100 shadow-lg backdrop-blur"
             style={{ transform: 'translate(-9999px, -9999px)' }} data-rotulo-f10={r.id}>
             {r.texto}
           </div>

@@ -18,7 +18,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Html, Lightformer, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { Pause, Play, StepForward, Layers, Spline, Tag, User, Heart } from 'lucide-react';
+import { Pause, Play, StepForward, Layers, Spline, Tag, User, Heart, BookOpen } from 'lucide-react';
 import { calidadPorDefecto } from '../_kit/LabStage';
 import type { CalidadCorazon, DatosCorazon } from './corazon';
 import { cargarCorazon } from './datos';
@@ -106,9 +106,9 @@ function Posproceso() {
 interface Encuadre { centro: V3; semiAlto: number; semiAncho: number; dir: V3 }
 const ENCUADRES: Record<Vista, Encuadre> = {
   // el corazón (2,3 u de alto con los grandes vasos) ocupa ≈ 2/3 del alto; caben el triángulo y los electrodos
-  torax: { centro: [0.0, -0.22, 0], semiAlto: 1.6, semiAncho: 1.62, dir: [0.12, 0.16, 1] },
+  torax: { centro: [-0.04, -0.3, 0.3], semiAlto: 1.84, semiAncho: 1.72, dir: [0.12, 0.16, 1] },
   // de cerca, mirando un poco más de frente al corte de cuatro cámaras
-  corazon: { centro: [0.0, 0.06, -0.15], semiAlto: 1.24, semiAncho: 1.0, dir: [0.2, 0.3, 1] },
+  corazon: { centro: [0.0, 0.12, -0.15], semiAlto: 1.34, semiAncho: 1.12, dir: [0.2, 0.3, 1] },
 };
 
 function CamaraECG({ vista }: { vista: Vista }) {
@@ -203,8 +203,11 @@ function listaRotulos(d: DatosCorazon): Rotulo[] {
   return L.filter((x): x is Rotulo => !!x);
 }
 
+/** Alto de una etiqueta de 13 px con su margen: separación mínima entre dos del mismo lado. */
+const ALTO_ROTULO = 23;
+
 /**
- * Rótulos cortos de las partes (apagados por defecto). Sólo los de lo que se ve en
+ * Rótulos cortos de las partes. Sólo los de lo que se ve en
  * esa vista y ese modo: con el corazón entero no se rotula lo que queda dentro.
  */
 function Rotulos({ datos, vista, corte }: { datos: DatosCorazon; vista: Vista; corte: boolean }) {
@@ -228,17 +231,55 @@ function Rotulos({ datos, vista, corte }: { datos: DatosCorazon; vista: Vista; c
     g.dispose(); (malla.material as THREE.Material).dispose();
     return out;
   }, [datos, vista, modo]);
+  // Reparto en pantalla: cada cuadro se proyectan las anclas y las etiquetas de cada lado
+  // se separan ALTO_ROTULO px entre sí y se mantienen dentro del lienzo. Así no se enciman
+  // ni con el lienzo chico (1366 × 768) ni al orbitar.
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  const etqs = useRef<(HTMLSpanElement | null)[]>([]);
+  const guias = useRef<(HTMLSpanElement | null)[]>([]);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const W = size.width, H = size.height;
+    const k = THREE.MathUtils.clamp(H / 520, 0.55, 1.15); // los desplazamientos se pensaron para ≈ 520 px de alto
+    const it = lista.map((r, i) => {
+      tmp.set(r.p[0], r.p[1], r.p[2]).project(camera);
+      const ax = (tmp.x * 0.5 + 0.5) * W, ay = (-tmp.y * 0.5 + 0.5) * H;
+      const ancho = etqs.current[i]?.offsetWidth ?? 80;
+      return { i, ax, ay, izq: r.dx < 0, x: ax + r.dx * k, y: ay + r.dy * k, ancho };
+    });
+    for (const lado of [true, false]) {
+      const col = it.filter((e) => e.izq === lado).sort((a, b) => a.y - b.y);
+      for (let j = 0; j < col.length; j++) {
+        const e = col[j];
+        e.y = Math.max(e.y, ALTO_ROTULO / 2 + 2, j > 0 ? col[j - 1].y + ALTO_ROTULO : -Infinity);
+        e.x = lado ? Math.max(e.ancho + 4, e.x) : Math.min(W - e.ancho - 4, e.x);
+      }
+      // si la columna se sale por abajo, se empuja hacia arriba conservando la separación
+      for (let j = col.length - 1; j >= 0; j--) {
+        const tope = j === col.length - 1 ? H - ALTO_ROTULO / 2 - 2 : col[j + 1].y - ALTO_ROTULO;
+        if (col[j].y > tope) col[j].y = tope;
+      }
+    }
+    for (const e of it) {
+      const dx = e.x - e.ax, dy = e.y - e.ay;
+      const el = etqs.current[e.i], g = guias.current[e.i];
+      if (el) { el.style.left = `${dx.toFixed(1)}px`; el.style.top = `${dy.toFixed(1)}px`; }
+      if (g) { g.style.width = `${Math.hypot(dx, dy).toFixed(1)}px`; g.style.transform = `rotate(${Math.atan2(dy, dx).toFixed(4)}rad)`; }
+    }
+  });
   return (
     <>
-      {lista.map((r) => {
+      {lista.map((r, i) => {
         const L = Math.hypot(r.dx, r.dy), ang = Math.atan2(r.dy, r.dx);
         return (
           <Html key={r.texto} position={r.p} zIndexRange={[20, 10]} style={{ pointerEvents: 'none' }}>
             <div className="relative h-0 w-0">
               <span className="absolute left-[-3px] top-[-3px] h-1.5 w-1.5 rounded-full bg-white/90 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-              <span className="absolute left-0 top-0 h-px origin-left bg-white/50" style={{ width: L, transform: `rotate(${ang}rad)` }} />
-              <span className="absolute whitespace-nowrap rounded border border-white/15 bg-[#0b1422]/85 px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-slate-100"
-                style={{ left: r.dx, top: r.dy, transform: `translate(${r.dx < 0 ? '-100%' : r.dx === 0 ? '-50%' : '0'}, -50%)` }}>
+              <span ref={(el) => { guias.current[i] = el; }} className="absolute left-0 top-0 h-px origin-left bg-white/55" style={{ width: L, transform: `rotate(${ang}rad)` }} />
+              <span ref={(el) => { etqs.current[i] = el; }} data-rotulo-ecg=""
+                className="absolute whitespace-nowrap rounded border border-white/15 bg-[#0b1422]/90 px-1.5 py-[3px] text-[13px] font-medium leading-none text-slate-100"
+                style={{ left: r.dx, top: r.dy, transform: `translate(${r.dx < 0 ? '-100%' : '0'}, -50%)` }}>
                 {r.texto}
               </span>
             </div>
@@ -276,6 +317,8 @@ function DiagnosticoDev({ listo, irA, reloj }: { listo: boolean; irA: (ms: numbe
     w.__bio08 = {
       listo,
       irA,
+      /** intervalo R-R del latido en curso (ms): sólo para los guiones de captura de desarrollo */
+      rr: () => reloj.rr,
       /** lleva el reloj a una fase con nombre (sólo para las capturas de desarrollo) */
       irFase(f: 'P' | 'QRS' | 'ST' | 'T' | 'D') {
         const m = reloj.mapeo; if (!m) return;
@@ -320,8 +363,9 @@ function Escena({ datos, reloj, u, derivacion, capas, alta }: {
       <Conduccion datos={datos} u={u} reloj={reloj} alta={alta} />
       {capas.corte && <Valvulas datos={datos} estado={valv} />}
       <Torso datos={datos} />
-      <Electrodos datos={datos} />
-      <Einthoven datos={datos} derivacion={derivacion} reloj={reloj} />
+      {/* de cerca, los electrodos y el triángulo quedarían cortados por el encuadre: son de la vista del tórax */}
+      {capas.vista === 'torax' && <Electrodos datos={datos} />}
+      {capas.vista === 'torax' && <Einthoven datos={datos} derivacion={derivacion} reloj={reloj} />}
       <Dipolo datos={datos} reloj={reloj} />
       {capas.rotulos && <Rotulos datos={datos} vista={capas.vista} corte={capas.corte} />}
     </>
@@ -332,22 +376,32 @@ function Escena({ datos, reloj, u, derivacion, capas, alta }: {
 
 const etiquetaVelocidad = (v: number) => (v === 1 ? '×1' : `×1/${Math.round(1 / v)}`);
 
-function Boton({ activo, onClick, children, titulo, ancho }: { activo?: boolean; onClick: () => void; children: React.ReactNode; titulo: string; ancho?: boolean }) {
+/**
+ * Botón de los rieles laterales: icono y nombre (13 px). Los mandos van A LOS LADOS del
+ * lienzo, nunca encima del corazón, y no le quitan alto (que es lo que escasea a 1366 × 768).
+ */
+function BotonRiel({ activo, onClick, icono, texto, titulo }: { activo?: boolean; onClick: () => void; icono?: React.ReactNode; texto: string; titulo: string }) {
   return (
     <button type="button" onClick={onClick} title={titulo} aria-label={titulo} aria-pressed={activo}
-      className={`flex h-7 items-center justify-center gap-1 rounded-md border text-[11px] font-semibold transition-colors ${ancho ? 'px-2' : 'w-7'} ${activo ? 'border-sky-300/60 bg-sky-400/20 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
-      {children}
+      className={`flex w-full shrink-0 flex-col items-center justify-center gap-1 rounded-lg border px-0.5 text-[13px] font-semibold leading-none transition-colors ${icono ? 'h-[44px]' : 'h-[30px]'} ${activo ? 'border-sky-300/70 bg-sky-400/25 text-white' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/30 hover:text-white'}`}>
+      {icono}
+      <span>{texto}</span>
     </button>
   );
 }
+const RIEL = 'flex shrink-0 flex-col gap-1 overflow-y-auto border-white/10 bg-[#0c1524] p-1.5 [scrollbar-width:none]';
+const SEPARADOR = <span className="my-0.5 h-px w-full shrink-0 bg-white/10" />;
 
 export interface VisorECGProps {
   ritmoBPM: number;
   derivacion: Derivacion;
   onDerivacion: (d: Derivacion) => void;
+  /** botón «Modelo» del riel (lo abre el Piloto sobre el lab) */
+  modelo?: boolean;
+  onModelo?: () => void;
 }
 
-export default function VisorECG({ ritmoBPM, derivacion, onDerivacion }: VisorECGProps) {
+export default function VisorECG({ ritmoBPM, derivacion, onDerivacion, modelo, onModelo }: VisorECGProps) {
   const [calidad] = useState<CalidadCorazon>(() => calidadPorDefecto());
   const alta = calidad === 'alta';
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
@@ -355,10 +409,12 @@ export default function VisorECG({ ritmoBPM, derivacion, onDerivacion }: VisorEC
   const u = useMemo(() => nuevosUniformes(), []);
   const [datos, setDatos] = useState<DatosCorazon | null>(null);
   const [error, setError] = useState(false);
-  const [vista, setVista] = useState<Vista>('torax');
-  const [corte, setCorte] = useState(true);
-  const [iso, setIso] = useState(false);
-  const [rotulos, setRotulos] = useState(false);
+  // Estado inicial: el corazón entero de cerca con el mapa de isócronas y sus rótulos (la
+  // imagen más fuerte). El tórax con los electrodos y el triángulo es la segunda vista.
+  const [vista, setVista] = useState<Vista>('corazon');
+  const [corte, setCorte] = useState(false);
+  const [iso, setIso] = useState(true);
+  const [rotulos, setRotulos] = useState(true);
   const [velocidad, setVelocidad] = useState<number>(1 / 3);
   const [pausa, setPausa] = useState<boolean>(!!reducido);
 
@@ -394,63 +450,63 @@ export default function VisorECG({ ritmoBPM, derivacion, onDerivacion }: VisorEC
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-[#060b13]" data-visor="ecg">
-      <div className="relative min-h-0 flex-1">
-        <Canvas
-          dpr={alta ? [1, 1.75] : [1, 1.25]}
-          gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
-          camera={{ position: [0.3, 0.4, 9], fov: 32, near: 0.05, far: 100 }}
-          style={{ width: '100%', height: '100%' }}
-        >
-          <AjustesRender />
-          <FondoEstudio />
-          <Luces alta={alta} />
-          <OrbitControls makeDefault enableDamping dampingFactor={0.09} enablePan={false} minDistance={2.2} maxDistance={16} />
-          <CamaraECG vista={vista} />
-          {datos && <Escena datos={datos} reloj={reloj} u={u} derivacion={derivacion} capas={capas} alta={alta} />}
-          <DiagnosticoDev listo={listo} irA={irA} reloj={reloj} />
-          {alta && <Posproceso />}
-        </Canvas>
-
-        {!listo && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="rounded-full border border-white/10 bg-[#0b1422]/80 px-3 py-1.5 text-[11px] font-semibold text-rose-200">
-              {error ? 'No se pudo construir el corazón' : 'Construyendo el corazón…'}
-            </span>
-          </div>
-        )}
-
-        {/* vista y capas; debajo, el tiempo */}
-        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
-          <div className="flex gap-1" role="toolbar" aria-label="Vista">
-            <Boton activo={vista === 'torax'} onClick={() => setVista('torax')} titulo="Vista del tórax: corazón, electrodos y triángulo de Einthoven"><User size={14} /></Boton>
-            <Boton activo={vista === 'corazon'} onClick={() => setVista('corazon')} titulo="Vista del corazón de cerca"><Heart size={14} /></Boton>
-            <span className="mx-0.5 w-px self-stretch bg-white/10" />
-            <Boton activo={corte} onClick={() => setCorte((c) => !c)} titulo="Corte de cuatro cámaras"><Layers size={14} /></Boton>
-            <Boton activo={iso} onClick={() => setIso((c) => !c)} titulo="Mapa de isócronas de activación (líneas cada 10 ms)"><Spline size={14} /></Boton>
-            <Boton activo={rotulos} onClick={() => setRotulos((c) => !c)} titulo="Rótulos de las partes"><Tag size={14} /></Boton>
-          </div>
-          <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label="Tiempo">
-            <Boton activo={pausa} onClick={() => setPausa((p) => !p)} titulo={pausa ? 'Reanudar' : 'Pausa'}>{pausa ? <Play size={14} /> : <Pause size={14} />}</Boton>
-            <Boton onClick={() => { setPausa(true); reloj.paso(10); }} titulo="Avanzar 10 ms"><StepForward size={14} /></Boton>
-            <span className="mx-0.5 w-px self-stretch bg-white/10" />
-            {VELOCIDADES.map((v) => (
-              <Boton key={v} ancho activo={velocidad === v} onClick={() => setVelocidad(v)} titulo={v === 1 ? 'Tiempo real' : `Cámara lenta ${etiquetaVelocidad(v)}`}>{etiquetaVelocidad(v)}</Boton>
-            ))}
-          </div>
-          <span className="rounded bg-[#0b1422]/70 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-200/90">
-            {velocidad === 1 ? 'tiempo real' : `${etiquetaVelocidad(velocidad)} — cámara lenta`}
-          </span>
+      <div className="flex min-h-0 flex-1">
+        {/* riel izquierdo: qué se ve */}
+        <div className={`${RIEL} w-[78px] border-r`} role="toolbar" aria-label="Vista y capas" aria-orientation="vertical">
+          <BotonRiel activo={vista === 'corazon'} onClick={() => setVista('corazon')} icono={<Heart size={16} />} texto="Corazón" titulo="Vista del corazón de cerca" />
+          <BotonRiel activo={vista === 'torax'} onClick={() => setVista('torax')} icono={<User size={16} />} texto="Tórax" titulo="Vista del tórax: corazón, electrodos y triángulo de Einthoven" />
+          {SEPARADOR}
+          <BotonRiel activo={corte} onClick={() => setCorte((c) => !c)} icono={<Layers size={16} />} texto="Corte" titulo="Corte de cuatro cámaras" />
+          <BotonRiel activo={iso} onClick={() => setIso((c) => !c)} icono={<Spline size={16} />} texto="Isócronas" titulo="Mapa de isócronas de activación (líneas cada 10 ms)" />
+          <BotonRiel activo={rotulos} onClick={() => setRotulos((c) => !c)} icono={<Tag size={16} />} texto="Rótulos" titulo="Rótulos de las partes" />
+          {onModelo && <>{SEPARADOR}<BotonRiel activo={modelo} onClick={onModelo} icono={<BookOpen size={16} />} texto="Modelo" titulo="Cómo está hecho el modelo" /></>}
         </div>
-        {iso && (
-          <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md border border-white/10 bg-[#0b1422]/80 px-2 py-1 text-[10px] text-slate-300">
-            <span>se activa antes</span>
-            <span className="h-2 w-16 rounded-sm" style={{ background: 'linear-gradient(90deg,#fff3b3,#fab238,#db4d29,#801f61,#29146b)' }} />
-            <span>después</span>
-          </div>
-        )}
 
+        <div className="relative min-h-0 min-w-0 flex-1" data-lienzo-ecg="">
+          <Canvas
+            dpr={alta ? [1, 1.75] : [1, 1.25]}
+            gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
+            camera={{ position: [0.3, 0.4, 9], fov: 32, near: 0.05, far: 100 }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <AjustesRender />
+            <FondoEstudio />
+            <Luces alta={alta} />
+            <OrbitControls makeDefault enableDamping dampingFactor={0.09} enablePan={false} minDistance={2.2} maxDistance={16} />
+            <CamaraECG vista={vista} />
+            {datos && <Escena datos={datos} reloj={reloj} u={u} derivacion={derivacion} capas={capas} alta={alta} />}
+            <DiagnosticoDev listo={listo} irA={irA} reloj={reloj} />
+            {alta && <Posproceso />}
+          </Canvas>
+
+          {!listo && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="rounded-full border border-white/10 bg-[#0b1422]/80 px-3 py-1.5 text-[13px] font-semibold text-rose-200">
+                {error ? 'No se pudo construir el corazón' : 'Construyendo el corazón…'}
+              </span>
+            </div>
+          )}
+          {iso && listo && (
+            <div className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-center gap-1.5 rounded-md border border-white/10 bg-[#0b1422]/85 px-2 py-1 text-[13px] leading-none text-slate-200" data-leyenda-iso="">
+              <span>antes</span>
+              <span className="h-2 w-14 rounded-sm" style={{ background: 'linear-gradient(90deg,#fff3b3,#fab238,#db4d29,#801f61,#29146b)' }} title="Orden en que se activa cada zona del corazón" />
+              <span>después</span>
+            </div>
+          )}
+        </div>
+
+        {/* riel derecho: el tiempo */}
+        <div className={`${RIEL} w-[70px] border-l`} role="toolbar" aria-label="Tiempo" aria-orientation="vertical">
+          <BotonRiel activo={pausa} onClick={() => setPausa((p) => !p)} icono={pausa ? <Play size={16} /> : <Pause size={16} />} texto={pausa ? 'Seguir' : 'Pausa'} titulo={pausa ? 'Reanudar' : 'Pausa'} />
+          <BotonRiel onClick={() => { setPausa(true); reloj.paso(10); }} icono={<StepForward size={16} />} texto="+10 ms" titulo="Avanzar 10 ms" />
+          {SEPARADOR}
+          {VELOCIDADES.map((v) => (
+            <BotonRiel key={v} activo={velocidad === v} onClick={() => setVelocidad(v)} texto={etiquetaVelocidad(v)} titulo={v === 1 ? 'Tiempo real' : `Cámara lenta ${etiquetaVelocidad(v)}`} />
+          ))}
+          <span className="mt-0.5 text-center text-[13px] leading-tight text-amber-200/90" data-velocidad-ecg="">{velocidad === 1 ? 'tiempo real' : 'cámara lenta'}</span>
+        </div>
       </div>
-      <DockECG reloj={reloj} derivacion={derivacion} onDerivacion={onDerivacion} listo={listo} />
+      <DockECG reloj={reloj} derivacion={derivacion} onDerivacion={onDerivacion} listo={listo} pausa={pausa} onPausa={setPausa} />
     </div>
   );
 }

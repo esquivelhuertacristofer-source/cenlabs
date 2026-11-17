@@ -6,6 +6,7 @@ import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 import { FARMACOS_B8 } from '@/domain/biologia';
 import type { FarmacoB8 } from '@/store/types';
+import { LetraBitacoraEstrella } from '../simulador/RaizLabEstrella';
 
 export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?: () => void }) {
   const cardio = useSimuladorStore((s) => s.cardio);
@@ -25,6 +26,7 @@ export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?
   };
 
   return (
+    <LetraBitacoraEstrella id="biologia-8">
     <div className="space-y-6 animate-in fade-in duration-500 font-['Outfit'] pb-20">
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-rose-500/30 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Bot size={60} className="text-white" /></div>
@@ -46,7 +48,7 @@ export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?
         <table className="w-full text-[11px] font-mono text-slate-600">
           <tbody>
             {(Object.keys(FARMACOS_B8) as FarmacoB8[]).map((f) => (
-              <tr key={f}><td>{FARMACOS_B8[f].nombre} {FARMACOS_B8[f].dosis}</td><td className="text-right">{dosis[f]} bolo(s)</td></tr>
+              <tr key={f}><td>{FARMACOS_B8[f].nombre} {FARMACOS_B8[f].dosis.replace('.', ',')}</td><td className="text-right">{dosis[f]} bolo(s)</td></tr>
             ))}
           </tbody>
         </table>
@@ -71,9 +73,10 @@ export default function BitacoraElectrocardiograma({ onValidate }: { onValidate?
         </button>
         <button onClick={() => onValidate?.()} disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
-          <ShieldCheck size={16} /> {canValidate ? 'Someter análisis' : 'Escribe tu análisis (30 palabras)'}
+          <ShieldCheck size={16} /> {canValidate ? 'Someter análisis' : 'Faltan palabras (30)'}
         </button>
       </div>
     </div>
+    </LetraBitacoraEstrella>
   );
 }

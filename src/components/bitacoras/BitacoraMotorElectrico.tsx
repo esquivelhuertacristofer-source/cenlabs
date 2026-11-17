@@ -6,6 +6,7 @@ import { useSimuladorStore } from '@/store/simuladorStore';
 import { evaluarF10, estadoMotor, MOTOR, TOL_RPM, TOL_V10 } from '@/domain/fisica';
 import BitacoraFisica from './fisica/BitacoraFisica';
 import { cifra } from '../simuladores/fis10/formato';
+import { LetraBitacoraEstrella } from '../simulador/RaizLabEstrella';
 
 export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: () => void }) {
   const m = useSimuladorStore(useShallow((s) => s.motor10));
@@ -13,6 +14,7 @@ export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: ()
   const est = e ? estadoMotor(e) : null;
 
   return (
+    <LetraBitacoraEstrella id="fisica-10">
     <BitacoraFisica
       titulo="Motor de Corriente Directa"
       intro="Cada lado de la bobina siente F = I·L×B; el conmutador invierte la corriente para que el par no cambie de signo. Al girar aparece la f.c.e.m. E = k·ω y, en régimen, V = E + I·R."
@@ -43,5 +45,6 @@ export default function BitacoraMotorElectrico({ onValidate }: { onValidate?: ()
       acento="#f97316"
       onValidate={onValidate}
     />
+    </LetraBitacoraEstrella>
   );
 }

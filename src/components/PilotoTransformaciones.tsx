@@ -50,37 +50,51 @@ function prefiereReducirMovimiento(): boolean {
 function Pildora({ activo, onClick, children, title }: { activo: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={activo} title={title}
-      className={`pointer-events-auto flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold backdrop-blur transition-colors ${activo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
+      className={`pointer-events-auto flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold backdrop-blur transition-colors ${activo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
       {children}
     </button>
   );
 }
 
-const ETQ = 'shrink-0 text-[11px] font-semibold text-slate-400';
+const ETQ = 'shrink-0 text-[13px] font-semibold text-slate-300';
+
+/**
+ * Letra ≥ 13 px en TODA la práctica (mandos, pastillas, barra, dock, rótulos y el panel
+ * «Modelo»), sin tocar el kit común: la regla sólo vale dentro de la raíz de este lab y
+ * sube a 13 px cualquier texto que el kit o el lab pinten más pequeño.
+ */
+const CSS_LETRA_13 = `
+[data-lab="matematicas-6"] [class*="text-[10px]"],
+[data-lab="matematicas-6"] [class*="text-[10.5px]"],
+[data-lab="matematicas-6"] [class*="text-[11px]"],
+[data-lab="matematicas-6"] [class*="text-[11.5px]"],
+[data-lab="matematicas-6"] [class*="text-[12px]"] { font-size: 13px; letter-spacing: 0.01em; }
+[data-lab="matematicas-6"] [data-franja="superior"] { min-height: 46px; }
+`;
 
 /** Deslizador en línea con la cifra en coma decimal. */
 function Mando({ etiqueta, valor, min, max, paso, unidad = '', decimales, onChange, ancho = 'w-[clamp(84px,11vw,150px)]' }: {
   etiqueta: string; valor: number; min: number; max: number; paso: number; unidad?: string; decimales: number; onChange: (v: number) => void; ancho?: string;
 }) {
   return (
-    <label className="flex h-8 items-center gap-2">
+    <label className="flex h-8 min-w-0 items-center gap-2">
       <span className={ETQ}>{etiqueta}</span>
       <input type="range" min={min} max={max} step={paso} value={valor} onChange={(e) => onChange(Number(e.target.value))}
         aria-valuetext={`${num(valor, decimales)} ${unidad}`} aria-label={etiqueta}
         className={`h-1.5 ${ancho} cursor-pointer appearance-none rounded-full bg-white/15 accent-[#219EBC]`} />
-      <span className="w-[44px] shrink-0 text-right font-mono text-[12px] font-semibold tabular-nums text-white">{num(valor, decimales)}{unidad}</span>
+      <span className="w-[52px] shrink-0 text-right font-mono text-[13px] font-semibold tabular-nums text-white">{num(valor, decimales)}{unidad}</span>
     </label>
   );
 }
 
 function Seg<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta?: string; valor: T; opciones: { valor: T; texto: string }[]; onChange: (v: T) => void }) {
   return (
-    <div className="flex h-8 items-center gap-2">
+    <div className="flex h-8 max-w-full min-w-0 items-center gap-2">
       {etiqueta && <span className={ETQ}>{etiqueta}</span>}
-      <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label={etiqueta}>
+      <div className="flex max-w-full overflow-x-auto rounded-lg border border-white/10 bg-white/[0.04] p-0.5 [scrollbar-width:none]" role="group" aria-label={etiqueta}>
         {opciones.map((o) => (
           <button key={o.valor} type="button" onClick={() => onChange(o.valor)} aria-pressed={valor === o.valor}
-            className={`h-7 rounded-md px-2.5 text-[11px] font-semibold ${valor === o.valor ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
+            className={`h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px] font-semibold ${valor === o.valor ? 'bg-[#219EBC] text-white' : 'text-slate-300 hover:text-white'}`}>
             {o.texto}
           </button>
         ))}
@@ -163,7 +177,7 @@ function PildoraRecorrido({ reloj }: { reloj: RelojTransf }) {
   useTickReloj(reloj, 4);
   return (
     <Pildora activo={reloj.recorrido} onClick={() => reloj.setRecorrido(!reloj.recorrido)} title="Recorrer solas las cinco estaciones">
-      <Route size={12} /> Recorrido
+      <Route size={14} /> Recorrido
     </Pildora>
   );
 }
@@ -256,14 +270,14 @@ export default function PilotoTransformaciones({ onValidate }: { onValidate?: ()
     <div className="flex h-full w-full min-h-0 flex-col bg-[#05080b]" data-modo-m6={modo}>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {escena3D}
-        <div className="pointer-events-none absolute left-2 top-2 flex max-w-[calc(100%-6.5rem)] flex-wrap items-center gap-1.5">
+        <div className="pointer-events-none absolute left-2 top-2 flex max-w-[calc(100%-7.5rem)] flex-wrap items-center gap-1.5">
           {!reto && <PildoraRecorrido reloj={relojTaller} />}
-          <Pildora activo={rotulos} onClick={() => setRotulos((v) => !v)} title="Nombres de las piezas (también al pasar el ratón)"><Tags size={12} /> Rótulos</Pildora>
-          <Pildora activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={12} /></Pildora>
+          <Pildora activo={rotulos} onClick={() => setRotulos((v) => !v)} title="Nombres de las piezas (también al pasar el ratón)"><Tags size={14} /> Rótulos</Pildora>
+          <Pildora activo={false} onClick={() => setEncuadre((n) => n + 1)} title="Volver al encuadre automático"><Scan size={14} /></Pildora>
         </div>
         <button type="button" onClick={() => setModelo((v) => !v)} aria-expanded={modelo}
-          className={`absolute right-2 top-2 flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold backdrop-blur ${modelo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
-          <BookOpen size={12} /> Modelo
+          className={`absolute right-2 top-2 flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold backdrop-blur ${modelo ? 'border-[#8ECAE6]/50 bg-[#0f2236]/85 text-white' : 'border-white/10 bg-[#0b1422]/70 text-slate-300 hover:text-white'}`}>
+          <BookOpen size={14} /> Modelo
         </button>
         {modelo && <Modelo onCerrar={() => setModelo(false)} />}
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-x-2.5 gap-y-1 rounded-md bg-[#0b1220]/70 px-2 py-1 text-[10.5px] font-semibold text-slate-200 backdrop-blur">
@@ -319,11 +333,11 @@ export default function PilotoTransformaciones({ onValidate }: { onValidate?: ()
   const fijar = (dx: number, dy: number, r: number, s: number) => { setTransformM6(dx, dy, r, s); audio?.playPop(); };
   const controles = reto ? (
     <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <Mando etiqueta="Traslación x" valor={tx} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} onChange={(v) => fijar(v, ty, rotacion, escala)} />
-        <Mando etiqueta="Traslación y" valor={ty} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} onChange={(v) => fijar(tx, v, rotacion, escala)} />
-        <Mando etiqueta="Giro" valor={rotacion} min={0} max={360} paso={5} unidad="°" decimales={0} onChange={(v) => fijar(tx, ty, v, escala)} />
-        <Mando etiqueta="Escala" valor={escala} min={ESCALA_MIN_M6} max={ESCALA_MAX_M6} paso={0.1} decimales={1} onChange={(v) => fijar(tx, ty, rotacion, v)} />
+      <div className="grid max-w-[760px] grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2 [&_label>span:first-child]:w-[88px]">
+        <Mando etiqueta="Traslación x" valor={tx} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} ancho="min-w-0 flex-1" onChange={(v) => fijar(v, ty, rotacion, escala)} />
+        <Mando etiqueta="Traslación y" valor={ty} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} ancho="min-w-0 flex-1" onChange={(v) => fijar(tx, v, rotacion, escala)} />
+        <Mando etiqueta="Giro" valor={rotacion} min={0} max={360} paso={5} unidad="°" decimales={0} ancho="min-w-0 flex-1" onChange={(v) => fijar(tx, ty, v, escala)} />
+        <Mando etiqueta="Escala" valor={escala} min={ESCALA_MIN_M6} max={ESCALA_MAX_M6} paso={0.1} decimales={1} ancho="min-w-0 flex-1" onChange={(v) => fijar(tx, ty, rotacion, v)} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <BotonLab variante="secundario" title="Devuelve la placa al origen (la silueta no cambia)" onClick={() => { resetM6(); audio?.playPop(); }}>
@@ -339,5 +353,10 @@ export default function PilotoTransformaciones({ onValidate }: { onValidate?: ()
     <MandosTaller reloj={relojTaller} />
   );
 
-  return <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} />;
+  return (
+    <div className="h-full w-full min-h-0 min-w-0 overflow-hidden [contain:inline-size]" data-lab="matematicas-6">
+      <style>{CSS_LETRA_13}</style>
+      <LabLayout escena={escena} barraSuperior={barraSuperior} controles={controles} />
+    </div>
+  );
 }

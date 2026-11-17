@@ -21,7 +21,9 @@ import {
 } from '@/components/simuladores/mat10/galton';
 import {
   pmfBinomialM10, mediaTeoricaM10, sigmaTeoricaM10, chiCuadradaM10, CHI2_CRITICO_001_M10, FILAS_M10, validarM10, MUESTRA_MIN_M10,
+  juicioPrediccionM10, hallazgoPrediccionM10, evaluarM10, TOL_PREDICCION_M10,
 } from '@/domain/matematicas';
+import { useBancoGalton, TANDA_APERTURA } from '@/components/simuladores/mat10/banco';
 
 const P_RETO = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8];
 const P_DESLIZADOR = Array.from({ length: 17 }, (_, i) => Math.round((0.1 + i * 0.05) * 100) / 100);
@@ -311,5 +313,117 @@ describe('la pila en el canal', () => {
   });
   test('la altura de la pila es proporcional a su cuenta (3 bolitas por capa de Ø·√3/2)', () => {
     expect(ranura(3, 30)[1] - ranura(3, 0)[1]).toBeCloseTo(10 * PASO_CAPA, 12);
+  });
+});
+
+describe('el hallazgo «Tu predicción» (juicio contra la binomial)', () => {
+  const lleno = (p: number) => muestraSimulada(p, 250, crearAzar(77));
+  const g = (p: number, mu: string, sigma: string, status: 'idle' | 'success' | 'error', cont = lleno(p)) =>
+    ({ probabilidad: p, prediccionMedia: mu, prediccionSigma: sigma, status, contenedores: cont }) as never;
+
+  test('el caso del revisor: μ = 4, σ = 1 con p = 0,25 NO es correcta (μ = 2,5; σ ≈ 1,37)', () => {
+    const j = juicioPrediccionM10({ probabilidad: 0.25, prediccionMedia: '4', prediccionSigma: '1' });
+    expect(j).toEqual({ escrita: true, mediaOk: false, sigmaOk: false, correcta: false });
+    for (const status of ['idle', 'error', 'success'] as const) expect(hallazgoPrediccionM10(g(0.25, '4', '1', status)).estado).not.toBe('correcta');
+    expect(hallazgoPrediccionM10(g(0.25, '4', '1', 'error')).estado).toBe('incorrecta');
+  });
+  test('correcta ⇔ |μ − n·p| ≤ tol y |σ − √(n·p·(1 − p))| ≤ tol, con las FILAS reales, en toda la rejilla', () => {
+    for (const p of P_DESLIZADOR) {
+      const mu = FILAS * p, sg = Math.sqrt(FILAS * p * (1 - p));
+      expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: mu.toFixed(2), prediccionSigma: sg.toFixed(2) }).correcta).toBe(true);
+      // coma decimal, como la escribe el alumno
+      expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: mu.toFixed(2).replace('.', ','), prediccionSigma: sg.toFixed(2).replace('.', ',') }).correcta).toBe(true);
+      // fuera de tolerancia en una sola de las dos
+      const fuera = TOL_PREDICCION_M10 + 0.02;
+      expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: (mu + fuera).toFixed(3), prediccionSigma: sg.toFixed(3) })).toMatchObject({ mediaOk: false, sigmaOk: true, correcta: false });
+      expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: mu.toFixed(3), prediccionSigma: (sg + fuera).toFixed(3) })).toMatchObject({ mediaOk: true, sigmaOk: false, correcta: false });
+      // errores típicos: σ² en vez de σ, y μ = p (olvidar n)
+      if (Math.abs(sg * sg - sg) > TOL_PREDICCION_M10 + 0.01)
+        expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: mu.toFixed(2), prediccionSigma: (sg * sg).toFixed(2) }).correcta).toBe(false);
+      expect(juicioPrediccionM10({ probabilidad: p, prediccionMedia: p.toFixed(2), prediccionSigma: sg.toFixed(2) }).correcta).toBe(false);
+    }
+    // n es el de la máquina: con otro número de filas la misma predicción deja de valer
+    expect(juicioPrediccionM10({ probabilidad: 0.5, prediccionMedia: '5', prediccionSigma: '1.58' }).correcta).toBe(true);
+    expect(juicioPrediccionM10({ probabilidad: 0.5, prediccionMedia: '5', prediccionSigma: '1.58' }, 12).correcta).toBe(false);
+  });
+  test('coincide con el validador: con muestra buena, valida ⇔ la predicción es correcta', () => {
+    let probadas = 0;
+    for (const p of P_RETO) {
+      const c = muestraSimulada(p, 250, crearAzar(900 + Math.round(p * 100)));
+      const { chi2, critico } = chiCuadradaM10(c, p);
+      if (chi2 > critico) continue;
+      probadas++;
+      const mu = (10 * p).toFixed(2), sg = Math.sqrt(10 * p * (1 - p)).toFixed(2);
+      expect(validarM10({ probabilidad: p, contenedores: c, prediccionMedia: mu, prediccionSigma: sg } as never)).toBe(true);
+      expect(validarM10({ probabilidad: p, contenedores: c, prediccionMedia: '4', prediccionSigma: '1' } as never))
+        .toBe(juicioPrediccionM10({ probabilidad: p, prediccionMedia: '4', prediccionSigma: '1' }).correcta);
+    }
+    expect(probadas).toBeGreaterThanOrEqual(P_RETO.length - 1);
+  });
+  test('sin escribir o a medias: ni escrita ni correcta', () => {
+    expect(juicioPrediccionM10({ probabilidad: 0.5, prediccionMedia: '', prediccionSigma: '' })).toMatchObject({ escrita: false, correcta: false });
+    expect(juicioPrediccionM10({ probabilidad: 0.5, prediccionMedia: '5', prediccionSigma: '' })).toMatchObject({ escrita: false, mediaOk: true, correcta: false });
+    expect(juicioPrediccionM10({ probabilidad: 0.5, prediccionMedia: 'cinco', prediccionSigma: '1.58' }).correcta).toBe(false);
+    expect(hallazgoPrediccionM10(g(0.5, '', '', 'idle')).estado).toBe('vacia');
+  });
+  test('no es un oráculo: antes de validar nunca se pinta verde ni rojo, aunque la predicción sea exacta', () => {
+    expect(hallazgoPrediccionM10(g(0.5, '5', '1.58', 'idle')).estado).toBe('pendiente');
+    expect(hallazgoPrediccionM10(g(0.5, '4', '1', 'idle')).estado).toBe('pendiente');
+    expect(hallazgoPrediccionM10(g(0.5, '5', '1.58', 'idle')).pista).toBe(hallazgoPrediccionM10(g(0.5, '4', '1', 'idle')).pista);
+    expect(hallazgoPrediccionM10(g(0.5, '5', '1.58', 'success')).estado).toBe('correcta');
+  });
+  test('los mensajes orientan sin dar la respuesta: dicen cuál número falla y cuántas bolitas faltan, nunca μ ni σ', () => {
+    for (const p of P_RETO) {
+      const mu = 10 * p, sg = Math.sqrt(10 * p * (1 - p));
+      const corta = new Array(CONTENEDORES).fill(0); corta[5] = 63;
+      const textos = [
+        hallazgoPrediccionM10(g(p, '9.9', '0.1', 'error')).pista,
+        hallazgoPrediccionM10(g(p, mu.toFixed(2), '0.1', 'error')).pista,
+        hallazgoPrediccionM10(g(p, '9.9', sg.toFixed(2), 'error', corta)).pista,
+        evaluarM10(g(p, '9.9', '0.1', 'error')).mensaje ?? '',
+        evaluarM10(g(p, mu.toFixed(2), '0.1', 'error')).mensaje ?? '',
+        evaluarM10(g(p, '9.9', '0.1', 'error', corta)).mensaje ?? '',
+      ];
+      for (const t of textos) {
+        expect(t.length).toBeGreaterThan(10);
+        // ni σ ni σ² (siempre con decimales) aparecen en ningún mensaje, con punto o con coma
+        for (const secreto of [sg.toFixed(2), sg.toFixed(1), (sg * sg).toFixed(2)]) {
+          expect(t).not.toContain(secreto);
+          expect(t).not.toContain(secreto.replace('.', ','));
+        }
+        // ni μ como «μ = …» o con sus decimales
+        expect(t).not.toContain(mu.toFixed(2));
+        expect(t).not.toContain(mu.toFixed(2).replace('.', ','));
+        expect(t).not.toMatch(/[μσ]\s*(=|es|vale)\s*\d/);
+      }
+      expect(textos[0]).toMatch(/Ni tu μ ni tu σ/);
+      expect(textos[1]).toMatch(/Tu σ no coincide/);
+      expect(textos[2]).toMatch(/Tu μ no coincide/);
+      expect(textos[2]).toMatch(/Faltan 137 bolitas/);
+      expect(textos[5]).toMatch(/63 bolitas/);
+    }
+    // con la predicción buena y la muestra corta: verde, pero avisa de las bolitas
+    const corta = new Array(CONTENEDORES).fill(0); corta[5] = 199;
+    const h = hallazgoPrediccionM10(g(0.5, '5', '1.58', 'error', corta));
+    expect(h.estado).toBe('correcta');
+    expect(h.pista).toMatch(/Faltan 1 bolita /);
+  });
+});
+
+describe('estado de apertura del banco', () => {
+  test('abre en tiempo real, con una tanda cayendo y el goteo abierto; con «reducir movimiento», quieto', () => {
+    const b = useBancoGalton.getState();
+    b.reiniciar(true);
+    expect(useBancoGalton.getState()).toMatchObject({ lenta: false, goteo: true, goteoDeApertura: true, apertura: TANDA_APERTURA });
+    expect(TANDA_APERTURA).toBeGreaterThanOrEqual(40);
+    expect(TANDA_APERTURA).toBeLessThan(MUESTRA_MIN_M10);
+    b.reiniciar(false);
+    expect(useBancoGalton.getState()).toMatchObject({ lenta: false, goteo: false, goteoDeApertura: false, apertura: 0 });
+  });
+  test('si el alumno toca el goteo deja de ser «de apertura» (ya no se cierra solo)', () => {
+    const b = useBancoGalton.getState();
+    b.reiniciar(true);
+    b.setGoteo(true);
+    expect(useBancoGalton.getState()).toMatchObject({ goteo: true, goteoDeApertura: false });
   });
 });

@@ -21,7 +21,8 @@ import {
   resistenciaPuente, resistenciaInterna, resistenciaExterna, derivaElectrones, formaVarilla, estadoInicial, leer, avanzar,
   cargaMaxima, electronesReaccion, type IdMetal, type Montaje,
 } from '@/components/simuladores/qmi09/electroquimica';
-import { RelojCelda, montajeDaniell, ionesVisibles, MOL_POR_ION } from '@/components/simuladores/qmi09/reloj';
+import { RelojCelda, montajeDaniell, ionesVisibles, MOL_POR_ION, factorSeguro, FACTORES, VIDA_MINIMA_S, LECTURA_S, DERIVA_MAX_V } from '@/components/simuladores/qmi09/reloj';
+import { ejeCarga, ejeRotulado, marcasEje, decimalesDePaso, rotuloNumero } from '@/components/simuladores/qmi09/ejes';
 import { lecturaVoltimetro, E0_REDUCCION } from '@/domain/quimica';
 
 const T = T_REF;
@@ -299,5 +300,139 @@ describe('reloj único', () => {
   test('cada esfera representa 4 mmol: 1 M en 200 mL son 50 iones', () => {
     expect(ionesVisibles(1 * BANCO.volumenL)).toBe(50);
     expect(MOL_POR_ION).toBe(0.004);
+  });
+});
+
+describe('cámara rápida y disoluciones diluidas (que se VEA el efecto Nernst)', () => {
+  /** Segundos de pantalla que tarda en agotarse el reloj a su factor (pasos de 1/30 s). */
+  const vidaEnPantalla = (r: RelojCelda, tope = 600) => {
+    let t = 0;
+    while (t < tope && !r.agotada()) { r.paso(1 / 30); t += 1 / 30; }
+    return t;
+  };
+  test('el fallo del revisor: con [Cu²⁺] = 1 mM a ×10⁶ la celda se agota en menos de 2 s', () => {
+    const r = new RelojCelda(montajeDaniell(1000), 1, 0.001);
+    r.factor = 1e6;
+    expect(vidaEnPantalla(r)).toBeLessThan(2);
+  });
+  test('factorSeguro: en toda la rejilla de concentraciones y cargas la fem se deja leer 3 s y la celda dura ≥ 30 s', () => {
+    for (const carga of [1000, 100, 10] as const) {
+      for (const cZn of [1, 0.1, 0.01, 0.001]) {
+        for (const cCu of [1, 0.1, 0.01, 0.001]) {
+          const r = new RelojCelda(montajeDaniell(carga), cZn, cCu);
+          const f = r.factorSeguro(1e7);
+          expect(FACTORES).toContain(f);
+          expect(f).toBe(factorSeguro(r.montaje, r.estado, 1e7));
+          r.factor = f;
+          const E0 = Math.abs(r.lectura.fem);
+          // a) LECTURA_S segundos de pantalla (a 30 cuadros/s): la fem casi no se mueve
+          for (let i = 0; i < LECTURA_S * 30; i++) r.paso(1 / 30);
+          expect(Math.abs(Math.abs(r.lectura.fem) - E0)).toBeLessThan(DERIVA_MAX_V * 1.25);
+          // b) y sigue viva al cabo de VIDA_MINIMA_S (se admite un 5 % por el paso de integración)
+          expect(LECTURA_S + vidaEnPantalla(r, 60)).toBeGreaterThan(0.95 * VIDA_MINIMA_S);
+        }
+      }
+    }
+  });
+  test('es el MAYOR factor que cumple: el siguiente más rápido ya no deja leer o agota la celda', () => {
+    let bajadas = 0;
+    for (const [cZn, cCu] of [[1, 0.001], [0.001, 1], [0.01, 0.01], [1, 0.1]] as const) {
+      const r = new RelojCelda(montajeDaniell(1000), cZn, cCu);
+      const f = r.factorSeguro(1e7);
+      const i = FACTORES.indexOf(f);
+      if (i === FACTORES.length - 1) continue;
+      bajadas++;
+      const rapido = new RelojCelda(montajeDaniell(1000), cZn, cCu);
+      rapido.factor = FACTORES[i + 1];
+      const E0 = Math.abs(rapido.lectura.fem);
+      for (let k = 0; k < LECTURA_S * 30; k++) rapido.paso(1 / 30);
+      const deriva = Math.abs(Math.abs(rapido.lectura.fem) - E0);
+      const vida = LECTURA_S + vidaEnPantalla(rapido, 60);
+      expect(deriva > DERIVA_MAX_V * 0.8 || vida < VIDA_MINIMA_S * 1.05).toBe(true);
+    }
+    expect(bajadas).toBe(4);
+  });
+  test('nunca sube por encima de lo que pidió el alumno, y sin corriente no toca nada', () => {
+    const r = new RelojCelda(montajeDaniell(1000), 1, 1);
+    for (const tope of FACTORES) expect(r.factorSeguro(tope)).toBeLessThanOrEqual(tope);
+    // 1 M a 1 kΩ dura ~570 días: ×10⁶ (≈ 49 s) pasa; ×10⁷ (≈ 5 s) no
+    expect(r.factorSeguro(1e6)).toBe(1e6);
+    expect(r.factorSeguro(1e7)).toBe(1e6);
+    const abierta = new RelojCelda(montajeDaniell('abierta'), 1, 0.001);
+    expect(abierta.factorSeguro(1e7)).toBe(1e7);
+    expect(abierta.factorSeguro(1e4)).toBe(1e4);
+  });
+  test('y lo que se ve al renovar es Nernst: E recién preparada = E° − (RT/2F)·ln([Zn²⁺]/[Cu²⁺])', () => {
+    for (const [cZn, cCu] of [[1, 0.001], [0.001, 1], [0.01, 0.1], [1, 1]] as const) {
+      const r = new RelojCelda(montajeDaniell(1000), 1, 1);
+      r.renovar(cZn, cCu);
+      expect(Math.abs(r.lectura.fem)).toBeCloseTo(nernstCelda('Zn', 'Cu', cZn, cCu, T), 9);
+      // una década de [Cu²⁺] son 29,6 mV (n = 2)
+      expect(nernstCelda('Zn', 'Cu', 1, 1, T) - nernstCelda('Zn', 'Cu', 1, 0.1, T)).toBeCloseTo(PENDIENTE / 2, 9);
+      // tras 2 s de pantalla al factor seguro la fem apenas se ha movido (< 15 mV): da tiempo a leerla
+      const E0 = Math.abs(r.lectura.fem);
+      r.factor = r.factorSeguro(1e6);
+      for (let i = 0; i < 60; i++) r.paso(1 / 30);
+      expect(Math.abs(Math.abs(r.lectura.fem) - E0)).toBeLessThan(0.015);
+    }
+    // el caso del revisor: [Cu²⁺] = 1 mM BAJA la fem 88,7 mV respecto de 1 M; [Zn²⁺] = 1 mM la SUBE 88,7 mV
+    expect(nernstCelda('Zn', 'Cu', 1, 0.001, T)).toBeCloseTo(1.10 - 1.5 * PENDIENTE, 3);
+    expect(nernstCelda('Zn', 'Cu', 0.001, 1, T)).toBeCloseTo(1.10 + 1.5 * PENDIENTE, 3);
+  });
+});
+
+describe('rótulos de los ejes de las gráficas', () => {
+  const distintos = (v: string[]) => new Set(v).size === v.length;
+  test('el fallo del revisor: 48 C ya no se rotula «0,0 · 0,0 · 0,0 · 0,0»', () => {
+    const qMax = new RelojCelda(montajeDaniell(1000), 1, 0.001).qMax;
+    expect(qMax).toBeCloseTo(2 * FARADAY * 0.001 * BANCO.volumenL, 6);
+    const e = ejeCarga(qMax);
+    expect(e.unidad).toBe('C');
+    expect(e.porUnidad).toBe(1);
+    expect(e.rotulos).toEqual(['0', '10', '20', '30']);
+    expect(e.max).toBeCloseTo(qMax, 9);
+  });
+  test('la celda 1 M (38,6 kC) se rotula en kC: 0 · 10 · 20 · 30', () => {
+    const e = ejeCarga(new RelojCelda(montajeDaniell(1000), 1, 1).qMax);
+    expect(e.unidad).toBe('kC');
+    expect(e.porUnidad).toBe(1000);
+    expect(e.rotulos).toEqual(['0', '10', '20', '30']);
+  });
+  test('de 0,5 C a 500 kC: rótulos todos distintos, crecientes, dentro del eje y nunca todos «0»', () => {
+    for (let q = 0.5; q < 5e5; q *= 1.37) {
+      const e = ejeCarga(q);
+      expect(e.rotulos.length).toBeGreaterThanOrEqual(3);
+      expect(e.rotulos.length).toBeLessThanOrEqual(7);
+      expect(distintos(e.rotulos)).toBe(true);
+      expect(e.rotulos[0]).toBe('0');
+      const nums = e.rotulos.map((t) => Number(t.replace(',', '.')));
+      nums.forEach((v, i) => {
+        expect(v).toBeCloseTo(e.marcas[i], 9);
+        if (i) expect(v).toBeGreaterThan(nums[i - 1]);
+        expect(e.marcas[i]).toBeLessThanOrEqual(e.max * (1 + 1e-9));
+      });
+      // la unidad cuadra con la carga: marca × porUnidad son culombios
+      expect(e.marcas[e.marcas.length - 1] * e.porUnidad).toBeLessThanOrEqual(q * (1 + 1e-9));
+      expect(e.marcas[e.marcas.length - 1] * e.porUnidad).toBeGreaterThan(q * 0.45);
+    }
+  });
+  test('decimales justos para el paso; marcas 1-2-5; coma decimal y cero sin signo', () => {
+    expect(decimalesDePaso(10)).toBe(0);
+    expect(decimalesDePaso(1)).toBe(0);
+    expect(decimalesDePaso(0.5)).toBe(1);
+    expect(decimalesDePaso(0.25)).toBe(2);
+    expect(decimalesDePaso(0.02)).toBe(2);
+    expect(marcasEje(0, 1.25, 3).paso).toBe(0.5);
+    expect(ejeRotulado(0, 1.25, 3).rotulos).toEqual(['0', '0,5', '1,0']);
+    expect(ejeRotulado(-0.175, 1.25, 3).rotulos).toEqual(['0', '0,5', '1,0']);
+    expect(ejeRotulado(-3, 41, 4).rotulos).toEqual(['0', '20', '40']);
+    expect(rotuloNumero(-0.5, 1)).toBe('−0,5');
+    expect(rotuloNumero(-0.0001, 1)).toBe('0');
+    for (const [a, b] of [[0, 0.5], [0, 0.75], [0, 2.75], [-12, 9], [0, 0.048], [0, 3.3e-4]] as const) {
+      const e = ejeRotulado(a, b, 4);
+      expect(distintos(e.rotulos)).toBe(true);
+      const mant = e.paso / 10 ** Math.floor(Math.log10(e.paso) + 1e-9);
+      expect([1, 2, 5].some((k) => Math.abs(mant - k) < 1e-6)).toBe(true);
+    }
   });
 });

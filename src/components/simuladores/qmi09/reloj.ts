@@ -30,9 +30,57 @@ export interface PuntoHistoria {
   lnQ: number;
 }
 
-/** Factores de cámara rápida que ofrece el lab (1 s real = factor s simulados). */
-export const FACTORES = [1e5, 1e6, 1e7] as const;
+/**
+ * Factores de cámara rápida que ofrece el lab (1 s real = factor s simulados). Los tres
+ * más lentos existen para las disoluciones diluidas: con [Cu²⁺] = 1 mM la celda sólo da
+ * 48 C, y a ×10⁵ se agotaría en medio segundo, antes de que el alumno lea el voltímetro.
+ */
+export const FACTORES = [1e2, 1e3, 1e4, 1e5, 1e6, 1e7] as const;
 export type Factor = (typeof FACTORES)[number];
+/** Segundos de pantalla que debe durar, como mínimo, una celda recién preparada. */
+export const VIDA_MINIMA_S = 30;
+/** Segundos de pantalla en que la fem recién preparada debe quedarse casi quieta, para leerla. */
+export const LECTURA_S = 3;
+/** Lo más que puede moverse la fem (V) en esos segundos. */
+export const DERIVA_MAX_V = 0.012;
+
+/** ¿La celda ya no da corriente aunque el circuito esté cerrado? (equilibrio o ánodo disuelto) */
+export function estaAgotada(m: Montaje, e: EstadoCelda, l: Lectura = leer(m, e)): 'equilibrio' | 'anodo' | null {
+  if (!l.cerrado || m.carga === 'abierta') return null;
+  const vA = l.anodo === 'izq' ? e.vIzq : e.vDer;
+  if (vA <= 1e-9) return 'anodo';
+  return Math.abs(l.fem) < 2e-3 ? 'equilibrio' : null;
+}
+
+/**
+ * El mayor factor de cámara rápida (≤ `tope`) con el que la celda (montaje + estado)
+ *   a) sigue viva tras VIDA_MINIMA_S segundos de pantalla, y
+ *   b) mueve su fem menos de DERIVA_MAX_V en los primeros LECTURA_S segundos
+ * (con [Zn²⁺] = 1 mM la fem cae decenas de mV en cuanto pasa algo de carga: sin (b) el
+ * alumno no llega a leer el valor de Nernst). Se comprueba integrando el MISMO modelo
+ * (`avanzar`), no con una estimación. En circuito abierto no pasa carga: vale el tope.
+ * Si ni el más lento cumple, se devuelve el más lento.
+ */
+export function factorSeguro(m: Montaje, e: EstadoCelda, tope: Factor = 1e7): Factor {
+  const candidatos = FACTORES.filter((f) => f <= tope);
+  const lento = candidatos[0] ?? FACTORES[0];
+  const l0 = leer(m, e);
+  if (!l0.cerrado || m.carga === 'abierta' || !(Math.abs(l0.I) > 0)) return candidatos[candidatos.length - 1] ?? lento;
+  const PASOS = 120;
+  const cumple = (f: Factor) => {
+    let s = e;
+    const dt = (VIDA_MINIMA_S / PASOS) * f;
+    for (let i = 1; i <= PASOS; i++) {
+      s = avanzar(m, s, dt);
+      const l = leer(m, s);
+      if (i * (VIDA_MINIMA_S / PASOS) <= LECTURA_S + 1e-9 && Math.abs(Math.abs(l.fem) - Math.abs(l0.fem)) > DERIVA_MAX_V) return false;
+      if (estaAgotada(m, s, l)) return false;
+    }
+    return true;
+  };
+  for (let i = candidatos.length - 1; i >= 0; i--) if (cumple(candidatos[i])) return candidatos[i];
+  return lento;
+}
 
 const MAX_HISTORIA = 900;
 /** Generaciones ÚNICAS entre relojes: al cambiar de reloj la escena también repuebla sus iones. */
@@ -127,11 +175,12 @@ export class RelojCelda {
 
   /** ¿La celda ya no da corriente aunque el circuito esté cerrado? */
   agotada(): 'equilibrio' | 'anodo' | null {
-    const l = this.lectura;
-    if (!l.cerrado || this.montaje.carga === 'abierta') return null;
-    const vA = l.anodo === 'izq' ? this.estado.vIzq : this.estado.vDer;
-    if (vA <= 1e-9) return 'anodo';
-    return Math.abs(l.fem) < 2e-3 ? 'equilibrio' : null;
+    return estaAgotada(this.montaje, this.estado, this.lectura);
+  }
+
+  /** El mayor factor ≤ `tope` con el que esta celda se deja leer y dura en pantalla (ver `factorSeguro`). */
+  factorSeguro(tope: Factor = 1e7): Factor {
+    return factorSeguro(this.montaje, this.estado, tope);
   }
 }
 

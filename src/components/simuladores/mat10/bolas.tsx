@@ -4,8 +4,8 @@
  *
  * En cada cuadro, y en este orden:
  *   1. la inclinación α del tablero avanza hacia la que pide p (α = atan((2p − 1)·w/h));
- *   2. el tiempo FÍSICO avanza dt·(¼ en cámara lenta);
- *   3. la tolva suelta bolitas (ráfaga de 40/s o goteo de una cada 0,25 s, tiempo
+ *   2. el tiempo FÍSICO avanza dt (tiempo real, como abre la práctica) o dt·¼ en cámara lenta;
+ *   3. la tolva suelta bolitas (ráfaga de 60/s o goteo de una cada 0,25 s, tiempo
  *      físico) sólo con el tablero asentado y si ningún canal está lleno; cada bolita
  *      sortea sus diez decisiones al salir (galton.ts, Bernoulli(p) exacta);
  *   4. cada bolita sigue sus tramos parabólicos; al pasar la boca de su canal se le
@@ -21,6 +21,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { MUESTRA_MIN_M10 } from '@/domain/matematicas';
 import type { Calidad } from '../_kit';
 import { useBancoGalton } from './banco';
 import {
@@ -29,9 +30,9 @@ import {
 } from './galton';
 import { TOLVA_INTERIOR, type MaterialesGalton } from './piezas';
 
-/** Bolitas en vuelo a la vez (con 40/s y ~1,1 s de vuelo bastan ~45). */
+/** Bolitas en vuelo a la vez (con 60/s y ~1,4 s entre la tolva y la pila vuelan ~85). */
 const MAX_VUELO = 160;
-export const TASA_RAFAGA = 40;
+export const TASA_RAFAGA = 60;
 export const PERIODO_GOTEO = 0.25;
 export const CAMARA_LENTA = 0.25;
 /** Tiempo de pantalla con que el tablero alcanza su nueva inclinación. */
@@ -161,6 +162,17 @@ export function MaquinaBolas({ m, calidad, reducido, alfaRef, diag }: {
 
     // 3 · la tolva
     let cont = g10.contenedores;
+    // tanda de apertura: la práctica abre con una ráfaga ya cayendo (sólo si la máquina está vacía)
+    if (banco.apertura > 0) {
+      if (!cont.some((x) => x > 0) && r.cola === 0) r.cola += banco.apertura;
+      banco.publicar({ apertura: 0 });
+    }
+    // el goteo que abrió la práctica se cierra solo al completar la muestra mínima
+    if (banco.goteo && banco.goteoDeApertura) {
+      let total = 0;
+      for (let k = 0; k < CONTENEDORES; k++) total += (cont[k] ?? 0) + r.destino[k];
+      if (total + r.cola >= MUESTRA_MIN_M10) banco.publicar({ goteo: false, goteoDeApertura: false });
+    }
     const llenoAhora = () => {
       for (let k = 0; k < CONTENEDORES; k++) if ((cont[k] ?? 0) + r.destino[k] >= CAPACIDAD) return true;
       return false;

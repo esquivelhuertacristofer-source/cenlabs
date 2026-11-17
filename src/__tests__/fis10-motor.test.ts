@@ -16,7 +16,7 @@ import {
   fcemMedia, aRpm, type ParamsMotor,
 } from '@/components/simuladores/fis10/motor';
 import { lineasCampo } from '@/components/simuladores/fis10/lineas';
-import { RelojMotor, factorAuto, VUELTAS_VISIBLES, LENTOS } from '@/components/simuladores/fis10/reloj';
+import { RelojMotor, factorAuto, VUELTAS_VISIBLES, LENTOS, RAPIDOS } from '@/components/simuladores/fis10/reloj';
 import { MOTOR, ESPIRAS10, estadoMotor, kMotor, rArmadura, voltajeNecesario, type Polo } from '@/domain/fisica';
 
 const GRAD = Math.PI / 180;
@@ -322,5 +322,122 @@ describe('reloj único', () => {
     expect(l.I).toBeCloseTo(6 / rArmadura(50), 10);
     expect(l.Pjoule).toBeCloseTo(l.Pel, 10);
     expect(l.eta).toBeCloseTo(0, 12);
+  });
+});
+
+describe('respuesta inmediata: los transitorios corren en tiempo real', () => {
+  const banco: ParamsMotor = { V: 6, N: 50, izq: 'N', der: 'S', carga: 0.004, energizado: true };
+  /** Segundos de PANTALLA (cuadros de 1/60 s) hasta que se cumple `listo`; Infinity si no llega en `tope` s. */
+  function pantallaHasta(r: RelojMotor, listo: () => boolean, tope = 30) {
+    for (let i = 1; i <= tope * 60; i++) { r.paso(1 / 60); if (listo()) return i / 60; }
+    return Infinity;
+  }
+
+  it('en régimen no hay transitorio: sigue la cámara lenta que deja ver el inducido', () => {
+    const r = new RelojMotor(banco); r.arrancarEnRegimen();
+    for (let i = 0; i < 120; i++) r.paso(1 / 60);
+    expect(r.transitorio).toBe(false);
+    expect(r.factor).toBeLessThan(1);
+    expect(r.factor * Math.abs(r.reg.rpm / 60)).toBeLessThanOrEqual(VUELTAS_VISIBLES);
+    // un retoque pequeño de la fuente (< 5 % del régimen) tampoco lo abre
+    r.fijar({ V: 6.1 });
+    expect(r.transitorio).toBe(false);
+  });
+
+  it('al cortar, el reloj pasa a ×1 y el tacómetro cae a 0 en los segundos REALES que tarda el rotor (ω·J/τ_freno)', () => {
+    const r = new RelojMotor(banco); r.arrancarEnRegimen();
+    const w0 = r.e.omega, tReal = (w0 * J_ROTOR) / banco.carga;       // ≈ 3,5 s: es la inercia real, no se toca
+    r.fijar({ energizado: false });
+    expect(r.transitorio).toBe(true);
+    expect(r.factor).toBe(1);
+    // la física es la misma de siempre: desaceleración τ_c/J mientras corre a ×1
+    const t0 = r.e.t; r.paso(1 / 60); r.paso(1 / 60);
+    expect(r.e.t - t0).toBeCloseTo(2 / 60, 9);
+    expect(rel((w0 - r.e.omega) / (r.e.t - t0), banco.carga / J_ROTOR)).toBeLessThan(1e-6);
+    // al segundo de pantalla el tacómetro ya bajó mucho (antes, a ×1/10, apenas un 3 %)
+    for (let i = 0; i < 58; i++) r.paso(1 / 60);
+    expect(Math.abs(r.lectura().nTacho)).toBeLessThan(0.8 * aRpm(w0));
+    const parado = pantallaHasta(r, () => r.e.omega === 0);
+    expect(1 + parado).toBeGreaterThan(tReal * 0.98);
+    expect(1 + parado).toBeLessThan(tReal * 1.02 + 0.05);
+    // y el tacómetro marca 0 enseguida (sin pulsos durante 1,5 s), todavía a ×1
+    expect(pantallaHasta(r, () => r.lectura().nTacho === 0)).toBeLessThan(2);
+    expect(r.transitorio).toBe(false);
+  });
+
+  it('con polos iguales (N–N) y al cargar el freno, la lectura cambia en menos de 1 s de pantalla', () => {
+    const nn = new RelojMotor(banco); nn.arrancarEnRegimen();
+    const n0 = nn.lectura().nTacho;
+    nn.fijar({ der: 'N' });
+    expect(nn.transitorio).toBe(true);
+    for (let i = 0; i < 60; i++) nn.paso(1 / 60);
+    expect(nn.lectura().nTacho).toBeLessThan(0.8 * n0);
+    expect(pantallaHasta(nn, () => nn.lectura().nTacho === 0)).toBeLessThan(6);
+
+    const fr = new RelojMotor(banco); fr.arrancarEnRegimen();
+    fr.fijar({ carga: 0.04 });
+    const meta = estadoMotor({ voltaje: 6, espiras: 50, imanIzq: 'N', imanDer: 'S', carga: 0.04 });
+    expect(fr.transitorio).toBe(true);
+    expect(pantallaHasta(fr, () => rel(fr.lectura().nTacho, meta.rpm) < 0.02)).toBeLessThan(1);
+    // llegado al régimen nuevo vuelve sola la cámara lenta
+    expect(pantallaHasta(fr, () => !fr.transitorio)).toBeLessThan(1);
+    expect(fr.factor).toBeLessThan(1);
+    expect(fr.factor * Math.abs(meta.rpm / 60)).toBeLessThanOrEqual(VUELTAS_VISIBLES);
+  });
+
+  it('un transitorio largo (rotor muy rápido, freno suave) se acelera como mucho ×4, y nunca más', () => {
+    const r = new RelojMotor({ V: 12, N: 10, izq: 'N', der: 'S', carga: 0.004, energizado: true }); r.arrancarEnRegimen();
+    r.fijar({ energizado: false });
+    expect(r.transitorio).toBe(true);
+    expect(RAPIDOS).toContain(r.factor as (typeof RAPIDOS)[number]);
+    expect(r.factor).toBe(4);
+    expect(Math.max(...RAPIDOS)).toBe(4);
+  });
+});
+
+describe('cambio de modo Banco ↔ Reto: estado nuevo, nada se hereda', () => {
+  const banco: ParamsMotor = { V: 6, N: 50, izq: 'N', der: 'S', carga: 0.004, energizado: true };
+  const reto: ParamsMotor = { V: 5, N: 50, izq: 'N', der: 'S', carga: 0.012, energizado: false };
+
+  it('al pasar al Reto (desenergizado) el rotor está parado: ω = 0, tacómetro 0, sin corriente, y así sigue', () => {
+    const r = new RelojMotor(banco); r.arrancarEnRegimen();
+    for (let i = 0; i < 90; i++) r.paso(1 / 60);
+    expect(Math.abs(r.lectura().nTacho)).toBeGreaterThan(1000);   // el Banco giraba
+    r.reiniciar(reto);
+    const l = r.lectura();
+    expect(r.e.omega).toBe(0);
+    expect(l.nTacho).toBe(0);
+    expect(l.I).toBe(0);
+    expect(l.Pel).toBe(0);
+    expect(r.tacho.pulsos).toBe(0);
+    expect(r.transitorio).toBe(false);
+    // la gráfica ω(t) tampoco conserva el giro del Banco
+    expect(r.hn).toBeGreaterThan(0);
+    for (let k = 0; k < r.hn; k++) expect(r.muestra(k).w).toBe(0);
+    for (let i = 0; i < 300; i++) r.paso(1 / 60);
+    expect(r.e.omega).toBe(0);
+    expect(r.lectura().nTacho).toBe(0);
+  });
+
+  it('desde ahí, energizar arranca de cero y llega al régimen del dominio', () => {
+    const r = new RelojMotor(banco); r.arrancarEnRegimen();
+    r.reiniciar(reto);
+    r.fijar({ energizado: true });
+    expect(r.transitorio).toBe(true);
+    const dom = estadoMotor({ voltaje: 5, espiras: 50, imanIzq: 'N', imanDer: 'S', carga: 0.012 });
+    for (let i = 0; i < 240; i++) r.paso(1 / 60);
+    expect(rel(r.lectura().nTacho, dom.rpm)).toBeLessThan(5e-3);
+  });
+
+  it('al volver al Banco sale ya en el régimen de SUS mandos, sin rastro del Reto', () => {
+    const r = new RelojMotor(reto);
+    r.fijar({ energizado: true });
+    for (let i = 0; i < 240; i++) r.paso(1 / 60);
+    r.reiniciar(banco);
+    const dom = estadoMotor({ voltaje: 6, espiras: 50, imanIzq: 'N', imanDer: 'S', carga: 0.004 });
+    expect(r.transitorio).toBe(false);
+    expect(rel(r.e.omega, dom.omega)).toBeLessThan(1e-3);
+    expect(rel(r.lectura().nTacho, dom.rpm)).toBeLessThan(2e-3);
+    for (let k = 0; k < r.hn; k++) expect(rel(r.muestra(k).w, dom.omega)).toBeLessThan(2e-2);
   });
 });

@@ -79,7 +79,7 @@ export interface OpcionesHistograma {
 export function dibujarHistograma(ctx: CanvasRenderingContext2D, w: number, h: number, o: OpcionesHistograma) {
   const oscuro = o.tema === 'oscuro';
   const N = o.cont.reduce((a, b) => a + b, 0);
-  const m = { l: 26, r: 6, t: 8, b: 20 };
+  const m = { l: 34, r: 8, t: 10, b: 24 };
   const X = (k: number) => m.l + ((k + 0.5) / CONTENEDORES) * (w - m.l - m.r);
   const anchoBarra = ((w - m.l - m.r) / CONTENEDORES) * 0.8;
   // la escala vertical cubre la muestra y lo que se dibuje encima
@@ -97,11 +97,11 @@ export function dibujarHistograma(ctx: CanvasRenderingContext2D, w: number, h: n
   ctx.strokeStyle = oscuro ? 'rgba(148,163,184,0.45)' : 'rgba(15,23,42,0.35)';
   ctx.beginPath(); ctx.moveTo(m.l + 0.5, m.t); ctx.lineTo(m.l + 0.5, h - m.b + 0.5); ctx.lineTo(w - m.r, h - m.b + 0.5); ctx.stroke();
   ctx.fillStyle = oscuro ? '#94a3b8' : '#64748b';
-  ctx.font = `500 10px ${f}`;
+  ctx.font = `500 13px ${f}`;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let v = 0; v <= yMax + 1e-9; v += paso) ctx.fillText(String(Math.round(v)), m.l - 4, Y(v));
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  for (let k = 0; k < CONTENEDORES; k++) ctx.fillText(String(k), X(k), h - m.b + 4);
+  for (let k = 0; k < CONTENEDORES; k++) ctx.fillText(String(k), X(k), h - m.b + 6);
   // barras de la muestra
   for (let k = 0; k < CONTENEDORES; k++) {
     const c = o.cont[k] ?? 0;
@@ -145,7 +145,12 @@ export function prediccionValida(mu: string, sigma: string) {
   return Number.isFinite(a) && Number.isFinite(b) && b > 0 && b < 20 && Math.abs(a) < 50 ? { mu: a, sigma: b } : null;
 }
 
-const ALTO_MAX = 210, ALTO_MIN = 120;
+/** «x barra» sin depender de que la fuente traiga el macron combinable (salía «x‾»). */
+export function Xbarra() {
+  return <span aria-label="media de la muestra" style={{ textDecoration: 'overline', textTransform: 'none', fontStyle: 'italic' }}>x</span>;
+}
+
+const ALTO_MAX = 260, ALTO_MIN = 150;
 const fmt = (v: number, d: number) => (Number.isFinite(v) ? v.toFixed(d) : '—');
 
 export function DockGalton() {
@@ -192,8 +197,8 @@ export function DockGalton() {
       {/* muestra */}
       <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Histograma</span>
-          <span className="font-mono text-[12px] font-semibold tabular-nums text-white" data-lectura="N">
+          <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Histograma</span>
+          <span className="font-mono text-[14px] font-semibold tabular-nums text-white" data-lectura="N">
             N = {N}<span className="text-slate-500"> / {MUESTRA_MIN_M10}</span>
           </span>
         </div>
@@ -202,7 +207,7 @@ export function DockGalton() {
         </div>
         <Lienzo alto={alto} dibujar={dibujar} etiqueta="Histograma de la muestra: bolitas por contenedor"
           deps={[contenedores, pred?.mu, pred?.sigma, validado, p, resaltar]} />
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-semibold text-slate-400">
+        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] font-semibold text-slate-400">
           <span className="flex items-center gap-1"><i className="inline-block h-2 w-2.5 rounded-[2px] bg-[#9fb4c8]" />muestra</span>
           <span className="flex items-center gap-1" style={{ color: pred ? COL.pred : undefined }}>
             <i className="inline-block w-3 border-t-2 border-dashed" style={{ borderColor: pred ? COL.pred : '#64748b' }} />tu curva teórica
@@ -214,64 +219,62 @@ export function DockGalton() {
             </>
           )}
         </div>
-        {lleno && <p role="status" className="mt-1.5 text-[11px] font-semibold text-amber-300">Un canal está lleno ({CAPACIDAD}): vacía la máquina para seguir.</p>}
+        {lleno && <p role="status" className="mt-1.5 text-[13px] font-semibold text-amber-300">Un canal está lleno ({CAPACIDAD}): vacía la máquina para seguir.</p>}
       </section>
 
-      {/* estadísticos */}
-      <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 font-mono tabular-nums">
-          <span className="flex items-baseline justify-between"><span className="text-[11px] font-semibold text-slate-400">x̄</span><span className="text-[15px] font-semibold text-white" data-lectura="media">{fmt(muestra.media, 2)}</span></span>
-          <span className="flex items-baseline justify-between"><span className="text-[11px] font-semibold text-slate-400">s</span><span className="text-[15px] font-semibold text-white" data-lectura="sigma">{fmt(muestra.sigma, 2)}</span></span>
-          {validado && (
-            <>
-              <span className="flex items-baseline justify-between"><span className="text-[11px] font-semibold text-emerald-300">μ = np</span><span className="text-[15px] font-semibold text-emerald-200">{(FILAS * p).toFixed(2)}</span></span>
-              <span className="flex items-baseline justify-between"><span className="text-[11px] font-semibold text-emerald-300">σ</span><span className="text-[15px] font-semibold text-emerald-200">{Math.sqrt(FILAS * p * (1 - p)).toFixed(2)}</span></span>
-            </>
+      {/* comparación con el modelo: sólo tras validar (x̄ y s de la muestra están en la barra de lecturas) */}
+      {validado && (
+        <section className="rounded-lg border border-emerald-400/25 bg-emerald-400/[0.06] p-2.5" data-seccion="modelo">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 font-mono tabular-nums">
+            <span className="flex items-baseline justify-between"><span className="text-[13px] font-semibold text-slate-300"><Xbarra /></span><span className="text-[15px] font-semibold text-white" data-lectura="media">{fmt(muestra.media, 2)}</span></span>
+            <span className="flex items-baseline justify-between"><span className="text-[13px] font-semibold text-slate-300">s</span><span className="text-[15px] font-semibold text-white" data-lectura="sigma">{fmt(muestra.sigma, 2)}</span></span>
+            <span className="flex items-baseline justify-between"><span className="text-[13px] font-semibold text-emerald-300">μ = np</span><span className="text-[15px] font-semibold text-emerald-200">{(FILAS * p).toFixed(2)}</span></span>
+            <span className="flex items-baseline justify-between"><span className="text-[13px] font-semibold text-emerald-300">σ</span><span className="text-[15px] font-semibold text-emerald-200">{Math.sqrt(FILAS * p * (1 - p)).toFixed(2)}</span></span>
+          </div>
+          {chi && (
+            <p className="mt-1.5 flex flex-wrap gap-x-2 font-mono text-[13px] font-semibold tabular-nums text-emerald-300" data-lectura="chi2">
+              <span className="whitespace-nowrap">χ² = {chi.chi2.toFixed(2)}</span>
+              <span className="whitespace-nowrap">gl {chi.gl}</span>
+              <span className="whitespace-nowrap">p-valor {pValorChi2(chi.chi2, chi.gl).toFixed(2)}</span>
+            </p>
           )}
-        </div>
-        {chi && (
-          <p className="mt-1.5 flex flex-wrap gap-x-2 font-mono text-[11px] font-semibold tabular-nums text-emerald-300" data-lectura="chi2">
-            <span className="whitespace-nowrap">χ² = {chi.chi2.toFixed(2)}</span>
-            <span className="whitespace-nowrap">gl {chi.gl}</span>
-            <span className="whitespace-nowrap">p-valor {pValorChi2(chi.chi2, chi.gl).toFixed(2)}</span>
-          </p>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* la última bolita */}
       <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
         <div className="mb-1 flex items-baseline justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Última bolita</span>
-          {ultima && <span className="font-mono text-[12px] font-semibold tabular-nums text-white">k = {ultima.k}</span>}
+          <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Última bolita</span>
+          {ultima && <span className="font-mono text-[14px] font-semibold tabular-nums text-white">k = {ultima.k}</span>}
         </div>
-        <div className="flex h-5 items-center gap-[3px]" aria-label={ultima ? `Decisiones: ${ultima.decisiones.map((d) => (d > 0 ? 'derecha' : 'izquierda')).join(', ')}` : 'Aún no ha caído ninguna'}>
+        <div className="flex h-6 items-center gap-[3px]" aria-label={ultima ? `Decisiones: ${ultima.decisiones.map((d) => (d > 0 ? 'derecha' : 'izquierda')).join(', ')}` : 'Aún no ha caído ninguna'}>
           {Array.from({ length: FILAS }, (_, i) => {
             const d = ultima?.decisiones[i];
             return (
-              <span key={i} className={`flex h-5 flex-1 items-center justify-center rounded ${d == null ? 'bg-white/[0.04]' : d > 0 ? 'bg-[#FB8500]/25 text-[#FFB703]' : 'bg-sky-400/15 text-sky-300'}`}>
-                {d == null ? null : d > 0 ? <ArrowRight size={11} strokeWidth={2.6} /> : <ArrowLeft size={11} strokeWidth={2.6} />}
+              <span key={i} className={`flex h-6 flex-1 items-center justify-center rounded ${d == null ? 'bg-white/[0.04]' : d > 0 ? 'bg-[#FB8500]/25 text-[#FFB703]' : 'bg-sky-400/15 text-sky-300'}`}>
+                {d == null ? null : d > 0 ? <ArrowRight size={13} strokeWidth={2.6} /> : <ArrowLeft size={13} strokeWidth={2.6} />}
               </span>
             );
           })}
         </div>
       </section>
 
-      <details className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-slate-300">
-        <summary className="cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wider text-slate-400">Modelo y límites</summary>
-        <ul className="mt-1.5 space-y-1 font-mono text-[11px] leading-snug text-slate-200">
+      <details className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-slate-300">
+        <summary className="cursor-pointer select-none text-[13px] font-semibold uppercase tracking-wide text-slate-400">Modelo y límites</summary>
+        <ul className="mt-1.5 space-y-1 font-mono text-[13px] leading-snug text-slate-200">
           <li>P(k) = C(10, k)·pᵏ·(1 − p)¹⁰⁻ᵏ</li>
           <li>p = ½ + h·tan α / (2w)</li>
           <li>w = {(W_IMPACTO * 10).toFixed(2)} mm · h = {(DY_FILA * 10).toFixed(1)} mm</li>
           <li>burbuja: s = R·α, R = {R_VIAL} cm</li>
           <li>χ² = Σ (O − E)²/E (E ≥ 5)</li>
         </ul>
-        <p className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Qué simplifica</p>
+        <p className="mt-2 text-[13px] font-semibold uppercase tracking-wide text-slate-400">Qué simplifica</p>
         <ul className="mt-1 list-disc space-y-1 pl-4 leading-snug">
           <li>Cada clavo decide con Bernoulli(p), independiente de los demás: el punto de impacto se sortea uniforme en ±w (corrido h·tan α por la inclinación).</li>
           <li>Entre clavos, parábolas con la gravedad del tablero inclinado; el bote es de choque con restitución, ajustado para llegar al clavo que tocó la decisión.</li>
           <li>Las bolitas no chocan entre sí en el aire; en el canal se apilan en hexagonal compacto.</li>
           <li>La tolva no se vacía; cada canal admite {CAPACIDAD} bolitas.</li>
-          <li>Cámara lenta ×¼: la caída real dura ~1 s.</li>
+          <li>La caída real dura ~1 s; la cámara lenta la muestra a ×¼.</li>
         </ul>
       </details>
     </div>
