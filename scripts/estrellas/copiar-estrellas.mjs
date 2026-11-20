@@ -9,7 +9,13 @@
 //     a `public/estrellas/E#/` (los `.md` del paquete NO se copian: son para el docente);
 //   · genera la portada `public/estrellas/portadas/E#.webp` (960 px de ancho como máximo)
 //     recortando la escena 3D de una captura de la propia práctica;
-//   · al final escribe `public/estrellas/huellas.json` con el SHA-256 de cada archivo.
+//   · al final escribe `public/estrellas/huellas.json` con el SHA-256 de cada archivo de
+//     public/estrellas (también los de copiar-practicas.mjs: se calcula desde el disco).
+//
+// Compuerta (huellas.mjs → comprobarPaquete): solo se copia una estrella cuyo paquete esté en
+// VERDE con 0 fallos, con `manifiesto --comprobar` al día, sin código posterior a su validación y
+// con el para-alumno idéntico al del manifiesto. Una estrella que no pase se deja COMO ESTÁ en
+// public/ (la versión publicada antes sigue sirviéndose) y se avisa. `--solo E1,E3` limita la copia.
 //
 // Se puede correr las veces que haga falta: cada carpeta E# se borra y se vuelve a copiar, así
 // que un archivo que desaparezca del paquete no se queda viejo en public/. El origen es de solo
@@ -20,19 +26,19 @@
 // =============================================================================
 import fs from 'node:fs'
 import path from 'node:path'
-import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
+import { ORIGEN_POR_DEFECTO, MAX_BYTES, comprobarPaquete, escribirHuellas } from './huellas.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DESTINO = path.join(RAIZ, 'public', 'estrellas')
-const ORIGEN_POR_DEFECTO = 'C:/Users/crist/Documents/Codex/2026-11-11/files-pasted-by-the-user-encargo/outputs/produccion-estrellas'
-const MAX_BYTES = 25 * 1024 * 1024 // tope por archivo de los assets de Cloudflare Workers
 const ANCHO_PORTADA = 960
 
 const args = process.argv.slice(2)
 const iOrigen = args.indexOf('--origen')
 const ORIGEN = path.resolve(iOrigen >= 0 && args[iOrigen + 1] ? args[iOrigen + 1] : process.env.ESTRELLAS_ORIGEN || ORIGEN_POR_DEFECTO)
+const iSolo = args.indexOf('--solo')
+const SOLO = iSolo >= 0 && args[iSolo + 1] ? args[iSolo + 1].split(',').map((x) => x.trim().toUpperCase()) : null
 
 // Portadas: de qué captura sale cada una y qué rectángulo (en píxeles de ESA captura) se recorta
 // para dejar solo la escena 3D, sin los paneles ni los rótulos de la página. Todas a 16:10.
@@ -51,13 +57,12 @@ const PRACTICAS = Object.keys(PORTADAS)
 
 const avisos = []
 const huellas = {}
-const sha256 = (archivo) => crypto.createHash('sha256').update(fs.readFileSync(archivo)).digest('hex')
 const relativo = (archivo) => path.relative(DESTINO, archivo).split(path.sep).join('/')
 
 function anotar(archivo) {
   const bytes = fs.statSync(archivo).size
   if (bytes > MAX_BYTES) throw new Error(`${relativo(archivo)} pesa ${(bytes / 1048576).toFixed(1)} MiB: Cloudflare no sirve archivos de más de 25 MiB`)
-  huellas[relativo(archivo)] = { sha256: sha256(archivo), bytes }
+  huellas[relativo(archivo)] = { bytes }
 }
 
 function copiarArchivo(desde, hasta) {
@@ -101,30 +106,25 @@ async function portada(id) {
   anotar(salida)
 }
 
-function version(id, js) {
-  // La versión vigente es la constante VERSION que declara el propio app.js («E#-mayor.menor»).
-  // El index.html y los comentarios nombran también versiones anteriores, así que no sirven.
-  const m = new RegExp(`VERSION = "(${id}-[0-9.]+)"`).exec(js)
-  return m ? m[1] : null
-}
-
 if (!fs.existsSync(ORIGEN)) {
   console.error(`copiar-estrellas: no existe el origen ${ORIGEN}`)
   process.exit(1)
 }
-// Primero se comprueba todo el origen: si falta algo, no se toca public/.
+// Primero se comprueba todo el origen: la que no pasa la compuerta se queda como está en public/.
+const LISTAS = []
+const validacion = {}
 for (const id of PRACTICAS) {
-  for (const f of ['index.html', 'app.js']) {
-    const p = path.join(ORIGEN, id, 'para-alumno', f)
-    if (!fs.existsSync(p)) {
-      console.error(`copiar-estrellas: falta ${p}. No se copió nada.`)
-      process.exit(1)
-    }
+  if (SOLO && !SOLO.includes(id)) continue
+  const { motivos, validacion: v } = comprobarPaquete(ORIGEN, id)
+  if (motivos.length) {
+    avisos.push(`${id} NO se copió (se queda la versión que ya estaba en public/): ${motivos.join('; ')}`)
+    continue
   }
+  LISTAS.push(id)
+  validacion[id] = v
 }
 
-const versiones = {}
-for (const id of PRACTICAS) {
+for (const id of LISTAS) {
   const desde = path.join(ORIGEN, id, 'para-alumno')
   const hasta = path.join(DESTINO, id)
   fs.rmSync(hasta, { recursive: true, force: true })
@@ -134,10 +134,9 @@ for (const id of PRACTICAS) {
   // narración grabada de la ficha y la guía (mp3 junto a la página; la práctica la detecta sola)
   if (fs.existsSync(path.join(desde, 'voz'))) copiarCarpeta(path.join(desde, 'voz'), path.join(hasta, 'voz'))
   await portada(id)
-  versiones[id] = version(id, fs.readFileSync(path.join(hasta, 'app.js'), 'utf8'))
   const propios = Object.entries(huellas).filter(([k]) => k.startsWith(`${id}/`))
   const mib = propios.reduce((a, [, v]) => a + v.bytes, 0) / 1048576
-  console.log(`${id} ${versiones[id] ?? '(sin versión)'} · ${propios.length} archivo(s) · ${mib.toFixed(1)} MiB · portada ${(huellas[`portadas/${id}.webp`].bytes / 1024).toFixed(0)} KiB`)
+  console.log(`${id} ${validacion[id].version ?? '(sin versión)'} · ${validacion[id].comprobaciones} comprobaciones · ${propios.length} archivo(s) · ${mib.toFixed(1)} MiB · portada ${(huellas[`portadas/${id}.webp`].bytes / 1024).toFixed(0)} KiB`)
 }
 
 // Mosaico de la ficha del inicio y del encabezado del catálogo: las siete escenas en tres filas
@@ -171,10 +170,8 @@ for (const id of PRACTICAS) {
   console.log(`mosaico ${ancho}×${alto} · ${(huellas['portadas/mosaico.webp'].bytes / 1024).toFixed(0)} KiB`)
 }
 
-// Sin fecha a propósito: si los paquetes no cambian, volver a correr deja el archivo idéntico.
-const ordenadas = Object.fromEntries(Object.entries(huellas).sort(([a], [b]) => a.localeCompare(b)))
-fs.writeFileSync(path.join(DESTINO, 'huellas.json'), JSON.stringify({ algoritmo: 'sha256', versiones, archivos: ordenadas }, null, 2) + '\n')
-
-const total = Object.values(huellas).reduce((a, v) => a + v.bytes, 0)
-console.log(`copiar-estrellas: ${Object.keys(huellas).length} archivos, ${(total / 1048576).toFixed(1)} MiB en public/estrellas · huellas.json escrito`)
+// huellas.json se calcula desde el disco: incluye también lo copiado por copiar-practicas.mjs.
+const { archivos } = escribirHuellas(DESTINO, validacion)
+const total = Object.values(archivos).reduce((a, v) => a + v.bytes, 0)
+console.log(`copiar-estrellas: ${LISTAS.length} estrella(s) copiada(s) (${LISTAS.join(', ') || 'ninguna'}); public/estrellas tiene ${Object.keys(archivos).length} archivos, ${(total / 1048576).toFixed(1)} MiB · huellas.json escrito`)
 for (const a of avisos) console.warn(`AVISO · ${a}`)

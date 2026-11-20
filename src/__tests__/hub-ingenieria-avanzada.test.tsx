@@ -1,18 +1,22 @@
 /**
  * src/__tests__/hub-ingenieria-avanzada.test.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * La ficha «Ingeniería Avanzada» y su catálogo de siete prácticas estrella.
- * Estas prácticas son paquetes estáticos (public/estrellas/E#/) que se abren en
+ * La ficha «Ingeniería Avanzada» y su catálogo: las siete prácticas estrella y las
+ * de formación industrial (ACT, CTL, PLC, CNC, ELA), agrupadas por área.
+ * Estas prácticas son paquetes estáticos (public/estrellas/<id>/) que se abren en
  * otra pestaña y NO escriben en la base. Lo que aquí se protege:
  *
- *  1. El catálogo ofrece las siete, cada una con un enlace que abre SU archivo en
+ *  1. El catálogo ofrece todas, cada una con un enlace que abre SU archivo en
  *     pestaña nueva con rel="noopener", y avisa de que el avance queda en el navegador.
+ *     Las de formación industrial van en su sección de área, en el orden del catálogo.
  *  2. Cada enlace y cada portada apuntan a un archivo que EXISTE en public/, y
  *     `huellas.json` dice la verdad sobre lo copiado (un paquete a medio copiar
- *     se vería como una pestaña en blanco, sin error en ningún lado).
- *  3. La ficha del inicio no pinta un anillo «0 / 7» y —lo importante— NO entra en
+ *     se vería como una pestaña en blanco, sin error en ningún lado). Cada práctica
+ *     industrial publicada trae en huellas.json la versión y las comprobaciones de la
+ *     suite que la validó, y no queda ningún paquete huérfano fuera del hub.
+ *  3. La ficha del inicio no pinta un anillo «0 / N» y —lo importante— NO entra en
  *     el porcentaje general: con 9 de 45 prácticas completadas el alumno ve 20 %,
- *     no el 17 % que saldría de sumar siete prácticas que nunca pueden contarse.
+ *     no el que saldría de sumar prácticas que nunca pueden contarse.
  *  4. /estrellas/ queda fuera del middleware (se sirve sin sesión, como /labs/),
  *     y el catálogo sigue dentro de /alumno, que sí la exige.
  *
@@ -26,7 +30,16 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import IngenieriaAvanzadaCatalogPage from '@/app/alumno/laboratorio/ingenieria-avanzada/page';
 import AlumnoInicio from '@/app/alumno/inicio/page';
-import { ESTRELLAS, MOSAICO_ESTRELLAS } from '@/lib/estrellas';
+import {
+  AREAS_INDUSTRIALES,
+  ESTRELLAS,
+  MOSAICO_ESTRELLAS,
+  PRACTICAS_INDUSTRIALES,
+  TOTAL_PRACTICAS_HUB,
+} from '@/lib/estrellas';
+
+/** Todas las prácticas del hub, estrellas primero: lo que se publica en public/estrellas. */
+const TODAS = [...ESTRELLAS, ...PRACTICAS_INDUSTRIALES];
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -97,7 +110,7 @@ describe('catálogo de Ingeniería Avanzada', () => {
 
   it('pinta una tarjeta por práctica con su número, título, frase, área y portada', () => {
     montar(<IngenieriaAvanzadaCatalogPage />);
-    const tarjetas = Array.from(container.querySelectorAll('article'));
+    const tarjetas = Array.from(container.querySelectorAll('#estrellas article'));
     expect(tarjetas.map((t) => t.id)).toEqual(ESTRELLAS.map((p) => p.id));
     tarjetas.forEach((t, i) => {
       const p = ESTRELLAS[i];
@@ -111,7 +124,7 @@ describe('catálogo de Ingeniería Avanzada', () => {
 
   it('cada «Abrir práctica» abre SU archivo en pestaña nueva con rel="noopener"', () => {
     montar(<IngenieriaAvanzadaCatalogPage />);
-    const enlaces = Array.from(container.querySelectorAll<HTMLAnchorElement>('article a'));
+    const enlaces = Array.from(container.querySelectorAll<HTMLAnchorElement>('#estrellas article a'));
     expect(enlaces).toHaveLength(7);
     enlaces.forEach((a, i) => {
       expect(a.getAttribute('href')).toBe(`/estrellas/E${i + 1}/index.html`);
@@ -131,13 +144,119 @@ describe('catálogo de Ingeniería Avanzada', () => {
   });
 });
 
+
+describe('catálogo de formación industrial', () => {
+  const ORDEN = AREAS_INDUSTRIALES.map((a) => a.prefijo);
+
+  it('las áreas son Actuadores, Controladores, PLC, CNC y Electrónica avanzada, en ese orden', () => {
+    expect(AREAS_INDUSTRIALES.map((a) => [a.prefijo, a.nombre])).toEqual([
+      ['ACT', 'Actuadores'],
+      ['CTL', 'Controladores'],
+      ['PLC', 'PLC'],
+      ['CNC', 'CNC'],
+      ['ELA', 'Electrónica avanzada'],
+    ]);
+    for (const a of AREAS_INDUSTRIALES) expect(a.resumen.length).toBeGreaterThan(30);
+  });
+
+  it('cada práctica tiene código del catálogo, sin repetir, ordenada por área y por número', () => {
+    expect(PRACTICAS_INDUSTRIALES.length).toBeGreaterThan(0);
+    const ids = PRACTICAS_INDUSTRIALES.map((p) => p.id);
+    for (const id of ids) expect(id).toMatch(/^(ACT|CTL|PLC|CNC|ELA)-\d{2}$/);
+    expect(new Set(ids).size).toBe(ids.length);
+    const ordenados = [...ids].sort((a, b) => ORDEN.indexOf(a.slice(0, 3)) - ORDEN.indexOf(b.slice(0, 3)) || a.localeCompare(b));
+    expect(ids).toEqual(ordenados);
+    expect(TOTAL_PRACTICAS_HUB).toBe(ESTRELLAS.length + PRACTICAS_INDUSTRIALES.length);
+  });
+
+  it('título llano y frase completa en cada una; ningún título se repite en todo el hub', () => {
+    for (const p of PRACTICAS_INDUSTRIALES) {
+      expect(p.area).toBe(AREAS_INDUSTRIALES.find((a) => a.prefijo === p.id.slice(0, 3))!.nombre);
+      expect(p.titulo.length).toBeGreaterThan(5);
+      expect(p.titulo).not.toMatch(/^CEN|·/); // el título del index.html trae «CEN · ACT-01 · …»
+      expect(p.frase.length).toBeGreaterThan(40);
+      expect(p.frase).toMatch(/^[A-ZÁÉÍÓÚÑ].*\.$/);
+      expect(p.href).toBe(`/estrellas/${p.id}/index.html`);
+      expect(p.portada).toBe(`/estrellas/portadas/${p.id}.webp`);
+    }
+    const titulos = TODAS.map((p) => p.titulo);
+    expect(new Set(titulos).size).toBe(titulos.length);
+  });
+
+  it('la lista que copia scripts/estrellas/copiar-practicas.mjs es la misma del hub', () => {
+    // El script lee los códigos de src/lib/estrellas.ts con esta misma expresión.
+    const fuente = fs.readFileSync(path.join(process.cwd(), 'src', 'lib', 'estrellas.ts'), 'utf8');
+    const delScript = [...fuente.matchAll(/practica\(\s*'([A-Z]{3}-\d{2})'/g)].map((m) => m[1]);
+    expect(delScript).toEqual(PRACTICAS_INDUSTRIALES.map((p) => p.id));
+  });
+
+  it('pinta una sección por área con su título, su cuenta y sus tarjetas en orden', () => {
+    montar(<IngenieriaAvanzadaCatalogPage />);
+    const conPracticas = AREAS_INDUSTRIALES.filter((a) => PRACTICAS_INDUSTRIALES.some((p) => p.id.startsWith(`${a.prefijo}-`)));
+    const secciones = Array.from(container.querySelectorAll('section[id^="area-"]'));
+    expect(secciones.map((s) => s.id)).toEqual(conPracticas.map((a) => `area-${a.prefijo}`));
+    secciones.forEach((s, i) => {
+      const area = conPracticas[i];
+      const suyas = PRACTICAS_INDUSTRIALES.filter((p) => p.id.startsWith(`${area.prefijo}-`));
+      expect(s.querySelector('h2')?.textContent).toBe(area.nombre);
+      expect(s.textContent).toContain(`${suyas.length} ${suyas.length === 1 ? 'práctica' : 'prácticas'}`);
+      expect(s.textContent).toContain(area.resumen);
+      const tarjetas = Array.from(s.querySelectorAll('article'));
+      expect(tarjetas.map((t) => t.id)).toEqual(suyas.map((p) => p.id));
+      tarjetas.forEach((t, j) => {
+        const p = suyas[j];
+        const texto = t.textContent ?? '';
+        expect(texto).toContain(p.titulo);
+        expect(texto).toContain(p.frase);
+        expect(texto).toContain(`${p.id} • ${area.nombre}`);
+        expect(t.querySelector('img')?.getAttribute('src')).toBe(p.portada);
+        expect(t.querySelector('img')?.getAttribute('alt')).toBe(`Escena 3D de la práctica: ${p.titulo}`);
+      });
+    });
+    // Ninguna tarjeta suelta fuera de su sección, y cada id aparece una sola vez en la página.
+    const todas = Array.from(container.querySelectorAll('article')).map((a) => a.id);
+    expect(todas).toEqual(TODAS.map((p) => p.id));
+  });
+
+  it('cada «Abrir práctica» industrial abre SU archivo en pestaña nueva con rel="noopener"', () => {
+    montar(<IngenieriaAvanzadaCatalogPage />);
+    const enlaces = Array.from(container.querySelectorAll<HTMLAnchorElement>('section[id^="area-"] article a'));
+    expect(enlaces).toHaveLength(PRACTICAS_INDUSTRIALES.length);
+    enlaces.forEach((a, i) => {
+      const p = PRACTICAS_INDUSTRIALES[i];
+      expect(a.getAttribute('href')).toBe(`/estrellas/${p.id}/index.html`);
+      expect(a.getAttribute('target')).toBe('_blank');
+      expect(a.getAttribute('rel')).toBe('noopener');
+      expect(a.textContent).toContain('Abrir práctica');
+      expect(a.getAttribute('aria-label')).toBe(`Abrir práctica ${p.id}: ${p.titulo} (se abre en otra pestaña)`);
+    });
+  });
+
+  it('el encabezado cuenta todas y el índice salta a cada grupo con su cuenta', () => {
+    montar(<IngenieriaAvanzadaCatalogPage />);
+    expect(container.querySelector('h1')?.parentElement?.textContent).toContain(`${TOTAL_PRACTICAS_HUB} prácticas`);
+    const indice = container.querySelector('nav[aria-label="Grupos de prácticas"]')!;
+    const saltos = Array.from(indice.querySelectorAll('a')).map((a) => [a.getAttribute('href'), a.textContent]);
+    const esperados = [
+      ['#estrellas', `Prácticas estrella · ${ESTRELLAS.length}`],
+      ...AREAS_INDUSTRIALES.map((a) => [a, PRACTICAS_INDUSTRIALES.filter((p) => p.id.startsWith(`${a.prefijo}-`)).length] as const)
+        .filter(([, n]) => n > 0)
+        .map(([a, n]) => [`#area-${a.prefijo}`, `${a.nombre} · ${n}`]),
+    ];
+    expect(saltos).toEqual(esperados);
+    for (const [href] of saltos) expect(container.querySelector(href!)).not.toBeNull();
+  });
+});
+
 describe('archivos de las prácticas en public/estrellas', () => {
   const huellas = JSON.parse(fs.readFileSync(enPublic('/estrellas/huellas.json'), 'utf8')) as {
+    versiones: Record<string, string | null>;
+    validacion?: Record<string, { version: string; comprobaciones: number }>;
     archivos: Record<string, { sha256: string; bytes: number }>;
   };
 
   it('cada práctica tiene su index.html, su app.js y su portada', () => {
-    for (const p of ESTRELLAS) {
+    for (const p of TODAS) {
       expect(fs.existsSync(enPublic(p.href))).toBe(true);
       expect(fs.existsSync(enPublic(`/estrellas/${p.id}/app.js`))).toBe(true);
       expect(fs.existsSync(enPublic(p.portada))).toBe(true);
@@ -146,7 +265,7 @@ describe('archivos de las prácticas en public/estrellas', () => {
   });
 
   it('todo lo que el index.html de cada práctica carga está copiado junto a él', () => {
-    for (const p of ESTRELLAS) {
+    for (const p of TODAS) {
       const html = fs.readFileSync(enPublic(p.href), 'utf8');
       const scripts = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]);
       expect(scripts).toContain('app.js');
@@ -155,6 +274,49 @@ describe('archivos de las prácticas en public/estrellas', () => {
         expect(s).not.toMatch(/^(https?:)?\/\//);
         expect(fs.existsSync(enPublic(`/estrellas/${p.id}/${s}`))).toBe(true);
       }
+    }
+  });
+
+  it('cada práctica industrial publicada trae la versión y las comprobaciones de la suite que la validó', () => {
+    for (const p of PRACTICAS_INDUSTRIALES) {
+      const version = huellas.versiones[p.id];
+      expect(version).toMatch(new RegExp(`^${p.id}-\\d+\\.\\d+$`));
+      const js = fs.readFileSync(enPublic(`/estrellas/${p.id}/app.js`), 'utf8');
+      expect(js).toMatch(new RegExp(`VERSION\\s*=\\s*["']${version!.replace(/\./g, '\\.')}["']`));
+      const v = huellas.validacion?.[p.id];
+      expect(v).toBeDefined();
+      expect(v!.version).toBe(version);
+      expect(v!.comprobaciones).toBeGreaterThan(100);
+    }
+  });
+
+  it('no hay paquetes huérfanos: cada carpeta de public/estrellas es una práctica del hub', () => {
+    const carpetas = fs.readdirSync(enPublic('/estrellas'), { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== 'portadas')
+      .map((e) => e.name)
+      .sort();
+    expect(carpetas).toEqual(TODAS.map((p) => p.id).sort());
+    expect(Object.keys(huellas.versiones).sort()).toEqual(carpetas);
+    const portadas = fs.readdirSync(enPublic('/estrellas/portadas')).filter((f) => f !== 'mosaico.webp').sort();
+    expect(portadas).toEqual(TODAS.map((p) => `${p.id}.webp`).sort());
+  });
+
+  it('las portadas son fotos de la escena (webp de 960 px a 16:10), no imágenes vacías', () => {
+    for (const p of TODAS) {
+      const datos = fs.readFileSync(enPublic(p.portada));
+      expect(datos.subarray(0, 4).toString('latin1')).toBe('RIFF');
+      expect(datos.subarray(8, 12).toString('latin1')).toBe('WEBP');
+      // Una foto plana o en negro de 960×600 comprime a menos de 3 KiB.
+      expect(datos.length).toBeGreaterThan(8 * 1024);
+    }
+    for (const p of PRACTICAS_INDUSTRIALES) {
+      // VP8 con pérdida: el ancho y el alto van en los bytes 26-29 (14 bits cada uno).
+      const datos = fs.readFileSync(enPublic(p.portada));
+      expect(datos.subarray(12, 16).toString('latin1')).toBe('VP8 ');
+      const ancho = datos.readUInt16LE(26) & 0x3fff;
+      const alto = datos.readUInt16LE(28) & 0x3fff;
+      expect(ancho).toBe(960);
+      expect(Math.abs(ancho / alto - 1.6)).toBeLessThan(0.01);
     }
   });
 
@@ -211,11 +373,11 @@ describe('ficha de Ingeniería Avanzada en el inicio del alumno', () => {
     expect(ficha().querySelector('img')?.getAttribute('src')).toBe(MOSAICO_ESTRELLAS);
   });
 
-  it('no muestra anillo ni «0 / 7»: dice «7 prácticas · nivel licenciatura» y su subtítulo', async () => {
+  it('no muestra anillo ni «0 / N»: dice cuántas prácticas son en total y su subtítulo', async () => {
     await montarInicio();
     const texto = ficha().textContent ?? '';
-    expect(texto).toContain('7 prácticas · nivel licenciatura');
-    expect(texto).toContain('7 prácticas estrella de la industria: automatización, robótica, manufactura, energía y control');
+    expect(texto).toContain(`${7 + PRACTICAS_INDUSTRIALES.length} prácticas · nivel licenciatura`);
+    expect(texto).toContain(`7 prácticas estrella y ${PRACTICAS_INDUSTRIALES.length} de formación industrial: actuadores, controladores, PLC, CNC y electrónica avanzada`);
     expect(texto).not.toMatch(/Prácticas Completadas/i);
     expect(texto).not.toMatch(/\d+\s*\/\s*\d+/);
     // El anillo de progreso es el único <svg> con <circle> de las fichas.
@@ -247,7 +409,7 @@ describe('las prácticas se sirven sin sesión', () => {
 
   it('/estrellas/ no pasa por el middleware, igual que /labs/', () => {
     expect(pasaPorMiddleware('/labs/algo.html')).toBe(false);
-    for (const p of ESTRELLAS) {
+    for (const p of TODAS) {
       expect(pasaPorMiddleware(p.href)).toBe(false);
       expect(pasaPorMiddleware(`/estrellas/${p.id}/app.js`)).toBe(false);
       expect(pasaPorMiddleware(p.portada)).toBe(false);

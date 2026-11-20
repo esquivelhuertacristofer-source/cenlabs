@@ -67,6 +67,8 @@
     UMBRAL_MUNECA: () => UMBRAL_MUNECA,
     VARIANTE_REF: () => VARIANTE_REF,
     VERSION: () => VERSION,
+    VERSIONES_ACEPTADAS: () => VERSIONES_ACEPTADAS,
+    VERSION_REGISTRO: () => VERSION_REGISTRO,
     V_RECTA: () => V_RECTA,
     W_INCL: () => W_INCL,
     X_EXT: () => X_EXT,
@@ -132,7 +134,9 @@
   });
   var PI = Math.PI;
   var DEG = PI / 180;
-  var VERSION = "E2-1.9";
+  var VERSION = "E2-1.11";
+  var VERSIONES_ACEPTADAS = ["E2-1.9", "E2-1.10", "E2-1.11"];
+  var VERSION_REGISTRO = "E2-1.9";
   var A_DH = [0, 0.4318, 0.0203, 0, 0, 0];
   var D_DH = [0, 0, 0.15005, 0.4318, 0, 0];
   var ALPHA = [PI / 2, 0, -PI / 2, PI / 2, -PI / 2, 0];
@@ -57677,8 +57681,8 @@ void main() {
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? "\u2014" : `${d22(d.getDate())}/${d22(d.getMonth() + 1)}/${d.getFullYear()} ${d22(d.getHours())}:${d22(d.getMinutes())}`;
   }
-  var CLAVE = (id) => `CEN-estrellas:E2:${VERSION}:${id}`;
-  var CLAVE_ULT = `CEN-estrellas:E2:${VERSION}:ultimo`;
+  var CLAVE = (id) => `CEN-estrellas:E2:${VERSION_REGISTRO}:${id}`;
+  var CLAVE_ULT = `CEN-estrellas:E2:${VERSION_REGISTRO}:ultimo`;
   function abreAlmacen() {
     try {
       const s = window.localStorage;
@@ -57781,7 +57785,7 @@ void main() {
     if (!ALM) return null;
     try {
       const x = JSON.parse(ALM.getItem(CLAVE(id)));
-      return x && x.practica === "E2" && x.version === VERSION && x.id === id && x.resp && x.ent && x.pred && Array.isArray(x.registro) && mismaVariante(x, id) ? x : null;
+      return x && x.practica === "E2" && (x.version === VERSION || x.version === VERSION_REGISTRO) && x.id === id && x.resp && x.ent && x.pred && Array.isArray(x.registro) && mismaVariante(x, id) ? x : null;
     } catch (e) {
       return null;
     }
@@ -58995,6 +58999,7 @@ ${estado}`)) {
     avisa("Pr\xE1ctica cerrada: debajo tienes la soluci\xF3n de lo que es propio de tu variante.");
   }
   function tablaCalif(ev) {
+    if (S.importado && !rev()) return `<p class="tenue" id="sinNotaImportado">Expediente cargado desde un archivo: mientras la pr\xE1ctica no est\xE9 cerrada en este navegador no se calculan ni se muestran puntos, nota ni veredictos. Solo ves la integridad${S.alterado ? ' (<b class="no">EXPEDIENTE ALTERADO</b>)' : " (la huella coincidi\xF3)"} y las partes entregadas.</p><p class="tenue">Partes entregadas: ${Object.keys(SECCIONES).filter((s) => S.ent[s]).map((s) => SECCIONES[s]).join(", ") || "ninguna"}.</p>`;
     const ESPERA2 = { D1: ["D.q4", "D.reub."], E1: ["E.reub."] }, SIGUE = { D1: "D2", E1: "E2" };
     const oculto = (i) => Object.keys(ESPERA2).find((s) => !rev() && !S.ent[s] && ESPERA2[s].some((p) => i.id.startsWith(p)));
     const espera = (c) => Object.keys(ESPERA2).map((s) => {
@@ -59046,7 +59051,7 @@ ${estado}`)) {
       calificacion: {
         total: rev() ? ev.total : null,
         provisional: !rev(),
-        propio: ev.propio,
+        propio: S.importado && !rev() ? null : ev.propio,
         criterios: ev.criterios.map((c) => ({ id: c.id, nombre: c.nombre, peso: c.peso, items: c.items.map((i) => i.comun ? { id: i.id, max: i.max, comun: true } : { id: i.id, ok: i.ok, max: i.max }) })),
         predicciones: Object.fromEntries(Object.entries(ev.predicciones).map(([k, p]) => [k, { resp: p.resp }]))
       },
@@ -59072,7 +59077,7 @@ ${estado}`)) {
   var soloFechas = (o) => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, v]) => typeof v === "string" && !Number.isNaN(Date.parse(v))));
   function cargar2(x) {
     if (!x || x.practica !== "E2" || !x.variante || !x.respuestas || typeof x.id !== "string") throw new Error("El archivo no es un expediente de E2.");
-    if (x.version !== VERSION) throw new Error(`El expediente es de la versi\xF3n ${x.version} y esta p\xE1gina es la ${VERSION}.`);
+    if (!VERSIONES_ACEPTADAS.includes(x.version)) throw new Error(`El expediente es de la versi\xF3n ${x.version} y esta p\xE1gina es la ${VERSION}.`);
     const idCrudo = x.id === "REFERENCIA" ? "" : x.id, v = variante(idCrudo);
     if (v.id !== x.id || JSON.stringify(v) !== JSON.stringify(x.variante)) throw new Error("La variante del archivo no corresponde a su identificador.");
     const integra = typeof x.huella === "string" && x.huella === huellaDe(x), local = S && S.id === v.id ? S : leeAlmacen(v.id);
@@ -59095,7 +59100,8 @@ ${estado}`)) {
     n.med = Array.isArray(x.mediciones) ? x.mediciones : [];
     n.comp = Array.isArray(x.comprobaciones) ? x.comprobaciones : [];
     n.registro = Array.isArray(x.registro) ? x.registro.filter((r) => r && typeof r.t === "string" && typeof r.tipo === "string") : [];
-    n.cerrada = typeof x.cerrada === "string" ? x.cerrada : null;
+    n.cerrada = null;
+    n.importado = true;
     n.intento = Number.isInteger(x.aperturas) && x.aperturas > 0 ? x.aperturas : 1;
     n.alterado = !!x.alterado || !integra;
     if (local) {

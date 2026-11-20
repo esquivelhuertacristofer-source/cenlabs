@@ -56755,7 +56755,8 @@ void main() {
   }
 
   // E5/src/textos.js
-  var VERSION = "E5-1.4";
+  var VERSION = "E5-1.5";
+  var VERSION_REGISTRO = "E5-1.4";
   var CAMPOS = {
     A: [
       { id: "a_kva", et: "kVA de rotor bloqueado a la tensi\xF3n de tu red", u: "kVA" },
@@ -58539,9 +58540,9 @@ void main() {
     for (const q2 of PREGUNTAS) S.orden[q2] = barajar(Object.keys(S.def[q2].ops).sort(), S.v.semilla ^ hash(q2));
     S.alm = almacen();
     S.idNorm = normalizarId(id);
-    S.claveReg = claveRegistro(VERSION, S.idNorm);
+    S.claveReg = claveRegistro(VERSION_REGISTRO, S.idNorm);
     const previo = leerRegistro(S.alm, S.claveReg), hay = !!(previo && Array.isArray(previo.eventos));
-    S.reg = hay ? previo : { practica: "E5", version: VERSION, id: S.idNorm, intento: 0, cerrada: false, calificada: false, eventos: [], estado: null };
+    S.reg = hay ? previo : { practica: "E5", version: VERSION_REGISTRO, id: S.idNorm, intento: 0, cerrada: false, calificada: false, eventos: [], estado: null };
     S.reg.intento += 1;
     let textos = null;
     if (hay && previo.estado) {
@@ -59584,35 +59585,39 @@ void main() {
       return;
     }
     const c = comprobarHuella(d);
-    let ev = null;
+    let cerradaAqui = false;
     try {
-      ev = evaluarExportado(d);
+      const rg = leerRegistro(almacen(), claveRegistro(VERSION_REGISTRO, normalizarId(String(d && d.id != null ? d.id : ""))));
+      cerradaAqui = !!(rg && rg.cerrada);
     } catch (e) {
-      ev = null;
+      cerradaAqui = false;
     }
-    const cv = d.calificacion && d.calificacion.con_veredicto_en_pantalla, guardada = cv && typeof cv.puntos === "number" ? cv.puntos : null;
-    let nota;
-    if (!ev || !ev.ok) nota = "No se pudo recalcular la nota con el contenido del archivo.";
+    const bq = d && d.bloqueos && typeof d.bloqueos === "object" ? d.bloqueos : {};
+    const partes = ["A", "B", "C", "D", "E"].filter((x) => bq[x]);
+    let nota = `Partes entregadas en el archivo: ${partes.length ? partes.join(", ") : "ninguna"}.`;
+    if (!cerradaAqui) nota += " Puntos, nota y veredictos no se muestran aqu\xED: solo los ve el alumno al cerrar su pr\xE1ctica en este navegador.";
     else {
-      const vis = ev.reasignado ? { puntos: 0, max: ev.visible.max } : ev.visible;
-      nota = `Puntos con veredicto en pantalla, recalculados con sus respuestas y la variante de su identificador: <strong id="notaRecalculada">${fmt(vis.puntos, 1)}</strong> de ${fmt(vis.max, 1)}.`;
-      if (guardada !== null && Math.abs(guardada - vis.puntos) > 0.05) nota += ` <span class="malc">La nota guardada en el archivo (${fmt(guardada, 1)}) no coincide y se ignora.</span>`;
-      if (ev.reasignado) nota += ` <span class="malc">Expediente reasignado: ${esc2(ev.motivos.join("; "))}. No punt\xFAa.</span>`;
-      let cerradaAqui = false;
+      let ev = null;
       try {
-        const rg = leerRegistro(almacen(), claveRegistro(VERSION, normalizarId(d.id)));
-        cerradaAqui = !!(rg && rg.cerrada);
+        ev = evaluarExportado(d);
       } catch (e) {
-        cerradaAqui = false;
+        ev = null;
       }
-      if (cerradaAqui) nota += ` Nota final recalculada: <strong id="notaFinalRevisada">${fmt(ev.total, 1)}</strong> de 100.`;
-      else nota += " La nota final no se muestra aqu\xED: la ve el alumno al cerrar su pr\xE1ctica y la recalcula herramientas/calificar_expediente.mjs.";
+      const cv = d.calificacion && d.calificacion.con_veredicto_en_pantalla, guardada = cv && typeof cv.puntos === "number" ? cv.puntos : null;
+      if (!ev || !ev.ok) nota += " No se pudo recalcular la nota con el contenido del archivo.";
+      else {
+        const vis = ev.reasignado ? { puntos: 0, max: ev.visible.max } : ev.visible;
+        nota += ` Puntos con veredicto en pantalla, recalculados con sus respuestas y la variante de su identificador: <strong id="notaRecalculada">${fmt(vis.puntos, 1)}</strong> de ${fmt(vis.max, 1)}.`;
+        if (guardada !== null && Math.abs(guardada - vis.puntos) > 0.05) nota += ` <span class="malc">La nota guardada en el archivo (${fmt(guardada, 1)}) no coincide y se ignora.</span>`;
+        if (ev.reasignado) nota += ` <span class="malc">Expediente reasignado: ${esc2(ev.motivos.join("; "))}. No punt\xFAa.</span>`;
+        nota += ` Nota final recalculada: <strong id="notaFinalRevisada">${fmt(ev.total, 1)}</strong> de 100.`;
+      }
     }
     if (!c.ok) {
       el.innerHTML = `<span class="malc"><strong>Expediente alterado.</strong> ${esc2(c.motivo)}</span> ${nota} Revisar un expediente no cambia nada en esta p\xE1gina.`;
       return;
     }
-    const cal = guardada === null ? "sin calificar en el archivo" : "calificado";
+    const cal = d.calificacion ? "con calificaci\xF3n en el archivo (no se usa)" : "sin calificar en el archivo";
     const nev = d.registro && Array.isArray(d.registro.eventos) ? d.registro.eventos.length : 0;
     el.innerHTML = `<span class="okc"><strong>Expediente \xEDntegro:</strong> la huella coincide (detecta ediciones casuales; no es una firma).</span> Alumno \xAB${esc2(d.id ?? "")}\xBB, versi\xF3n ${esc2(d.version ?? "")}; ${cal}. ${nota} Intento ${esc2(d.registro ? d.registro.intento : "\u2014")}, ${nev} evento(s); ${d.cerrada ? "pr\xE1ctica cerrada" : "pr\xE1ctica sin cerrar"}. Revisar un expediente no cambia nada en esta p\xE1gina ni desbloquea partes.`;
   }

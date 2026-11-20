@@ -40,6 +40,7 @@
     TOL: () => TOL,
     USL: () => USL,
     VERSION: () => VERSION,
+    VERSION_REGISTRO: () => VERSION_REGISTRO,
     aC: () => aC,
     aK: () => aK,
     barridoTransferencia: () => barridoTransferencia,
@@ -133,7 +134,8 @@
   var OPCIONES_VARIANTE = { "Tamb": [20, 23, 26, 28, 32, 35], "dT": [0.5, 1, 2], "RthD": [50, 65, 87], "rcable": [0.02, 0.03, 0.05, 0.08, 0.1], "margenG": 0.05 };
 
   // E6/src/modelo.js
-  var VERSION = "E6-1.8";
+  var VERSION_REGISTRO = "E6-1.8";
+  var VERSION = "E6-1.9";
   var T0 = 298.15;
   var KB = 8617333262e-14;
   var F_RED = 60;
@@ -58055,7 +58057,7 @@ void main() {
   };
   var CLAS = ["", "CONFORME", "NO CONFORME", "INDETERMINADA"];
   var NOMCRIT = { configuracion: "Configuraci\xF3n", diodo: "Diodo", bjt: "BJT", mosfet: "MOSFET", incertidumbre: "Incertidumbre", lote: "Lote", defensa: "Defensa" };
-  var CLAVE = (id) => `E6|${VERSION}|${id}`;
+  var CLAVE = (id) => `E6|${VERSION_REGISTRO}|${id}`;
   function iniciar() {
     instalarEstilos();
     instalarEstilosR2();
@@ -59407,18 +59409,34 @@ void main() {
         return;
       }
       const okH = o && typeof o === "object" && typeof o.huella_sha256 === "string" && o.huella_sha256 === huellaExpediente(o);
-      let rc = null, errRc = "";
+      let cerradaAqui = false, idRev = null;
       try {
-        rc = recalcular(o);
+        idRev = crearVariante(o && o.alumno).id;
+        const g2 = lee(CLAVE(idRev));
+        cerradaAqui = !!(g2 && g2.cerrada && g2.estado && g2.estado.cerrado);
       } catch (e) {
         if (!(e instanceof ErrorModelo) && !(e instanceof TypeError)) throw e;
-        errRc = e.message;
       }
-      const guardada = o && o.evaluacion && Number.isFinite(o.evaluacion.puntos_con_veredicto) ? o.evaluacion.puntos_con_veredicto : o && o.evaluacion && Number.isFinite(o.evaluacion.total) ? o.evaluacion.total : null;
-      const vis = rc ? veredictoVisible(rc) : null;
-      let nota = rc ? `Puntos con veredicto, <b>recalculados</b> con sus respuestas, su registro y la variante de ${esc2(rc.id)}: <b id="notaRev">${fmt2(vis.puntos, 1)} / ${fmt2(vis.peso, 1)}</b>${vis.noPlausibles ? ` \xB7 <b>${vis.noPlausibles} lecturas del registro no son las que da el banco de esa variante: no cuentan</b>` : ""}${o.entregada ? "" : " (pr\xE1ctica sin entregar)"}.` : `No se pudo recalcular la nota (${esc2(errRc)}).`;
-      if (rc && guardada !== null && Math.abs(guardada - vis.puntos) > 1e-9) nota += ` <b>La nota guardada en el archivo (${fmt2(guardada, 1)}) no coincide: no se usa.</b>`;
-      $("msgRev").innerHTML = (okH ? alerta("ok", `<b>Huella correcta</b> (no es una firma: detecta ediciones casuales, no una falsificaci\xF3n deliberada). Expediente de ${esc2(o.alumno)}, versi\xF3n ${esc2(o.version)}; ${(o.registro_de_intentos && o.registro_de_intentos.eventos || []).length} eventos en el registro.`) : alerta("roja", "<b>Expediente alterado:</b> la huella SHA-256 no coincide con el contenido.")) + alerta(rc && guardada !== null && Math.abs(guardada - vis.puntos) > 1e-9 ? "roja" : "", nota + " La nota completa (sobre 100) no se muestra en la p\xE1gina. Revisarlo no cambia nada en esta p\xE1gina.");
+      const partes = o && typeof o === "object" ? `${o.entregada === true ? "trae la pr\xE1ctica entregada" : "trae la pr\xE1ctica sin entregar"}; ${Array.isArray(o.registro) ? o.registro.length : 0} lecturas en el registro del banco` : "sin datos";
+      let nota = `Contenido: ${partes}. Los puntos y los veredictos de un archivo no se muestran: solo se ven al cerrar la pr\xE1ctica de ese identificador en este navegador.`;
+      let discrepa = false;
+      if (cerradaAqui) {
+        let rc = null, errRc = "";
+        try {
+          rc = recalcular(o);
+        } catch (e) {
+          if (!(e instanceof ErrorModelo) && !(e instanceof TypeError)) throw e;
+          errRc = e.message;
+        }
+        const guardada = o && o.evaluacion && Number.isFinite(o.evaluacion.puntos_con_veredicto) ? o.evaluacion.puntos_con_veredicto : o && o.evaluacion && Number.isFinite(o.evaluacion.total) ? o.evaluacion.total : null;
+        const vis = rc ? veredictoVisible(rc) : null;
+        nota = rc ? `Puntos con veredicto, <b>recalculados</b> con sus respuestas, su registro y la variante de ${esc2(rc.id)} (cerrada en este navegador): <b id="notaRev">${fmt2(vis.puntos, 1)} / ${fmt2(vis.peso, 1)}</b>${vis.noPlausibles ? ` \xB7 <b>${vis.noPlausibles} lecturas del registro no son las que da el banco de esa variante: no cuentan</b>` : ""}${o.entregada ? "" : " (pr\xE1ctica sin entregar)"}.` : `No se pudo recalcular la nota (${esc2(errRc)}).`;
+        if (rc && guardada !== null && Math.abs(guardada - vis.puntos) > 1e-9) {
+          nota += ` <b>La nota guardada en el archivo (${fmt2(guardada, 1)}) no coincide: no se usa.</b>`;
+          discrepa = true;
+        }
+      }
+      $("msgRev").innerHTML = (okH ? alerta("ok", `<b>Huella correcta</b> (no es una firma: detecta ediciones casuales, no una falsificaci\xF3n deliberada). Expediente de ${esc2(o.alumno)}, versi\xF3n ${esc2(o.version)}; ${(o.registro_de_intentos && o.registro_de_intentos.eventos || []).length} eventos en el registro.`) : alerta("roja", "<b>Expediente alterado:</b> la huella SHA-256 no coincide con el contenido.")) + alerta(discrepa ? "roja" : "", nota + " La nota completa (sobre 100) no se muestra en la p\xE1gina. Revisarlo no cambia nada en esta p\xE1gina.");
       $("archRev").value = "";
     });
     $("btnImprimir").addEventListener("click", () => window.print());

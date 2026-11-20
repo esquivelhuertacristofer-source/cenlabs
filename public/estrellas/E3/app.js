@@ -32,6 +32,7 @@
     TOL: () => TOL,
     TRAMOS: () => TRAMOS,
     VERSION: () => VERSION,
+    VERSION_REGISTRO: () => VERSION_REGISTRO,
     analizarPrograma: () => analizarPrograma,
     aplicarHerramienta: () => aplicarHerramienta,
     aprobarPrimera: () => aprobarPrimera,
@@ -1294,7 +1295,8 @@
   ];
 
   // E3/src/modelo.js
-  var VERSION = "E3-1.6";
+  var VERSION = "E3-1.7";
+  var VERSION_REGISTRO = "E3-1.6";
   var FINO = "\u202F";
   var MENOS = "\u2212";
   function fnum(v, dec = 3) {
@@ -2507,7 +2509,7 @@
     return t;
   }
   function claveRegistro(id) {
-    return `CEN|E3|${VERSION}|${normalizarId(id)}`;
+    return `CEN|E3|${VERSION_REGISTRO}|${normalizarId(id)}`;
   }
   var COMUNES = ["factible", "patron", "noCapacidad", "decision", "causa", "q1a", "q1b", "q2", "q3", "q5a"];
   function veredictoVisible(ev) {
@@ -61000,19 +61002,33 @@ Filo revisado: ${p.filo === "astillado" ? "ASTILLADO. Mira en la tabla desde qu\
     const r = revisarExpediente(obj);
     let t = `${f.name}: ${r.texto}`;
     if (obj && typeof obj === "object" && obj.variante) {
-      const rc = recalcularExpediente(obj);
+      const idA = String(obj.variante.id);
+      let cerradaAqui = false;
+      try {
+        const g2 = almacen ? almacen.getItem(claveRegistro(idA)) : null;
+        const q = g2 ? JSON.parse(g2) : null;
+        cerradaAqui = !!(q && q.practica === "E3" && q.cerrada);
+      } catch (e) {
+        cerradaAqui = false;
+      }
+      const ent = obj.registro && Array.isArray(obj.registro.entregas) ? obj.registro.entregas.length : null, bq = obj.fasesBloqueadas || {};
+      const partes = ["A", "B", "C", "D", "E", "F"].filter((k) => bq[k]);
       t += `
-Identificador ${obj.variante.id} \xB7 versi\xF3n ${obj.version} \xB7 entregas registradas: ${obj.registro && obj.registro.entregas ? obj.registro.entregas.length : "\u2014"} \xB7 ${obj.registro && obj.registro.cerrada ? "cerrada" : "sin cerrar"}.`;
-      if (!rc.ok) t += `
-No se pudo recalcular la calificaci\xF3n: ${rc.error}`;
-      else if (obj.version !== VERSION) t += `
-El archivo es de otra versi\xF3n (${obj.version}); esta p\xE1gina es ${VERSION} y no recalcula su calificaci\xF3n.`;
-      else if (!rc.entregado) t += "\nSin entregar: no hay calificaci\xF3n.";
+Identificador ${idA} \xB7 versi\xF3n ${obj.version} \xB7 partes entregadas: ${partes.length ? partes.join(", ") : "ninguna"}${ent === null ? "" : ` \xB7 entregas registradas: ${ent}`}.`;
+      if (!cerradaAqui) t += "\nLa pr\xE1ctica de este identificador no est\xE1 cerrada en este navegador: no se muestran puntos, veredictos ni referencias.";
       else {
-        const vv = veredictoVisible(rc.evaluacion);
-        t += `
+        const rc = recalcularExpediente(obj);
+        if (!rc.ok) t += `
+No se pudo recalcular la calificaci\xF3n: ${rc.error}`;
+        else if (obj.version !== VERSION && obj.version !== VERSION_REGISTRO) t += `
+El archivo es de otra versi\xF3n (${obj.version}); esta p\xE1gina es ${VERSION} y no recalcula su calificaci\xF3n.`;
+        else if (!rc.entregado) t += "\nSin entregar: no hay calificaci\xF3n.";
+        else {
+          const vv = veredictoVisible(rc.evaluacion);
+          t += `
 ${vv.demostracion ? "Demostraci\xF3n (no se califica), recalculada" : "Puntos con veredicto, recalculados"}: ${vv.conVeredicto} de ${vv.maximoConVeredicto}. Otros ${vv.sinVeredicto.puntos} puntos no tienen veredicto en esta p\xE1gina: los califica la plataforma.`;
-        if (rc.guardada !== null && rc.guardada !== vv.conVeredicto) t += ` NOTA GUARDADA DISTINTA: el archivo dice ${rc.guardada}; ese n\xFAmero se ignora.`;
+          if (rc.guardada !== null && rc.guardada !== vv.conVeredicto) t += ` NOTA GUARDADA DISTINTA: el archivo dice ${rc.guardada}; ese n\xFAmero se ignora.`;
+        }
       }
     }
     t += "\nRevisar un expediente no cambia ni desbloquea nada en esta sesi\xF3n.";

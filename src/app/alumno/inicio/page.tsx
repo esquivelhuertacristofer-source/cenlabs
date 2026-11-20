@@ -15,7 +15,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { supabase } from '@/lib/supabase-browser';
 import { getCurrentProfile } from '@/lib/supabase-helpers';
-import { ESTRELLAS, MOSAICO_ESTRELLAS } from '@/lib/estrellas';
+import { ESTRELLAS, MOSAICO_ESTRELLAS, PRACTICAS_INDUSTRIALES, TOTAL_PRACTICAS_HUB } from '@/lib/estrellas';
 
 // Una ficha del hub. Las cinco materias de siempre reportan su avance a la base (tabla
 // `intentos`) y muestran el anillo «n / total». Una ficha con `sinProgreso` no reporta nada
@@ -376,15 +376,16 @@ export default function AlumnoInicio() {
       image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp"
     },
     {
-      // Las siete prácticas estrella: paquetes estáticos (public/estrellas) que guardan en el
-      // navegador y no escriben en `intentos`. Sin anillo y fuera del porcentaje general.
+      // Las siete prácticas estrella y las de formación industrial: paquetes estáticos
+      // (public/estrellas) que guardan en el navegador y no escriben en `intentos`.
+      // Sin anillo y fuera del porcentaje general.
       id: "ingenieria-avanzada",
       name: "Laboratorio de Ingeniería Avanzada",
       wide: true,
       sinProgreso: true,
       etiqueta: "Prácticas estrella",
-      resumen: `${ESTRELLAS.length} prácticas · nivel licenciatura`,
-      subtitulo: `${ESTRELLAS.length} prácticas estrella de la industria: automatización, robótica, manufactura, energía y control`,
+      resumen: `${TOTAL_PRACTICAS_HUB} prácticas · nivel licenciatura`,
+      subtitulo: `${ESTRELLAS.length} prácticas estrella y ${PRACTICAS_INDUSTRIALES.length} de formación industrial: actuadores, controladores, PLC, CNC y electrónica avanzada`,
       icon: Factory,
       gradient: "bg-[#e6f1f6] dark:bg-[#04202F]",
       fadeColor: "from-[#e6f1f6] dark:from-[#04202F]",

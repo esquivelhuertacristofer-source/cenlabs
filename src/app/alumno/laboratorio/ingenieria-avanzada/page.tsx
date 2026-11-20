@@ -1,10 +1,17 @@
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Factory, Info, User } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
-import { ESTRELLAS, MOSAICO_ESTRELLAS, type Estrella } from '@/lib/estrellas';
+import {
+  AREAS_INDUSTRIALES,
+  ESTRELLAS,
+  MOSAICO_ESTRELLAS,
+  PRACTICAS_INDUSTRIALES,
+  TOTAL_PRACTICAS_HUB,
+} from '@/lib/estrellas';
 
 // =============================================================================
-// Catálogo de Ingeniería Avanzada: las siete prácticas estrella.
+// Catálogo de Ingeniería Avanzada: las siete prácticas estrella y, debajo, las de formación
+// industrial agrupadas por área (Actuadores, Controladores, PLC, CNC, Electrónica avanzada).
 //
 // A diferencia de las otras materias, estas prácticas NO pasan por /alumno/simulador:
 // cada una es un paquete estático (public/estrellas/E#/) que se abre en su propia pestaña
@@ -15,7 +22,11 @@ import { ESTRELLAS, MOSAICO_ESTRELLAS, type Estrella } from '@/lib/estrellas';
 
 export const metadata = { title: 'Ingeniería Avanzada · CEN Laboratorios' };
 
-const TarjetaEstrella = ({ practica, numero }: { practica: Estrella; numero: number }) => (
+type DatosTarjeta = { id: string; titulo: string; frase: string; href: string; portada: string };
+
+// La misma tarjeta para las estrellas y para las de formación industrial: cambia solo la insignia
+// de la portada (el número de la estrella o el código del catálogo) y la ceja de arriba del título.
+const TarjetaPractica = ({ practica, insignia, ceja, nombre }: { practica: DatosTarjeta; insignia: string; ceja: string; nombre: string }) => (
   <article
     id={practica.id}
     className="relative w-full md:w-[calc(50%-0.75rem)] xl:w-[calc(33.333%-1rem)] 2xl:w-[calc(25%-1.125rem)] bg-white dark:bg-[#0A1121] border border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col group overflow-hidden shadow-[0_6px_24px_rgb(0,0,0,0.04)] dark:shadow-[0_6px_24px_rgb(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_-12px_rgba(33,158,188,0.4)] border-t-4 border-t-[#219EBC]"
@@ -30,14 +41,14 @@ const TarjetaEstrella = ({ practica, numero }: { practica: Estrella; numero: num
         decoding="async"
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
       />
-      <span className="absolute top-3 left-3 w-11 h-11 rounded-2xl bg-[#023047] text-white text-lg font-black flex items-center justify-center shadow-lg border border-white/20">
-        {numero}
+      <span className="absolute top-3 left-3 min-w-11 h-11 px-3 rounded-2xl bg-[#023047] text-white text-lg font-black flex items-center justify-center shadow-lg border border-white/20">
+        {insignia}
       </span>
     </div>
 
     <div className="flex flex-col flex-grow p-5 sm:p-6 gap-3">
       <span className="text-[11px] font-black uppercase tracking-widest text-[#126782] dark:text-[#8ECAE6]">
-        Práctica {numero} • {practica.area}
+        {ceja}
       </span>
       <h3 className="text-lg sm:text-xl font-black text-[#023047] dark:text-white leading-snug">{practica.titulo}</h3>
       <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-[15px] leading-relaxed">{practica.frase}</p>
@@ -47,7 +58,7 @@ const TarjetaEstrella = ({ practica, numero }: { practica: Estrella; numero: num
           href={practica.href}
           target="_blank"
           rel="noopener"
-          aria-label={`Abrir práctica ${numero}: ${practica.titulo} (se abre en otra pestaña)`}
+          aria-label={`Abrir práctica ${nombre}: ${practica.titulo} (se abre en otra pestaña)`}
           className="px-5 py-2.5 rounded-xl bg-[#FB8500] hover:bg-[#023047] dark:hover:bg-[#219EBC] text-white text-sm font-black flex items-center gap-2 shadow-md transition-colors"
         >
           Abrir práctica
@@ -60,6 +71,14 @@ const TarjetaEstrella = ({ practica, numero }: { practica: Estrella; numero: num
 
 export default function IngenieriaAvanzadaCatalogPage() {
   const areas = ESTRELLAS.map((p) => p.area.toLowerCase());
+  const grupos = [
+    { id: 'estrellas', nombre: 'Prácticas estrella', cuantas: ESTRELLAS.length },
+    ...AREAS_INDUSTRIALES.map((a) => ({
+      id: `area-${a.prefijo}`,
+      nombre: a.nombre,
+      cuantas: PRACTICAS_INDUSTRIALES.filter((p) => p.id.startsWith(`${a.prefijo}-`)).length,
+    })).filter((g) => g.cuantas > 0),
+  ];
 
   return (
     <div className="min-h-screen font-['Outfit'] flex flex-col bg-slate-50 dark:bg-[#060B14] transition-colors duration-500 overflow-x-hidden relative">
@@ -107,16 +126,16 @@ export default function IngenieriaAvanzadaCatalogPage() {
               Ingeniería Avanzada
             </h1>
             <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-bold mb-8 md:w-[90%] leading-snug">
-              Siete prácticas completas con el encargo de un ingeniero en la industria: mides, calculas, decides y defiendes tu resultado.
+              Prácticas completas con el encargo de un ingeniero en la industria: mides, calculas, decides y defiendes tu resultado.
             </p>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-auto">
               <div className="flex flex-col gap-1">
-                <span className="text-3xl font-black text-[#023047] dark:text-white">{ESTRELLAS.length} <span className="text-lg text-slate-500 dark:text-slate-400 font-bold">prácticas</span></span>
+                <span className="text-3xl font-black text-[#023047] dark:text-white">{TOTAL_PRACTICAS_HUB} <span className="text-lg text-slate-500 dark:text-slate-400 font-bold">prácticas</span></span>
                 <span className="text-xs font-black text-[#126782] dark:text-[#8ECAE6] uppercase tracking-widest">Nivel licenciatura</span>
               </div>
-              <p className="text-sm font-bold text-slate-600 dark:text-slate-400 max-w-md first-letter:uppercase">
-                {areas.slice(0, -1).join(', ')} y {areas.at(-1)}.
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-400 max-w-md">
+                {ESTRELLAS.length} estrellas ({areas.slice(0, -1).join(', ')} y {areas.at(-1)}) y {PRACTICAS_INDUSTRIALES.length} de formación industrial.
               </p>
             </div>
           </div>
@@ -135,19 +154,68 @@ export default function IngenieriaAvanzadaCatalogPage() {
           </div>
         </div>
 
-        {/* 3. LAS SIETE PRÁCTICAS */}
-        <div className="w-full flex flex-wrap justify-between items-end gap-3 mb-6">
-          <h2 className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight">Prácticas</h2>
-          <span className="text-sm font-black text-[#126782] dark:text-[#8ECAE6] uppercase tracking-widest">{ESTRELLAS.length} con escena 3D</span>
-        </div>
-
-        {/* Siete no llenan una rejilla de 2, 3 ni 4 columnas: con flex centrado, la última fila
-            queda al centro en vez de dejar una tarjeta suelta a la izquierda. */}
-        <div className="flex flex-wrap justify-center gap-6">
-          {ESTRELLAS.map((practica, i) => (
-            <TarjetaEstrella key={practica.id} practica={practica} numero={i + 1} />
+        {/* 3. ÍNDICE: un salto a cada grupo, porque la página ya es larga */}
+        <nav aria-label="Grupos de prácticas" className="w-full flex flex-wrap gap-2 mb-10">
+          {grupos.map((g) => (
+            <a
+              key={g.id}
+              href={`#${g.id}`}
+              className="px-4 py-2 rounded-full bg-white dark:bg-[#0A1121] border border-slate-200 dark:border-slate-800 text-sm font-black text-[#023047] dark:text-slate-200 hover:border-[#219EBC] transition-colors"
+            >
+              {g.nombre} <span className="text-[#126782] dark:text-[#8ECAE6]">· {g.cuantas}</span>
+            </a>
           ))}
-        </div>
+        </nav>
+
+        {/* 4. LAS SIETE PRÁCTICAS ESTRELLA */}
+        <section id="estrellas" aria-labelledby="titulo-estrellas" className="w-full mb-16 scroll-mt-28">
+          <div className="w-full flex flex-wrap justify-between items-end gap-3 mb-6">
+            <h2 id="titulo-estrellas" className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight">Prácticas estrella</h2>
+            <span className="text-sm font-black text-[#126782] dark:text-[#8ECAE6] uppercase tracking-widest">{ESTRELLAS.length} con escena 3D</span>
+          </div>
+
+          {/* Siete no llenan una rejilla de 2, 3 ni 4 columnas: con flex centrado, la última fila
+              queda al centro en vez de dejar una tarjeta suelta a la izquierda. */}
+          <div className="flex flex-wrap justify-center gap-6">
+            {ESTRELLAS.map((practica, i) => (
+              <TarjetaPractica
+                key={practica.id}
+                practica={practica}
+                insignia={String(i + 1)}
+                ceja={`Práctica ${i + 1} • ${practica.area}`}
+                nombre={String(i + 1)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* 5. FORMACIÓN INDUSTRIAL, POR ÁREA */}
+        {AREAS_INDUSTRIALES.map((area) => {
+          const practicas = PRACTICAS_INDUSTRIALES.filter((p) => p.id.startsWith(`${area.prefijo}-`));
+          if (practicas.length === 0) return null;
+          return (
+            <section key={area.prefijo} id={`area-${area.prefijo}`} aria-labelledby={`titulo-${area.prefijo}`} className="w-full mb-16 scroll-mt-28">
+              <div className="w-full flex flex-wrap justify-between items-end gap-3 mb-2">
+                <h2 id={`titulo-${area.prefijo}`} className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight">{area.nombre}</h2>
+                <span className="text-sm font-black text-[#126782] dark:text-[#8ECAE6] uppercase tracking-widest">
+                  {practicas.length} {practicas.length === 1 ? 'práctica' : 'prácticas'}
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base font-medium mb-6">{area.resumen}</p>
+              <div className="flex flex-wrap justify-center gap-6">
+                {practicas.map((practica) => (
+                  <TarjetaPractica
+                    key={practica.id}
+                    practica={practica}
+                    insignia={practica.id}
+                    ceja={`${practica.id} • ${practica.area}`}
+                    nombre={practica.id}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
     </div>
   );

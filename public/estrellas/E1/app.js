@@ -131,7 +131,8 @@
   }
 
   // E1/src/modelo.js
-  var VERSION = "E1-1.7";
+  var VERSION_REGISTRO = "E1-1.7";
+  var VERSION = "E1-1.8";
   var G = 9.81;
   var C_NOM = 0.58;
   var K_NOM = 1.4;
@@ -60164,7 +60165,7 @@ ${FAMILIAS.map((f, i) => `<tr class="cx-m-entra" style="--d:${(0.2 + i * 0.12).t
   var $ = (s, r = document) => r.querySelector(s);
   var $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   var esc3 = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  var PREFIJO = `cen-E1-${VERSION}-`;
+  var PREFIJO = `cen-E1-${VERSION_REGISTRO}-`;
   var claveDe = (id) => PREFIJO + "id-" + (normalizarId(id) || "BASE");
   var registroNuevo = () => ({ eventos: [], entregas: 0, matrices: 0, entregada: false, cerrada: false, alterado: false });
   var hayAlmacen = true;
@@ -61610,13 +61611,16 @@ ${FAMILIAS.map((f, i) => `<tr class="cx-m-entra" style="--d:${(0.2 + i * 0.12).t
         aviso = "Esta variante ya tiene una entrega registrada en este navegador: el expediente no la sustituye ni desbloquea nada.";
       } else {
         const local = E.registro, predLocal = E.pred, previoLocal = E.previo;
-        restaurar({ programa: x.programa, grafcet: x.grafcet, pred: x.predicciones, es: x.tablaES, resp: x.respuestasEscritas, preguntas: x.preguntas, registro: x.registroDeIntentos || {}, previo: previoLocal.registrado ? previoLocal : x.calculoPrevio, entrega: x.entregaVigente });
-        E.registro.eventos = [...E.registro.eventos, ...local.eventos].slice(-2e3);
-        E.registro.matrices = Math.max(E.registro.matrices, local.matrices);
-        E.registro.alterado = E.registro.alterado || local.alterado;
+        restaurar({ programa: x.programa, grafcet: x.grafcet, pred: x.predicciones, es: x.tablaES, resp: x.respuestasEscritas, preguntas: x.preguntas, registro: x.registroDeIntentos || {}, previo: previoLocal.registrado ? previoLocal : x.calculoPrevio });
+        E.registro.entregas = local.entregas;
+        E.registro.entregada = local.entregada;
+        E.registro.cerrada = local.cerrada;
+        E.entrega = null;
+        E.calificacion = null;
+        E.registro.eventos = [...E.registro.eventos.filter((e) => e.tipo !== "entrega" && e.tipo !== "cierre"), ...local.eventos].slice(-2e3);
         if (predLocal.registradas) E.pred = predLocal;
         anotar("importaci\xF3n", { huella });
-        aviso = "Expediente cargado, con su registro de intentos y sus bloqueos. La calificaci\xF3n no se lee del archivo: se ha recalculado con sus respuestas, con el programa entregado y con la variante de este identificador. La calibraci\xF3n no se importa: rep\xEDtela.";
+        aviso = `Expediente cargado: trae ${Math.max(0, Math.floor(Number(x.registroDeIntentos && x.registroDeIntentos.entregas) || 0))} entrega(s) registrada(s). Importar no entrega, no cierra ni desbloquea nada, y no muestra puntos ni referencias: la calificaci\xF3n solo existe en este navegador, con las entregas hechas aqu\xED. La calibraci\xF3n no se importa: rep\xEDtela.`;
       }
       if (huella !== "coincide") {
         E.registro.alterado = true;

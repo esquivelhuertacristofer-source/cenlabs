@@ -45,6 +45,7 @@
     TS: () => TS,
     U_ESCALON: () => U_ESCALON,
     VERSION: () => VERSION,
+    VERSION_REGISTRO: () => VERSION_REGISTRO,
     ahPm: () => ahPm,
     analiza: () => analiza,
     bandas: () => bandas,
@@ -113,7 +114,8 @@
     znPid: () => znPid,
     zoh: () => zoh
   });
-  var VERSION = "E7-1.12";
+  var VERSION = "E7-1.13";
+  var VERSION_REGISTRO = "E7-1.12";
   var TA = 25;
   var TS = 0.5;
   var D_RELE = 20;
@@ -58218,7 +58220,7 @@ ${[["ZN-PI", "0,45\xB7Ku", "Pu/1,2", "0", "rel\xE9"], ["TL-PI", "0,313\xB7Ku", "
     "SIMC-PID": "\u03B8e = \u03B8 + \u03C4\u2082/N + Ts/2; \u03C4c = \u03B8e \xB7 modelo de 2.\xBA orden",
     "AH-PID": "margen de fase 45\xB0, Ti = 4\xB7Td \xB7 punto del rel\xE9 con hist\xE9resis (AT CEN)"
   };
-  var claveDe = (v) => `CEN:E7:${VERSION}:${v.id}`;
+  var claveDe = (v) => `CEN:E7:${VERSION_REGISTRO}:${v.id}`;
   function almacenOk() {
     try {
       const k = "CEN:E7:prueba";
@@ -58315,7 +58317,7 @@ ${[["ZN-PI", "0,45\xB7Ku", "Pu/1,2", "0", "rel\xE9"], ["TL-PI", "0,313\xB7Ku", "
   function recupera(v) {
     try {
       const t = localStorage.getItem(claveDe(v)), e = t ? JSON.parse(t) : null;
-      return e && e.version === VERSION && e.id === v.id && e.registro ? e : null;
+      return e && (e.version === VERSION || e.version === VERSION_REGISTRO) && e.id === v.id && e.registro ? e : null;
     } catch {
       return null;
     }
@@ -59060,8 +59062,7 @@ ${[["ZN-PI", "0,45\xB7Ku", "Pu/1,2", "0", "rel\xE9"], ["TL-PI", "0,313\xB7Ku", "
     if (S.exp.registro.cerrada) return;
     S.pend = tipo;
     const b = enBlanco(), n = S.exp.registro.entregas.length + 1;
-    const nota = tipo === "cierre" && b.length ? evaluar(S.exp, S.v).total : null;
-    $("confTxt").innerHTML = (tipo === "cierre" ? "<b>Vas a cerrar la pr\xE1ctica.</b> Es una acci\xF3n final: se registra una \xFAltima entrega, se bloquean todas las casillas y se muestran los puntos y la soluci\xF3n. No se puede deshacer en este navegador." + (nota !== null ? ` <b>Cerrar\xE1s sin haber entregado ${b.length} parte(s); la calificaci\xF3n quedar\xE1 en ${fmt2(nota, 1)} de 100.</b>` : "") : `<b>Vas a entregar (intento n.\xBA ${n}).</b> La entrega queda registrada con fecha y hora en el expediente. Ver\xE1s qu\xE9 criterios cumples, sin cifras de referencia.`) + (b.length ? ` <b>Partes en blanco o incompletas:</b> ${b.map(esc2).join("; ")}.` : " No hay partes en blanco.");
+    $("confTxt").innerHTML = (tipo === "cierre" ? "<b>Vas a cerrar la pr\xE1ctica.</b> Es una acci\xF3n final: se registra una \xFAltima entrega, se bloquean todas las casillas y se muestran los puntos y la soluci\xF3n. No se puede deshacer en este navegador." + (b.length ? ` <b>Cerrar\xE1s con ${b.length} parte(s) en blanco o incompletas.</b>` : "") : `<b>Vas a entregar (intento n.\xBA ${n}).</b> La entrega queda registrada con fecha y hora en el expediente. Ver\xE1s qu\xE9 criterios cumples, sin cifras de referencia.`) + (b.length ? ` <b>Partes en blanco o incompletas:</b> ${b.map(esc2).join("; ")}.` : " No hay partes en blanco.");
     const fuerte = tipo === "cierre" && S.exp.registro.entregas.length === 0;
     $("confFuerte").hidden = !fuerte;
     $("confTexto").value = "";
@@ -59214,16 +59215,16 @@ ${[["ZN-PI", "0,45\xB7Ku", "Pu/1,2", "0", "rel\xE9"], ["TL-PI", "0,313\xB7Ku", "
       return;
     }
     const ok = revisaHuella(doc), reg = doc && doc.registro || {}, n = Array.isArray(reg.entregas) ? reg.entregas.length : 0, c = Array.isArray(reg.cargas) ? reg.cargas.length : 0;
-    let nota = " Pr\xE1ctica sin cerrar: no se muestra calificaci\xF3n.";
-    if (reg.cerrada) {
-      try {
-        const ev = evaluar(doc.expediente, variante(doc.alumno)), g2 = doc.evaluacion ? doc.evaluacion.total : void 0;
-        nota = ` Calificaci\xF3n recalculada con las respuestas del archivo: ${fmt2(ev.total, 1)} de 100.` + (typeof g2 === "number" && Math.abs(g2 - ev.total) > 5e-3 ? ` La nota guardada en el archivo (${fmt2(g2, 1)}) no coincide y se ignora.` : g2 === void 0 ? "" : " Coincide con la guardada.");
-      } catch {
-        nota = " No se pudo recalcular la calificaci\xF3n con este archivo.";
+    let nota = " No se muestran puntos ni referencias de un archivo; salen en esta p\xE1gina cuando cierras la pr\xE1ctica de ese identificador aqu\xED.";
+    if (ok) try {
+      const va = variante(doc.alumno), t = localStorage.getItem(claveDe(va)), loc = t ? JSON.parse(t) : null;
+      if (loc && loc.registro && loc.registro.cerrada && loc.id === va.id) {
+        const ev = evaluar(doc.expediente, va), g2 = doc.evaluacion ? doc.evaluacion.total : void 0;
+        nota = ` Este identificador est\xE1 cerrado en este navegador. Calificaci\xF3n recalculada con las respuestas del archivo: ${fmt2(ev.total, 1)} de 100.` + (typeof g2 === "number" && Math.abs(g2 - ev.total) > 5e-3 ? ` La nota guardada en el archivo (${fmt2(g2, 1)}) no coincide y se ignora.` : "");
       }
+    } catch {
     }
-    estado("msgRev", ok ? `La huella coincide con el contenido del expediente de \xAB${String(doc.alumno)}\xBB. Esto descarta da\xF1os y ediciones descuidadas; no prueba que nadie lo haya editado, porque quien edite puede recalcular la huella (no es una firma). Registro: ${c} carga(s), ${n} entrega(s)${reg.atUsado ? ", AT ejecutado" : ""}; ${reg.cerrada ? "pr\xE1ctica cerrada" : "pr\xE1ctica sin cerrar"}.${nota} No se carg\xF3 en la p\xE1gina.` : `EXPEDIENTE ALTERADO: la huella SHA-256 no coincide con el contenido (o falta).${nota} No se carg\xF3 en la p\xE1gina.`, ok ? "ok" : "mal");
+    estado("msgRev", ok ? `La huella coincide con el contenido del expediente de \xAB${String(doc.alumno)}\xBB. Esto descarta da\xF1os y ediciones descuidadas; no prueba que nadie lo haya editado, porque quien edite puede recalcular la huella (no es una firma). Registro: ${c} carga(s), ${n} entrega(s)${reg.atUsado ? ", AT ejecutado" : ""}; ${nota} No se carg\xF3 en la p\xE1gina.` : `EXPEDIENTE ALTERADO: la huella SHA-256 no coincide con el contenido (o falta).${nota} No se carg\xF3 en la p\xE1gina.`, ok ? "ok" : "mal");
   }
   var lleno = (...xs) => xs.every((x) => x !== "" && x !== null && x !== void 0);
   function ensayosC() {
