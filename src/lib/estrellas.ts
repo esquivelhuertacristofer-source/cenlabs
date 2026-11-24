@@ -66,7 +66,7 @@ export const MOSAICO_ESTRELLAS = '/estrellas/portadas/mosaico.webp';
 
 export type AreaIndustrial = {
   /** Prefijo del código de sus prácticas. */
-  prefijo: 'ACT' | 'CTL' | 'PLC' | 'CNC' | 'ELA' | 'SEM' | 'ING' | 'CAP' | 'MAN';
+  prefijo: 'ACT' | 'CTL' | 'PLC' | 'CNC' | 'ELA' | 'SEM' | 'ING' | 'CAP' | 'MAN' | 'PRO' | 'ERP';
   nombre: string;
   /** Qué abarca el área, en una frase. */
   resumen: string;
@@ -82,6 +82,8 @@ export const AREAS_INDUSTRIALES: AreaIndustrial[] = [
   { prefijo: 'ING', nombre: 'Robótica e integración', resumen: 'Marcos, cinemática, trayectorias, seguridad e integración de robots industriales y móviles en una celda.' },
   { prefijo: 'CAP', nombre: 'Capacitores', resumen: 'Caracterizar, dimensionar y diagnosticar capacitores, desde un circuito RC hasta un banco de planta.' },
   { prefijo: 'MAN', nombre: 'Manufactura', resumen: 'Medir con instrumentos, controlar procesos con estadística y calcular procesos de conformado y unión.' },
+  { prefijo: 'PRO', nombre: 'Producción', resumen: 'Pronosticar, balancear la línea, encontrar el cuello de botella y mejorar el flujo con herramientas esbeltas.' },
+  { prefijo: 'ERP', nombre: 'Planeación de recursos (ERP)', resumen: 'Llevar en un ERP los datos maestros, las compras, la producción, el almacén, la calidad y los costos de la planta.' },
 ];
 
 export type PracticaIndustrial = {
@@ -363,6 +365,8 @@ export const PRACTICAS_INDUSTRIALES: PracticaIndustrial[] = [
     'Mides una resistencia, una bobina, un capacitor y un motor, sumas sus potencias y decides si la instalación cabe en su interruptor.'),
   practica('CAP-11', 'Desfase y reactancia de un capacitor en CA',
     'Mides el adelanto del voltaje en un circuito RC, sacas la reactancia y la capacitancia, y decides si el capacitor cumple su tolerancia.'),
+  practica('CAP-13', 'Capacitor del bus de CD de un rectificador trifásico',
+    'Mides el rizo y la corriente del bus de CD de un rectificador trifásico y eliges el capacitor que los aguanta sin pasarse de su hoja.'),
   practica('CAP-14', 'Resonancia en una red de capacitores',
     'Mides dos capacitores, los pones en paralelo, encuentras el pico de impedancia que forman y lo amortiguas.'),
   // ── Manufactura ──
@@ -382,10 +386,76 @@ export const PRACTICAS_INDUSTRIALES: PracticaIndustrial[] = [
     'Diseñas el plan de muestreo para los lotes de un proveedor, calculas sus riesgos con la curva característica y decides si se aceptan.'),
   practica('MAN-10', 'Análisis de modo y efecto de falla (AMEF)',
     'Conviertes la evidencia del proceso en severidad, ocurrencia y detección, calculas el número de prioridad y decides qué atacar primero.'),
+  practica('MAN-11', 'Inyección de plástico: ventana de proceso',
+    'Ajustas presión, temperatura y tiempos de una inyectora, buscas los límites donde la pieza sale llena y sin rebaba, y fijas la ventana de proceso.'),
   practica('MAN-13', 'Doblado de lámina',
     'Calculas cuánta lámina plana hace falta, cuánto se abre la pieza al soltarla, qué fuerza pide la prensa y a qué ángulo doblar.'),
   practica('MAN-14', 'Fundición: mazarota y sistema de llenado',
     'Calculas el módulo de una barra de aluminio, dimensionas su mazarota y su sistema de llenado, la cuelas y la cortas para buscar el rechupe.'),
+  practica('MAN-15', 'Manufactura aditiva (FDM): rediseño para masa, tiempo y soportes',
+    'Rediseñas una pieza para imprimirla en 3D con menos masa, menos tiempo y menos soportes, y compruebas que sigue aguantando su carga.'),
+  practica('MAN-16', 'Tratamiento térmico: temple y revenido de un acero',
+    'Eliges la temperatura de temple y de revenido de un acero, mides su dureza y decides si la pieza queda como pide el plano.'),
+  practica('MAN-18', 'Diseño de experimentos: factorial 2^3',
+    'Corres un experimento con tres factores a dos niveles, calculas sus efectos e interacciones y decides qué ajuste mejora el proceso.'),
+  // ── Producción ──
+  practica('PRO-01', 'Pronóstico de la demanda',
+    'Con la historia de ventas pruebas varios métodos de pronóstico, mides su error y eliges con cuál planear el siguiente periodo.'),
+  practica('PRO-03', 'Explosión de materiales',
+    'Desarmas la lista de materiales de un producto, restas lo que hay en inventario y calculas cuánto pedir de cada pieza y cuándo.'),
+  practica('PRO-06', 'Takt y balanceo de línea',
+    'Calculas el takt con la demanda, repartes las tareas entre estaciones sin romper su orden y mides qué tan balanceada queda la línea.'),
+  practica('PRO-07', 'Cuello de botella y restricción',
+    'Mides la capacidad de cada máquina de una línea, encuentras la que limita la producción y decides cómo explotarla antes de comprar otra.'),
+  practica('PRO-08', 'Kanban: tarjetas, tablero y reposición',
+    'Calculas cuántas tarjetas kanban necesita cada pieza, armas el tablero y compruebas que la reposición no deja la línea sin material.'),
+  practica('PRO-09', 'SMED, cambio rápido de herramental',
+    'Cronometras un cambio de herramental, separas lo que se puede hacer con la máquina andando y calculas cuánto tiempo se recupera.'),
+  practica('PRO-10', 'Nivelación de la producción (Heijunka)',
+    'Repartes la mezcla de productos de la semana en una secuencia pareja y compruebas que la línea y el inventario se estabilizan.'),
+  practica('PRO-12', 'Bloqueo y falta de alimentación',
+    'Mides cuánto tiempo pasa cada máquina bloqueada o sin piezas, dimensionas el almacén intermedio y ves cuánto sube la producción.'),
+  practica('PRO-13', 'Mapa de flujo de valor (VSM)',
+    'Dibujas el flujo de valor de un producto con sus tiempos e inventarios, calculas el tiempo de entrega y propones el estado futuro.'),
+  practica('PRO-14', 'Distribución de planta: de proceso a celda',
+    'Comparas la distribución por procesos con una celda de manufactura midiendo recorridos y manejo de material, y decides cuál conviene.'),
+  practica('PRO-17', 'Cambio de producto con SMED y primera pieza conforme',
+    'Planeas un cambio de producto con SMED, mides la primera pieza y decides cuándo liberar la producción sin arriesgar el lote.'),
+  practica('PRO-18', 'Indicadores de mantenimiento (MTBF, MTTR) y plan preventivo',
+    'Con el historial de fallas calculas el MTBF, el MTTR y la disponibilidad de los equipos, y armas el plan de mantenimiento preventivo.'),
+  // ── Planeación de recursos (ERP) ──
+  practica('ERP-01', 'Datos maestros: del registro al documento',
+    'Das de alta materiales, clientes y proveedores en un ERP y compruebas cómo un dato mal capturado se arrastra a todos los documentos.'),
+  practica('ERP-02', 'Ruta de fabricación y centros de trabajo',
+    'Armas en el ERP la ruta de fabricación de una pieza con sus centros de trabajo y calculas su tiempo y su costo de producción.'),
+  practica('ERP-03', 'Ciclo de compras: de la cotización al pago',
+    'Llevas una compra en el ERP desde la solicitud y la cotización hasta la recepción, la factura del proveedor y el pago.'),
+  practica('ERP-04', 'MRP en el ERP: de la demanda a la orden',
+    'Corres el MRP en el ERP, revisas las necesidades netas de cada material y conviertes las propuestas en órdenes de compra y de producción.'),
+  practica('ERP-05', 'Liberación de una orden de producción',
+    'Revisas la disponibilidad de materiales y capacidad de una orden de producción en el ERP y decides si se puede liberar a planta.'),
+  practica('ERP-06', 'Producción parcial: de la confirmación al cierre',
+    'Confirmas en el ERP lo que se produjo por partes, registras el desperdicio y cierras la orden con sus cantidades y costos al día.'),
+  practica('ERP-07', 'Calidad en la orden: de la muestra a la decisión de uso',
+    'Tomas la muestra que pide el plan de inspección, registras los resultados en el ERP y decides si el lote se acepta, se bloquea o se rechaza.'),
+  practica('ERP-08', 'Traslado entre planta y almacén con orden de transferencia',
+    'Mueves material entre la planta y el almacén con una orden de transferencia y compruebas que el inventario cuadra en los dos lados.'),
+  practica('ERP-09', 'Inventario físico y compensación de diferencias',
+    'Cuentas el inventario físico, lo comparas con el del ERP, investigas las diferencias y registras el ajuste con su efecto en el costo.'),
+  practica('ERP-10', 'Cuentas por cobrar: facturas, cobros y correcciones',
+    'Registras en el ERP las facturas a clientes, aplicas cobros y descuentos por pronto pago y corriges las partidas que quedaron abiertas.'),
+  practica('ERP-11', 'Costeo del producto: del costo estándar a la decisión sobre el estándar',
+    'Calculas el costo estándar de un producto, lo comparas con el real de la orden, separas las variaciones y decides si hay que ajustar el estándar.'),
+  practica('ERP-12', 'Producto configurable: de la variante al pedido y a la orden',
+    'Configuras en el ERP la variante que pide el cliente, revisas su precio y su lista de materiales y la llevas del pedido a la orden.'),
+  practica('ERP-13', 'Mantenimiento correctivo en el ERP: del aviso de falla al historial del equipo',
+    'Levantas el aviso de una falla, la conviertes en orden de mantenimiento, registras horas y costos y la cierras en el historial del equipo.'),
+  practica('ERP-14', 'Proyecto con estructura de desglose y costos reales',
+    'Armas la estructura de desglose de un proyecto en el ERP, cargas su presupuesto y comparas lo planeado contra lo real y lo comprometido.'),
+  practica('ERP-16', 'Almacén con ubicaciones y órdenes de transporte',
+    'Acomodas y retiras material en un almacén con ubicaciones usando órdenes de transporte y compruebas que cada pieza queda donde dice el sistema.'),
+  practica('ERP-17', 'Centros de costo y tarifa de actividad',
+    'Repartes los costos de los centros de apoyo a los productivos y calculas la tarifa por hora con la que se cargan las órdenes.'),
 ];
 
 /** Todas las prácticas del hub de Ingeniería Avanzada: las siete estrellas y las de formación industrial. */

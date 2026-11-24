@@ -148,7 +148,7 @@ describe('catálogo de Ingeniería Avanzada', () => {
 describe('catálogo de formación industrial', () => {
   const ORDEN = AREAS_INDUSTRIALES.map((a) => a.prefijo);
 
-  it('las áreas son Actuadores, Controladores, PLC, CNC, Electrónica avanzada, Semiconductores, Robótica e integración, Capacitores y Manufactura, en ese orden', () => {
+  it('las áreas son Actuadores, Controladores, PLC, CNC, Electrónica avanzada, Semiconductores, Robótica e integración, Capacitores, Manufactura, Producción y ERP, en ese orden', () => {
     expect(AREAS_INDUSTRIALES.map((a) => [a.prefijo, a.nombre])).toEqual([
       ['ACT', 'Actuadores'],
       ['CTL', 'Controladores'],
@@ -159,6 +159,8 @@ describe('catálogo de formación industrial', () => {
       ['ING', 'Robótica e integración'],
       ['CAP', 'Capacitores'],
       ['MAN', 'Manufactura'],
+      ['PRO', 'Producción'],
+      ['ERP', 'Planeación de recursos (ERP)'],
     ]);
     for (const a of AREAS_INDUSTRIALES) expect(a.resumen.length).toBeGreaterThan(30);
   });
@@ -166,7 +168,7 @@ describe('catálogo de formación industrial', () => {
   it('cada práctica tiene código del catálogo, sin repetir, ordenada por área y por número', () => {
     expect(PRACTICAS_INDUSTRIALES.length).toBeGreaterThan(0);
     const ids = PRACTICAS_INDUSTRIALES.map((p) => p.id);
-    for (const id of ids) expect(id).toMatch(/^(ACT|CTL|PLC|CNC|ELA|SEM|ING|CAP|MAN)-\d{2}$/);
+    for (const id of ids) expect(id).toMatch(/^(ACT|CTL|PLC|CNC|ELA|SEM|ING|CAP|MAN|PRO|ERP)-\d{2}$/);
     expect(new Set(ids).size).toBe(ids.length);
     const ordenados = [...ids].sort((a, b) => ORDEN.indexOf(a.slice(0, 3)) - ORDEN.indexOf(b.slice(0, 3)) || a.localeCompare(b));
     expect(ids).toEqual(ordenados);
